@@ -1078,43 +1078,85 @@ ${tempDiv.innerHTML}
                     generatedCTAs={generatedCTAs}
                   />
                   
-                  {/* Edit/Preview Toggle */}
+                  {/* Inline Editing Toggle */}
                   <div className="flex items-center justify-between border-b pb-2">
-                    <div className="flex gap-1">
-                      <Button
-                        variant={isEditMode ? "outline" : "default"}
-                        size="sm"
-                        onClick={() => setIsEditMode(false)}
-                      >
-                        <Eye className="h-4 w-4 mr-1" />
-                        Preview
-                      </Button>
-                      <Button
-                        variant={isEditMode ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => setIsEditMode(true)}
-                      >
-                        <Edit2 className="h-4 w-4 mr-1" />
-                        Edit
-                      </Button>
+                    <div className="flex items-center gap-2">
+                      <Switch
+                        id="edit-mode"
+                        checked={isEditMode}
+                        onCheckedChange={setIsEditMode}
+                      />
+                      <Label htmlFor="edit-mode" className="text-sm cursor-pointer">
+                        {isEditMode ? (
+                          <span className="flex items-center gap-1 text-primary">
+                            <Edit2 className="h-3.5 w-3.5" />
+                            Editing enabled - click text to edit
+                          </span>
+                        ) : (
+                          <span className="flex items-center gap-1 text-muted-foreground">
+                            <Eye className="h-3.5 w-3.5" />
+                            Preview mode
+                          </span>
+                        )}
+                      </Label>
                     </div>
-                    {isEditMode && (
-                      <p className="text-xs text-muted-foreground">
-                        Editing raw markdown
-                      </p>
-                    )}
                   </div>
 
-                  {/* Generated Article - Edit or Preview Mode */}
-                  {isEditMode ? (
-                    <Textarea
-                      value={generatedContent}
-                      onChange={(e) => setGeneratedContent(e.target.value)}
-                      className="min-h-[500px] font-mono text-sm resize-none"
-                      placeholder="Your content here..."
-                    />
-                  ) : (
-                    <article className="prose prose-sm max-w-none dark:prose-invert">
+                  {/* Generated Article - Always rendered, optionally editable */}
+                  <div className={isEditMode ? "ring-1 ring-primary/20 rounded-md p-2 -m-2" : ""}>
+                    {(
+                    <article 
+                      className="prose prose-sm max-w-none dark:prose-invert"
+                      contentEditable={isEditMode}
+                      suppressContentEditableWarning
+                      onBlur={(e) => {
+                        if (isEditMode) {
+                          // Convert edited HTML back to approximate markdown
+                          const element = e.currentTarget;
+                          const html = element.innerHTML;
+                          
+                          // Simple HTML to Markdown conversion
+                          let markdown = html
+                            // Headers
+                            .replace(/<h1[^>]*>(.*?)<\/h1>/gi, '# $1\n\n')
+                            .replace(/<h2[^>]*>(.*?)<\/h2>/gi, '## $1\n\n')
+                            .replace(/<h3[^>]*>(.*?)<\/h3>/gi, '### $1\n\n')
+                            .replace(/<h4[^>]*>(.*?)<\/h4>/gi, '#### $1\n\n')
+                            // Bold and italic
+                            .replace(/<strong[^>]*>(.*?)<\/strong>/gi, '**$1**')
+                            .replace(/<b[^>]*>(.*?)<\/b>/gi, '**$1**')
+                            .replace(/<em[^>]*>(.*?)<\/em>/gi, '*$1*')
+                            .replace(/<i[^>]*>(.*?)<\/i>/gi, '*$1*')
+                            // Links
+                            .replace(/<a[^>]*href="([^"]*)"[^>]*>(.*?)<\/a>/gi, '[$2]($1)')
+                            // Lists
+                            .replace(/<li[^>]*>(.*?)<\/li>/gi, '- $1\n')
+                            .replace(/<\/?ul[^>]*>/gi, '\n')
+                            .replace(/<\/?ol[^>]*>/gi, '\n')
+                            // Paragraphs and breaks
+                            .replace(/<p[^>]*>(.*?)<\/p>/gi, '$1\n\n')
+                            .replace(/<br\s*\/?>/gi, '\n')
+                            .replace(/<div[^>]*>(.*?)<\/div>/gi, '$1\n')
+                            // Clean up remaining tags
+                            .replace(/<[^>]+>/g, '')
+                            // Clean up entities
+                            .replace(/&nbsp;/g, ' ')
+                            .replace(/&amp;/g, '&')
+                            .replace(/&lt;/g, '<')
+                            .replace(/&gt;/g, '>')
+                            .replace(/&quot;/g, '"')
+                            // Clean up extra whitespace
+                            .replace(/\n{3,}/g, '\n\n')
+                            .trim();
+                          
+                          setGeneratedContent(markdown);
+                        }
+                      }}
+                      style={{ 
+                        outline: 'none',
+                        cursor: isEditMode ? 'text' : 'default'
+                      }}
+                    >
                       {(() => {
                         // Split content to insert CTAs
                         const lines = generatedContent.split('\n');
@@ -1185,6 +1227,7 @@ ${tempDiv.innerHTML}
                       })()}
                     </article>
                   )}
+                  </div>
                 </>
               ) : (
                 <div className="h-full flex items-center justify-center text-muted-foreground">
