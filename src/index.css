@@ -103,3 +103,52 @@ All colors MUST be HSL.
     @apply bg-background text-foreground;
   }
 }
+
+/* Prose/Markdown styling enhancements */
+.prose h1 {
+  @apply text-3xl font-bold mb-4 mt-0 text-foreground;
+}
+
+.prose h2 {
+  @apply text-2xl font-semibold mt-8 mb-4 text-foreground border-b border-border pb-2;
+}
+
+.prose h3 {
+  @apply text-xl font-semibold mt-6 mb-3 text-foreground;
+}
+
+.prose p {
+  @apply mb-4 leading-relaxed;
+}
+
+.prose table {
+  @apply w-full border-collapse my-6;
+}
+
+.prose th {
+  @apply bg-muted text-left p-3 font-semibold border border-border;
+}
+
+.prose td {
+  @apply p-3 border border-border;
+}
+
+.prose blockquote {
+  @apply border-l-4 border-primary bg-muted/50 pl-4 py-3 my-6 italic;
+}
+
+.prose ul {
+  @apply list-disc pl-6 mb-4 space-y-2;
+}
+
+.prose ol {
+  @apply list-decimal pl-6 mb-4 space-y-2;
+}
+
+.prose hr {
+  @apply my-8 border-border;
+}
+
+.prose strong {
+  @apply font-semibold text-foreground;
+}
