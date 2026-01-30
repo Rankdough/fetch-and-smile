@@ -35,15 +35,26 @@ serve(async (req) => {
     const targetWords = wordCounts[length] || 1000;
 
     // Build the prompt
-    let systemPrompt = `You are an expert SEO content writer. Write high-quality, engaging blog posts that are optimized for search engines while remaining valuable and readable for humans.
+    let systemPrompt = `You are an expert SEO content writer. Write high-quality, engaging blog posts optimized for search engines while remaining valuable and readable.
 
-Guidelines:
-- Use clear headings and subheadings (H2, H3)
-- Include a compelling introduction
-- Use bullet points and numbered lists where appropriate
-- Write naturally, avoiding keyword stuffing
-- Include a strong conclusion with a call-to-action
-- Format the output in clean Markdown`;
+CRITICAL MARKDOWN FORMATTING RULES:
+- Title: Use # for the main title (H1) - only one per article
+- Major sections: Use ## for H2 headings (e.g., ## What is Composite Bonding?)
+- Subsections: Use ### for H3 headings
+- DO NOT use numbered headings like "1. Section Name" - use proper markdown ## syntax
+- Use **bold** for emphasis on key terms and important points
+- Use bullet points (-) and numbered lists (1.) for easy scanning
+- Use markdown tables with | for comparisons (e.g., Feature | Option A | Option B)
+- Add > blockquotes for important callouts or key takeaways
+- Include a TL;DR or Key Takeaways section near the top
+
+Content Guidelines:
+- Start with a compelling hook that addresses the reader's pain point
+- Include comparison tables when comparing options
+- Use short paragraphs (2-3 sentences max)
+- Add a strong conclusion with a clear call-to-action
+- Write naturally, avoiding keyword stuffing`;
+
 
     if (formatReference) {
       systemPrompt += `
