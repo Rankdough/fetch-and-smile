@@ -48,15 +48,16 @@ CRITICAL MARKDOWN FORMATTING RULES:
 - Add > blockquotes for important callouts or key takeaways
 - Include a TL;DR or Key Takeaways section near the top
 
-SOURCE CITATION RULES:
-- Add inline citations using superscript format: [1], [2], etc.
-- Place citations after key facts, statistics, or claims
-- At the end of the article, add a "## Sources" or "## References" section
-- List all sources with their numbers and URLs/descriptions
-- Example format:
-  ## Sources
-  1. [Source Title](URL) - Brief description
-  2. [Another Source](URL) - Brief description
+SOURCE REFERENCE RULES:
+- DO NOT use inline numeric citations like [1], [2], [3] in the text
+- At the end of the article, add a "## References:" section
+- List sources as simple markdown links, one per line
+- Format: [Source Title](URL)
+- Include 3-6 relevant authoritative sources (medical journals, health organizations, reputable dental sites)
+- Example:
+  ## References:
+  [Composite bonding vs veneers: What's the difference? - Bupa](https://www.bupa.co.uk/...)
+  [What Is Dental Bonding? - Cleveland Clinic](https://my.clevelandclinic.org/...)
 
 Content Guidelines:
 - Start with a compelling hook that addresses the reader's pain point

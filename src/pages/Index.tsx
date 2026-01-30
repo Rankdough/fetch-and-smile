@@ -24,82 +24,90 @@ import {
 
 const SAMPLE_CONTENT = `# Composite Bonding vs Veneers: Which Smile Transformation is Right for You?
 
-We've all been there—looking in the mirror and focusing on that one chipped tooth, a persistent stain, or a small gap that makes us self-conscious when we laugh. In the modern world of cosmetic dentistry, you no longer have to live with a smile you don't love. [1]
+We've all been there—looking in the mirror and focusing on that one chipped tooth, a persistent stain, or a small gap that makes us self-conscious when we laugh.
 
 > **TL;DR: The Quick Verdict**
-> - **Choose Composite Bonding** if you want a fast, non-invasive, and budget-friendly fix for minor chips, gaps, or staining.
-> - **Choose Porcelain Veneers** if you want a long-term, durable, and transformative solution that resists stains.
+> - **Composite bonding** is a minimally invasive, largely reversible cosmetic dental treatment best suited to small chips, gaps, and minor shape issues. It is cheaper upfront, but requires more maintenance over time.
+> - **Veneers** are a permanent cosmetic solution designed for full smile makeovers, severe discolouration, and significant shape or symmetry issues. They are more expensive but last longer.
 
 ---
 
 ## What is Composite Bonding?
 
-Often referred to as dental bonding, this procedure involves applying a **tooth-colored resin material** to the surface of your teeth. Your dentist sculpts the resin by hand to hide imperfections, close gaps, or change the shape of a tooth. [2]
+Composite bonding and veneers are often grouped together as cosmetic dentistry, but clinically, they serve different purposes. Composite bonding is an additive procedure that builds onto the natural tooth with resin, preserving enamel and keeping future options open.
 
-The resin is hardened using a specialized ultraviolet light and then polished to match the natural sheen of your enamel. It is an artistic process that is usually completed in a single visit without the need for anesthesia. [1]
+The resin is hardened using a specialized ultraviolet light and then polished to match the natural sheen of your enamel. It is an artistic process that is usually completed in a single visit without the need for anesthesia.
 
 ### The Benefits of Bonding
-- **Minimally Invasive:** No natural tooth structure needs to be removed [2]
-- **Speed:** Completed in a single visit (~60 minutes)
-- **Reversible:** The process can often be undone or adjusted
-- **Affordability:** Significantly cheaper than porcelain alternatives [3]
+- **Minimally Invasive:** No natural tooth structure needs to be removed
+- **Speed:** Completed in a single visit (~30-60 minutes per tooth)
+- **Reversible:** The process can largely be undone or adjusted
+- **Affordability:** Typical UK cost is £200-£450 per tooth
 
 ---
 
 ## What are Porcelain Veneers?
 
-Veneers are custom-made, wafer-thin shells of high-quality porcelain designed to cover the front surface of the teeth. Unlike bonding, veneers are fabricated in a dental laboratory based on a mold of your mouth. [2]
+Veneers involve permanently altering the tooth surface to create a new external layer. Unlike bonding, veneers are fabricated in a dental laboratory based on a mold of your mouth.
 
-To ensure the veneers don't look bulky, a small amount of enamel (usually less than a millimeter) is typically removed from the front of the tooth. This makes the procedure permanent. [1]
+To ensure the veneers don't look bulky, a small amount of enamel (usually less than a millimeter) is typically removed from the front of the tooth. This makes the procedure permanent.
 
 ### The Benefits of Veneers
-- **Durability:** Can last 10 to 15 years (or longer) with proper care [3]
-- **Stain Resistance:** Porcelain is non-porous and won't stain from coffee or tea [2]
+- **Durability:** Can last 10 to 15+ years with proper care
+- **Stain Resistance:** Porcelain is non-porous and won't stain from coffee or tea
 - **Total Transformation:** Ideal for correcting severe issues like misalignment
-- **Natural Esthetics:** Mimics light-reflecting properties of natural teeth [1]
+- **Natural Esthetics:** Mimics light-reflecting properties of natural teeth
 
 ---
 
-## Comparing the Two: At a Glance
+## At-a-Glance Comparison Table
 
-| Feature | Composite Bonding | Porcelain Veneers |
+| Factor | Composite Bonding | Veneers (Porcelain) |
 | :--- | :--- | :--- |
-| **Treatment Time** | 1 Appointment (~60 mins) | 2-3 Appointments over 2 weeks |
-| **Lifespan** | 3 to 7 years [3] | 10 to 20 years [3] |
+| **Treatment Time** | 1 Appointment (~30-60 mins per tooth) | 2-3 Appointments over 2 weeks |
+| **Lifespan** | 5 to 8 years | 10 to 15+ years |
 | **Tooth Preparation** | Little to none | Enamel removal required |
 | **Stain Resistance** | Low (can stain over time) | High (highly resistant) |
-| **Repairable?** | Yes, easily patched | No, must be replaced |
-| **Average Cost** | $200 - $600 per tooth [3] | $900 - $2,500 per tooth [3] |
+| **Reversibility** | Largely reversible | Permanent |
+| **Typical UK Cost** | £200 - £450 per tooth | £600 - £1,100 per tooth |
 
 ---
 
 ## Which Option Should You Choose?
 
 ### Choose Composite Bonding if:
-- You have **minor imperfections** like a small chip or gap
-- You are on a **tighter budget** but want immediate improvement
-- You are **hesitant about removing enamel** from natural teeth [2]
+- You have **minor chips or small gaps**
+- You want to **preserve natural enamel**
+- You prefer a **lower upfront cost**
+- You're looking for a **reversible option**
 
 ### Choose Veneers if:
-- You have **severely stained teeth** that don't respond to whitening
-- Your teeth have **significant wear, large chips, or cracks**
-- You want a **long-term investment** that lasts over a decade [1]
+- You want a **major colour or shape change**
+- You're planning a **full smile makeover**
+- You prioritise **long-term durability**
+- You need **colour stability** over many years
 
 ---
 
 ## Final Thoughts
 
-A beautiful smile is one of the best investments you can make in your self-confidence. **Composite bonding** offers an accessible, fast, and conservative route to a better smile, while **Porcelain Veneers** offer a premium, durable, and life-changing transformation. [1]
+The right choice depends on the scale of change you want, how long you want results to last, and whether you are comfortable with permanent enamel alteration. Bonding prioritises flexibility and tooth preservation. Veneers prioritise longevity, colour stability, and comprehensive aesthetic change.
 
 **Ready to take the next step?** Schedule a consultation with a cosmetic dentist today to see what your new smile could look like!
 
 ---
 
-## Sources
+## References:
 
-1. [VHI Healthcare - Veneers, Dentures and Composite Bonding](https://www1.vhi.ie/blog/articles/veneers-dentures-and-composite-bonding) - Comprehensive guide on cosmetic dental options
-2. [Harcourt Dental Clinic - Veneers and Composite Bonding](https://harcourtdentalclinic.ie/service/veneers-and-composite-bonding/) - Professional dental service overview
-3. [3Dental - Composite Bonding vs Veneers](https://www.3dental.ie/blog/composite-bonding-vs-veneers/) - Detailed cost and durability comparison
+[Composite bonding vs veneers: What's the difference? - Bupa](https://www.bupa.co.uk/newsroom/ourviews/composite-bonding-vs-veneers)
+
+[What Is Dental Bonding? - Cleveland Clinic](https://my.clevelandclinic.org/health/treatments/10922-dental-bonding)
+
+[Long-Term Survival and Complication Rates of Porcelain Laminate Veneers - NIH](https://pmc.ncbi.nlm.nih.gov/articles/PMC7961608/)
+
+[Composite bonding - Bupa Dental Care](https://www.bupa.co.uk/dental/dental-care/treatments/composite-bonding)
+
+[Dental Veneers: Benefits, Procedure, Costs, and Results - Healthline](https://www.healthline.com/health/dental-veneers)
 `;
 
 const Index = () => {
