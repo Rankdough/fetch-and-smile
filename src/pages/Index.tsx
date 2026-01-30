@@ -11,7 +11,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, Sparkles, FileText, Link, Search, X, Upload, Plus, Tag, Download, ExternalLink, BookOpen } from "lucide-react";
+import { Loader2, Sparkles, FileText, Link, Search, X, Upload, Plus, Tag, Download, ExternalLink, BookOpen, Eye, Edit2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import ReactMarkdown from "react-markdown";
@@ -194,6 +194,7 @@ const Index = () => {
   const [ctaUrl, setCtaUrl] = useState("");
   const [generatedCTAs, setGeneratedCTAs] = useState<{ middle: { headline: string; description: string; buttonText: string }; end: { headline: string; description: string; buttonText: string } } | null>(null);
   const [useKnowledgeBase, setUseKnowledgeBase] = useState(true);
+  const [isEditMode, setIsEditMode] = useState(false);
 
   // Checklist items computation
   const checklistItems = useMemo(() => {
@@ -1077,77 +1078,113 @@ ${tempDiv.innerHTML}
                     generatedCTAs={generatedCTAs}
                   />
                   
-                  {/* Generated Article with CTAs */}
-                  <article className="prose prose-sm max-w-none dark:prose-invert">
-                    {(() => {
-                      // Split content to insert CTAs
-                      const lines = generatedContent.split('\n');
-                      const h2Indices: number[] = [];
-                      lines.forEach((line, idx) => {
-                        if (/^## /.test(line) && !/tldr/i.test(line)) {
-                          h2Indices.push(idx);
+                  {/* Edit/Preview Toggle */}
+                  <div className="flex items-center justify-between border-b pb-2">
+                    <div className="flex gap-1">
+                      <Button
+                        variant={isEditMode ? "outline" : "default"}
+                        size="sm"
+                        onClick={() => setIsEditMode(false)}
+                      >
+                        <Eye className="h-4 w-4 mr-1" />
+                        Preview
+                      </Button>
+                      <Button
+                        variant={isEditMode ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setIsEditMode(true)}
+                      >
+                        <Edit2 className="h-4 w-4 mr-1" />
+                        Edit
+                      </Button>
+                    </div>
+                    {isEditMode && (
+                      <p className="text-xs text-muted-foreground">
+                        Editing raw markdown
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Generated Article - Edit or Preview Mode */}
+                  {isEditMode ? (
+                    <Textarea
+                      value={generatedContent}
+                      onChange={(e) => setGeneratedContent(e.target.value)}
+                      className="min-h-[500px] font-mono text-sm resize-none"
+                      placeholder="Your content here..."
+                    />
+                  ) : (
+                    <article className="prose prose-sm max-w-none dark:prose-invert">
+                      {(() => {
+                        // Split content to insert CTAs
+                        const lines = generatedContent.split('\n');
+                        const h2Indices: number[] = [];
+                        lines.forEach((line, idx) => {
+                          if (/^## /.test(line) && !/tldr/i.test(line)) {
+                            h2Indices.push(idx);
+                          }
+                        });
+                        
+                        // Insert middle CTA after ~40% of H2s
+                        const middleInsertIndex = h2Indices.length > 2 
+                          ? h2Indices[Math.floor(h2Indices.length * 0.4)]
+                          : -1;
+                        
+                        const parts: { content: string; ctaPosition?: 'middle' | 'end' }[] = [];
+                        
+                        if (middleInsertIndex > 0 && generatedCTAs?.middle && ctaUrl) {
+                          parts.push({ content: lines.slice(0, middleInsertIndex).join('\n') });
+                          parts.push({ content: '', ctaPosition: 'middle' });
+                          parts.push({ content: lines.slice(middleInsertIndex).join('\n') });
+                        } else {
+                          parts.push({ content: generatedContent });
                         }
-                      });
-                      
-                      // Insert middle CTA after ~40% of H2s
-                      const middleInsertIndex = h2Indices.length > 2 
-                        ? h2Indices[Math.floor(h2Indices.length * 0.4)]
-                        : -1;
-                      
-                      const parts: { content: string; ctaPosition?: 'middle' | 'end' }[] = [];
-                      
-                      if (middleInsertIndex > 0 && generatedCTAs?.middle && ctaUrl) {
-                        parts.push({ content: lines.slice(0, middleInsertIndex).join('\n') });
-                        parts.push({ content: '', ctaPosition: 'middle' });
-                        parts.push({ content: lines.slice(middleInsertIndex).join('\n') });
-                      } else {
-                        parts.push({ content: generatedContent });
-                      }
-                      
-                      return (
-                        <>
-                          {parts.map((part, idx) => (
-                            <div key={idx}>
-                              {part.ctaPosition === 'middle' && generatedCTAs?.middle && ctaUrl ? (
-                                <CTABanner
-                                  headline={generatedCTAs.middle.headline}
-                                  description={generatedCTAs.middle.description}
-                                  buttonText={generatedCTAs.middle.buttonText}
-                                  url={ctaUrl}
-                                />
-                              ) : part.content ? (
-                                <ReactMarkdown 
-                                  remarkPlugins={[remarkGfm]}
-                                  components={{
-                                    h2: ({ children, ...props }) => {
-                                      const text = String(children).toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]/g, '');
-                                      return <h2 id={text} {...props}>{children}</h2>;
-                                    },
-                                    a: ({ href, children, ...props }) => (
-                                      <a href={href} target="_blank" rel="noopener noreferrer" {...props}>
-                                        {children}
-                                      </a>
-                                    ),
-                                  }}
-                                >
-                                  {part.content}
-                                </ReactMarkdown>
-                              ) : null}
-                            </div>
-                          ))}
-                          {/* End CTA */}
-                          {generatedCTAs?.end && ctaUrl && (
-                            <CTABanner
-                              headline={generatedCTAs.end.headline}
-                              description={generatedCTAs.end.description}
-                              buttonText={generatedCTAs.end.buttonText}
-                              url={ctaUrl}
-                            />
-                          )}
-                        </>
-                      );
-                    })()}
-                  </article>
+                        
+                        return (
+                          <>
+                            {parts.map((part, idx) => (
+                              <div key={idx}>
+                                {part.ctaPosition === 'middle' && generatedCTAs?.middle && ctaUrl ? (
+                                  <CTABanner
+                                    headline={generatedCTAs.middle.headline}
+                                    description={generatedCTAs.middle.description}
+                                    buttonText={generatedCTAs.middle.buttonText}
+                                    url={ctaUrl}
+                                  />
+                                ) : part.content ? (
+                                  <ReactMarkdown 
+                                    remarkPlugins={[remarkGfm]}
+                                    components={{
+                                      h2: ({ children, ...props }) => {
+                                        const text = String(children).toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]/g, '');
+                                        return <h2 id={text} {...props}>{children}</h2>;
+                                      },
+                                      a: ({ href, children, ...props }) => (
+                                        <a href={href} target="_blank" rel="noopener noreferrer" {...props}>
+                                          {children}
+                                        </a>
+                                      ),
+                                    }}
+                                  >
+                                    {part.content}
+                                  </ReactMarkdown>
+                                ) : null}
+                              </div>
+                            ))}
+                            {/* End CTA */}
+                            {generatedCTAs?.end && ctaUrl && (
+                              <CTABanner
+                                headline={generatedCTAs.end.headline}
+                                description={generatedCTAs.end.description}
+                                buttonText={generatedCTAs.end.buttonText}
+                                url={ctaUrl}
+                              />
+                            )}
+                          </>
+                        );
+                      })()}
+                    </article>
+                  )}
                 </>
               ) : (
                 <div className="h-full flex items-center justify-center text-muted-foreground">
