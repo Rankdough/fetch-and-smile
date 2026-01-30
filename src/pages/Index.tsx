@@ -142,12 +142,24 @@ The right choice depends on the scale of change you want, how long you want resu
 
 [Dental Veneers: Benefits, Procedure, Costs, and Results - Healthline](https://www.healthline.com/health/dental-veneers)
 `;
+// Helper to auto-clean prohibited characters from content
+const cleanContent = (content: string): string => {
+  return content
+    .replace(/—/g, "-")  // Remove em dashes
+    .replace(/–/g, "-")  // Remove en dashes
+    .replace(/^\s*[-*_]{3,}\s*$/gm, "");  // Remove horizontal lines
+};
 
 const Index = () => {
   const { toast } = useToast();
   const [isGenerating, setIsGenerating] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [generatedContent, setGeneratedContent] = useState("");
+  const [generatedContent, setGeneratedContentRaw] = useState("");
+  
+  // Wrapper that auto-cleans content before setting
+  const setGeneratedContent = (content: string) => {
+    setGeneratedContentRaw(cleanContent(content));
+  };
   const [appliedRules, setAppliedRules] = useState<{
     gapAnalysisUsed: boolean;
     formatReferenceUsed: boolean;
