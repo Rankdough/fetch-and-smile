@@ -22,6 +22,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { GenerationChecklist } from "@/components/GenerationChecklist";
+import { ContentVerification } from "@/components/ContentVerification";
 
 const SAMPLE_CONTENT = `# Composite Bonding vs Veneers: Which Smile Transformation is Right for You?
 
@@ -147,6 +148,15 @@ const Index = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [generatedContent, setGeneratedContent] = useState("");
+  const [appliedRules, setAppliedRules] = useState<{
+    gapAnalysisUsed: boolean;
+    formatReferenceUsed: boolean;
+    contextFilesUsed: boolean;
+    contextFileNames: string[];
+    targetWordCount: number;
+    outlineProvided: boolean;
+    customInstructionsProvided: boolean;
+  } | null>(null);
   const [gapAnalysis, setGapAnalysis] = useState("");
   const [formatReference, setFormatReference] = useState("");
   
@@ -333,6 +343,7 @@ const Index = () => {
 
     setIsGenerating(true);
     setGeneratedContent("");
+    setAppliedRules(null);
 
     try {
       const { data, error } = await supabase.functions.invoke("generate-content", {
@@ -347,6 +358,7 @@ const Index = () => {
       if (error) throw error;
 
       setGeneratedContent(data.content);
+      setAppliedRules(data.appliedRules || null);
       toast({
         title: "Content generated!",
         description: "Your article has been created successfully.",
@@ -646,21 +658,27 @@ const Index = () => {
                 Load Sample
               </Button>
             </CardHeader>
-            <CardContent className="flex-1 overflow-auto">
+            <CardContent className="flex-1 overflow-auto space-y-4">
               {generatedContent ? (
-                <article className="prose prose-sm max-w-none dark:prose-invert">
-                  <ReactMarkdown 
-                    remarkPlugins={[remarkGfm]}
-                    components={{
-                      h2: ({ children, ...props }) => {
-                        const text = String(children).toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]/g, '');
-                        return <h2 id={text} {...props}>{children}</h2>;
-                      }
-                    }}
-                  >
-                    {generatedContent}
-                  </ReactMarkdown>
-                </article>
+                <>
+                  {/* Content Verification Panel */}
+                  <ContentVerification content={generatedContent} appliedRules={appliedRules} />
+                  
+                  {/* Generated Article */}
+                  <article className="prose prose-sm max-w-none dark:prose-invert">
+                    <ReactMarkdown 
+                      remarkPlugins={[remarkGfm]}
+                      components={{
+                        h2: ({ children, ...props }) => {
+                          const text = String(children).toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]/g, '');
+                          return <h2 id={text} {...props}>{children}</h2>;
+                        }
+                      }}
+                    >
+                      {generatedContent}
+                    </ReactMarkdown>
+                  </article>
+                </>
               ) : (
                 <div className="h-full flex items-center justify-center text-muted-foreground">
                   <p className="text-center">
