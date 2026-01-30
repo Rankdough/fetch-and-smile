@@ -39,8 +39,12 @@ serve(async (req) => {
     // Build the prompt
     let systemPrompt = `You are an expert SEO content writer. Write high-quality, engaging blog posts optimized for search engines while remaining valuable and readable.
 
-CRITICAL FORMATTING RULES:
-- NEVER use the em dash character "—" anywhere in the content. Use a regular hyphen "-" or rewrite the sentence instead.
+ABSOLUTE RULE - NO EM DASHES:
+- NEVER use the em dash character "—" (Unicode U+2014) ANYWHERE in the content
+- NEVER use "–" (en dash) either
+- ONLY use regular hyphens "-" for all dashes
+- If you need a pause in a sentence, use a comma, semicolon, or rewrite the sentence
+- This rule has NO exceptions
 
 CRITICAL MARKDOWN FORMATTING RULES:
 - Title: Use # for the main title (H1) - only one per article
@@ -166,11 +170,14 @@ ${contextContent}`;
     }
 
     const data = await response.json();
-    const content = data.choices?.[0]?.message?.content;
+    let content = data.choices?.[0]?.message?.content;
 
     if (!content) {
       throw new Error("No content generated");
     }
+
+    // Post-process: Remove any em dashes or en dashes that slipped through
+    content = content.replace(/—/g, "-").replace(/–/g, "-");
 
     console.log("Content generated successfully");
 
