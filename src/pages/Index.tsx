@@ -11,7 +11,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, Sparkles, FileText, Link, Search, X, Upload, Plus, Tag, Download, ExternalLink } from "lucide-react";
+import { Loader2, Sparkles, FileText, Link, Search, X, Upload, Plus, Tag, Download, ExternalLink, BookOpen } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import ReactMarkdown from "react-markdown";
@@ -24,6 +24,8 @@ import {
 import { GenerationChecklist } from "@/components/GenerationChecklist";
 import { ContentVerification } from "@/components/ContentVerification";
 import { CTABanner, generateCTAHtml } from "@/components/CTABanner";
+import { KnowledgeBasePanel } from "@/components/KnowledgeBasePanel";
+import { Switch } from "@/components/ui/switch";
 
 const SAMPLE_CONTENT = `# Composite Bonding vs Veneers: Which Smile Transformation is Right for You?
 
@@ -190,6 +192,7 @@ const Index = () => {
   const [keywordInput, setKeywordInput] = useState("");
   const [ctaUrl, setCtaUrl] = useState("");
   const [generatedCTAs, setGeneratedCTAs] = useState<{ middle: { headline: string; description: string; buttonText: string }; end: { headline: string; description: string; buttonText: string } } | null>(null);
+  const [useKnowledgeBase, setUseKnowledgeBase] = useState(true);
 
   // Checklist items computation
   const checklistItems = useMemo(() => {
@@ -390,6 +393,7 @@ const Index = () => {
           formatReference: formatReference || undefined,
           contextFiles: contextFiles.length > 0 ? contextFiles : undefined,
           generateCTAs: ctaUrl.trim().length > 0,
+          useKnowledgeBase: useKnowledgeBase,
         },
       });
 
@@ -616,6 +620,20 @@ const Index = () => {
                 </CollapsibleContent>
               </Collapsible>
 
+              {/* SEO Knowledge Base */}
+              <Collapsible className="space-y-2">
+                <CollapsibleTrigger asChild>
+                  <Button variant="outline" className="w-full justify-between">
+                    <span className="flex items-center gap-2">
+                      <BookOpen className="h-4 w-4" />
+                      SEO Knowledge Base (Optional)
+                    </span>
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="pt-2">
+                  <KnowledgeBasePanel />
+                </CollapsibleContent>
+              </Collapsible>
               {/* Keywords */}
               <div className="space-y-2">
                 <Label className="flex items-center gap-2">
@@ -759,6 +777,21 @@ const Index = () => {
                   onChange={(e) =>
                     setFormData((prev) => ({ ...prev, instructions: e.target.value }))
                   }
+                />
+              </div>
+
+              {/* Knowledge Base Toggle */}
+              <div className="flex items-center justify-between rounded-lg border p-4">
+                <div className="space-y-0.5">
+                  <Label htmlFor="use-kb" className="text-base">Use SEO Knowledge Base</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Apply rules from your uploaded SEO documents
+                  </p>
+                </div>
+                <Switch
+                  id="use-kb"
+                  checked={useKnowledgeBase}
+                  onCheckedChange={setUseKnowledgeBase}
                 />
               </div>
 
