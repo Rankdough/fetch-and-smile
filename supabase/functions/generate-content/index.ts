@@ -46,6 +46,11 @@ ABSOLUTE RULE - NO EM DASHES:
 - If you need a pause in a sentence, use a comma, semicolon, or rewrite the sentence
 - This rule has NO exceptions
 
+ABSOLUTE RULE - NO HORIZONTAL LINES:
+- NEVER use horizontal rules/lines (--- or *** or ___) anywhere in the content
+- Do NOT add separators between sections - headings provide enough visual separation
+- This rule has NO exceptions
+
 CRITICAL MARKDOWN FORMATTING RULES:
 - Title: Use # for the main title (H1) - only one per article
 - Major sections: Use ## for H2 headings (e.g., ## What is Composite Bonding?)
@@ -176,8 +181,10 @@ ${contextContent}`;
       throw new Error("No content generated");
     }
 
-    // Post-process: Remove any em dashes or en dashes that slipped through
+    // Post-process: Remove any em dashes, en dashes, and horizontal rules
     content = content.replace(/—/g, "-").replace(/–/g, "-");
+    // Remove horizontal rules (---, ***, ___ on their own line)
+    content = content.replace(/^\s*[-*_]{3,}\s*$/gm, "");
 
     console.log("Content generated successfully");
 
