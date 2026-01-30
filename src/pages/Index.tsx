@@ -25,6 +25,7 @@ import { GenerationChecklist } from "@/components/GenerationChecklist";
 import { ContentVerification } from "@/components/ContentVerification";
 import { CTABanner, generateCTAHtml } from "@/components/CTABanner";
 import { KnowledgeBasePanel } from "@/components/KnowledgeBasePanel";
+import { VoiceEditAgent } from "@/components/VoiceEditAgent";
 import { Switch } from "@/components/ui/switch";
 
 const SAMPLE_CONTENT = `# Composite Bonding vs Veneers: Which Smile Transformation is Right for You?
@@ -1009,8 +1010,14 @@ ${tempDiv.innerHTML}
             <CardContent className="flex-1 overflow-auto space-y-4">
               {generatedContent ? (
                 <>
+                  {/* Voice Edit Agent */}
+                  <VoiceEditAgent 
+                    content={generatedContent} 
+                    onContentUpdate={setGeneratedContent} 
+                  />
+                  
                   {/* Content Verification Panel */}
-                  <ContentVerification 
+                  <ContentVerification
                     content={generatedContent} 
                     appliedRules={appliedRules}
                     onFixEmDashes={() => {
