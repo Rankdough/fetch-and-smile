@@ -54,9 +54,16 @@ SOURCE REFERENCE RULES:
 - List 1-2 relevant sources as simple markdown links directly under that section
 - Format: **Sources:** [Source Title](URL)
 - Sources should be relevant to that specific section's content
-- Example format under a section:
-  
-  **Sources:** [What Is Dental Bonding? - Cleveland Clinic](https://my.clevelandclinic.org/...)
+
+ARTICLE STRUCTURE (in this order):
+1. Title (# H1)
+2. TL;DR blockquote with key takeaways
+3. Main content sections with ## headings (each with **Sources:** at the end)
+4. Comparison table section
+5. "Which Option Should You Choose?" section
+6. "## Frequently Asked Questions" section - include 4-6 common Q&As in bold question format
+7. "## Final Thoughts" section with call-to-action
+8. "## References:" section - list ALL sources used throughout the article as simple markdown links
 
 Content Guidelines:
 - Start with a compelling hook that addresses the reader's pain point
