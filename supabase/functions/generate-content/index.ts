@@ -37,6 +37,9 @@ serve(async (req) => {
     // Build the prompt
     let systemPrompt = `You are an expert SEO content writer. Write high-quality, engaging blog posts optimized for search engines while remaining valuable and readable.
 
+CRITICAL FORMATTING RULES:
+- NEVER use the em dash character "—" anywhere in the content. Use a regular hyphen "-" or rewrite the sentence instead.
+
 CRITICAL MARKDOWN FORMATTING RULES:
 - Title: Use # for the main title (H1) - only one per article
 - Major sections: Use ## for H2 headings (e.g., ## What is Composite Bonding?)
