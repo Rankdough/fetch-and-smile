@@ -12,7 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    const { topic, length, outline, instructions } = await req.json();
+    const { topic, length, outline, instructions, gapAnalysis, formatReference } = await req.json();
 
     if (!topic) {
       return new Response(
@@ -35,7 +35,7 @@ serve(async (req) => {
     const targetWords = wordCounts[length] || 1000;
 
     // Build the prompt
-    const systemPrompt = `You are an expert SEO content writer. Write high-quality, engaging blog posts that are optimized for search engines while remaining valuable and readable for humans.
+    let systemPrompt = `You are an expert SEO content writer. Write high-quality, engaging blog posts that are optimized for search engines while remaining valuable and readable for humans.
 
 Guidelines:
 - Use clear headings and subheadings (H2, H3)
@@ -45,9 +45,23 @@ Guidelines:
 - Include a strong conclusion with a call-to-action
 - Format the output in clean Markdown`;
 
+    if (formatReference) {
+      systemPrompt += `
+
+IMPORTANT: Match the formatting style and structure of this reference article:
+${formatReference.substring(0, 2000)}`;
+    }
+
     let userPrompt = `Write a blog post about: ${topic}
 
 Target length: approximately ${targetWords} words`;
+
+    if (gapAnalysis) {
+      userPrompt += `
+
+IMPORTANT: Address these content gaps that competitors are missing:
+${gapAnalysis}`;
+    }
 
     if (outline && outline.trim()) {
       userPrompt += `
