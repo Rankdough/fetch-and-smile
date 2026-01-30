@@ -15,6 +15,7 @@ import { Loader2, Sparkles, FileText, Link, Search, X, Upload } from "lucide-rea
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import {
   Collapsible,
   CollapsibleContent,
@@ -296,7 +297,7 @@ const Index = () => {
                     <div className="rounded-md bg-muted p-3 text-sm">
                       <p className="font-medium mb-2">Gap Analysis Results:</p>
                       <div className="prose prose-sm dark:prose-invert max-w-none">
-                        <ReactMarkdown>{gapAnalysis}</ReactMarkdown>
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{gapAnalysis}</ReactMarkdown>
                       </div>
                     </div>
                   )}
@@ -476,7 +477,7 @@ const Index = () => {
             <CardContent className="flex-1 overflow-auto">
               {generatedContent ? (
                 <article className="prose prose-sm max-w-none dark:prose-invert">
-                  <ReactMarkdown>{generatedContent}</ReactMarkdown>
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{generatedContent}</ReactMarkdown>
                 </article>
               ) : (
                 <div className="h-full flex items-center justify-center text-muted-foreground">
