@@ -17,35 +17,35 @@ All colors MUST be HSL.
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 84% 4.9%;
 
-    /* Teal/Blue-green primary matching reference site */
-    --primary: 190 45% 42%;
+    /* Purple/Magenta primary matching VHI reference site */
+    --primary: 300 52% 36%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 190 30% 95%;
-    --secondary-foreground: 190 45% 25%;
+    --secondary: 300 30% 96%;
+    --secondary-foreground: 300 52% 25%;
 
     --muted: 210 40% 96.1%;
     --muted-foreground: 215.4 16.3% 46.9%;
 
-    --accent: 190 30% 95%;
-    --accent-foreground: 190 45% 25%;
+    --accent: 300 30% 96%;
+    --accent-foreground: 300 52% 25%;
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
 
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
-    --ring: 190 45% 42%;
+    --ring: 300 52% 36%;
 
     --radius: 0.5rem;
 
-    /* Custom colors for content styling */
-    --table-header: 190 45% 42%;
+    /* Custom colors for content styling - Purple theme */
+    --table-header: 300 52% 36%;
     --table-header-foreground: 0 0% 100%;
-    --table-row-odd: 190 30% 97%;
-    --table-row-even: 190 20% 94%;
-    --tldr-bg: 190 35% 95%;
-    --tldr-border: 190 45% 42%;
+    --table-row-odd: 300 30% 97%;
+    --table-row-even: 300 20% 94%;
+    --tldr-bg: 300 35% 96%;
+    --tldr-border: 300 52% 36%;
 
     --sidebar-background: 0 0% 98%;
 
