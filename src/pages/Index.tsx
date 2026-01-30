@@ -24,7 +24,7 @@ import {
 
 const SAMPLE_CONTENT = `# Composite Bonding vs Veneers: Which Smile Transformation is Right for You?
 
-We've all been there—looking in the mirror and focusing on that one chipped tooth, a persistent stain, or a small gap that makes us self-conscious when we laugh.
+We've all been there—looking in the mirror and focusing on that one chipped tooth, a persistent stain, or a small gap that makes us self-conscious when we laugh. In the modern world of cosmetic dentistry, you no longer have to live with a smile you don't love. [1]
 
 > **TL;DR: The Quick Verdict**
 > - **Choose Composite Bonding** if you want a fast, non-invasive, and budget-friendly fix for minor chips, gaps, or staining.
@@ -34,25 +34,29 @@ We've all been there—looking in the mirror and focusing on that one chipped to
 
 ## What is Composite Bonding?
 
-Often referred to as dental bonding, this procedure involves applying a **tooth-colored resin material** to the surface of your teeth. Your dentist sculpts the resin by hand to hide imperfections, close gaps, or change the shape of a tooth.
+Often referred to as dental bonding, this procedure involves applying a **tooth-colored resin material** to the surface of your teeth. Your dentist sculpts the resin by hand to hide imperfections, close gaps, or change the shape of a tooth. [2]
+
+The resin is hardened using a specialized ultraviolet light and then polished to match the natural sheen of your enamel. It is an artistic process that is usually completed in a single visit without the need for anesthesia. [1]
 
 ### The Benefits of Bonding
-- **Minimally Invasive:** No natural tooth structure needs to be removed
-- **Speed:** Completed in a single visit
+- **Minimally Invasive:** No natural tooth structure needs to be removed [2]
+- **Speed:** Completed in a single visit (~60 minutes)
 - **Reversible:** The process can often be undone or adjusted
-- **Affordability:** Significantly cheaper than porcelain alternatives
+- **Affordability:** Significantly cheaper than porcelain alternatives [3]
 
 ---
 
 ## What are Porcelain Veneers?
 
-Veneers are custom-made, wafer-thin shells of high-quality porcelain designed to cover the front surface of the teeth.
+Veneers are custom-made, wafer-thin shells of high-quality porcelain designed to cover the front surface of the teeth. Unlike bonding, veneers are fabricated in a dental laboratory based on a mold of your mouth. [2]
+
+To ensure the veneers don't look bulky, a small amount of enamel (usually less than a millimeter) is typically removed from the front of the tooth. This makes the procedure permanent. [1]
 
 ### The Benefits of Veneers
-- **Durability:** Can last 10 to 15 years with proper care
-- **Stain Resistance:** Porcelain is non-porous and won't stain
-- **Total Transformation:** Ideal for correcting severe issues
-- **Natural Esthetics:** Mimics light-reflecting properties of natural teeth
+- **Durability:** Can last 10 to 15 years (or longer) with proper care [3]
+- **Stain Resistance:** Porcelain is non-porous and won't stain from coffee or tea [2]
+- **Total Transformation:** Ideal for correcting severe issues like misalignment
+- **Natural Esthetics:** Mimics light-reflecting properties of natural teeth [1]
 
 ---
 
@@ -61,10 +65,11 @@ Veneers are custom-made, wafer-thin shells of high-quality porcelain designed to
 | Feature | Composite Bonding | Porcelain Veneers |
 | :--- | :--- | :--- |
 | **Treatment Time** | 1 Appointment (~60 mins) | 2-3 Appointments over 2 weeks |
-| **Lifespan** | 3 to 7 years | 10 to 20 years |
+| **Lifespan** | 3 to 7 years [3] | 10 to 20 years [3] |
 | **Tooth Preparation** | Little to none | Enamel removal required |
-| **Stain Resistance** | Low | High |
-| **Average Cost** | $200 - $600 per tooth | $900 - $2,500 per tooth |
+| **Stain Resistance** | Low (can stain over time) | High (highly resistant) |
+| **Repairable?** | Yes, easily patched | No, must be replaced |
+| **Average Cost** | $200 - $600 per tooth [3] | $900 - $2,500 per tooth [3] |
 
 ---
 
@@ -72,21 +77,29 @@ Veneers are custom-made, wafer-thin shells of high-quality porcelain designed to
 
 ### Choose Composite Bonding if:
 - You have **minor imperfections** like a small chip or gap
-- You are on a **tighter budget**
-- You are **hesitant about removing enamel**
+- You are on a **tighter budget** but want immediate improvement
+- You are **hesitant about removing enamel** from natural teeth [2]
 
 ### Choose Veneers if:
-- You have **severely stained teeth**
-- Your teeth have **significant wear or cracks**
-- You want a **long-term investment**
+- You have **severely stained teeth** that don't respond to whitening
+- Your teeth have **significant wear, large chips, or cracks**
+- You want a **long-term investment** that lasts over a decade [1]
 
 ---
 
 ## Final Thoughts
 
-A beautiful smile is one of the best investments you can make. **Composite bonding** offers an accessible route, while **Porcelain Veneers** offer a premium transformation.
+A beautiful smile is one of the best investments you can make in your self-confidence. **Composite bonding** offers an accessible, fast, and conservative route to a better smile, while **Porcelain Veneers** offer a premium, durable, and life-changing transformation. [1]
 
-**Ready to take the next step?** Schedule a consultation with a cosmetic dentist today!
+**Ready to take the next step?** Schedule a consultation with a cosmetic dentist today to see what your new smile could look like!
+
+---
+
+## Sources
+
+1. [VHI Healthcare - Veneers, Dentures and Composite Bonding](https://www1.vhi.ie/blog/articles/veneers-dentures-and-composite-bonding) - Comprehensive guide on cosmetic dental options
+2. [Harcourt Dental Clinic - Veneers and Composite Bonding](https://harcourtdentalclinic.ie/service/veneers-and-composite-bonding/) - Professional dental service overview
+3. [3Dental - Composite Bonding vs Veneers](https://www.3dental.ie/blog/composite-bonding-vs-veneers/) - Detailed cost and durability comparison
 `;
 
 const Index = () => {
