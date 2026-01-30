@@ -22,6 +22,73 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 
+const SAMPLE_CONTENT = `# Composite Bonding vs Veneers: Which Smile Transformation is Right for You?
+
+We've all been there—looking in the mirror and focusing on that one chipped tooth, a persistent stain, or a small gap that makes us self-conscious when we laugh.
+
+> **TL;DR: The Quick Verdict**
+> - **Choose Composite Bonding** if you want a fast, non-invasive, and budget-friendly fix for minor chips, gaps, or staining.
+> - **Choose Porcelain Veneers** if you want a long-term, durable, and transformative solution that resists stains.
+
+---
+
+## What is Composite Bonding?
+
+Often referred to as dental bonding, this procedure involves applying a **tooth-colored resin material** to the surface of your teeth. Your dentist sculpts the resin by hand to hide imperfections, close gaps, or change the shape of a tooth.
+
+### The Benefits of Bonding
+- **Minimally Invasive:** No natural tooth structure needs to be removed
+- **Speed:** Completed in a single visit
+- **Reversible:** The process can often be undone or adjusted
+- **Affordability:** Significantly cheaper than porcelain alternatives
+
+---
+
+## What are Porcelain Veneers?
+
+Veneers are custom-made, wafer-thin shells of high-quality porcelain designed to cover the front surface of the teeth.
+
+### The Benefits of Veneers
+- **Durability:** Can last 10 to 15 years with proper care
+- **Stain Resistance:** Porcelain is non-porous and won't stain
+- **Total Transformation:** Ideal for correcting severe issues
+- **Natural Esthetics:** Mimics light-reflecting properties of natural teeth
+
+---
+
+## Comparing the Two: At a Glance
+
+| Feature | Composite Bonding | Porcelain Veneers |
+| :--- | :--- | :--- |
+| **Treatment Time** | 1 Appointment (~60 mins) | 2-3 Appointments over 2 weeks |
+| **Lifespan** | 3 to 7 years | 10 to 20 years |
+| **Tooth Preparation** | Little to none | Enamel removal required |
+| **Stain Resistance** | Low | High |
+| **Average Cost** | $200 - $600 per tooth | $900 - $2,500 per tooth |
+
+---
+
+## Which Option Should You Choose?
+
+### Choose Composite Bonding if:
+- You have **minor imperfections** like a small chip or gap
+- You are on a **tighter budget**
+- You are **hesitant about removing enamel**
+
+### Choose Veneers if:
+- You have **severely stained teeth**
+- Your teeth have **significant wear or cracks**
+- You want a **long-term investment**
+
+---
+
+## Final Thoughts
+
+A beautiful smile is one of the best investments you can make. **Composite bonding** offers an accessible route, while **Porcelain Veneers** offer a premium transformation.
+
+**Ready to take the next step?** Schedule a consultation with a cosmetic dentist today!
+`;
+
 const Index = () => {
   const { toast } = useToast();
   const [isGenerating, setIsGenerating] = useState(false);
@@ -471,8 +538,15 @@ const Index = () => {
 
           {/* Right Panel - Output */}
           <Card className="flex flex-col">
-            <CardHeader className="pb-4">
+            <CardHeader className="pb-4 flex flex-row items-center justify-between">
               <CardTitle className="text-lg">Generated Content</CardTitle>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setGeneratedContent(SAMPLE_CONTENT)}
+              >
+                Load Sample
+              </Button>
             </CardHeader>
             <CardContent className="flex-1 overflow-auto">
               {generatedContent ? (
