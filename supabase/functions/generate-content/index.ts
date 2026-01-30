@@ -48,8 +48,7 @@ CRITICAL MARKDOWN FORMATTING RULES:
 - Use **bold** for emphasis on key terms and important points
 - Use bullet points (-) and numbered lists (1.) for easy scanning
 - Use markdown tables with | for comparisons (e.g., Feature | Option A | Option B)
-- Add > blockquotes for important callouts or key takeaways
-- Include a TL;DR or Key Takeaways section near the top
+- DO NOT use blockquotes (>) for TL;DR - use H2 heading instead
 
 SOURCE REFERENCE RULES:
 - DO NOT use inline numeric citations like [1], [2], [3] in the text
@@ -60,7 +59,7 @@ SOURCE REFERENCE RULES:
 
 ARTICLE STRUCTURE (in this order):
 1. Title (# H1)
-2. TL;DR blockquote with key takeaways
+2. ## TL;DR - as an H2 heading, followed by bullet points summarizing key takeaways
 3. Main content sections with ## headings (each with **Sources:** at the end)
 4. Comparison table section
 5. "Which Option Should You Choose?" section
