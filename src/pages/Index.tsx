@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -21,6 +21,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import { GenerationChecklist } from "@/components/GenerationChecklist";
 
 const SAMPLE_CONTENT = `# Composite Bonding vs Veneers: Which Smile Transformation is Right for You?
 
@@ -160,6 +161,48 @@ const Index = () => {
   const [formatUrl, setFormatUrl] = useState("");
   const [contextFiles, setContextFiles] = useState<{ name: string; content: string }[]>([]);
   const [isUploadingFile, setIsUploadingFile] = useState(false);
+
+  // Checklist items computation
+  const checklistItems = useMemo(() => {
+    const hasCompetitorUrls = competitorUrls.some((url) => url.trim());
+    const hasGapAnalysis = gapAnalysis.trim().length > 0;
+    const hasFormatReference = formatReference.trim().length > 0;
+    const hasContextFiles = contextFiles.length > 0;
+    const hasTopic = formData.topic.trim().length > 0;
+
+    return [
+      {
+        id: "topic",
+        label: "Topic entered",
+        completed: hasTopic,
+        required: true,
+      },
+      {
+        id: "gap-analysis",
+        label: "Content gap analysis completed",
+        completed: hasGapAnalysis,
+        required: false,
+      },
+      {
+        id: "format-reference",
+        label: "Format reference captured (TL;DR as H2, colored tables)",
+        completed: hasFormatReference,
+        required: false,
+      },
+      {
+        id: "context-files",
+        label: "Context files uploaded (sources/references)",
+        completed: hasContextFiles,
+        required: false,
+      },
+      {
+        id: "word-count",
+        label: `Word count selected (${formData.length === "short" ? "~500" : formData.length === "medium" ? "~1000" : "~2000"} words)`,
+        completed: true, // Always completed since there's a default
+        required: true,
+      },
+    ];
+  }, [competitorUrls, gapAnalysis, formatReference, contextFiles, formData.topic, formData.length]);
 
   const handleAnalyzeUrls = async () => {
     const validUrls = competitorUrls.filter((url) => url.trim());
@@ -566,10 +609,13 @@ const Index = () => {
                 />
               </div>
 
+              {/* Pre-Generation Checklist */}
+              <GenerationChecklist items={checklistItems} />
+
               {/* Generate Button */}
               <Button
                 onClick={handleGenerate}
-                disabled={isGenerating}
+                disabled={isGenerating || !formData.topic.trim()}
                 className="w-full mt-auto"
                 size="lg"
               >
