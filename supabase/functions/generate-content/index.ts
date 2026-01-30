@@ -12,7 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    const { topic, length, outline, instructions, gapAnalysis, formatReference, contextFiles, keywords } = await req.json();
+    const { topic, length, outline, instructions, gapAnalysis, formatReference, contextFiles, keywords, generateCTAs } = await req.json();
 
     if (!topic) {
       return new Response(
@@ -188,6 +188,68 @@ ${contextContent}`;
 
     console.log("Content generated successfully");
 
+    // Generate CTAs if requested
+    let ctas = null;
+    if (generateCTAs) {
+      console.log("Generating CTAs for topic:", topic);
+      const ctaResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash-lite",
+          messages: [
+            {
+              role: "system",
+              content: `You generate compelling call-to-action banners for articles. Return ONLY valid JSON with no markdown formatting.
+              
+Response format:
+{
+  "middle": {
+    "headline": "SHORT CATCHY HEADLINE IN CAPS (max 8 words)",
+    "description": "One sentence describing the value proposition (max 20 words)",
+    "buttonText": "ACTION VERB + NOUN (max 4 words)"
+  },
+  "end": {
+    "headline": "SHORT CATCHY HEADLINE IN CAPS (max 8 words)",
+    "description": "One sentence with urgency or benefit (max 20 words)",
+    "buttonText": "ACTION VERB + NOUN (max 4 words)"
+  }
+}
+
+Guidelines:
+- Headlines should be attention-grabbing and relevant to the topic
+- Descriptions should offer clear value
+- Button text should be action-oriented
+- Make the end CTA slightly more urgent than the middle one
+- NEVER use em dashes (—) or en dashes (–)`
+            },
+            {
+              role: "user",
+              content: `Generate two CTAs for an article about: ${topic}`
+            }
+          ],
+        }),
+      });
+
+      if (ctaResponse.ok) {
+        const ctaData = await ctaResponse.json();
+        const ctaText = ctaData.choices?.[0]?.message?.content;
+        if (ctaText) {
+          try {
+            // Clean the response - remove markdown code blocks if present
+            const cleanedText = ctaText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+            ctas = JSON.parse(cleanedText);
+            console.log("CTAs generated:", ctas);
+          } catch (e) {
+            console.error("Failed to parse CTA JSON:", e, ctaText);
+          }
+        }
+      }
+    }
+
     // Build metadata about what was applied
     const appliedRules = {
       gapAnalysisUsed: !!gapAnalysis && gapAnalysis.trim().length > 0,
@@ -204,7 +266,7 @@ ${contextContent}`;
     console.log("Applied rules:", appliedRules);
 
     return new Response(
-      JSON.stringify({ content, appliedRules }),
+      JSON.stringify({ content, appliedRules, ctas }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {

@@ -11,7 +11,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, Sparkles, FileText, Link, Search, X, Upload, Plus, Tag, Download } from "lucide-react";
+import { Loader2, Sparkles, FileText, Link, Search, X, Upload, Plus, Tag, Download, ExternalLink } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import ReactMarkdown from "react-markdown";
@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/collapsible";
 import { GenerationChecklist } from "@/components/GenerationChecklist";
 import { ContentVerification } from "@/components/ContentVerification";
+import { CTABanner, generateCTAHtml } from "@/components/CTABanner";
 
 const SAMPLE_CONTENT = `# Composite Bonding vs Veneers: Which Smile Transformation is Right for You?
 
@@ -187,6 +188,8 @@ const Index = () => {
   const [isUploadingFile, setIsUploadingFile] = useState(false);
   const [keywords, setKeywords] = useState<string[]>([]);
   const [keywordInput, setKeywordInput] = useState("");
+  const [ctaUrl, setCtaUrl] = useState("");
+  const [generatedCTAs, setGeneratedCTAs] = useState<{ middle: { headline: string; description: string; buttonText: string }; end: { headline: string; description: string; buttonText: string } } | null>(null);
 
   // Checklist items computation
   const checklistItems = useMemo(() => {
@@ -386,6 +389,7 @@ const Index = () => {
           gapAnalysis: gapAnalysis || undefined,
           formatReference: formatReference || undefined,
           contextFiles: contextFiles.length > 0 ? contextFiles : undefined,
+          generateCTAs: ctaUrl.trim().length > 0,
         },
       });
 
@@ -393,6 +397,9 @@ const Index = () => {
 
       setGeneratedContent(data.content);
       setAppliedRules(data.appliedRules || null);
+      if (data.ctas) {
+        setGeneratedCTAs(data.ctas);
+      }
       toast({
         title: "Content generated!",
         description: "Your article has been created successfully.",
@@ -751,6 +758,28 @@ const Index = () => {
                 />
               </div>
 
+              {/* CTA URL */}
+              <div className="space-y-2">
+                <Label htmlFor="cta-url" className="flex items-center gap-2">
+                  <ExternalLink className="h-4 w-4" />
+                  Call-to-Action URL (optional)
+                </Label>
+                <p className="text-sm text-muted-foreground">
+                  Add a URL to include two relevant CTA banners in the article
+                </p>
+                <Input
+                  id="cta-url"
+                  placeholder="https://your-website.com/booking"
+                  value={ctaUrl}
+                  onChange={(e) => setCtaUrl(e.target.value)}
+                />
+                {ctaUrl.trim() && (
+                  <p className="text-xs text-primary">
+                    ✓ Two CTA banners will be generated (middle + end of article)
+                  </p>
+                )}
+              </div>
+
               {/* Pre-Generation Checklist */}
               <GenerationChecklist items={checklistItems} />
 
@@ -816,7 +845,8 @@ const Index = () => {
                               });
                             }
                           } else {
-                            h2.setAttribute("style", "font-size: 1.5rem; margin-top: 2rem; margin-bottom: 0.75rem; color: #1f2937; border-bottom: 2px solid #e5e7eb; padding-bottom: 0.5rem;");
+                            // Remove border-bottom from H2s
+                            h2.setAttribute("style", "font-size: 1.5rem; margin-top: 2rem; margin-bottom: 0.75rem; color: #1f2937;");
                           }
                         });
                         
@@ -859,7 +889,25 @@ const Index = () => {
                           strong.setAttribute("style", "font-weight: 600; color: #111827;");
                         });
                         tempDiv.querySelectorAll("hr").forEach((hr) => {
-                          hr.setAttribute("style", "border: none; border-top: 1px solid #e5e7eb; margin: 2rem 0;");
+                          // Remove horizontal rules
+                          hr.remove();
+                        });
+                        
+                        // Style CTA banners for export
+                        tempDiv.querySelectorAll(".cta-banner").forEach((cta) => {
+                          cta.setAttribute("style", "background: linear-gradient(135deg, #4a2875 0%, #5a2070 100%); border-radius: 12px; padding: 32px; text-align: center; margin: 32px 0;");
+                          const headline = cta.querySelector(".cta-headline");
+                          if (headline) {
+                            headline.setAttribute("style", "font-size: 1.25rem; font-weight: 700; letter-spacing: 0.025em; margin-bottom: 8px; color: #d8a8e8;");
+                          }
+                          const description = cta.querySelector(".cta-description");
+                          if (description) {
+                            description.setAttribute("style", "font-size: 0.95rem; margin-bottom: 20px; color: white; opacity: 0.95;");
+                          }
+                          const button = cta.querySelector(".cta-button");
+                          if (button) {
+                            button.setAttribute("style", "display: inline-block; background: linear-gradient(135deg, #e04060 0%, #c04080 100%); color: white; font-weight: 600; padding: 12px 32px; border-radius: 9999px; text-decoration: none;");
+                          }
                         });
                         
                         // Build clean HTML for CMS paste
@@ -964,24 +1012,76 @@ ${tempDiv.innerHTML}
                     }}
                   />
                   
-                  {/* Generated Article */}
+                  {/* Generated Article with CTAs */}
                   <article className="prose prose-sm max-w-none dark:prose-invert">
-                    <ReactMarkdown 
-                      remarkPlugins={[remarkGfm]}
-                      components={{
-                        h2: ({ children, ...props }) => {
-                          const text = String(children).toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]/g, '');
-                          return <h2 id={text} {...props}>{children}</h2>;
-                        },
-                        a: ({ href, children, ...props }) => (
-                          <a href={href} target="_blank" rel="noopener noreferrer" {...props}>
-                            {children}
-                          </a>
-                        ),
-                      }}
-                    >
-                      {generatedContent}
-                    </ReactMarkdown>
+                    {(() => {
+                      // Split content to insert CTAs
+                      const lines = generatedContent.split('\n');
+                      const h2Indices: number[] = [];
+                      lines.forEach((line, idx) => {
+                        if (/^## /.test(line) && !/tldr/i.test(line)) {
+                          h2Indices.push(idx);
+                        }
+                      });
+                      
+                      // Insert middle CTA after ~40% of H2s
+                      const middleInsertIndex = h2Indices.length > 2 
+                        ? h2Indices[Math.floor(h2Indices.length * 0.4)]
+                        : -1;
+                      
+                      const parts: { content: string; ctaPosition?: 'middle' | 'end' }[] = [];
+                      
+                      if (middleInsertIndex > 0 && generatedCTAs?.middle && ctaUrl) {
+                        parts.push({ content: lines.slice(0, middleInsertIndex).join('\n') });
+                        parts.push({ content: '', ctaPosition: 'middle' });
+                        parts.push({ content: lines.slice(middleInsertIndex).join('\n') });
+                      } else {
+                        parts.push({ content: generatedContent });
+                      }
+                      
+                      return (
+                        <>
+                          {parts.map((part, idx) => (
+                            <div key={idx}>
+                              {part.ctaPosition === 'middle' && generatedCTAs?.middle && ctaUrl ? (
+                                <CTABanner
+                                  headline={generatedCTAs.middle.headline}
+                                  description={generatedCTAs.middle.description}
+                                  buttonText={generatedCTAs.middle.buttonText}
+                                  url={ctaUrl}
+                                />
+                              ) : part.content ? (
+                                <ReactMarkdown 
+                                  remarkPlugins={[remarkGfm]}
+                                  components={{
+                                    h2: ({ children, ...props }) => {
+                                      const text = String(children).toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]/g, '');
+                                      return <h2 id={text} {...props}>{children}</h2>;
+                                    },
+                                    a: ({ href, children, ...props }) => (
+                                      <a href={href} target="_blank" rel="noopener noreferrer" {...props}>
+                                        {children}
+                                      </a>
+                                    ),
+                                  }}
+                                >
+                                  {part.content}
+                                </ReactMarkdown>
+                              ) : null}
+                            </div>
+                          ))}
+                          {/* End CTA */}
+                          {generatedCTAs?.end && ctaUrl && (
+                            <CTABanner
+                              headline={generatedCTAs.end.headline}
+                              description={generatedCTAs.end.description}
+                              buttonText={generatedCTAs.end.buttonText}
+                              url={ctaUrl}
+                            />
+                          )}
+                        </>
+                      );
+                    })()}
                   </article>
                 </>
               ) : (
