@@ -1,211 +1,272 @@
-import { useState, useCallback } from "react";
-import { useConversation } from "@elevenlabs/react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Mic, MicOff, Loader2, Volume2, VolumeX, Settings2 } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { Mic, MicOff, Loader2, Send, Volume2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
 
 interface VoiceEditAgentProps {
   content: string;
   onContentUpdate: (newContent: string) => void;
 }
 
+// Define types for Web Speech API
+interface SpeechRecognitionResult {
+  isFinal: boolean;
+  [index: number]: { transcript: string };
+}
+
+interface SpeechRecognitionResultList {
+  length: number;
+  [index: number]: SpeechRecognitionResult;
+}
+
+interface SpeechRecognitionEvent extends Event {
+  resultIndex: number;
+  results: SpeechRecognitionResultList;
+}
+
+interface SpeechRecognitionErrorEvent extends Event {
+  error: string;
+}
+
+interface SpeechRecognitionInstance extends EventTarget {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  onstart: ((this: SpeechRecognitionInstance, ev: Event) => void) | null;
+  onresult: ((this: SpeechRecognitionInstance, ev: SpeechRecognitionEvent) => void) | null;
+  onerror: ((this: SpeechRecognitionInstance, ev: SpeechRecognitionErrorEvent) => void) | null;
+  onend: ((this: SpeechRecognitionInstance, ev: Event) => void) | null;
+  start(): void;
+  stop(): void;
+}
+
+interface SpeechRecognitionConstructor {
+  new (): SpeechRecognitionInstance;
+}
+
+// Check if browser supports speech recognition
+const getSpeechRecognition = (): SpeechRecognitionConstructor | null => {
+  const win = window as unknown as { 
+    SpeechRecognition?: SpeechRecognitionConstructor; 
+    webkitSpeechRecognition?: SpeechRecognitionConstructor 
+  };
+  return win.SpeechRecognition || win.webkitSpeechRecognition || null;
+};
+
 export function VoiceEditAgent({ content, onContentUpdate }: VoiceEditAgentProps) {
-  const [isConnecting, setIsConnecting] = useState(false);
-  const [agentId, setAgentId] = useState("");
-  const [showConfig, setShowConfig] = useState(false);
-  const [lastTranscript, setLastTranscript] = useState("");
+  const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [transcript, setTranscript] = useState("");
+  const [editHistory, setEditHistory] = useState<{ command: string; timestamp: Date }[]>([]);
+  const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
 
-  const conversation = useConversation({
-    onConnect: () => {
-      console.log("Connected to voice agent");
-      toast.success("Voice agent connected! Start speaking your edit instructions.");
-    },
-    onDisconnect: () => {
-      console.log("Disconnected from voice agent");
-      toast.info("Voice agent disconnected");
-    },
-    onMessage: async (message) => {
-      console.log("Voice message:", message);
-      
-      // Handle user transcript - this is the edit instruction
-      const messageAny = message as unknown as Record<string, unknown>;
-      if (messageAny.type === "user_transcript") {
-        const userTranscriptionEvent = messageAny.user_transcription_event as { user_transcript?: string } | undefined;
-        const transcript = userTranscriptionEvent?.user_transcript;
-        if (transcript) {
-          setLastTranscript(transcript);
-          await processEditInstruction(transcript);
-        }
+  const SpeechRecognition = getSpeechRecognition();
+  const supportsVoice = !!SpeechRecognition;
+
+  useEffect(() => {
+    return () => {
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
       }
-    },
-    onError: (error) => {
-      console.error("Voice agent error:", error);
-      toast.error("Voice agent error. Please try again.");
-    },
-  });
+    };
+  }, []);
 
-  const processEditInstruction = async (instruction: string) => {
-    if (!content || !instruction.trim()) return;
+  const processEditCommand = useCallback(async (command: string) => {
+    if (!content || !command.trim()) return;
     
     setIsProcessing(true);
     try {
+      console.log("Processing edit command:", command);
+      
       const { data, error } = await supabase.functions.invoke("voice-edit-content", {
-        body: { content, instruction },
+        body: { content, instruction: command },
       });
 
       if (error) throw error;
       if (!data?.content) throw new Error("No edited content returned");
 
       onContentUpdate(data.content);
-      toast.success(`Applied: "${instruction}"`);
+      setEditHistory(prev => [...prev, { command, timestamp: new Date() }]);
+      toast.success(`Applied: "${command}"`);
+      setTranscript("");
     } catch (error) {
       console.error("Edit processing error:", error);
       toast.error("Failed to apply edit. Please try again.");
     } finally {
       setIsProcessing(false);
     }
-  };
+  }, [content, onContentUpdate]);
 
-  const startConversation = useCallback(async () => {
-    if (!agentId.trim()) {
-      toast.error("Please enter your ElevenLabs Agent ID");
-      setShowConfig(true);
+  const startRecording = useCallback(() => {
+    if (!SpeechRecognition) {
+      toast.error("Voice recognition not supported in this browser. Try Chrome or Edge.");
       return;
     }
 
-    setIsConnecting(true);
-    try {
-      // Request microphone permission
-      await navigator.mediaDevices.getUserMedia({ audio: true });
+    const recognition = new SpeechRecognition();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = "en-US";
 
-      // For public agents (no authentication), connect directly with agent ID
-      await conversation.startSession({
-        agentId: agentId.trim(),
-        connectionType: "webrtc",
+    recognition.onstart = () => {
+      console.log("Speech recognition started");
+      setIsRecording(true);
+    };
+
+    recognition.onresult = (event) => {
+      let finalTranscript = "";
+      let interimTranscript = "";
+
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const result = event.results[i];
+        if (result.isFinal) {
+          finalTranscript += result[0].transcript;
+        } else {
+          interimTranscript += result[0].transcript;
+        }
+      }
+
+      setTranscript(prev => {
+        if (finalTranscript) {
+          return prev + finalTranscript;
+        }
+        return prev + interimTranscript;
       });
-    } catch (error) {
-      console.error("Failed to start conversation:", error);
-      toast.error("Failed to connect voice agent. Check your Agent ID and microphone permissions.");
-    } finally {
-      setIsConnecting(false);
+    };
+
+    recognition.onerror = (event) => {
+      console.error("Speech recognition error:", event.error);
+      if (event.error !== "aborted") {
+        toast.error(`Voice recognition error: ${event.error}`);
+      }
+      setIsRecording(false);
+    };
+
+    recognition.onend = () => {
+      console.log("Speech recognition ended");
+      setIsRecording(false);
+    };
+
+    recognitionRef.current = recognition;
+    recognition.start();
+  }, []);
+
+  const stopRecording = useCallback(() => {
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+      recognitionRef.current = null;
     }
-  }, [conversation, agentId]);
+    setIsRecording(false);
+  }, []);
 
-  const stopConversation = useCallback(async () => {
-    await conversation.endSession();
-  }, [conversation]);
+  const handleSendCommand = () => {
+    if (transcript.trim()) {
+      processEditCommand(transcript.trim());
+    }
+  };
 
-  const isConnected = conversation.status === "connected";
+  if (!content) {
+    return null;
+  }
 
   return (
     <Card className="border-primary/20">
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center justify-between text-base">
           <div className="flex items-center gap-2">
-            <Mic className="h-4 w-4" />
-            Voice Edit Agent
+            <Volume2 className="h-4 w-4" />
+            Voice Edit Commands
           </div>
-          <div className="flex items-center gap-2">
-            {isConnected && (
-              <Badge variant={conversation.isSpeaking ? "default" : "secondary"}>
-                {conversation.isSpeaking ? (
-                  <><Volume2 className="h-3 w-3 mr-1" /> Speaking</>
-                ) : (
-                  <><VolumeX className="h-3 w-3 mr-1" /> Listening</>
-                )}
-              </Badge>
-            )}
-            <Badge variant={isConnected ? "default" : "outline"}>
-              {isConnected ? "Connected" : "Disconnected"}
+          {isProcessing && (
+            <Badge variant="secondary">
+              <Loader2 className="h-3 w-3 mr-1 animate-spin" /> Processing...
             </Badge>
-          </div>
+          )}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <Collapsible open={showConfig} onOpenChange={setShowConfig}>
-          <CollapsibleTrigger asChild>
-            <Button variant="ghost" size="sm" className="w-full justify-start">
-              <Settings2 className="h-4 w-4 mr-2" />
-              {showConfig ? "Hide Configuration" : "Configure Agent ID"}
-            </Button>
-          </CollapsibleTrigger>
-          <CollapsibleContent className="pt-3">
-            <div className="space-y-2">
-              <Label htmlFor="agentId">ElevenLabs Agent ID</Label>
-              <Input
-                id="agentId"
-                value={agentId}
-                onChange={(e) => setAgentId(e.target.value)}
-                placeholder="Enter your ElevenLabs Agent ID"
-                className="font-mono text-sm"
-              />
-              <p className="text-xs text-muted-foreground">
-                Create an agent at{" "}
-                <a
-                  href="https://elevenlabs.io/conversational-ai"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-primary underline"
-                >
-                  ElevenLabs Conversational AI
-                </a>
-              </p>
-            </div>
-          </CollapsibleContent>
-        </Collapsible>
+        <p className="text-sm text-muted-foreground">
+          Speak or type editing commands like: "Extend the introduction by two paragraphs" or "Add three bullet points to the benefits section"
+        </p>
 
+        {/* Voice recording button */}
         <div className="flex gap-2">
-          {!isConnected ? (
+          {supportsVoice && (
             <Button
-              onClick={startConversation}
-              disabled={isConnecting || !agentId.trim()}
-              className="flex-1"
+              variant={isRecording ? "destructive" : "outline"}
+              onClick={isRecording ? stopRecording : startRecording}
+              disabled={isProcessing}
+              className="flex-shrink-0"
             >
-              {isConnecting ? (
-                <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Connecting...</>
+              {isRecording ? (
+                <>
+                  <MicOff className="h-4 w-4 mr-2" />
+                  Stop
+                </>
               ) : (
-                <><Mic className="h-4 w-4 mr-2" /> Start Voice Editing</>
+                <>
+                  <Mic className="h-4 w-4 mr-2" />
+                  Record
+                </>
               )}
             </Button>
-          ) : (
-            <Button
-              onClick={stopConversation}
-              variant="destructive"
-              className="flex-1"
-            >
-              <MicOff className="h-4 w-4 mr-2" /> Stop
-            </Button>
           )}
+          
+          <div className="flex-1 relative">
+            <Textarea
+              value={transcript}
+              onChange={(e) => setTranscript(e.target.value)}
+              placeholder={isRecording ? "Listening... speak your edit command" : "Type your edit command here..."}
+              className="min-h-[60px] pr-12 resize-none"
+              disabled={isProcessing}
+            />
+            <Button
+              size="icon"
+              variant="ghost"
+              className="absolute right-2 bottom-2"
+              onClick={handleSendCommand}
+              disabled={!transcript.trim() || isProcessing}
+            >
+              {isProcessing ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Send className="h-4 w-4" />
+              )}
+            </Button>
+          </div>
         </div>
 
-        {isProcessing && (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            Applying edit...
+        {isRecording && (
+          <div className="flex items-center gap-2 text-sm text-primary">
+            <span className="relative flex h-3 w-3">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-3 w-3 bg-primary"></span>
+            </span>
+            Listening... speak your command, then click Stop and Send
           </div>
         )}
 
-        {lastTranscript && (
-          <div className="text-sm">
-            <span className="text-muted-foreground">Last instruction: </span>
-            <span className="italic">"{lastTranscript}"</span>
+        {/* Recent edits */}
+        {editHistory.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-xs font-medium text-muted-foreground">Recent edits:</p>
+            <div className="space-y-1 max-h-24 overflow-y-auto">
+              {editHistory.slice(-3).reverse().map((edit, idx) => (
+                <div key={idx} className="text-xs text-muted-foreground bg-muted/50 rounded px-2 py-1">
+                  "{edit.command}"
+                </div>
+              ))}
+            </div>
           </div>
         )}
 
-        {!content && (
-          <p className="text-sm text-muted-foreground">
-            Generate content first to enable voice editing.
+        {!supportsVoice && (
+          <p className="text-xs text-amber-600">
+            Voice recording not supported in this browser. You can still type commands.
           </p>
         )}
       </CardContent>
