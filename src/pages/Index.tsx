@@ -95,11 +95,49 @@ To ensure the veneers don't look bulky, a small amount of enamel (usually less t
 
 ---
 
+## Frequently Asked Questions
+
+**Is composite bonding reversible?**
+
+Composite bonding is largely reversible, though the enamel surface may not return to its original state.
+
+**Do veneers ruin teeth?**
+
+Veneers permanently remove enamel, which is irreversible. However, when done properly by a skilled dentist, they protect and enhance your teeth.
+
+**Which lasts longer?**
+
+Porcelain veneers last significantly longer than composite bonding—typically 10-15+ years compared to 5-8 years.
+
+**Can bonding stain?**
+
+Yes. Composite resin absorbs pigments over time from coffee, tea, red wine, and smoking.
+
+**Can veneers be whitened?**
+
+No. Veneers must be replaced to change colour. It's recommended to whiten natural teeth before getting veneers.
+
+---
+
 ## Final Thoughts
 
 The right choice depends on the scale of change you want, how long you want results to last, and whether you are comfortable with permanent enamel alteration. Bonding prioritises flexibility and tooth preservation. Veneers prioritise longevity, colour stability, and comprehensive aesthetic change.
 
 **Ready to take the next step?** Schedule a consultation with a cosmetic dentist today to see what your new smile could look like!
+
+---
+
+## References:
+
+[Composite bonding vs veneers: What's the difference? - Bupa](https://www.bupa.co.uk/newsroom/ourviews/composite-bonding-vs-veneers)
+
+[What Is Dental Bonding? - Cleveland Clinic](https://my.clevelandclinic.org/health/treatments/10922-dental-bonding)
+
+[Long-Term Survival and Complication Rates of Porcelain Laminate Veneers - NIH](https://pmc.ncbi.nlm.nih.gov/articles/PMC7961608/)
+
+[Composite bonding - Bupa Dental Care](https://www.bupa.co.uk/dental/dental-care/treatments/composite-bonding)
+
+[Dental Veneers: Benefits, Procedure, Costs, and Results - Healthline](https://www.healthline.com/health/dental-veneers)
 `;
 
 const Index = () => {
