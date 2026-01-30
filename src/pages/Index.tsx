@@ -11,15 +11,23 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, Sparkles, FileText } from "lucide-react";
+import { Loader2, Sparkles, FileText, Link, Search, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import ReactMarkdown from "react-markdown";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 
 const Index = () => {
   const { toast } = useToast();
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [generatedContent, setGeneratedContent] = useState("");
+  const [gapAnalysis, setGapAnalysis] = useState("");
+  const [formatReference, setFormatReference] = useState("");
   
   const [formData, setFormData] = useState({
     topic: "",
@@ -27,6 +35,79 @@ const Index = () => {
     outline: "",
     instructions: "",
   });
+
+  const [competitorUrls, setCompetitorUrls] = useState(["", "", ""]);
+  const [formatUrl, setFormatUrl] = useState("");
+
+  const handleAnalyzeUrls = async () => {
+    const validUrls = competitorUrls.filter((url) => url.trim());
+    if (validUrls.length === 0) {
+      toast({
+        title: "URLs required",
+        description: "Please enter at least one competitor URL.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsAnalyzing(true);
+    setGapAnalysis("");
+
+    try {
+      const { data, error } = await supabase.functions.invoke("analyze-urls", {
+        body: { urls: validUrls, topic: formData.topic },
+      });
+
+      if (error) throw error;
+
+      setGapAnalysis(data.gapAnalysis);
+      toast({
+        title: "Analysis complete!",
+        description: `Analyzed ${data.articles.length} article(s).`,
+      });
+    } catch (error) {
+      console.error("Analysis error:", error);
+      toast({
+        title: "Analysis failed",
+        description: error instanceof Error ? error.message : "Failed to analyze URLs",
+        variant: "destructive",
+      });
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
+  const handleFetchFormat = async () => {
+    if (!formatUrl.trim()) {
+      toast({
+        title: "URL required",
+        description: "Please enter a URL to use as format reference.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase.functions.invoke("scrape-format", {
+        body: { url: formatUrl },
+      });
+
+      if (error) throw error;
+
+      setFormatReference(data.markdown);
+      toast({
+        title: "Format captured!",
+        description: `Using format from: ${data.title}`,
+      });
+    } catch (error) {
+      console.error("Format fetch error:", error);
+      toast({
+        title: "Failed to fetch format",
+        description: error instanceof Error ? error.message : "Could not scrape the URL",
+        variant: "destructive",
+      });
+    }
+  };
 
   const handleGenerate = async () => {
     if (!formData.topic.trim()) {
@@ -43,7 +124,11 @@ const Index = () => {
 
     try {
       const { data, error } = await supabase.functions.invoke("generate-content", {
-        body: formData,
+        body: {
+          ...formData,
+          gapAnalysis: gapAnalysis || undefined,
+          formatReference: formatReference || undefined,
+        },
       });
 
       if (error) throw error;
@@ -76,7 +161,7 @@ const Index = () => {
       </header>
 
       <div className="container mx-auto px-4 py-6">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-[calc(100vh-120px)]">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 min-h-[calc(100vh-120px)]">
           {/* Left Panel - Form */}
           <Card className="flex flex-col">
             <CardHeader className="pb-4">
@@ -99,6 +184,111 @@ const Index = () => {
                 />
               </div>
 
+              {/* Competitor URLs Section */}
+              <Collapsible className="space-y-2">
+                <CollapsibleTrigger asChild>
+                  <Button variant="outline" className="w-full justify-between">
+                    <span className="flex items-center gap-2">
+                      <Search className="h-4 w-4" />
+                      Competitor Analysis (Optional)
+                    </span>
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="space-y-3 pt-2">
+                  <p className="text-sm text-muted-foreground">
+                    Add up to 3 top-ranking article URLs for gap analysis
+                  </p>
+                  {competitorUrls.map((url, index) => (
+                    <div key={index} className="flex gap-2">
+                      <Input
+                        placeholder={`Competitor URL ${index + 1}`}
+                        value={url}
+                        onChange={(e) => {
+                          const newUrls = [...competitorUrls];
+                          newUrls[index] = e.target.value;
+                          setCompetitorUrls(newUrls);
+                        }}
+                      />
+                      {url && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => {
+                            const newUrls = [...competitorUrls];
+                            newUrls[index] = "";
+                            setCompetitorUrls(newUrls);
+                          }}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                  <Button
+                    variant="secondary"
+                    className="w-full"
+                    onClick={handleAnalyzeUrls}
+                    disabled={isAnalyzing || !competitorUrls.some((u) => u.trim())}
+                  >
+                    {isAnalyzing ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Analyzing...
+                      </>
+                    ) : (
+                      <>
+                        <Search className="mr-2 h-4 w-4" />
+                        Run Gap Analysis
+                      </>
+                    )}
+                  </Button>
+                  {gapAnalysis && (
+                    <div className="rounded-md bg-muted p-3 text-sm">
+                      <p className="font-medium mb-2">Gap Analysis Results:</p>
+                      <div className="prose prose-sm dark:prose-invert max-w-none">
+                        <ReactMarkdown>{gapAnalysis}</ReactMarkdown>
+                      </div>
+                    </div>
+                  )}
+                </CollapsibleContent>
+              </Collapsible>
+
+              {/* Format Reference URL */}
+              <Collapsible className="space-y-2">
+                <CollapsibleTrigger asChild>
+                  <Button variant="outline" className="w-full justify-between">
+                    <span className="flex items-center gap-2">
+                      <Link className="h-4 w-4" />
+                      Format Reference (Optional)
+                    </span>
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="space-y-3 pt-2">
+                  <p className="text-sm text-muted-foreground">
+                    Match the format/structure of an existing article
+                  </p>
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="Enter URL to use as format reference"
+                      value={formatUrl}
+                      onChange={(e) => setFormatUrl(e.target.value)}
+                    />
+                    <Button
+                      variant="secondary"
+                      onClick={handleFetchFormat}
+                      disabled={!formatUrl.trim()}
+                    >
+                      Capture
+                    </Button>
+                  </div>
+                  {formatReference && (
+                    <div className="rounded-md bg-muted p-3 text-sm text-muted-foreground">
+                      ✓ Format captured - will be used during generation
+                    </div>
+                  )}
+                </CollapsibleContent>
+              </Collapsible>
+
               {/* Length */}
               <div className="space-y-2">
                 <Label>How long would you like the blog post to be?</Label>
@@ -120,12 +310,12 @@ const Index = () => {
               </div>
 
               {/* Outline */}
-              <div className="space-y-2 flex-1">
+              <div className="space-y-2">
                 <Label htmlFor="outline">What is the outline of your post?</Label>
                 <Textarea
                   id="outline"
                   placeholder="- Introduction&#10;- Main points&#10;- Conclusion"
-                  className="min-h-[120px] resize-none"
+                  className="min-h-[100px] resize-none"
                   value={formData.outline}
                   onChange={(e) =>
                     setFormData((prev) => ({ ...prev, outline: e.target.value }))
@@ -141,7 +331,7 @@ const Index = () => {
                 <Textarea
                   id="instructions"
                   placeholder="e.g., Use a professional tone, include statistics, add a TL;DR section..."
-                  className="min-h-[80px] resize-none"
+                  className="min-h-[60px] resize-none"
                   value={formData.instructions}
                   onChange={(e) =>
                     setFormData((prev) => ({ ...prev, instructions: e.target.value }))
