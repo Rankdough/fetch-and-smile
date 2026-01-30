@@ -15,12 +15,19 @@ interface AppliedRules {
   customInstructionsProvided: boolean;
 }
 
+interface CTAData {
+  middle?: { headline: string; description: string; buttonText: string };
+  end?: { headline: string; description: string; buttonText: string };
+}
+
 interface ContentVerificationProps {
   content: string;
   appliedRules: AppliedRules | null;
   onFixEmDashes?: () => void;
   onFixHorizontalLines?: () => void;
   onRegenerateForWordCount?: () => void;
+  ctaUrl?: string;
+  generatedCTAs?: CTAData | null;
 }
 
 interface VerificationItem {
@@ -37,7 +44,9 @@ export const ContentVerification = ({
   appliedRules, 
   onFixEmDashes,
   onFixHorizontalLines,
-  onRegenerateForWordCount 
+  onRegenerateForWordCount,
+  ctaUrl,
+  generatedCTAs
 }: ContentVerificationProps) => {
   const verificationResults = useMemo(() => {
     const results: VerificationItem[] = [];
@@ -190,8 +199,24 @@ export const ContentVerification = ({
       fixType: "horizontal-line",
     });
 
+    // Check for CTA banners
+    if (ctaUrl && ctaUrl.trim()) {
+      const hasBothCTAs = generatedCTAs?.middle && generatedCTAs?.end;
+      const hasAnyCTA = generatedCTAs?.middle || generatedCTAs?.end;
+      results.push({
+        id: "cta-banners",
+        label: "Call-to-action banners",
+        status: hasBothCTAs ? "passed" : hasAnyCTA ? "warning" : "failed",
+        details: hasBothCTAs 
+          ? "Middle and end CTA banners generated" 
+          : hasAnyCTA 
+            ? "Only one CTA banner generated" 
+            : "No CTA banners generated - regenerate content",
+      });
+    }
+
     return results;
-  }, [content, appliedRules]);
+  }, [content, appliedRules, ctaUrl, generatedCTAs]);
 
   const passedCount = verificationResults.filter((r) => r.status === "passed").length;
   const totalCount = verificationResults.length;

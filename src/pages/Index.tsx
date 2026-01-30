@@ -1033,6 +1033,8 @@ ${tempDiv.innerHTML}
                         setIsGenerating(false);
                       }
                     }}
+                    ctaUrl={ctaUrl}
+                    generatedCTAs={generatedCTAs}
                   />
                   
                   {/* Generated Article with CTAs */}
