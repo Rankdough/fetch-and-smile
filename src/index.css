@@ -119,7 +119,7 @@ All colors MUST be HSL.
 }
 
 .prose h2 {
-  @apply text-2xl font-semibold mt-8 mb-4 text-foreground border-b border-border pb-2;
+  @apply text-2xl font-semibold mt-8 mb-4 text-foreground;
 }
 
 /* TL;DR section styling - targets H2 containing TL;DR and wraps with sibling list */
@@ -191,7 +191,7 @@ All colors MUST be HSL.
 }
 
 .prose hr {
-  @apply my-8 border-border;
+  @apply hidden;
 }
 
 .prose strong {
