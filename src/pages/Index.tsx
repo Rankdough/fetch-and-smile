@@ -594,15 +594,27 @@ const Index = () => {
                   <Tag className="h-4 w-4" />
                   SEO Keywords (up to 10, top 5 used)
                 </Label>
+                <p className="text-sm text-muted-foreground">
+                  Paste comma-separated keywords or add one at a time
+                </p>
                 <div className="flex gap-2">
                   <Input
-                    placeholder="Enter a keyword and press Add"
+                    placeholder="e.g., keyword1, keyword2, keyword3"
                     value={keywordInput}
                     onChange={(e) => setKeywordInput(e.target.value)}
                     onKeyDown={(e) => {
-                      if (e.key === "Enter" && keywordInput.trim() && keywords.length < 10) {
+                      if (e.key === "Enter" && keywordInput.trim()) {
                         e.preventDefault();
-                        setKeywords((prev) => [...prev, keywordInput.trim()]);
+                        // Parse comma-separated keywords
+                        const newKeywords = keywordInput
+                          .split(",")
+                          .map((k) => k.trim())
+                          .filter((k) => k.length > 0);
+                        const availableSlots = 10 - keywords.length;
+                        const keywordsToAdd = newKeywords.slice(0, availableSlots);
+                        if (keywordsToAdd.length > 0) {
+                          setKeywords((prev) => [...prev, ...keywordsToAdd]);
+                        }
                         setKeywordInput("");
                       }
                     }}
@@ -611,16 +623,25 @@ const Index = () => {
                   <Button
                     type="button"
                     variant="outline"
-                    size="icon"
                     onClick={() => {
-                      if (keywordInput.trim() && keywords.length < 10) {
-                        setKeywords((prev) => [...prev, keywordInput.trim()]);
+                      if (keywordInput.trim()) {
+                        // Parse comma-separated keywords
+                        const newKeywords = keywordInput
+                          .split(",")
+                          .map((k) => k.trim())
+                          .filter((k) => k.length > 0);
+                        const availableSlots = 10 - keywords.length;
+                        const keywordsToAdd = newKeywords.slice(0, availableSlots);
+                        if (keywordsToAdd.length > 0) {
+                          setKeywords((prev) => [...prev, ...keywordsToAdd]);
+                        }
                         setKeywordInput("");
                       }
                     }}
                     disabled={!keywordInput.trim() || keywords.length >= 10}
                   >
-                    <Plus className="h-4 w-4" />
+                    <Plus className="h-4 w-4 mr-1" />
+                    Add
                   </Button>
                 </div>
                 {keywords.length > 0 && (
@@ -645,6 +666,15 @@ const Index = () => {
                         </button>
                       </div>
                     ))}
+                    {keywords.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setKeywords([])}
+                        className="text-xs text-muted-foreground hover:text-destructive underline"
+                      >
+                        Clear all
+                      </button>
+                    )}
                   </div>
                 )}
                 {keywords.length >= 10 && (
