@@ -89,13 +89,28 @@ export const ContentVerification = ({ content, appliedRules }: ContentVerificati
       });
     }
 
-    // Check context files were used
+    // Check context files were used and references cited
     if (appliedRules?.contextFilesUsed && appliedRules.contextFileNames.length > 0) {
+      // Check if any content from context files is likely referenced
+      // Look for source citations or references section
+      const hasReferencesSection = /## References/im.test(content);
+      const hasSourceLinks = /\*\*Sources?:\*\*.*\[.+\]\(.+\)/im.test(content);
+      const hasCitations = hasReferencesSection || hasSourceLinks;
+      
       results.push({
         id: "context-files",
         label: "Context files incorporated",
         status: "passed",
-        details: `Used: ${appliedRules.contextFileNames.join(", ")}`,
+        details: `Uploaded: ${appliedRules.contextFileNames.join(", ")}`,
+      });
+
+      results.push({
+        id: "context-references-cited",
+        label: "References from context files cited",
+        status: hasCitations ? "passed" : "warning",
+        details: hasCitations 
+          ? "Source citations found in content" 
+          : "No explicit source citations detected - verify references were included",
       });
     }
 
