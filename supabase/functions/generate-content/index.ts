@@ -161,8 +161,21 @@ ${contextContent}`;
 
     console.log("Content generated successfully");
 
+    // Build metadata about what was applied
+    const appliedRules = {
+      gapAnalysisUsed: !!gapAnalysis && gapAnalysis.trim().length > 0,
+      formatReferenceUsed: !!formatReference && formatReference.trim().length > 0,
+      contextFilesUsed: contextFiles && Array.isArray(contextFiles) && contextFiles.length > 0,
+      contextFileNames: contextFiles?.map((f: { name: string }) => f.name) || [],
+      targetWordCount: targetWords,
+      outlineProvided: !!outline && outline.trim().length > 0,
+      customInstructionsProvided: !!instructions && instructions.trim().length > 0,
+    };
+
+    console.log("Applied rules:", appliedRules);
+
     return new Response(
-      JSON.stringify({ content }),
+      JSON.stringify({ content, appliedRules }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
