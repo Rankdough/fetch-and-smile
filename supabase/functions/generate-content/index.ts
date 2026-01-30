@@ -48,6 +48,16 @@ CRITICAL MARKDOWN FORMATTING RULES:
 - Add > blockquotes for important callouts or key takeaways
 - Include a TL;DR or Key Takeaways section near the top
 
+SOURCE CITATION RULES:
+- Add inline citations using superscript format: [1], [2], etc.
+- Place citations after key facts, statistics, or claims
+- At the end of the article, add a "## Sources" or "## References" section
+- List all sources with their numbers and URLs/descriptions
+- Example format:
+  ## Sources
+  1. [Source Title](URL) - Brief description
+  2. [Another Source](URL) - Brief description
+
 Content Guidelines:
 - Start with a compelling hook that addresses the reader's pain point
 - Include comparison tables when comparing options
