@@ -89,23 +89,14 @@ export function VoiceEditAgent({ content, onContentUpdate }: VoiceEditAgentProps
       // Request microphone permission
       await navigator.mediaDevices.getUserMedia({ audio: true });
 
-      // Get token from edge function
-      const { data, error } = await supabase.functions.invoke(
-        "elevenlabs-conversation-token",
-        { body: { agentId } }
-      );
-
-      if (error) throw error;
-      if (!data?.token) throw new Error("No token received");
-
-      // Start the conversation with WebRTC
+      // For public agents (no authentication), connect directly with agent ID
       await conversation.startSession({
-        conversationToken: data.token,
+        agentId: agentId.trim(),
         connectionType: "webrtc",
       });
     } catch (error) {
       console.error("Failed to start conversation:", error);
-      toast.error("Failed to connect voice agent. Check your Agent ID.");
+      toast.error("Failed to connect voice agent. Check your Agent ID and microphone permissions.");
     } finally {
       setIsConnecting(false);
     }
