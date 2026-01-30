@@ -11,7 +11,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, Sparkles, FileText, Link, Search, X, Upload, Plus, Tag } from "lucide-react";
+import { Loader2, Sparkles, FileText, Link, Search, X, Upload, Plus, Tag, Download } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import ReactMarkdown from "react-markdown";
@@ -223,7 +223,12 @@ const Index = () => {
       },
       {
         id: "word-count",
-        label: `Word count selected (${formData.length === "short" ? "~500" : formData.length === "medium" ? "~1000" : "~2000"} words)`,
+        label: `Word count selected (${
+          formData.length === "short" ? "~500" : 
+          formData.length === "medium" ? "~1000" : 
+          formData.length === "long" ? "~2000" :
+          formData.length === "extended" ? "~3000" : "~3500"
+        } words)`,
         completed: true, // Always completed since there's a default
         required: true,
       },
@@ -698,6 +703,8 @@ const Index = () => {
                     <SelectItem value="short">Short (~500 words)</SelectItem>
                     <SelectItem value="medium">Medium (~1000 words)</SelectItem>
                     <SelectItem value="long">Long (~2000 words)</SelectItem>
+                    <SelectItem value="extended">Extended (~3000 words)</SelectItem>
+                    <SelectItem value="comprehensive">Comprehensive (~3500 words)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -761,13 +768,73 @@ const Index = () => {
           <Card className="flex flex-col">
             <CardHeader className="pb-4 flex flex-row items-center justify-between">
               <CardTitle className="text-lg">Generated Content</CardTitle>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setGeneratedContent(SAMPLE_CONTENT)}
-              >
-                Load Sample
-              </Button>
+              <div className="flex gap-2">
+                {generatedContent && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      // Convert markdown to HTML with clickable links
+                      const tempDiv = document.createElement("div");
+                      const articleElement = document.querySelector("article.prose");
+                      if (articleElement) {
+                        tempDiv.innerHTML = articleElement.innerHTML;
+                        // Ensure all links are properly formatted
+                        tempDiv.querySelectorAll("a").forEach((link) => {
+                          link.setAttribute("target", "_blank");
+                          link.setAttribute("rel", "noopener noreferrer");
+                        });
+                        const htmlContent = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Generated Article</title>
+  <style>
+    body { font-family: system-ui, -apple-system, sans-serif; max-width: 800px; margin: 0 auto; padding: 2rem; line-height: 1.6; color: #333; }
+    h1 { font-size: 2rem; margin-bottom: 1rem; }
+    h2 { font-size: 1.5rem; margin-top: 2rem; margin-bottom: 0.5rem; border-bottom: 1px solid #eee; padding-bottom: 0.5rem; }
+    h3 { font-size: 1.25rem; margin-top: 1.5rem; }
+    p { margin: 1rem 0; }
+    a { color: #2563eb; text-decoration: underline; }
+    a:hover { color: #1d4ed8; }
+    ul, ol { padding-left: 1.5rem; margin: 1rem 0; }
+    li { margin: 0.5rem 0; }
+    table { width: 100%; border-collapse: collapse; margin: 1.5rem 0; }
+    th, td { border: 1px solid #ddd; padding: 0.75rem; text-align: left; }
+    th { background: #f5f5f5; font-weight: 600; }
+    strong { font-weight: 600; }
+    hr { border: none; border-top: 1px solid #eee; margin: 2rem 0; }
+  </style>
+</head>
+<body>
+${tempDiv.innerHTML}
+</body>
+</html>`;
+                        const blob = new Blob([htmlContent], { type: "text/html" });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement("a");
+                        a.href = url;
+                        a.download = "article.html";
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(url);
+                      }
+                    }}
+                  >
+                    <Download className="h-4 w-4 mr-1" />
+                    Export HTML
+                  </Button>
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setGeneratedContent(SAMPLE_CONTENT)}
+                >
+                  Load Sample
+                </Button>
+              </div>
             </CardHeader>
             <CardContent className="flex-1 overflow-auto space-y-4">
               {generatedContent ? (

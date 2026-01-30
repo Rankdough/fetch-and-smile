@@ -31,6 +31,8 @@ serve(async (req) => {
       short: 500,
       medium: 1000,
       long: 2000,
+      extended: 3000,
+      comprehensive: 3500,
     };
     const targetWords = wordCounts[length] || 1000;
 
