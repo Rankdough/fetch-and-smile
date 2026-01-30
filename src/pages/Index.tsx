@@ -850,7 +850,12 @@ ${tempDiv.innerHTML}
                         h2: ({ children, ...props }) => {
                           const text = String(children).toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]/g, '');
                           return <h2 id={text} {...props}>{children}</h2>;
-                        }
+                        },
+                        a: ({ href, children, ...props }) => (
+                          <a href={href} target="_blank" rel="noopener noreferrer" {...props}>
+                            {children}
+                          </a>
+                        ),
                       }}
                     >
                       {generatedContent}
