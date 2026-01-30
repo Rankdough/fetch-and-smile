@@ -201,7 +201,9 @@ const Index = () => {
       },
       {
         id: "context-files",
-        label: "Context files uploaded (sources/references)",
+        label: hasContextFiles 
+          ? `Context files uploaded: ${contextFiles.map(f => f.name).join(", ")}`
+          : "Context files uploaded (sources/references will be cited)",
         completed: hasContextFiles,
         required: false,
       },
