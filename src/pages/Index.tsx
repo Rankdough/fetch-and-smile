@@ -840,7 +840,54 @@ ${tempDiv.innerHTML}
               {generatedContent ? (
                 <>
                   {/* Content Verification Panel */}
-                  <ContentVerification content={generatedContent} appliedRules={appliedRules} />
+                  <ContentVerification 
+                    content={generatedContent} 
+                    appliedRules={appliedRules}
+                    onFixEmDashes={() => {
+                      // Replace all em dashes with regular hyphens
+                      const fixed = generatedContent.replace(/—/g, "-");
+                      setGeneratedContent(fixed);
+                      toast({
+                        title: "Em dashes fixed",
+                        description: "All em dashes have been replaced with regular hyphens.",
+                      });
+                    }}
+                    onRegenerateForWordCount={async () => {
+                      if (!formData.topic.trim()) return;
+                      
+                      setIsGenerating(true);
+                      try {
+                        const targetWords = appliedRules?.targetWordCount || 1000;
+                        const { data, error } = await supabase.functions.invoke("generate-content", {
+                          body: {
+                            ...formData,
+                            keywords: keywords.length > 0 ? keywords.slice(0, 5) : undefined,
+                            gapAnalysis: gapAnalysis || undefined,
+                            formatReference: formatReference || undefined,
+                            contextFiles: contextFiles.length > 0 ? contextFiles : undefined,
+                            instructions: `${formData.instructions || ""}\n\nCRITICAL: The article MUST be at least ${targetWords} words. Expand each section with more detail, examples, and explanations to reach the target word count.`.trim(),
+                          },
+                        });
+
+                        if (error) throw error;
+                        setGeneratedContent(data.content);
+                        setAppliedRules(data.appliedRules || null);
+                        toast({
+                          title: "Content regenerated",
+                          description: "Article expanded to meet word count target.",
+                        });
+                      } catch (error) {
+                        console.error("Regeneration error:", error);
+                        toast({
+                          title: "Regeneration failed",
+                          description: error instanceof Error ? error.message : "Failed to regenerate",
+                          variant: "destructive",
+                        });
+                      } finally {
+                        setIsGenerating(false);
+                      }
+                    }}
+                  />
                   
                   {/* Generated Article */}
                   <article className="prose prose-sm max-w-none dark:prose-invert">
