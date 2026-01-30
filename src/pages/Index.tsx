@@ -774,57 +774,111 @@ const Index = () => {
                     variant="outline"
                     size="sm"
                     onClick={() => {
-                      // Convert markdown to HTML with clickable links
+                      // Convert markdown to HTML with styled content for CMS paste
                       const tempDiv = document.createElement("div");
                       const articleElement = document.querySelector("article.prose");
                       if (articleElement) {
                         tempDiv.innerHTML = articleElement.innerHTML;
+                        
                         // Ensure all links are properly formatted
                         tempDiv.querySelectorAll("a").forEach((link) => {
                           link.setAttribute("target", "_blank");
                           link.setAttribute("rel", "noopener noreferrer");
+                          link.setAttribute("style", "color: #7c3aed; text-decoration: underline;");
                         });
-                        const htmlContent = `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Generated Article</title>
-  <style>
-    body { font-family: system-ui, -apple-system, sans-serif; max-width: 800px; margin: 0 auto; padding: 2rem; line-height: 1.6; color: #333; }
-    h1 { font-size: 2rem; margin-bottom: 1rem; }
-    h2 { font-size: 1.5rem; margin-top: 2rem; margin-bottom: 0.5rem; border-bottom: 1px solid #eee; padding-bottom: 0.5rem; }
-    h3 { font-size: 1.25rem; margin-top: 1.5rem; }
-    p { margin: 1rem 0; }
-    a { color: #2563eb; text-decoration: underline; }
-    a:hover { color: #1d4ed8; }
-    ul, ol { padding-left: 1.5rem; margin: 1rem 0; }
-    li { margin: 0.5rem 0; }
-    table { width: 100%; border-collapse: collapse; margin: 1.5rem 0; }
-    th, td { border: 1px solid #ddd; padding: 0.75rem; text-align: left; }
-    th { background: #f5f5f5; font-weight: 600; }
-    strong { font-weight: 600; }
-    hr { border: none; border-top: 1px solid #eee; margin: 2rem 0; }
-  </style>
-</head>
-<body>
+                        
+                        // Style TL;DR section with purple background
+                        tempDiv.querySelectorAll("h2").forEach((h2) => {
+                          const text = h2.textContent?.toLowerCase() || "";
+                          if (text.includes("tl;dr") || text.includes("tldr")) {
+                            h2.setAttribute("style", "background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%); color: white; padding: 1rem 1.5rem; border-radius: 8px 8px 0 0; margin-bottom: 0; font-size: 1.25rem;");
+                            // Style the following ul if exists
+                            const nextEl = h2.nextElementSibling;
+                            if (nextEl && nextEl.tagName === "UL") {
+                              nextEl.setAttribute("style", "background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%); color: white; padding: 1rem 1.5rem 1.5rem 2.5rem; border-radius: 0 0 8px 8px; margin-top: 0; list-style-type: disc;");
+                              nextEl.querySelectorAll("li").forEach((li) => {
+                                li.setAttribute("style", "margin: 0.5rem 0; color: white;");
+                              });
+                              nextEl.querySelectorAll("strong").forEach((strong) => {
+                                strong.setAttribute("style", "color: white; font-weight: 700;");
+                              });
+                            }
+                          } else {
+                            h2.setAttribute("style", "font-size: 1.5rem; margin-top: 2rem; margin-bottom: 0.75rem; color: #1f2937; border-bottom: 2px solid #e5e7eb; padding-bottom: 0.5rem;");
+                          }
+                        });
+                        
+                        // Style tables with purple headers
+                        tempDiv.querySelectorAll("table").forEach((table) => {
+                          table.setAttribute("style", "width: 100%; border-collapse: collapse; margin: 1.5rem 0; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1);");
+                          table.querySelectorAll("th").forEach((th) => {
+                            th.setAttribute("style", "background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%); color: white; padding: 0.875rem 1rem; text-align: left; font-weight: 600; border: none;");
+                          });
+                          table.querySelectorAll("td").forEach((td) => {
+                            td.setAttribute("style", "padding: 0.875rem 1rem; border-bottom: 1px solid #e5e7eb; color: #374151;");
+                          });
+                          table.querySelectorAll("tr:nth-child(even) td").forEach((td) => {
+                            td.setAttribute("style", "padding: 0.875rem 1rem; border-bottom: 1px solid #e5e7eb; color: #374151; background: #f9fafb;");
+                          });
+                        });
+                        
+                        // Style other elements
+                        tempDiv.querySelectorAll("h1").forEach((h1) => {
+                          h1.setAttribute("style", "font-size: 2.25rem; font-weight: 700; color: #111827; margin-bottom: 1.5rem; line-height: 1.2;");
+                        });
+                        tempDiv.querySelectorAll("h3").forEach((h3) => {
+                          h3.setAttribute("style", "font-size: 1.25rem; font-weight: 600; color: #1f2937; margin-top: 1.5rem; margin-bottom: 0.5rem;");
+                        });
+                        tempDiv.querySelectorAll("p").forEach((p) => {
+                          if (!p.getAttribute("style")) {
+                            p.setAttribute("style", "margin: 1rem 0; color: #374151; line-height: 1.7;");
+                          }
+                        });
+                        tempDiv.querySelectorAll("ul:not([style])").forEach((ul) => {
+                          ul.setAttribute("style", "padding-left: 1.5rem; margin: 1rem 0;");
+                        });
+                        tempDiv.querySelectorAll("ol").forEach((ol) => {
+                          ol.setAttribute("style", "padding-left: 1.5rem; margin: 1rem 0;");
+                        });
+                        tempDiv.querySelectorAll("li:not([style])").forEach((li) => {
+                          li.setAttribute("style", "margin: 0.5rem 0; color: #374151;");
+                        });
+                        tempDiv.querySelectorAll("strong:not([style])").forEach((strong) => {
+                          strong.setAttribute("style", "font-weight: 600; color: #111827;");
+                        });
+                        tempDiv.querySelectorAll("hr").forEach((hr) => {
+                          hr.setAttribute("style", "border: none; border-top: 1px solid #e5e7eb; margin: 2rem 0;");
+                        });
+                        
+                        // Build clean HTML for CMS paste
+                        const htmlContent = `<!-- SEO Article - Ready for Shopify/WordPress -->
+<div style="font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 800px; margin: 0 auto; padding: 2rem; line-height: 1.6; color: #374151;">
 ${tempDiv.innerHTML}
-</body>
-</html>`;
-                        const blob = new Blob([htmlContent], { type: "text/html" });
-                        const url = URL.createObjectURL(blob);
-                        const a = document.createElement("a");
-                        a.href = url;
-                        a.download = "article.html";
-                        document.body.appendChild(a);
-                        a.click();
-                        document.body.removeChild(a);
-                        URL.revokeObjectURL(url);
+</div>`;
+                        
+                        // Copy to clipboard
+                        navigator.clipboard.writeText(htmlContent).then(() => {
+                          toast({
+                            title: "HTML copied to clipboard!",
+                            description: "Ready to paste into Shopify or WordPress.",
+                          });
+                        }).catch(() => {
+                          // Fallback: download as file
+                          const blob = new Blob([htmlContent], { type: "text/html" });
+                          const url = URL.createObjectURL(blob);
+                          const a = document.createElement("a");
+                          a.href = url;
+                          a.download = "article.html";
+                          document.body.appendChild(a);
+                          a.click();
+                          document.body.removeChild(a);
+                          URL.revokeObjectURL(url);
+                        });
                       }
                     }}
                   >
                     <Download className="h-4 w-4 mr-1" />
-                    Export HTML
+                    Copy HTML
                   </Button>
                 )}
                 <Button
