@@ -163,7 +163,7 @@ All colors MUST be HSL.
 }
 
 .prose blockquote strong {
-  @apply text-primary;
+  @apply text-foreground;
 }
 
 .prose ul {
