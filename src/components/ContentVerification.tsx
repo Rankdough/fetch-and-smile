@@ -63,13 +63,27 @@ export const ContentVerification = ({
       details: hasTldrH2 ? "Found ## TL;DR heading" : "Missing TL;DR H2 section",
     });
 
-    // Check for tables
-    const hasTable = /\|.*\|.*\|/m.test(content);
+    // Check for tables - count them based on word count requirements
+    const tableMatches = content.match(/\n\|[^\n]+\|[^\n]+\|\n\|[-:| ]+\|/g) || [];
+    const tableCount = tableMatches.length;
+    
+    // Determine required table count based on word count
+    let requiredTables = 1;
+    let tableLabel = "Comparison table included";
+    if (targetWords >= 3000) {
+      requiredTables = 4;
+      tableLabel = `Tables included (${requiredTables} required for ${targetWords}+ words)`;
+    } else if (targetWords >= 2000) {
+      requiredTables = 3;
+      tableLabel = `Tables included (${requiredTables} required for ${targetWords}+ words)`;
+    }
+    
+    const hasEnoughTables = tableCount >= requiredTables;
     results.push({
       id: "tables",
-      label: "Comparison table included",
-      status: hasTable ? "passed" : "warning",
-      details: hasTable ? "Table found in content" : "No markdown table detected",
+      label: tableLabel,
+      status: hasEnoughTables ? "passed" : tableCount > 0 ? "warning" : "failed",
+      details: `${tableCount} table${tableCount !== 1 ? "s" : ""} found (minimum: ${requiredTables})`,
     });
 
     // Check for sources/references
