@@ -398,7 +398,11 @@ const Index = () => {
       setGeneratedContent(data.content);
       setAppliedRules(data.appliedRules || null);
       if (data.ctas) {
+        console.log("CTAs received from API:", data.ctas);
         setGeneratedCTAs(data.ctas);
+      } else {
+        console.log("No CTAs in response, generateCTAs was:", ctaUrl.trim().length > 0);
+        setGeneratedCTAs(null);
       }
       toast({
         title: "Content generated!",
@@ -944,7 +948,26 @@ ${tempDiv.innerHTML}
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setGeneratedContent(SAMPLE_CONTENT)}
+                  onClick={() => {
+                    setGeneratedContent(SAMPLE_CONTENT);
+                    // Set sample CTAs if a URL is provided
+                    if (ctaUrl.trim()) {
+                      setGeneratedCTAs({
+                        middle: {
+                          headline: "TRANSFORM YOUR SMILE TODAY!",
+                          description: "Get expert advice on the best cosmetic dental treatment for your needs.",
+                          buttonText: "Book Consultation"
+                        },
+                        end: {
+                          headline: "READY FOR YOUR DREAM SMILE?",
+                          description: "Limited time offer - Free consultation with our cosmetic dentistry experts.",
+                          buttonText: "Get Started Now"
+                        }
+                      });
+                    } else {
+                      setGeneratedCTAs(null);
+                    }
+                  }}
                 >
                   Load Sample
                 </Button>
