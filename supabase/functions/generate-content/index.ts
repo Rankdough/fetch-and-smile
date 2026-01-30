@@ -12,7 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    const { topic, length, outline, instructions, gapAnalysis, formatReference, contextFiles } = await req.json();
+    const { topic, length, outline, instructions, gapAnalysis, formatReference, contextFiles, keywords } = await req.json();
 
     if (!topic) {
       return new Response(
@@ -85,6 +85,17 @@ ${formatReference.substring(0, 2000)}`;
     let userPrompt = `Write a blog post about: ${topic}
 
 Target length: approximately ${targetWords} words`;
+
+    // Add keywords if provided
+    if (keywords && Array.isArray(keywords) && keywords.length > 0) {
+      userPrompt += `
+
+IMPORTANT SEO KEYWORDS TO USE:
+The following keywords MUST be naturally incorporated throughout the article, especially in headings, the first paragraph, and key sections:
+${keywords.map((k: string, i: number) => `${i + 1}. ${k}`).join("\n")}
+
+Use each keyword at least 2-3 times throughout the article where it fits naturally.`;
+    }
 
     if (gapAnalysis) {
       userPrompt += `
@@ -167,6 +178,8 @@ ${contextContent}`;
       formatReferenceUsed: !!formatReference && formatReference.trim().length > 0,
       contextFilesUsed: contextFiles && Array.isArray(contextFiles) && contextFiles.length > 0,
       contextFileNames: contextFiles?.map((f: { name: string }) => f.name) || [],
+      keywordsUsed: keywords && Array.isArray(keywords) && keywords.length > 0,
+      keywords: keywords || [],
       targetWordCount: targetWords,
       outlineProvided: !!outline && outline.trim().length > 0,
       customInstructionsProvided: !!instructions && instructions.trim().length > 0,

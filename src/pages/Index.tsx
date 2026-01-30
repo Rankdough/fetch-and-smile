@@ -11,7 +11,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, Sparkles, FileText, Link, Search, X, Upload } from "lucide-react";
+import { Loader2, Sparkles, FileText, Link, Search, X, Upload, Plus, Tag } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import ReactMarkdown from "react-markdown";
@@ -153,6 +153,8 @@ const Index = () => {
     formatReferenceUsed: boolean;
     contextFilesUsed: boolean;
     contextFileNames: string[];
+    keywordsUsed: boolean;
+    keywords: string[];
     targetWordCount: number;
     outlineProvided: boolean;
     customInstructionsProvided: boolean;
@@ -171,6 +173,8 @@ const Index = () => {
   const [formatUrl, setFormatUrl] = useState("");
   const [contextFiles, setContextFiles] = useState<{ name: string; content: string }[]>([]);
   const [isUploadingFile, setIsUploadingFile] = useState(false);
+  const [keywords, setKeywords] = useState<string[]>([]);
+  const [keywordInput, setKeywordInput] = useState("");
 
   // Checklist items computation
   const checklistItems = useMemo(() => {
@@ -179,6 +183,8 @@ const Index = () => {
     const hasFormatReference = formatReference.trim().length > 0;
     const hasContextFiles = contextFiles.length > 0;
     const hasTopic = formData.topic.trim().length > 0;
+    const hasKeywords = keywords.length > 0;
+    const topKeywords = keywords.slice(0, 5);
 
     return [
       {
@@ -186,6 +192,14 @@ const Index = () => {
         label: "Topic entered",
         completed: hasTopic,
         required: true,
+      },
+      {
+        id: "keywords",
+        label: hasKeywords 
+          ? `Keywords (top 5 will be used): ${topKeywords.join(", ")}${keywords.length > 5 ? ` (+${keywords.length - 5} more)` : ""}`
+          : "SEO keywords added (up to 10, top 5 used in article)",
+        completed: hasKeywords,
+        required: false,
       },
       {
         id: "gap-analysis",
@@ -214,7 +228,7 @@ const Index = () => {
         required: true,
       },
     ];
-  }, [competitorUrls, gapAnalysis, formatReference, contextFiles, formData.topic, formData.length]);
+  }, [competitorUrls, gapAnalysis, formatReference, contextFiles, formData.topic, formData.length, keywords]);
 
   const handleAnalyzeUrls = async () => {
     const validUrls = competitorUrls.filter((url) => url.trim());
@@ -351,6 +365,7 @@ const Index = () => {
       const { data, error } = await supabase.functions.invoke("generate-content", {
         body: {
           ...formData,
+          keywords: keywords.length > 0 ? keywords.slice(0, 5) : undefined,
           gapAnalysis: gapAnalysis || undefined,
           formatReference: formatReference || undefined,
           contextFiles: contextFiles.length > 0 ? contextFiles : undefined,
@@ -572,6 +587,70 @@ const Index = () => {
                   )}
                 </CollapsibleContent>
               </Collapsible>
+
+              {/* Keywords */}
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  <Tag className="h-4 w-4" />
+                  SEO Keywords (up to 10, top 5 used)
+                </Label>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Enter a keyword and press Add"
+                    value={keywordInput}
+                    onChange={(e) => setKeywordInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && keywordInput.trim() && keywords.length < 10) {
+                        e.preventDefault();
+                        setKeywords((prev) => [...prev, keywordInput.trim()]);
+                        setKeywordInput("");
+                      }
+                    }}
+                    disabled={keywords.length >= 10}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={() => {
+                      if (keywordInput.trim() && keywords.length < 10) {
+                        setKeywords((prev) => [...prev, keywordInput.trim()]);
+                        setKeywordInput("");
+                      }
+                    }}
+                    disabled={!keywordInput.trim() || keywords.length >= 10}
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+                {keywords.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {keywords.map((keyword, index) => (
+                      <div
+                        key={index}
+                        className={`flex items-center gap-1 rounded-full px-3 py-1 text-sm ${
+                          index < 5
+                            ? "bg-primary/10 text-primary border border-primary/20"
+                            : "bg-muted text-muted-foreground"
+                        }`}
+                      >
+                        {index < 5 && <span className="text-xs font-medium">#{index + 1}</span>}
+                        <span>{keyword}</span>
+                        <button
+                          type="button"
+                          onClick={() => setKeywords((prev) => prev.filter((_, i) => i !== index))}
+                          className="ml-1 hover:text-destructive"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {keywords.length >= 10 && (
+                  <p className="text-xs text-muted-foreground">Maximum 10 keywords reached</p>
+                )}
+              </div>
 
               {/* Length */}
               <div className="space-y-2">

@@ -7,6 +7,8 @@ interface AppliedRules {
   formatReferenceUsed: boolean;
   contextFilesUsed: boolean;
   contextFileNames: string[];
+  keywordsUsed: boolean;
+  keywords: string[];
   targetWordCount: number;
   outlineProvided: boolean;
   customInstructionsProvided: boolean;
@@ -68,6 +70,22 @@ export const ContentVerification = ({ content, appliedRules }: ContentVerificati
       status: hasSourceLinks ? "passed" : "warning",
       details: hasSourceLinks ? "Source links found" : "No source citations detected",
     });
+
+    // Check keywords were used
+    if (appliedRules?.keywordsUsed && appliedRules.keywords.length > 0) {
+      const contentLower = content.toLowerCase();
+      const keywordsFound = appliedRules.keywords.filter((kw) => 
+        contentLower.includes(kw.toLowerCase())
+      );
+      const keywordPercentage = (keywordsFound.length / appliedRules.keywords.length) * 100;
+      
+      results.push({
+        id: "keywords",
+        label: "SEO keywords incorporated",
+        status: keywordPercentage >= 80 ? "passed" : keywordPercentage >= 50 ? "warning" : "failed",
+        details: `${keywordsFound.length}/${appliedRules.keywords.length} keywords found: ${keywordsFound.join(", ") || "none"}`,
+      });
+    }
 
     // Check gap analysis was used
     if (appliedRules?.gapAnalysisUsed) {
