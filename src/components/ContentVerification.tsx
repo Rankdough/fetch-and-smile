@@ -19,6 +19,7 @@ interface ContentVerificationProps {
   content: string;
   appliedRules: AppliedRules | null;
   onFixEmDashes?: () => void;
+  onFixHorizontalLines?: () => void;
   onRegenerateForWordCount?: () => void;
 }
 
@@ -28,13 +29,14 @@ interface VerificationItem {
   status: "passed" | "failed" | "warning";
   details?: string;
   fixable?: boolean;
-  fixType?: "em-dash" | "word-count";
+  fixType?: "em-dash" | "word-count" | "horizontal-line";
 }
 
 export const ContentVerification = ({ 
   content, 
   appliedRules, 
   onFixEmDashes,
+  onFixHorizontalLines,
   onRegenerateForWordCount 
 }: ContentVerificationProps) => {
   const verificationResults = useMemo(() => {
@@ -177,6 +179,17 @@ export const ContentVerification = ({
       fixType: "em-dash",
     });
 
+    // Check for no horizontal lines
+    const hasHorizontalLine = /^\s*[-*_]{3,}\s*$/m.test(content);
+    results.push({
+      id: "no-hr",
+      label: "No horizontal lines used",
+      status: hasHorizontalLine ? "failed" : "passed",
+      details: hasHorizontalLine ? "Horizontal line (---) found in content" : "Clean - no horizontal lines",
+      fixable: hasHorizontalLine,
+      fixType: "horizontal-line",
+    });
+
     return results;
   }, [content, appliedRules]);
 
@@ -197,6 +210,8 @@ export const ContentVerification = ({
   const handleFix = (item: VerificationItem) => {
     if (item.fixType === "em-dash" && onFixEmDashes) {
       onFixEmDashes();
+    } else if (item.fixType === "horizontal-line" && onFixHorizontalLines) {
+      onFixHorizontalLines();
     } else if (item.fixType === "word-count" && onRegenerateForWordCount) {
       onRegenerateForWordCount();
     }

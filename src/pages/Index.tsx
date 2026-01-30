@@ -906,6 +906,15 @@ ${tempDiv.innerHTML}
                         description: "All em dashes have been replaced with regular hyphens.",
                       });
                     }}
+                    onFixHorizontalLines={() => {
+                      // Remove all horizontal lines
+                      const fixed = generatedContent.replace(/^\s*[-*_]{3,}\s*$/gm, "");
+                      setGeneratedContent(fixed);
+                      toast({
+                        title: "Horizontal lines removed",
+                        description: "All horizontal lines have been removed from the content.",
+                      });
+                    }}
                     onRegenerateForWordCount={async () => {
                       if (!formData.topic.trim()) return;
                       
