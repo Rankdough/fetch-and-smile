@@ -1,6 +1,7 @@
-import { CheckCircle2, XCircle, AlertCircle } from "lucide-react";
+import { CheckCircle2, XCircle, AlertCircle, Wand2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useMemo } from "react";
+import { Button } from "@/components/ui/button";
 
 interface AppliedRules {
   gapAnalysisUsed: boolean;
@@ -17,6 +18,8 @@ interface AppliedRules {
 interface ContentVerificationProps {
   content: string;
   appliedRules: AppliedRules | null;
+  onFixEmDashes?: () => void;
+  onRegenerateForWordCount?: () => void;
 }
 
 interface VerificationItem {
@@ -24,16 +27,22 @@ interface VerificationItem {
   label: string;
   status: "passed" | "failed" | "warning";
   details?: string;
+  fixable?: boolean;
+  fixType?: "em-dash" | "word-count";
 }
 
-export const ContentVerification = ({ content, appliedRules }: ContentVerificationProps) => {
+export const ContentVerification = ({ 
+  content, 
+  appliedRules, 
+  onFixEmDashes,
+  onRegenerateForWordCount 
+}: ContentVerificationProps) => {
   const verificationResults = useMemo(() => {
     const results: VerificationItem[] = [];
 
     // Count words
     const wordCount = content.trim().split(/\s+/).filter(Boolean).length;
     const targetWords = appliedRules?.targetWordCount || 1000;
-    const wordCountDiff = Math.abs(wordCount - targetWords);
     const wordCountPercentage = (wordCount / targetWords) * 100;
 
     results.push({
@@ -41,6 +50,8 @@ export const ContentVerification = ({ content, appliedRules }: ContentVerificati
       label: "Word count",
       status: wordCountPercentage >= 80 && wordCountPercentage <= 130 ? "passed" : "warning",
       details: `${wordCount} words (target: ${targetWords})`,
+      fixable: wordCountPercentage < 80,
+      fixType: "word-count",
     });
 
     // Check for TL;DR as H2
@@ -112,8 +123,8 @@ export const ContentVerification = ({ content, appliedRules }: ContentVerificati
       // Check if any content from context files is likely referenced
       // Look for source citations or references section
       const hasReferencesSection = /## References/im.test(content);
-      const hasSourceLinks = /\*\*Sources?:\*\*.*\[.+\]\(.+\)/im.test(content);
-      const hasCitations = hasReferencesSection || hasSourceLinks;
+      const hasSourceLinksCheck = /\*\*Sources?:\*\*.*\[.+\]\(.+\)/im.test(content);
+      const hasCitations = hasReferencesSection || hasSourceLinksCheck;
       
       results.push({
         id: "context-files",
@@ -148,6 +159,8 @@ export const ContentVerification = ({ content, appliedRules }: ContentVerificati
       label: "No em dashes used",
       status: hasEmDash ? "failed" : "passed",
       details: hasEmDash ? "Em dash (—) found in content" : "Clean - no em dashes",
+      fixable: hasEmDash,
+      fixType: "em-dash",
     });
 
     return results;
@@ -164,6 +177,14 @@ export const ContentVerification = ({ content, appliedRules }: ContentVerificati
         return <XCircle className="h-4 w-4 text-red-600 dark:text-red-400 flex-shrink-0" />;
       case "warning":
         return <AlertCircle className="h-4 w-4 text-amber-500 flex-shrink-0" />;
+    }
+  };
+
+  const handleFix = (item: VerificationItem) => {
+    if (item.fixType === "em-dash" && onFixEmDashes) {
+      onFixEmDashes();
+    } else if (item.fixType === "word-count" && onRegenerateForWordCount) {
+      onRegenerateForWordCount();
     }
   };
 
@@ -193,14 +214,27 @@ export const ContentVerification = ({ content, appliedRules }: ContentVerificati
           >
             {getStatusIcon(item.status)}
             <div className="flex-1 min-w-0">
-              <span className={cn(
-                "font-medium",
-                item.status === "passed" && "text-foreground",
-                item.status === "failed" && "text-red-600 dark:text-red-400",
-                item.status === "warning" && "text-amber-600 dark:text-amber-400"
-              )}>
-                {item.label}
-              </span>
+              <div className="flex items-center gap-2">
+                <span className={cn(
+                  "font-medium",
+                  item.status === "passed" && "text-foreground",
+                  item.status === "failed" && "text-red-600 dark:text-red-400",
+                  item.status === "warning" && "text-amber-600 dark:text-amber-400"
+                )}>
+                  {item.label}
+                </span>
+                {item.fixable && item.status !== "passed" && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-6 px-2 text-xs"
+                    onClick={() => handleFix(item)}
+                  >
+                    <Wand2 className="h-3 w-3 mr-1" />
+                    {item.fixType === "em-dash" ? "Fix" : "Expand"}
+                  </Button>
+                )}
+              </div>
               {item.details && (
                 <p className="text-xs text-muted-foreground mt-0.5 truncate">
                   {item.details}
