@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -12,7 +13,7 @@ serve(async (req) => {
   }
 
   try {
-    const { topic, length, outline, instructions, gapAnalysis, formatReference, contextFiles, keywords, generateCTAs } = await req.json();
+    const { topic, length, outline, instructions, gapAnalysis, formatReference, contextFiles, keywords, generateCTAs, useKnowledgeBase } = await req.json();
 
     if (!topic) {
       return new Response(
@@ -35,6 +36,24 @@ serve(async (req) => {
       comprehensive: 3500,
     };
     const targetWords = wordCounts[length] || 1000;
+
+    // Fetch knowledge base rules if enabled
+    let knowledgeRules: string[] = [];
+    if (useKnowledgeBase) {
+      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+      const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+      const supabase = createClient(supabaseUrl, supabaseKey);
+
+      const { data: knowledgeData } = await supabase
+        .from("seo_knowledge")
+        .select("key_rules")
+        .not("key_rules", "is", null);
+
+      if (knowledgeData) {
+        knowledgeRules = knowledgeData.flatMap((item) => item.key_rules || []);
+        console.log(`Loaded ${knowledgeRules.length} SEO rules from knowledge base`);
+      }
+    }
 
     // Build the prompt
     let systemPrompt = `You are an expert SEO content writer. Write high-quality, engaging blog posts optimized for search engines while remaining valuable and readable.
@@ -85,6 +104,16 @@ Content Guidelines:
 - Add a strong conclusion with a clear call-to-action
 - Write naturally, avoiding keyword stuffing`;
 
+    // Add knowledge base rules to the prompt
+    if (knowledgeRules.length > 0) {
+      // Limit to top 50 rules to avoid token limits
+      const rulesToUse = knowledgeRules.slice(0, 50);
+      systemPrompt += `
+
+CUSTOM SEO RULES FROM KNOWLEDGE BASE:
+Apply the following SEO strategies and rules from the uploaded knowledge documents:
+${rulesToUse.map((rule, i) => `${i + 1}. ${rule}`).join("\n")}`;
+    }
 
     if (formatReference) {
       systemPrompt += `
@@ -261,6 +290,8 @@ Guidelines:
       targetWordCount: targetWords,
       outlineProvided: !!outline && outline.trim().length > 0,
       customInstructionsProvided: !!instructions && instructions.trim().length > 0,
+      knowledgeBaseUsed: useKnowledgeBase && knowledgeRules.length > 0,
+      knowledgeRulesCount: knowledgeRules.length,
     };
 
     console.log("Applied rules:", appliedRules);

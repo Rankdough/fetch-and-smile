@@ -13,6 +13,8 @@ interface AppliedRules {
   targetWordCount: number;
   outlineProvided: boolean;
   customInstructionsProvided: boolean;
+  knowledgeBaseUsed?: boolean;
+  knowledgeRulesCount?: number;
 }
 
 interface CTAData {
@@ -140,6 +142,16 @@ export const ContentVerification = ({
         label: "Format reference applied",
         status: "passed",
         details: "Formatting matched to reference article",
+      });
+    }
+
+    // Check knowledge base was used
+    if (appliedRules?.knowledgeBaseUsed) {
+      results.push({
+        id: "knowledge-base",
+        label: "SEO knowledge base applied",
+        status: "passed",
+        details: `${appliedRules.knowledgeRulesCount || 0} SEO rules from knowledge base applied`,
       });
     }
 
