@@ -44,6 +44,8 @@ The resin is hardened using a specialized ultraviolet light and then polished to
 - **Reversible:** The process can largely be undone or adjusted
 - **Affordability:** Typical UK cost is £200-£450 per tooth
 
+**Sources:** [What Is Dental Bonding? - Cleveland Clinic](https://my.clevelandclinic.org/health/treatments/10922-dental-bonding) | [Composite bonding - Bupa Dental Care](https://www.bupa.co.uk/dental/dental-care/treatments/composite-bonding)
+
 ---
 
 ## What are Porcelain Veneers?
@@ -58,6 +60,8 @@ To ensure the veneers don't look bulky, a small amount of enamel (usually less t
 - **Total Transformation:** Ideal for correcting severe issues like misalignment
 - **Natural Esthetics:** Mimics light-reflecting properties of natural teeth
 
+**Sources:** [Dental Veneers: Benefits, Procedure, Costs - Healthline](https://www.healthline.com/health/dental-veneers) | [Long-Term Survival of Porcelain Veneers - NIH](https://pmc.ncbi.nlm.nih.gov/articles/PMC7961608/)
+
 ---
 
 ## At-a-Glance Comparison Table
@@ -70,6 +74,8 @@ To ensure the veneers don't look bulky, a small amount of enamel (usually less t
 | **Stain Resistance** | Low (can stain over time) | High (highly resistant) |
 | **Reversibility** | Largely reversible | Permanent |
 | **Typical UK Cost** | £200 - £450 per tooth | £600 - £1,100 per tooth |
+
+**Sources:** [Composite bonding vs veneers - Bupa](https://www.bupa.co.uk/newsroom/ourviews/composite-bonding-vs-veneers)
 
 ---
 
@@ -94,20 +100,6 @@ To ensure the veneers don't look bulky, a small amount of enamel (usually less t
 The right choice depends on the scale of change you want, how long you want results to last, and whether you are comfortable with permanent enamel alteration. Bonding prioritises flexibility and tooth preservation. Veneers prioritise longevity, colour stability, and comprehensive aesthetic change.
 
 **Ready to take the next step?** Schedule a consultation with a cosmetic dentist today to see what your new smile could look like!
-
----
-
-## References:
-
-[Composite bonding vs veneers: What's the difference? - Bupa](https://www.bupa.co.uk/newsroom/ourviews/composite-bonding-vs-veneers)
-
-[What Is Dental Bonding? - Cleveland Clinic](https://my.clevelandclinic.org/health/treatments/10922-dental-bonding)
-
-[Long-Term Survival and Complication Rates of Porcelain Laminate Veneers - NIH](https://pmc.ncbi.nlm.nih.gov/articles/PMC7961608/)
-
-[Composite bonding - Bupa Dental Care](https://www.bupa.co.uk/dental/dental-care/treatments/composite-bonding)
-
-[Dental Veneers: Benefits, Procedure, Costs, and Results - Healthline](https://www.healthline.com/health/dental-veneers)
 `;
 
 const Index = () => {
