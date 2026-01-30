@@ -12,7 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    const { topic, length, outline, instructions, gapAnalysis, formatReference } = await req.json();
+    const { topic, length, outline, instructions, gapAnalysis, formatReference, contextFiles } = await req.json();
 
     if (!topic) {
       return new Response(
@@ -75,6 +75,16 @@ ${outline}`;
 
 Additional instructions:
 ${instructions}`;
+    }
+
+    if (contextFiles && Array.isArray(contextFiles) && contextFiles.length > 0) {
+      const contextContent = contextFiles
+        .map((f: { name: string; content: string }) => `--- ${f.name} ---\n${f.content}`)
+        .join("\n\n");
+      userPrompt += `
+
+Reference materials to incorporate:
+${contextContent}`;
     }
 
     console.log("Generating content for topic:", topic);

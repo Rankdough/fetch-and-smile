@@ -11,7 +11,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, Sparkles, FileText, Link, Search, X } from "lucide-react";
+import { Loader2, Sparkles, FileText, Link, Search, X, Upload } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import ReactMarkdown from "react-markdown";
@@ -38,6 +38,8 @@ const Index = () => {
 
   const [competitorUrls, setCompetitorUrls] = useState(["", "", ""]);
   const [formatUrl, setFormatUrl] = useState("");
+  const [contextFiles, setContextFiles] = useState<{ name: string; content: string }[]>([]);
+  const [isUploadingFile, setIsUploadingFile] = useState(false);
 
   const handleAnalyzeUrls = async () => {
     const validUrls = competitorUrls.filter((url) => url.trim());
@@ -109,6 +111,53 @@ const Index = () => {
     }
   };
 
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    setIsUploadingFile(true);
+
+    try {
+      for (const file of Array.from(files)) {
+        // Upload to storage
+        const filePath = `${Date.now()}-${file.name}`;
+        const { error: uploadError } = await supabase.storage
+          .from("context-files")
+          .upload(filePath, file);
+
+        if (uploadError) throw uploadError;
+
+        // Parse the file content
+        const { data, error: parseError } = await supabase.functions.invoke(
+          "parse-context-file",
+          { body: { filePath, fileName: file.name } }
+        );
+
+        if (parseError) throw parseError;
+
+        setContextFiles((prev) => [
+          ...prev,
+          { name: file.name, content: data.content },
+        ]);
+
+        toast({
+          title: "File uploaded",
+          description: `${file.name} added as context${data.truncated ? " (truncated to 10k chars)" : ""}`,
+        });
+      }
+    } catch (error) {
+      console.error("Upload error:", error);
+      toast({
+        title: "Upload failed",
+        description: error instanceof Error ? error.message : "Failed to upload file",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploadingFile(false);
+      e.target.value = "";
+    }
+  };
+
   const handleGenerate = async () => {
     if (!formData.topic.trim()) {
       toast({
@@ -128,6 +177,7 @@ const Index = () => {
           ...formData,
           gapAnalysis: gapAnalysis || undefined,
           formatReference: formatReference || undefined,
+          contextFiles: contextFiles.length > 0 ? contextFiles : undefined,
         },
       });
 
@@ -284,6 +334,63 @@ const Index = () => {
                   {formatReference && (
                     <div className="rounded-md bg-muted p-3 text-sm text-muted-foreground">
                       ✓ Format captured - will be used during generation
+                    </div>
+                  )}
+                </CollapsibleContent>
+              </Collapsible>
+
+              {/* Context Files Upload */}
+              <Collapsible className="space-y-2">
+                <CollapsibleTrigger asChild>
+                  <Button variant="outline" className="w-full justify-between">
+                    <span className="flex items-center gap-2">
+                      <Upload className="h-4 w-4" />
+                      Context Files (Optional)
+                    </span>
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="space-y-3 pt-2">
+                  <p className="text-sm text-muted-foreground">
+                    Upload text/markdown files with brand voice, research, or reference material
+                  </p>
+                  <div className="flex gap-2">
+                    <Input
+                      type="file"
+                      accept=".txt,.md,.json"
+                      multiple
+                      onChange={handleFileUpload}
+                      disabled={isUploadingFile}
+                      className="cursor-pointer"
+                    />
+                  </div>
+                  {isUploadingFile && (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Uploading...
+                    </div>
+                  )}
+                  {contextFiles.length > 0 && (
+                    <div className="space-y-2">
+                      {contextFiles.map((file, index) => (
+                        <div
+                          key={index}
+                          className="flex items-center justify-between rounded-md bg-muted p-2 text-sm"
+                        >
+                          <span className="truncate">{file.name}</span>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6"
+                            onClick={() =>
+                              setContextFiles((prev) =>
+                                prev.filter((_, i) => i !== index)
+                              )
+                            }
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      ))}
                     </div>
                   )}
                 </CollapsibleContent>
