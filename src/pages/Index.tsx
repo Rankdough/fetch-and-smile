@@ -603,7 +603,17 @@ const Index = () => {
             <CardContent className="flex-1 overflow-auto">
               {generatedContent ? (
                 <article className="prose prose-sm max-w-none dark:prose-invert">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{generatedContent}</ReactMarkdown>
+                  <ReactMarkdown 
+                    remarkPlugins={[remarkGfm]}
+                    components={{
+                      h2: ({ children, ...props }) => {
+                        const text = String(children).toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]/g, '');
+                        return <h2 id={text} {...props}>{children}</h2>;
+                      }
+                    }}
+                  >
+                    {generatedContent}
+                  </ReactMarkdown>
                 </article>
               ) : (
                 <div className="h-full flex items-center justify-center text-muted-foreground">
