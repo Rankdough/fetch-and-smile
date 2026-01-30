@@ -50,14 +50,13 @@ CRITICAL MARKDOWN FORMATTING RULES:
 
 SOURCE REFERENCE RULES:
 - DO NOT use inline numeric citations like [1], [2], [3] in the text
-- At the end of the article, add a "## References:" section
-- List sources as simple markdown links, one per line
-- Format: [Source Title](URL)
-- Include 3-6 relevant authoritative sources (medical journals, health organizations, reputable dental sites)
-- Example:
-  ## References:
-  [Composite bonding vs veneers: What's the difference? - Bupa](https://www.bupa.co.uk/...)
-  [What Is Dental Bonding? - Cleveland Clinic](https://my.clevelandclinic.org/...)
+- Add a "**Sources:**" line at the END of EACH major section (after ## headings)
+- List 1-2 relevant sources as simple markdown links directly under that section
+- Format: **Sources:** [Source Title](URL)
+- Sources should be relevant to that specific section's content
+- Example format under a section:
+  
+  **Sources:** [What Is Dental Bonding? - Cleveland Clinic](https://my.clevelandclinic.org/...)
 
 Content Guidelines:
 - Start with a compelling hook that addresses the reader's pain point
