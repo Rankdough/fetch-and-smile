@@ -17,26 +17,35 @@ All colors MUST be HSL.
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 84% 4.9%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    /* Teal/Blue-green primary matching reference site */
+    --primary: 190 45% 42%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 190 30% 95%;
+    --secondary-foreground: 190 45% 25%;
 
     --muted: 210 40% 96.1%;
     --muted-foreground: 215.4 16.3% 46.9%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --accent: 190 30% 95%;
+    --accent-foreground: 190 45% 25%;
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
 
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --ring: 190 45% 42%;
 
     --radius: 0.5rem;
+
+    /* Custom colors for content styling */
+    --table-header: 190 45% 42%;
+    --table-header-foreground: 0 0% 100%;
+    --table-row-odd: 190 30% 97%;
+    --table-row-even: 190 20% 94%;
+    --tldr-bg: 190 35% 95%;
+    --tldr-border: 190 45% 42%;
 
     --sidebar-background: 0 0% 98%;
 
@@ -122,23 +131,25 @@ All colors MUST be HSL.
 }
 
 .prose table {
-  @apply w-full border-collapse my-6 rounded-lg overflow-hidden;
+  @apply w-full border-collapse my-6 rounded-lg overflow-hidden shadow-sm;
 }
 
 .prose thead {
-  @apply bg-primary text-primary-foreground;
+  background-color: hsl(var(--table-header));
+  color: hsl(var(--table-header-foreground));
 }
 
 .prose th {
-  @apply text-left p-4 font-semibold text-primary-foreground;
+  @apply text-left p-4 font-semibold;
+  color: hsl(var(--table-header-foreground));
 }
 
 .prose tbody tr:nth-child(odd) {
-  @apply bg-muted/50;
+  background-color: hsl(var(--table-row-odd));
 }
 
 .prose tbody tr:nth-child(even) {
-  @apply bg-muted/30;
+  background-color: hsl(var(--table-row-even));
 }
 
 .prose td {
@@ -146,7 +157,9 @@ All colors MUST be HSL.
 }
 
 .prose blockquote {
-  @apply border-l-4 border-primary bg-primary/10 pl-6 pr-4 py-4 my-6 rounded-r-lg not-italic;
+  background-color: hsl(var(--tldr-bg));
+  border-left: 4px solid hsl(var(--tldr-border));
+  @apply pl-6 pr-4 py-4 my-6 rounded-r-lg not-italic;
 }
 
 .prose blockquote strong {
