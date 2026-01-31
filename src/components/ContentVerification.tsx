@@ -77,6 +77,20 @@ export const ContentVerification = ({
       details: hasTldrH2 ? "Found ## TL;DR heading" : "Missing TL;DR H2 section",
     });
 
+    // Check for "What You'll Learn" navigation section
+    const hasWhatYoullLearn = /^## What You['']ll Learn/im.test(content);
+    const hasNavigationEmojis = /[📌🎯💡🔍⚡📊✅🛠️].*\*\*[^*]+\*\*/m.test(content);
+    results.push({
+      id: "quick-navigation",
+      label: "Quick Navigation section",
+      status: hasWhatYoullLearn && hasNavigationEmojis ? "passed" : hasWhatYoullLearn ? "warning" : "failed",
+      details: hasWhatYoullLearn && hasNavigationEmojis 
+        ? "What You'll Learn section with visual icons found" 
+        : hasWhatYoullLearn 
+          ? "Section found but missing visual icons" 
+          : "Missing 'What You'll Learn' quick navigation section",
+    });
+
     // Check for tables - count them based on word count requirements
     const tableMatches = content.match(/\n\|[^\n]+\|[^\n]+\|\n\|[-:| ]+\|/g) || [];
     const tableCount = tableMatches.length;

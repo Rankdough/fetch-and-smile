@@ -114,12 +114,19 @@ SOURCE REFERENCE RULES:
 ARTICLE STRUCTURE (in this order):
 1. Title (# H1)
 2. ## TL;DR - as an H2 heading, followed by bullet points summarizing key takeaways
-3. Main content sections with ## headings (each with **Sources:** at the end)
-4. Comparison table section
-5. "Which Option Should You Choose?" section
-6. "## Frequently Asked Questions" section - include 4-6 common Q&As in bold question format
-7. "## Final Thoughts" section with call-to-action
-8. "## References:" section - list ALL sources used throughout the article as simple markdown links
+3. ## What You'll Learn - Quick navigation section showing all main topics covered. Format as a visually scannable grid:
+   - Use emoji icons (📌, 🎯, 💡, 🔍, ⚡, 📊, ✅, 🛠️) before each item
+   - List 4-6 main sections as bold items with a one-line description
+   - Example format:
+     📌 **Section Name** - Brief description of what reader will learn
+     🎯 **Another Section** - What value this section provides
+   - This helps readers quickly see the article scope and jump to relevant sections
+4. Main content sections with ## headings (each with **Sources:** at the end)
+5. Comparison table section
+6. "Which Option Should You Choose?" section
+7. "## Frequently Asked Questions" section - include 4-6 common Q&As in bold question format
+8. "## Final Thoughts" section with call-to-action
+9. "## References:" section - list ALL sources used throughout the article as simple markdown links
 
 Content Guidelines:
 - Start with a compelling hook that addresses the reader's pain point
