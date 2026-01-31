@@ -11,7 +11,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, Sparkles, FileText, Link, Search, X, Upload, Plus, Tag, Download, ExternalLink, BookOpen, Eye, Edit2, Mic2, RotateCcw } from "lucide-react";
+import { Loader2, Sparkles, FileText, Link, Search, X, Upload, Plus, Tag, Download, ExternalLink, BookOpen, Eye, Edit2, Mic2, RotateCcw, Target } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import ReactMarkdown from "react-markdown";
@@ -27,6 +27,8 @@ import { CTABanner, generateCTAHtml } from "@/components/CTABanner";
 import { KnowledgeBasePanel } from "@/components/KnowledgeBasePanel";
 import { VoiceEditAgent } from "@/components/VoiceEditAgent";
 import { ToneProfilePanel } from "@/components/ToneProfilePanel";
+import { UniqueAnglesPanel } from "@/components/UniqueAnglesPanel";
+import { QualityScoringPanel } from "@/components/QualityScoringPanel";
 import { Switch } from "@/components/ui/switch";
 
 const SAMPLE_CONTENT = `# Composite Bonding vs Veneers: Which Smile Transformation is Right for You?
@@ -230,6 +232,14 @@ const Index = () => {
     const saved = localStorage.getItem("seo-generator-toneProfileId");
     return saved || null;
   });
+  const [valuePromise, setValuePromise] = useState(() => {
+    const saved = localStorage.getItem("seo-generator-valuePromise");
+    return saved || "";
+  });
+  const [selectedAngles, setSelectedAngles] = useState<string[]>(() => {
+    const saved = localStorage.getItem("seo-generator-selectedAngles");
+    return saved ? JSON.parse(saved) : [];
+  });
 
   // Persist form data to localStorage
   useEffect(() => {
@@ -276,6 +286,14 @@ const Index = () => {
     }
   }, [selectedToneProfileId]);
 
+  useEffect(() => {
+    localStorage.setItem("seo-generator-valuePromise", valuePromise);
+  }, [valuePromise]);
+
+  useEffect(() => {
+    localStorage.setItem("seo-generator-selectedAngles", JSON.stringify(selectedAngles));
+  }, [selectedAngles]);
+
   // Checklist items computation
   const checklistItems = useMemo(() => {
     const hasCompetitorUrls = competitorUrls.some((url) => url.trim());
@@ -285,6 +303,8 @@ const Index = () => {
     const hasTopic = formData.topic.trim().length > 0;
     const hasKeywords = keywords.length > 0;
     const topKeywords = keywords.slice(0, 5);
+    const hasValuePromise = valuePromise.trim().length > 0;
+    const hasSelectedAngles = selectedAngles.length > 0;
 
     return [
       {
@@ -292,6 +312,22 @@ const Index = () => {
         label: "Topic entered",
         completed: hasTopic,
         required: true,
+      },
+      {
+        id: "value-promise",
+        label: hasValuePromise 
+          ? `Value promise: "${valuePromise.substring(0, 50)}${valuePromise.length > 50 ? "..." : ""}"`
+          : "Value promise defined (what reader will DO after reading)",
+        completed: hasValuePromise,
+        required: true,
+      },
+      {
+        id: "unique-angles",
+        label: hasSelectedAngles 
+          ? `Unique angles selected: ${selectedAngles.length}`
+          : "Unique angles selected (differentiates from competitors)",
+        completed: hasSelectedAngles,
+        required: false,
       },
       {
         id: "keywords",
@@ -333,7 +369,7 @@ const Index = () => {
         required: true,
       },
     ];
-  }, [competitorUrls, gapAnalysis, formatReference, contextFiles, formData.topic, formData.length, keywords]);
+  }, [competitorUrls, gapAnalysis, formatReference, contextFiles, formData.topic, formData.length, keywords, valuePromise, selectedAngles]);
 
   const handleAnalyzeUrls = async () => {
     const validUrls = competitorUrls.filter((url) => url.trim());
@@ -467,9 +503,21 @@ const Index = () => {
     setAppliedRules(null);
 
     try {
+      // Build enhanced instructions with value promise and unique angles
+      let enhancedInstructions = formData.instructions || "";
+      
+      if (valuePromise.trim()) {
+        enhancedInstructions += `\n\nVALUE PROMISE - The reader MUST be able to: ${valuePromise}. Ensure every section helps achieve this outcome.`;
+      }
+      
+      if (selectedAngles.length > 0) {
+        enhancedInstructions += `\n\nUNIQUE ANGLES TO INCORPORATE:\n${selectedAngles.map((a, i) => `${i + 1}. ${a}`).join("\n")}\n\nUse these angles to differentiate this content from competitors.`;
+      }
+
       const { data, error } = await supabase.functions.invoke("generate-content", {
         body: {
           ...formData,
+          instructions: enhancedInstructions,
           keywords: keywords.length > 0 ? keywords.slice(0, 5) : undefined,
           gapAnalysis: gapAnalysis || undefined,
           formatReference: formatReference || undefined,
@@ -527,6 +575,8 @@ const Index = () => {
     setGeneratedContent("");
     setAppliedRules(null);
     setSelectedToneProfileId(null);
+    setValuePromise("");
+    setSelectedAngles([]);
     
     // Clear localStorage
     localStorage.removeItem("seo-generator-formData");
@@ -539,6 +589,8 @@ const Index = () => {
     localStorage.removeItem("seo-generator-ctaUrl");
     localStorage.removeItem("seo-generator-useKnowledgeBase");
     localStorage.removeItem("seo-generator-toneProfileId");
+    localStorage.removeItem("seo-generator-valuePromise");
+    localStorage.removeItem("seo-generator-selectedAngles");
     
     toast({
       title: "Form cleared",
@@ -577,6 +629,24 @@ const Index = () => {
                   onChange={(e) =>
                     setFormData((prev) => ({ ...prev, topic: e.target.value }))
                   }
+                />
+              </div>
+
+              {/* Value Promise - Required */}
+              <div className="space-y-2">
+                <Label htmlFor="value-promise" className="flex items-center gap-2">
+                  <Target className="h-4 w-4 text-primary" />
+                  Value Promise <span className="text-xs text-destructive">*Required</span>
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  What will the reader be able to DO or DECIDE after reading this?
+                </p>
+                <Textarea
+                  id="value-promise"
+                  placeholder="e.g., Choose between composite bonding and veneers based on their budget, timeline, and aesthetic goals"
+                  className="min-h-[60px] resize-none"
+                  value={valuePromise}
+                  onChange={(e) => setValuePromise(e.target.value)}
                 />
               </div>
 
@@ -646,6 +716,14 @@ const Index = () => {
                       </div>
                     </div>
                   )}
+                  
+                  {/* Unique Angles Panel */}
+                  <UniqueAnglesPanel
+                    topic={formData.topic}
+                    gapAnalysis={gapAnalysis}
+                    selectedAngles={selectedAngles}
+                    onAnglesChange={setSelectedAngles}
+                  />
                 </CollapsibleContent>
               </Collapsible>
 
@@ -1289,6 +1367,13 @@ ${tempDiv.innerHTML}
                     }}
                     ctaUrl={ctaUrl}
                     generatedCTAs={generatedCTAs}
+                  />
+                  
+                  {/* Quality Scoring Panel */}
+                  <QualityScoringPanel
+                    content={generatedContent}
+                    topic={formData.topic}
+                    valuePromise={valuePromise}
                   />
                   
                   {/* Inline Editing Toggle */}
