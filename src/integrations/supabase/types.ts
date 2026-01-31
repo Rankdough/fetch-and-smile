@@ -47,6 +47,42 @@ export type Database = {
         }
         Relationships: []
       }
+      tone_profiles: {
+        Row: {
+          characteristics: Json
+          created_at: string
+          example_phrases: string[] | null
+          id: string
+          is_active: boolean | null
+          name: string
+          source_file_name: string
+          summary: string | null
+          updated_at: string
+        }
+        Insert: {
+          characteristics?: Json
+          created_at?: string
+          example_phrases?: string[] | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          source_file_name: string
+          summary?: string | null
+          updated_at?: string
+        }
+        Update: {
+          characteristics?: Json
+          created_at?: string
+          example_phrases?: string[] | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          source_file_name?: string
+          summary?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
