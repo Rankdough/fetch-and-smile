@@ -114,14 +114,15 @@ SOURCE REFERENCE RULES:
 ARTICLE STRUCTURE (in this order):
 1. Title (# H1)
 2. ## TL;DR - as an H2 heading, followed by bullet points summarizing key takeaways
-3. ## In This Article - A numbered navigation list showing what readers will learn. Format:
-   - Use numbered format with descriptions
-   - List ALL main H2 sections that follow in the article
-   - Each item: **1. Section Title** - one sentence describing what reader will learn in that section
-   - Example:
-     **1. What is Composite Bonding?** - Understand the basics of this minimally invasive cosmetic treatment.
-     **2. Cost Breakdown** - Learn exactly what you'll pay and what affects the price.
-     **3. Longevity & Care** - Discover how long results last and maintenance tips.
+3. ## In This Article - A numbered navigation list. CRITICAL FORMATTING:
+   - Each item MUST be on its OWN LINE using bullet point syntax with "-"
+   - Format each as: - **1. Section Title** - description
+   - List ALL main H2 sections from the article
+   - Example (EACH ON SEPARATE LINE):
+     - **1. What is Composite Bonding?** - Understand the basics of this minimally invasive cosmetic treatment.
+     - **2. Cost Breakdown** - Learn exactly what you'll pay and what affects the price.
+     - **3. Longevity & Care** - Discover how long results last and maintenance tips.
+   - NEVER put multiple items on the same line
    - This helps readers quickly see all topics covered
 4. Main content sections with ## headings (each with **Sources:** at the end)
 5. Comparison table section
