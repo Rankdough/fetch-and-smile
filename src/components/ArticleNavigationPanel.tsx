@@ -28,7 +28,6 @@ export const ArticleNavigationPanel = ({
     if (onJumpToSection) {
       onJumpToSection(slug);
     }
-    // Also try to scroll to the element in the preview
     const element = document.getElementById(slug);
     if (element) {
       element.scrollIntoView({ behavior: "smooth" });
@@ -60,16 +59,19 @@ export const ArticleNavigationPanel = ({
             className={cn(
               "rounded-lg border p-3 transition-all",
               item.isHighlighted 
-                ? "border-primary bg-primary/5 ring-1 ring-primary" 
-                : "hover:border-muted-foreground/50"
+                ? "border-primary/50 bg-primary/5" 
+                : "hover:border-muted-foreground/30"
             )}
           >
-            <div className="flex items-start gap-3">
+            <div 
+              className="flex items-start gap-3 cursor-pointer"
+              onClick={() => setExpandedItem(expandedItem === index ? null : index)}
+            >
               <div className={cn(
                 "flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold",
                 item.isHighlighted 
                   ? "bg-primary text-primary-foreground" 
-                  : "bg-muted text-muted-foreground border"
+                  : "bg-primary/10 text-primary border border-primary/20"
               )}>
                 {item.number}
               </div>
@@ -85,12 +87,19 @@ export const ArticleNavigationPanel = ({
                     <Star className="h-3 w-3 text-primary fill-primary" />
                   )}
                 </div>
+                {/* Description always visible */}
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {item.description}
+                </p>
               </div>
               <Button
                 variant="ghost"
                 size="sm"
                 className="h-6 w-6 p-0 flex-shrink-0"
-                onClick={() => setExpandedItem(expandedItem === index ? null : index)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setExpandedItem(expandedItem === index ? null : index);
+                }}
               >
                 {expandedItem === index ? (
                   <ChevronUp className="h-4 w-4" />
@@ -100,9 +109,9 @@ export const ArticleNavigationPanel = ({
               </Button>
             </div>
             
+            {/* Expanded: jump link */}
             {expandedItem === index && (
-              <div className="mt-3 pl-9 space-y-2 border-t pt-3">
-                <p className="text-xs text-muted-foreground">{item.description}</p>
+              <div className="mt-3 pl-9 border-t pt-3">
                 <Button
                   variant="outline"
                   size="sm"
