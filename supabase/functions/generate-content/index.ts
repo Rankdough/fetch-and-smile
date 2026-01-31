@@ -114,22 +114,18 @@ SOURCE REFERENCE RULES:
 ARTICLE STRUCTURE (in this order):
 1. Title (# H1)
 2. ## TL;DR - as an H2 heading, followed by bullet points summarizing key takeaways
-3. ## In This Article - A scannable list of ALL key concepts covered. CRITICAL FORMATTING:
-   - Each concept MUST be on its own line as a bullet point using "-" 
-   - Use FUN, VARIED EMOJIS that match the concept (NOT just checkmarks!)
-   - Format: - 🎯 **Concept Name** - description of what they'll learn
-   - Pick from these emojis based on topic relevance:
-     💰 for money/cost topics, ⏱️ for time/speed, 🛡️ for protection/safety, 
-     💡 for insights/tips, 🔍 for discovery/research, ⚡ for quick wins,
-     🎨 for aesthetics/design, 🧪 for testing/experiments, 📊 for comparisons,
-     🚀 for results/outcomes, 💪 for durability/strength, 🎯 for precision/goals,
-     ⚠️ for warnings/red flags, 🏆 for best choices, 🔧 for how-to/fixes
-   - Include 6-10 specific concepts/skills
-   - Example (each on separate line with DIFFERENT emojis):
-     - ⏱️ **The Speed Factor** - learn how one treatment takes hours while the other takes weeks
-     - 💰 **Budget Alignment** - figure out exactly which treatment fits your financial goals
-     - ⚠️ **The "Oops" Factor** - learn what happens if a tooth chips and how easy it is to fix
-   - Make concept names punchy and intriguing
+3. ## In This Article - A numbered navigation list with JUMP LINKS to each section. CRITICAL:
+   - Use CIRCLED NUMBERS: ① ② ③ ④ ⑤ ⑥ ⑦ ⑧ ⑨ ⑩
+   - Each item MUST be a markdown link that jumps to the corresponding H2 section
+   - Format: - ① [**Section Title**](#section-slug) - brief description
+   - The anchor slug must match the H2 heading (lowercase, hyphens for spaces)
+   - Include ALL main H2 sections from the article (typically 6-10)
+   - Example:
+     - ① [**What is Composite Bonding?**](#what-is-composite-bonding) - the basics explained simply
+     - ② [**Cost Breakdown**](#cost-breakdown) - understand exactly what you'll pay
+     - ③ [**Longevity & Durability**](#longevity--durability) - how long results actually last
+     - ④ [**Who's a Good Candidate?**](#whos-a-good-candidate) - find out if it's right for you
+   - This creates clickable navigation that jumps readers to each section
 4. Main content sections with ## headings (each with **Sources:** at the end)
 5. Comparison table section
 6. "Which Option Should You Choose?" section

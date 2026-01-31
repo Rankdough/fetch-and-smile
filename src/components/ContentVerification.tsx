@@ -77,19 +77,19 @@ export const ContentVerification = ({
       details: hasTldrH2 ? "Found ## TL;DR heading" : "Missing TL;DR H2 section",
     });
 
-    // Check for "In This Article" concepts checklist with fun emojis
+    // Check for "In This Article" with numbered jump links
     const hasInThisArticle = /^## In This Article/im.test(content);
-    const emojiPattern = /[💰⏱️🛡️💡🔍⚡🎨🧪📊🚀💪🎯⚠️🏆🔧✓].*\*\*[^*]+\*\*/gm;
-    const emojiItemCount = (content.match(emojiPattern) || []).length;
+    const numberedLinkPattern = /[①②③④⑤⑥⑦⑧⑨⑩].*\[.*\]\(#[^)]+\)/gm;
+    const jumpLinkCount = (content.match(numberedLinkPattern) || []).length;
     results.push({
-      id: "concepts-checklist",
-      label: "Concepts checklist with icons",
-      status: hasInThisArticle && emojiItemCount >= 5 ? "passed" : hasInThisArticle && emojiItemCount > 0 ? "warning" : "failed",
-      details: hasInThisArticle && emojiItemCount >= 5 
-        ? `${emojiItemCount} concepts with fun icons` 
-        : hasInThisArticle && emojiItemCount > 0
-          ? `Only ${emojiItemCount} concepts - aim for 6-10` 
-          : "Missing 'In This Article' concepts list",
+      id: "jump-navigation",
+      label: "Jump links navigation",
+      status: hasInThisArticle && jumpLinkCount >= 5 ? "passed" : hasInThisArticle && jumpLinkCount > 0 ? "warning" : "failed",
+      details: hasInThisArticle && jumpLinkCount >= 5 
+        ? `${jumpLinkCount} numbered jump links to sections` 
+        : hasInThisArticle && jumpLinkCount > 0
+          ? `Only ${jumpLinkCount} jump links - aim for 6-10` 
+          : "Missing 'In This Article' navigation with jump links",
     });
 
     // Check for tables - count them based on word count requirements
