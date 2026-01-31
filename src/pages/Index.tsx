@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -179,27 +179,102 @@ const Index = () => {
     knowledgeRulesCount?: number;
     toneProfileUsed?: boolean;
   } | null>(null);
-  const [gapAnalysis, setGapAnalysis] = useState("");
-  const [formatReference, setFormatReference] = useState("");
+  const [gapAnalysis, setGapAnalysis] = useState(() => {
+    const saved = localStorage.getItem("seo-generator-gapAnalysis");
+    return saved || "";
+  });
+  const [formatReference, setFormatReference] = useState(() => {
+    const saved = localStorage.getItem("seo-generator-formatReference");
+    return saved || "";
+  });
   
-  const [formData, setFormData] = useState({
-    topic: "",
-    length: "medium",
-    outline: "",
-    instructions: "",
+  const [formData, setFormData] = useState(() => {
+    const saved = localStorage.getItem("seo-generator-formData");
+    return saved ? JSON.parse(saved) : {
+      topic: "",
+      length: "medium",
+      outline: "",
+      instructions: "",
+    };
   });
 
-  const [competitorUrls, setCompetitorUrls] = useState(["", "", ""]);
-  const [formatUrl, setFormatUrl] = useState("");
-  const [contextFiles, setContextFiles] = useState<{ name: string; content: string }[]>([]);
+  const [competitorUrls, setCompetitorUrls] = useState<string[]>(() => {
+    const saved = localStorage.getItem("seo-generator-competitorUrls");
+    return saved ? JSON.parse(saved) : ["", "", ""];
+  });
+  const [formatUrl, setFormatUrl] = useState(() => {
+    const saved = localStorage.getItem("seo-generator-formatUrl");
+    return saved || "";
+  });
+  const [contextFiles, setContextFiles] = useState<{ name: string; content: string }[]>(() => {
+    const saved = localStorage.getItem("seo-generator-contextFiles");
+    return saved ? JSON.parse(saved) : [];
+  });
   const [isUploadingFile, setIsUploadingFile] = useState(false);
-  const [keywords, setKeywords] = useState<string[]>([]);
+  const [keywords, setKeywords] = useState<string[]>(() => {
+    const saved = localStorage.getItem("seo-generator-keywords");
+    return saved ? JSON.parse(saved) : [];
+  });
   const [keywordInput, setKeywordInput] = useState("");
-  const [ctaUrl, setCtaUrl] = useState("");
+  const [ctaUrl, setCtaUrl] = useState(() => {
+    const saved = localStorage.getItem("seo-generator-ctaUrl");
+    return saved || "";
+  });
   const [generatedCTAs, setGeneratedCTAs] = useState<{ middle: { headline: string; description: string; buttonText: string }; end: { headline: string; description: string; buttonText: string } } | null>(null);
-  const [useKnowledgeBase, setUseKnowledgeBase] = useState(true);
+  const [useKnowledgeBase, setUseKnowledgeBase] = useState(() => {
+    const saved = localStorage.getItem("seo-generator-useKnowledgeBase");
+    return saved !== null ? JSON.parse(saved) : true;
+  });
   const [isEditMode, setIsEditMode] = useState(false);
-  const [selectedToneProfileId, setSelectedToneProfileId] = useState<string | null>(null);
+  const [selectedToneProfileId, setSelectedToneProfileId] = useState<string | null>(() => {
+    const saved = localStorage.getItem("seo-generator-toneProfileId");
+    return saved || null;
+  });
+
+  // Persist form data to localStorage
+  useEffect(() => {
+    localStorage.setItem("seo-generator-formData", JSON.stringify(formData));
+  }, [formData]);
+  
+  useEffect(() => {
+    localStorage.setItem("seo-generator-competitorUrls", JSON.stringify(competitorUrls));
+  }, [competitorUrls]);
+  
+  useEffect(() => {
+    localStorage.setItem("seo-generator-formatUrl", formatUrl);
+  }, [formatUrl]);
+  
+  useEffect(() => {
+    localStorage.setItem("seo-generator-formatReference", formatReference);
+  }, [formatReference]);
+  
+  useEffect(() => {
+    localStorage.setItem("seo-generator-gapAnalysis", gapAnalysis);
+  }, [gapAnalysis]);
+  
+  useEffect(() => {
+    localStorage.setItem("seo-generator-contextFiles", JSON.stringify(contextFiles));
+  }, [contextFiles]);
+  
+  useEffect(() => {
+    localStorage.setItem("seo-generator-keywords", JSON.stringify(keywords));
+  }, [keywords]);
+  
+  useEffect(() => {
+    localStorage.setItem("seo-generator-ctaUrl", ctaUrl);
+  }, [ctaUrl]);
+  
+  useEffect(() => {
+    localStorage.setItem("seo-generator-useKnowledgeBase", JSON.stringify(useKnowledgeBase));
+  }, [useKnowledgeBase]);
+  
+  useEffect(() => {
+    if (selectedToneProfileId) {
+      localStorage.setItem("seo-generator-toneProfileId", selectedToneProfileId);
+    } else {
+      localStorage.removeItem("seo-generator-toneProfileId");
+    }
+  }, [selectedToneProfileId]);
 
   // Checklist items computation
   const checklistItems = useMemo(() => {
@@ -452,6 +527,19 @@ const Index = () => {
     setGeneratedContent("");
     setAppliedRules(null);
     setSelectedToneProfileId(null);
+    
+    // Clear localStorage
+    localStorage.removeItem("seo-generator-formData");
+    localStorage.removeItem("seo-generator-competitorUrls");
+    localStorage.removeItem("seo-generator-formatUrl");
+    localStorage.removeItem("seo-generator-formatReference");
+    localStorage.removeItem("seo-generator-gapAnalysis");
+    localStorage.removeItem("seo-generator-contextFiles");
+    localStorage.removeItem("seo-generator-keywords");
+    localStorage.removeItem("seo-generator-ctaUrl");
+    localStorage.removeItem("seo-generator-useKnowledgeBase");
+    localStorage.removeItem("seo-generator-toneProfileId");
+    
     toast({
       title: "Form cleared",
       description: "All fields have been reset. Ready for a new article.",
