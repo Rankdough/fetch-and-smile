@@ -116,14 +116,20 @@ ARTICLE STRUCTURE (in this order):
 2. ## TL;DR - as an H2 heading, followed by bullet points summarizing key takeaways
 3. ## In This Article - A scannable list of ALL key concepts covered. CRITICAL FORMATTING:
    - Each concept MUST be on its own line as a bullet point using "-" 
-   - Format: - ✓ **Concept Name** - description of what they'll learn
-   - Include 6-10 specific concepts/skills the reader will gain
-   - Example (each on separate line):
-     - ✓ **Cost Breakdown Mastery** - understand exactly what you'll pay and avoid hidden fees
-     - ✓ **Longevity Secrets** - learn how to make results last 5+ years instead of 2
-     - ✓ **Red Flag Detection** - spot unqualified providers before booking
-   - Make concept names punchy and intriguing (like "The Speed Factor", "The 'Oops' Factor")
-   - Descriptions should promise specific value or outcomes
+   - Use FUN, VARIED EMOJIS that match the concept (NOT just checkmarks!)
+   - Format: - 🎯 **Concept Name** - description of what they'll learn
+   - Pick from these emojis based on topic relevance:
+     💰 for money/cost topics, ⏱️ for time/speed, 🛡️ for protection/safety, 
+     💡 for insights/tips, 🔍 for discovery/research, ⚡ for quick wins,
+     🎨 for aesthetics/design, 🧪 for testing/experiments, 📊 for comparisons,
+     🚀 for results/outcomes, 💪 for durability/strength, 🎯 for precision/goals,
+     ⚠️ for warnings/red flags, 🏆 for best choices, 🔧 for how-to/fixes
+   - Include 6-10 specific concepts/skills
+   - Example (each on separate line with DIFFERENT emojis):
+     - ⏱️ **The Speed Factor** - learn how one treatment takes hours while the other takes weeks
+     - 💰 **Budget Alignment** - figure out exactly which treatment fits your financial goals
+     - ⚠️ **The "Oops" Factor** - learn what happens if a tooth chips and how easy it is to fix
+   - Make concept names punchy and intriguing
 4. Main content sections with ## headings (each with **Sources:** at the end)
 5. Comparison table section
 6. "Which Option Should You Choose?" section
