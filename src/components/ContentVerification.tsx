@@ -100,26 +100,6 @@ export const ContentVerification = ({
       details: `${tableCount} table${tableCount !== 1 ? "s" : ""} found (minimum: ${requiredTables})`,
     });
 
-    // Check for sources/references - only from context files (authoritative sources)
-    const hasReferencesFromContext = appliedRules?.contextFilesUsed && appliedRules.contextFileNames.length > 0;
-    const hasSourceLinks = /\*\*Sources?:\*\*.*\[.+\]\(.+\)/im.test(content) || 
-                           /## References/im.test(content);
-    
-    // Sources should ONLY come from uploaded context files
-    results.push({
-      id: "sources",
-      label: "Authoritative sources from context files",
-      status: hasReferencesFromContext && hasSourceLinks 
-        ? "passed" 
-        : hasSourceLinks && !hasReferencesFromContext 
-          ? "warning" 
-          : "failed",
-      details: hasReferencesFromContext && hasSourceLinks 
-        ? `References drawn from uploaded authoritative sources: ${appliedRules.contextFileNames.join(", ")}` 
-        : hasSourceLinks && !hasReferencesFromContext
-          ? "Sources found but no context files uploaded - references may not be authoritative"
-          : "No authoritative sources - upload context files with reference materials",
-    });
 
     // Check keywords were used
     if (appliedRules?.keywordsUsed && appliedRules.keywords.length > 0) {
