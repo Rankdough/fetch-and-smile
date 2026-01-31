@@ -1004,34 +1004,9 @@ ${tempDiv.innerHTML}
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => {
-                    setGeneratedContent(SAMPLE_CONTENT);
-                    // Set sample CTAs if a URL is provided
-                    if (ctaUrl.trim()) {
-                      setGeneratedCTAs({
-                        middle: {
-                          headline: "TRANSFORM YOUR SMILE TODAY!",
-                          description: "Get expert advice on the best cosmetic dental treatment for your needs.",
-                          buttonText: "Book Consultation"
-                        },
-                        end: {
-                          headline: "READY FOR YOUR DREAM SMILE?",
-                          description: "Limited time offer - Free consultation with our cosmetic dentistry experts.",
-                          buttonText: "Get Started Now"
-                        }
-                      });
-                    } else {
-                      setGeneratedCTAs(null);
-                    }
-                  }}
-                >
-                  Load Sample
-                </Button>
-                {selectedToneProfileId && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={async () => {
+                  onClick={async () => {
+                    // If a tone profile is selected, generate content with that tone
+                    if (selectedToneProfileId) {
                       setIsGenerating(true);
                       setGeneratedContent("");
                       try {
@@ -1054,7 +1029,7 @@ ${tempDiv.innerHTML}
                         }
                         toast({
                           title: "Sample generated with tone!",
-                          description: "The sample article was regenerated using your selected tone profile.",
+                          description: "The sample article uses your selected tone profile.",
                         });
                       } catch (error) {
                         console.error("Generation error:", error);
@@ -1066,22 +1041,43 @@ ${tempDiv.innerHTML}
                       } finally {
                         setIsGenerating(false);
                       }
-                    }}
-                    disabled={isGenerating}
-                  >
-                    {isGenerating ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                        Generating...
-                      </>
-                    ) : (
-                      <>
-                        <Mic2 className="h-4 w-4 mr-1" />
-                        Generate Sample with Tone
-                      </>
-                    )}
-                  </Button>
-                )}
+                    } else {
+                      // No tone profile - load static sample
+                      setGeneratedContent(SAMPLE_CONTENT);
+                      if (ctaUrl.trim()) {
+                        setGeneratedCTAs({
+                          middle: {
+                            headline: "TRANSFORM YOUR SMILE TODAY!",
+                            description: "Get expert advice on the best cosmetic dental treatment for your needs.",
+                            buttonText: "Book Consultation"
+                          },
+                          end: {
+                            headline: "READY FOR YOUR DREAM SMILE?",
+                            description: "Limited time offer - Free consultation with our cosmetic dentistry experts.",
+                            buttonText: "Get Started Now"
+                          }
+                        });
+                      } else {
+                        setGeneratedCTAs(null);
+                      }
+                    }
+                  }}
+                  disabled={isGenerating}
+                >
+                  {isGenerating ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                      Generating...
+                    </>
+                  ) : selectedToneProfileId ? (
+                    <>
+                      <Mic2 className="h-4 w-4 mr-1" />
+                      Load Sample with Tone
+                    </>
+                  ) : (
+                    "Load Sample"
+                  )}
+                </Button>
               </div>
             </CardHeader>
             <CardContent className="flex-1 overflow-auto space-y-4">
