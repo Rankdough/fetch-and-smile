@@ -29,7 +29,6 @@ import { VoiceEditAgent } from "@/components/VoiceEditAgent";
 import { ToneProfilePanel } from "@/components/ToneProfilePanel";
 import { UniqueAnglesPanel } from "@/components/UniqueAnglesPanel";
 import { QualityScoringPanel } from "@/components/QualityScoringPanel";
-import { ArticleNavigationPanel, extractNavigationFromContent } from "@/components/ArticleNavigationPanel";
 import { Switch } from "@/components/ui/switch";
 
 const SAMPLE_CONTENT = `# Composite Bonding vs Veneers: Which Smile Transformation is Right for You?
@@ -1370,10 +1369,6 @@ ${tempDiv.innerHTML}
                     generatedCTAs={generatedCTAs}
                   />
                   
-                  {/* Article Navigation Panel */}
-                  <ArticleNavigationPanel 
-                    items={extractNavigationFromContent(generatedContent)}
-                  />
                   
                   {/* Quality Scoring Panel */}
                   <QualityScoringPanel
