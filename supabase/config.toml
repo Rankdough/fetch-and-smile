@@ -1,1 +1,25 @@
 project_id = "lipkcsgbotjzmzuwsdeu"
+
+[functions.analyze-urls]
+verify_jwt = false
+
+[functions.elevenlabs-conversation-token]
+verify_jwt = false
+
+[functions.generate-content]
+verify_jwt = false
+
+[functions.parse-context-file]
+verify_jwt = false
+
+[functions.process-knowledge]
+verify_jwt = false
+
+[functions.scrape-format]
+verify_jwt = false
+
+[functions.voice-edit-content]
+verify_jwt = false
+
+[functions.extract-tone]
+verify_jwt = false

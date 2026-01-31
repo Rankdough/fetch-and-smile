@@ -13,7 +13,7 @@ serve(async (req) => {
   }
 
   try {
-    const { topic, length, outline, instructions, gapAnalysis, formatReference, contextFiles, keywords, generateCTAs, useKnowledgeBase } = await req.json();
+    const { topic, length, outline, instructions, gapAnalysis, formatReference, contextFiles, keywords, generateCTAs, useKnowledgeBase, toneProfileId } = await req.json();
 
     if (!topic) {
       return new Response(
@@ -37,13 +37,13 @@ serve(async (req) => {
     };
     const targetWords = wordCounts[length] || 1000;
 
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
     // Fetch knowledge base rules if enabled
     let knowledgeRules: string[] = [];
     if (useKnowledgeBase) {
-      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-      const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-      const supabase = createClient(supabaseUrl, supabaseKey);
-
       const { data: knowledgeData } = await supabase
         .from("seo_knowledge")
         .select("key_rules")
@@ -52,6 +52,21 @@ serve(async (req) => {
       if (knowledgeData) {
         knowledgeRules = knowledgeData.flatMap((item) => item.key_rules || []);
         console.log(`Loaded ${knowledgeRules.length} SEO rules from knowledge base`);
+      }
+    }
+
+    // Fetch tone profile if provided
+    let toneProfile: { summary: string | null; characteristics: Record<string, string>; example_phrases: string[] | null } | null = null;
+    if (toneProfileId) {
+      const { data: profileData } = await supabase
+        .from("tone_profiles")
+        .select("summary, characteristics, example_phrases")
+        .eq("id", toneProfileId)
+        .maybeSingle();
+
+      if (profileData) {
+        toneProfile = profileData;
+        console.log("Loaded tone profile:", toneProfileId);
       }
     }
 
@@ -113,6 +128,36 @@ Content Guidelines:
 CUSTOM SEO RULES FROM KNOWLEDGE BASE:
 Apply the following SEO strategies and rules from the uploaded knowledge documents:
 ${rulesToUse.map((rule, i) => `${i + 1}. ${rule}`).join("\n")}`;
+    }
+
+    // Add tone of voice instructions if a profile is selected
+    if (toneProfile) {
+      systemPrompt += `
+
+TONE OF VOICE INSTRUCTIONS:
+You must match the following tone and writing style throughout the article:
+
+Summary: ${toneProfile.summary || "Not specified"}
+
+Characteristics:`;
+      
+      if (toneProfile.characteristics) {
+        for (const [key, value] of Object.entries(toneProfile.characteristics)) {
+          systemPrompt += `
+- ${key.replace(/_/g, " ")}: ${value}`;
+        }
+      }
+
+      if (toneProfile.example_phrases && toneProfile.example_phrases.length > 0) {
+        systemPrompt += `
+
+Example phrases to emulate:
+${toneProfile.example_phrases.map((p, i) => `${i + 1}. "${p}"`).join("\n")}`;
+      }
+
+      systemPrompt += `
+
+IMPORTANT: Maintain this tone consistently throughout the entire article.`;
     }
 
     if (formatReference) {
@@ -292,6 +337,7 @@ Guidelines:
       customInstructionsProvided: !!instructions && instructions.trim().length > 0,
       knowledgeBaseUsed: useKnowledgeBase && knowledgeRules.length > 0,
       knowledgeRulesCount: knowledgeRules.length,
+      toneProfileUsed: !!toneProfile,
     };
 
     console.log("Applied rules:", appliedRules);
