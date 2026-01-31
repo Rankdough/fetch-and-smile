@@ -1027,6 +1027,61 @@ ${tempDiv.innerHTML}
                 >
                   Load Sample
                 </Button>
+                {selectedToneProfileId && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={async () => {
+                      setIsGenerating(true);
+                      setGeneratedContent("");
+                      try {
+                        const { data, error } = await supabase.functions.invoke("generate-content", {
+                          body: {
+                            topic: "Composite Bonding vs Veneers: Which Smile Transformation is Right for You?",
+                            length: "long",
+                            outline: "",
+                            instructions: "Compare composite bonding and veneers for cosmetic dental treatments. Include pros and cons, costs, and who each option is best for.",
+                            generateCTAs: !!ctaUrl.trim(),
+                            useKnowledgeBase: useKnowledgeBase,
+                            toneProfileId: selectedToneProfileId,
+                          },
+                        });
+                        if (error) throw error;
+                        setGeneratedContent(data.content);
+                        setAppliedRules(data.appliedRules || null);
+                        if (data.ctas) {
+                          setGeneratedCTAs(data.ctas);
+                        }
+                        toast({
+                          title: "Sample generated with tone!",
+                          description: "The sample article was regenerated using your selected tone profile.",
+                        });
+                      } catch (error) {
+                        console.error("Generation error:", error);
+                        toast({
+                          title: "Generation failed",
+                          description: error instanceof Error ? error.message : "Failed to generate content",
+                          variant: "destructive",
+                        });
+                      } finally {
+                        setIsGenerating(false);
+                      }
+                    }}
+                    disabled={isGenerating}
+                  >
+                    {isGenerating ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                        Generating...
+                      </>
+                    ) : (
+                      <>
+                        <Mic2 className="h-4 w-4 mr-1" />
+                        Generate Sample with Tone
+                      </>
+                    )}
+                  </Button>
+                )}
               </div>
             </CardHeader>
             <CardContent className="flex-1 overflow-auto space-y-4">
