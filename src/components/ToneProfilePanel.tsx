@@ -122,18 +122,56 @@ export const ToneProfilePanel = ({ selectedProfileId, onProfileSelect }: TonePro
     let content = pastedContent;
     let fileName = "pasted-content";
 
-    // If file uploaded, read its content
+    // If file uploaded, parse its content
     if (uploadedFile) {
-      try {
-        content = await uploadedFile.text();
-        fileName = uploadedFile.name;
-      } catch (e) {
-        toast({
-          title: "File read error",
-          description: "Could not read the uploaded file",
-          variant: "destructive",
-        });
-        return;
+      fileName = uploadedFile.name;
+      
+      // Check if it's a binary document that needs parsing
+      const isBinaryDoc = uploadedFile.type === "application/pdf" || 
+        uploadedFile.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+        uploadedFile.type === "application/msword" ||
+        uploadedFile.name.endsWith(".docx") ||
+        uploadedFile.name.endsWith(".doc") ||
+        uploadedFile.name.endsWith(".pdf");
+
+      if (isBinaryDoc) {
+        try {
+          // Use the parse-context-file function to extract text
+          const formData = new FormData();
+          formData.append("file", uploadedFile);
+
+          const { data: parseResult, error: parseError } = await supabase.functions.invoke(
+            "parse-context-file",
+            { body: formData }
+          );
+
+          if (parseError) throw parseError;
+          content = parseResult.content || "";
+          
+          if (!content.trim()) {
+            throw new Error("Could not extract text from document");
+          }
+        } catch (e) {
+          console.error("Document parse error:", e);
+          toast({
+            title: "Document parse error",
+            description: e instanceof Error ? e.message : "Could not parse the document",
+            variant: "destructive",
+          });
+          return;
+        }
+      } else {
+        // Plain text files can be read directly
+        try {
+          content = await uploadedFile.text();
+        } catch (e) {
+          toast({
+            title: "File read error",
+            description: "Could not read the uploaded file",
+            variant: "destructive",
+          });
+          return;
+        }
       }
     }
 
@@ -293,7 +331,7 @@ export const ToneProfilePanel = ({ selectedProfileId, onProfileSelect }: TonePro
               <div className="flex gap-2">
                 <Input
                   type="file"
-                  accept=".txt,.md,.doc,.docx"
+                  accept=".txt,.md,.doc,.docx,.pdf"
                   onChange={(e) => {
                     const file = e.target.files?.[0];
                     if (file) {
