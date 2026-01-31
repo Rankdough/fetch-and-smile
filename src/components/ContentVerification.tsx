@@ -77,18 +77,19 @@ export const ContentVerification = ({
       details: hasTldrH2 ? "Found ## TL;DR heading" : "Missing TL;DR H2 section",
     });
 
-    // Check for "What You'll Learn" navigation section
-    const hasWhatYoullLearn = /^## What You['']ll Learn/im.test(content);
-    const hasNavigationEmojis = /[📌🎯💡🔍⚡📊✅🛠️].*\*\*[^*]+\*\*/m.test(content);
+    // Check for "In This Article" concepts checklist
+    const hasInThisArticle = /^## In This Article/im.test(content);
+    const hasCheckmarkItems = /✓.*\*\*[^*]+\*\*/m.test(content);
+    const checkmarkCount = (content.match(/✓.*\*\*[^*]+\*\*/gm) || []).length;
     results.push({
-      id: "quick-navigation",
-      label: "Quick Navigation section",
-      status: hasWhatYoullLearn && hasNavigationEmojis ? "passed" : hasWhatYoullLearn ? "warning" : "failed",
-      details: hasWhatYoullLearn && hasNavigationEmojis 
-        ? "What You'll Learn section with visual icons found" 
-        : hasWhatYoullLearn 
-          ? "Section found but missing visual icons" 
-          : "Missing 'What You'll Learn' quick navigation section",
+      id: "concepts-checklist",
+      label: "Concepts checklist (In This Article)",
+      status: hasInThisArticle && checkmarkCount >= 5 ? "passed" : hasInThisArticle && hasCheckmarkItems ? "warning" : "failed",
+      details: hasInThisArticle && checkmarkCount >= 5 
+        ? `${checkmarkCount} key concepts listed for reader` 
+        : hasInThisArticle && hasCheckmarkItems
+          ? `Only ${checkmarkCount} concepts - aim for 6-10` 
+          : "Missing 'In This Article' concepts checklist",
     });
 
     // Check for tables - count them based on word count requirements
