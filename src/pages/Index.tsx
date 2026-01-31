@@ -30,6 +30,7 @@ import { ToneProfilePanel } from "@/components/ToneProfilePanel";
 import { UniqueAnglesPanel } from "@/components/UniqueAnglesPanel";
 import { QualityScoringPanel } from "@/components/QualityScoringPanel";
 import { Switch } from "@/components/ui/switch";
+import { ArticleNavigationPanel } from "@/components/ArticleNavigationPanel";
 
 const SAMPLE_CONTENT = `# Composite Bonding vs Veneers: Which Smile Transformation is Right for You?
 
@@ -155,6 +156,48 @@ const cleanContent = (content: string): string => {
     .replace(/—/g, "-")  // Remove em dashes
     .replace(/–/g, "-")  // Remove en dashes
     .replace(/^\s*[-*_]{3,}\s*$/gm, "");  // Remove horizontal lines
+};
+
+// Helper to extract "In This Article" navigation items from markdown
+const extractInThisArticleItems = (content: string): { number: number; title: string; description: string; slug: string; isHighlighted?: boolean }[] => {
+  const items: { number: number; title: string; description: string; slug: string; isHighlighted?: boolean }[] = [];
+  
+  // Match the "## In This Article" section and its list items
+  const inThisArticleMatch = content.match(/## In This Article\s*\n([\s\S]*?)(?=\n## [^I]|\n## [A-Z](?!n This))/i);
+  if (!inThisArticleMatch) return items;
+  
+  const listContent = inThisArticleMatch[1];
+  
+  // Match list items like: - **1. Title** - Description
+  const itemRegex = /- \*\*(\d+)\. ([^*]+)\*\*\s*[-–—]\s*(.+)/g;
+  let match;
+  
+  while ((match = itemRegex.exec(listContent)) !== null) {
+    const number = parseInt(match[1], 10);
+    const title = match[2].trim();
+    const description = match[3].trim();
+    const slug = title
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, "")
+      .replace(/\s+/g, "-")
+      .replace(/-+/g, "-");
+    
+    items.push({
+      number,
+      title,
+      description,
+      slug,
+      isHighlighted: number === 1,
+    });
+  }
+  
+  return items;
+};
+
+// Helper to remove "In This Article" section from markdown for custom rendering
+const removeInThisArticleSection = (content: string): string => {
+  // Remove the "## In This Article" section and its list items
+  return content.replace(/## In This Article\s*\n([\s\S]*?)(?=\n## [^I]|\n## [A-Z](?!n This))/i, "");
 };
 
 const Index = () => {
@@ -1457,35 +1500,90 @@ ${tempDiv.innerHTML}
                       }}
                     >
                       {(() => {
-                        // Split content to insert CTAs
-                        const lines = generatedContent.split('\n');
+                        // Extract "In This Article" navigation items
+                        const navItems = extractInThisArticleItems(generatedContent);
+                        // Remove "In This Article" section from markdown for custom rendering
+                        const contentWithoutNav = removeInThisArticleSection(generatedContent);
+                        
+                        // Split content to insert CTAs and Navigation Panel
+                        const lines = contentWithoutNav.split('\n');
                         const h2Indices: number[] = [];
                         lines.forEach((line, idx) => {
-                          if (/^## /.test(line) && !/tldr/i.test(line)) {
+                          if (/^## /.test(line) && !/tldr/i.test(line) && !/in this article/i.test(line)) {
                             h2Indices.push(idx);
                           }
                         });
+                        
+                        // Find where TL;DR ends (after the bullet points)
+                        let tldrEndIndex = -1;
+                        const tldrStartIndex = lines.findIndex(line => /^## TL;?DR/i.test(line));
+                        if (tldrStartIndex >= 0) {
+                          // Find next H2 after TL;DR
+                          for (let i = tldrStartIndex + 1; i < lines.length; i++) {
+                            if (/^## /.test(lines[i]) && !/tldr/i.test(lines[i])) {
+                              tldrEndIndex = i;
+                              break;
+                            }
+                          }
+                        }
                         
                         // Insert middle CTA after ~40% of H2s
                         const middleInsertIndex = h2Indices.length > 2 
                           ? h2Indices[Math.floor(h2Indices.length * 0.4)]
                           : -1;
                         
-                        const parts: { content: string; ctaPosition?: 'middle' | 'end' }[] = [];
+                        // Build parts: content before TL;DR end, navigation panel, rest of content
+                        const parts: { content: string; ctaPosition?: 'middle' | 'end'; navPanel?: boolean }[] = [];
                         
-                        if (middleInsertIndex > 0 && generatedCTAs?.middle && ctaUrl) {
+                        if (tldrEndIndex > 0 && navItems.length > 0) {
+                          // Part 1: Title + TL;DR
+                          parts.push({ content: lines.slice(0, tldrEndIndex).join('\n') });
+                          // Part 2: Navigation Panel
+                          parts.push({ content: '', navPanel: true });
+                          
+                          // Rest of content with potential CTA insertion
+                          const restLines = lines.slice(tldrEndIndex);
+                          const restContent = restLines.join('\n');
+                          
+                          if (middleInsertIndex > 0 && generatedCTAs?.middle && ctaUrl) {
+                            // Calculate relative index for CTA in rest content
+                            const restH2Indices: number[] = [];
+                            restLines.forEach((line, idx) => {
+                              if (/^## /.test(line) && !/tldr/i.test(line)) {
+                                restH2Indices.push(idx);
+                              }
+                            });
+                            const relativeMiddleIndex = restH2Indices.length > 2 
+                              ? restH2Indices[Math.floor(restH2Indices.length * 0.4)]
+                              : -1;
+                            
+                            if (relativeMiddleIndex > 0) {
+                              parts.push({ content: restLines.slice(0, relativeMiddleIndex).join('\n') });
+                              parts.push({ content: '', ctaPosition: 'middle' });
+                              parts.push({ content: restLines.slice(relativeMiddleIndex).join('\n') });
+                            } else {
+                              parts.push({ content: restContent });
+                            }
+                          } else {
+                            parts.push({ content: restContent });
+                          }
+                        } else if (middleInsertIndex > 0 && generatedCTAs?.middle && ctaUrl) {
                           parts.push({ content: lines.slice(0, middleInsertIndex).join('\n') });
                           parts.push({ content: '', ctaPosition: 'middle' });
                           parts.push({ content: lines.slice(middleInsertIndex).join('\n') });
                         } else {
-                          parts.push({ content: generatedContent });
+                          parts.push({ content: contentWithoutNav });
                         }
                         
                         return (
                           <>
                             {parts.map((part, idx) => (
                               <div key={idx}>
-                                {part.ctaPosition === 'middle' && generatedCTAs?.middle && ctaUrl ? (
+                                {part.navPanel && navItems.length > 0 ? (
+                                  <div className="my-6">
+                                    <ArticleNavigationPanel items={navItems} />
+                                  </div>
+                                ) : part.ctaPosition === 'middle' && generatedCTAs?.middle && ctaUrl ? (
                                   <CTABanner
                                     headline={generatedCTAs.middle.headline}
                                     description={generatedCTAs.middle.description}
