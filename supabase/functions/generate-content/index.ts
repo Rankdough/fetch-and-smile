@@ -114,19 +114,7 @@ SOURCE REFERENCE RULES:
 ARTICLE STRUCTURE (in this order):
 1. Title (# H1)
 2. ## TL;DR - as an H2 heading, followed by bullet points summarizing key takeaways
-3. ## In This Article - A numbered navigation list with JUMP LINKS to each section. CRITICAL:
-   - Use CIRCLED NUMBERS: ① ② ③ ④ ⑤ ⑥ ⑦ ⑧ ⑨ ⑩
-   - Each item MUST be a markdown link that jumps to the corresponding H2 section
-   - Format: - ① [**Section Title**](#section-slug) - brief description
-   - The anchor slug must match the H2 heading (lowercase, hyphens for spaces)
-   - Include ALL main H2 sections from the article (typically 6-10)
-   - Example:
-     - ① [**What is Composite Bonding?**](#what-is-composite-bonding) - the basics explained simply
-     - ② [**Cost Breakdown**](#cost-breakdown) - understand exactly what you'll pay
-     - ③ [**Longevity & Durability**](#longevity--durability) - how long results actually last
-     - ④ [**Who's a Good Candidate?**](#whos-a-good-candidate) - find out if it's right for you
-   - This creates clickable navigation that jumps readers to each section
-4. Main content sections with ## headings (each with **Sources:** at the end)
+3. Main content sections with ## headings (each with **Sources:** at the end)
 5. Comparison table section
 6. "Which Option Should You Choose?" section
 7. "## Frequently Asked Questions" section - include 4-6 common Q&As in bold question format
