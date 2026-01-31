@@ -11,7 +11,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, Sparkles, FileText, Link, Search, X, Upload, Plus, Tag, Download, ExternalLink, BookOpen, Eye, Edit2, Mic2 } from "lucide-react";
+import { Loader2, Sparkles, FileText, Link, Search, X, Upload, Plus, Tag, Download, ExternalLink, BookOpen, Eye, Edit2, Mic2, RotateCcw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import ReactMarkdown from "react-markdown";
@@ -432,6 +432,32 @@ const Index = () => {
     }
   };
 
+  // Clear all form fields to start fresh
+  const handleClearForm = () => {
+    setFormData({
+      topic: "",
+      length: "medium",
+      outline: "",
+      instructions: "",
+    });
+    setCompetitorUrls(["", "", ""]);
+    setFormatUrl("");
+    setFormatReference("");
+    setGapAnalysis("");
+    setContextFiles([]);
+    setKeywords([]);
+    setKeywordInput("");
+    setCtaUrl("");
+    setGeneratedCTAs(null);
+    setGeneratedContent("");
+    setAppliedRules(null);
+    setSelectedToneProfileId(null);
+    toast({
+      title: "Form cleared",
+      description: "All fields have been reset. Ready for a new article.",
+    });
+  };
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -846,25 +872,36 @@ const Index = () => {
               {/* Pre-Generation Checklist */}
               <GenerationChecklist items={checklistItems} />
 
-              {/* Generate Button */}
-              <Button
-                onClick={handleGenerate}
-                disabled={isGenerating || !formData.topic.trim()}
-                className="w-full mt-auto"
-                size="lg"
-              >
-                {isGenerating ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Generating...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="mr-2 h-4 w-4" />
-                    Generate Content
-                  </>
-                )}
-              </Button>
+              {/* Action Buttons */}
+              <div className="flex gap-2 mt-auto">
+                <Button
+                  variant="outline"
+                  onClick={handleClearForm}
+                  disabled={isGenerating}
+                  className="flex-shrink-0"
+                >
+                  <RotateCcw className="h-4 w-4 mr-2" />
+                  Clear Form
+                </Button>
+                <Button
+                  onClick={handleGenerate}
+                  disabled={isGenerating || !formData.topic.trim()}
+                  className="flex-1"
+                  size="lg"
+                >
+                  {isGenerating ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="mr-2 h-4 w-4" />
+                      Generate Content
+                    </>
+                  )}
+                </Button>
+              </div>
             </CardContent>
           </Card>
 
