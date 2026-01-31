@@ -175,6 +175,9 @@ const Index = () => {
     targetWordCount: number;
     outlineProvided: boolean;
     customInstructionsProvided: boolean;
+    knowledgeBaseUsed?: boolean;
+    knowledgeRulesCount?: number;
+    toneProfileUsed?: boolean;
   } | null>(null);
   const [gapAnalysis, setGapAnalysis] = useState("");
   const [formatReference, setFormatReference] = useState("");
@@ -1117,6 +1120,9 @@ ${tempDiv.innerHTML}
                       setIsGenerating(true);
                       try {
                         const targetWords = appliedRules?.targetWordCount || 1000;
+                        // Calculate required tables based on word count
+                        const requiredTables = targetWords >= 3000 ? 4 : targetWords >= 2000 ? 3 : 1;
+                        
                         const { data, error } = await supabase.functions.invoke("generate-content", {
                           body: {
                             ...formData,
@@ -1124,13 +1130,23 @@ ${tempDiv.innerHTML}
                             gapAnalysis: gapAnalysis || undefined,
                             formatReference: formatReference || undefined,
                             contextFiles: contextFiles.length > 0 ? contextFiles : undefined,
-                            instructions: `${formData.instructions || ""}\n\nCRITICAL: The article MUST be at least ${targetWords} words. Expand each section with more detail, examples, and explanations to reach the target word count.`.trim(),
+                            generateCTAs: ctaUrl.trim().length > 0,
+                            useKnowledgeBase: useKnowledgeBase,
+                            toneProfileId: selectedToneProfileId || undefined,
+                            instructions: `${formData.instructions || ""}\n\nCRITICAL REQUIREMENTS - YOU MUST FOLLOW THESE:
+1. The article MUST be at least ${targetWords} words. Expand each section with more detail, examples, and explanations.
+2. Include a MINIMUM of ${requiredTables} markdown tables comparing different aspects, features, or options.
+3. Add more subsections, examples, case studies, and detailed explanations to reach the word count.
+4. Do NOT pad with filler - add genuinely useful, substantive content.`.trim(),
                           },
                         });
 
                         if (error) throw error;
                         setGeneratedContent(data.content);
                         setAppliedRules(data.appliedRules || null);
+                        if (data.ctas) {
+                          setGeneratedCTAs(data.ctas);
+                        }
                         toast({
                           title: "Content regenerated",
                           description: "Article expanded to meet word count target.",

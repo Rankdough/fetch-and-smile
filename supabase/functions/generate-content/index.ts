@@ -70,6 +70,9 @@ serve(async (req) => {
       }
     }
 
+    // Calculate required tables based on word count
+    const requiredTables = targetWords >= 3000 ? 4 : targetWords >= 2000 ? 3 : 1;
+    
     // Build the prompt
     let systemPrompt = `You are an expert SEO content writer. Write high-quality, engaging blog posts optimized for search engines while remaining valuable and readable.
 
@@ -94,6 +97,12 @@ CRITICAL MARKDOWN FORMATTING RULES:
 - Use bullet points (-) and numbered lists (1.) for easy scanning
 - Use markdown tables with | for comparisons (e.g., Feature | Option A | Option B)
 - DO NOT use blockquotes (>) for TL;DR - use H2 heading instead
+
+CRITICAL TABLE REQUIREMENT:
+- You MUST include a MINIMUM of ${requiredTables} markdown comparison tables in the article
+- Tables should compare features, options, costs, benefits, or other relevant aspects
+- Each table must have at least 3 columns and 4+ rows
+- Spread tables throughout the article, not all at the end
 
 SOURCE REFERENCE RULES:
 - DO NOT use inline numeric citations like [1], [2], [3] in the text
