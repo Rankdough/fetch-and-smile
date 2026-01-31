@@ -79,62 +79,63 @@ serve(async (req) => {
     } else if (fileExtension === "json") {
       const jsonText = await fileData.text();
       textContent = `JSON Content:\n${jsonText}`;
-    } else if (fileExtension === "docx" || fileExtension === "doc") {
+    } else if (fileExtension === "docx") {
       // For Word documents, extract text from the XML inside the docx
-      // docx files are ZIP archives containing XML
+      // docx files are ZIP archives containing XML - use fflate to decompress
       try {
+        const { unzipSync } = await import("https://esm.sh/fflate@0.8.2");
+        
         const arrayBuffer = await fileData.arrayBuffer();
         const uint8Array = new Uint8Array(arrayBuffer);
         
-        // Simple extraction: look for text between XML tags in document.xml
-        // This is a basic approach - for complex docs, use a proper library
-        const textDecoder = new TextDecoder("utf-8");
-        const rawText = textDecoder.decode(uint8Array);
+        // Unzip the docx file
+        const unzipped = unzipSync(uint8Array);
         
-        // Try to find readable text content
-        // Remove XML tags and extract text
-        const xmlTextMatch = rawText.match(/<w:t[^>]*>([^<]*)<\/w:t>/g);
-        if (xmlTextMatch) {
-          textContent = xmlTextMatch
-            .map(match => match.replace(/<[^>]+>/g, ''))
-            .join(' ')
-            .replace(/\s+/g, ' ')
-            .trim();
+        // Find and read document.xml (main content)
+        let documentXml = "";
+        for (const [path, content] of Object.entries(unzipped)) {
+          if (path === "word/document.xml") {
+            const decoder = new TextDecoder("utf-8");
+            documentXml = decoder.decode(content as Uint8Array);
+            break;
+          }
         }
         
-        if (!textContent || textContent.length < 50) {
-          // Fallback: extract any readable ASCII text
-          const readableChars: string[] = [];
-          for (let i = 0; i < uint8Array.length; i++) {
-            const char = uint8Array[i];
-            if ((char >= 32 && char <= 126) || char === 10 || char === 13) {
-              readableChars.push(String.fromCharCode(char));
-            } else if (readableChars.length > 0 && readableChars[readableChars.length - 1] !== ' ') {
-              readableChars.push(' ');
+        if (documentXml) {
+          // Extract text from <w:t> tags (Word text elements)
+          // Split by paragraph markers to maintain structure
+          const paragraphs: string[] = [];
+          const paragraphSections = documentXml.split(/<w:p[^>]*>/);
+          
+          for (const section of paragraphSections) {
+            const sectionTextMatches = section.match(/<w:t[^>]*>([^<]*)<\/w:t>/g);
+            if (sectionTextMatches) {
+              const paragraphText = sectionTextMatches
+                .map(match => {
+                  const textMatch = match.match(/<w:t[^>]*>([^<]*)<\/w:t>/);
+                  return textMatch ? textMatch[1] : "";
+                })
+                .join("");
+              if (paragraphText.trim()) {
+                paragraphs.push(paragraphText.trim());
+              }
             }
           }
-          const fallbackText = readableChars.join('').replace(/\s+/g, ' ').trim();
           
-          // Filter out XML/binary noise
-          const sentences = fallbackText.split(/[.!?]+/).filter(s => {
-            const words = s.trim().split(/\s+/);
-            return words.length >= 3 && words.every(w => w.length < 30);
-          });
-          
-          if (sentences.length > 0) {
-            textContent = sentences.join('. ').trim();
-          }
+          textContent = paragraphs.join("\n\n");
+          console.log("Extracted text from docx using fflate, length:", textContent.length);
         }
         
         if (!textContent || textContent.length < 20) {
           textContent = `[Could not extract text from Word document: ${fileName}. Please try pasting the content directly.]`;
         }
-        
-        console.log("Extracted text from docx, length:", textContent.length);
       } catch (e) {
         console.error("Error parsing docx:", e);
-        textContent = `[Error parsing Word document: ${fileName}]`;
+        textContent = `[Error parsing Word document: ${fileName}. Error: ${e instanceof Error ? e.message : "Unknown"}]`;
       }
+    } else if (fileExtension === "doc") {
+      // Old .doc format is binary and harder to parse without specialized libraries
+      textContent = `[.doc format not supported. Please save as .docx or paste the content directly.]`;
     } else if (fileExtension === "pdf") {
       // PDF parsing would require a library - for now, return a message
       textContent = `[PDF parsing not yet supported. Please paste the content directly or convert to text.]`;
