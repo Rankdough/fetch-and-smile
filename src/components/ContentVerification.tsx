@@ -15,6 +15,7 @@ interface AppliedRules {
   customInstructionsProvided: boolean;
   knowledgeBaseUsed?: boolean;
   knowledgeRulesCount?: number;
+  toneProfileUsed?: boolean;
 }
 
 interface CTAData {
@@ -125,35 +126,35 @@ export const ContentVerification = ({
       });
     }
 
-    // Check gap analysis was used
-    if (appliedRules?.gapAnalysisUsed) {
-      results.push({
-        id: "gap-analysis",
-        label: "Gap analysis applied",
-        status: "passed",
-        details: "Content gaps from competitor analysis were addressed",
-      });
-    }
+    // ALWAYS show tone profile check - flag as incomplete if not used
+    results.push({
+      id: "tone-profile",
+      label: "Tone of voice applied",
+      status: appliedRules?.toneProfileUsed ? "passed" : "failed",
+      details: appliedRules?.toneProfileUsed 
+        ? "Content generated with selected tone profile" 
+        : "No tone profile selected - content uses default tone",
+    });
 
-    // Check format reference was used
-    if (appliedRules?.formatReferenceUsed) {
-      results.push({
-        id: "format-ref",
-        label: "Format reference applied",
-        status: "passed",
-        details: "Formatting matched to reference article",
-      });
-    }
+    // ALWAYS show knowledge base check - flag as incomplete if not used
+    results.push({
+      id: "knowledge-base",
+      label: "SEO knowledge base applied",
+      status: appliedRules?.knowledgeBaseUsed ? "passed" : "failed",
+      details: appliedRules?.knowledgeBaseUsed 
+        ? `${appliedRules.knowledgeRulesCount || 0} SEO rules from knowledge base applied` 
+        : "No SEO knowledge base rules applied - upload documents to knowledge base",
+    });
 
-    // Check knowledge base was used
-    if (appliedRules?.knowledgeBaseUsed) {
-      results.push({
-        id: "knowledge-base",
-        label: "SEO knowledge base applied",
-        status: "passed",
-        details: `${appliedRules.knowledgeRulesCount || 0} SEO rules from knowledge base applied`,
-      });
-    }
+    // ALWAYS show competition/gap analysis check - flag as incomplete if not used
+    results.push({
+      id: "gap-analysis",
+      label: "Competition analysis applied",
+      status: appliedRules?.gapAnalysisUsed ? "passed" : "failed",
+      details: appliedRules?.gapAnalysisUsed 
+        ? "Content gaps from competitor analysis were addressed" 
+        : "No competitor analysis applied - add competitor URLs to analyze gaps",
+    });
 
     // Check context files were used and references cited
     if (appliedRules?.contextFilesUsed && appliedRules.contextFileNames.length > 0) {
