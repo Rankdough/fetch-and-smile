@@ -77,19 +77,19 @@ export const ContentVerification = ({
       details: hasTldrH2 ? "Found ## TL;DR heading" : "Missing TL;DR H2 section",
     });
 
-    // Check for "In This Article" concepts checklist
+    // Check for "In This Article" concepts checklist with fun emojis
     const hasInThisArticle = /^## In This Article/im.test(content);
-    const hasCheckmarkItems = /✓.*\*\*[^*]+\*\*/m.test(content);
-    const checkmarkCount = (content.match(/✓.*\*\*[^*]+\*\*/gm) || []).length;
+    const emojiPattern = /[💰⏱️🛡️💡🔍⚡🎨🧪📊🚀💪🎯⚠️🏆🔧✓].*\*\*[^*]+\*\*/gm;
+    const emojiItemCount = (content.match(emojiPattern) || []).length;
     results.push({
       id: "concepts-checklist",
-      label: "Concepts checklist (In This Article)",
-      status: hasInThisArticle && checkmarkCount >= 5 ? "passed" : hasInThisArticle && hasCheckmarkItems ? "warning" : "failed",
-      details: hasInThisArticle && checkmarkCount >= 5 
-        ? `${checkmarkCount} key concepts listed for reader` 
-        : hasInThisArticle && hasCheckmarkItems
-          ? `Only ${checkmarkCount} concepts - aim for 6-10` 
-          : "Missing 'In This Article' concepts checklist",
+      label: "Concepts checklist with icons",
+      status: hasInThisArticle && emojiItemCount >= 5 ? "passed" : hasInThisArticle && emojiItemCount > 0 ? "warning" : "failed",
+      details: hasInThisArticle && emojiItemCount >= 5 
+        ? `${emojiItemCount} concepts with fun icons` 
+        : hasInThisArticle && emojiItemCount > 0
+          ? `Only ${emojiItemCount} concepts - aim for 6-10` 
+          : "Missing 'In This Article' concepts list",
     });
 
     // Check for tables - count them based on word count requirements
