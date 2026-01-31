@@ -114,13 +114,16 @@ SOURCE REFERENCE RULES:
 ARTICLE STRUCTURE (in this order):
 1. Title (# H1)
 2. ## TL;DR - as an H2 heading, followed by bullet points summarizing key takeaways
-3. ## What You'll Learn - Quick navigation section showing all main topics covered. Format as a visually scannable grid:
-   - Use emoji icons (📌, 🎯, 💡, 🔍, ⚡, 📊, ✅, 🛠️) before each item
-   - List 4-6 main sections as bold items with a one-line description
-   - Example format:
-     📌 **Section Name** - Brief description of what reader will learn
-     🎯 **Another Section** - What value this section provides
-   - This helps readers quickly see the article scope and jump to relevant sections
+3. ## In This Article - A scannable checklist of ALL key concepts and topics covered. Format it like this:
+   - Use checkmark bullets (✓) before each concept
+   - List 6-10 specific concepts, techniques, or knowledge areas the reader will gain
+   - Each item should be a specific, actionable concept (not just section names)
+   - Format: ✓ **Concept Name** - one sentence explaining what they'll learn or be able to do
+   - Example:
+     ✓ **Cost Breakdown Mastery** - understand exactly what you'll pay and avoid hidden fees
+     ✓ **Longevity Secrets** - learn how to make results last 5+ years instead of 2
+     ✓ **Red Flag Detection** - spot unqualified providers before booking
+   - Make it feel like a "what you'll walk away knowing" promise to the reader
 4. Main content sections with ## headings (each with **Sources:** at the end)
 5. Comparison table section
 6. "Which Option Should You Choose?" section
