@@ -35,6 +35,7 @@ import { Switch } from "@/components/ui/switch";
 import { ArticleNavigationPanel, extractNavigationFromContent } from "@/components/ArticleNavigationPanel";
 import { FAQAccordion, extractFAQFromContent, removeFAQSection } from "@/components/FAQAccordion";
 import { useSpeechToText } from "@/hooks/useSpeechToText";
+import { SectionIndicator } from "@/components/SectionIndicator";
 
 const SAMPLE_CONTENT = `# Composite Bonding vs Veneers: Which Smile Transformation is Right for You?
 
@@ -743,7 +744,7 @@ const Index = () => {
               {/* Section 1: Topic */}
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
-                  <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-sm font-semibold">1</span>
+                  <SectionIndicator number={1} isComplete={!!formData.topic.trim()} />
                   <Label htmlFor="topic" className="text-base font-medium">What is the topic of your post?</Label>
                 </div>
                 <Input
@@ -762,7 +763,7 @@ const Index = () => {
               {/* Section 2: Value Promise - Required */}
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
-                  <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-sm font-semibold">2</span>
+                  <SectionIndicator number={2} isComplete={!!valuePromise.trim()} />
                   <Label htmlFor="value-promise" className="flex items-center gap-2 text-base font-medium">
                     <Target className="h-4 w-4 text-primary" />
                     Value Promise <span className="text-xs text-destructive">*Required</span>
@@ -807,7 +808,7 @@ const Index = () => {
               {/* Section 3: Competitor URLs Section */}
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
-                  <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-sm font-semibold">3</span>
+                  <SectionIndicator number={3} isComplete={competitorUrls.some(u => u.trim()) || !!gapAnalysis.trim()} />
                   <span className="text-base font-medium">Competitor Analysis (Optional)</span>
                 </div>
               <Collapsible className="space-y-2 ml-8">
@@ -892,7 +893,7 @@ const Index = () => {
               {/* Section 4: Format Reference URL */}
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
-                  <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-sm font-semibold">4</span>
+                  <SectionIndicator number={4} isComplete={!!formatUrl.trim() || !!formatReference.trim()} />
                   <span className="text-base font-medium">Format Reference (Optional)</span>
                 </div>
               <Collapsible className="space-y-2 ml-8">
@@ -937,7 +938,7 @@ const Index = () => {
               {/* Section 5: Context Files Upload */}
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
-                  <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-sm font-semibold">5</span>
+                  <SectionIndicator number={5} isComplete={contextFiles.length > 0} />
                   <span className="text-base font-medium">Context Files (Optional)</span>
                 </div>
               <Collapsible className="space-y-2 ml-8">
@@ -1002,7 +1003,7 @@ const Index = () => {
               {/* Section 6: Tone of Voice Profiles */}
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
-                  <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-sm font-semibold">6</span>
+                  <SectionIndicator number={6} isComplete={!!selectedToneProfileId} />
                   <span className="text-base font-medium">Tone of Voice (Optional)</span>
                 </div>
               <Collapsible className="space-y-2 ml-8">
@@ -1028,7 +1029,7 @@ const Index = () => {
               {/* Section 7: SEO Knowledge Base */}
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
-                  <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-sm font-semibold">7</span>
+                  <SectionIndicator number={7} isComplete={useKnowledgeBase} />
                   <span className="text-base font-medium">SEO Knowledge Base (Optional)</span>
                 </div>
               <Collapsible className="space-y-2 ml-8">
@@ -1050,7 +1051,7 @@ const Index = () => {
               {/* Section 8: Keywords */}
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
-                  <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-sm font-semibold">8</span>
+                  <SectionIndicator number={8} isComplete={keywords.length > 0} />
                   <Label className="flex items-center gap-2 text-base font-medium">
                     <Tag className="h-4 w-4" />
                     SEO Keywords (up to 10, top 5 used)
@@ -1150,7 +1151,7 @@ const Index = () => {
               {/* Section 9: Length */}
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
-                  <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-sm font-semibold">9</span>
+                  <SectionIndicator number={9} isComplete={true} />
                   <Label className="text-base font-medium">How long would you like the blog post to be?</Label>
                 </div>
                 <div className="ml-8">
@@ -1179,7 +1180,7 @@ const Index = () => {
               {/* Section 10: Outline */}
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
-                  <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-sm font-semibold">10</span>
+                  <SectionIndicator number={10} isComplete={!!formData.outline.trim()} />
                   <Label htmlFor="outline" className="text-base font-medium">What is the outline of your post?</Label>
                 </div>
                 <Textarea
