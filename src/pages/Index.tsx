@@ -31,6 +31,7 @@ import { UniqueAnglesPanel } from "@/components/UniqueAnglesPanel";
 import { QualityScoringPanel } from "@/components/QualityScoringPanel";
 import { Switch } from "@/components/ui/switch";
 import { ArticleNavigationPanel } from "@/components/ArticleNavigationPanel";
+import { FAQAccordion, extractFAQFromContent, removeFAQSection } from "@/components/FAQAccordion";
 import { useSpeechToText } from "@/hooks/useSpeechToText";
 
 const SAMPLE_CONTENT = `# Composite Bonding vs Veneers: Which Smile Transformation is Right for You?
@@ -1602,8 +1603,11 @@ ${tempDiv.innerHTML}
                       {(() => {
                         // Extract "In This Article" navigation items
                         const navItems = extractInThisArticleItems(generatedContent);
-                        // Remove "In This Article" section from markdown for custom rendering
-                        const contentWithoutNav = removeInThisArticleSection(generatedContent);
+                        // Extract FAQ items
+                        const faqItems = extractFAQFromContent(generatedContent);
+                        // Remove "In This Article" and FAQ sections from markdown for custom rendering
+                        let contentWithoutNav = removeInThisArticleSection(generatedContent);
+                        contentWithoutNav = removeFAQSection(contentWithoutNav);
                         
                         // Split content to insert CTAs and Navigation Panel
                         const lines = contentWithoutNav.split('\n');
@@ -1710,6 +1714,10 @@ ${tempDiv.innerHTML}
                                 ) : null}
                               </div>
                             ))}
+                            {/* FAQ Accordion */}
+                            {faqItems.length > 0 && (
+                              <FAQAccordion items={faqItems} />
+                            )}
                             {/* End CTA */}
                             {generatedCTAs?.end && ctaUrl && (
                               <CTABanner
