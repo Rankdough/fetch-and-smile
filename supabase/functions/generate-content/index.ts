@@ -13,7 +13,7 @@ serve(async (req) => {
   }
 
   try {
-    const { topic, length, outline, instructions, gapAnalysis, formatReference, contextFiles, keywords, generateCTAs, useKnowledgeBase, toneProfileId } = await req.json();
+    const { topic, length, outline, instructions, gapAnalysis, formatReference, contextFiles, keywords, generateCTAs, useKnowledgeBase, toneProfileId, articleImages } = await req.json();
 
     if (!topic) {
       return new Response(
@@ -245,6 +245,17 @@ Reference materials to incorporate:
 ${contextContent}`;
     }
 
+    // Add article images for AI placement
+    if (articleImages && Array.isArray(articleImages) && articleImages.length > 0) {
+      userPrompt += `
+
+ARTICLE IMAGES TO USE:
+You have ${articleImages.length} image(s) available to place in the article. Insert them at relevant points using markdown image syntax.
+${articleImages.map((img: { alt: string; url: string }, i: number) => `${i + 1}. ![${img.alt}](${img.url})`).join("\n")}
+
+Place these images throughout the article at logical locations, typically after relevant paragraphs. Distribute them evenly across different sections.`;
+    }
+
     console.log("Generating content for topic:", topic);
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -378,6 +389,8 @@ Guidelines:
       knowledgeBaseUsed: useKnowledgeBase && knowledgeRules.length > 0,
       knowledgeRulesCount: knowledgeRules.length,
       toneProfileUsed: !!toneProfile,
+      articleImagesUsed: articleImages && Array.isArray(articleImages) && articleImages.length > 0,
+      articleImagesCount: articleImages?.length || 0,
     };
 
     console.log("Applied rules:", appliedRules);
