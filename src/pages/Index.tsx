@@ -361,6 +361,7 @@ const Index = () => {
     return saved ? JSON.parse(saved) : [];
   });
   const [isPreviewFullscreen, setIsPreviewFullscreen] = useState(false);
+  const [isDraggingImage, setIsDraggingImage] = useState(false);
 
   // Voice input for Value Promise
   const {
@@ -1924,7 +1925,105 @@ ${tempDiv.innerHTML}
                   </div>
 
                   {/* Generated Article - Always rendered, optionally editable */}
-                  <div className={isEditMode ? "ring-1 ring-primary/20 rounded-md p-2 -m-2" : ""}>
+                  <div 
+                    className={`relative ${isEditMode ? "ring-1 ring-primary/20 rounded-md p-2 -m-2" : ""} ${isDraggingImage ? "ring-2 ring-primary ring-dashed bg-primary/5" : ""}`}
+                    onDragOver={(e) => {
+                      // Check if this is an image drag
+                      if (e.dataTransfer.types.includes("application/json")) {
+                        e.preventDefault();
+                        e.dataTransfer.dropEffect = "copy";
+                        setIsDraggingImage(true);
+                      }
+                    }}
+                    onDragLeave={(e) => {
+                      // Only set to false if we're leaving the container, not entering a child
+                      if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                        setIsDraggingImage(false);
+                      }
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      setIsDraggingImage(false);
+                      
+                      try {
+                        const jsonData = e.dataTransfer.getData("application/json");
+                        if (!jsonData) return;
+                        
+                        const imageData = JSON.parse(jsonData);
+                        if (imageData.type !== "article-image") return;
+                        
+                        // Get the drop position - find which element was dropped on
+                        const target = e.target as HTMLElement;
+                        const article = e.currentTarget.querySelector("article");
+                        if (!article) return;
+                        
+                        // Find the nearest block-level element (heading or paragraph)
+                        let insertAfterElement: HTMLElement | null = null;
+                        let current: HTMLElement | null = target;
+                        
+                        while (current && current !== article) {
+                          if (current.tagName.match(/^(H[1-6]|P|UL|OL|TABLE|BLOCKQUOTE|DIV)$/)) {
+                            insertAfterElement = current;
+                            break;
+                          }
+                          current = current.parentElement;
+                        }
+                        
+                        // Build the markdown image to insert
+                        const imageMarkdown = `\n\n![${imageData.alt}](${imageData.url})\n\n`;
+                        
+                        if (insertAfterElement && insertAfterElement.id) {
+                          // Find this heading in the markdown and insert after its section
+                          const headingId = insertAfterElement.id;
+                          const headingRegex = new RegExp(`(^## [^\\n]*${headingId.replace(/-/g, "[\\s-]")}[^\\n]*\\n)`, "im");
+                          
+                          if (headingRegex.test(generatedContent)) {
+                            // Insert after the heading's first paragraph
+                            const lines = generatedContent.split("\n");
+                            let foundHeading = false;
+                            let insertIndex = -1;
+                            
+                            for (let i = 0; i < lines.length; i++) {
+                              if (lines[i].toLowerCase().includes(headingId.replace(/-/g, " ")) && lines[i].startsWith("## ")) {
+                                foundHeading = true;
+                              } else if (foundHeading && lines[i].trim() === "") {
+                                insertIndex = i;
+                                break;
+                              }
+                            }
+                            
+                            if (insertIndex > 0) {
+                              lines.splice(insertIndex + 1, 0, imageMarkdown.trim());
+                              setGeneratedContent(lines.join("\n"));
+                            } else {
+                              // Fallback: append at end
+                              setGeneratedContent(generatedContent + imageMarkdown);
+                            }
+                          } else {
+                            // Fallback: append at end
+                            setGeneratedContent(generatedContent + imageMarkdown);
+                          }
+                        } else {
+                          // No specific element found, append at end
+                          setGeneratedContent(generatedContent + imageMarkdown);
+                        }
+                        
+                        toast({
+                          title: "Image inserted!",
+                          description: `${imageData.name} added to article`,
+                        });
+                      } catch (err) {
+                        console.error("Drop error:", err);
+                      }
+                    }}
+                  >
+                    {isDraggingImage && (
+                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+                        <div className="bg-primary text-primary-foreground px-4 py-2 rounded-lg shadow-lg text-sm font-medium">
+                          Drop image here to insert
+                        </div>
+                      </div>
+                    )}
                     {(
                     <article 
                       className="prose prose-sm max-w-none dark:prose-invert"

@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, X, Copy, ImagePlus } from "lucide-react";
+import { Loader2, X, Copy, ImagePlus, GripVertical } from "lucide-react";
 
 export interface ArticleImage {
   name: string;
@@ -122,10 +122,31 @@ export function ArticleImagesPanel({ images, onImagesChange }: ArticleImagesPane
     });
   };
 
+  const handleDragStart = (e: React.DragEvent, image: ArticleImage) => {
+    // Set the data that will be transferred
+    const imageData = JSON.stringify({
+      type: "article-image",
+      url: image.url,
+      alt: image.alt,
+      name: image.name,
+    });
+    e.dataTransfer.setData("application/json", imageData);
+    e.dataTransfer.setData("text/plain", `![${image.alt}](${image.url})`);
+    e.dataTransfer.effectAllowed = "copy";
+    
+    // Create a custom drag image
+    const dragImage = document.createElement("div");
+    dragImage.textContent = `📷 ${image.name}`;
+    dragImage.style.cssText = "position: absolute; top: -1000px; padding: 8px 12px; background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); border-radius: 6px; font-size: 12px; white-space: nowrap;";
+    document.body.appendChild(dragImage);
+    e.dataTransfer.setDragImage(dragImage, 0, 0);
+    setTimeout(() => document.body.removeChild(dragImage), 0);
+  };
+
   return (
     <div className="space-y-3">
       <p className="text-sm text-muted-foreground">
-        Upload images to include in your article. They will be automatically placed by AI or you can copy the markdown to insert manually.
+        Upload images to include in your article. <strong>Drag & drop</strong> images into the preview or copy markdown.
       </p>
 
       {/* Upload input */}
@@ -158,15 +179,23 @@ export function ArticleImagesPanel({ images, onImagesChange }: ArticleImagesPane
           {images.map((image, index) => (
             <div
               key={index}
-              className="relative group rounded-lg border bg-muted/50 p-2 space-y-2"
+              className="relative group rounded-lg border bg-muted/50 p-2 space-y-2 cursor-grab active:cursor-grabbing"
+              draggable
+              onDragStart={(e) => handleDragStart(e, image)}
             >
+              {/* Drag handle indicator */}
+              <div className="absolute top-1 left-1 opacity-0 group-hover:opacity-100 transition-opacity bg-background/80 rounded p-0.5">
+                <GripVertical className="h-3 w-3 text-muted-foreground" />
+              </div>
+              
               {/* Thumbnail */}
               <div className="aspect-square w-full overflow-hidden rounded-md bg-background">
                 <img
                   src={image.url}
                   alt={image.alt}
-                  className="h-full w-full object-cover"
+                  className="h-full w-full object-cover pointer-events-none"
                   loading="lazy"
+                  draggable={false}
                 />
               </div>
 
