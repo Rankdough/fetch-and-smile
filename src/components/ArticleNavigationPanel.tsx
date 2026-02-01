@@ -92,9 +92,9 @@ export const ArticleNavigationPanel = ({
               )} />
             </div>
             
-            {/* Description - always visible (2 lines) */}
+            {/* Description - always visible (2 lines minimum) */}
             <div className="px-3 pb-2.5 pl-12">
-              <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2">
+              <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2 min-h-[2.5rem]">
                 {item.description}
               </p>
             </div>

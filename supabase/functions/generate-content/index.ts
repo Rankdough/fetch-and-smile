@@ -117,17 +117,19 @@ ARTICLE STRUCTURE (in this order):
 3. ## In This Article - THIS SECTION IS MANDATORY AND MUST APPEAR IMMEDIATELY AFTER TL;DR
    - This is a navigation guide showing what the reader will learn
    - Format as a BULLETED LIST with each item on its own line
-   - Each line format: - **1. Section Title** - Brief description of what reader learns
+   - Each line format: - **1. Section Title** - DETAILED description (MINIMUM 150 characters, aim for 200+ characters) explaining what the reader will learn in this section
+   - CRITICAL: Each description MUST be long enough to wrap to AT LEAST 2 full lines of text
    - Example:
      
      ## In This Article
      
-     - **1. What is Composite Bonding?** - Understand the basics of this minimally invasive cosmetic treatment.
-     - **2. Cost Breakdown** - Learn exactly what you'll pay and what affects the price.
-     - **3. Longevity & Care** - Discover how long results last and maintenance tips.
+     - **1. What is Composite Bonding?** - Understand the fundamentals of this revolutionary minimally invasive cosmetic dental treatment, including how resin is applied and shaped to transform your smile in just one appointment.
+     - **2. Cost Breakdown** - Get a comprehensive understanding of exactly what you'll pay for different procedures, what factors influence pricing, and how to budget for your perfect smile.
+     - **3. Longevity & Care** - Discover how long your results will realistically last, essential maintenance tips to extend their lifespan, and warning signs that indicate you need a touch-up.
    
    - List ALL main H2 sections from the article (not TL;DR or References)
    - DO NOT SKIP THIS SECTION - it must be present in every article
+   - IMPORTANT: Short one-line descriptions are NOT acceptable - each must be detailed and informative
 4. Main content sections with ## headings (each with **Sources:** at the end)
 5. Comparison table section
 6. "Which Option Should You Choose?" section
