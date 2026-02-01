@@ -322,6 +322,10 @@ const Index = () => {
     const saved = localStorage.getItem("seo-generator-formatUrl");
     return saved || "";
   });
+  const [formatUrlHistory, setFormatUrlHistory] = useState<string[]>(() => {
+    const saved = localStorage.getItem("seo-generator-formatUrlHistory");
+    return saved ? JSON.parse(saved) : [];
+  });
   const [contextFiles, setContextFiles] = useState<{ name: string; content: string }[]>(() => {
     const saved = localStorage.getItem("seo-generator-contextFiles");
     return saved ? JSON.parse(saved) : [];
@@ -405,6 +409,10 @@ const Index = () => {
   useEffect(() => {
     localStorage.setItem("seo-generator-formatUrl", formatUrl);
   }, [formatUrl]);
+  
+  useEffect(() => {
+    localStorage.setItem("seo-generator-formatUrlHistory", JSON.stringify(formatUrlHistory));
+  }, [formatUrlHistory]);
   
   useEffect(() => {
     localStorage.setItem("seo-generator-formatReference", formatReference);
@@ -616,6 +624,13 @@ const Index = () => {
       if (error) throw error;
 
       setFormatReference(data.markdown);
+      
+      // Add to history (avoid duplicates, keep max 10)
+      setFormatUrlHistory(prev => {
+        const filtered = prev.filter(u => u !== formatUrl.trim());
+        return [formatUrl.trim(), ...filtered].slice(0, 10);
+      });
+      
       toast({
         title: "Format captured!",
         description: `Using format from: ${data.title}`,
@@ -1404,6 +1419,38 @@ const Index = () => {
                       Capture
                     </Button>
                   </div>
+                  
+                  {/* Recent URLs history */}
+                  {formatUrlHistory.length > 0 && (
+                    <div className="space-y-1.5">
+                      <p className="text-xs text-muted-foreground font-medium">Recent captures:</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {formatUrlHistory.slice(0, 3).map((url, idx) => {
+                          // Extract domain for display
+                          let displayUrl = url;
+                          try {
+                            const urlObj = new URL(url);
+                            displayUrl = urlObj.hostname.replace('www.', '') + urlObj.pathname.slice(0, 30);
+                            if (urlObj.pathname.length > 30) displayUrl += '...';
+                          } catch {
+                            displayUrl = url.slice(0, 40) + (url.length > 40 ? '...' : '');
+                          }
+                          return (
+                            <button
+                              key={idx}
+                              type="button"
+                              onClick={() => setFormatUrl(url)}
+                              className="text-xs px-2 py-1 rounded-md bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors truncate max-w-[200px]"
+                              title={url}
+                            >
+                              {displayUrl}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                  
                   {formatReference && (
                     <div className="rounded-md bg-muted p-3 text-sm text-muted-foreground">
                       ✓ Format captured - will be used during generation
