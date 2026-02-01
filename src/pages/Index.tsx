@@ -32,7 +32,7 @@ import { ToneProfilePanel } from "@/components/ToneProfilePanel";
 import { UniqueAnglesPanel } from "@/components/UniqueAnglesPanel";
 import { QualityScoringPanel } from "@/components/QualityScoringPanel";
 import { Switch } from "@/components/ui/switch";
-import { ArticleNavigationPanel } from "@/components/ArticleNavigationPanel";
+import { ArticleNavigationPanel, extractNavigationFromContent } from "@/components/ArticleNavigationPanel";
 import { FAQAccordion, extractFAQFromContent, removeFAQSection } from "@/components/FAQAccordion";
 import { useSpeechToText } from "@/hooks/useSpeechToText";
 
@@ -1744,8 +1744,12 @@ ${tempDiv.innerHTML}
                       }}
                     >
                       {(() => {
-                        // Extract "In This Article" navigation items
-                        const navItems = extractInThisArticleItems(generatedContent);
+                        // Extract "In This Article" navigation items - use explicit section or fallback to H2 extraction
+                        let navItems = extractInThisArticleItems(generatedContent);
+                        if (navItems.length === 0) {
+                          // Fallback: extract from H2 headings
+                          navItems = extractNavigationFromContent(generatedContent);
+                        }
                         // Extract FAQ items
                         const faqItems = extractFAQFromContent(generatedContent);
                         // Remove "In This Article" and FAQ sections from markdown for custom rendering
