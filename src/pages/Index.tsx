@@ -567,8 +567,11 @@ const Index = () => {
 
     try {
       for (const file of Array.from(files)) {
-        // Upload to storage
-        const filePath = `${Date.now()}-${file.name}`;
+        // Sanitize filename: remove special characters that Supabase storage doesn't accept
+        const sanitizedName = file.name
+          .replace(/['']/g, "") // Remove apostrophes
+          .replace(/[^\w\s.-]/g, "_"); // Replace other special chars with underscore
+        const filePath = `${Date.now()}-${sanitizedName}`;
         const { error: uploadError } = await supabase.storage
           .from("context-files")
           .upload(filePath, file);
