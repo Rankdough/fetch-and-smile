@@ -52,19 +52,19 @@ export const ArticleNavigationPanel = ({
         Quick navigation to each section of this article:
       </p>
 
-      <div className="space-y-1.5">
+      <div className="space-y-1">
         {items.map((item, index) => (
           <div
             key={index}
             className={cn(
-              "rounded-lg border p-2 transition-all",
+              "rounded-lg border transition-all",
               item.isHighlighted 
                 ? "border-primary/50 bg-primary/5" 
                 : "hover:border-muted-foreground/30"
             )}
           >
             <div 
-              className="flex items-start gap-2 cursor-pointer"
+              className="flex items-center gap-2 p-2 cursor-pointer"
               onClick={() => setExpandedItem(expandedItem === index ? null : index)}
             >
               <div className={cn(
@@ -75,47 +75,42 @@ export const ArticleNavigationPanel = ({
               )}>
                 {item.number}
               </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <p className={cn(
-                    "text-sm font-medium",
-                    item.isHighlighted && "text-primary"
-                  )}>
-                    {item.title}
-                  </p>
-                  {item.isHighlighted && (
-                    <Star className="h-3 w-3 text-primary fill-primary" />
-                  )}
-                </div>
-                {/* Description always visible */}
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  {item.description}
-                </p>
-              </div>
+              <p className={cn(
+                "text-sm font-medium flex-1",
+                item.isHighlighted && "text-primary"
+              )}>
+                {item.title}
+                {item.isHighlighted && (
+                  <Star className="inline-block ml-1 h-3 w-3 text-primary fill-primary" />
+                )}
+              </p>
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-6 w-6 p-0 flex-shrink-0"
+                className="h-5 w-5 p-0 flex-shrink-0"
                 onClick={(e) => {
                   e.stopPropagation();
                   setExpandedItem(expandedItem === index ? null : index);
                 }}
               >
                 {expandedItem === index ? (
-                  <ChevronUp className="h-4 w-4" />
+                  <ChevronUp className="h-3 w-3" />
                 ) : (
-                  <ChevronDown className="h-4 w-4" />
+                  <ChevronDown className="h-3 w-3" />
                 )}
               </Button>
             </div>
             
-            {/* Expanded: jump link */}
+            {/* Expanded: description + jump link */}
             {expandedItem === index && (
-              <div className="mt-3 pl-9 border-t pt-3">
+              <div className="px-2 pb-2 pl-9 space-y-2">
+                <p className="text-xs text-muted-foreground">
+                  {item.description}
+                </p>
                 <Button
                   variant="outline"
                   size="sm"
-                  className="h-7 text-xs"
+                  className="h-6 text-xs"
                   onClick={() => handleJump(item.slug)}
                 >
                   <ExternalLink className="h-3 w-3 mr-1" />
