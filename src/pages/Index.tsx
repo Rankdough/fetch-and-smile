@@ -2274,7 +2274,7 @@ const Index = () => {
                                               remarkPlugins={[remarkGfm]}
                                               components={{
                                                 img: ({ src, alt, ...props }) => (
-                                                  <span className="relative inline-block group my-4">
+                                                  <div className="relative block group my-4">
                                                     <img src={src} alt={alt} {...props} className="max-w-full h-auto rounded-md" />
                                                     <button
                                                       type="button"
@@ -2295,7 +2295,27 @@ const Index = () => {
                                                     >
                                                       <X className="h-4 w-4" />
                                                     </button>
-                                                  </span>
+                                                  </div>
+                                                ),
+                                                table: ({ children, ...props }) => (
+                                                  <div className="overflow-x-auto my-4">
+                                                    <table className="min-w-full border-collapse border border-border" {...props}>{children}</table>
+                                                  </div>
+                                                ),
+                                                thead: ({ children, ...props }) => (
+                                                  <thead className="bg-muted" {...props}>{children}</thead>
+                                                ),
+                                                tbody: ({ children, ...props }) => (
+                                                  <tbody {...props}>{children}</tbody>
+                                                ),
+                                                tr: ({ children, ...props }) => (
+                                                  <tr className="border-b border-border" {...props}>{children}</tr>
+                                                ),
+                                                th: ({ children, ...props }) => (
+                                                  <th className="px-4 py-2 text-left font-semibold border border-border" {...props}>{children}</th>
+                                                ),
+                                                td: ({ children, ...props }) => (
+                                                  <td className="px-4 py-2 border border-border" {...props}>{children}</td>
                                                 ),
                                                 h2: ({ children, ...props }) => {
                                                   const text = String(children).toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]/g, '');
