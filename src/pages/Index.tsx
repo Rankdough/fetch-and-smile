@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { Loader2, Sparkles, FileText, Link, Search, X, Upload, Plus, Tag, Download, ExternalLink, BookOpen, Eye, Edit2, Mic2, RotateCcw, Target, Maximize2, Minimize2 } from "lucide-react";
+import { Loader2, Sparkles, FileText, Link, Search, X, Upload, Plus, Tag, Download, ExternalLink, BookOpen, Eye, Edit2, Mic2, RotateCcw, Target, Maximize2, Minimize2, ImagePlus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import ReactMarkdown from "react-markdown";
@@ -36,6 +36,7 @@ import { ArticleNavigationPanel, extractNavigationFromContent } from "@/componen
 import { FAQAccordion, extractFAQFromContent, removeFAQSection } from "@/components/FAQAccordion";
 import { useSpeechToText } from "@/hooks/useSpeechToText";
 import { SectionIndicator } from "@/components/SectionIndicator";
+import { ArticleImagesPanel, ArticleImage } from "@/components/ArticleImagesPanel";
 
 const SAMPLE_CONTENT = `# Composite Bonding vs Veneers: Which Smile Transformation is Right for You?
 
@@ -329,6 +330,10 @@ const Index = () => {
     const saved = localStorage.getItem("seo-generator-selectedAngles");
     return saved ? JSON.parse(saved) : [];
   });
+  const [articleImages, setArticleImages] = useState<ArticleImage[]>(() => {
+    const saved = localStorage.getItem("seo-generator-articleImages");
+    return saved ? JSON.parse(saved) : [];
+  });
   const [isPreviewFullscreen, setIsPreviewFullscreen] = useState(false);
 
   // Voice input for Value Promise
@@ -412,6 +417,11 @@ const Index = () => {
       localStorage.removeItem("seo-generator-colorPalette");
     }
   }, [selectedColorPalette]);
+
+  // Persist article images
+  useEffect(() => {
+    localStorage.setItem("seo-generator-articleImages", JSON.stringify(articleImages));
+  }, [articleImages]);
 
   // Checklist items computation
   const checklistItems = useMemo(() => {
@@ -647,6 +657,7 @@ const Index = () => {
           generateCTAs: ctaUrl.trim().length > 0,
           useKnowledgeBase: useKnowledgeBase,
           toneProfileId: selectedToneProfileId || undefined,
+          articleImages: articleImages.length > 0 ? articleImages.map(img => ({ alt: img.alt, url: img.url })) : undefined,
         },
       });
 
@@ -699,6 +710,7 @@ const Index = () => {
     setSelectedToneProfileId(null);
     setValuePromise("");
     setSelectedAngles([]);
+    setArticleImages([]);
     
     // Clear localStorage
     localStorage.removeItem("seo-generator-formData");
@@ -713,6 +725,7 @@ const Index = () => {
     localStorage.removeItem("seo-generator-toneProfileId");
     localStorage.removeItem("seo-generator-valuePromise");
     localStorage.removeItem("seo-generator-selectedAngles");
+    localStorage.removeItem("seo-generator-articleImages");
     
     toast({
       title: "Form cleared",
@@ -1259,6 +1272,30 @@ const Index = () => {
                   selectedPalette={selectedColorPalette}
                   onSelectPalette={setSelectedColorPalette}
                 />
+              </div>
+
+              {/* Section 11: Article Images */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <SectionIndicator number={11} isComplete={articleImages.length > 0} />
+                  <span className="text-base font-medium">Article Images (Optional)</span>
+                </div>
+              <Collapsible className="space-y-2 ml-8">
+                <CollapsibleTrigger asChild>
+                  <Button variant="outline" className="w-full justify-between bg-input border-2 border-input-border">
+                    <span className="flex items-center gap-2">
+                      <ImagePlus className="h-4 w-4" />
+                      {articleImages.length > 0 ? `${articleImages.length} image(s) uploaded` : "Click to expand"}
+                    </span>
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="pt-2">
+                  <ArticleImagesPanel
+                    images={articleImages}
+                    onImagesChange={setArticleImages}
+                  />
+                </CollapsibleContent>
+              </Collapsible>
               </div>
 
               {/* Pre-Generation Checklist */}
