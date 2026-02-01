@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, X, Copy, ImagePlus, GripVertical } from "lucide-react";
+import { Loader2, X, Copy, ImagePlus, GripVertical, Wand2 } from "lucide-react";
 
 export interface ArticleImage {
   name: string;
@@ -16,9 +16,18 @@ export interface ArticleImage {
 interface ArticleImagesPanelProps {
   images: ArticleImage[];
   onImagesChange: (images: ArticleImage[]) => void;
+  onAllocateLogically?: () => void;
+  isAllocating?: boolean;
+  hasContent?: boolean;
 }
 
-export function ArticleImagesPanel({ images, onImagesChange }: ArticleImagesPanelProps) {
+export function ArticleImagesPanel({ 
+  images, 
+  onImagesChange,
+  onAllocateLogically,
+  isAllocating = false,
+  hasContent = false,
+}: ArticleImagesPanelProps) {
   const { toast } = useToast();
   const [isUploading, setIsUploading] = useState(false);
 
@@ -146,7 +155,7 @@ export function ArticleImagesPanel({ images, onImagesChange }: ArticleImagesPane
   return (
     <div className="space-y-3">
       <p className="text-sm text-muted-foreground">
-        Upload images to include in your article. <strong>Drag & drop</strong> images into the preview or copy markdown.
+        <strong>Drag & drop</strong> images into the preview, or use <strong>Allocate Logically</strong> for AI placement.
       </p>
 
       {/* Upload input */}
@@ -160,10 +169,33 @@ export function ArticleImagesPanel({ images, onImagesChange }: ArticleImagesPane
           accept="image/jpeg,image/png,image/gif,image/webp,image/svg+xml"
           multiple
           onChange={handleUpload}
-          disabled={isUploading}
+          disabled={isUploading || isAllocating}
           className="cursor-pointer bg-input border-2 border-input-border"
         />
       </div>
+
+      {/* Allocate Logically button */}
+      {images.length > 0 && hasContent && (
+        <Button
+          variant="outline"
+          size="sm"
+          className="w-full"
+          onClick={onAllocateLogically}
+          disabled={isAllocating || !hasContent}
+        >
+          {isAllocating ? (
+            <>
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              Placing images...
+            </>
+          ) : (
+            <>
+              <Wand2 className="h-4 w-4 mr-2" />
+              Allocate Logically ({images.length} images)
+            </>
+          )}
+        </Button>
+      )}
 
       {/* Loading indicator */}
       {isUploading && (

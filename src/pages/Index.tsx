@@ -362,6 +362,7 @@ const Index = () => {
   });
   const [isPreviewFullscreen, setIsPreviewFullscreen] = useState(false);
   const [isDraggingImage, setIsDraggingImage] = useState(false);
+  const [isAllocatingImages, setIsAllocatingImages] = useState(false);
 
   // Voice input for Value Promise
   const {
@@ -899,6 +900,53 @@ const Index = () => {
       });
     } finally {
       setIsEnhancingImport(false);
+    }
+  };
+
+  // Allocate images logically using AI to match image content to article sections
+  const handleAllocateImagesLogically = async () => {
+    if (!generatedContent || articleImages.length === 0) {
+      toast({
+        title: "Cannot allocate images",
+        description: "You need content and uploaded images first.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsAllocatingImages(true);
+
+    try {
+      // Call edge function to allocate images based on content analysis
+      const { data, error } = await supabase.functions.invoke("enhance-import", {
+        body: {
+          content: generatedContent,
+          toneProfile: null,
+          ctaConfig: null,
+          addCtas: false,
+          images: articleImages.map(img => ({ alt: img.alt, url: img.url })),
+        },
+      });
+
+      if (error) throw error;
+      if (data.error) throw new Error(data.error);
+
+      if (data.content) {
+        setGeneratedContent(data.content);
+        toast({
+          title: "Images allocated!",
+          description: `${articleImages.length} image(s) placed at relevant sections.`,
+        });
+      }
+    } catch (error) {
+      console.error("Allocate images error:", error);
+      toast({
+        title: "Image allocation failed",
+        description: error instanceof Error ? error.message : "Failed to allocate images",
+        variant: "destructive",
+      });
+    } finally {
+      setIsAllocatingImages(false);
     }
   };
 
@@ -1462,6 +1510,9 @@ const Index = () => {
                   <ArticleImagesPanel
                     images={articleImages}
                     onImagesChange={setArticleImages}
+                    onAllocateLogically={handleAllocateImagesLogically}
+                    isAllocating={isAllocatingImages}
+                    hasContent={!!generatedContent}
                   />
                 </CollapsibleContent>
               </Collapsible>
@@ -2096,6 +2147,14 @@ ${tempDiv.innerHTML}
                         let contentWithoutNav = removeInThisArticleSection(generatedContent);
                         contentWithoutNav = removeFAQSection(contentWithoutNav);
                         
+                        // Extract inline CTA divs and replace with markers for rendering
+                        const ctaDivRegex = /<div class="cta-banner">\s*<div class="cta-headline">([^<]+)<\/div>\s*<div class="cta-description">([^<]+)<\/div>\s*<a href="([^"]+)" class="cta-button">([^<]+)<\/a>\s*<\/div>/gi;
+                        const inlineCTAs: { headline: string; description: string; url: string; buttonText: string }[] = [];
+                        contentWithoutNav = contentWithoutNav.replace(ctaDivRegex, (_, headline, description, url, buttonText) => {
+                          inlineCTAs.push({ headline: headline.trim(), description: description.trim(), url: url.trim(), buttonText: buttonText.trim() });
+                          return `\n\n<!--CTA_MARKER_${inlineCTAs.length - 1}-->\n\n`;
+                        });
+                        
                         // Split content to insert CTAs and Navigation Panel
                         const lines = contentWithoutNav.split('\n');
                         const h2Indices: number[] = [];
@@ -2183,34 +2242,77 @@ ${tempDiv.innerHTML}
                                     brandColors={selectedColorPalette}
                                   />
                                 ) : part.content ? (
-                                  <ReactMarkdown 
-                                    remarkPlugins={[remarkGfm]}
-                                    components={{
-                                      h2: ({ children, ...props }) => {
-                                        const text = String(children).toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]/g, '');
-                                        const headingText = String(children).toLowerCase();
-                                        // Insert FAQ before Final Thoughts
-                                        if (headingText.includes('final thought')) {
-                                          return (
-                                            <>
-                                              {faqItems.length > 0 && (
-                                                <FAQAccordion items={faqItems} brandColors={selectedColorPalette} />
-                                              )}
-                                              <h2 id={text} {...props}>{children}</h2>
-                                            </>
-                                          );
-                                        }
-                                        return <h2 id={text} {...props}>{children}</h2>;
-                                      },
-                                      a: ({ href, children, ...props }) => (
-                                        <a href={href} target="_blank" rel="noopener noreferrer" {...props}>
-                                          {children}
-                                        </a>
-                                      ),
-                                    }}
-                                  >
-                                    {part.content}
-                                  </ReactMarkdown>
+                                  (() => {
+                                    // Split content by CTA markers and render inline CTAs
+                                    const ctaMarkerRegex = /<!--CTA_MARKER_(\d+)-->/g;
+                                    const segments: { type: 'content' | 'cta'; value: string | number }[] = [];
+                                    let lastIndex = 0;
+                                    let match;
+                                    
+                                    while ((match = ctaMarkerRegex.exec(part.content)) !== null) {
+                                      if (match.index > lastIndex) {
+                                        segments.push({ type: 'content', value: part.content.slice(lastIndex, match.index) });
+                                      }
+                                      segments.push({ type: 'cta', value: parseInt(match[1], 10) });
+                                      lastIndex = match.index + match[0].length;
+                                    }
+                                    
+                                    if (lastIndex < part.content.length) {
+                                      segments.push({ type: 'content', value: part.content.slice(lastIndex) });
+                                    }
+                                    
+                                    // If no CTA markers, just render normally
+                                    if (segments.length === 0) {
+                                      segments.push({ type: 'content', value: part.content });
+                                    }
+                                    
+                                    return (
+                                      <>
+                                        {segments.map((segment, segIdx) => (
+                                          segment.type === 'cta' && inlineCTAs[segment.value as number] ? (
+                                            <CTABanner
+                                              key={`cta-${segIdx}`}
+                                              headline={inlineCTAs[segment.value as number].headline}
+                                              description={inlineCTAs[segment.value as number].description}
+                                              buttonText={inlineCTAs[segment.value as number].buttonText}
+                                              url={inlineCTAs[segment.value as number].url}
+                                              brandColors={selectedColorPalette}
+                                            />
+                                          ) : segment.type === 'content' && (segment.value as string).trim() ? (
+                                            <ReactMarkdown 
+                                              key={`content-${segIdx}`}
+                                              remarkPlugins={[remarkGfm]}
+                                              components={{
+                                                h2: ({ children, ...props }) => {
+                                                  const text = String(children).toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]/g, '');
+                                                  const headingText = String(children).toLowerCase();
+                                                  // Insert FAQ before Final Thoughts
+                                                  if (headingText.includes('final thought')) {
+                                                    return (
+                                                      <>
+                                                        {faqItems.length > 0 && (
+                                                          <FAQAccordion items={faqItems} brandColors={selectedColorPalette} />
+                                                        )}
+                                                        <h2 id={text} {...props}>{children}</h2>
+                                                      </>
+                                                    );
+                                                  }
+                                                  return <h2 id={text} {...props}>{children}</h2>;
+                                                },
+                                                a: ({ href, children, ...props }) => (
+                                                  <a href={href} target="_blank" rel="noopener noreferrer" {...props}>
+                                                    {children}
+                                                  </a>
+                                                ),
+                                              }}
+                                            >
+                                              {segment.value as string}
+                                            </ReactMarkdown>
+                                          ) : null
+                                        ))}
+                                      </>
+                                    );
+                                  })()
                                 ) : null}
                               </div>
                             ))}
