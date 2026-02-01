@@ -25,6 +25,7 @@ import {
 import { GenerationChecklist } from "@/components/GenerationChecklist";
 import { ContentVerification } from "@/components/ContentVerification";
 import { CTABanner, generateCTAHtml } from "@/components/CTABanner";
+import { ColorPaletteSelector, ColorPalette, COLOR_PALETTES } from "@/components/ColorPaletteSelector";
 import { KnowledgeBasePanel } from "@/components/KnowledgeBasePanel";
 import { VoiceEditAgent } from "@/components/VoiceEditAgent";
 import { ToneProfilePanel } from "@/components/ToneProfilePanel";
@@ -302,14 +303,14 @@ const Index = () => {
     return saved || "";
   });
   const [generatedCTAs, setGeneratedCTAs] = useState<{ middle: { headline: string; description: string; buttonText: string }; end: { headline: string; description: string; buttonText: string } } | null>(null);
-  const [brandColors, setBrandColors] = useState<{
-    primary: string;
-    secondary: string;
-    accent: string;
-    background: string;
-    text: string;
-  } | null>(null);
-  const [isExtractingColors, setIsExtractingColors] = useState(false);
+  const [selectedColorPalette, setSelectedColorPalette] = useState<ColorPalette | null>(() => {
+    const saved = localStorage.getItem("seo-generator-colorPalette");
+    if (saved) {
+      const id = JSON.parse(saved);
+      return COLOR_PALETTES.find(p => p.id === id) || null;
+    }
+    return COLOR_PALETTES[0]; // Default to purple
+  });
   const [useKnowledgeBase, setUseKnowledgeBase] = useState(() => {
     const saved = localStorage.getItem("seo-generator-useKnowledgeBase");
     return saved !== null ? JSON.parse(saved) : true;
@@ -402,46 +403,14 @@ const Index = () => {
     localStorage.setItem("seo-generator-selectedAngles", JSON.stringify(selectedAngles));
   }, [selectedAngles]);
 
-  // Extract brand colors from CTA URL
+  // Persist color palette selection
   useEffect(() => {
-    const extractBrandColors = async () => {
-      if (!ctaUrl.trim()) {
-        setBrandColors(null);
-        return;
-      }
-      
-      setIsExtractingColors(true);
-      try {
-        const { data, error } = await supabase.functions.invoke("extract-brand-colors", {
-          body: { url: ctaUrl },
-        });
-        
-        if (error) {
-          console.error("Failed to extract brand colors:", error);
-          setBrandColors(null);
-          return;
-        }
-        
-        if (data?.colors) {
-          console.log("Extracted brand colors:", data.colors);
-          setBrandColors(data.colors);
-          toast({
-            title: "Brand colors extracted",
-            description: `Applied color scheme from ${new URL(ctaUrl.startsWith('http') ? ctaUrl : 'https://' + ctaUrl).hostname}`,
-          });
-        }
-      } catch (error) {
-        console.error("Error extracting brand colors:", error);
-        setBrandColors(null);
-      } finally {
-        setIsExtractingColors(false);
-      }
-    };
-    
-    // Debounce the extraction
-    const timeout = setTimeout(extractBrandColors, 1000);
-    return () => clearTimeout(timeout);
-  }, [ctaUrl, toast]);
+    if (selectedColorPalette) {
+      localStorage.setItem("seo-generator-colorPalette", JSON.stringify(selectedColorPalette.id));
+    } else {
+      localStorage.removeItem("seo-generator-colorPalette");
+    }
+  }, [selectedColorPalette]);
 
   // Checklist items computation
   const checklistItems = useMemo(() => {
@@ -1268,37 +1237,24 @@ const Index = () => {
                   onChange={(e) => setCtaUrl(e.target.value)}
                 />
                 {ctaUrl.trim() && (
-                  <div className="space-y-1">
-                    <p className="text-xs text-primary">
-                      ✓ Two CTA banners will be generated (middle + end of article)
-                    </p>
-                    {isExtractingColors ? (
-                      <p className="text-xs text-muted-foreground flex items-center gap-1">
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                        Extracting brand colors...
-                      </p>
-                    ) : brandColors ? (
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <span>Brand colors applied:</span>
-                        <div 
-                          className="w-4 h-4 rounded-full border" 
-                          style={{ background: brandColors.primary }}
-                          title={`Primary: ${brandColors.primary}`}
-                        />
-                        <div 
-                          className="w-4 h-4 rounded-full border" 
-                          style={{ background: brandColors.secondary }}
-                          title={`Secondary: ${brandColors.secondary}`}
-                        />
-                        <div 
-                          className="w-4 h-4 rounded-full border" 
-                          style={{ background: brandColors.accent }}
-                          title={`Accent: ${brandColors.accent}`}
-                        />
-                      </div>
-                    ) : null}
-                  </div>
+                  <p className="text-xs text-primary">
+                    ✓ Two CTA banners will be generated (middle + end of article)
+                  </p>
                 )}
+              </div>
+
+              {/* Color Palette Selector */}
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  Color Scheme
+                </Label>
+                <p className="text-sm text-muted-foreground">
+                  Choose a color palette for tables, TL;DR sections, and CTA banners
+                </p>
+                <ColorPaletteSelector
+                  selectedPalette={selectedColorPalette}
+                  onSelectPalette={setSelectedColorPalette}
+                />
               </div>
 
               {/* Pre-Generation Checklist */}
@@ -1377,12 +1333,12 @@ const Index = () => {
                       if (articleElement) {
                         tempDiv.innerHTML = articleElement.innerHTML;
                         
-                        // Get brand colors for export
-                        const navPrimary = brandColors?.primary || "#7c3aed";
-                        const navBg = brandColors?.primary 
-                          ? `linear-gradient(135deg, ${brandColors.primary}20 0%, ${brandColors.secondary || brandColors.primary}15 100%)`
+                        // Get colors for export
+                        const navPrimary = selectedColorPalette?.primary || "#7c3aed";
+                        const navBg = selectedColorPalette?.primary 
+                          ? `linear-gradient(135deg, ${selectedColorPalette.primary}20 0%, ${selectedColorPalette.secondary || selectedColorPalette.primary}15 100%)`
                           : "linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%)";
-                        const navBorder = brandColors?.primary || "#a78bfa";
+                        const navBorder = selectedColorPalette?.primary || "#a78bfa";
                         
                         // Convert ArticleNavigationPanel to collapsible HTML using <details>/<summary>
                         const navPanels = tempDiv.querySelectorAll('[class*="rounded-lg border bg-muted"]');
@@ -1492,10 +1448,10 @@ const Index = () => {
                           }
                         });
                         
-                        // Get brand colors for export (fallback to default purple)
-                        const exportPrimary = brandColors?.primary || "#7c3aed";
-                        const exportSecondary = brandColors?.secondary || "#a855f7";
-                        const exportAccent = brandColors?.accent || "#e04060";
+                        // Get colors for export (fallback to default purple)
+                        const exportPrimary = selectedColorPalette?.primary || "#7c3aed";
+                        const exportSecondary = selectedColorPalette?.secondary || "#a855f7";
+                        const exportAccent = selectedColorPalette?.accent || "#e04060";
                         const exportGradient = `linear-gradient(135deg, ${exportPrimary} 0%, ${exportSecondary} 100%)`;
                         
                         // Style TL;DR section with brand colors
@@ -1565,12 +1521,12 @@ const Index = () => {
                           hr.remove();
                         });
                         
-                        // Style CTA banners for export using data attributes and brand colors
-                        const ctaBgGradient = brandColors?.primary 
-                          ? `linear-gradient(135deg, ${brandColors.primary} 0%, ${brandColors.secondary || brandColors.primary} 100%)`
+                        // Style CTA banners for export using data attributes and colors
+                        const ctaBgGradient = selectedColorPalette?.primary 
+                          ? `linear-gradient(135deg, ${selectedColorPalette.primary} 0%, ${selectedColorPalette.secondary || selectedColorPalette.primary} 100%)`
                           : "linear-gradient(135deg, #4a2875 0%, #5a2070 100%)";
-                        const ctaButtonGradient = brandColors?.accent 
-                          ? `linear-gradient(135deg, ${brandColors.accent} 0%, ${brandColors.accent} 100%)`
+                        const ctaButtonGradient = selectedColorPalette?.accent 
+                          ? `linear-gradient(135deg, ${selectedColorPalette.accent} 0%, ${selectedColorPalette.accent} 100%)`
                           : "linear-gradient(135deg, #e04060 0%, #c04080 100%)";
                         
                         tempDiv.querySelectorAll('[data-cta-banner="true"]').forEach((cta) => {
@@ -1779,11 +1735,11 @@ ${tempDiv.innerHTML}
                       style={{ 
                         outline: 'none',
                         cursor: isEditMode ? 'text' : 'default',
-                        // Apply brand colors via CSS custom properties
-                        ...(brandColors ? {
-                          '--brand-primary': brandColors.primary,
-                          '--brand-secondary': brandColors.secondary,
-                          '--brand-accent': brandColors.accent,
+                        // Apply colors via CSS custom properties
+                        ...(selectedColorPalette ? {
+                          '--brand-primary': selectedColorPalette.primary,
+                          '--brand-secondary': selectedColorPalette.secondary,
+                          '--brand-accent': selectedColorPalette.accent,
                         } as React.CSSProperties : {})
                       }}
                     >
@@ -1880,7 +1836,7 @@ ${tempDiv.innerHTML}
                                     description={generatedCTAs.middle.description}
                                     buttonText={generatedCTAs.middle.buttonText}
                                     url={ctaUrl}
-                                    brandColors={brandColors}
+                                    brandColors={selectedColorPalette}
                                   />
                                 ) : part.content ? (
                                   <ReactMarkdown 
@@ -1921,7 +1877,7 @@ ${tempDiv.innerHTML}
                                 description={generatedCTAs.end.description}
                                 buttonText={generatedCTAs.end.buttonText}
                                 url={ctaUrl}
-                                brandColors={brandColors}
+                                brandColors={selectedColorPalette}
                               />
                             )}
                           </>
