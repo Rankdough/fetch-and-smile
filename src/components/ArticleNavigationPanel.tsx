@@ -52,23 +52,23 @@ export const ArticleNavigationPanel = ({
         Quick navigation to each section of this article:
       </p>
 
-      <div className="space-y-2">
+      <div className="space-y-1.5">
         {items.map((item, index) => (
           <div
             key={index}
             className={cn(
-              "rounded-lg border p-3 transition-all",
+              "rounded-lg border p-2 transition-all",
               item.isHighlighted 
                 ? "border-primary/50 bg-primary/5" 
                 : "hover:border-muted-foreground/30"
             )}
           >
             <div 
-              className="flex items-start gap-3 cursor-pointer"
+              className="flex items-start gap-2 cursor-pointer"
               onClick={() => setExpandedItem(expandedItem === index ? null : index)}
             >
               <div className={cn(
-                "flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold",
+                "flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold",
                 item.isHighlighted 
                   ? "bg-primary text-primary-foreground" 
                   : "bg-primary/10 text-primary border border-primary/20"
