@@ -362,6 +362,7 @@ const Index = () => {
   });
   const [isPreviewFullscreen, setIsPreviewFullscreen] = useState(false);
   const [isDraggingImage, setIsDraggingImage] = useState(false);
+  const [dropTargetElement, setDropTargetElement] = useState<HTMLElement | null>(null);
   const [isAllocatingImages, setIsAllocatingImages] = useState(false);
 
   // Voice input for Value Promise
@@ -1831,17 +1832,55 @@ const Index = () => {
                         e.preventDefault();
                         e.dataTransfer.dropEffect = "copy";
                         setIsDraggingImage(true);
+                        
+                        // Find and highlight the target element
+                        const target = e.target as HTMLElement;
+                        let blockElement: HTMLElement | null = target;
+                        
+                        // Walk up to find a block-level element
+                        while (blockElement && !blockElement.tagName.match(/^(H[1-6]|P|LI|UL|OL|TABLE|BLOCKQUOTE|DIV)$/i)) {
+                          blockElement = blockElement.parentElement;
+                        }
+                        
+                        // Only update if we found a different element
+                        if (blockElement && blockElement !== dropTargetElement) {
+                          // Remove highlight from previous element
+                          if (dropTargetElement) {
+                            dropTargetElement.style.outline = '';
+                            dropTargetElement.style.outlineOffset = '';
+                            dropTargetElement.style.backgroundColor = '';
+                          }
+                          // Add highlight to new element
+                          blockElement.style.outline = '2px solid hsl(var(--primary))';
+                          blockElement.style.outlineOffset = '2px';
+                          blockElement.style.backgroundColor = 'hsl(var(--primary) / 0.1)';
+                          setDropTargetElement(blockElement);
+                        }
                       }
                     }}
                     onDragLeave={(e) => {
                       // Only set to false if we're leaving the container, not entering a child
                       if (!e.currentTarget.contains(e.relatedTarget as Node)) {
                         setIsDraggingImage(false);
+                        // Clean up highlight
+                        if (dropTargetElement) {
+                          dropTargetElement.style.outline = '';
+                          dropTargetElement.style.outlineOffset = '';
+                          dropTargetElement.style.backgroundColor = '';
+                          setDropTargetElement(null);
+                        }
                       }
                     }}
                     onDrop={(e) => {
                       e.preventDefault();
                       setIsDraggingImage(false);
+                      
+                      // Clean up highlight
+                      if (dropTargetElement) {
+                        dropTargetElement.style.outline = '';
+                        dropTargetElement.style.outlineOffset = '';
+                        dropTargetElement.style.backgroundColor = '';
+                      }
                       
                       try {
                         const jsonData = e.dataTransfer.getData("application/json");
@@ -1850,89 +1889,93 @@ const Index = () => {
                         const imageData = JSON.parse(jsonData);
                         if (imageData.type !== "article-image") return;
                         
-                        // Get the drop position - find which element was dropped on
-                        const target = e.target as HTMLElement;
-                        const article = e.currentTarget.querySelector("article");
-                        if (!article) return;
-                        
-                        // Find the nearest block-level element (heading or paragraph)
-                        let insertAfterElement: HTMLElement | null = null;
-                        let current: HTMLElement | null = target;
-                        
-                        while (current && current !== article) {
-                          if (current.tagName.match(/^(H[1-6]|P|LI|TD|TH)$/)) {
-                            insertAfterElement = current;
-                            break;
-                          }
-                          current = current.parentElement;
-                        }
+                        // Use the highlighted element as the drop target
+                        const insertAfterElement = dropTargetElement;
+                        setDropTargetElement(null);
                         
                         // Build the markdown image to insert
                         const imageMarkdown = `![${imageData.alt}](${imageData.url})`;
                         
-                        // Get the text content of the element we're dropping after
-                        const elementText = insertAfterElement?.textContent?.trim() || "";
+                        if (!insertAfterElement) {
+                          // No target found, append at end
+                          setGeneratedContent(generatedContent + "\n\n" + imageMarkdown + "\n");
+                          toast({
+                            title: "Image added",
+                            description: `${imageData.name} added to end of article`,
+                          });
+                          return;
+                        }
                         
-                        if (elementText && elementText.length > 10) {
-                          // Find this text in the markdown content
-                          const lines = generatedContent.split("\n");
-                          let insertIndex = -1;
-                          
-                          // Create a searchable version of the element text (first 50 chars)
-                          const searchText = elementText.slice(0, 50).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                        // Get the text content of the element we're dropping after
+                        const elementText = insertAfterElement.textContent?.trim() || "";
+                        const lines = generatedContent.split("\n");
+                        let insertIndex = -1;
+                        
+                        // Try multiple matching strategies
+                        // Strategy 1: Match by heading (if it's a heading)
+                        if (insertAfterElement.tagName.match(/^H[1-6]$/i)) {
+                          const headingLevel = insertAfterElement.tagName[1];
+                          const headingPrefix = "#".repeat(parseInt(headingLevel)) + " ";
                           
                           for (let i = 0; i < lines.length; i++) {
-                            const lineText = lines[i].replace(/[#*_\[\]()]/g, '').trim();
-                            if (lineText.length > 10 && lineText.includes(elementText.slice(0, 30))) {
+                            if (lines[i].startsWith(headingPrefix)) {
+                              const lineHeadingText = lines[i].slice(headingPrefix.length).trim();
+                              if (elementText.includes(lineHeadingText) || lineHeadingText.includes(elementText.slice(0, 20))) {
+                                insertIndex = i;
+                                break;
+                              }
+                            }
+                          }
+                        }
+                        
+                        // Strategy 2: Match by text content (first 40 chars)
+                        if (insertIndex < 0 && elementText.length > 5) {
+                          const searchText = elementText.slice(0, 40).toLowerCase();
+                          
+                          for (let i = 0; i < lines.length; i++) {
+                            const lineText = lines[i].replace(/^#+\s*/, '').replace(/\*\*/g, '').replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').trim().toLowerCase();
+                            if (lineText.length > 5 && (lineText.includes(searchText.slice(0, 25)) || searchText.includes(lineText.slice(0, 25)))) {
                               insertIndex = i;
                               break;
                             }
                           }
-                          
-                          // If we found a matching line, insert after it
-                          if (insertIndex >= 0) {
-                            // Find the next empty line or insert right after
-                            let targetIndex = insertIndex + 1;
-                            while (targetIndex < lines.length && lines[targetIndex].trim() !== "" && !lines[targetIndex].startsWith("#")) {
-                              targetIndex++;
-                            }
-                            
-                            // Insert the image
-                            lines.splice(targetIndex, 0, "", imageMarkdown, "");
-                            setGeneratedContent(lines.join("\n"));
-                            
-                            toast({
-                              title: "Image inserted!",
-                              description: `${imageData.name} added after "${elementText.slice(0, 30)}..."`,
-                            });
-                            return;
-                          }
                         }
                         
-                        // Fallback: if we have a heading ID, try that
-                        if (insertAfterElement?.id) {
+                        // Strategy 3: Match by element ID (for headings with IDs)
+                        if (insertIndex < 0 && insertAfterElement.id) {
                           const headingId = insertAfterElement.id;
-                          const lines = generatedContent.split("\n");
                           
                           for (let i = 0; i < lines.length; i++) {
                             const lineSlug = lines[i].toLowerCase().replace(/^#+\s*/, '').replace(/\s+/g, '-').replace(/[^\w-]/g, '');
-                            if (lineSlug === headingId || lines[i].toLowerCase().includes(headingId.replace(/-/g, ' '))) {
-                              // Find next empty line after this heading
-                              let targetIndex = i + 1;
-                              while (targetIndex < lines.length && lines[targetIndex].trim() !== "" && !lines[targetIndex].startsWith("#")) {
-                                targetIndex++;
-                              }
-                              
-                              lines.splice(targetIndex, 0, "", imageMarkdown, "");
-                              setGeneratedContent(lines.join("\n"));
-                              
-                              toast({
-                                title: "Image inserted!",
-                                description: `${imageData.name} added to section`,
-                              });
-                              return;
+                            if (lineSlug === headingId) {
+                              insertIndex = i;
+                              break;
                             }
                           }
+                        }
+                        
+                        // If we found a matching line, insert after it
+                        if (insertIndex >= 0) {
+                          // Find the end of this paragraph/section
+                          let targetIndex = insertIndex + 1;
+                          
+                          // For paragraphs, insert right after; for headings, find end of first paragraph
+                          if (lines[insertIndex].startsWith("#")) {
+                            // It's a heading, find end of first paragraph after it
+                            while (targetIndex < lines.length && lines[targetIndex].trim() !== "" && !lines[targetIndex].startsWith("#")) {
+                              targetIndex++;
+                            }
+                          }
+                          
+                          // Insert the image
+                          lines.splice(targetIndex, 0, "", imageMarkdown, "");
+                          setGeneratedContent(lines.join("\n"));
+                          
+                          toast({
+                            title: "Image inserted!",
+                            description: `${imageData.name} added after "${elementText.slice(0, 25)}..."`,
+                          });
+                          return;
                         }
                         
                         // Last fallback: append at end
@@ -1946,10 +1989,10 @@ const Index = () => {
                       }
                     }}
                   >
-                    {isDraggingImage && (
+                    {isDraggingImage && !dropTargetElement && (
                       <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
                         <div className="bg-primary text-primary-foreground px-4 py-2 rounded-lg shadow-lg text-sm font-medium">
-                          Drop image here to insert
+                          Hover over a paragraph to insert image
                         </div>
                       </div>
                     )}
