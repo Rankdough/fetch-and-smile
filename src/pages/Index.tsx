@@ -1300,37 +1300,56 @@ const Index = () => {
                       if (articleElement) {
                         tempDiv.innerHTML = articleElement.innerHTML;
                         
-                        // Convert ArticleNavigationPanel to static HTML table of contents
+                        // Convert ArticleNavigationPanel to collapsible HTML using <details>/<summary>
                         const navPanels = tempDiv.querySelectorAll('[class*="rounded-lg border bg-muted"]');
                         navPanels.forEach((panel) => {
                           const h4 = panel.querySelector('h4');
                           if (h4?.textContent?.includes('In This Article')) {
-                            // Extract section links and create static ToC
+                            // Extract section links and descriptions
                             const items = panel.querySelectorAll('[class*="rounded-md border"]');
+                            const itemCount = items.length;
                             let tocHtml = `
 <div style="background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%); border: 2px solid #a78bfa; border-radius: 12px; padding: 24px; margin: 24px 0;">
-  <h3 style="display: flex; align-items: center; gap: 8px; margin: 0 0 16px 0; font-size: 1.1rem; color: #5b21b6;">
-    <span style="display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: #7c3aed; color: white; font-size: 12px; font-weight: bold;">#</span>
-    In This Article
-  </h3>
-  <ol style="margin: 0; padding-left: 0; list-style: none;">`;
+  <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+    <h3 style="display: flex; align-items: center; gap: 8px; margin: 0; font-size: 1.1rem; color: #5b21b6;">
+      <span style="display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: #7c3aed; color: white; font-size: 12px; font-weight: bold;">#</span>
+      In This Article
+    </h3>
+    <span style="font-size: 0.75rem; color: #6b7280;">${itemCount} sections</span>
+  </div>
+  <p style="margin: 0 0 16px 0; font-size: 0.8rem; color: #6b7280;">Quick navigation to each section of this article:</p>`;
                             
                             items.forEach((item, idx) => {
-                              const title = item.querySelector('[class*="font-semibold"]')?.textContent?.replace('★', '').trim() || '';
+                              const titleEl = item.querySelector('[class*="font-semibold"]');
+                              const title = titleEl?.textContent?.replace('★', '').trim() || '';
                               const slug = title.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]/g, '');
                               const isFirst = idx === 0;
+                              // Try to get description from expanded content
+                              const descEl = item.querySelector('[class*="text-sm"][class*="leading-relaxed"]');
+                              const description = descEl?.textContent?.trim() || `Learn about ${title.toLowerCase()} in this section.`;
+                              
                               tocHtml += `
-    <li style="margin: 8px 0; padding: 8px 12px; background: ${isFirst ? '#7c3aed' : 'white'}; border-radius: 8px; ${isFirst ? '' : 'border: 1px solid #e5e7eb;'}">
-      <a href="#${slug}" style="display: flex; align-items: center; gap: 10px; text-decoration: none; color: ${isFirst ? 'white' : '#374151'};">
-        <span style="display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: ${isFirst ? 'rgba(255,255,255,0.2)' : '#f3f4f6'}; color: ${isFirst ? 'white' : '#7c3aed'}; font-size: 11px; font-weight: bold;">${idx + 1}</span>
-        <span style="font-weight: 500;">${title}</span>
+  <details style="background: ${isFirst ? '#7c3aed' : 'white'}; border: 1px solid ${isFirst ? '#7c3aed' : '#e5e7eb'}; border-radius: 8px; margin-bottom: 8px; overflow: hidden;"${isFirst ? ' open' : ''}>
+    <summary style="display: flex; align-items: center; gap: 12px; padding: 12px 16px; cursor: pointer; list-style: none; font-weight: 600; font-size: 0.95rem; color: ${isFirst ? 'white' : '#1f2937'};">
+      <span style="display: inline-flex; align-items: center; justify-content: center; min-width: 24px; height: 24px; border-radius: 50%; background: ${isFirst ? 'rgba(255,255,255,0.2)' : '#ede9fe'}; color: ${isFirst ? 'white' : '#7c3aed'}; font-size: 11px; font-weight: bold; flex-shrink: 0;">${idx + 1}</span>
+      <span style="flex: 1;">${title}${isFirst ? ' ★' : ''}</span>
+      <svg style="width: 16px; height: 16px; color: ${isFirst ? 'rgba(255,255,255,0.7)' : '#7c3aed'}; flex-shrink: 0; transition: transform 0.2s;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+    </summary>
+    <div style="padding: 0 16px 16px 52px; color: ${isFirst ? 'rgba(255,255,255,0.85)' : '#6b7280'}; font-size: 0.9rem; line-height: 1.6;">
+      <p style="margin: 0 0 12px 0;">${description}</p>
+      <a href="#${slug}" style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; background: ${isFirst ? 'rgba(255,255,255,0.2)' : '#f3f4f6'}; border-radius: 6px; font-size: 0.8rem; font-weight: 500; color: ${isFirst ? 'white' : '#7c3aed'}; text-decoration: none;">
+        <svg style="width: 12px; height: 12px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+        Jump to section
       </a>
-    </li>`;
+    </div>
+  </details>`;
                             });
                             
-                            tocHtml += `
-  </ol>
-</div>`;
+                            tocHtml += `</div>
+<style>
+  details[open] summary svg { transform: rotate(180deg); }
+  details summary::-webkit-details-marker { display: none; }
+</style>`;
                             panel.outerHTML = tocHtml;
                           }
                         });
