@@ -1442,20 +1442,20 @@ const Index = () => {
                           hr.remove();
                         });
                         
-                        // Style CTA banners for export
-                        tempDiv.querySelectorAll(".cta-banner").forEach((cta) => {
-                          cta.setAttribute("style", "background: linear-gradient(135deg, #4a2875 0%, #5a2070 100%); border-radius: 12px; padding: 32px; text-align: center; margin: 32px 0;");
-                          const headline = cta.querySelector(".cta-headline");
+                        // Style CTA banners for export using data attributes
+                        tempDiv.querySelectorAll('[data-cta-banner="true"]').forEach((cta) => {
+                          cta.setAttribute("style", "background: linear-gradient(135deg, #4a2875 0%, #5a2070 100%); border-radius: 12px; padding: 32px; text-align: center; margin: 32px 0; font-family: inherit;");
+                          const headline = cta.querySelector('[data-cta-headline="true"]');
                           if (headline) {
-                            headline.setAttribute("style", "font-size: 1.25rem; font-weight: 700; letter-spacing: 0.025em; margin-bottom: 8px; color: #d8a8e8;");
+                            headline.setAttribute("style", "font-size: 1.25em; font-weight: 700; letter-spacing: 0.025em; margin-bottom: 8px; color: #d8a8e8; font-family: inherit;");
                           }
-                          const description = cta.querySelector(".cta-description");
+                          const description = cta.querySelector('[data-cta-description="true"]');
                           if (description) {
-                            description.setAttribute("style", "font-size: 0.95rem; margin-bottom: 20px; color: white; opacity: 0.95;");
+                            description.setAttribute("style", "font-size: 0.95em; margin-bottom: 20px; color: white; opacity: 0.95; font-family: inherit;");
                           }
-                          const button = cta.querySelector(".cta-button");
+                          const button = cta.querySelector('[data-cta-button="true"]');
                           if (button) {
-                            button.setAttribute("style", "display: inline-block; background: linear-gradient(135deg, #e04060 0%, #c04080 100%); color: white; font-weight: 600; padding: 12px 32px; border-radius: 9999px; text-decoration: none;");
+                            button.setAttribute("style", "display: inline-block; background: linear-gradient(135deg, #e04060 0%, #c04080 100%); color: white; font-weight: 600; padding: 12px 32px; border-radius: 9999px; text-decoration: none; font-family: inherit;");
                           }
                         });
                         
