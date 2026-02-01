@@ -160,8 +160,8 @@ const cleanContent = (content: string): string => {
 };
 
 // Helper to extract "In This Article" navigation items from markdown
-const extractInThisArticleItems = (content: string): { number: number; title: string; description: string; slug: string; isHighlighted?: boolean }[] => {
-  const items: { number: number; title: string; description: string; slug: string; isHighlighted?: boolean }[] = [];
+const extractInThisArticleItems = (content: string): { number: number; title: string; description: string; detailedDescription?: string; slug: string; isHighlighted?: boolean }[] => {
+  const items: { number: number; title: string; description: string; detailedDescription?: string; slug: string; isHighlighted?: boolean }[] = [];
   
   // Match the "## In This Article" section and its list items
   const inThisArticleMatch = content.match(/## In This Article\s*\n([\s\S]*?)(?=\n## [^I]|\n## [A-Z](?!n This))/i);
@@ -176,17 +176,26 @@ const extractInThisArticleItems = (content: string): { number: number; title: st
   while ((match = itemRegex.exec(listContent)) !== null) {
     const number = parseInt(match[1], 10);
     const title = match[2].trim();
-    const description = match[3].trim();
+    const fullDescription = match[3].trim();
     const slug = title
       .toLowerCase()
       .replace(/[^a-z0-9\s-]/g, "")
       .replace(/\s+/g, "-")
       .replace(/-+/g, "-");
     
+    // Split description: first ~120 chars always visible, rest in expanded view
+    const description = fullDescription.length > 120 
+      ? fullDescription.slice(0, 120) + "..." 
+      : fullDescription;
+    const detailedDescription = fullDescription.length > 120 
+      ? fullDescription.slice(120).trim() 
+      : undefined;
+    
     items.push({
       number,
       title,
       description,
+      detailedDescription,
       slug,
       isHighlighted: number === 1,
     });
