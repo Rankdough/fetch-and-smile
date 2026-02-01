@@ -371,6 +371,7 @@ const Index = () => {
   const [dropTargetElement, setDropTargetElement] = useState<HTMLElement | null>(null);
   const [isAllocatingImages, setIsAllocatingImages] = useState(false);
   const [isImagePopoverOpen, setIsImagePopoverOpen] = useState(false);
+  const [cursorInsertPosition, setCursorInsertPosition] = useState<number | null>(null);
 
   // Voice input for Value Promise
   const {
@@ -1842,7 +1843,9 @@ const Index = () => {
                           <div className="space-y-3">
                             <div className="text-sm font-medium">Select image to insert</div>
                             <p className="text-xs text-muted-foreground">
-                              Image will be added at the end of the article. Use drag & drop for precise placement.
+                              {cursorInsertPosition !== null 
+                                ? "Image will be inserted at your cursor position." 
+                                : "Click in the article first to set insertion point, or image will be added at the end."}
                             </p>
                             <ScrollArea className="h-[200px]">
                               <div className="grid grid-cols-2 gap-2">
@@ -1851,13 +1854,27 @@ const Index = () => {
                                     key={index}
                                     className="relative group rounded-md border bg-muted/50 p-1.5 hover:border-primary hover:bg-primary/5 transition-colors text-left"
                                     onClick={() => {
-                                      const imageMarkdown = `![${image.alt}](${image.url})`;
-                                      setGeneratedContent(generatedContent + "\n\n" + imageMarkdown + "\n");
+                                      const imageMarkdown = `\n\n![${image.alt}](${image.url})\n`;
+                                      
+                                      if (cursorInsertPosition !== null && cursorInsertPosition > 0) {
+                                        // Insert at cursor position
+                                        const before = generatedContent.slice(0, cursorInsertPosition);
+                                        const after = generatedContent.slice(cursorInsertPosition);
+                                        setGeneratedContent(before + imageMarkdown + after);
+                                        setCursorInsertPosition(null); // Reset after insertion
+                                        toast({
+                                          title: "Image inserted!",
+                                          description: `${image.name} added at cursor position`,
+                                        });
+                                      } else {
+                                        // Fallback: add at end
+                                        setGeneratedContent(generatedContent + imageMarkdown);
+                                        toast({
+                                          title: "Image inserted!",
+                                          description: `${image.name} added to end of article`,
+                                        });
+                                      }
                                       setIsImagePopoverOpen(false);
-                                      toast({
-                                        title: "Image inserted!",
-                                        description: `${image.name} added to article`,
-                                      });
                                     }}
                                   >
                                     <div className="aspect-square w-full overflow-hidden rounded bg-background">
@@ -2059,6 +2076,45 @@ const Index = () => {
                       className="prose prose-sm max-w-none dark:prose-invert"
                       contentEditable={isEditMode}
                       suppressContentEditableWarning
+                      onClick={(e) => {
+                        if (!isEditMode) return;
+                        
+                        // Find the closest heading or paragraph to determine insert position
+                        const target = e.target as HTMLElement;
+                        let blockElement: HTMLElement | null = target;
+                        
+                        // Walk up to find a block-level element with text content
+                        while (blockElement && !blockElement.tagName?.match(/^(H[1-6]|P|LI|BLOCKQUOTE)$/i)) {
+                          blockElement = blockElement.parentElement;
+                        }
+                        
+                        if (blockElement) {
+                          const textContent = blockElement.textContent?.trim() || '';
+                          if (textContent.length > 10) {
+                            // Find this text in the markdown content
+                            // Normalize both for comparison
+                            const normalizedSearch = textContent.substring(0, 50).replace(/\s+/g, ' ').toLowerCase();
+                            const lines = generatedContent.split('\n');
+                            
+                            let foundIndex = -1;
+                            let charIndex = 0;
+                            
+                            for (let i = 0; i < lines.length; i++) {
+                              const normalizedLine = lines[i].replace(/[#*_\[\]()]/g, '').replace(/\s+/g, ' ').toLowerCase();
+                              if (normalizedLine.includes(normalizedSearch.substring(0, 30))) {
+                                // Found the line, position is at the end of this line
+                                foundIndex = charIndex + lines[i].length;
+                                break;
+                              }
+                              charIndex += lines[i].length + 1; // +1 for newline
+                            }
+                            
+                            if (foundIndex > 0) {
+                              setCursorInsertPosition(foundIndex);
+                            }
+                          }
+                        }
+                      }}
                       onBlur={(e) => {
                         // Only save if we're still in edit mode and the blur is leaving the article entirely
                         // This prevents the issue where clicking the switch triggers a save before the switch takes effect
