@@ -298,6 +298,13 @@ ${contextContent}`;
     let ctas = null;
     if (generateCTAs) {
       console.log("Generating CTAs for topic:", topic);
+      
+      // Build CTA prompt with custom instructions if provided
+      let ctaUserPrompt = `Generate two CTAs for an article about: ${topic}`;
+      if (instructions && instructions.trim()) {
+        ctaUserPrompt += `\n\nIMPORTANT CUSTOM INSTRUCTIONS FOR THE CTAs:\n${instructions}`;
+      }
+      
       const ctaResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
         headers: {
@@ -330,11 +337,12 @@ Guidelines:
 - Descriptions should offer clear value
 - Button text should be action-oriented
 - Make the end CTA slightly more urgent than the middle one
+- If custom instructions are provided, they MUST be followed for the CTA content
 - NEVER use em dashes (—) or en dashes (–)`
             },
             {
               role: "user",
-              content: `Generate two CTAs for an article about: ${topic}`
+              content: ctaUserPrompt
             }
           ],
         }),
