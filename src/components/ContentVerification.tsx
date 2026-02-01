@@ -62,9 +62,9 @@ export const ContentVerification = ({
     results.push({
       id: "word-count",
       label: "Word count",
-      status: wordCountPercentage >= 80 && wordCountPercentage <= 130 ? "passed" : "warning",
+      status: wordCountPercentage >= 100 ? "passed" : wordCountPercentage >= 80 ? "warning" : "failed",
       details: `${wordCount} words (target: ${targetWords})`,
-      fixable: wordCountPercentage < 80,
+      fixable: wordCountPercentage < 100,
       fixType: "word-count",
     });
 
