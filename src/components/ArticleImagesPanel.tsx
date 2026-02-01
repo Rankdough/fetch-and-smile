@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, X, Copy, ImagePlus, GripVertical, Wand2 } from "lucide-react";
+import { Loader2, X, Copy, ImagePlus, GripVertical, Wand2, Cloud } from "lucide-react";
 
 export interface ArticleImage {
   name: string;
@@ -30,6 +30,7 @@ export function ArticleImagesPanel({
 }: ArticleImagesPanelProps) {
   const { toast } = useToast();
   const [isUploading, setIsUploading] = useState(false);
+  const [isLoadingFromCloud, setIsLoadingFromCloud] = useState(false);
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -152,26 +153,107 @@ export function ArticleImagesPanel({
     setTimeout(() => document.body.removeChild(dragImage), 0);
   };
 
+  const loadFromCloud = async () => {
+    setIsLoadingFromCloud(true);
+    try {
+      // List all files in the article-images bucket
+      const { data: files, error } = await supabase.storage
+        .from("article-images")
+        .list("", { limit: 100, sortBy: { column: "created_at", order: "desc" } });
+
+      if (error) {
+        throw error;
+      }
+
+      if (!files || files.length === 0) {
+        toast({
+          title: "No images found",
+          description: "Your cloud storage is empty",
+        });
+        return;
+      }
+
+      // Filter out any existing images by filePath to avoid duplicates
+      const existingPaths = new Set(images.map(img => img.filePath));
+      const newFiles = files.filter(file => !existingPaths.has(file.name));
+
+      if (newFiles.length === 0) {
+        toast({
+          title: "All synced",
+          description: "All cloud images are already loaded",
+        });
+        return;
+      }
+
+      // Get public URLs for each file
+      const cloudImages: ArticleImage[] = newFiles.map(file => {
+        const { data: urlData } = supabase.storage
+          .from("article-images")
+          .getPublicUrl(file.name);
+
+        // Extract original filename from the timestamped name
+        const originalName = file.name.replace(/^\d+-/, "");
+
+        return {
+          name: originalName,
+          url: urlData.publicUrl,
+          alt: originalName.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " "),
+          filePath: file.name,
+        };
+      });
+
+      onImagesChange([...images, ...cloudImages]);
+      toast({
+        title: "Images loaded!",
+        description: `${cloudImages.length} image(s) loaded from cloud storage`,
+      });
+    } catch (error) {
+      console.error("Load from cloud error:", error);
+      toast({
+        title: "Failed to load",
+        description: error instanceof Error ? error.message : "Could not load images from cloud",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoadingFromCloud(false);
+    }
+  };
+
   return (
     <div className="space-y-3">
       <p className="text-sm text-muted-foreground">
         <strong>Drag & drop</strong> images into the preview, or use <strong>Allocate Logically</strong> for AI placement.
       </p>
 
-      {/* Upload input */}
-      <div>
-        <Label htmlFor="article-images" className="sr-only">
-          Upload images
-        </Label>
-        <Input
-          id="article-images"
-          type="file"
-          accept="image/jpeg,image/png,image/gif,image/webp,image/svg+xml"
-          multiple
-          onChange={handleUpload}
-          disabled={isUploading || isAllocating}
-          className="cursor-pointer bg-input border-2 border-input-border"
-        />
+      {/* Upload and Cloud Load buttons */}
+      <div className="flex gap-2">
+        <div className="flex-1">
+          <Label htmlFor="article-images" className="sr-only">
+            Upload images
+          </Label>
+          <Input
+            id="article-images"
+            type="file"
+            accept="image/jpeg,image/png,image/gif,image/webp,image/svg+xml"
+            multiple
+            onChange={handleUpload}
+            disabled={isUploading || isAllocating || isLoadingFromCloud}
+            className="cursor-pointer bg-input border-2 border-input-border"
+          />
+        </div>
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={loadFromCloud}
+          disabled={isUploading || isAllocating || isLoadingFromCloud}
+          title="Load images from cloud storage"
+        >
+          {isLoadingFromCloud ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Cloud className="h-4 w-4" />
+          )}
+        </Button>
       </div>
 
       {/* Allocate Logically button */}
