@@ -176,20 +176,43 @@ const extractInThisArticleItems = (content: string): { number: number; title: st
   while ((match = itemRegex.exec(listContent)) !== null) {
     const number = parseInt(match[1], 10);
     const title = match[2].trim();
-    const fullDescription = match[3].trim();
+    const bulletDescription = match[3].trim();
     const slug = title
       .toLowerCase()
       .replace(/[^a-z0-9\s-]/g, "")
       .replace(/\s+/g, "-")
       .replace(/-+/g, "-");
     
-    // Split description: first ~120 chars always visible, rest in expanded view
-    const description = fullDescription.length > 120 
-      ? fullDescription.slice(0, 120) + "..." 
+    // Find the actual H2 section and extract its first paragraph for richer description
+    const h2Pattern = new RegExp(`## ${title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[\\s\\S]*?\\n\\n([^#\\n][\\s\\S]*?)(?=\\n\\n|\\n##|$)`, 'i');
+    const sectionMatch = content.match(h2Pattern);
+    
+    let fullDescription = bulletDescription;
+    if (sectionMatch && sectionMatch[1]) {
+      // Use the section's first paragraph - it's usually longer and more descriptive
+      const sectionFirstPara = sectionMatch[1].replace(/\*\*/g, '').replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').trim();
+      if (sectionFirstPara.length > bulletDescription.length) {
+        fullDescription = sectionFirstPara;
+      }
+    }
+    
+    // Ensure we have enough text for 4 lines (~280 chars for 2+2 lines)
+    // If not enough, combine bullet description with section content
+    if (fullDescription.length < 200) {
+      fullDescription = bulletDescription + " " + fullDescription;
+    }
+    
+    // Split: ~140 chars visible (2 lines), next ~140 chars expanded (2 more lines)
+    const visibleLength = 140;
+    const expandedLength = 140;
+    
+    const description = fullDescription.length > visibleLength 
+      ? fullDescription.slice(0, visibleLength).trim() + "..."
       : fullDescription;
-    const detailedDescription = fullDescription.length > 120 
-      ? fullDescription.slice(120).trim() 
-      : undefined;
+    
+    const detailedDescription = fullDescription.length > visibleLength 
+      ? fullDescription.slice(visibleLength, visibleLength + expandedLength).trim() + (fullDescription.length > visibleLength + expandedLength ? "..." : "")
+      : "Click to jump directly to this section and learn more about " + title.toLowerCase() + ".";
     
     items.push({
       number,
