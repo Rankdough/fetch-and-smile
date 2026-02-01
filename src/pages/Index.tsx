@@ -1436,10 +1436,10 @@ const Index = () => {
                     </Button>
                   </div>
                   
-                  {/* Recent URLs history */}
-                  {formatUrlHistory.length > 0 && (
-                    <div className="space-y-1.5">
-                      <p className="text-xs text-muted-foreground font-medium">Recent captures:</p>
+                  {/* Recent URLs history - always show section */}
+                  <div className="space-y-1.5">
+                    <p className="text-xs text-muted-foreground font-medium">Recent captures:</p>
+                    {formatUrlHistory.length > 0 ? (
                       <div className="flex flex-wrap gap-1.5">
                         {formatUrlHistory.slice(0, 3).map((url, idx) => {
                           // Extract domain for display
@@ -1464,8 +1464,10 @@ const Index = () => {
                           );
                         })}
                       </div>
-                    </div>
-                  )}
+                    ) : (
+                      <p className="text-xs text-muted-foreground/60 italic">No recent captures yet - capture a URL to save it here</p>
+                    )}
+                  </div>
                   
                   {formatReference && (
                     <div className="rounded-md bg-muted p-3 text-sm text-muted-foreground">
