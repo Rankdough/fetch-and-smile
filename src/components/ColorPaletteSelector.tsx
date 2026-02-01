@@ -85,6 +85,33 @@ export const COLOR_PALETTES: ColorPalette[] = [
     background: "#1E293B",
     text: "#FFFFFF",
   },
+  {
+    id: "navy",
+    name: "Navy",
+    primary: "#1E3A5F",
+    secondary: "#2C4A6E",
+    accent: "#4A6FA5",
+    background: "#0F172A",
+    text: "#FFFFFF",
+  },
+  {
+    id: "forest",
+    name: "Forest",
+    primary: "#2D4A3E",
+    secondary: "#3D5A4C",
+    accent: "#5D7A6C",
+    background: "#1A2F26",
+    text: "#FFFFFF",
+  },
+  {
+    id: "charcoal",
+    name: "Charcoal",
+    primary: "#3D3D3D",
+    secondary: "#525252",
+    accent: "#737373",
+    background: "#262626",
+    text: "#FFFFFF",
+  },
 ];
 
 interface ColorPaletteSelectorProps {
