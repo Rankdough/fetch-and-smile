@@ -1700,6 +1700,18 @@ ${tempDiv.innerHTML}
                                     components={{
                                       h2: ({ children, ...props }) => {
                                         const text = String(children).toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]/g, '');
+                                        const headingText = String(children).toLowerCase();
+                                        // Insert FAQ before Final Thoughts
+                                        if (headingText.includes('final thought')) {
+                                          return (
+                                            <>
+                                              {faqItems.length > 0 && (
+                                                <FAQAccordion items={faqItems} />
+                                              )}
+                                              <h2 id={text} {...props}>{children}</h2>
+                                            </>
+                                          );
+                                        }
                                         return <h2 id={text} {...props}>{children}</h2>;
                                       },
                                       a: ({ href, children, ...props }) => (
@@ -1714,10 +1726,6 @@ ${tempDiv.innerHTML}
                                 ) : null}
                               </div>
                             ))}
-                            {/* FAQ Accordion */}
-                            {faqItems.length > 0 && (
-                              <FAQAccordion items={faqItems} />
-                            )}
                             {/* End CTA */}
                             {generatedCTAs?.end && ctaUrl && (
                               <CTABanner
