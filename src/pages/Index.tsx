@@ -236,8 +236,22 @@ const extractInThisArticleItems = (content: string): { number: number; title: st
 
 // Helper to remove "In This Article" section from markdown for custom rendering
 const removeInThisArticleSection = (content: string): string => {
-  // Remove the "## In This Article" section and its list items
-  return content.replace(/## In This Article\s*\n([\s\S]*?)(?=\n## [^I]|\n## [A-Z](?!n This))/i, "");
+  let cleaned = content;
+  
+  // Remove "# In This Article" (H1 format from some imports)
+  cleaned = cleaned.replace(/^# In This Article\s*\n[\s\S]*?(?=\n## |\n# [^I]|$)/gim, "");
+  
+  // Remove "## In This Article" (H2 format)
+  cleaned = cleaned.replace(/^## In This Article\s*\n[\s\S]*?(?=\n## [^I]|\n## [A-Z](?!n This)|$)/gim, "");
+  
+  // Also catch sections that have numbered lists with "Jump to section" links
+  cleaned = cleaned.replace(/^#+\s*In This Article[\s\S]*?(?=\n## [A-Z])/gim, "");
+  
+  // Remove any stray CSS that leaked through
+  cleaned = cleaned.replace(/details\[open\][\s\S]*?display:\s*none;\s*\}/g, "");
+  cleaned = cleaned.replace(/[a-z-]+(?:\[[^\]]*\])?\s*[a-z-]*\s*\{[^}]*\}/gi, "");
+  
+  return cleaned;
 };
 
 const Index = () => {
