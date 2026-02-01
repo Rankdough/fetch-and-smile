@@ -127,3 +127,45 @@ export const extractFAQFromContent = (content: string): FAQItem[] => {
 export const removeFAQSection = (content: string): string => {
   return content.replace(/## .*(?:FAQ|Frequently Asked Questions)\s*\n([\s\S]*?)(?=\n## [A-Z]|$)/i, "");
 };
+
+// Generate HTML for FAQ accordion (for export)
+export const generateFAQHtml = (
+  items: FAQItem[],
+  brandColors?: { primary: string; secondary?: string; accent?: string } | null
+): string => {
+  if (!items || items.length === 0) return '';
+  
+  const primaryColor = brandColors?.primary || "#7c3aed";
+  const accentColor = brandColors?.accent || primaryColor;
+  
+  const faqItemsHtml = items.map((item, index) => `
+    <details style="margin: 8px 0; padding: 0; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden;">
+      <summary style="display: flex; align-items: center; gap: 12px; padding: 12px 16px; cursor: pointer; list-style: none; font-weight: 600; font-size: 14px; color: #1f2937;">
+        <span style="display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; font-size: 12px; font-weight: 700; background: ${primaryColor}15; color: ${primaryColor}; border: 1px solid ${primaryColor}30; flex-shrink: 0;">${index + 1}</span>
+        <span style="flex: 1;">${item.question}</span>
+        <svg style="width: 16px; height: 16px; color: ${accentColor}; flex-shrink: 0; transition: transform 0.2s;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+      </summary>
+      <div style="padding: 0 16px 16px 52px; font-size: 14px; color: #6b7280; line-height: 1.6;">
+        ${item.answer}
+      </div>
+    </details>
+  `).join('');
+  
+  return `
+<div style="border-radius: 8px; border: 1px solid #e5e7eb; background: #f9fafb; padding: 16px; margin: 24px 0;">
+  <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+    <h4 style="margin: 0; font-size: 14px; font-weight: 500; display: flex; align-items: center; gap: 8px;">
+      <span style="display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 50%; background: ${accentColor}; color: white; font-size: 12px; font-weight: 700;">?</span>
+      Frequently Asked Questions
+    </h4>
+    <span style="font-size: 12px; color: #9ca3af;">${items.length} questions</span>
+  </div>
+  <div>
+    ${faqItemsHtml}
+  </div>
+</div>
+<style>
+  details[open] summary svg { transform: rotate(180deg); }
+  details summary::-webkit-details-marker { display: none; }
+</style>`;
+};
