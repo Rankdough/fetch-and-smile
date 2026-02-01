@@ -12,18 +12,16 @@ interface CTABannerProps {
   } | null;
 }
 
-// High-contrast coral/salmon for buttons - works great against dark backgrounds
+// High-contrast coral for buttons - pops against dark backgrounds
 const BUTTON_COLOR = "#FF6B6B";
-const BUTTON_HOVER = "#FF5252";
 
 export const CTABanner = ({ headline, description, buttonText, url, brandColors }: CTABannerProps) => {
-  // Use dark background from palette, or default dark navy
-  const bgGradient = brandColors?.background 
-    ? `linear-gradient(135deg, ${brandColors.background} 0%, ${brandColors.primary} 100%)`
-    : "linear-gradient(135deg, #1E293B 0%, #334155 100%)";
+  // Dark navy gradient background matching reference
+  const bgGradient = "linear-gradient(135deg, #1a2744 0%, #2d3a52 50%, #1a2744 100%)";
   
-  // Headline in accent color (coral/salmon for visibility)
+  // Headline in coral/salmon
   const headlineColor = brandColors?.accent || BUTTON_COLOR;
+  const buttonBg = brandColors?.accent || BUTTON_COLOR;
 
   return (
     <div 
@@ -33,42 +31,47 @@ export const CTABanner = ({ headline, description, buttonText, url, brandColors 
       style={{
         background: bgGradient,
         borderRadius: "16px",
-        padding: "40px 32px",
+        padding: "48px 32px 40px",
         textAlign: "center" as const,
         margin: "32px 0",
         fontFamily: "inherit"
       }}
     >
+      {/* Headline with emoji */}
       <div 
         data-cta-headline="true"
         style={{
-          fontSize: "1.35em",
+          fontSize: "1.25em",
           fontWeight: 700,
-          letterSpacing: "0.05em",
-          marginBottom: "12px",
+          letterSpacing: "0.08em",
+          marginBottom: "16px",
           color: headlineColor,
           fontFamily: "inherit",
           textTransform: "uppercase" as const
         }}
       >
-        {headline}
+        🎳 {headline}
       </div>
+      
+      {/* Description */}
       <div 
         data-cta-description="true"
         style={{
           fontSize: "1em",
-          marginBottom: "24px",
+          marginBottom: "28px",
           color: "white",
-          opacity: 0.9,
           fontFamily: "inherit",
-          maxWidth: "500px",
+          maxWidth: "480px",
           marginLeft: "auto",
           marginRight: "auto",
-          lineHeight: 1.6
+          lineHeight: 1.7,
+          opacity: 0.95
         }}
       >
         {description}
       </div>
+      
+      {/* Button - high contrast */}
       <a 
         href={url} 
         target="_blank" 
@@ -76,21 +79,36 @@ export const CTABanner = ({ headline, description, buttonText, url, brandColors 
         data-cta-button="true"
         style={{
           display: "inline-block",
-          background: brandColors?.accent || BUTTON_COLOR,
+          background: buttonBg,
           color: "#1a1a1a",
           fontWeight: 700,
-          fontSize: "0.95em",
-          padding: "14px 36px",
+          fontSize: "0.9em",
+          padding: "16px 48px",
           borderRadius: "9999px",
           textDecoration: "none",
           fontFamily: "inherit",
           textTransform: "uppercase" as const,
-          letterSpacing: "0.05em",
-          boxShadow: "0 4px 14px rgba(255, 107, 107, 0.4)"
+          letterSpacing: "0.06em",
+          boxShadow: `0 8px 24px rgba(255, 107, 107, 0.35), 0 4px 8px rgba(0, 0, 0, 0.2)`,
+          border: "none"
         }}
       >
         {buttonText} →
       </a>
+      
+      {/* Tagline below button */}
+      <div 
+        data-cta-tagline="true"
+        style={{
+          marginTop: "20px",
+          fontSize: "0.85em",
+          color: "rgba(255, 255, 255, 0.6)",
+          fontFamily: "inherit",
+          letterSpacing: "0.02em"
+        }}
+      >
+        Free design assistance • Fast turnaround • Team discounts
+      </div>
     </div>
   );
 };
@@ -102,17 +120,15 @@ export const generateCTAHtml = (
   url: string,
   brandColors?: { primary: string; secondary: string; accent: string; background?: string } | null
 ): string => {
-  const bgGradient = brandColors?.background 
-    ? `linear-gradient(135deg, ${brandColors.background} 0%, ${brandColors.primary} 100%)`
-    : "linear-gradient(135deg, #1E293B 0%, #334155 100%)";
-  
+  const bgGradient = "linear-gradient(135deg, #1a2744 0%, #2d3a52 50%, #1a2744 100%)";
   const headlineColor = brandColors?.accent || BUTTON_COLOR;
   const buttonColor = brandColors?.accent || BUTTON_COLOR;
 
   return `
-<div style="background: ${bgGradient}; border-radius: 16px; padding: 40px 32px; text-align: center; margin: 32px 0; font-family: inherit;">
-  <div style="font-size: 1.35em; font-weight: 700; letter-spacing: 0.05em; margin-bottom: 12px; color: ${headlineColor}; font-family: inherit; text-transform: uppercase;">${headline}</div>
-  <div style="font-size: 1em; margin-bottom: 24px; color: white; opacity: 0.9; font-family: inherit; max-width: 500px; margin-left: auto; margin-right: auto; line-height: 1.6;">${description}</div>
-  <a href="${url}" target="_blank" rel="noopener noreferrer" style="display: inline-block; background: ${buttonColor}; color: #1a1a1a; font-weight: 700; font-size: 0.95em; padding: 14px 36px; border-radius: 9999px; text-decoration: none; font-family: inherit; text-transform: uppercase; letter-spacing: 0.05em; box-shadow: 0 4px 14px rgba(255, 107, 107, 0.4);">${buttonText} →</a>
+<div style="background: ${bgGradient}; border-radius: 16px; padding: 48px 32px 40px; text-align: center; margin: 32px 0; font-family: inherit;">
+  <div style="font-size: 1.25em; font-weight: 700; letter-spacing: 0.08em; margin-bottom: 16px; color: ${headlineColor}; font-family: inherit; text-transform: uppercase;">🎳 ${headline}</div>
+  <div style="font-size: 1em; margin-bottom: 28px; color: white; font-family: inherit; max-width: 480px; margin-left: auto; margin-right: auto; line-height: 1.7; opacity: 0.95;">${description}</div>
+  <a href="${url}" target="_blank" rel="noopener noreferrer" style="display: inline-block; background: ${buttonColor}; color: #1a1a1a; font-weight: 700; font-size: 0.9em; padding: 16px 48px; border-radius: 9999px; text-decoration: none; font-family: inherit; text-transform: uppercase; letter-spacing: 0.06em; box-shadow: 0 8px 24px rgba(255, 107, 107, 0.35), 0 4px 8px rgba(0, 0, 0, 0.2);">${buttonText} →</a>
+  <div style="margin-top: 20px; font-size: 0.85em; color: rgba(255, 255, 255, 0.6); font-family: inherit; letter-spacing: 0.02em;">Free design assistance • Fast turnaround • Team discounts</div>
 </div>`;
 };
