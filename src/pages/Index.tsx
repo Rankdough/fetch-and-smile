@@ -988,125 +988,122 @@ const Index = () => {
             {/* Import/Export */}
             <HtmlImportDialog onImport={setGeneratedContent} />
             
-            {generatedContent && (
-              <Button
-                variant="outline"
-                size="default"
-                onClick={handleEnhanceImport}
-                disabled={isEnhancingImport}
-                title="Apply tone profile and add CTAs to imported content"
-              >
-                {isEnhancingImport ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Enhancing...
-                  </>
-                ) : (
-                  <>
-                    <Wand2 className="h-4 w-4 mr-2" />
-                    Enhance Import
-                  </>
-                )}
-              </Button>
-            )}
+            <Button
+              variant="outline"
+              size="default"
+              onClick={handleEnhanceImport}
+              disabled={isEnhancingImport || !generatedContent}
+              title="Apply tone profile and add CTAs to imported content"
+            >
+              {isEnhancingImport ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Enhancing...
+                </>
+              ) : (
+                <>
+                  <Wand2 className="h-4 w-4 mr-2" />
+                  Enhance Import
+                </>
+              )}
+            </Button>
 
-            {generatedContent && (
-              <Button
-                variant="outline"
-                size="default"
-                onClick={() => {
-                  // Generate HTML with inline styles for components
-                  const article = document.querySelector("article");
-                  if (article) {
-                    // Clone the article to modify it
-                    const clone = article.cloneNode(true) as HTMLElement;
-                    
-                    // Convert navigation panel to styled HTML
-                    const navPanels = clone.querySelectorAll("[class*='grid']");
-                    navPanels.forEach((panel) => {
-                      const navItems = panel.querySelectorAll("a[href^='#']");
-                      if (navItems.length > 0) {
-                        // This is likely the navigation panel
-                        const parent = panel.parentElement;
-                        if (parent) {
-                          const navHtml = document.createElement("nav");
-                          navHtml.style.cssText = "margin: 1.5rem 0; padding: 1rem; background: #f5f5f5; border-radius: 8px;";
-                          navHtml.innerHTML = `<p style="font-weight: 600; margin-bottom: 0.5rem;">In This Article:</p><ul style="margin: 0; padding-left: 1.25rem;">
-                            ${Array.from(navItems).map((item) => `<li style="margin: 0.25rem 0;"><a href="${item.getAttribute("href")}" style="color: #6366f1; text-decoration: none;">${item.textContent}</a></li>`).join("")}
-                          </ul>`;
-                          parent.replaceChild(navHtml, panel);
-                        }
+            <Button
+              variant="outline"
+              size="default"
+              disabled={!generatedContent}
+              onClick={() => {
+                // Generate HTML with inline styles for components
+                const article = document.querySelector("article");
+                if (article) {
+                  // Clone the article to modify it
+                  const clone = article.cloneNode(true) as HTMLElement;
+                  
+                  // Convert navigation panel to styled HTML
+                  const navPanels = clone.querySelectorAll("[class*='grid']");
+                  navPanels.forEach((panel) => {
+                    const navItems = panel.querySelectorAll("a[href^='#']");
+                    if (navItems.length > 0) {
+                      // This is likely the navigation panel
+                      const parent = panel.parentElement;
+                      if (parent) {
+                        const navHtml = document.createElement("nav");
+                        navHtml.style.cssText = "margin: 1.5rem 0; padding: 1rem; background: #f5f5f5; border-radius: 8px;";
+                        navHtml.innerHTML = `<p style="font-weight: 600; margin-bottom: 0.5rem;">In This Article:</p><ul style="margin: 0; padding-left: 1.25rem;">
+                          ${Array.from(navItems).map((item) => `<li style="margin: 0.25rem 0;"><a href="${item.getAttribute("href")}" style="color: #6366f1; text-decoration: none;">${item.textContent}</a></li>`).join("")}
+                        </ul>`;
+                        parent.replaceChild(navHtml, panel);
                       }
-                    });
-                    
-                    // Convert FAQ accordions to details/summary elements
-                    const faqSections = clone.querySelectorAll("[data-faq]");
-                    faqSections.forEach((section) => {
-                      const items = section.querySelectorAll("[data-faq-item]");
-                      if (items.length > 0) {
-                        const faqContainer = document.createElement("div");
-                        faqContainer.innerHTML = `<h2 style="font-size: 1.5rem; font-weight: 700; margin: 1.5rem 0 1rem;">Frequently Asked Questions</h2>`;
-                        items.forEach((item) => {
-                          const question = item.querySelector("[data-faq-question]")?.textContent || "";
-                          const answer = item.querySelector("[data-faq-answer]")?.textContent || "";
-                          const details = document.createElement("details");
-                          details.style.cssText = "margin: 0.5rem 0; padding: 0.75rem; background: #fafafa; border: 1px solid #e5e5e5; border-radius: 6px;";
-                          details.innerHTML = `<summary style="cursor: pointer; font-weight: 500;">${question}</summary><p style="margin-top: 0.5rem; color: #525252;">${answer}</p>`;
-                          faqContainer.appendChild(details);
-                        });
-                        section.replaceWith(faqContainer);
-                      }
-                    });
-                    
-                    // Get the HTML content
-                    let htmlContent = clone.innerHTML;
-                    
-                    // Replace CTA banners with styled versions
-                    const ctaBanners = clone.querySelectorAll(".cta-banner, [class*='cta']");
-                    ctaBanners.forEach((banner) => {
-                      const headline = banner.querySelector("[class*='headline']")?.textContent || "";
-                      const description = banner.querySelector("[class*='description']")?.textContent || "";
-                      const button = banner.querySelector("a");
-                      const buttonText = button?.textContent || "Learn More";
-                      const buttonUrl = button?.getAttribute("href") || "#";
-                      
-                      const styledCta = document.createElement("div");
-                      styledCta.style.cssText = `margin: 2rem 0; padding: 1.5rem; background: linear-gradient(135deg, ${selectedColorPalette?.primary || "#6366f1"} 0%, ${selectedColorPalette?.secondary || "#a855f7"} 100%); border-radius: 12px; text-align: center; color: white;`;
-                      styledCta.innerHTML = `
-                        <p style="font-size: 1.25rem; font-weight: 700; margin: 0 0 0.5rem;">${headline}</p>
-                        <p style="margin: 0 0 1rem; opacity: 0.9;">${description}</p>
-                        <a href="${buttonUrl}" style="display: inline-block; padding: 0.75rem 1.5rem; background: white; color: ${selectedColorPalette?.primary || "#6366f1"}; font-weight: 600; border-radius: 6px; text-decoration: none;">${buttonText}</a>
-                      `;
-                      banner.replaceWith(styledCta);
-                    });
-                    
-                    // Get final HTML
-                    htmlContent = clone.innerHTML;
-                    
-                    navigator.clipboard.writeText(htmlContent).then(() => {
-                      toast({
-                        title: "HTML copied to clipboard!",
-                        description: "Ready to paste into Shopify or WordPress.",
+                    }
+                  });
+                  
+                  // Convert FAQ accordions to details/summary elements
+                  const faqSections = clone.querySelectorAll("[data-faq]");
+                  faqSections.forEach((section) => {
+                    const items = section.querySelectorAll("[data-faq-item]");
+                    if (items.length > 0) {
+                      const faqContainer = document.createElement("div");
+                      faqContainer.innerHTML = `<h2 style="font-size: 1.5rem; font-weight: 700; margin: 1.5rem 0 1rem;">Frequently Asked Questions</h2>`;
+                      items.forEach((item) => {
+                        const question = item.querySelector("[data-faq-question]")?.textContent || "";
+                        const answer = item.querySelector("[data-faq-answer]")?.textContent || "";
+                        const details = document.createElement("details");
+                        details.style.cssText = "margin: 0.5rem 0; padding: 0.75rem; background: #fafafa; border: 1px solid #e5e5e5; border-radius: 6px;";
+                        details.innerHTML = `<summary style="cursor: pointer; font-weight: 500;">${question}</summary><p style="margin-top: 0.5rem; color: #525252;">${answer}</p>`;
+                        faqContainer.appendChild(details);
                       });
-                    }).catch(() => {
-                      // Fallback: download as file
-                      const blob = new Blob([htmlContent], { type: "text/html" });
-                      const url = URL.createObjectURL(blob);
-                      const a = document.createElement("a");
-                      a.href = url;
-                      a.download = "article.html";
-                      document.body.appendChild(a);
-                      a.click();
-                      document.body.removeChild(a);
-                      URL.revokeObjectURL(url);
+                      section.replaceWith(faqContainer);
+                    }
+                  });
+                  
+                  // Get the HTML content
+                  let htmlContent = clone.innerHTML;
+                  
+                  // Replace CTA banners with styled versions
+                  const ctaBanners = clone.querySelectorAll(".cta-banner, [class*='cta']");
+                  ctaBanners.forEach((banner) => {
+                    const headline = banner.querySelector("[class*='headline']")?.textContent || "";
+                    const description = banner.querySelector("[class*='description']")?.textContent || "";
+                    const button = banner.querySelector("a");
+                    const buttonText = button?.textContent || "Learn More";
+                    const buttonUrl = button?.getAttribute("href") || "#";
+                    
+                    const styledCta = document.createElement("div");
+                    styledCta.style.cssText = `margin: 2rem 0; padding: 1.5rem; background: linear-gradient(135deg, ${selectedColorPalette?.primary || "#6366f1"} 0%, ${selectedColorPalette?.secondary || "#a855f7"} 100%); border-radius: 12px; text-align: center; color: white;`;
+                    styledCta.innerHTML = `
+                      <p style="font-size: 1.25rem; font-weight: 700; margin: 0 0 0.5rem;">${headline}</p>
+                      <p style="margin: 0 0 1rem; opacity: 0.9;">${description}</p>
+                      <a href="${buttonUrl}" style="display: inline-block; padding: 0.75rem 1.5rem; background: white; color: ${selectedColorPalette?.primary || "#6366f1"}; font-weight: 600; border-radius: 6px; text-decoration: none;">${buttonText}</a>
+                    `;
+                    banner.replaceWith(styledCta);
+                  });
+                  
+                  // Get final HTML
+                  htmlContent = clone.innerHTML;
+                  
+                  navigator.clipboard.writeText(htmlContent).then(() => {
+                    toast({
+                      title: "HTML copied to clipboard!",
+                      description: "Ready to paste into Shopify or WordPress.",
                     });
-                  }
-                }}
-              >
-                <Download className="h-4 w-4 mr-2" />
-                Copy HTML
-              </Button>
-            )}
+                  }).catch(() => {
+                    // Fallback: download as file
+                    const blob = new Blob([htmlContent], { type: "text/html" });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = "article.html";
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                  });
+                }
+              }}
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Copy HTML
+            </Button>
 
             <div className="h-6 w-px bg-border" />
 
