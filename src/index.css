@@ -153,7 +153,8 @@ All colors MUST be HSL.
 }
 
 .prose thead {
-  background-color: hsl(var(--table-header));
+  background: var(--brand-primary, hsl(var(--table-header)));
+  background: linear-gradient(135deg, var(--brand-primary, hsl(var(--table-header))) 0%, var(--brand-secondary, hsl(var(--table-header))) 100%);
   color: hsl(var(--table-header-foreground));
 }
 
@@ -176,7 +177,9 @@ All colors MUST be HSL.
 
 .prose blockquote {
   background-color: hsl(var(--tldr-bg));
-  border-left: 4px solid hsl(var(--tldr-border));
+  border-left-color: var(--brand-primary, hsl(var(--tldr-border)));
+  border-left-width: 4px;
+  border-left-style: solid;
   @apply pl-6 pr-4 py-4 my-6 rounded-r-lg not-italic;
 }
 
