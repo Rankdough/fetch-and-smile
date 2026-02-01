@@ -148,12 +148,12 @@ export const extractNavigationFromContent = (content: string): NavigationItem[] 
       continue;
     }
     
-    // Generate slug from title
+    // Generate slug from title - MUST match the ReactMarkdown h2 id generation
+    // ReactMarkdown uses: String(children).toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]/g, '')
     const slug = title
       .toLowerCase()
-      .replace(/[^a-z0-9\s-]/g, "")
       .replace(/\s+/g, "-")
-      .replace(/-+/g, "-");
+      .replace(/[^\w-]/g, "");
     
     // Try to extract description from the first paragraph after the heading
     const headingIndex = match.index;
