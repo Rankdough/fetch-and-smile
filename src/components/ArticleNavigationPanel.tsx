@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronDown, ChevronUp, ExternalLink, Star } from "lucide-react";
+import { ChevronDown, ExternalLink, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -52,66 +52,60 @@ export const ArticleNavigationPanel = ({
         Quick navigation to each section of this article:
       </p>
 
-      <div className="space-y-1">
+      <div className="space-y-2">
         {items.map((item, index) => (
           <div
             key={index}
             className={cn(
-              "rounded-lg border transition-all",
+              "rounded-lg border bg-background transition-all",
               item.isHighlighted 
-                ? "border-primary/50 bg-primary/5" 
+                ? "border-primary/50" 
                 : "hover:border-muted-foreground/30"
             )}
           >
             <div 
-              className="flex items-center gap-2 p-2 cursor-pointer"
+              className="flex items-start gap-3 p-3 cursor-pointer"
               onClick={() => setExpandedItem(expandedItem === index ? null : index)}
             >
               <div className={cn(
-                "flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold",
+                "flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold mt-0.5",
                 item.isHighlighted 
                   ? "bg-primary text-primary-foreground" 
                   : "bg-primary/10 text-primary border border-primary/20"
               )}>
                 {item.number}
               </div>
-              <p className={cn(
-                "text-sm font-medium flex-1",
-                item.isHighlighted && "text-primary"
-              )}>
-                {item.title}
-                {item.isHighlighted && (
-                  <Star className="inline-block ml-1 h-3 w-3 text-primary fill-primary" />
-                )}
-              </p>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-5 w-5 p-0 flex-shrink-0"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setExpandedItem(expandedItem === index ? null : index);
-                }}
-              >
-                {expandedItem === index ? (
-                  <ChevronUp className="h-3 w-3" />
-                ) : (
-                  <ChevronDown className="h-3 w-3" />
-                )}
-              </Button>
-            </div>
-            
-            {/* Expanded: description + jump link */}
-            {expandedItem === index && (
-              <div className="px-2 pb-2 pl-9 space-y-2">
-                <p className="text-xs text-muted-foreground">
+              <div className="flex-1 min-w-0">
+                <p className={cn(
+                  "text-sm font-semibold",
+                  item.isHighlighted && "text-primary"
+                )}>
+                  {item.title}
+                  {item.isHighlighted && (
+                    <Star className="inline-block ml-1.5 h-3 w-3 text-primary fill-primary" />
+                  )}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
                   {item.description}
                 </p>
+              </div>
+              <ChevronDown className={cn(
+                "h-4 w-4 flex-shrink-0 text-muted-foreground transition-transform mt-0.5",
+                expandedItem === index && "rotate-180"
+              )} />
+            </div>
+            
+            {/* Expanded: jump link */}
+            {expandedItem === index && (
+              <div className="px-3 pb-3 pl-12">
                 <Button
                   variant="outline"
                   size="sm"
-                  className="h-6 text-xs"
-                  onClick={() => handleJump(item.slug)}
+                  className="h-7 text-xs"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleJump(item.slug);
+                  }}
                 >
                   <ExternalLink className="h-3 w-3 mr-1" />
                   Jump to section
