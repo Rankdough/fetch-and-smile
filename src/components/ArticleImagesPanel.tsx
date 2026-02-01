@@ -248,10 +248,11 @@ export function ArticleImagesPanel({
                   Copy
                 </Button>
                 <Button
-                  variant="ghost"
+                  variant="destructive"
                   size="icon"
-                  className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                  className="h-7 w-7"
                   onClick={() => handleDelete(index)}
+                  title="Remove image"
                 >
                   <X className="h-3 w-3" />
                 </Button>
