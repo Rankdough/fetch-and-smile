@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { Loader2, Sparkles, FileText, Link, Search, X, Upload, Plus, Tag, Download, ExternalLink, BookOpen, Eye, Edit2, Mic2, RotateCcw, Target, Maximize2, Minimize2, ImagePlus } from "lucide-react";
+import { Loader2, Sparkles, FileText, Link, Search, X, Upload, Plus, Tag, Download, ExternalLink, BookOpen, Eye, Edit2, Mic2, RotateCcw, Target, Maximize2, Minimize2, ImagePlus, Wand2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import ReactMarkdown from "react-markdown";
@@ -244,6 +244,7 @@ const Index = () => {
   const { toast } = useToast();
   const [isGenerating, setIsGenerating] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isEnhancingImport, setIsEnhancingImport] = useState(false);
   const [generatedContent, setGeneratedContentRaw] = useState(() => {
     const saved = localStorage.getItem("seo-generator-generatedContent");
     return saved ? cleanContent(saved) : "";
@@ -768,6 +769,111 @@ const Index = () => {
       title: "Form cleared",
       description: "All fields have been reset. Ready for a new article.",
     });
+  };
+
+  // Enhance imported content with tone and CTAs
+  const handleEnhanceImport = async () => {
+    if (!generatedContent.trim()) {
+      toast({
+        title: "No content",
+        description: "Import some HTML content first before enhancing.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsEnhancingImport(true);
+
+    try {
+      // Fetch the selected tone profile if one is selected
+      let toneProfile = null;
+      if (selectedToneProfileId) {
+        const { data: toneData } = await supabase
+          .from("tone_profiles")
+          .select("*")
+          .eq("id", selectedToneProfileId)
+          .single();
+        
+        if (toneData) {
+          toneProfile = {
+            name: toneData.name,
+            summary: toneData.summary,
+            characteristics: toneData.characteristics as Record<string, unknown>,
+            example_phrases: toneData.example_phrases,
+          };
+        }
+      }
+
+      // Prepare CTA config if URL is set
+      let ctaConfig = null;
+      if (ctaUrl.trim()) {
+        ctaConfig = {
+          headline: "Want to Learn More?",
+          description: "Get expert guidance and personalized recommendations.",
+          buttonText: "Get Started",
+          buttonUrl: ctaUrl,
+        };
+      }
+
+      const { data, error } = await supabase.functions.invoke("enhance-import", {
+        body: {
+          content: generatedContent,
+          toneProfile,
+          ctaConfig,
+          addCtas: !!ctaUrl.trim(),
+        },
+      });
+
+      if (error) throw error;
+
+      setGeneratedContent(data.content);
+      
+      // Update applied rules to reflect enhancement
+      setAppliedRules((prev) => ({
+        ...(prev || {
+          gapAnalysisUsed: false,
+          formatReferenceUsed: false,
+          contextFilesUsed: false,
+          contextFileNames: [],
+          keywordsUsed: false,
+          keywords: [],
+          targetWordCount: 0,
+          outlineProvided: false,
+          customInstructionsProvided: false,
+        }),
+        toneProfileUsed: data.toneApplied,
+      }));
+
+      // If CTAs were added, set generated CTAs
+      if (data.ctasAdded) {
+        setGeneratedCTAs({
+          middle: {
+            headline: ctaConfig?.headline || "Want to Learn More?",
+            description: ctaConfig?.description || "Get expert guidance.",
+            buttonText: ctaConfig?.buttonText || "Learn More",
+          },
+          end: {
+            headline: "Ready to Take Action?",
+            description: "Start your journey today.",
+            buttonText: "Get Started",
+          },
+        });
+      }
+
+      toast({
+        title: "Content enhanced!",
+        description: `${data.toneApplied ? "Tone applied. " : ""}${data.ctasAdded ? "CTAs added." : ""}`,
+      });
+    } catch (error) {
+      console.error("Enhance import error:", error);
+      toast({
+        title: "Enhancement failed",
+        description: error instanceof Error ? error.message : "Failed to enhance content",
+        variant: "destructive",
+      });
+    } finally {
+      setIsEnhancingImport(false);
+    }
   };
 
   return (
@@ -1403,6 +1509,28 @@ const Index = () => {
               </div>
               <div className="flex flex-wrap gap-2">
                 <HtmlImportDialog onImport={setGeneratedContent} />
+                {generatedContent && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-2"
+                    onClick={handleEnhanceImport}
+                    disabled={isEnhancingImport}
+                    title="Apply tone profile and add CTAs to imported content"
+                  >
+                    {isEnhancingImport ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Enhancing...
+                      </>
+                    ) : (
+                      <>
+                        <Wand2 className="h-4 w-4" />
+                        Enhance Import
+                      </>
+                    )}
+                  </Button>
+                )}
                 {generatedContent && (
                   <Button
                     variant="outline"

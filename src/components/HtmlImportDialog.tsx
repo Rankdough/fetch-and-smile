@@ -48,22 +48,43 @@ export function HtmlImportDialog({ onImport }: HtmlImportDialogProps) {
         strongDelimiter: "**",
       });
 
-      // Add rules for tables
-      turndownService.addRule("tableCell", {
-        filter: ["th", "td"],
+      // Remove thead/tbody wrappers to simplify table parsing
+      turndownService.addRule("thead", {
+        filter: "thead",
         replacement: function (content) {
-          return " " + content.trim() + " |";
+          return content;
         },
       });
 
+      turndownService.addRule("tbody", {
+        filter: "tbody",
+        replacement: function (content) {
+          return content;
+        },
+      });
+
+      // Handle table cells
+      turndownService.addRule("tableCell", {
+        filter: ["th", "td"],
+        replacement: function (content) {
+          return " " + content.trim().replace(/\|/g, "\\|") + " |";
+        },
+      });
+
+      // Handle table rows with proper header separator
       turndownService.addRule("tableRow", {
         filter: "tr",
         replacement: function (content, node) {
+          const row = node as HTMLTableRowElement;
           const cells = content.trim();
-          const isHeader = (node as HTMLTableRowElement).parentElement?.tagName === "THEAD";
+          
+          // Check if this is a header row (in thead or has th children)
+          const isHeader = 
+            row.parentElement?.tagName === "THEAD" || 
+            row.querySelectorAll("th").length > 0;
           
           if (isHeader) {
-            const cellCount = (node as HTMLTableRowElement).cells.length;
+            const cellCount = row.cells.length;
             const separator = "\n|" + Array(cellCount).fill(" --- ").join("|") + "|";
             return "|" + cells + separator + "\n";
           }
@@ -71,10 +92,39 @@ export function HtmlImportDialog({ onImport }: HtmlImportDialogProps) {
         },
       });
 
+      // Handle complete table
       turndownService.addRule("table", {
         filter: "table",
         replacement: function (content) {
-          return "\n" + content + "\n";
+          return "\n\n" + content.trim() + "\n\n";
+        },
+      });
+
+      // Preserve CTA banners by converting to markdown format
+      turndownService.addRule("ctaBanner", {
+        filter: function (node) {
+          return (
+            node.nodeName === "DIV" &&
+            (node.classList?.contains("cta-banner") ||
+             node.getAttribute("style")?.includes("linear-gradient"))
+          );
+        },
+        replacement: function (content, node) {
+          const div = node as HTMLElement;
+          
+          // Try to extract CTA parts
+          const headline = div.querySelector(".cta-headline, [class*='headline']")?.textContent?.trim();
+          const description = div.querySelector(".cta-description, [class*='description']")?.textContent?.trim();
+          const buttonEl = div.querySelector(".cta-button, a[class*='button']") as HTMLAnchorElement;
+          const buttonText = buttonEl?.textContent?.trim();
+          const buttonUrl = buttonEl?.href || "#";
+          
+          if (headline || buttonText) {
+            // Convert to markdown CTA format that we can recognize
+            return `\n\n---CTA---\n**${headline || "Learn More"}**\n${description || ""}\n[${buttonText || "Click Here"}](${buttonUrl})\n---/CTA---\n\n`;
+          }
+          
+          return content;
         },
       });
 
@@ -89,15 +139,35 @@ export function HtmlImportDialog({ onImport }: HtmlImportDialogProps) {
         },
       });
 
+      // Handle details/summary (FAQ items)
+      turndownService.addRule("details", {
+        filter: "details",
+        replacement: function (content, node) {
+          const details = node as HTMLDetailsElement;
+          const summary = details.querySelector("summary")?.textContent?.trim() || "Question";
+          const answer = content.replace(summary, "").trim();
+          return `\n\n**Q: ${summary}**\n\n${answer}\n\n`;
+        },
+      });
+
       // Convert HTML to Markdown
       const markdown = turndownService.turndown(htmlContent);
 
       // Clean up the result
-      const cleanedMarkdown = markdown
+      let cleanedMarkdown = markdown
         .replace(/\n{3,}/g, "\n\n") // Remove excessive newlines
         .replace(/—/g, "-") // Replace em dashes
         .replace(/–/g, "-") // Replace en dashes
+        .replace(/\\\|/g, "|") // Unescape pipe characters in regular text (keep in tables)
         .trim();
+
+      // Convert CTA markers back to proper markdown blockquotes
+      cleanedMarkdown = cleanedMarkdown.replace(
+        /---CTA---\n\*\*(.+?)\*\*\n(.*?)\n\[(.+?)\]\((.+?)\)\n---\/CTA---/gs,
+        (_, headline, desc, btnText, btnUrl) => {
+          return `\n> **${headline}**\n> ${desc}\n> [${btnText}](${btnUrl})\n`;
+        }
+      );
 
       onImport(cleanedMarkdown);
       setHtmlContent("");
@@ -105,7 +175,7 @@ export function HtmlImportDialog({ onImport }: HtmlImportDialogProps) {
 
       toast({
         title: "HTML imported!",
-        description: "Content has been converted to Markdown and loaded into the editor.",
+        description: "Content has been converted to Markdown. Use 'Enhance Import' to apply tone and add CTAs.",
       });
     } catch (error) {
       console.error("HTML conversion error:", error);
@@ -132,7 +202,7 @@ export function HtmlImportDialog({ onImport }: HtmlImportDialogProps) {
           <DialogTitle>Import HTML Content</DialogTitle>
           <DialogDescription>
             Paste your HTML content below. It will be converted to Markdown for editing.
-            Images will be preserved with their URLs.
+            Tables, CTAs, and images will be preserved.
           </DialogDescription>
         </DialogHeader>
 
@@ -143,14 +213,17 @@ export function HtmlImportDialog({ onImport }: HtmlImportDialogProps) {
             placeholder="<article>
   <h1>Your Article Title</h1>
   <p>Paste your HTML content here...</p>
-  <img src='https://example.com/image.jpg' alt='Description' />
+  <table>
+    <thead><tr><th>Column 1</th><th>Column 2</th></tr></thead>
+    <tbody><tr><td>Data 1</td><td>Data 2</td></tr></tbody>
+  </table>
 </article>"
             className="min-h-[300px] max-h-[400px] font-mono text-sm resize-none"
             value={htmlContent}
             onChange={(e) => setHtmlContent(e.target.value)}
           />
           <p className="text-xs text-muted-foreground">
-            Tip: Copy the HTML from your article's source code or exported content.
+            Tip: After importing, use "Enhance Import" to apply tone profile and inject CTAs.
           </p>
         </div>
 
