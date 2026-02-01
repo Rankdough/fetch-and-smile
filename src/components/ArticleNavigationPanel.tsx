@@ -7,6 +7,7 @@ interface NavigationItem {
   number: number;
   title: string;
   description: string;
+  detailedDescription?: string;
   slug: string;
   isHighlighted?: boolean;
 }
@@ -91,19 +92,21 @@ export const ArticleNavigationPanel = ({
               )} />
             </div>
             
-            {/* Description - always visible */}
+            {/* Description - always visible (2 lines) */}
             <div className="px-3 pb-2.5 pl-12">
-              <p className={cn(
-                "text-xs text-muted-foreground leading-relaxed",
-                expandedItem !== index && "line-clamp-2"
-              )}>
+              <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2">
                 {item.description}
               </p>
             </div>
             
-            {/* Expanded: jump link */}
+            {/* Expanded: detailed description + jump link */}
             {expandedItem === index && (
-              <div className="px-3 pb-3 pl-12 pt-1">
+              <div className="px-3 pb-3 pl-12 space-y-2 border-t border-border/50 pt-2 mt-1 mx-3 ml-12">
+                {item.detailedDescription && (
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    {item.detailedDescription}
+                  </p>
+                )}
                 <Button
                   variant="outline"
                   size="sm"
@@ -155,13 +158,21 @@ export const extractNavigationFromContent = (content: string): NavigationItem[] 
     // Try to extract description from the first paragraph after the heading
     const headingIndex = match.index;
     const afterHeading = content.slice(headingIndex + match[0].length);
-    const firstParagraph = afterHeading.split(/\n\n/)[0]?.trim() || "";
-    const description = firstParagraph.replace(/^\n+/, "").slice(0, 150) + (firstParagraph.length > 150 ? "..." : "");
+    const firstParagraph = afterHeading.split(/\n\n/)[0]?.trim().replace(/^\n+/, "") || "";
+    
+    // Short description: first 100 chars (for 2 lines display)
+    const shortDescription = firstParagraph.slice(0, 100) + (firstParagraph.length > 100 ? "..." : "");
+    
+    // Detailed description: next portion of text for expanded view
+    const detailedDescription = firstParagraph.length > 100 
+      ? firstParagraph.slice(100, 300) + (firstParagraph.length > 300 ? "..." : "")
+      : "Click to jump to this section and learn more.";
     
     items.push({
       number,
       title,
-      description: description || `Learn about ${title.toLowerCase()}`,
+      description: shortDescription || `Learn about ${title.toLowerCase()}`,
+      detailedDescription,
       slug,
       isHighlighted: number === 1, // First item is highlighted
     });
