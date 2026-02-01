@@ -1760,6 +1760,7 @@ ${tempDiv.innerHTML}
                       content={generatedContent}
                       topic={formData.topic}
                       valuePromise={valuePromise}
+                      onContentUpdate={setGeneratedContent}
                     />
                   </>
                 ) : (

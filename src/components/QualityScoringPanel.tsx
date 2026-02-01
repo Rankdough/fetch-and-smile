@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Loader2, TrendingUp, CheckCircle2, AlertCircle, Lightbulb, Target, Sparkles, MessageSquare } from "lucide-react";
+import { Loader2, TrendingUp, CheckCircle2, AlertCircle, Lightbulb, Target, Sparkles, MessageSquare, Wand2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -23,6 +23,7 @@ interface QualityScoringPanelProps {
   content: string;
   topic: string;
   valuePromise: string;
+  onContentUpdate?: (newContent: string) => void;
 }
 
 const getScoreColor = (score: number) => {
@@ -59,9 +60,10 @@ const ScoreIcon = ({ dimension }: { dimension: string }) => {
   }
 };
 
-export const QualityScoringPanel = ({ content, topic, valuePromise }: QualityScoringPanelProps) => {
+export const QualityScoringPanel = ({ content, topic, valuePromise, onContentUpdate }: QualityScoringPanelProps) => {
   const { toast } = useToast();
   const [isScoring, setIsScoring] = useState(false);
+  const [isApplying, setIsApplying] = useState(false);
   const [scores, setScores] = useState<QualityScores | null>(null);
   const [expandedDimension, setExpandedDimension] = useState<string | null>(null);
 
@@ -89,6 +91,61 @@ export const QualityScoringPanel = ({ content, topic, valuePromise }: QualitySco
       });
     } finally {
       setIsScoring(false);
+    }
+  };
+
+  const handleApplyImprovements = async () => {
+    if (!scores || !onContentUpdate) return;
+    
+    setIsApplying(true);
+    try {
+      // Collect all improvements into a single instruction
+      const improvements: string[] = [];
+      
+      // Add critical weakness as the main fix
+      if (scores.criticalWeakness) {
+        improvements.push(`CRITICAL FIX: ${scores.criticalWeakness}`);
+      }
+      
+      // Add dimension-specific improvements for low scores
+      Object.entries(scores.scores).forEach(([dimension, data]) => {
+        if (data.score < 70 && data.improvement) {
+          improvements.push(`Improve ${dimension}: ${data.improvement}`);
+        }
+      });
+      
+      // Add value promise fix if not delivered
+      if (!scores.valuePromiseDelivered && scores.valuePromiseAnalysis) {
+        improvements.push(`Fix value promise delivery: ${scores.valuePromiseAnalysis}`);
+      }
+      
+      const instruction = `Apply these improvements to make the content stronger:\n\n${improvements.join("\n\n")}`;
+      
+      console.log("Applying improvements:", instruction);
+      
+      const { data, error } = await supabase.functions.invoke("voice-edit-content", {
+        body: { content, instruction },
+      });
+
+      if (error) throw error;
+      
+      if (data.content) {
+        onContentUpdate(data.content);
+        setScores(null); // Reset scores so user can re-analyze
+        toast({
+          title: "Improvements applied",
+          description: "Content has been rewritten based on the quality analysis. Re-score to see the difference!",
+        });
+      }
+    } catch (error) {
+      console.error("Apply improvements error:", error);
+      toast({
+        title: "Failed to apply improvements",
+        description: error instanceof Error ? error.message : "Could not rewrite content",
+        variant: "destructive",
+      });
+    } finally {
+      setIsApplying(false);
     }
   };
 
@@ -238,26 +295,48 @@ export const QualityScoringPanel = ({ content, topic, valuePromise }: QualitySco
         </div>
       </div>
 
-      {/* Re-score Button */}
-      <Button
-        variant="outline"
-        size="sm"
-        className="w-full"
-        onClick={handleScoreContent}
-        disabled={isScoring}
-      >
-        {isScoring ? (
-          <>
-            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            Re-analyzing...
-          </>
-        ) : (
-          <>
-            <TrendingUp className="h-4 w-4 mr-2" />
-            Re-score Content
-          </>
+      {/* Action Buttons */}
+      <div className="flex gap-2">
+        {onContentUpdate && (
+          <Button
+            size="sm"
+            className="flex-1"
+            onClick={handleApplyImprovements}
+            disabled={isApplying || isScoring}
+          >
+            {isApplying ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Applying...
+              </>
+            ) : (
+              <>
+                <Wand2 className="h-4 w-4 mr-2" />
+                Apply Improvements
+              </>
+            )}
+          </Button>
         )}
-      </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          className={onContentUpdate ? "" : "w-full"}
+          onClick={handleScoreContent}
+          disabled={isScoring || isApplying}
+        >
+          {isScoring ? (
+            <>
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              Re-analyzing...
+            </>
+          ) : (
+            <>
+              <TrendingUp className="h-4 w-4 mr-2" />
+              Re-score
+            </>
+          )}
+        </Button>
+      </div>
     </div>
   );
 };
