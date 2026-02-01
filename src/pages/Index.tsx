@@ -709,14 +709,14 @@ const Index = () => {
       <div className={isPreviewFullscreen ? "px-4 py-6" : "container mx-auto px-4 py-6 max-w-[1800px]"}>
         <div className={`grid gap-6 min-h-[calc(100vh-120px)] ${isPreviewFullscreen ? "grid-cols-1" : "grid-cols-1 lg:grid-cols-3"}`}>
           {/* Left Panel - Form (hidden in fullscreen mode) */}
-          {!isPreviewFullscreen && <Card className="flex flex-col">
+          {!isPreviewFullscreen && <Card className="flex flex-col settings-panel">
             <CardHeader className="pb-4">
               <CardTitle className="flex items-center gap-2 text-lg">
                 <FileText className="h-5 w-5" />
                 Blog Post Settings
               </CardTitle>
             </CardHeader>
-            <CardContent className="flex-1 flex flex-col gap-5">
+            <CardContent className="flex-1 flex flex-col gap-5 overflow-auto">
               {/* Topic */}
               <div className="space-y-2">
                 <Label htmlFor="topic">What is the topic of your post?</Label>

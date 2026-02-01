@@ -34,7 +34,8 @@ All colors MUST be HSL.
     --destructive-foreground: 210 40% 98%;
 
     --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
+    --input: 300 20% 97%;
+    --input-border: 300 30% 80%;
     --ring: 300 52% 36%;
 
     --radius: 0.5rem;
@@ -90,7 +91,8 @@ All colors MUST be HSL.
     --destructive-foreground: 210 40% 98%;
 
     --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
+    --input: 260 30% 15%;
+    --input-border: 300 30% 40%;
     --ring: 212.7 26.8% 83.9%;
     --sidebar-background: 240 5.9% 10%;
     --sidebar-foreground: 240 4.8% 95.9%;
@@ -237,4 +239,51 @@ All colors MUST be HSL.
 .cta-banner .cta-button:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+/* Enhanced input styling for settings panel */
+.settings-panel input[type="text"],
+.settings-panel input[type="url"],
+.settings-panel input[type="number"],
+.settings-panel textarea,
+.settings-panel select {
+  background-color: hsl(var(--input));
+  border: 2px solid hsl(var(--input-border));
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.settings-panel input[type="text"]:focus,
+.settings-panel input[type="url"]:focus,
+.settings-panel input[type="number"]:focus,
+.settings-panel textarea:focus,
+.settings-panel select:focus {
+  border-color: hsl(var(--primary));
+  box-shadow: 0 0 0 3px hsl(var(--primary) / 0.15);
+}
+
+.settings-panel input[type="file"] {
+  background-color: hsl(var(--input));
+  border: 2px dashed hsl(var(--input-border));
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  transition: border-color 0.2s, background-color 0.2s;
+}
+
+.settings-panel input[type="file"]:hover {
+  border-color: hsl(var(--primary));
+  background-color: hsl(var(--primary) / 0.05);
+}
+
+/* Context file items styling */
+.settings-panel .context-file-item {
+  background-color: hsl(var(--input));
+  border: 1px solid hsl(var(--input-border));
+}
+
+/* Collapsible section styling */
+.settings-panel [data-state="open"] > .collapsible-content {
+  background-color: hsl(var(--muted) / 0.3);
+  border-radius: 0.5rem;
+  padding: 1rem;
+  margin-top: 0.5rem;
 }
