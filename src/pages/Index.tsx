@@ -960,8 +960,252 @@ const Index = () => {
         </div>
       </header>
 
+      {/* Action Toolbar */}
+      <div className="border-b bg-muted/30">
+        <div className="container mx-auto px-4 py-3 max-w-[1800px]">
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Primary Actions */}
+            <Button
+              onClick={handleGenerate}
+              disabled={isGenerating || !formData.topic.trim()}
+              size="default"
+            >
+              {isGenerating ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Generating...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="mr-2 h-4 w-4" />
+                  Generate Content
+                </>
+              )}
+            </Button>
+
+            <div className="h-6 w-px bg-border" />
+
+            {/* Import/Export */}
+            <HtmlImportDialog onImport={setGeneratedContent} />
+            
+            {generatedContent && (
+              <Button
+                variant="outline"
+                size="default"
+                onClick={handleEnhanceImport}
+                disabled={isEnhancingImport}
+                title="Apply tone profile and add CTAs to imported content"
+              >
+                {isEnhancingImport ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Enhancing...
+                  </>
+                ) : (
+                  <>
+                    <Wand2 className="h-4 w-4 mr-2" />
+                    Enhance Import
+                  </>
+                )}
+              </Button>
+            )}
+
+            {generatedContent && (
+              <Button
+                variant="outline"
+                size="default"
+                onClick={() => {
+                  // Generate HTML with inline styles for components
+                  const article = document.querySelector("article");
+                  if (article) {
+                    // Clone the article to modify it
+                    const clone = article.cloneNode(true) as HTMLElement;
+                    
+                    // Convert navigation panel to styled HTML
+                    const navPanels = clone.querySelectorAll("[class*='grid']");
+                    navPanels.forEach((panel) => {
+                      const navItems = panel.querySelectorAll("a[href^='#']");
+                      if (navItems.length > 0) {
+                        // This is likely the navigation panel
+                        const parent = panel.parentElement;
+                        if (parent) {
+                          const navHtml = document.createElement("nav");
+                          navHtml.style.cssText = "margin: 1.5rem 0; padding: 1rem; background: #f5f5f5; border-radius: 8px;";
+                          navHtml.innerHTML = `<p style="font-weight: 600; margin-bottom: 0.5rem;">In This Article:</p><ul style="margin: 0; padding-left: 1.25rem;">
+                            ${Array.from(navItems).map((item) => `<li style="margin: 0.25rem 0;"><a href="${item.getAttribute("href")}" style="color: #6366f1; text-decoration: none;">${item.textContent}</a></li>`).join("")}
+                          </ul>`;
+                          parent.replaceChild(navHtml, panel);
+                        }
+                      }
+                    });
+                    
+                    // Convert FAQ accordions to details/summary elements
+                    const faqSections = clone.querySelectorAll("[data-faq]");
+                    faqSections.forEach((section) => {
+                      const items = section.querySelectorAll("[data-faq-item]");
+                      if (items.length > 0) {
+                        const faqContainer = document.createElement("div");
+                        faqContainer.innerHTML = `<h2 style="font-size: 1.5rem; font-weight: 700; margin: 1.5rem 0 1rem;">Frequently Asked Questions</h2>`;
+                        items.forEach((item) => {
+                          const question = item.querySelector("[data-faq-question]")?.textContent || "";
+                          const answer = item.querySelector("[data-faq-answer]")?.textContent || "";
+                          const details = document.createElement("details");
+                          details.style.cssText = "margin: 0.5rem 0; padding: 0.75rem; background: #fafafa; border: 1px solid #e5e5e5; border-radius: 6px;";
+                          details.innerHTML = `<summary style="cursor: pointer; font-weight: 500;">${question}</summary><p style="margin-top: 0.5rem; color: #525252;">${answer}</p>`;
+                          faqContainer.appendChild(details);
+                        });
+                        section.replaceWith(faqContainer);
+                      }
+                    });
+                    
+                    // Get the HTML content
+                    let htmlContent = clone.innerHTML;
+                    
+                    // Replace CTA banners with styled versions
+                    const ctaBanners = clone.querySelectorAll(".cta-banner, [class*='cta']");
+                    ctaBanners.forEach((banner) => {
+                      const headline = banner.querySelector("[class*='headline']")?.textContent || "";
+                      const description = banner.querySelector("[class*='description']")?.textContent || "";
+                      const button = banner.querySelector("a");
+                      const buttonText = button?.textContent || "Learn More";
+                      const buttonUrl = button?.getAttribute("href") || "#";
+                      
+                      const styledCta = document.createElement("div");
+                      styledCta.style.cssText = `margin: 2rem 0; padding: 1.5rem; background: linear-gradient(135deg, ${selectedColorPalette?.primary || "#6366f1"} 0%, ${selectedColorPalette?.secondary || "#a855f7"} 100%); border-radius: 12px; text-align: center; color: white;`;
+                      styledCta.innerHTML = `
+                        <p style="font-size: 1.25rem; font-weight: 700; margin: 0 0 0.5rem;">${headline}</p>
+                        <p style="margin: 0 0 1rem; opacity: 0.9;">${description}</p>
+                        <a href="${buttonUrl}" style="display: inline-block; padding: 0.75rem 1.5rem; background: white; color: ${selectedColorPalette?.primary || "#6366f1"}; font-weight: 600; border-radius: 6px; text-decoration: none;">${buttonText}</a>
+                      `;
+                      banner.replaceWith(styledCta);
+                    });
+                    
+                    // Get final HTML
+                    htmlContent = clone.innerHTML;
+                    
+                    navigator.clipboard.writeText(htmlContent).then(() => {
+                      toast({
+                        title: "HTML copied to clipboard!",
+                        description: "Ready to paste into Shopify or WordPress.",
+                      });
+                    }).catch(() => {
+                      // Fallback: download as file
+                      const blob = new Blob([htmlContent], { type: "text/html" });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement("a");
+                      a.href = url;
+                      a.download = "article.html";
+                      document.body.appendChild(a);
+                      a.click();
+                      document.body.removeChild(a);
+                      URL.revokeObjectURL(url);
+                    });
+                  }
+                }}
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Copy HTML
+              </Button>
+            )}
+
+            <div className="h-6 w-px bg-border" />
+
+            {/* Secondary Actions */}
+            <Button
+              variant="outline"
+              size="default"
+              onClick={async () => {
+                // If a tone profile is selected, generate content with that tone
+                if (selectedToneProfileId) {
+                  setIsGenerating(true);
+                  setGeneratedContent("");
+                  try {
+                    const { data, error } = await supabase.functions.invoke("generate-content", {
+                      body: {
+                        topic: "Composite Bonding vs Veneers: Which Smile Transformation is Right for You?",
+                        length: "long",
+                        outline: "",
+                        instructions: "Compare composite bonding and veneers for cosmetic dental treatments. Include pros and cons, costs, and who each option is best for.",
+                        generateCTAs: !!ctaUrl.trim(),
+                        useKnowledgeBase: useKnowledgeBase,
+                        toneProfileId: selectedToneProfileId,
+                      },
+                    });
+                    if (error) throw error;
+                    setGeneratedContent(data.content);
+                    setAppliedRules(data.appliedRules || null);
+                    if (data.ctas) {
+                      setGeneratedCTAs(data.ctas);
+                    }
+                    toast({
+                      title: "Sample generated with tone!",
+                      description: "The sample article uses your selected tone profile.",
+                    });
+                  } catch (error) {
+                    console.error("Generation error:", error);
+                    toast({
+                      title: "Generation failed",
+                      description: error instanceof Error ? error.message : "Failed to generate content",
+                      variant: "destructive",
+                    });
+                  } finally {
+                    setIsGenerating(false);
+                  }
+                } else {
+                  // No tone profile - load static sample
+                  setGeneratedContent(SAMPLE_CONTENT);
+                  if (ctaUrl.trim()) {
+                    setGeneratedCTAs({
+                      middle: {
+                        headline: "TRANSFORM YOUR SMILE TODAY!",
+                        description: "Get expert advice on the best cosmetic dental treatment for your needs.",
+                        buttonText: "Book Consultation"
+                      },
+                      end: {
+                        headline: "READY FOR YOUR DREAM SMILE?",
+                        description: "Limited time offer - Free consultation with our cosmetic dentistry experts.",
+                        buttonText: "Get Started Now"
+                      }
+                    });
+                  } else {
+                    setGeneratedCTAs(null);
+                  }
+                }
+              }}
+              disabled={isGenerating}
+            >
+              {isGenerating ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Loading...
+                </>
+              ) : selectedToneProfileId ? (
+                <>
+                  <Mic2 className="h-4 w-4 mr-2" />
+                  Load Sample with Tone
+                </>
+              ) : (
+                <>
+                  <FileText className="h-4 w-4 mr-2" />
+                  Load Sample
+                </>
+              )}
+            </Button>
+
+            <Button
+              variant="outline"
+              onClick={handleClearForm}
+              disabled={isGenerating}
+            >
+              <RotateCcw className="h-4 w-4 mr-2" />
+              Clear Form
+            </Button>
+          </div>
+        </div>
+      </div>
+
       <div className={isPreviewFullscreen ? "px-4 py-6" : "container mx-auto px-4 py-6 max-w-[1800px]"}>
-        <div className={`grid gap-6 min-h-[calc(100vh-120px)] ${isPreviewFullscreen ? "grid-cols-1" : "grid-cols-1 lg:grid-cols-3"}`}>
+        <div className={`grid gap-6 min-h-[calc(100vh-180px)] ${isPreviewFullscreen ? "grid-cols-1" : "grid-cols-1 lg:grid-cols-3"}`}>
           {/* Left Panel - Form (hidden in fullscreen mode) */}
           {!isPreviewFullscreen && <Card className="flex flex-col settings-panel">
             <CardHeader className="pb-4">
@@ -1520,37 +1764,6 @@ const Index = () => {
 
               {/* Pre-Generation Checklist */}
               <GenerationChecklist items={checklistItems} />
-
-              {/* Action Buttons */}
-              <div className="flex gap-2 mt-auto">
-                <Button
-                  variant="outline"
-                  onClick={handleClearForm}
-                  disabled={isGenerating}
-                  className="flex-shrink-0"
-                >
-                  <RotateCcw className="h-4 w-4 mr-2" />
-                  Clear Form
-                </Button>
-                <Button
-                  onClick={handleGenerate}
-                  disabled={isGenerating || !formData.topic.trim()}
-                  className="flex-1"
-                  size="lg"
-                >
-                  {isGenerating ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Generating...
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="mr-2 h-4 w-4" />
-                      Generate Content
-                    </>
-                  )}
-                </Button>
-              </div>
             </CardContent>
           </Card>}
 
@@ -1581,369 +1794,6 @@ const Index = () => {
                     <Minimize2 className="h-4 w-4" />
                   ) : (
                     <Maximize2 className="h-4 w-4" />
-                  )}
-                </Button>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <HtmlImportDialog onImport={setGeneratedContent} />
-                {generatedContent && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="gap-2"
-                    onClick={handleEnhanceImport}
-                    disabled={isEnhancingImport}
-                    title="Apply tone profile and add CTAs to imported content"
-                  >
-                    {isEnhancingImport ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Enhancing...
-                      </>
-                    ) : (
-                      <>
-                        <Wand2 className="h-4 w-4" />
-                        Enhance Import
-                      </>
-                    )}
-                  </Button>
-                )}
-                {generatedContent && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      // Convert markdown to HTML with styled content for CMS paste
-                      const tempDiv = document.createElement("div");
-                      const articleElement = document.querySelector("article.prose");
-                      if (articleElement) {
-                        tempDiv.innerHTML = articleElement.innerHTML;
-                        
-                        // Get colors for export
-                        const navPrimary = selectedColorPalette?.primary || "#7c3aed";
-                        const navBg = selectedColorPalette?.primary 
-                          ? `linear-gradient(135deg, ${selectedColorPalette.primary}20 0%, ${selectedColorPalette.secondary || selectedColorPalette.primary}15 100%)`
-                          : "linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%)";
-                        const navBorder = selectedColorPalette?.primary || "#a78bfa";
-                        
-                        // Convert ArticleNavigationPanel to collapsible HTML using <details>/<summary>
-                        const navPanels = tempDiv.querySelectorAll('[class*="rounded-lg border bg-muted"]');
-                        navPanels.forEach((panel) => {
-                          const h4 = panel.querySelector('h4');
-                          if (h4?.textContent?.includes('In This Article')) {
-                            // Extract section links and descriptions
-                            const items = panel.querySelectorAll('[class*="rounded-md border"]');
-                            const itemCount = items.length;
-                            let tocHtml = `
-<div style="background: ${navBg}; border: 2px solid ${navBorder}; border-radius: 12px; padding: 24px; margin: 24px 0;">
-  <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
-    <h3 style="display: flex; align-items: center; gap: 8px; margin: 0; font-size: 1.1rem; color: #333;">
-      <span style="display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: ${navPrimary}; color: white; font-size: 12px; font-weight: bold;">#</span>
-      In This Article
-    </h3>
-    <span style="font-size: 0.75rem; color: #6b7280;">${itemCount} sections</span>
-  </div>
-  <p style="margin: 0 0 16px 0; font-size: 0.8rem; color: #6b7280;">Quick navigation to each section of this article:</p>`;
-                            
-                            items.forEach((item, idx) => {
-                              const titleEl = item.querySelector('[class*="font-semibold"]');
-                              const title = titleEl?.textContent?.replace('★', '').trim() || '';
-                              const slug = title.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]/g, '');
-                              const isFirst = idx === 0;
-                              // Try to get description from expanded content
-                              const descEl = item.querySelector('[class*="text-sm"][class*="leading-relaxed"]');
-                              const description = descEl?.textContent?.trim() || `Learn about ${title.toLowerCase()} in this section.`;
-                              
-                              tocHtml += `
-  <details style="background: ${isFirst ? navPrimary : 'white'}; border: 1px solid ${isFirst ? navPrimary : '#e5e7eb'}; border-radius: 8px; margin-bottom: 8px; overflow: hidden;"${isFirst ? ' open' : ''}>
-    <summary style="display: flex; align-items: center; gap: 12px; padding: 12px 16px; cursor: pointer; list-style: none; font-weight: 600; font-size: 0.95rem; color: ${isFirst ? 'white' : '#1f2937'};">
-      <span style="display: inline-flex; align-items: center; justify-content: center; min-width: 24px; height: 24px; border-radius: 50%; background: ${isFirst ? 'rgba(255,255,255,0.2)' : navPrimary + '20'}; color: ${isFirst ? 'white' : navPrimary}; font-size: 11px; font-weight: bold; flex-shrink: 0;">${idx + 1}</span>
-      <span style="flex: 1;">${title}${isFirst ? ' ★' : ''}</span>
-      <svg style="width: 16px; height: 16px; color: ${isFirst ? 'rgba(255,255,255,0.7)' : navPrimary}; flex-shrink: 0; transition: transform 0.2s;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
-    </summary>
-    <div style="padding: 0 16px 16px 52px; color: ${isFirst ? 'rgba(255,255,255,0.85)' : '#6b7280'}; font-size: 0.9rem; line-height: 1.6;">
-      <p style="margin: 0 0 12px 0;">${description}</p>
-      <a href="#${slug}" style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; background: ${isFirst ? 'rgba(255,255,255,0.2)' : '#f3f4f6'}; border-radius: 6px; font-size: 0.8rem; font-weight: 500; color: ${isFirst ? 'white' : navPrimary}; text-decoration: none;">
-        <svg style="width: 12px; height: 12px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
-        Jump to section
-      </a>
-    </div>
-  </details>`;
-                            });
-                            
-                            tocHtml += `</div>
-<style>
-  details[open] summary svg { transform: rotate(180deg); }
-  details summary::-webkit-details-marker { display: none; }
-</style>`;
-                            panel.outerHTML = tocHtml;
-                          }
-                        });
-                        
-                        // Convert FAQAccordion to collapsible HTML using <details>/<summary>
-                        // Use selected brand colors or fallback to purple
-                        const faqAccent = selectedColorPalette?.accent || "#a78bfa";
-                        const faqPrimary = selectedColorPalette?.primary || "#7c3aed";
-                        const faqSecondary = selectedColorPalette?.secondary || "#5b21b6";
-                        const faqBgLight = selectedColorPalette ? `${faqPrimary}15` : "#f5f3ff";
-                        const faqBgLighter = selectedColorPalette ? `${faqPrimary}10` : "#ede9fe";
-                        
-                        const faqPanels = tempDiv.querySelectorAll('[class*="rounded-lg border bg-muted"]');
-                        faqPanels.forEach((panel) => {
-                          const h4 = panel.querySelector('h4');
-                          if (h4?.textContent?.includes('Frequently Asked Questions')) {
-                            const items = panel.querySelectorAll('[class*="rounded-md border"]');
-                            const itemCount = items.length;
-                            let faqHtml = `
-<div style="background: linear-gradient(135deg, ${faqBgLight} 0%, ${faqBgLighter} 100%); border: 2px solid ${faqAccent}; border-radius: 12px; padding: 24px; margin: 24px 0;">
-  <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
-    <h3 style="display: flex; align-items: center; gap: 8px; margin: 0; font-size: 1.1rem; color: ${faqSecondary};">
-      <span style="display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: ${faqPrimary}; color: white; font-size: 12px; font-weight: bold;">?</span>
-      Frequently Asked Questions
-    </h3>
-    <span style="font-size: 0.75rem; color: #6b7280;">${itemCount} questions</span>
-  </div>`;
-                            
-                            items.forEach((item, idx) => {
-                              const question = item.querySelector('[class*="font-semibold"]')?.textContent?.trim() || '';
-                              const answer = item.querySelector('[class*="text-muted-foreground"]')?.textContent?.trim() || '';
-                              const isFirst = idx === 0;
-                              faqHtml += `
-  <details style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; margin-bottom: 8px; overflow: hidden;"${isFirst ? ' open' : ''}>
-    <summary style="display: flex; align-items: center; gap: 12px; padding: 12px 16px; cursor: pointer; list-style: none; font-weight: 600; font-size: 0.95rem; color: #1f2937;">
-      <span style="display: inline-flex; align-items: center; justify-content: center; min-width: 24px; height: 24px; border-radius: 50%; background: ${faqBgLighter}; color: ${faqPrimary}; font-size: 11px; font-weight: bold; flex-shrink: 0;">${idx + 1}</span>
-      <span style="flex: 1;">${question}</span>
-      <svg style="width: 16px; height: 16px; color: ${faqPrimary}; flex-shrink: 0; transition: transform 0.2s;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
-    </summary>
-    <div style="padding: 0 16px 16px 52px; color: #6b7280; font-size: 0.9rem; line-height: 1.6;">${answer}</div>
-  </details>`;
-                            });
-                            
-                            faqHtml += `</div>
-<style>
-  details[open] summary svg { transform: rotate(180deg); }
-  details summary::-webkit-details-marker { display: none; }
-</style>`;
-                            panel.outerHTML = faqHtml;
-                          }
-                        });
-                        
-                        // Ensure all links are properly formatted
-                        tempDiv.querySelectorAll("a").forEach((link) => {
-                          const href = link.getAttribute("href") || "";
-                          // Don't set target="_blank" for anchor links (in-page navigation)
-                          if (!href.startsWith("#")) {
-                            link.setAttribute("target", "_blank");
-                            link.setAttribute("rel", "noopener noreferrer");
-                          }
-                          if (!link.getAttribute("style")?.includes("color")) {
-                            link.setAttribute("style", (link.getAttribute("style") || "") + " color: #7c3aed; text-decoration: underline;");
-                          }
-                        });
-                        
-                        // Get colors for export (fallback to default purple)
-                        const exportPrimary = selectedColorPalette?.primary || "#7c3aed";
-                        const exportSecondary = selectedColorPalette?.secondary || "#a855f7";
-                        const exportAccent = selectedColorPalette?.accent || "#e04060";
-                        const exportGradient = `linear-gradient(135deg, ${exportPrimary} 0%, ${exportSecondary} 100%)`;
-                        
-                        // Style TL;DR section with brand colors
-                        tempDiv.querySelectorAll("h2").forEach((h2) => {
-                          const text = h2.textContent?.toLowerCase() || "";
-                          if (text.includes("tl;dr") || text.includes("tldr")) {
-                            h2.setAttribute("style", `background: ${exportGradient}; color: white; padding: 1rem 1.5rem; border-radius: 8px 8px 0 0; margin-bottom: 0; font-size: 1.25rem;`);
-                            // Style the following ul if exists
-                            const nextEl = h2.nextElementSibling;
-                            if (nextEl && nextEl.tagName === "UL") {
-                              nextEl.setAttribute("style", `background: ${exportGradient}; color: white; padding: 1rem 1.5rem 1.5rem 2.5rem; border-radius: 0 0 8px 8px; margin-top: 0; list-style-type: disc;`);
-                              nextEl.querySelectorAll("li").forEach((li) => {
-                                li.setAttribute("style", "margin: 0.5rem 0; color: white;");
-                              });
-                              nextEl.querySelectorAll("strong").forEach((strong) => {
-                                strong.setAttribute("style", "color: white; font-weight: 700;");
-                              });
-                            }
-                          } else {
-                            // Remove border-bottom from H2s
-                            h2.setAttribute("style", "font-size: 1.5rem; margin-top: 2rem; margin-bottom: 0.75rem; color: #1f2937;");
-                          }
-                        });
-                        
-                        // Style tables with brand color headers
-                        tempDiv.querySelectorAll("table").forEach((table) => {
-                          table.setAttribute("style", "width: 100%; border-collapse: collapse; margin: 1.5rem 0; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1);");
-                          table.querySelectorAll("th").forEach((th) => {
-                            th.setAttribute("style", `background: ${exportGradient}; color: white; padding: 0.875rem 1rem; text-align: left; font-weight: 600; border: none;`);
-                          });
-                          table.querySelectorAll("td").forEach((td) => {
-                            td.setAttribute("style", "padding: 0.875rem 1rem; border-bottom: 1px solid #e5e7eb; color: #374151;");
-                          });
-                          table.querySelectorAll("tr:nth-child(even) td").forEach((td) => {
-                            td.setAttribute("style", "padding: 0.875rem 1rem; border-bottom: 1px solid #e5e7eb; color: #374151; background: #f9fafb;");
-                          });
-                        });
-                        
-                        // Style other elements
-                        tempDiv.querySelectorAll("h1").forEach((h1) => {
-                          h1.setAttribute("style", "font-size: 2.25rem; font-weight: 700; color: #111827; margin-bottom: 1.5rem; line-height: 1.2;");
-                        });
-                        tempDiv.querySelectorAll("h3").forEach((h3) => {
-                          h3.setAttribute("style", "font-size: 1.25rem; font-weight: 600; color: #1f2937; margin-top: 1.5rem; margin-bottom: 0.5rem;");
-                        });
-                        tempDiv.querySelectorAll("p").forEach((p) => {
-                          if (!p.getAttribute("style")) {
-                            p.setAttribute("style", "margin: 1rem 0; color: #374151; line-height: 1.7;");
-                          }
-                        });
-                        tempDiv.querySelectorAll("ul:not([style])").forEach((ul) => {
-                          ul.setAttribute("style", "padding-left: 1.5rem; margin: 1rem 0;");
-                        });
-                        tempDiv.querySelectorAll("ol").forEach((ol) => {
-                          if (!ol.getAttribute("style")) {
-                            ol.setAttribute("style", "padding-left: 1.5rem; margin: 1rem 0;");
-                          }
-                        });
-                        tempDiv.querySelectorAll("li:not([style])").forEach((li) => {
-                          li.setAttribute("style", "margin: 0.5rem 0; color: #374151;");
-                        });
-                        tempDiv.querySelectorAll("strong:not([style])").forEach((strong) => {
-                          strong.setAttribute("style", "font-weight: 600; color: #111827;");
-                        });
-                        tempDiv.querySelectorAll("hr").forEach((hr) => {
-                          // Remove horizontal rules
-                          hr.remove();
-                        });
-                        
-                        // Style CTA banners for export using data attributes and colors
-                        const ctaBgGradient = selectedColorPalette?.primary 
-                          ? `linear-gradient(135deg, ${selectedColorPalette.primary} 0%, ${selectedColorPalette.secondary || selectedColorPalette.primary} 100%)`
-                          : "linear-gradient(135deg, #4a2875 0%, #5a2070 100%)";
-                        const ctaButtonGradient = selectedColorPalette?.accent 
-                          ? `linear-gradient(135deg, ${selectedColorPalette.accent} 0%, ${selectedColorPalette.accent} 100%)`
-                          : "linear-gradient(135deg, #e04060 0%, #c04080 100%)";
-                        
-                        tempDiv.querySelectorAll('[data-cta-banner="true"]').forEach((cta) => {
-                          cta.setAttribute("style", `background: ${ctaBgGradient}; border-radius: 12px; padding: 32px; text-align: center; margin: 32px 0; font-family: inherit;`);
-                          const headline = cta.querySelector('[data-cta-headline="true"]');
-                          if (headline) {
-                            headline.setAttribute("style", "font-size: 1.25em; font-weight: 700; letter-spacing: 0.025em; margin-bottom: 8px; color: #e0e0e0; font-family: inherit;");
-                          }
-                          const description = cta.querySelector('[data-cta-description="true"]');
-                          if (description) {
-                            description.setAttribute("style", "font-size: 0.95em; margin-bottom: 20px; color: white; opacity: 0.95; font-family: inherit;");
-                          }
-                          const button = cta.querySelector('[data-cta-button="true"]');
-                          if (button) {
-                            button.setAttribute("style", `display: inline-block; background: ${ctaButtonGradient}; color: white; font-weight: 600; padding: 12px 32px; border-radius: 9999px; text-decoration: none; font-family: inherit;`);
-                          }
-                        });
-                        
-                        // Build clean HTML for CMS paste
-                        const htmlContent = `<!-- SEO Article - Ready for Shopify/WordPress -->
-<div style="font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 800px; margin: 0 auto; padding: 2rem; line-height: 1.6; color: #374151;">
-${tempDiv.innerHTML}
-</div>`;
-                        
-                        // Copy to clipboard
-                        navigator.clipboard.writeText(htmlContent).then(() => {
-                          toast({
-                            title: "HTML copied to clipboard!",
-                            description: "Ready to paste into Shopify or WordPress.",
-                          });
-                        }).catch(() => {
-                          // Fallback: download as file
-                          const blob = new Blob([htmlContent], { type: "text/html" });
-                          const url = URL.createObjectURL(blob);
-                          const a = document.createElement("a");
-                          a.href = url;
-                          a.download = "article.html";
-                          document.body.appendChild(a);
-                          a.click();
-                          document.body.removeChild(a);
-                          URL.revokeObjectURL(url);
-                        });
-                      }
-                    }}
-                  >
-                    <Download className="h-4 w-4 mr-1" />
-                    Copy HTML
-                  </Button>
-                )}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={async () => {
-                    // If a tone profile is selected, generate content with that tone
-                    if (selectedToneProfileId) {
-                      setIsGenerating(true);
-                      setGeneratedContent("");
-                      try {
-                        const { data, error } = await supabase.functions.invoke("generate-content", {
-                          body: {
-                            topic: "Composite Bonding vs Veneers: Which Smile Transformation is Right for You?",
-                            length: "long",
-                            outline: "",
-                            instructions: "Compare composite bonding and veneers for cosmetic dental treatments. Include pros and cons, costs, and who each option is best for.",
-                            generateCTAs: !!ctaUrl.trim(),
-                            useKnowledgeBase: useKnowledgeBase,
-                            toneProfileId: selectedToneProfileId,
-                          },
-                        });
-                        if (error) throw error;
-                        setGeneratedContent(data.content);
-                        setAppliedRules(data.appliedRules || null);
-                        if (data.ctas) {
-                          setGeneratedCTAs(data.ctas);
-                        }
-                        toast({
-                          title: "Sample generated with tone!",
-                          description: "The sample article uses your selected tone profile.",
-                        });
-                      } catch (error) {
-                        console.error("Generation error:", error);
-                        toast({
-                          title: "Generation failed",
-                          description: error instanceof Error ? error.message : "Failed to generate content",
-                          variant: "destructive",
-                        });
-                      } finally {
-                        setIsGenerating(false);
-                      }
-                    } else {
-                      // No tone profile - load static sample
-                      setGeneratedContent(SAMPLE_CONTENT);
-                      if (ctaUrl.trim()) {
-                        setGeneratedCTAs({
-                          middle: {
-                            headline: "TRANSFORM YOUR SMILE TODAY!",
-                            description: "Get expert advice on the best cosmetic dental treatment for your needs.",
-                            buttonText: "Book Consultation"
-                          },
-                          end: {
-                            headline: "READY FOR YOUR DREAM SMILE?",
-                            description: "Limited time offer - Free consultation with our cosmetic dentistry experts.",
-                            buttonText: "Get Started Now"
-                          }
-                        });
-                      } else {
-                        setGeneratedCTAs(null);
-                      }
-                    }
-                  }}
-                  disabled={isGenerating}
-                >
-                  {isGenerating ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                      Generating...
-                    </>
-                  ) : selectedToneProfileId ? (
-                    <>
-                      <Mic2 className="h-4 w-4 mr-1" />
-                      Load Sample with Tone
-                    </>
-                  ) : (
-                    "Load Sample"
                   )}
                 </Button>
               </div>
