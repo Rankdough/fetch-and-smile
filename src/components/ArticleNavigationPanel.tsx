@@ -62,65 +62,81 @@ export const ArticleNavigationPanel = ({
         Quick navigation to each section of this article:
       </p>
 
-      <div className="space-y-1">
+      <div className="space-y-2">
         {items.map((item, index) => (
           <div
             key={index}
             className={cn(
-              "rounded-md border bg-background transition-all",
+              "rounded-md border bg-background transition-all overflow-hidden",
               item.isHighlighted 
-                ? "border-primary/30" 
-                : "border-border hover:border-muted-foreground/30"
+                ? "border-primary bg-primary text-primary-foreground" 
+                : "border-border hover:border-primary/30"
             )}
           >
             {/* Clickable header row */}
-            <div 
-              className="flex items-center gap-2 px-2 py-1.5 cursor-pointer"
+            <button 
+              type="button"
+              className={cn(
+                "flex items-center gap-3 px-3 py-3 w-full text-left transition-colors",
+                item.isHighlighted 
+                  ? "hover:bg-primary/90" 
+                  : "hover:bg-muted/50"
+              )}
               onClick={() => setExpandedItem(expandedItem === index ? null : index)}
             >
               <div className={cn(
-                "flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold",
+                "flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold",
                 item.isHighlighted 
-                  ? "bg-primary text-primary-foreground" 
+                  ? "bg-primary-foreground/20 text-primary-foreground" 
                   : "bg-primary/10 text-primary border border-primary/20"
               )}>
                 {item.number}
               </div>
               <span className={cn(
-                "flex-1 text-xs font-semibold truncate",
-                item.isHighlighted && "text-primary"
+                "flex-1 text-sm font-semibold",
+                item.isHighlighted ? "text-primary-foreground" : "text-foreground"
               )}>
                 {item.title}
                 {item.isHighlighted && (
-                  <Star className="inline-block ml-1 h-2.5 w-2.5 text-primary fill-primary" />
+                  <Star className="inline-block ml-1.5 h-3 w-3 fill-current" />
                 )}
               </span>
               <ChevronDown className={cn(
-                "h-3 w-3 flex-shrink-0 text-muted-foreground transition-transform",
+                "h-4 w-4 flex-shrink-0 transition-transform duration-200",
+                item.isHighlighted ? "text-primary-foreground/70" : "text-primary",
                 expandedItem === index && "rotate-180"
               )} />
-            </div>
+            </button>
             
-            {/* Description - only when expanded */}
-            {expandedItem === index && (
-              <div className="px-2 pb-2 pl-9">
-                <p className="text-[11px] text-muted-foreground leading-snug">
+            {/* Expandable description with jump link */}
+            <div className={cn(
+              "overflow-hidden transition-all duration-200",
+              expandedItem === index ? "max-h-48 opacity-100" : "max-h-0 opacity-0"
+            )}>
+              <div className={cn(
+                "px-3 pb-3 pl-12 space-y-2",
+                item.isHighlighted ? "text-primary-foreground/80" : ""
+              )}>
+                <p className={cn(
+                  "text-sm leading-relaxed",
+                  item.isHighlighted ? "text-primary-foreground/80" : "text-muted-foreground"
+                )}>
                   {item.description.replace(/\.{3}$/, '')} {item.detailedDescription}
                 </p>
                 <Button
-                  variant="outline"
+                  variant={item.isHighlighted ? "secondary" : "outline"}
                   size="sm"
-                  className="h-6 text-[10px] mt-1.5 px-2"
+                  className="h-7 text-xs"
                   onClick={(e) => {
                     e.stopPropagation();
                     handleJump(item.slug);
                   }}
                 >
-                  <ExternalLink className="h-2.5 w-2.5 mr-1" />
+                  <ExternalLink className="h-3 w-3 mr-1.5" />
                   Jump to section
                 </Button>
               </div>
-            )}
+            </div>
           </div>
         ))}
       </div>
