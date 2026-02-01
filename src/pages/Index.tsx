@@ -1399,6 +1399,13 @@ const Index = () => {
                         });
                         
                         // Convert FAQAccordion to collapsible HTML using <details>/<summary>
+                        // Use selected brand colors or fallback to purple
+                        const faqAccent = selectedColorPalette?.accent || "#a78bfa";
+                        const faqPrimary = selectedColorPalette?.primary || "#7c3aed";
+                        const faqSecondary = selectedColorPalette?.secondary || "#5b21b6";
+                        const faqBgLight = selectedColorPalette ? `${faqPrimary}15` : "#f5f3ff";
+                        const faqBgLighter = selectedColorPalette ? `${faqPrimary}10` : "#ede9fe";
+                        
                         const faqPanels = tempDiv.querySelectorAll('[class*="rounded-lg border bg-muted"]');
                         faqPanels.forEach((panel) => {
                           const h4 = panel.querySelector('h4');
@@ -1406,10 +1413,10 @@ const Index = () => {
                             const items = panel.querySelectorAll('[class*="rounded-md border"]');
                             const itemCount = items.length;
                             let faqHtml = `
-<div style="background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%); border: 2px solid #a78bfa; border-radius: 12px; padding: 24px; margin: 24px 0;">
+<div style="background: linear-gradient(135deg, ${faqBgLight} 0%, ${faqBgLighter} 100%); border: 2px solid ${faqAccent}; border-radius: 12px; padding: 24px; margin: 24px 0;">
   <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
-    <h3 style="display: flex; align-items: center; gap: 8px; margin: 0; font-size: 1.1rem; color: #5b21b6;">
-      <span style="display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: #7c3aed; color: white; font-size: 12px; font-weight: bold;">?</span>
+    <h3 style="display: flex; align-items: center; gap: 8px; margin: 0; font-size: 1.1rem; color: ${faqSecondary};">
+      <span style="display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: ${faqPrimary}; color: white; font-size: 12px; font-weight: bold;">?</span>
       Frequently Asked Questions
     </h3>
     <span style="font-size: 0.75rem; color: #6b7280;">${itemCount} questions</span>
@@ -1422,9 +1429,9 @@ const Index = () => {
                               faqHtml += `
   <details style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; margin-bottom: 8px; overflow: hidden;"${isFirst ? ' open' : ''}>
     <summary style="display: flex; align-items: center; gap: 12px; padding: 12px 16px; cursor: pointer; list-style: none; font-weight: 600; font-size: 0.95rem; color: #1f2937;">
-      <span style="display: inline-flex; align-items: center; justify-content: center; min-width: 24px; height: 24px; border-radius: 50%; background: #ede9fe; color: #7c3aed; font-size: 11px; font-weight: bold; flex-shrink: 0;">${idx + 1}</span>
+      <span style="display: inline-flex; align-items: center; justify-content: center; min-width: 24px; height: 24px; border-radius: 50%; background: ${faqBgLighter}; color: ${faqPrimary}; font-size: 11px; font-weight: bold; flex-shrink: 0;">${idx + 1}</span>
       <span style="flex: 1;">${question}</span>
-      <svg style="width: 16px; height: 16px; color: #7c3aed; flex-shrink: 0; transition: transform 0.2s;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+      <svg style="width: 16px; height: 16px; color: ${faqPrimary}; flex-shrink: 0; transition: transform 0.2s;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
     </summary>
     <div style="padding: 0 16px 16px 52px; color: #6b7280; font-size: 0.9rem; line-height: 1.6;">${answer}</div>
   </details>`;
