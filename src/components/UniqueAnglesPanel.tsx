@@ -40,6 +40,15 @@ export const UniqueAnglesPanel = ({
       return;
     }
     
+    if (!gapAnalysis.trim()) {
+      toast({
+        title: "Gap analysis required",
+        description: "Run gap analysis on competitor URLs first to generate unique angles.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     setIsGenerating(true);
     try {
       const { data, error } = await supabase.functions.invoke("generate-unique-angles", {
@@ -73,24 +82,33 @@ export const UniqueAnglesPanel = ({
     }
   };
 
+  const hasGapAnalysis = gapAnalysis.trim().length > 0;
+
   if (angles.length === 0) {
     return (
-      <div className="rounded-lg border bg-gradient-to-r from-amber-500/5 to-orange-500/10 p-4">
+      <div className={cn(
+        "rounded-lg border p-4",
+        hasGapAnalysis 
+          ? "bg-gradient-to-r from-amber-500/5 to-orange-500/10" 
+          : "bg-muted/30"
+      )}>
         <div className="flex items-center justify-between gap-4">
           <div className="flex-1">
             <h4 className="text-sm font-medium flex items-center gap-2">
-              <Lightbulb className="h-4 w-4 text-amber-500" />
+              <Lightbulb className={cn("h-4 w-4", hasGapAnalysis ? "text-amber-500" : "text-muted-foreground")} />
               Unique Angle Generator
             </h4>
             <p className="text-xs text-muted-foreground mt-1">
-              Get 5 fresh perspectives that competitors are missing
+              {hasGapAnalysis 
+                ? "Get 5 fresh perspectives based on competitor gaps" 
+                : "Run gap analysis first to generate unique angles"}
             </p>
           </div>
           <Button
             size="sm"
             variant="outline"
             onClick={handleGenerateAngles}
-            disabled={isGenerating || !topic.trim()}
+            disabled={isGenerating || !topic.trim() || !hasGapAnalysis}
           >
             {isGenerating ? (
               <>
