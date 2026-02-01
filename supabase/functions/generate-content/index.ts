@@ -94,7 +94,10 @@ CRITICAL MARKDOWN FORMATTING RULES:
 - Subsections: Use ### for H3 headings
 - DO NOT use numbered headings like "1. Section Name" - use proper markdown ## syntax
 - Use **bold** for emphasis on key terms and important points
-- Use bullet points (-) and numbered lists (1.) for easy scanning
+- Use bullet points (-) for lists - write the text directly after the dash, NO additional dashes or punctuation
+- WRONG: "- - Text here" or "- — Text here" 
+- CORRECT: "- Text here"
+- Use numbered lists (1.) for easy scanning
 - Use markdown tables with | for comparisons (e.g., Feature | Option A | Option B)
 - DO NOT use blockquotes (>) for TL;DR - use H2 heading instead
 
