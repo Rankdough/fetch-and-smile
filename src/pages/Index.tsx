@@ -706,8 +706,8 @@ const Index = () => {
         </div>
       </header>
 
-      <div className={isPreviewFullscreen ? "px-4 py-6" : "container mx-auto px-4 py-6"}>
-        <div className={`grid gap-6 min-h-[calc(100vh-120px)] ${isPreviewFullscreen ? "grid-cols-1" : "grid-cols-1 lg:grid-cols-2"}`}>
+      <div className={isPreviewFullscreen ? "px-4 py-6" : "container mx-auto px-4 py-6 max-w-[1800px]"}>
+        <div className={`grid gap-6 min-h-[calc(100vh-120px)] ${isPreviewFullscreen ? "grid-cols-1" : "grid-cols-1 lg:grid-cols-3"}`}>
           {/* Left Panel - Form (hidden in fullscreen mode) */}
           {!isPreviewFullscreen && <Card className="flex flex-col">
             <CardHeader className="pb-4">
@@ -1433,94 +1433,6 @@ ${tempDiv.innerHTML}
             <CardContent className="flex-1 overflow-auto space-y-4">
               {generatedContent ? (
                 <>
-                  {/* Voice Edit Agent */}
-                  <VoiceEditAgent 
-                    content={generatedContent} 
-                    onContentUpdate={setGeneratedContent} 
-                  />
-                  
-                  {/* Content Verification Panel */}
-                  <ContentVerification
-                    content={generatedContent} 
-                    appliedRules={appliedRules}
-                    onFixEmDashes={() => {
-                      // Replace all em dashes with regular hyphens
-                      const fixed = generatedContent.replace(/—/g, "-");
-                      setGeneratedContent(fixed);
-                      toast({
-                        title: "Em dashes fixed",
-                        description: "All em dashes have been replaced with regular hyphens.",
-                      });
-                    }}
-                    onFixHorizontalLines={() => {
-                      // Remove all horizontal lines
-                      const fixed = generatedContent.replace(/^\s*[-*_]{3,}\s*$/gm, "");
-                      setGeneratedContent(fixed);
-                      toast({
-                        title: "Horizontal lines removed",
-                        description: "All horizontal lines have been removed from the content.",
-                      });
-                    }}
-                    onRegenerateForWordCount={async () => {
-                      if (!formData.topic.trim()) return;
-                      
-                      setIsGenerating(true);
-                      try {
-                        const targetWords = appliedRules?.targetWordCount || 1000;
-                        // Calculate required tables based on word count
-                        const requiredTables = targetWords >= 3000 ? 4 : targetWords >= 2000 ? 3 : 1;
-                        
-                        const { data, error } = await supabase.functions.invoke("generate-content", {
-                          body: {
-                            ...formData,
-                            keywords: keywords.length > 0 ? keywords.slice(0, 5) : undefined,
-                            gapAnalysis: gapAnalysis || undefined,
-                            formatReference: formatReference || undefined,
-                            contextFiles: contextFiles.length > 0 ? contextFiles : undefined,
-                            generateCTAs: ctaUrl.trim().length > 0,
-                            useKnowledgeBase: useKnowledgeBase,
-                            toneProfileId: selectedToneProfileId || undefined,
-                            instructions: `${formData.instructions || ""}\n\nCRITICAL REQUIREMENTS - YOU MUST FOLLOW THESE:
-1. The article MUST be at least ${targetWords} words. Expand each section with more detail, examples, and explanations.
-2. Include a MINIMUM of ${requiredTables} markdown tables comparing different aspects, features, or options.
-3. Add more subsections, examples, case studies, and detailed explanations to reach the word count.
-4. Do NOT pad with filler - add genuinely useful, substantive content.`.trim(),
-                          },
-                        });
-
-                        if (error) throw error;
-                        setGeneratedContent(data.content);
-                        setAppliedRules(data.appliedRules || null);
-                        if (data.ctas) {
-                          setGeneratedCTAs(data.ctas);
-                        }
-                        toast({
-                          title: "Content regenerated",
-                          description: "Article expanded to meet word count target.",
-                        });
-                      } catch (error) {
-                        console.error("Regeneration error:", error);
-                        toast({
-                          title: "Regeneration failed",
-                          description: error instanceof Error ? error.message : "Failed to regenerate",
-                          variant: "destructive",
-                        });
-                      } finally {
-                        setIsGenerating(false);
-                      }
-                    }}
-                    ctaUrl={ctaUrl}
-                    generatedCTAs={generatedCTAs}
-                  />
-                  
-                  
-                  {/* Quality Scoring Panel */}
-                  <QualityScoringPanel
-                    content={generatedContent}
-                    topic={formData.topic}
-                    valuePromise={valuePromise}
-                  />
-                  
                   {/* Inline Editing Toggle */}
                   <div className="flex items-center justify-between border-b pb-2">
                     <div className="flex items-center gap-2">
@@ -1753,6 +1665,113 @@ ${tempDiv.innerHTML}
               )}
             </CardContent>
           </Card>
+
+          {/* Third Column - Tools & Verification (hidden in fullscreen mode) */}
+          {!isPreviewFullscreen && (
+            <Card className="flex flex-col">
+              <CardHeader className="pb-4">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Target className="h-5 w-5" />
+                  Tools & Verification
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="flex-1 overflow-auto space-y-4">
+                {generatedContent ? (
+                  <>
+                    {/* Voice Edit Agent */}
+                    <VoiceEditAgent 
+                      content={generatedContent} 
+                      onContentUpdate={setGeneratedContent} 
+                    />
+                    
+                    {/* Content Verification Panel */}
+                    <ContentVerification
+                      content={generatedContent} 
+                      appliedRules={appliedRules}
+                      onFixEmDashes={() => {
+                        const fixed = generatedContent.replace(/—/g, "-");
+                        setGeneratedContent(fixed);
+                        toast({
+                          title: "Em dashes fixed",
+                          description: "All em dashes have been replaced with regular hyphens.",
+                        });
+                      }}
+                      onFixHorizontalLines={() => {
+                        const fixed = generatedContent.replace(/^\s*[-*_]{3,}\s*$/gm, "");
+                        setGeneratedContent(fixed);
+                        toast({
+                          title: "Horizontal lines removed",
+                          description: "All horizontal lines have been removed from the content.",
+                        });
+                      }}
+                      onRegenerateForWordCount={async () => {
+                        if (!formData.topic.trim()) return;
+                        
+                        setIsGenerating(true);
+                        try {
+                          const targetWords = appliedRules?.targetWordCount || 1000;
+                          const requiredTables = targetWords >= 3000 ? 4 : targetWords >= 2000 ? 3 : 1;
+                          
+                          const { data, error } = await supabase.functions.invoke("generate-content", {
+                            body: {
+                              ...formData,
+                              keywords: keywords.length > 0 ? keywords.slice(0, 5) : undefined,
+                              gapAnalysis: gapAnalysis || undefined,
+                              formatReference: formatReference || undefined,
+                              contextFiles: contextFiles.length > 0 ? contextFiles : undefined,
+                              generateCTAs: ctaUrl.trim().length > 0,
+                              useKnowledgeBase: useKnowledgeBase,
+                              toneProfileId: selectedToneProfileId || undefined,
+                              instructions: `${formData.instructions || ""}\n\nCRITICAL REQUIREMENTS - YOU MUST FOLLOW THESE:
+1. The article MUST be at least ${targetWords} words. Expand each section with more detail, examples, and explanations.
+2. Include a MINIMUM of ${requiredTables} markdown tables comparing different aspects, features, or options.
+3. Add more subsections, examples, case studies, and detailed explanations to reach the word count.
+4. Do NOT pad with filler - add genuinely useful, substantive content.`.trim(),
+                            },
+                          });
+
+                          if (error) throw error;
+                          setGeneratedContent(data.content);
+                          setAppliedRules(data.appliedRules || null);
+                          if (data.ctas) {
+                            setGeneratedCTAs(data.ctas);
+                          }
+                          toast({
+                            title: "Content regenerated",
+                            description: "Article expanded to meet word count target.",
+                          });
+                        } catch (error) {
+                          console.error("Regeneration error:", error);
+                          toast({
+                            title: "Regeneration failed",
+                            description: error instanceof Error ? error.message : "Failed to regenerate",
+                            variant: "destructive",
+                          });
+                        } finally {
+                          setIsGenerating(false);
+                        }
+                      }}
+                      ctaUrl={ctaUrl}
+                      generatedCTAs={generatedCTAs}
+                    />
+                    
+                    {/* Quality Scoring Panel */}
+                    <QualityScoringPanel
+                      content={generatedContent}
+                      topic={formData.topic}
+                      valuePromise={valuePromise}
+                    />
+                  </>
+                ) : (
+                  <div className="h-full flex items-center justify-center text-muted-foreground">
+                    <p className="text-center text-sm">
+                      Generate content to see verification tools.
+                    </p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
     </div>
