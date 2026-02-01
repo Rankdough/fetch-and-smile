@@ -815,12 +815,18 @@ const Index = () => {
         };
       }
 
+      // Prepare images for insertion
+      const imagesToInsert = articleImages.length > 0 
+        ? articleImages.map(img => ({ alt: img.alt, url: img.url })) 
+        : undefined;
+
       const { data, error } = await supabase.functions.invoke("enhance-import", {
         body: {
           content: generatedContent,
           toneProfile,
           ctaConfig,
           addCtas: !!ctaUrl.trim(),
+          images: imagesToInsert,
         },
       });
 
@@ -860,9 +866,14 @@ const Index = () => {
         });
       }
 
+      const enhancements = [];
+      if (data.toneApplied) enhancements.push("Tone applied");
+      if (data.ctasAdded) enhancements.push("CTAs added");
+      if (data.imagesInserted) enhancements.push("Images inserted");
+
       toast({
         title: "Content enhanced!",
-        description: `${data.toneApplied ? "Tone applied. " : ""}${data.ctasAdded ? "CTAs added." : ""}`,
+        description: enhancements.length > 0 ? enhancements.join(". ") + "." : "Content processed.",
       });
     } catch (error) {
       console.error("Enhance import error:", error);

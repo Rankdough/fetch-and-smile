@@ -6,6 +6,11 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+interface ArticleImage {
+  alt: string;
+  url: string;
+}
+
 interface EnhanceRequest {
   content: string;
   toneProfile?: {
@@ -21,6 +26,7 @@ interface EnhanceRequest {
     buttonUrl: string;
   };
   addCtas: boolean;
+  images?: ArticleImage[];
 }
 
 serve(async (req) => {
@@ -29,12 +35,44 @@ serve(async (req) => {
   }
 
   try {
-    const { content, toneProfile, ctaConfig, addCtas } = await req.json() as EnhanceRequest;
+    const { content, toneProfile, ctaConfig, addCtas, images } = await req.json() as EnhanceRequest;
 
     if (!content) {
       return new Response(
         JSON.stringify({ error: "content is required" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Check if we actually need to call the AI
+    const needsAI = toneProfile || addCtas;
+    
+    // If we only need to insert images, do it locally without AI
+    if (!needsAI && images && images.length > 0) {
+      const enhancedContent = insertImagesLocally(content, images);
+      console.log("Images inserted locally without AI call");
+      
+      return new Response(
+        JSON.stringify({ 
+          content: enhancedContent,
+          toneApplied: false,
+          ctasAdded: false,
+          imagesInserted: true
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // If nothing to enhance, return original
+    if (!needsAI && (!images || images.length === 0)) {
+      return new Response(
+        JSON.stringify({ 
+          content,
+          toneApplied: false,
+          ctasAdded: false,
+          imagesInserted: false
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -46,6 +84,7 @@ serve(async (req) => {
     console.log("Enhancing imported content", {
       hasTone: !!toneProfile,
       addCtas,
+      hasImages: images && images.length > 0,
       contentLength: content.length
     });
 
@@ -104,12 +143,27 @@ Use this format:
 Place CTAs strategically after compelling sections.`;
     }
 
+    // Add image instructions if provided
+    if (images && images.length > 0) {
+      systemPrompt += `
+
+IMAGES TO INSERT:
+Insert these images at appropriate locations in the article, using standard markdown image syntax.
+Place images after relevant paragraphs that relate to the image content.
+
+Available images:
+${images.map((img, i) => `${i + 1}. ![${img.alt}](${img.url})`).join("\n")}
+
+Insert each image on its own line after a relevant paragraph.`;
+    }
+
     const userPrompt = `Here is the imported article content to enhance:
 
 ${content}
 
 ${toneProfile ? "Apply the tone profile to make the writing more consistent." : ""}
 ${addCtas ? "Add CTA banners at appropriate locations." : ""}
+${images && images.length > 0 ? `Insert ${images.length} image(s) at appropriate locations.` : ""}
 
 Return the enhanced article.`;
 
@@ -131,6 +185,20 @@ Return the enhanced article.`;
     if (!response.ok) {
       const errorText = await response.text();
       console.error("AI gateway error:", response.status, errorText);
+      
+      if (response.status === 429) {
+        return new Response(
+          JSON.stringify({ error: "Rate limit exceeded. Please try again in a moment." }),
+          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      if (response.status === 402) {
+        return new Response(
+          JSON.stringify({ error: "AI credits exhausted. Please add credits to continue." }),
+          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      
       throw new Error(`AI gateway error: ${response.status}`);
     }
 
@@ -151,7 +219,8 @@ Return the enhanced article.`;
       JSON.stringify({ 
         content: enhancedContent,
         toneApplied: !!toneProfile,
-        ctasAdded: addCtas
+        ctasAdded: addCtas,
+        imagesInserted: images && images.length > 0
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
@@ -164,3 +233,57 @@ Return the enhanced article.`;
     );
   }
 });
+
+// Helper function to insert images locally without AI
+function insertImagesLocally(content: string, images: ArticleImage[]): string {
+  // Find all H2 headings and insert images after the first paragraph following each
+  const lines = content.split("\n");
+  const result: string[] = [];
+  let imageIndex = 0;
+  let afterH2 = false;
+  let paragraphAfterH2Count = 0;
+  
+  for (let i = 0; i < lines.length; i++) {
+    result.push(lines[i]);
+    
+    // Check if this is an H2 heading
+    if (lines[i].startsWith("## ")) {
+      afterH2 = true;
+      paragraphAfterH2Count = 0;
+      continue;
+    }
+    
+    // If we're after an H2 and this is a non-empty paragraph, count it
+    if (afterH2 && lines[i].trim() && !lines[i].startsWith("#") && !lines[i].startsWith("|") && !lines[i].startsWith("-") && !lines[i].startsWith("*")) {
+      paragraphAfterH2Count++;
+      
+      // After the first full paragraph following an H2, insert an image
+      if (paragraphAfterH2Count === 1 && imageIndex < images.length) {
+        // Check if next line is empty or another content line
+        const nextLine = lines[i + 1];
+        if (nextLine === undefined || nextLine.trim() === "" || nextLine.startsWith("#")) {
+          result.push("");
+          result.push(`![${images[imageIndex].alt}](${images[imageIndex].url})`);
+          result.push("");
+          imageIndex++;
+          afterH2 = false;
+        }
+      }
+    }
+    
+    // Reset after we've moved past the immediate section
+    if (afterH2 && lines[i].startsWith("## ")) {
+      afterH2 = false;
+    }
+  }
+  
+  // If we still have unused images, append them before the last section
+  while (imageIndex < images.length) {
+    result.push("");
+    result.push(`![${images[imageIndex].alt}](${images[imageIndex].url})`);
+    result.push("");
+    imageIndex++;
+  }
+  
+  return result.join("\n");
+}

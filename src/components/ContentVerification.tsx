@@ -119,33 +119,43 @@ export const ContentVerification = ({
     }
 
     // ALWAYS show tone profile check - flag as incomplete if not used
+    // For imported content (no appliedRules), show as "not applied" since it wasn't generated with tone
+    const toneApplied = appliedRules?.toneProfileUsed === true;
     results.push({
       id: "tone-profile",
       label: "Tone of voice applied",
-      status: appliedRules?.toneProfileUsed ? "passed" : "failed",
-      details: appliedRules?.toneProfileUsed 
+      status: toneApplied ? "passed" : "failed",
+      details: toneApplied 
         ? "Content generated with selected tone profile" 
-        : "No tone profile selected - content uses default tone",
+        : appliedRules === null 
+          ? "Imported content - use 'Enhance Import' to apply tone profile"
+          : "No tone profile selected - content uses default tone",
     });
 
     // ALWAYS show knowledge base check - flag as incomplete if not used
+    const kbApplied = appliedRules?.knowledgeBaseUsed === true;
     results.push({
       id: "knowledge-base",
       label: "SEO knowledge base applied",
-      status: appliedRules?.knowledgeBaseUsed ? "passed" : "failed",
-      details: appliedRules?.knowledgeBaseUsed 
-        ? `${appliedRules.knowledgeRulesCount || 0} SEO rules from knowledge base applied` 
-        : "No SEO knowledge base rules applied - upload documents to knowledge base",
+      status: kbApplied ? "passed" : "failed",
+      details: kbApplied 
+        ? `${appliedRules?.knowledgeRulesCount || 0} SEO rules from knowledge base applied` 
+        : appliedRules === null
+          ? "Imported content - regenerate to apply SEO knowledge base"
+          : "No SEO knowledge base rules applied - upload documents to knowledge base",
     });
 
     // ALWAYS show competition/gap analysis check - flag as incomplete if not used
+    const gapApplied = appliedRules?.gapAnalysisUsed === true;
     results.push({
       id: "gap-analysis",
       label: "Competition analysis applied",
-      status: appliedRules?.gapAnalysisUsed ? "passed" : "failed",
-      details: appliedRules?.gapAnalysisUsed 
+      status: gapApplied ? "passed" : "failed",
+      details: gapApplied 
         ? "Content gaps from competitor analysis were addressed" 
-        : "No competitor analysis applied - add competitor URLs to analyze gaps",
+        : appliedRules === null
+          ? "Imported content - regenerate to apply competition analysis"
+          : "No competitor analysis applied - add competitor URLs to analyze gaps",
     });
 
     // Check context files were used and content is based on them
@@ -222,19 +232,35 @@ export const ContentVerification = ({
       fixType: "horizontal-line",
     });
 
-    // Check for CTA banners
+    // Check for CTA banners - also check for CTA content in imported markdown
+    const hasCTABannerHtml = content.includes('class="cta-banner"') || content.includes("cta-banner");
+    const hasCTABlockquote = />\s*\*\*[^*]+\*\*.*\[.+\]\(.+\)/s.test(content);
+    const hasInlineCTA = hasCTABannerHtml || hasCTABlockquote;
+    
     if (ctaUrl && ctaUrl.trim()) {
       const hasBothCTAs = generatedCTAs?.middle && generatedCTAs?.end;
-      const hasAnyCTA = generatedCTAs?.middle || generatedCTAs?.end;
+      const hasAnyCTA = generatedCTAs?.middle || generatedCTAs?.end || hasInlineCTA;
       results.push({
         id: "cta-banners",
         label: "Call-to-action banners",
         status: hasBothCTAs ? "passed" : hasAnyCTA ? "warning" : "failed",
         details: hasBothCTAs 
           ? "Middle and end CTA banners generated" 
-          : hasAnyCTA 
-            ? "Only one CTA banner generated" 
-            : "No CTA banners generated - regenerate content",
+          : hasInlineCTA
+            ? "CTA found in content - verify placement"
+            : hasAnyCTA 
+              ? "Only one CTA banner generated" 
+              : appliedRules === null
+                ? "No CTA banners - use 'Enhance Import' to add CTAs"
+                : "No CTA banners generated - regenerate content",
+      });
+    } else {
+      // Show as info that CTA URL is not set
+      results.push({
+        id: "cta-banners",
+        label: "Call-to-action banners",
+        status: "warning",
+        details: "No CTA URL configured - set a URL to enable CTA banners",
       });
     }
 
