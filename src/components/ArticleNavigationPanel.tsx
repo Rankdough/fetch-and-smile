@@ -92,25 +92,24 @@ export const ArticleNavigationPanel = ({
               )} />
             </div>
             
-            {/* Description - always visible (2 lines minimum) */}
+            {/* Description - all text in one continuous block */}
             <div className="px-3 pb-2.5 pl-12">
-              <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2 min-h-[2.5rem]">
-                {item.description}
-              </p>
-            </div>
-            
-            {/* Expanded: detailed description + jump link */}
-            {expandedItem === index && (
-              <div className="px-3 pb-3 pl-12 space-y-2 border-t border-border/50 pt-2 mt-1 mx-3 ml-12">
-                {item.detailedDescription && (
-                  <p className="text-xs text-muted-foreground leading-relaxed">
-                    {item.detailedDescription}
-                  </p>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                {expandedItem === index ? (
+                  <>
+                    {item.description.replace(/\.{3}$/, '')} {item.detailedDescription}
+                  </>
+                ) : (
+                  <span className="line-clamp-2">{item.description}</span>
                 )}
+              </p>
+              
+              {/* Jump link - only when expanded */}
+              {expandedItem === index && (
                 <Button
                   variant="outline"
                   size="sm"
-                  className="h-7 text-xs"
+                  className="h-7 text-xs mt-2"
                   onClick={(e) => {
                     e.stopPropagation();
                     handleJump(item.slug);
@@ -119,8 +118,8 @@ export const ArticleNavigationPanel = ({
                   <ExternalLink className="h-3 w-3 mr-1.5" />
                   Jump to section
                 </Button>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         ))}
       </div>
