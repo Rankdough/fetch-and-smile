@@ -11,7 +11,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, Sparkles, FileText, Link, Search, X, Upload, Plus, Tag, Download, ExternalLink, BookOpen, Eye, Edit2, Mic2, RotateCcw, Target } from "lucide-react";
+import { Loader2, Sparkles, FileText, Link, Search, X, Upload, Plus, Tag, Download, ExternalLink, BookOpen, Eye, Edit2, Mic2, RotateCcw, Target, Maximize2, Minimize2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import ReactMarkdown from "react-markdown";
@@ -283,6 +283,7 @@ const Index = () => {
     const saved = localStorage.getItem("seo-generator-selectedAngles");
     return saved ? JSON.parse(saved) : [];
   });
+  const [isPreviewFullscreen, setIsPreviewFullscreen] = useState(false);
 
   // Persist form data to localStorage
   useEffect(() => {
@@ -651,10 +652,10 @@ const Index = () => {
         </div>
       </header>
 
-      <div className="container mx-auto px-4 py-6">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 min-h-[calc(100vh-120px)]">
-          {/* Left Panel - Form */}
-          <Card className="flex flex-col">
+      <div className={isPreviewFullscreen ? "px-4 py-6" : "container mx-auto px-4 py-6"}>
+        <div className={`grid gap-6 min-h-[calc(100vh-120px)] ${isPreviewFullscreen ? "grid-cols-1" : "grid-cols-1 lg:grid-cols-2"}`}>
+          {/* Left Panel - Form (hidden in fullscreen mode) */}
+          {!isPreviewFullscreen && <Card className="flex flex-col">
             <CardHeader className="pb-4">
               <CardTitle className="flex items-center gap-2 text-lg">
                 <FileText className="h-5 w-5" />
@@ -1112,13 +1113,37 @@ const Index = () => {
                 </Button>
               </div>
             </CardContent>
-          </Card>
+          </Card>}
 
           {/* Right Panel - Output */}
-          <Card className="flex flex-col">
+          <Card className={`flex flex-col ${isPreviewFullscreen ? "max-w-4xl mx-auto" : ""}`}>
             <CardHeader className="pb-4 flex flex-row items-center justify-between">
-              <CardTitle className="text-lg">Generated Content</CardTitle>
+              <CardTitle className="text-lg flex items-center gap-2">
+                {isPreviewFullscreen && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setIsPreviewFullscreen(false)}
+                    className="h-8 w-8 p-0"
+                  >
+                    <Minimize2 className="h-4 w-4" />
+                  </Button>
+                )}
+                Generated Content
+              </CardTitle>
               <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsPreviewFullscreen(!isPreviewFullscreen)}
+                  title={isPreviewFullscreen ? "Exit fullscreen" : "Fullscreen preview"}
+                >
+                  {isPreviewFullscreen ? (
+                    <Minimize2 className="h-4 w-4" />
+                  ) : (
+                    <Maximize2 className="h-4 w-4" />
+                  )}
+                </Button>
                 {generatedContent && (
                   <Button
                     variant="outline"
