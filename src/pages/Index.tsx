@@ -2273,6 +2273,30 @@ const Index = () => {
                                               key={`content-${segIdx}`}
                                               remarkPlugins={[remarkGfm]}
                                               components={{
+                                                img: ({ src, alt, ...props }) => (
+                                                  <span className="relative inline-block group my-4">
+                                                    <img src={src} alt={alt} {...props} className="max-w-full h-auto rounded-md" />
+                                                    <button
+                                                      type="button"
+                                                      className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-destructive text-destructive-foreground rounded-full p-1.5 shadow-lg hover:bg-destructive/90"
+                                                      onClick={(e) => {
+                                                        e.preventDefault();
+                                                        e.stopPropagation();
+                                                        // Remove this image from the markdown content
+                                                        const imagePattern = new RegExp(`!\\[${alt?.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') || '[^\\]]*'}\\]\\(${src?.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') || '[^)]*'}\\)\\n*`, 'g');
+                                                        const newContent = generatedContent.replace(imagePattern, '');
+                                                        setGeneratedContent(newContent.replace(/\n{3,}/g, '\n\n'));
+                                                        toast({
+                                                          title: "Image removed",
+                                                          description: "The image has been removed from the article",
+                                                        });
+                                                      }}
+                                                      title="Remove image"
+                                                    >
+                                                      <X className="h-4 w-4" />
+                                                    </button>
+                                                  </span>
+                                                ),
                                                 h2: ({ children, ...props }) => {
                                                   const text = String(children).toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]/g, '');
                                                   const headingText = String(children).toLowerCase();
