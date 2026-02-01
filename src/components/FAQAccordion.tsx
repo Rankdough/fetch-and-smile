@@ -30,37 +30,41 @@ export const FAQAccordion = ({ items }: FAQAccordionProps) => {
         </span>
       </div>
 
-      <div className="space-y-1">
+      <div className="space-y-2">
         {items.map((item, index) => (
           <div
             key={index}
-            className="rounded-md border bg-background transition-all border-border hover:border-muted-foreground/30"
+            className="rounded-md border bg-background transition-all border-border hover:border-primary/30 overflow-hidden"
           >
-            {/* Question row */}
-            <div 
-              className="flex items-center gap-2 px-2 py-1.5 cursor-pointer"
+            {/* Question row - clickable */}
+            <button 
+              type="button"
+              className="flex items-center gap-3 px-3 py-3 w-full text-left hover:bg-muted/50 transition-colors"
               onClick={() => setExpandedItem(expandedItem === index ? null : index)}
             >
-              <div className="flex-shrink-0 w-5 h-5 rounded-full bg-primary/10 text-primary border border-primary/20 flex items-center justify-center text-[10px] font-bold">
+              <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/10 text-primary border border-primary/20 flex items-center justify-center text-xs font-bold">
                 {index + 1}
               </div>
-              <span className="flex-1 text-xs font-semibold">
+              <span className="flex-1 text-sm font-semibold text-foreground">
                 {item.question}
               </span>
               <ChevronDown className={cn(
-                "h-3 w-3 flex-shrink-0 text-muted-foreground transition-transform",
+                "h-4 w-4 flex-shrink-0 text-primary transition-transform duration-200",
                 expandedItem === index && "rotate-180"
               )} />
-            </div>
+            </button>
             
-            {/* Answer - only when expanded */}
-            {expandedItem === index && (
-              <div className="px-2 pb-2 pl-9">
-                <p className="text-[11px] text-muted-foreground leading-snug">
+            {/* Answer - collapsible */}
+            <div className={cn(
+              "overflow-hidden transition-all duration-200",
+              expandedItem === index ? "max-h-96 opacity-100" : "max-h-0 opacity-0"
+            )}>
+              <div className="px-3 pb-3 pl-12">
+                <p className="text-sm text-muted-foreground leading-relaxed">
                   {item.answer}
                 </p>
               </div>
-            )}
+            </div>
           </div>
         ))}
       </div>
