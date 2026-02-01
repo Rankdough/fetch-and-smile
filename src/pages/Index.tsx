@@ -158,7 +158,8 @@ const cleanContent = (content: string): string => {
   return content
     .replace(/—/g, "-")  // Remove em dashes
     .replace(/–/g, "-")  // Remove en dashes
-    .replace(/^\s*[-*_]{3,}\s*$/gm, "");  // Remove horizontal lines
+    .replace(/^\s*[-*_]{3,}\s*$/gm, "")  // Remove horizontal lines
+    .replace(/^(\s*[-*])\s+[-–—]\s*/gm, "$1 ");  // Remove dashes after bullet points (e.g., "- - text" -> "- text")
 };
 
 // Helper to extract "In This Article" navigation items from markdown
