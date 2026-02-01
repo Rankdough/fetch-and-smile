@@ -112,6 +112,15 @@ export const COLOR_PALETTES: ColorPalette[] = [
     background: "#262626",
     text: "#FFFFFF",
   },
+  {
+    id: "olive",
+    name: "Olive",
+    primary: "#5B5F3A",
+    secondary: "#6B7042",
+    accent: "#8B9058",
+    background: "#3A3D25",
+    text: "#FFFFFF",
+  },
 ];
 
 interface ColorPaletteSelectorProps {
