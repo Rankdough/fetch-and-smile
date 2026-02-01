@@ -6,9 +6,6 @@ verify_jwt = false
 [functions.elevenlabs-conversation-token]
 verify_jwt = false
 
-[functions.extract-brand-colors]
-verify_jwt = false
-
 [functions.extract-tone]
 verify_jwt = false
 
