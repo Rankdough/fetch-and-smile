@@ -148,7 +148,7 @@ export const ContentVerification = ({
         : "No competitor analysis applied - add competitor URLs to analyze gaps",
     });
 
-    // Check context files were used and references cited
+    // Check context files were used and content is based on them
     if (appliedRules?.contextFilesUsed && appliedRules.contextFileNames.length > 0) {
       // Check if any content from context files is likely referenced
       // Look for source citations or references section
@@ -158,18 +158,36 @@ export const ContentVerification = ({
       
       results.push({
         id: "context-files",
-        label: "Context files incorporated",
+        label: "Context files provided",
         status: "passed",
-        details: `Uploaded: ${appliedRules.contextFileNames.join(", ")}`,
+        details: `Sources: ${appliedRules.contextFileNames.join(", ")}`,
+      });
+
+      // Check content is written based on context files
+      results.push({
+        id: "context-based-content",
+        label: "Content based on context files",
+        status: hasCitations ? "passed" : "warning",
+        details: hasCitations 
+          ? "Content draws from provided context files" 
+          : "Verify content uses information from context files",
       });
 
       results.push({
         id: "context-references-cited",
-        label: "References from context files cited",
+        label: "Context file sources cited",
         status: hasCitations ? "passed" : "warning",
         details: hasCitations 
-          ? "Source citations found in content" 
-          : "No explicit source citations detected - verify references were included",
+          ? "Source citations from context files found" 
+          : "No explicit citations from context files detected",
+      });
+    } else if (appliedRules && !appliedRules.contextFilesUsed) {
+      // Show as info that no context files were provided
+      results.push({
+        id: "context-files",
+        label: "Context files for sources",
+        status: "warning",
+        details: "No context files uploaded - content uses general knowledge only",
       });
     }
 
