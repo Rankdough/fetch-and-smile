@@ -1335,33 +1335,43 @@ const Index = () => {
                           }
                         });
                         
-                        // Convert FAQAccordion to static HTML with all answers visible
+                        // Convert FAQAccordion to collapsible HTML using <details>/<summary>
                         const faqPanels = tempDiv.querySelectorAll('[class*="rounded-lg border bg-muted"]');
                         faqPanels.forEach((panel) => {
                           const h4 = panel.querySelector('h4');
                           if (h4?.textContent?.includes('Frequently Asked Questions')) {
                             const items = panel.querySelectorAll('[class*="rounded-md border"]');
+                            const itemCount = items.length;
                             let faqHtml = `
 <div style="background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%); border: 2px solid #a78bfa; border-radius: 12px; padding: 24px; margin: 24px 0;">
-  <h3 style="display: flex; align-items: center; gap: 8px; margin: 0 0 16px 0; font-size: 1.1rem; color: #5b21b6;">
-    <span style="display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: #7c3aed; color: white; font-size: 12px; font-weight: bold;">?</span>
-    Frequently Asked Questions
-  </h3>`;
+  <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
+    <h3 style="display: flex; align-items: center; gap: 8px; margin: 0; font-size: 1.1rem; color: #5b21b6;">
+      <span style="display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: #7c3aed; color: white; font-size: 12px; font-weight: bold;">?</span>
+      Frequently Asked Questions
+    </h3>
+    <span style="font-size: 0.75rem; color: #6b7280;">${itemCount} questions</span>
+  </div>`;
                             
                             items.forEach((item, idx) => {
                               const question = item.querySelector('[class*="font-semibold"]')?.textContent?.trim() || '';
                               const answer = item.querySelector('[class*="text-muted-foreground"]')?.textContent?.trim() || '';
+                              const isFirst = idx === 0;
                               faqHtml += `
-  <div style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; margin-bottom: 12px;">
-    <h4 style="display: flex; align-items: flex-start; gap: 10px; margin: 0 0 8px 0; font-size: 0.95rem; color: #1f2937;">
-      <span style="display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 22px; border-radius: 50%; background: #ede9fe; color: #7c3aed; font-size: 11px; font-weight: bold;">${idx + 1}</span>
-      ${question}
-    </h4>
-    <p style="margin: 0; padding-left: 32px; color: #6b7280; font-size: 0.9rem; line-height: 1.6;">${answer}</p>
-  </div>`;
+  <details style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; margin-bottom: 8px; overflow: hidden;"${isFirst ? ' open' : ''}>
+    <summary style="display: flex; align-items: center; gap: 12px; padding: 12px 16px; cursor: pointer; list-style: none; font-weight: 600; font-size: 0.95rem; color: #1f2937;">
+      <span style="display: inline-flex; align-items: center; justify-content: center; min-width: 24px; height: 24px; border-radius: 50%; background: #ede9fe; color: #7c3aed; font-size: 11px; font-weight: bold; flex-shrink: 0;">${idx + 1}</span>
+      <span style="flex: 1;">${question}</span>
+      <svg style="width: 16px; height: 16px; color: #7c3aed; flex-shrink: 0; transition: transform 0.2s;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+    </summary>
+    <div style="padding: 0 16px 16px 52px; color: #6b7280; font-size: 0.9rem; line-height: 1.6;">${answer}</div>
+  </details>`;
                             });
                             
-                            faqHtml += `</div>`;
+                            faqHtml += `</div>
+<style>
+  details[open] summary svg { transform: rotate(180deg); }
+  details summary::-webkit-details-marker { display: none; }
+</style>`;
                             panel.outerHTML = faqHtml;
                           }
                         });
