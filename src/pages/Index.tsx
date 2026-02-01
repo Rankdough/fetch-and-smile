@@ -11,6 +11,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
 import { Loader2, Sparkles, FileText, Link, Search, X, Upload, Plus, Tag, Download, ExternalLink, BookOpen, Eye, Edit2, Mic2, RotateCcw, Target, Maximize2, Minimize2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -716,10 +717,13 @@ const Index = () => {
                 Blog Post Settings
               </CardTitle>
             </CardHeader>
-            <CardContent className="flex-1 flex flex-col gap-5 overflow-auto">
-              {/* Topic */}
-              <div className="space-y-2">
-                <Label htmlFor="topic">What is the topic of your post?</Label>
+            <CardContent className="flex-1 flex flex-col gap-6 overflow-auto">
+              {/* Section 1: Topic */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-sm font-semibold">1</span>
+                  <Label htmlFor="topic" className="text-base font-medium">What is the topic of your post?</Label>
+                </div>
                 <Input
                   id="topic"
                   placeholder="e.g., Best practices for React performance optimization"
@@ -727,23 +731,29 @@ const Index = () => {
                   onChange={(e) =>
                     setFormData((prev) => ({ ...prev, topic: e.target.value }))
                   }
+                  className="bg-input border-2 border-input-border"
                 />
               </div>
 
-              {/* Value Promise - Required */}
-              <div className="space-y-2">
-                <Label htmlFor="value-promise" className="flex items-center gap-2">
-                  <Target className="h-4 w-4 text-primary" />
-                  Value Promise <span className="text-xs text-destructive">*Required</span>
-                </Label>
-                <p className="text-xs text-muted-foreground">
+              <Separator />
+
+              {/* Section 2: Value Promise - Required */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-sm font-semibold">2</span>
+                  <Label htmlFor="value-promise" className="flex items-center gap-2 text-base font-medium">
+                    <Target className="h-4 w-4 text-primary" />
+                    Value Promise <span className="text-xs text-destructive">*Required</span>
+                  </Label>
+                </div>
+                <p className="text-xs text-muted-foreground ml-8">
                   What will the reader be able to DO or DECIDE after reading this?
                 </p>
                 <div className="relative">
                   <Textarea
                     id="value-promise"
                     placeholder="e.g., Choose between composite bonding and veneers based on their budget, timeline, and aesthetic goals"
-                    className="min-h-[60px] resize-none pr-12"
+                    className="min-h-[60px] resize-none pr-12 bg-input border-2 border-input-border"
                     value={valuePromise}
                     onChange={(e) => setValuePromise(e.target.value)}
                   />
@@ -770,13 +780,20 @@ const Index = () => {
                 )}
               </div>
 
-              {/* Competitor URLs Section */}
-              <Collapsible className="space-y-2">
+              <Separator />
+
+              {/* Section 3: Competitor URLs Section */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-sm font-semibold">3</span>
+                  <span className="text-base font-medium">Competitor Analysis (Optional)</span>
+                </div>
+              <Collapsible className="space-y-2 ml-8">
                 <CollapsibleTrigger asChild>
-                  <Button variant="outline" className="w-full justify-between">
+                  <Button variant="outline" className="w-full justify-between bg-input border-2 border-input-border">
                     <span className="flex items-center gap-2">
                       <Search className="h-4 w-4" />
-                      Competitor Analysis (Optional)
+                      Click to expand
                     </span>
                   </Button>
                 </CollapsibleTrigger>
@@ -846,14 +863,22 @@ const Index = () => {
                   />
                 </CollapsibleContent>
               </Collapsible>
+              </div>
 
-              {/* Format Reference URL */}
-              <Collapsible className="space-y-2">
+              <Separator />
+
+              {/* Section 4: Format Reference URL */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-sm font-semibold">4</span>
+                  <span className="text-base font-medium">Format Reference (Optional)</span>
+                </div>
+              <Collapsible className="space-y-2 ml-8">
                 <CollapsibleTrigger asChild>
-                  <Button variant="outline" className="w-full justify-between">
+                  <Button variant="outline" className="w-full justify-between bg-input border-2 border-input-border">
                     <span className="flex items-center gap-2">
                       <Link className="h-4 w-4" />
-                      Format Reference (Optional)
+                      Click to expand
                     </span>
                   </Button>
                 </CollapsibleTrigger>
@@ -866,6 +891,7 @@ const Index = () => {
                       placeholder="Enter URL to use as format reference"
                       value={formatUrl}
                       onChange={(e) => setFormatUrl(e.target.value)}
+                      className="bg-input border-2 border-input-border"
                     />
                     <Button
                       variant="secondary"
@@ -882,14 +908,22 @@ const Index = () => {
                   )}
                 </CollapsibleContent>
               </Collapsible>
+              </div>
 
-              {/* Context Files Upload */}
-              <Collapsible className="space-y-2">
+              <Separator />
+
+              {/* Section 5: Context Files Upload */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-sm font-semibold">5</span>
+                  <span className="text-base font-medium">Context Files (Optional)</span>
+                </div>
+              <Collapsible className="space-y-2 ml-8">
                 <CollapsibleTrigger asChild>
-                  <Button variant="outline" className="w-full justify-between">
+                  <Button variant="outline" className="w-full justify-between bg-input border-2 border-input-border">
                     <span className="flex items-center gap-2">
                       <Upload className="h-4 w-4" />
-                      Context Files (Optional)
+                      Click to expand
                     </span>
                   </Button>
                 </CollapsibleTrigger>
@@ -939,14 +973,22 @@ const Index = () => {
                   )}
                 </CollapsibleContent>
               </Collapsible>
+              </div>
 
-              {/* Tone of Voice Profiles */}
-              <Collapsible className="space-y-2">
+              <Separator />
+
+              {/* Section 6: Tone of Voice Profiles */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-sm font-semibold">6</span>
+                  <span className="text-base font-medium">Tone of Voice (Optional)</span>
+                </div>
+              <Collapsible className="space-y-2 ml-8">
                 <CollapsibleTrigger asChild>
-                  <Button variant="outline" className="w-full justify-between">
+                  <Button variant="outline" className="w-full justify-between bg-input border-2 border-input-border">
                     <span className="flex items-center gap-2">
                       <Mic2 className="h-4 w-4" />
-                      Tone of Voice (Optional)
+                      Click to expand
                     </span>
                   </Button>
                 </CollapsibleTrigger>
@@ -957,14 +999,22 @@ const Index = () => {
                   />
                 </CollapsibleContent>
               </Collapsible>
+              </div>
 
-              {/* SEO Knowledge Base */}
-              <Collapsible className="space-y-2">
+              <Separator />
+
+              {/* Section 7: SEO Knowledge Base */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-sm font-semibold">7</span>
+                  <span className="text-base font-medium">SEO Knowledge Base (Optional)</span>
+                </div>
+              <Collapsible className="space-y-2 ml-8">
                 <CollapsibleTrigger asChild>
-                  <Button variant="outline" className="w-full justify-between">
+                  <Button variant="outline" className="w-full justify-between bg-input border-2 border-input-border">
                     <span className="flex items-center gap-2">
                       <BookOpen className="h-4 w-4" />
-                      SEO Knowledge Base (Optional)
+                      Click to expand
                     </span>
                   </Button>
                 </CollapsibleTrigger>
@@ -972,20 +1022,27 @@ const Index = () => {
                   <KnowledgeBasePanel />
                 </CollapsibleContent>
               </Collapsible>
-              {/* Keywords */}
-              <div className="space-y-2">
-                <Label className="flex items-center gap-2">
-                  <Tag className="h-4 w-4" />
-                  SEO Keywords (up to 10, top 5 used)
-                </Label>
-                <p className="text-sm text-muted-foreground">
+              </div>
+
+              <Separator />
+              {/* Section 8: Keywords */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-sm font-semibold">8</span>
+                  <Label className="flex items-center gap-2 text-base font-medium">
+                    <Tag className="h-4 w-4" />
+                    SEO Keywords (up to 10, top 5 used)
+                  </Label>
+                </div>
+                <p className="text-sm text-muted-foreground ml-8">
                   Paste comma-separated keywords or add one at a time
                 </p>
-                <div className="flex gap-2">
+                <div className="flex gap-2 ml-8">
                   <Input
                     placeholder="e.g., keyword1, keyword2, keyword3"
                     value={keywordInput}
                     onChange={(e) => setKeywordInput(e.target.value)}
+                    className="bg-input border-2 border-input-border"
                     onKeyDown={(e) => {
                       if (e.key === "Enter" && keywordInput.trim()) {
                         e.preventDefault();
@@ -1029,7 +1086,7 @@ const Index = () => {
                   </Button>
                 </div>
                 {keywords.length > 0 && (
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-2 ml-8">
                     {keywords.map((keyword, index) => (
                       <div
                         key={index}
@@ -1062,20 +1119,26 @@ const Index = () => {
                   </div>
                 )}
                 {keywords.length >= 10 && (
-                  <p className="text-xs text-muted-foreground">Maximum 10 keywords reached</p>
+                  <p className="text-xs text-muted-foreground ml-8">Maximum 10 keywords reached</p>
                 )}
               </div>
 
-              {/* Length */}
-              <div className="space-y-2">
-                <Label>How long would you like the blog post to be?</Label>
+              <Separator />
+
+              {/* Section 9: Length */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-sm font-semibold">9</span>
+                  <Label className="text-base font-medium">How long would you like the blog post to be?</Label>
+                </div>
+                <div className="ml-8">
                 <Select
                   value={formData.length}
                   onValueChange={(value) =>
                     setFormData((prev) => ({ ...prev, length: value }))
                   }
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="bg-input border-2 border-input-border">
                     <SelectValue placeholder="Select length" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1086,15 +1149,21 @@ const Index = () => {
                     <SelectItem value="comprehensive">Comprehensive (~3500 words)</SelectItem>
                   </SelectContent>
                 </Select>
+                </div>
               </div>
 
-              {/* Outline */}
-              <div className="space-y-2">
-                <Label htmlFor="outline">What is the outline of your post?</Label>
+              <Separator />
+
+              {/* Section 10: Outline */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-sm font-semibold">10</span>
+                  <Label htmlFor="outline" className="text-base font-medium">What is the outline of your post?</Label>
+                </div>
                 <Textarea
                   id="outline"
                   placeholder="- Introduction&#10;- Main points&#10;- Conclusion"
-                  className="min-h-[100px] resize-none"
+                  className="min-h-[100px] resize-none ml-8 bg-input border-2 border-input-border"
                   value={formData.outline}
                   onChange={(e) =>
                     setFormData((prev) => ({ ...prev, outline: e.target.value }))

@@ -246,10 +246,20 @@ All colors MUST be HSL.
 .settings-panel input[type="url"],
 .settings-panel input[type="number"],
 .settings-panel textarea,
-.settings-panel select {
-  background-color: hsl(var(--input));
-  border: 2px solid hsl(var(--input-border));
+.settings-panel select,
+.settings-panel button[role="combobox"] {
+  background-color: hsl(var(--input)) !important;
+  border: 2px solid hsl(var(--input-border)) !important;
   transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+/* Input border color variable for tailwind */
+.border-input-border {
+  border-color: hsl(var(--input-border));
+}
+
+.bg-input {
+  background-color: hsl(var(--input));
 }
 
 .settings-panel input[type="text"]:focus,
