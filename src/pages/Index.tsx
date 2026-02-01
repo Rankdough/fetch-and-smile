@@ -37,6 +37,7 @@ import { FAQAccordion, extractFAQFromContent, removeFAQSection } from "@/compone
 import { useSpeechToText } from "@/hooks/useSpeechToText";
 import { SectionIndicator } from "@/components/SectionIndicator";
 import { ArticleImagesPanel, ArticleImage } from "@/components/ArticleImagesPanel";
+import { HtmlImportDialog } from "@/components/HtmlImportDialog";
 
 const SAMPLE_CONTENT = `# Composite Bonding vs Veneers: Which Smile Transformation is Right for You?
 
@@ -1387,6 +1388,7 @@ const Index = () => {
                 Generated Content
               </CardTitle>
               <div className="flex gap-2">
+                <HtmlImportDialog onImport={setGeneratedContent} />
                 <Button
                   variant="outline"
                   size="sm"
