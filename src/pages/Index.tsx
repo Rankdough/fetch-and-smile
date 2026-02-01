@@ -243,7 +243,10 @@ const Index = () => {
   const { toast } = useToast();
   const [isGenerating, setIsGenerating] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [generatedContent, setGeneratedContentRaw] = useState("");
+  const [generatedContent, setGeneratedContentRaw] = useState(() => {
+    const saved = localStorage.getItem("seo-generator-generatedContent");
+    return saved ? cleanContent(saved) : "";
+  });
   
   // Wrapper that auto-cleans content before setting
   const setGeneratedContent = (content: string) => {
@@ -262,7 +265,14 @@ const Index = () => {
     knowledgeBaseUsed?: boolean;
     knowledgeRulesCount?: number;
     toneProfileUsed?: boolean;
-  } | null>(null);
+  } | null>(() => {
+    const saved = localStorage.getItem("seo-generator-appliedRules");
+    return saved ? JSON.parse(saved) : null;
+  });
+  const [generatedCTAs, setGeneratedCTAs] = useState<{ middle: { headline: string; description: string; buttonText: string }; end: { headline: string; description: string; buttonText: string } } | null>(() => {
+    const saved = localStorage.getItem("seo-generator-generatedCTAs");
+    return saved ? JSON.parse(saved) : null;
+  });
   const [gapAnalysis, setGapAnalysis] = useState(() => {
     const saved = localStorage.getItem("seo-generator-gapAnalysis");
     return saved || "";
@@ -304,7 +314,7 @@ const Index = () => {
     const saved = localStorage.getItem("seo-generator-ctaUrl");
     return saved || "";
   });
-  const [generatedCTAs, setGeneratedCTAs] = useState<{ middle: { headline: string; description: string; buttonText: string }; end: { headline: string; description: string; buttonText: string } } | null>(null);
+  
   const [selectedColorPalette, setSelectedColorPalette] = useState<ColorPalette | null>(() => {
     const saved = localStorage.getItem("seo-generator-colorPalette");
     if (saved) {
@@ -422,6 +432,29 @@ const Index = () => {
   useEffect(() => {
     localStorage.setItem("seo-generator-articleImages", JSON.stringify(articleImages));
   }, [articleImages]);
+
+  // Persist generated content
+  useEffect(() => {
+    localStorage.setItem("seo-generator-generatedContent", generatedContent);
+  }, [generatedContent]);
+
+  // Persist applied rules
+  useEffect(() => {
+    if (appliedRules) {
+      localStorage.setItem("seo-generator-appliedRules", JSON.stringify(appliedRules));
+    } else {
+      localStorage.removeItem("seo-generator-appliedRules");
+    }
+  }, [appliedRules]);
+
+  // Persist generated CTAs
+  useEffect(() => {
+    if (generatedCTAs) {
+      localStorage.setItem("seo-generator-generatedCTAs", JSON.stringify(generatedCTAs));
+    } else {
+      localStorage.removeItem("seo-generator-generatedCTAs");
+    }
+  }, [generatedCTAs]);
 
   // Checklist items computation
   const checklistItems = useMemo(() => {
@@ -726,6 +759,9 @@ const Index = () => {
     localStorage.removeItem("seo-generator-valuePromise");
     localStorage.removeItem("seo-generator-selectedAngles");
     localStorage.removeItem("seo-generator-articleImages");
+    localStorage.removeItem("seo-generator-generatedContent");
+    localStorage.removeItem("seo-generator-appliedRules");
+    localStorage.removeItem("seo-generator-generatedCTAs");
     
     toast({
       title: "Form cleared",
