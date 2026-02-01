@@ -1398,8 +1398,12 @@ const Index = () => {
                         
                         // Ensure all links are properly formatted
                         tempDiv.querySelectorAll("a").forEach((link) => {
-                          link.setAttribute("target", "_blank");
-                          link.setAttribute("rel", "noopener noreferrer");
+                          const href = link.getAttribute("href") || "";
+                          // Don't set target="_blank" for anchor links (in-page navigation)
+                          if (!href.startsWith("#")) {
+                            link.setAttribute("target", "_blank");
+                            link.setAttribute("rel", "noopener noreferrer");
+                          }
                           if (!link.getAttribute("style")?.includes("color")) {
                             link.setAttribute("style", (link.getAttribute("style") || "") + " color: #7c3aed; text-decoration: underline;");
                           }
