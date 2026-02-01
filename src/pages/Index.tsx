@@ -181,11 +181,11 @@ const extractInThisArticleItems = (content: string): { number: number; title: st
     const number = parseInt(match[1], 10);
     const title = match[2].trim();
     const bulletDescription = match[3].trim();
+    // Generate slug EXACTLY like ReactMarkdown does (line ~1846)
     const slug = title
       .toLowerCase()
-      .replace(/[^a-z0-9\s-]/g, "")
       .replace(/\s+/g, "-")
-      .replace(/-+/g, "-");
+      .replace(/[^\w-]/g, "");
     
     // Find the actual H2 section and extract its first paragraph for richer description
     const h2Pattern = new RegExp(`## ${title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[\\s\\S]*?\\n\\n([^#\\n][\\s\\S]*?)(?=\\n\\n|\\n##|$)`, 'i');

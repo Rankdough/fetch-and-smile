@@ -29,18 +29,27 @@ export const ArticleNavigationPanel = ({
     if (onJumpToSection) {
       onJumpToSection(slug);
     }
+    
+    // Try to find the element by ID
     const element = document.getElementById(slug);
-    if (element) {
-      // Find the scrollable container (CardContent with overflow-auto)
-      const scrollContainer = element.closest('.overflow-auto');
-      if (scrollContainer) {
-        const containerRect = scrollContainer.getBoundingClientRect();
-        const elementRect = element.getBoundingClientRect();
-        const offset = elementRect.top - containerRect.top + scrollContainer.scrollTop - 20;
-        scrollContainer.scrollTo({ top: offset, behavior: 'smooth' });
-      } else {
-        element.scrollIntoView({ behavior: "smooth", block: "start" });
-      }
+    if (!element) {
+      console.warn(`Jump target not found: #${slug}`);
+      return;
+    }
+    
+    // Find the scrollable container - look for CardContent with overflow-auto or the main scroll area
+    const scrollContainer = element.closest('.overflow-auto') || 
+                           element.closest('[class*="overflow-y-auto"]') ||
+                           element.closest('[data-radix-scroll-area-viewport]');
+    
+    if (scrollContainer) {
+      const containerRect = scrollContainer.getBoundingClientRect();
+      const elementRect = element.getBoundingClientRect();
+      const offset = elementRect.top - containerRect.top + scrollContainer.scrollTop - 20;
+      scrollContainer.scrollTo({ top: offset, behavior: 'smooth' });
+    } else {
+      // Fallback to standard scrollIntoView
+      element.scrollIntoView({ behavior: "smooth", block: "start" });
     }
   };
 
@@ -164,8 +173,7 @@ export const extractNavigationFromContent = (content: string): NavigationItem[] 
       continue;
     }
     
-    // Generate slug from title - MUST match the ReactMarkdown h2 id generation
-    // ReactMarkdown uses: String(children).toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]/g, '')
+    // Generate slug EXACTLY like ReactMarkdown does: String(children).toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]/g, '')
     const slug = title
       .toLowerCase()
       .replace(/\s+/g, "-")
