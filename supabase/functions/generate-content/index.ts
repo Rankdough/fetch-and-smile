@@ -108,7 +108,11 @@ SOURCE REFERENCE RULES:
 - DO NOT use inline numeric citations like [1], [2], [3] in the text
 - Add a "**Sources:**" line at the END of EACH major section (after ## headings)
 - List 1-2 relevant sources as simple markdown links directly under that section
-- Format: **Sources:** [Source Title](URL)
+- CRITICAL: All source links MUST be real, valid, working URLs to authoritative websites
+- Format: **Sources:** [Source Title](https://example.com/actual-page-url)
+- Use real domains like gov sites, NHS, CDC, Wikipedia, official brand sites, reputable news outlets
+- Example: [NHS Food Safety Guidelines](https://www.nhs.uk/live-well/eat-well/food-guidelines-and-food-labels/)
+- NEVER use placeholder URLs or made-up links - only include sources you know exist
 - Sources should be relevant to that specific section's content
 
 ARTICLE STRUCTURE (in this order):
