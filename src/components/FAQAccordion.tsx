@@ -9,18 +9,30 @@ interface FAQItem {
 
 interface FAQAccordionProps {
   items: FAQItem[];
+  brandColors?: {
+    primary: string;
+    secondary: string;
+    accent: string;
+  } | null;
 }
 
-export const FAQAccordion = ({ items }: FAQAccordionProps) => {
+export const FAQAccordion = ({ items, brandColors }: FAQAccordionProps) => {
   const [expandedItem, setExpandedItem] = useState<number | null>(null);
 
   if (!items || items.length === 0) return null;
+
+  // Use brand colors or fall back to default purple theme
+  const accentColor = brandColors?.accent || brandColors?.primary || "hsl(300 52% 36%)";
+  const primaryColor = brandColors?.primary || "hsl(300 52% 36%)";
 
   return (
     <div className="rounded-lg border bg-muted/30 p-4 space-y-3 my-6">
       <div className="flex items-center justify-between">
         <h4 className="text-sm font-medium flex items-center gap-2">
-          <span className="flex items-center justify-center w-5 h-5 rounded-full bg-primary text-primary-foreground text-xs font-bold">
+          <span 
+            className="flex items-center justify-center w-5 h-5 rounded-full text-white text-xs font-bold"
+            style={{ backgroundColor: accentColor }}
+          >
             ?
           </span>
           Frequently Asked Questions
@@ -34,7 +46,8 @@ export const FAQAccordion = ({ items }: FAQAccordionProps) => {
         {items.map((item, index) => (
           <div
             key={index}
-            className="rounded-md border bg-background transition-all border-border hover:border-primary/30 overflow-hidden"
+            className="rounded-md border bg-background transition-all overflow-hidden"
+            style={{ borderColor: expandedItem === index ? accentColor : undefined }}
           >
             {/* Question row - clickable */}
             <button 
@@ -42,16 +55,28 @@ export const FAQAccordion = ({ items }: FAQAccordionProps) => {
               className="flex items-center gap-3 px-3 py-3 w-full text-left hover:bg-muted/50 transition-colors"
               onClick={() => setExpandedItem(expandedItem === index ? null : index)}
             >
-              <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/10 text-primary border border-primary/20 flex items-center justify-center text-xs font-bold">
+              <div 
+                className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold"
+                style={{ 
+                  backgroundColor: `${primaryColor}15`,
+                  color: primaryColor,
+                  borderWidth: 1,
+                  borderStyle: 'solid',
+                  borderColor: `${primaryColor}30`
+                }}
+              >
                 {index + 1}
               </div>
               <span className="flex-1 text-sm font-semibold text-foreground">
                 {item.question}
               </span>
-              <ChevronDown className={cn(
-                "h-4 w-4 flex-shrink-0 text-primary transition-transform duration-200",
-                expandedItem === index && "rotate-180"
-              )} />
+              <ChevronDown 
+                className={cn(
+                  "h-4 w-4 flex-shrink-0 transition-transform duration-200",
+                  expandedItem === index && "rotate-180"
+                )} 
+                style={{ color: accentColor }}
+              />
             </button>
             
             {/* Answer - collapsible */}
