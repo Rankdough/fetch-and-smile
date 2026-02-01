@@ -1784,10 +1784,10 @@ const Index = () => {
                   onChange={(e) => setCtaUrl(e.target.value)}
                 />
                 
-                {/* Recent CTA URLs history */}
-                {ctaUrlHistory.length > 0 && (
-                  <div className="space-y-1.5">
-                    <p className="text-xs text-muted-foreground font-medium">Recent URLs:</p>
+                {/* Recent CTA URLs history - always show section with helpful text */}
+                <div className="space-y-1.5">
+                  <p className="text-xs text-muted-foreground font-medium">Recent URLs:</p>
+                  {ctaUrlHistory.length > 0 ? (
                     <div className="flex flex-wrap gap-1.5">
                       {ctaUrlHistory.slice(0, 3).map((url, idx) => {
                         // Extract domain for display
@@ -1812,8 +1812,10 @@ const Index = () => {
                         );
                       })}
                     </div>
-                  </div>
-                )}
+                  ) : (
+                    <p className="text-xs text-muted-foreground/60 italic">No recent URLs yet - generate content with a CTA URL to save it here</p>
+                  )}
+                </div>
                 
                 {ctaUrl.trim() && (
                   <p className="text-xs text-primary">
