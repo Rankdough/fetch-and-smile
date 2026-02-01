@@ -150,6 +150,22 @@ export function HtmlImportDialog({ onImport }: HtmlImportDialogProps) {
         },
       });
 
+      // Strip out style tags completely to avoid raw CSS in output
+      turndownService.addRule("stripStyle", {
+        filter: "style",
+        replacement: function () {
+          return "";
+        },
+      });
+
+      // Strip out script tags for safety
+      turndownService.addRule("stripScript", {
+        filter: "script",
+        replacement: function () {
+          return "";
+        },
+      });
+
       // Convert HTML to Markdown
       const markdown = turndownService.turndown(htmlContent);
 
