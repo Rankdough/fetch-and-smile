@@ -1300,11 +1300,79 @@ const Index = () => {
                       if (articleElement) {
                         tempDiv.innerHTML = articleElement.innerHTML;
                         
+                        // Convert ArticleNavigationPanel to static HTML table of contents
+                        const navPanels = tempDiv.querySelectorAll('[class*="rounded-lg border bg-muted"]');
+                        navPanels.forEach((panel) => {
+                          const h4 = panel.querySelector('h4');
+                          if (h4?.textContent?.includes('In This Article')) {
+                            // Extract section links and create static ToC
+                            const items = panel.querySelectorAll('[class*="rounded-md border"]');
+                            let tocHtml = `
+<div style="background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%); border: 2px solid #a78bfa; border-radius: 12px; padding: 24px; margin: 24px 0;">
+  <h3 style="display: flex; align-items: center; gap: 8px; margin: 0 0 16px 0; font-size: 1.1rem; color: #5b21b6;">
+    <span style="display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: #7c3aed; color: white; font-size: 12px; font-weight: bold;">#</span>
+    In This Article
+  </h3>
+  <ol style="margin: 0; padding-left: 0; list-style: none;">`;
+                            
+                            items.forEach((item, idx) => {
+                              const title = item.querySelector('[class*="font-semibold"]')?.textContent?.replace('★', '').trim() || '';
+                              const slug = title.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]/g, '');
+                              const isFirst = idx === 0;
+                              tocHtml += `
+    <li style="margin: 8px 0; padding: 8px 12px; background: ${isFirst ? '#7c3aed' : 'white'}; border-radius: 8px; ${isFirst ? '' : 'border: 1px solid #e5e7eb;'}">
+      <a href="#${slug}" style="display: flex; align-items: center; gap: 10px; text-decoration: none; color: ${isFirst ? 'white' : '#374151'};">
+        <span style="display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: ${isFirst ? 'rgba(255,255,255,0.2)' : '#f3f4f6'}; color: ${isFirst ? 'white' : '#7c3aed'}; font-size: 11px; font-weight: bold;">${idx + 1}</span>
+        <span style="font-weight: 500;">${title}</span>
+      </a>
+    </li>`;
+                            });
+                            
+                            tocHtml += `
+  </ol>
+</div>`;
+                            panel.outerHTML = tocHtml;
+                          }
+                        });
+                        
+                        // Convert FAQAccordion to static HTML with all answers visible
+                        const faqPanels = tempDiv.querySelectorAll('[class*="rounded-lg border bg-muted"]');
+                        faqPanels.forEach((panel) => {
+                          const h4 = panel.querySelector('h4');
+                          if (h4?.textContent?.includes('Frequently Asked Questions')) {
+                            const items = panel.querySelectorAll('[class*="rounded-md border"]');
+                            let faqHtml = `
+<div style="background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%); border: 2px solid #a78bfa; border-radius: 12px; padding: 24px; margin: 24px 0;">
+  <h3 style="display: flex; align-items: center; gap: 8px; margin: 0 0 16px 0; font-size: 1.1rem; color: #5b21b6;">
+    <span style="display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: #7c3aed; color: white; font-size: 12px; font-weight: bold;">?</span>
+    Frequently Asked Questions
+  </h3>`;
+                            
+                            items.forEach((item, idx) => {
+                              const question = item.querySelector('[class*="font-semibold"]')?.textContent?.trim() || '';
+                              const answer = item.querySelector('[class*="text-muted-foreground"]')?.textContent?.trim() || '';
+                              faqHtml += `
+  <div style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; margin-bottom: 12px;">
+    <h4 style="display: flex; align-items: flex-start; gap: 10px; margin: 0 0 8px 0; font-size: 0.95rem; color: #1f2937;">
+      <span style="display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 22px; border-radius: 50%; background: #ede9fe; color: #7c3aed; font-size: 11px; font-weight: bold;">${idx + 1}</span>
+      ${question}
+    </h4>
+    <p style="margin: 0; padding-left: 32px; color: #6b7280; font-size: 0.9rem; line-height: 1.6;">${answer}</p>
+  </div>`;
+                            });
+                            
+                            faqHtml += `</div>`;
+                            panel.outerHTML = faqHtml;
+                          }
+                        });
+                        
                         // Ensure all links are properly formatted
                         tempDiv.querySelectorAll("a").forEach((link) => {
                           link.setAttribute("target", "_blank");
                           link.setAttribute("rel", "noopener noreferrer");
-                          link.setAttribute("style", "color: #7c3aed; text-decoration: underline;");
+                          if (!link.getAttribute("style")?.includes("color")) {
+                            link.setAttribute("style", (link.getAttribute("style") || "") + " color: #7c3aed; text-decoration: underline;");
+                          }
                         });
                         
                         // Style TL;DR section with purple background
@@ -1359,7 +1427,9 @@ const Index = () => {
                           ul.setAttribute("style", "padding-left: 1.5rem; margin: 1rem 0;");
                         });
                         tempDiv.querySelectorAll("ol").forEach((ol) => {
-                          ol.setAttribute("style", "padding-left: 1.5rem; margin: 1rem 0;");
+                          if (!ol.getAttribute("style")) {
+                            ol.setAttribute("style", "padding-left: 1.5rem; margin: 1rem 0;");
+                          }
                         });
                         tempDiv.querySelectorAll("li:not([style])").forEach((li) => {
                           li.setAttribute("style", "margin: 0.5rem 0; color: #374151;");
