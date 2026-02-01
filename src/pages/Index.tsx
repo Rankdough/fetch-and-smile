@@ -1975,24 +1975,46 @@ const Index = () => {
                       </Label>
                     </div>
                     
-                    {/* Insert Image Button with Popover */}
+                    {/* Insert Image Button with Floating Picker */}
                     {articleImages.length > 0 && (
                       <Popover open={isImagePopoverOpen} onOpenChange={setIsImagePopoverOpen}>
                         <PopoverTrigger asChild>
-                          <Button variant="outline" size="sm" className="h-8">
+                          <Button 
+                            variant={isImagePopoverOpen ? "default" : "outline"} 
+                            size="sm" 
+                            className="h-8"
+                          >
                             <Image className="h-3.5 w-3.5 mr-1.5" />
-                            Insert Image
+                            Insert Image ({articleImages.length})
                           </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-80 p-3" align="end">
+                        <PopoverContent 
+                          className="w-80 p-3" 
+                          align="end"
+                          side="bottom"
+                          sideOffset={8}
+                          // Keep popover open while interacting with article
+                          onInteractOutside={(e) => {
+                            // Only close if clicking outside both the popover and the article area
+                            const target = e.target as HTMLElement;
+                            if (target.closest('article') || target.closest('[data-radix-popper-content-wrapper]')) {
+                              e.preventDefault();
+                            }
+                          }}
+                        >
                           <div className="space-y-3">
-                            <div className="text-sm font-medium">Select image to insert</div>
+                            <div className="flex items-center justify-between">
+                              <div className="text-sm font-medium">Click image to insert</div>
+                              <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">
+                                stays open
+                              </span>
+                            </div>
                             <p className="text-xs text-muted-foreground">
                               {cursorInsertPosition !== null 
-                                ? "Image will be inserted at your cursor position." 
-                                : "Click in the article first to set insertion point, or image will be added at the end."}
+                                ? "✓ Insertion point set - click an image to add it there." 
+                                : "Click in the article to set where images go, or they'll be added at the end."}
                             </p>
-                            <ScrollArea className="h-[200px]">
+                            <ScrollArea className="h-[240px]">
                               <div className="grid grid-cols-2 gap-2">
                                 {articleImages.map((image, index) => (
                                   <button
@@ -2006,7 +2028,8 @@ const Index = () => {
                                         const before = generatedContent.slice(0, cursorInsertPosition);
                                         const after = generatedContent.slice(cursorInsertPosition);
                                         setGeneratedContent(before + imageMarkdown + after);
-                                        setCursorInsertPosition(null); // Reset after insertion
+                                        // Move cursor position forward for next insert
+                                        setCursorInsertPosition(cursorInsertPosition + imageMarkdown.length);
                                         toast({
                                           title: "Image inserted!",
                                           description: `${image.name} added at cursor position`,
@@ -2019,7 +2042,7 @@ const Index = () => {
                                           description: `${image.name} added to end of article`,
                                         });
                                       }
-                                      setIsImagePopoverOpen(false);
+                                      // Keep popover open for adding more images
                                     }}
                                   >
                                     <div className="aspect-square w-full overflow-hidden rounded bg-background">
@@ -2037,6 +2060,16 @@ const Index = () => {
                                 ))}
                               </div>
                             </ScrollArea>
+                            <div className="flex gap-2 pt-1 border-t">
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                className="flex-1 h-7 text-xs"
+                                onClick={() => setIsImagePopoverOpen(false)}
+                              >
+                                Done
+                              </Button>
+                            </div>
                           </div>
                         </PopoverContent>
                       </Popover>
