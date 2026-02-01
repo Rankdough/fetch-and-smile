@@ -59,45 +59,51 @@ export const ArticleNavigationPanel = ({
             className={cn(
               "rounded-lg border bg-background transition-all",
               item.isHighlighted 
-                ? "border-primary/50" 
-                : "hover:border-muted-foreground/30"
+                ? "border-primary/30" 
+                : "border-border hover:border-muted-foreground/30"
             )}
           >
+            {/* Clickable header row */}
             <div 
-              className="flex items-start gap-3 p-3 cursor-pointer"
+              className="flex items-center gap-3 px-3 py-2.5 cursor-pointer"
               onClick={() => setExpandedItem(expandedItem === index ? null : index)}
             >
               <div className={cn(
-                "flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold mt-0.5",
+                "flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold",
                 item.isHighlighted 
                   ? "bg-primary text-primary-foreground" 
                   : "bg-primary/10 text-primary border border-primary/20"
               )}>
                 {item.number}
               </div>
-              <div className="flex-1 min-w-0">
-                <p className={cn(
-                  "text-sm font-semibold",
-                  item.isHighlighted && "text-primary"
-                )}>
-                  {item.title}
-                  {item.isHighlighted && (
-                    <Star className="inline-block ml-1.5 h-3 w-3 text-primary fill-primary" />
-                  )}
-                </p>
-                <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-                  {item.description}
-                </p>
-              </div>
+              <span className={cn(
+                "flex-1 text-sm font-semibold",
+                item.isHighlighted && "text-primary"
+              )}>
+                {item.title}
+                {item.isHighlighted && (
+                  <Star className="inline-block ml-1.5 h-3 w-3 text-primary fill-primary" />
+                )}
+              </span>
               <ChevronDown className={cn(
-                "h-4 w-4 flex-shrink-0 text-muted-foreground transition-transform mt-0.5",
+                "h-4 w-4 flex-shrink-0 text-muted-foreground transition-transform",
                 expandedItem === index && "rotate-180"
               )} />
             </div>
             
+            {/* Description - always visible */}
+            <div className="px-3 pb-2.5 pl-12">
+              <p className={cn(
+                "text-xs text-muted-foreground leading-relaxed",
+                expandedItem !== index && "line-clamp-2"
+              )}>
+                {item.description}
+              </p>
+            </div>
+            
             {/* Expanded: jump link */}
             {expandedItem === index && (
-              <div className="px-3 pb-3 pl-12">
+              <div className="px-3 pb-3 pl-12 pt-1">
                 <Button
                   variant="outline"
                   size="sm"
@@ -107,7 +113,7 @@ export const ArticleNavigationPanel = ({
                     handleJump(item.slug);
                   }}
                 >
-                  <ExternalLink className="h-3 w-3 mr-1" />
+                  <ExternalLink className="h-3 w-3 mr-1.5" />
                   Jump to section
                 </Button>
               </div>
