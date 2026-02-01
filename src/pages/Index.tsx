@@ -340,6 +340,10 @@ const Index = () => {
     const saved = localStorage.getItem("seo-generator-ctaUrl");
     return saved || "";
   });
+  const [ctaUrlHistory, setCtaUrlHistory] = useState<string[]>(() => {
+    const saved = localStorage.getItem("seo-generator-ctaUrlHistory");
+    return saved ? JSON.parse(saved) : [];
+  });
   
   const [selectedColorPalette, setSelectedColorPalette] = useState<ColorPalette | null>(() => {
     const saved = localStorage.getItem("seo-generator-colorPalette");
@@ -433,6 +437,10 @@ const Index = () => {
   useEffect(() => {
     localStorage.setItem("seo-generator-ctaUrl", ctaUrl);
   }, [ctaUrl]);
+  
+  useEffect(() => {
+    localStorage.setItem("seo-generator-ctaUrlHistory", JSON.stringify(ctaUrlHistory));
+  }, [ctaUrlHistory]);
   
   useEffect(() => {
     localStorage.setItem("seo-generator-useKnowledgeBase", JSON.stringify(useKnowledgeBase));
@@ -743,6 +751,14 @@ const Index = () => {
       if (data.ctas) {
         console.log("CTAs received from API:", data.ctas);
         setGeneratedCTAs(data.ctas);
+        
+        // Save CTA URL to history if used
+        if (ctaUrl.trim()) {
+          setCtaUrlHistory(prev => {
+            const filtered = prev.filter(u => u !== ctaUrl.trim());
+            return [ctaUrl.trim(), ...filtered].slice(0, 10);
+          });
+        }
       } else {
         console.log("No CTAs in response, generateCTAs was:", ctaUrl.trim().length > 0);
         setGeneratedCTAs(null);
@@ -1767,6 +1783,38 @@ const Index = () => {
                   value={ctaUrl}
                   onChange={(e) => setCtaUrl(e.target.value)}
                 />
+                
+                {/* Recent CTA URLs history */}
+                {ctaUrlHistory.length > 0 && (
+                  <div className="space-y-1.5">
+                    <p className="text-xs text-muted-foreground font-medium">Recent URLs:</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {ctaUrlHistory.slice(0, 3).map((url, idx) => {
+                        // Extract domain for display
+                        let displayUrl = url;
+                        try {
+                          const urlObj = new URL(url);
+                          displayUrl = urlObj.hostname.replace('www.', '') + urlObj.pathname.slice(0, 20);
+                          if (urlObj.pathname.length > 20) displayUrl += '...';
+                        } catch {
+                          displayUrl = url.slice(0, 35) + (url.length > 35 ? '...' : '');
+                        }
+                        return (
+                          <button
+                            key={idx}
+                            type="button"
+                            onClick={() => setCtaUrl(url)}
+                            className="text-xs px-2 py-1 rounded-md bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors truncate max-w-[180px]"
+                            title={url}
+                          >
+                            {displayUrl}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+                
                 {ctaUrl.trim() && (
                   <p className="text-xs text-primary">
                     ✓ Two CTA banners will be generated (middle + end of article)
