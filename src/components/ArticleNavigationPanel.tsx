@@ -31,7 +31,16 @@ export const ArticleNavigationPanel = ({
     }
     const element = document.getElementById(slug);
     if (element) {
-      element.scrollIntoView({ behavior: "smooth" });
+      // Find the scrollable container (CardContent with overflow-auto)
+      const scrollContainer = element.closest('.overflow-auto');
+      if (scrollContainer) {
+        const containerRect = scrollContainer.getBoundingClientRect();
+        const elementRect = element.getBoundingClientRect();
+        const offset = elementRect.top - containerRect.top + scrollContainer.scrollTop - 20;
+        scrollContainer.scrollTo({ top: offset, behavior: 'smooth' });
+      } else {
+        element.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
     }
   };
 
