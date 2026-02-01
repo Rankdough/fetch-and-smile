@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -31,6 +31,7 @@ import { UniqueAnglesPanel } from "@/components/UniqueAnglesPanel";
 import { QualityScoringPanel } from "@/components/QualityScoringPanel";
 import { Switch } from "@/components/ui/switch";
 import { ArticleNavigationPanel } from "@/components/ArticleNavigationPanel";
+import { useSpeechToText } from "@/hooks/useSpeechToText";
 
 const SAMPLE_CONTENT = `# Composite Bonding vs Veneers: Which Smile Transformation is Right for You?
 
@@ -284,6 +285,26 @@ const Index = () => {
     return saved ? JSON.parse(saved) : [];
   });
   const [isPreviewFullscreen, setIsPreviewFullscreen] = useState(false);
+
+  // Voice input for Value Promise
+  const {
+    isListening: isListeningValuePromise,
+    isSupported: isVoiceSupported,
+    toggleListening: toggleValuePromiseListening,
+  } = useSpeechToText({
+    onResult: useCallback((transcript: string) => {
+      setValuePromise((prev) => prev ? `${prev} ${transcript}` : transcript);
+    }, []),
+    onError: useCallback((error: string) => {
+      toast({
+        title: "Voice input error",
+        description: error === "not-allowed" 
+          ? "Microphone access was denied. Please enable it in your browser settings."
+          : `Speech recognition error: ${error}`,
+        variant: "destructive",
+      });
+    }, [toast]),
+  });
 
   // Persist form data to localStorage
   useEffect(() => {
@@ -685,13 +706,35 @@ const Index = () => {
                 <p className="text-xs text-muted-foreground">
                   What will the reader be able to DO or DECIDE after reading this?
                 </p>
-                <Textarea
-                  id="value-promise"
-                  placeholder="e.g., Choose between composite bonding and veneers based on their budget, timeline, and aesthetic goals"
-                  className="min-h-[60px] resize-none"
-                  value={valuePromise}
-                  onChange={(e) => setValuePromise(e.target.value)}
-                />
+                <div className="relative">
+                  <Textarea
+                    id="value-promise"
+                    placeholder="e.g., Choose between composite bonding and veneers based on their budget, timeline, and aesthetic goals"
+                    className="min-h-[60px] resize-none pr-12"
+                    value={valuePromise}
+                    onChange={(e) => setValuePromise(e.target.value)}
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className={`absolute right-1 bottom-1 h-8 w-8 ${
+                      isListeningValuePromise 
+                        ? "text-destructive bg-destructive/10 animate-pulse" 
+                        : "text-muted-foreground hover:text-primary"
+                    }`}
+                    onClick={toggleValuePromiseListening}
+                    title={isListeningValuePromise ? "Stop recording" : "Record voice input"}
+                    disabled={!isVoiceSupported}
+                  >
+                    <Mic2 className="h-4 w-4" />
+                  </Button>
+                </div>
+                {isListeningValuePromise && (
+                  <p className="text-xs text-destructive animate-pulse">
+                    🎙️ Listening... speak now
+                  </p>
+                )}
               </div>
 
               {/* Competitor URLs Section */}
