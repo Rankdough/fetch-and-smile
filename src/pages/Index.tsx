@@ -1179,7 +1179,7 @@ const Index = () => {
                 </Label>
                 <Textarea
                   id="instructions"
-                  placeholder="e.g., Use a professional tone, include statistics, add a TL;DR section..."
+                  placeholder="e.g., CTA should promote property in Bali, use casual British tone, include statistics..."
                   className="min-h-[60px] resize-none"
                   value={formData.instructions}
                   onChange={(e) =>
