@@ -271,9 +271,35 @@ const Index = () => {
     return saved ? cleanContent(saved) : "";
   });
   
+  // Store the original generated content for reset functionality
+  const [originalContent, setOriginalContent] = useState(() => {
+    const saved = localStorage.getItem("seo-generator-originalContent");
+    return saved || "";
+  });
+  
+  // Track if content has been modified since generation
+  const hasContentChanges = generatedContent !== originalContent && originalContent.length > 0;
+  
   // Wrapper that auto-cleans content before setting
-  const setGeneratedContent = (content: string) => {
-    setGeneratedContentRaw(cleanContent(content));
+  const setGeneratedContent = (content: string, isNewGeneration = false) => {
+    const cleaned = cleanContent(content);
+    setGeneratedContentRaw(cleaned);
+    // If this is a new generation (not an edit), save as original
+    if (isNewGeneration) {
+      setOriginalContent(cleaned);
+      localStorage.setItem("seo-generator-originalContent", cleaned);
+    }
+  };
+  
+  // Reset to original content
+  const handleResetContent = () => {
+    if (originalContent) {
+      setGeneratedContentRaw(cleanContent(originalContent));
+      toast({
+        title: "Content reset",
+        description: "Restored to the original generated version.",
+      });
+    }
   };
   const [appliedRules, setAppliedRules] = useState<{
     gapAnalysisUsed: boolean;
@@ -747,7 +773,7 @@ const Index = () => {
 
       if (error) throw error;
 
-      setGeneratedContent(data.content);
+      setGeneratedContent(data.content, true); // true = new generation, save as original
       setAppliedRules(data.appliedRules || null);
       if (data.ctas) {
         console.log("CTAs received from API:", data.ctas);
@@ -797,7 +823,8 @@ const Index = () => {
     setKeywordInput("");
     setCtaUrl("");
     setGeneratedCTAs(null);
-    setGeneratedContent("");
+    setGeneratedContent("", true);
+    setOriginalContent("");
     setAppliedRules(null);
     setSelectedToneProfileId(null);
     setValuePromise("");
@@ -821,6 +848,7 @@ const Index = () => {
     localStorage.removeItem("seo-generator-generatedContent");
     localStorage.removeItem("seo-generator-appliedRules");
     localStorage.removeItem("seo-generator-generatedCTAs");
+    localStorage.removeItem("seo-generator-originalContent");
     
     toast({
       title: "Form cleared",
@@ -1027,7 +1055,7 @@ const Index = () => {
             <div className="h-6 w-px bg-border" />
 
             {/* Import/Export */}
-            <HtmlImportDialog onImport={setGeneratedContent} />
+            <HtmlImportDialog onImport={(content) => setGeneratedContent(content, true)} />
             
             <Button
               variant="outline"
@@ -1257,7 +1285,7 @@ const Index = () => {
                       },
                     });
                     if (error) throw error;
-                    setGeneratedContent(data.content);
+                    setGeneratedContent(data.content, true);
                     setAppliedRules(data.appliedRules || null);
                     if (data.ctas) {
                       setGeneratedCTAs(data.ctas);
@@ -1278,7 +1306,7 @@ const Index = () => {
                   }
                 } else {
                   // No tone profile - load static sample
-                  setGeneratedContent(SAMPLE_CONTENT);
+                  setGeneratedContent(SAMPLE_CONTENT, true);
                   if (ctaUrl.trim()) {
                     setGeneratedCTAs({
                       middle: {
@@ -1316,6 +1344,20 @@ const Index = () => {
                 </>
               )}
             </Button>
+
+            {/* Reset Content button - only show if content has been modified */}
+            {hasContentChanges && (
+              <Button
+                variant="outline"
+                onClick={handleResetContent}
+                disabled={isGenerating}
+                className="text-amber-600 border-amber-300 hover:bg-amber-50 hover:text-amber-700"
+                title="Restore to the original generated version"
+              >
+                <RotateCcw className="h-4 w-4 mr-2" />
+                Reset Content
+              </Button>
+            )}
 
             <Button
               variant="outline"
