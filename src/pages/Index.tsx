@@ -1373,22 +1373,21 @@ const Index = () => {
 
           {/* Right Panel - Output */}
           <Card className={`flex flex-col ${isPreviewFullscreen ? "max-w-4xl mx-auto" : ""}`}>
-            <CardHeader className="pb-4 flex flex-row items-center justify-between">
-              <CardTitle className="text-lg flex items-center gap-2">
-                {isPreviewFullscreen && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setIsPreviewFullscreen(false)}
-                    className="h-8 w-8 p-0"
-                  >
-                    <Minimize2 className="h-4 w-4" />
-                  </Button>
-                )}
-                Generated Content
-              </CardTitle>
-              <div className="flex flex-wrap gap-2">
-                <HtmlImportDialog onImport={setGeneratedContent} />
+            <CardHeader className="pb-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  {isPreviewFullscreen && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setIsPreviewFullscreen(false)}
+                      className="h-8 w-8 p-0"
+                    >
+                      <Minimize2 className="h-4 w-4" />
+                    </Button>
+                  )}
+                  Generated Content
+                </CardTitle>
                 <Button
                   variant="outline"
                   size="sm"
@@ -1401,6 +1400,9 @@ const Index = () => {
                     <Maximize2 className="h-4 w-4" />
                   )}
                 </Button>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <HtmlImportDialog onImport={setGeneratedContent} />
                 {generatedContent && (
                   <Button
                     variant="outline"
