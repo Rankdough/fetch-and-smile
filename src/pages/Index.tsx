@@ -302,6 +302,14 @@ const Index = () => {
     return saved || "";
   });
   const [generatedCTAs, setGeneratedCTAs] = useState<{ middle: { headline: string; description: string; buttonText: string }; end: { headline: string; description: string; buttonText: string } } | null>(null);
+  const [brandColors, setBrandColors] = useState<{
+    primary: string;
+    secondary: string;
+    accent: string;
+    background: string;
+    text: string;
+  } | null>(null);
+  const [isExtractingColors, setIsExtractingColors] = useState(false);
   const [useKnowledgeBase, setUseKnowledgeBase] = useState(() => {
     const saved = localStorage.getItem("seo-generator-useKnowledgeBase");
     return saved !== null ? JSON.parse(saved) : true;
@@ -393,6 +401,47 @@ const Index = () => {
   useEffect(() => {
     localStorage.setItem("seo-generator-selectedAngles", JSON.stringify(selectedAngles));
   }, [selectedAngles]);
+
+  // Extract brand colors from CTA URL
+  useEffect(() => {
+    const extractBrandColors = async () => {
+      if (!ctaUrl.trim()) {
+        setBrandColors(null);
+        return;
+      }
+      
+      setIsExtractingColors(true);
+      try {
+        const { data, error } = await supabase.functions.invoke("extract-brand-colors", {
+          body: { url: ctaUrl },
+        });
+        
+        if (error) {
+          console.error("Failed to extract brand colors:", error);
+          setBrandColors(null);
+          return;
+        }
+        
+        if (data?.colors) {
+          console.log("Extracted brand colors:", data.colors);
+          setBrandColors(data.colors);
+          toast({
+            title: "Brand colors extracted",
+            description: `Applied color scheme from ${new URL(ctaUrl.startsWith('http') ? ctaUrl : 'https://' + ctaUrl).hostname}`,
+          });
+        }
+      } catch (error) {
+        console.error("Error extracting brand colors:", error);
+        setBrandColors(null);
+      } finally {
+        setIsExtractingColors(false);
+      }
+    };
+    
+    // Debounce the extraction
+    const timeout = setTimeout(extractBrandColors, 1000);
+    return () => clearTimeout(timeout);
+  }, [ctaUrl, toast]);
 
   // Checklist items computation
   const checklistItems = useMemo(() => {
@@ -1219,9 +1268,36 @@ const Index = () => {
                   onChange={(e) => setCtaUrl(e.target.value)}
                 />
                 {ctaUrl.trim() && (
-                  <p className="text-xs text-primary">
-                    ✓ Two CTA banners will be generated (middle + end of article)
-                  </p>
+                  <div className="space-y-1">
+                    <p className="text-xs text-primary">
+                      ✓ Two CTA banners will be generated (middle + end of article)
+                    </p>
+                    {isExtractingColors ? (
+                      <p className="text-xs text-muted-foreground flex items-center gap-1">
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        Extracting brand colors...
+                      </p>
+                    ) : brandColors ? (
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <span>Brand colors applied:</span>
+                        <div 
+                          className="w-4 h-4 rounded-full border" 
+                          style={{ background: brandColors.primary }}
+                          title={`Primary: ${brandColors.primary}`}
+                        />
+                        <div 
+                          className="w-4 h-4 rounded-full border" 
+                          style={{ background: brandColors.secondary }}
+                          title={`Secondary: ${brandColors.secondary}`}
+                        />
+                        <div 
+                          className="w-4 h-4 rounded-full border" 
+                          style={{ background: brandColors.accent }}
+                          title={`Accent: ${brandColors.accent}`}
+                        />
+                      </div>
+                    ) : null}
+                  </div>
                 )}
               </div>
 
@@ -1301,6 +1377,13 @@ const Index = () => {
                       if (articleElement) {
                         tempDiv.innerHTML = articleElement.innerHTML;
                         
+                        // Get brand colors for export
+                        const navPrimary = brandColors?.primary || "#7c3aed";
+                        const navBg = brandColors?.primary 
+                          ? `linear-gradient(135deg, ${brandColors.primary}20 0%, ${brandColors.secondary || brandColors.primary}15 100%)`
+                          : "linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%)";
+                        const navBorder = brandColors?.primary || "#a78bfa";
+                        
                         // Convert ArticleNavigationPanel to collapsible HTML using <details>/<summary>
                         const navPanels = tempDiv.querySelectorAll('[class*="rounded-lg border bg-muted"]');
                         navPanels.forEach((panel) => {
@@ -1310,10 +1393,10 @@ const Index = () => {
                             const items = panel.querySelectorAll('[class*="rounded-md border"]');
                             const itemCount = items.length;
                             let tocHtml = `
-<div style="background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%); border: 2px solid #a78bfa; border-radius: 12px; padding: 24px; margin: 24px 0;">
+<div style="background: ${navBg}; border: 2px solid ${navBorder}; border-radius: 12px; padding: 24px; margin: 24px 0;">
   <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
-    <h3 style="display: flex; align-items: center; gap: 8px; margin: 0; font-size: 1.1rem; color: #5b21b6;">
-      <span style="display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: #7c3aed; color: white; font-size: 12px; font-weight: bold;">#</span>
+    <h3 style="display: flex; align-items: center; gap: 8px; margin: 0; font-size: 1.1rem; color: #333;">
+      <span style="display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: ${navPrimary}; color: white; font-size: 12px; font-weight: bold;">#</span>
       In This Article
     </h3>
     <span style="font-size: 0.75rem; color: #6b7280;">${itemCount} sections</span>
@@ -1330,15 +1413,15 @@ const Index = () => {
                               const description = descEl?.textContent?.trim() || `Learn about ${title.toLowerCase()} in this section.`;
                               
                               tocHtml += `
-  <details style="background: ${isFirst ? '#7c3aed' : 'white'}; border: 1px solid ${isFirst ? '#7c3aed' : '#e5e7eb'}; border-radius: 8px; margin-bottom: 8px; overflow: hidden;"${isFirst ? ' open' : ''}>
+  <details style="background: ${isFirst ? navPrimary : 'white'}; border: 1px solid ${isFirst ? navPrimary : '#e5e7eb'}; border-radius: 8px; margin-bottom: 8px; overflow: hidden;"${isFirst ? ' open' : ''}>
     <summary style="display: flex; align-items: center; gap: 12px; padding: 12px 16px; cursor: pointer; list-style: none; font-weight: 600; font-size: 0.95rem; color: ${isFirst ? 'white' : '#1f2937'};">
-      <span style="display: inline-flex; align-items: center; justify-content: center; min-width: 24px; height: 24px; border-radius: 50%; background: ${isFirst ? 'rgba(255,255,255,0.2)' : '#ede9fe'}; color: ${isFirst ? 'white' : '#7c3aed'}; font-size: 11px; font-weight: bold; flex-shrink: 0;">${idx + 1}</span>
+      <span style="display: inline-flex; align-items: center; justify-content: center; min-width: 24px; height: 24px; border-radius: 50%; background: ${isFirst ? 'rgba(255,255,255,0.2)' : navPrimary + '20'}; color: ${isFirst ? 'white' : navPrimary}; font-size: 11px; font-weight: bold; flex-shrink: 0;">${idx + 1}</span>
       <span style="flex: 1;">${title}${isFirst ? ' ★' : ''}</span>
-      <svg style="width: 16px; height: 16px; color: ${isFirst ? 'rgba(255,255,255,0.7)' : '#7c3aed'}; flex-shrink: 0; transition: transform 0.2s;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+      <svg style="width: 16px; height: 16px; color: ${isFirst ? 'rgba(255,255,255,0.7)' : navPrimary}; flex-shrink: 0; transition: transform 0.2s;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
     </summary>
     <div style="padding: 0 16px 16px 52px; color: ${isFirst ? 'rgba(255,255,255,0.85)' : '#6b7280'}; font-size: 0.9rem; line-height: 1.6;">
       <p style="margin: 0 0 12px 0;">${description}</p>
-      <a href="#${slug}" style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; background: ${isFirst ? 'rgba(255,255,255,0.2)' : '#f3f4f6'}; border-radius: 6px; font-size: 0.8rem; font-weight: 500; color: ${isFirst ? 'white' : '#7c3aed'}; text-decoration: none;">
+      <a href="#${slug}" style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; background: ${isFirst ? 'rgba(255,255,255,0.2)' : '#f3f4f6'}; border-radius: 6px; font-size: 0.8rem; font-weight: 500; color: ${isFirst ? 'white' : navPrimary}; text-decoration: none;">
         <svg style="width: 12px; height: 12px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
         Jump to section
       </a>
@@ -1409,15 +1492,21 @@ const Index = () => {
                           }
                         });
                         
-                        // Style TL;DR section with purple background
+                        // Get brand colors for export (fallback to default purple)
+                        const exportPrimary = brandColors?.primary || "#7c3aed";
+                        const exportSecondary = brandColors?.secondary || "#a855f7";
+                        const exportAccent = brandColors?.accent || "#e04060";
+                        const exportGradient = `linear-gradient(135deg, ${exportPrimary} 0%, ${exportSecondary} 100%)`;
+                        
+                        // Style TL;DR section with brand colors
                         tempDiv.querySelectorAll("h2").forEach((h2) => {
                           const text = h2.textContent?.toLowerCase() || "";
                           if (text.includes("tl;dr") || text.includes("tldr")) {
-                            h2.setAttribute("style", "background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%); color: white; padding: 1rem 1.5rem; border-radius: 8px 8px 0 0; margin-bottom: 0; font-size: 1.25rem;");
+                            h2.setAttribute("style", `background: ${exportGradient}; color: white; padding: 1rem 1.5rem; border-radius: 8px 8px 0 0; margin-bottom: 0; font-size: 1.25rem;`);
                             // Style the following ul if exists
                             const nextEl = h2.nextElementSibling;
                             if (nextEl && nextEl.tagName === "UL") {
-                              nextEl.setAttribute("style", "background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%); color: white; padding: 1rem 1.5rem 1.5rem 2.5rem; border-radius: 0 0 8px 8px; margin-top: 0; list-style-type: disc;");
+                              nextEl.setAttribute("style", `background: ${exportGradient}; color: white; padding: 1rem 1.5rem 1.5rem 2.5rem; border-radius: 0 0 8px 8px; margin-top: 0; list-style-type: disc;`);
                               nextEl.querySelectorAll("li").forEach((li) => {
                                 li.setAttribute("style", "margin: 0.5rem 0; color: white;");
                               });
@@ -1431,11 +1520,11 @@ const Index = () => {
                           }
                         });
                         
-                        // Style tables with purple headers
+                        // Style tables with brand color headers
                         tempDiv.querySelectorAll("table").forEach((table) => {
                           table.setAttribute("style", "width: 100%; border-collapse: collapse; margin: 1.5rem 0; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1);");
                           table.querySelectorAll("th").forEach((th) => {
-                            th.setAttribute("style", "background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%); color: white; padding: 0.875rem 1rem; text-align: left; font-weight: 600; border: none;");
+                            th.setAttribute("style", `background: ${exportGradient}; color: white; padding: 0.875rem 1rem; text-align: left; font-weight: 600; border: none;`);
                           });
                           table.querySelectorAll("td").forEach((td) => {
                             td.setAttribute("style", "padding: 0.875rem 1rem; border-bottom: 1px solid #e5e7eb; color: #374151;");
@@ -1476,12 +1565,19 @@ const Index = () => {
                           hr.remove();
                         });
                         
-                        // Style CTA banners for export using data attributes
+                        // Style CTA banners for export using data attributes and brand colors
+                        const ctaBgGradient = brandColors?.primary 
+                          ? `linear-gradient(135deg, ${brandColors.primary} 0%, ${brandColors.secondary || brandColors.primary} 100%)`
+                          : "linear-gradient(135deg, #4a2875 0%, #5a2070 100%)";
+                        const ctaButtonGradient = brandColors?.accent 
+                          ? `linear-gradient(135deg, ${brandColors.accent} 0%, ${brandColors.accent} 100%)`
+                          : "linear-gradient(135deg, #e04060 0%, #c04080 100%)";
+                        
                         tempDiv.querySelectorAll('[data-cta-banner="true"]').forEach((cta) => {
-                          cta.setAttribute("style", "background: linear-gradient(135deg, #4a2875 0%, #5a2070 100%); border-radius: 12px; padding: 32px; text-align: center; margin: 32px 0; font-family: inherit;");
+                          cta.setAttribute("style", `background: ${ctaBgGradient}; border-radius: 12px; padding: 32px; text-align: center; margin: 32px 0; font-family: inherit;`);
                           const headline = cta.querySelector('[data-cta-headline="true"]');
                           if (headline) {
-                            headline.setAttribute("style", "font-size: 1.25em; font-weight: 700; letter-spacing: 0.025em; margin-bottom: 8px; color: #d8a8e8; font-family: inherit;");
+                            headline.setAttribute("style", "font-size: 1.25em; font-weight: 700; letter-spacing: 0.025em; margin-bottom: 8px; color: #e0e0e0; font-family: inherit;");
                           }
                           const description = cta.querySelector('[data-cta-description="true"]');
                           if (description) {
@@ -1489,7 +1585,7 @@ const Index = () => {
                           }
                           const button = cta.querySelector('[data-cta-button="true"]');
                           if (button) {
-                            button.setAttribute("style", "display: inline-block; background: linear-gradient(135deg, #e04060 0%, #c04080 100%); color: white; font-weight: 600; padding: 12px 32px; border-radius: 9999px; text-decoration: none; font-family: inherit;");
+                            button.setAttribute("style", `display: inline-block; background: ${ctaButtonGradient}; color: white; font-weight: 600; padding: 12px 32px; border-radius: 9999px; text-decoration: none; font-family: inherit;`);
                           }
                         });
                         
@@ -1682,7 +1778,13 @@ ${tempDiv.innerHTML}
                       }}
                       style={{ 
                         outline: 'none',
-                        cursor: isEditMode ? 'text' : 'default'
+                        cursor: isEditMode ? 'text' : 'default',
+                        // Apply brand colors via CSS custom properties
+                        ...(brandColors ? {
+                          '--brand-primary': brandColors.primary,
+                          '--brand-secondary': brandColors.secondary,
+                          '--brand-accent': brandColors.accent,
+                        } as React.CSSProperties : {})
                       }}
                     >
                       {(() => {
@@ -1778,6 +1880,7 @@ ${tempDiv.innerHTML}
                                     description={generatedCTAs.middle.description}
                                     buttonText={generatedCTAs.middle.buttonText}
                                     url={ctaUrl}
+                                    brandColors={brandColors}
                                   />
                                 ) : part.content ? (
                                   <ReactMarkdown 
@@ -1818,6 +1921,7 @@ ${tempDiv.innerHTML}
                                 description={generatedCTAs.end.description}
                                 buttonText={generatedCTAs.end.buttonText}
                                 url={ctaUrl}
+                                brandColors={brandColors}
                               />
                             )}
                           </>
