@@ -44,6 +44,7 @@ import { useSpeechToText } from "@/hooks/useSpeechToText";
 import { SectionIndicator } from "@/components/SectionIndicator";
 import { ArticleImagesPanel, ArticleImage } from "@/components/ArticleImagesPanel";
 import { HtmlImportDialog } from "@/components/HtmlImportDialog";
+import { CollapsibleSection } from "@/components/CollapsibleSection";
 
 const SAMPLE_CONTENT = `# Composite Bonding vs Veneers: Which Smile Transformation is Right for You?
 
@@ -1253,11 +1254,13 @@ const Index = () => {
             </CardHeader>
             <CardContent className="flex-1 flex flex-col gap-6 overflow-auto">
               {/* Section 1: Topic */}
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <SectionIndicator number={1} isComplete={!!formData.topic.trim()} />
-                  <Label htmlFor="topic" className="text-base font-medium">What is the topic of your post?</Label>
-                </div>
+              <CollapsibleSection
+                number={1}
+                title="What is the topic of your post?"
+                isComplete={!!formData.topic.trim()}
+                summary={formData.topic}
+                defaultOpen={!formData.topic.trim()}
+              >
                 <Input
                   id="topic"
                   placeholder="e.g., Best practices for React performance optimization"
@@ -1267,20 +1270,19 @@ const Index = () => {
                   }
                   className="bg-input border-2 border-input-border"
                 />
-              </div>
-
-              <Separator />
+              </CollapsibleSection>
 
               {/* Section 2: Value Promise - Required */}
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <SectionIndicator number={2} isComplete={!!valuePromise.trim()} />
-                  <Label htmlFor="value-promise" className="flex items-center gap-2 text-base font-medium">
-                    <Target className="h-4 w-4 text-primary" />
-                    Value Promise <span className="text-xs text-destructive">*Required</span>
-                  </Label>
-                </div>
-                <p className="text-xs text-muted-foreground ml-8">
+              <CollapsibleSection
+                number={2}
+                title="Value Promise"
+                isComplete={!!valuePromise.trim()}
+                summary={valuePromise}
+                icon={<Target className="h-4 w-4 text-primary" />}
+                required
+                defaultOpen={!valuePromise.trim()}
+              >
+                <p className="text-xs text-muted-foreground">
                   What will the reader be able to DO or DECIDE after reading this?
                 </p>
                 <div className="relative">
@@ -1312,300 +1314,239 @@ const Index = () => {
                     🎙️ Listening... speak now
                   </p>
                 )}
-              </div>
-
-              <Separator />
+              </CollapsibleSection>
 
               {/* Section 3: Competitor URLs Section */}
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <SectionIndicator number={3} isComplete={competitorUrls.some(u => u.trim()) || !!gapAnalysis.trim()} />
-                  <span className="text-base font-medium">Competitor Analysis (Optional)</span>
-                </div>
-              <Collapsible className="space-y-2 ml-8">
-                <CollapsibleTrigger asChild>
-                  <Button variant="outline" className="w-full justify-between bg-input border-2 border-input-border">
-                    <span className="flex items-center gap-2">
-                      <Search className="h-4 w-4" />
-                      Click to expand
-                    </span>
-                  </Button>
-                </CollapsibleTrigger>
-                <CollapsibleContent className="space-y-3 pt-2">
-                  <p className="text-sm text-muted-foreground">
-                    Add up to 3 top-ranking article URLs for gap analysis
-                  </p>
-                  {competitorUrls.map((url, index) => (
-                    <div key={index} className="flex gap-2">
-                      <Input
-                        placeholder={`Competitor URL ${index + 1}`}
-                        value={url}
-                        onChange={(e) => {
+              <CollapsibleSection
+                number={3}
+                title="Competitor Analysis (Optional)"
+                isComplete={competitorUrls.some(u => u.trim()) || !!gapAnalysis.trim()}
+                summary={gapAnalysis ? "Gap analysis complete" : competitorUrls.filter(u => u.trim()).length + " URL(s) added"}
+                icon={<Search className="h-4 w-4" />}
+              >
+                <p className="text-sm text-muted-foreground">
+                  Add up to 3 top-ranking article URLs for gap analysis
+                </p>
+                {competitorUrls.map((url, index) => (
+                  <div key={index} className="flex gap-2">
+                    <Input
+                      placeholder={`Competitor URL ${index + 1}`}
+                      value={url}
+                      onChange={(e) => {
+                        const newUrls = [...competitorUrls];
+                        newUrls[index] = e.target.value;
+                        setCompetitorUrls(newUrls);
+                      }}
+                    />
+                    {url && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => {
                           const newUrls = [...competitorUrls];
-                          newUrls[index] = e.target.value;
+                          newUrls[index] = "";
                           setCompetitorUrls(newUrls);
                         }}
-                      />
-                      {url && (
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                ))}
+                <Button
+                  variant="secondary"
+                  className="w-full"
+                  onClick={handleAnalyzeUrls}
+                  disabled={isAnalyzing || !competitorUrls.some((u) => u.trim())}
+                >
+                  {isAnalyzing ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Analyzing...
+                    </>
+                  ) : (
+                    <>
+                      <Search className="mr-2 h-4 w-4" />
+                      Run Gap Analysis
+                    </>
+                  )}
+                </Button>
+                {gapAnalysis && (
+                  <div className="rounded-md bg-muted p-3 text-sm">
+                    <p className="font-medium mb-2">Gap Analysis Results:</p>
+                    <div className="prose prose-sm dark:prose-invert max-w-none">
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{gapAnalysis}</ReactMarkdown>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Unique Angles Panel */}
+                <UniqueAnglesPanel
+                  topic={formData.topic}
+                  gapAnalysis={gapAnalysis}
+                  selectedAngles={selectedAngles}
+                  onAnglesChange={setSelectedAngles}
+                />
+              </CollapsibleSection>
+
+
+              {/* Section 4: Format Reference URL */}
+              <CollapsibleSection
+                number={4}
+                title="Format Reference (Optional)"
+                isComplete={!!formatUrl.trim() || !!formatReference.trim()}
+                summary={formatReference ? "Format captured" : formatUrl}
+                icon={<Link className="h-4 w-4" />}
+              >
+                <p className="text-sm text-muted-foreground">
+                  Match the format/structure of an existing article
+                </p>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Enter URL to use as format reference"
+                    value={formatUrl}
+                    onChange={(e) => setFormatUrl(e.target.value)}
+                    className="bg-input border-2 border-input-border"
+                  />
+                  <Button
+                    variant="secondary"
+                    onClick={handleFetchFormat}
+                    disabled={!formatUrl.trim()}
+                  >
+                    Capture
+                  </Button>
+                </div>
+                
+                {/* Recent URLs history - always show section */}
+                <div className="space-y-1.5">
+                  <p className="text-xs text-muted-foreground font-medium">Recent captures:</p>
+                  {formatUrlHistory.length > 0 ? (
+                    <div className="flex flex-wrap gap-1.5">
+                      {formatUrlHistory.slice(0, 3).map((url, idx) => {
+                        // Extract domain for display
+                        let displayUrl = url;
+                        try {
+                          const urlObj = new URL(url);
+                          displayUrl = urlObj.hostname.replace('www.', '') + urlObj.pathname.slice(0, 30);
+                          if (urlObj.pathname.length > 30) displayUrl += '...';
+                        } catch {
+                          displayUrl = url.slice(0, 40) + (url.length > 40 ? '...' : '');
+                        }
+                        return (
+                          <button
+                            key={idx}
+                            type="button"
+                            onClick={() => setFormatUrl(url)}
+                            className="text-xs px-2 py-1 rounded-md bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors truncate max-w-[200px]"
+                            title={url}
+                          >
+                            {displayUrl}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted-foreground/60 italic">No recent captures yet - capture a URL to save it here</p>
+                  )}
+                </div>
+                
+                {formatReference && (
+                  <div className="rounded-md bg-muted p-3 text-sm text-muted-foreground">
+                    ✓ Format captured - will be used during generation
+                  </div>
+                )}
+              </CollapsibleSection>
+
+              {/* Section 5: Context Files Upload */}
+              <CollapsibleSection
+                number={5}
+                title="Context Files (Optional)"
+                isComplete={contextFiles.length > 0}
+                summary={contextFiles.length > 0 ? `${contextFiles.length} file(s) uploaded` : undefined}
+                icon={<Upload className="h-4 w-4" />}
+              >
+                <p className="text-sm text-muted-foreground">
+                  Upload text/markdown files with brand voice, research, or reference material
+                </p>
+                <div className="flex gap-2">
+                  <Input
+                    type="file"
+                    accept=".txt,.md,.json"
+                    multiple
+                    onChange={handleFileUpload}
+                    disabled={isUploadingFile}
+                    className="cursor-pointer"
+                  />
+                </div>
+                {isUploadingFile && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Uploading...
+                  </div>
+                )}
+                {contextFiles.length > 0 && (
+                  <div className="space-y-2">
+                    {contextFiles.map((file, index) => (
+                      <div
+                        key={index}
+                        className="flex items-center justify-between rounded-md bg-muted p-2 text-sm"
+                      >
+                        <span className="truncate">{file.name}</span>
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => {
-                            const newUrls = [...competitorUrls];
-                            newUrls[index] = "";
-                            setCompetitorUrls(newUrls);
-                          }}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </div>
-                  ))}
-                  <Button
-                    variant="secondary"
-                    className="w-full"
-                    onClick={handleAnalyzeUrls}
-                    disabled={isAnalyzing || !competitorUrls.some((u) => u.trim())}
-                  >
-                    {isAnalyzing ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Analyzing...
-                      </>
-                    ) : (
-                      <>
-                        <Search className="mr-2 h-4 w-4" />
-                        Run Gap Analysis
-                      </>
-                    )}
-                  </Button>
-                  {gapAnalysis && (
-                    <div className="rounded-md bg-muted p-3 text-sm">
-                      <p className="font-medium mb-2">Gap Analysis Results:</p>
-                      <div className="prose prose-sm dark:prose-invert max-w-none">
-                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{gapAnalysis}</ReactMarkdown>
-                      </div>
-                    </div>
-                  )}
-                  
-                  {/* Unique Angles Panel */}
-                  <UniqueAnglesPanel
-                    topic={formData.topic}
-                    gapAnalysis={gapAnalysis}
-                    selectedAngles={selectedAngles}
-                    onAnglesChange={setSelectedAngles}
-                  />
-                </CollapsibleContent>
-              </Collapsible>
-              </div>
-
-              <Separator />
-
-              {/* Section 4: Format Reference URL */}
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <SectionIndicator number={4} isComplete={!!formatUrl.trim() || !!formatReference.trim()} />
-                  <span className="text-base font-medium">Format Reference (Optional)</span>
-                </div>
-              <Collapsible className="space-y-2 ml-8">
-                <CollapsibleTrigger asChild>
-                  <Button variant="outline" className="w-full justify-between bg-input border-2 border-input-border">
-                    <span className="flex items-center gap-2">
-                      <Link className="h-4 w-4" />
-                      Click to expand
-                    </span>
-                  </Button>
-                </CollapsibleTrigger>
-                <CollapsibleContent className="space-y-3 pt-2">
-                  <p className="text-sm text-muted-foreground">
-                    Match the format/structure of an existing article
-                  </p>
-                  <div className="flex gap-2">
-                    <Input
-                      placeholder="Enter URL to use as format reference"
-                      value={formatUrl}
-                      onChange={(e) => setFormatUrl(e.target.value)}
-                      className="bg-input border-2 border-input-border"
-                    />
-                    <Button
-                      variant="secondary"
-                      onClick={handleFetchFormat}
-                      disabled={!formatUrl.trim()}
-                    >
-                      Capture
-                    </Button>
-                  </div>
-                  
-                  {/* Recent URLs history - always show section */}
-                  <div className="space-y-1.5">
-                    <p className="text-xs text-muted-foreground font-medium">Recent captures:</p>
-                    {formatUrlHistory.length > 0 ? (
-                      <div className="flex flex-wrap gap-1.5">
-                        {formatUrlHistory.slice(0, 3).map((url, idx) => {
-                          // Extract domain for display
-                          let displayUrl = url;
-                          try {
-                            const urlObj = new URL(url);
-                            displayUrl = urlObj.hostname.replace('www.', '') + urlObj.pathname.slice(0, 30);
-                            if (urlObj.pathname.length > 30) displayUrl += '...';
-                          } catch {
-                            displayUrl = url.slice(0, 40) + (url.length > 40 ? '...' : '');
+                          className="h-6 w-6"
+                          onClick={() =>
+                            setContextFiles((prev) =>
+                              prev.filter((_, i) => i !== index)
+                            )
                           }
-                          return (
-                            <button
-                              key={idx}
-                              type="button"
-                              onClick={() => setFormatUrl(url)}
-                              className="text-xs px-2 py-1 rounded-md bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors truncate max-w-[200px]"
-                              title={url}
-                            >
-                              {displayUrl}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <p className="text-xs text-muted-foreground/60 italic">No recent captures yet - capture a URL to save it here</p>
-                    )}
-                  </div>
-                  
-                  {formatReference && (
-                    <div className="rounded-md bg-muted p-3 text-sm text-muted-foreground">
-                      ✓ Format captured - will be used during generation
-                    </div>
-                  )}
-                </CollapsibleContent>
-              </Collapsible>
-              </div>
-
-              <Separator />
-
-              {/* Section 5: Context Files Upload */}
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <SectionIndicator number={5} isComplete={contextFiles.length > 0} />
-                  <span className="text-base font-medium">Context Files (Optional)</span>
-                </div>
-              <Collapsible className="space-y-2 ml-8">
-                <CollapsibleTrigger asChild>
-                  <Button variant="outline" className="w-full justify-between bg-input border-2 border-input-border">
-                    <span className="flex items-center gap-2">
-                      <Upload className="h-4 w-4" />
-                      Click to expand
-                    </span>
-                  </Button>
-                </CollapsibleTrigger>
-                <CollapsibleContent className="space-y-3 pt-2">
-                  <p className="text-sm text-muted-foreground">
-                    Upload text/markdown files with brand voice, research, or reference material
-                  </p>
-                  <div className="flex gap-2">
-                    <Input
-                      type="file"
-                      accept=".txt,.md,.json"
-                      multiple
-                      onChange={handleFileUpload}
-                      disabled={isUploadingFile}
-                      className="cursor-pointer"
-                    />
-                  </div>
-                  {isUploadingFile && (
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Uploading...
-                    </div>
-                  )}
-                  {contextFiles.length > 0 && (
-                    <div className="space-y-2">
-                      {contextFiles.map((file, index) => (
-                        <div
-                          key={index}
-                          className="flex items-center justify-between rounded-md bg-muted p-2 text-sm"
                         >
-                          <span className="truncate">{file.name}</span>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6"
-                            onClick={() =>
-                              setContextFiles((prev) =>
-                                prev.filter((_, i) => i !== index)
-                              )
-                            }
-                          >
-                            <X className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </CollapsibleContent>
-              </Collapsible>
-              </div>
-
-              <Separator />
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CollapsibleSection>
 
               {/* Section 6: Tone of Voice Profiles */}
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <SectionIndicator number={6} isComplete={!!selectedToneProfileId} />
-                  <span className="text-base font-medium">Tone of Voice (Optional)</span>
-                </div>
-              <Collapsible className="space-y-2 ml-8">
-                <CollapsibleTrigger asChild>
-                  <Button variant="outline" className="w-full justify-between bg-input border-2 border-input-border">
-                    <span className="flex items-center gap-2">
-                      <Mic2 className="h-4 w-4" />
-                      Click to expand
-                    </span>
-                  </Button>
-                </CollapsibleTrigger>
-                <CollapsibleContent className="pt-2">
-                  <ToneProfilePanel
-                    selectedProfileId={selectedToneProfileId}
-                    onProfileSelect={setSelectedToneProfileId}
-                  />
-                </CollapsibleContent>
-              </Collapsible>
-              </div>
-
-              <Separator />
+              <CollapsibleSection
+                number={6}
+                title="Tone of Voice (Optional)"
+                isComplete={!!selectedToneProfileId}
+                summary={selectedToneProfileId ? "Tone profile selected" : undefined}
+                icon={<Mic2 className="h-4 w-4" />}
+              >
+                <ToneProfilePanel
+                  selectedProfileId={selectedToneProfileId}
+                  onProfileSelect={setSelectedToneProfileId}
+                />
+              </CollapsibleSection>
 
               {/* Section 7: SEO Knowledge Base */}
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <SectionIndicator number={7} isComplete={useKnowledgeBase} />
-                  <span className="text-base font-medium">SEO Knowledge Base (Optional)</span>
-                </div>
-              <Collapsible className="space-y-2 ml-8">
-                <CollapsibleTrigger asChild>
-                  <Button variant="outline" className="w-full justify-between bg-input border-2 border-input-border">
-                    <span className="flex items-center gap-2">
-                      <BookOpen className="h-4 w-4" />
-                      Click to expand
-                    </span>
-                  </Button>
-                </CollapsibleTrigger>
-                <CollapsibleContent className="pt-2">
-                  <KnowledgeBasePanel />
-                </CollapsibleContent>
-              </Collapsible>
-              </div>
+              <CollapsibleSection
+                number={7}
+                title="SEO Knowledge Base (Optional)"
+                isComplete={useKnowledgeBase}
+                summary={useKnowledgeBase ? "Knowledge base enabled" : undefined}
+                icon={<BookOpen className="h-4 w-4" />}
+              >
+                <KnowledgeBasePanel />
+              </CollapsibleSection>
 
-              <Separator />
               {/* Section 8: Keywords */}
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <SectionIndicator number={8} isComplete={keywords.length > 0} />
-                  <Label className="flex items-center gap-2 text-base font-medium">
-                    <Tag className="h-4 w-4" />
-                    SEO Keywords (up to 10, top 5 used)
-                  </Label>
-                </div>
-                <p className="text-sm text-muted-foreground ml-8">
+              <CollapsibleSection
+                number={8}
+                title="SEO Keywords (up to 10, top 5 used)"
+                isComplete={keywords.length > 0}
+                summary={keywords.length > 0 ? keywords.slice(0, 3).join(", ") + (keywords.length > 3 ? ` +${keywords.length - 3} more` : "") : undefined}
+                icon={<Tag className="h-4 w-4" />}
+              >
+                <p className="text-sm text-muted-foreground">
                   Paste comma-separated keywords or add one at a time
                 </p>
-                <div className="flex gap-2 ml-8">
+                <div className="flex gap-2">
                   <Input
                     placeholder="e.g., keyword1, keyword2, keyword3"
                     value={keywordInput}
@@ -1614,7 +1555,6 @@ const Index = () => {
                     onKeyDown={(e) => {
                       if (e.key === "Enter" && keywordInput.trim()) {
                         e.preventDefault();
-                        // Parse comma-separated keywords
                         const newKeywords = keywordInput
                           .split(",")
                           .map((k) => k.trim())
@@ -1634,7 +1574,6 @@ const Index = () => {
                     variant="outline"
                     onClick={() => {
                       if (keywordInput.trim()) {
-                        // Parse comma-separated keywords
                         const newKeywords = keywordInput
                           .split(",")
                           .map((k) => k.trim())
@@ -1654,7 +1593,7 @@ const Index = () => {
                   </Button>
                 </div>
                 {keywords.length > 0 && (
-                  <div className="flex flex-wrap gap-2 ml-8">
+                  <div className="flex flex-wrap gap-2">
                     {keywords.map((keyword, index) => (
                       <div
                         key={index}
@@ -1687,19 +1626,17 @@ const Index = () => {
                   </div>
                 )}
                 {keywords.length >= 10 && (
-                  <p className="text-xs text-muted-foreground ml-8">Maximum 10 keywords reached</p>
+                  <p className="text-xs text-muted-foreground">Maximum 10 keywords reached</p>
                 )}
-              </div>
-
-              <Separator />
+              </CollapsibleSection>
 
               {/* Section 9: Length */}
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <SectionIndicator number={9} isComplete={true} />
-                  <Label className="text-base font-medium">How long would you like the blog post to be?</Label>
-                </div>
-                <div className="ml-8">
+              <CollapsibleSection
+                number={9}
+                title="How long would you like the blog post to be?"
+                isComplete={true}
+                summary={formData.length === "short" ? "~500 words" : formData.length === "medium" ? "~1000 words" : formData.length === "long" ? "~2000 words" : formData.length === "extended" ? "~3000 words" : "~3500 words"}
+              >
                 <Select
                   value={formData.length}
                   onValueChange={(value) =>
@@ -1717,65 +1654,52 @@ const Index = () => {
                     <SelectItem value="comprehensive">Comprehensive (~3500 words)</SelectItem>
                   </SelectContent>
                 </Select>
-                </div>
-              </div>
-
-              <Separator />
+              </CollapsibleSection>
 
               {/* Section 10: Outline */}
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <SectionIndicator number={10} isComplete={!!formData.outline.trim()} />
-                  <Label htmlFor="outline" className="text-base font-medium">What is the outline of your post?</Label>
-                </div>
+              <CollapsibleSection
+                number={10}
+                title="What is the outline of your post?"
+                isComplete={!!formData.outline.trim()}
+                summary={formData.outline.split("\n")[0]}
+              >
                 <Textarea
                   id="outline"
                   placeholder="- Introduction&#10;- Main points&#10;- Conclusion"
-                  className="min-h-[100px] resize-none ml-8 bg-input border-2 border-input-border"
+                  className="min-h-[100px] resize-none bg-input border-2 border-input-border"
                   value={formData.outline}
                   onChange={(e) =>
                     setFormData((prev) => ({ ...prev, outline: e.target.value }))
                   }
                 />
-              </div>
+              </CollapsibleSection>
 
-              {/* Custom Instructions */}
-              <div className="space-y-2">
-                <Label htmlFor="instructions">
-                  Would you like to add any custom instructions?
-                </Label>
+              {/* Section 11: Custom Instructions */}
+              <CollapsibleSection
+                number={11}
+                title="Custom Instructions (Optional)"
+                isComplete={!!formData.instructions.trim()}
+                summary={formData.instructions}
+              >
                 <Textarea
                   id="instructions"
                   placeholder="e.g., CTA should promote property in Bali, use casual British tone, include statistics..."
-                  className="min-h-[60px] resize-none"
+                  className="min-h-[60px] resize-none bg-input border-2 border-input-border"
                   value={formData.instructions}
                   onChange={(e) =>
                     setFormData((prev) => ({ ...prev, instructions: e.target.value }))
                   }
                 />
-              </div>
+              </CollapsibleSection>
 
-              {/* Knowledge Base Toggle */}
-              <div className="flex items-center justify-between rounded-lg border p-4">
-                <div className="space-y-0.5">
-                  <Label htmlFor="use-kb" className="text-base">Use SEO Knowledge Base</Label>
-                  <p className="text-sm text-muted-foreground">
-                    Apply rules from your uploaded SEO documents
-                  </p>
-                </div>
-                <Switch
-                  id="use-kb"
-                  checked={useKnowledgeBase}
-                  onCheckedChange={setUseKnowledgeBase}
-                />
-              </div>
-
-              {/* CTA URL */}
-              <div className="space-y-2">
-                <Label htmlFor="cta-url" className="flex items-center gap-2">
-                  <ExternalLink className="h-4 w-4" />
-                  Call-to-Action URL (optional)
-                </Label>
+              {/* Section 12: CTA URL */}
+              <CollapsibleSection
+                number={12}
+                title="Call-to-Action URL (Optional)"
+                isComplete={!!ctaUrl.trim()}
+                summary={ctaUrl}
+                icon={<ExternalLink className="h-4 w-4" />}
+              >
                 <p className="text-sm text-muted-foreground">
                   Add a URL to include two relevant CTA banners in the article
                 </p>
@@ -1784,15 +1708,15 @@ const Index = () => {
                   placeholder="https://your-website.com/booking"
                   value={ctaUrl}
                   onChange={(e) => setCtaUrl(e.target.value)}
+                  className="bg-input border-2 border-input-border"
                 />
                 
-                {/* Recent CTA URLs history - always show section with helpful text */}
+                {/* Recent CTA URLs history */}
                 <div className="space-y-1.5">
                   <p className="text-xs text-muted-foreground font-medium">Recent URLs:</p>
                   {ctaUrlHistory.length > 0 ? (
                     <div className="flex flex-wrap gap-1.5">
                       {ctaUrlHistory.slice(0, 3).map((url, idx) => {
-                        // Extract domain for display
                         let displayUrl = url;
                         try {
                           const urlObj = new URL(url);
@@ -1824,13 +1748,15 @@ const Index = () => {
                     ✓ Two CTA banners will be generated (middle + end of article)
                   </p>
                 )}
-              </div>
+              </CollapsibleSection>
 
-              {/* Color Palette Selector */}
-              <div className="space-y-2">
-                <Label className="flex items-center gap-2">
-                  Color Scheme
-                </Label>
+              {/* Section 13: Color Palette */}
+              <CollapsibleSection
+                number={13}
+                title="Color Scheme"
+                isComplete={!!selectedColorPalette}
+                summary={selectedColorPalette?.name || "Default"}
+              >
                 <p className="text-sm text-muted-foreground">
                   Choose a color palette for tables, TL;DR sections, and CTA banners
                 </p>
@@ -1838,34 +1764,25 @@ const Index = () => {
                   selectedPalette={selectedColorPalette}
                   onSelectPalette={setSelectedColorPalette}
                 />
-              </div>
+              </CollapsibleSection>
 
-              {/* Section 11: Article Images */}
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <SectionIndicator number={11} isComplete={articleImages.length > 0} />
-                  <span className="text-base font-medium">Article Images (Optional)</span>
-                </div>
-              <Collapsible className="space-y-2 ml-8">
-                <CollapsibleTrigger asChild>
-                  <Button variant="outline" className="w-full justify-between bg-input border-2 border-input-border">
-                    <span className="flex items-center gap-2">
-                      <ImagePlus className="h-4 w-4" />
-                      {articleImages.length > 0 ? `${articleImages.length} image(s) uploaded` : "Click to expand"}
-                    </span>
-                  </Button>
-                </CollapsibleTrigger>
-                <CollapsibleContent className="pt-2">
-                  <ArticleImagesPanel
-                    images={articleImages}
-                    onImagesChange={setArticleImages}
-                    onAllocateLogically={handleAllocateImagesLogically}
-                    isAllocating={isAllocatingImages}
-                    hasContent={!!generatedContent}
-                  />
-                </CollapsibleContent>
-              </Collapsible>
-              </div>
+              {/* Section 14: Article Images */}
+              <CollapsibleSection
+                number={14}
+                title="Article Images (Optional)"
+                isComplete={articleImages.length > 0}
+                summary={articleImages.length > 0 ? `${articleImages.length} image(s) uploaded` : undefined}
+                icon={<ImagePlus className="h-4 w-4" />}
+              >
+                <ArticleImagesPanel
+                  images={articleImages}
+                  onImagesChange={setArticleImages}
+                  onAllocateLogically={handleAllocateImagesLogically}
+                  isAllocating={isAllocatingImages}
+                  hasContent={!!generatedContent}
+                />
+              </CollapsibleSection>
+
 
               {/* Pre-Generation Checklist */}
               <GenerationChecklist items={checklistItems} />
