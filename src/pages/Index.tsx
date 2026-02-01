@@ -1854,7 +1854,7 @@ ${tempDiv.innerHTML}
                                           return (
                                             <>
                                               {faqItems.length > 0 && (
-                                                <FAQAccordion items={faqItems} />
+                                                <FAQAccordion items={faqItems} brandColors={selectedColorPalette} />
                                               )}
                                               <h2 id={text} {...props}>{children}</h2>
                                             </>
