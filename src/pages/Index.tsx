@@ -2013,7 +2013,7 @@ ${tempDiv.innerHTML}
                         let current: HTMLElement | null = target;
                         
                         while (current && current !== article) {
-                          if (current.tagName.match(/^(H[1-6]|P|UL|OL|TABLE|BLOCKQUOTE|DIV)$/)) {
+                          if (current.tagName.match(/^(H[1-6]|P|LI|TD|TH)$/)) {
                             insertAfterElement = current;
                             break;
                           }
@@ -2021,47 +2021,78 @@ ${tempDiv.innerHTML}
                         }
                         
                         // Build the markdown image to insert
-                        const imageMarkdown = `\n\n![${imageData.alt}](${imageData.url})\n\n`;
+                        const imageMarkdown = `![${imageData.alt}](${imageData.url})`;
                         
-                        if (insertAfterElement && insertAfterElement.id) {
-                          // Find this heading in the markdown and insert after its section
-                          const headingId = insertAfterElement.id;
-                          const headingRegex = new RegExp(`(^## [^\\n]*${headingId.replace(/-/g, "[\\s-]")}[^\\n]*\\n)`, "im");
+                        // Get the text content of the element we're dropping after
+                        const elementText = insertAfterElement?.textContent?.trim() || "";
+                        
+                        if (elementText && elementText.length > 10) {
+                          // Find this text in the markdown content
+                          const lines = generatedContent.split("\n");
+                          let insertIndex = -1;
                           
-                          if (headingRegex.test(generatedContent)) {
-                            // Insert after the heading's first paragraph
-                            const lines = generatedContent.split("\n");
-                            let foundHeading = false;
-                            let insertIndex = -1;
-                            
-                            for (let i = 0; i < lines.length; i++) {
-                              if (lines[i].toLowerCase().includes(headingId.replace(/-/g, " ")) && lines[i].startsWith("## ")) {
-                                foundHeading = true;
-                              } else if (foundHeading && lines[i].trim() === "") {
-                                insertIndex = i;
-                                break;
-                              }
+                          // Create a searchable version of the element text (first 50 chars)
+                          const searchText = elementText.slice(0, 50).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                          
+                          for (let i = 0; i < lines.length; i++) {
+                            const lineText = lines[i].replace(/[#*_\[\]()]/g, '').trim();
+                            if (lineText.length > 10 && lineText.includes(elementText.slice(0, 30))) {
+                              insertIndex = i;
+                              break;
                             }
-                            
-                            if (insertIndex > 0) {
-                              lines.splice(insertIndex + 1, 0, imageMarkdown.trim());
-                              setGeneratedContent(lines.join("\n"));
-                            } else {
-                              // Fallback: append at end
-                              setGeneratedContent(generatedContent + imageMarkdown);
-                            }
-                          } else {
-                            // Fallback: append at end
-                            setGeneratedContent(generatedContent + imageMarkdown);
                           }
-                        } else {
-                          // No specific element found, append at end
-                          setGeneratedContent(generatedContent + imageMarkdown);
+                          
+                          // If we found a matching line, insert after it
+                          if (insertIndex >= 0) {
+                            // Find the next empty line or insert right after
+                            let targetIndex = insertIndex + 1;
+                            while (targetIndex < lines.length && lines[targetIndex].trim() !== "" && !lines[targetIndex].startsWith("#")) {
+                              targetIndex++;
+                            }
+                            
+                            // Insert the image
+                            lines.splice(targetIndex, 0, "", imageMarkdown, "");
+                            setGeneratedContent(lines.join("\n"));
+                            
+                            toast({
+                              title: "Image inserted!",
+                              description: `${imageData.name} added after "${elementText.slice(0, 30)}..."`,
+                            });
+                            return;
+                          }
                         }
                         
+                        // Fallback: if we have a heading ID, try that
+                        if (insertAfterElement?.id) {
+                          const headingId = insertAfterElement.id;
+                          const lines = generatedContent.split("\n");
+                          
+                          for (let i = 0; i < lines.length; i++) {
+                            const lineSlug = lines[i].toLowerCase().replace(/^#+\s*/, '').replace(/\s+/g, '-').replace(/[^\w-]/g, '');
+                            if (lineSlug === headingId || lines[i].toLowerCase().includes(headingId.replace(/-/g, ' '))) {
+                              // Find next empty line after this heading
+                              let targetIndex = i + 1;
+                              while (targetIndex < lines.length && lines[targetIndex].trim() !== "" && !lines[targetIndex].startsWith("#")) {
+                                targetIndex++;
+                              }
+                              
+                              lines.splice(targetIndex, 0, "", imageMarkdown, "");
+                              setGeneratedContent(lines.join("\n"));
+                              
+                              toast({
+                                title: "Image inserted!",
+                                description: `${imageData.name} added to section`,
+                              });
+                              return;
+                            }
+                          }
+                        }
+                        
+                        // Last fallback: append at end
+                        setGeneratedContent(generatedContent + "\n\n" + imageMarkdown + "\n");
                         toast({
-                          title: "Image inserted!",
-                          description: `${imageData.name} added to article`,
+                          title: "Image added",
+                          description: `${imageData.name} added to end of article`,
                         });
                       } catch (err) {
                         console.error("Drop error:", err);
