@@ -12,7 +12,13 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { Loader2, Sparkles, FileText, Link, Search, X, Upload, Plus, Tag, Download, ExternalLink, BookOpen, Eye, Edit2, Mic2, RotateCcw, Target, Maximize2, Minimize2, ImagePlus, Wand2 } from "lucide-react";
+import { Loader2, Sparkles, FileText, Link, Search, X, Upload, Plus, Tag, Download, ExternalLink, BookOpen, Eye, Edit2, Mic2, RotateCcw, Target, Maximize2, Minimize2, ImagePlus, Wand2, Image } from "lucide-react";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import ReactMarkdown from "react-markdown";
@@ -364,6 +370,7 @@ const Index = () => {
   const [isDraggingImage, setIsDraggingImage] = useState(false);
   const [dropTargetElement, setDropTargetElement] = useState<HTMLElement | null>(null);
   const [isAllocatingImages, setIsAllocatingImages] = useState(false);
+  const [isImagePopoverOpen, setIsImagePopoverOpen] = useState(false);
 
   // Voice input for Value Promise
   const {
@@ -1799,7 +1806,7 @@ const Index = () => {
             <CardContent className="flex-1 overflow-auto space-y-4">
               {generatedContent ? (
                 <>
-                  {/* Inline Editing Toggle */}
+                  {/* Inline Editing Toggle + Insert Image */}
                   <div className="flex items-center justify-between border-b pb-2">
                     <div className="flex items-center gap-2">
                       <Switch
@@ -1821,6 +1828,57 @@ const Index = () => {
                         )}
                       </Label>
                     </div>
+                    
+                    {/* Insert Image Button with Popover */}
+                    {articleImages.length > 0 && (
+                      <Popover open={isImagePopoverOpen} onOpenChange={setIsImagePopoverOpen}>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" size="sm" className="h-8">
+                            <Image className="h-3.5 w-3.5 mr-1.5" />
+                            Insert Image
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-80 p-3" align="end">
+                          <div className="space-y-3">
+                            <div className="text-sm font-medium">Select image to insert</div>
+                            <p className="text-xs text-muted-foreground">
+                              Image will be added at the end of the article. Use drag & drop for precise placement.
+                            </p>
+                            <ScrollArea className="h-[200px]">
+                              <div className="grid grid-cols-2 gap-2">
+                                {articleImages.map((image, index) => (
+                                  <button
+                                    key={index}
+                                    className="relative group rounded-md border bg-muted/50 p-1.5 hover:border-primary hover:bg-primary/5 transition-colors text-left"
+                                    onClick={() => {
+                                      const imageMarkdown = `![${image.alt}](${image.url})`;
+                                      setGeneratedContent(generatedContent + "\n\n" + imageMarkdown + "\n");
+                                      setIsImagePopoverOpen(false);
+                                      toast({
+                                        title: "Image inserted!",
+                                        description: `${image.name} added to article`,
+                                      });
+                                    }}
+                                  >
+                                    <div className="aspect-square w-full overflow-hidden rounded bg-background">
+                                      <img
+                                        src={image.url}
+                                        alt={image.alt}
+                                        className="h-full w-full object-cover"
+                                        loading="lazy"
+                                      />
+                                    </div>
+                                    <p className="text-[10px] text-muted-foreground truncate mt-1" title={image.name}>
+                                      {image.name}
+                                    </p>
+                                  </button>
+                                ))}
+                              </div>
+                            </ScrollArea>
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                    )}
                   </div>
 
                   {/* Generated Article - Always rendered, optionally editable */}
