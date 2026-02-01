@@ -127,15 +127,24 @@ export const QualityScoringPanel = ({ content, topic, valuePromise, onContentUpd
         body: { content, instruction },
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error("Edge function error:", error);
+        throw new Error(error.message || "Failed to send a request to the Edge Function");
+      }
       
-      if (data.content) {
+      if (data?.error) {
+        throw new Error(data.error);
+      }
+      
+      if (data?.content) {
         onContentUpdate(data.content);
         setScores(null); // Reset scores so user can re-analyze
         toast({
           title: "Improvements applied",
           description: "Content has been rewritten based on the quality analysis. Re-score to see the difference!",
         });
+      } else {
+        throw new Error("No content returned from the improvement process");
       }
     } catch (error) {
       console.error("Apply improvements error:", error);
