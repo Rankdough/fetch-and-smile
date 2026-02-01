@@ -38,8 +38,8 @@ import { ToneProfilePanel } from "@/components/ToneProfilePanel";
 import { UniqueAnglesPanel } from "@/components/UniqueAnglesPanel";
 import { QualityScoringPanel } from "@/components/QualityScoringPanel";
 import { Switch } from "@/components/ui/switch";
-import { ArticleNavigationPanel, extractNavigationFromContent } from "@/components/ArticleNavigationPanel";
-import { FAQAccordion, extractFAQFromContent, removeFAQSection } from "@/components/FAQAccordion";
+import { ArticleNavigationPanel, extractNavigationFromContent, generateNavigationHtml } from "@/components/ArticleNavigationPanel";
+import { FAQAccordion, extractFAQFromContent, removeFAQSection, generateFAQHtml } from "@/components/FAQAccordion";
 import { useSpeechToText } from "@/hooks/useSpeechToText";
 import { SectionIndicator } from "@/components/SectionIndicator";
 import { ArticleImagesPanel, ArticleImage } from "@/components/ArticleImagesPanel";
@@ -1054,92 +1054,179 @@ const Index = () => {
               size="default"
               disabled={!generatedContent}
               onClick={() => {
-                // Generate HTML with inline styles for components
-                const article = document.querySelector("article");
-                if (article) {
-                  // Clone the article to modify it
-                  const clone = article.cloneNode(true) as HTMLElement;
-                  
-                  // Convert navigation panel to styled HTML
-                  const navPanels = clone.querySelectorAll("[class*='grid']");
-                  navPanels.forEach((panel) => {
-                    const navItems = panel.querySelectorAll("a[href^='#']");
-                    if (navItems.length > 0) {
-                      // This is likely the navigation panel
-                      const parent = panel.parentElement;
-                      if (parent) {
-                        const navHtml = document.createElement("nav");
-                        navHtml.style.cssText = "margin: 1.5rem 0; padding: 1rem; background: #f5f5f5; border-radius: 8px;";
-                        navHtml.innerHTML = `<p style="font-weight: 600; margin-bottom: 0.5rem;">In This Article:</p><ul style="margin: 0; padding-left: 1.25rem;">
-                          ${Array.from(navItems).map((item) => `<li style="margin: 0.25rem 0;"><a href="${item.getAttribute("href")}" style="color: #6366f1; text-decoration: none;">${item.textContent}</a></li>`).join("")}
-                        </ul>`;
-                        parent.replaceChild(navHtml, panel);
-                      }
-                    }
-                  });
-                  
-                  // Convert FAQ accordions to details/summary elements
-                  const faqSections = clone.querySelectorAll("[data-faq]");
-                  faqSections.forEach((section) => {
-                    const items = section.querySelectorAll("[data-faq-item]");
-                    if (items.length > 0) {
-                      const faqContainer = document.createElement("div");
-                      faqContainer.innerHTML = `<h2 style="font-size: 1.5rem; font-weight: 700; margin: 1.5rem 0 1rem;">Frequently Asked Questions</h2>`;
-                      items.forEach((item) => {
-                        const question = item.querySelector("[data-faq-question]")?.textContent || "";
-                        const answer = item.querySelector("[data-faq-answer]")?.textContent || "";
-                        const details = document.createElement("details");
-                        details.style.cssText = "margin: 0.5rem 0; padding: 0.75rem; background: #fafafa; border: 1px solid #e5e5e5; border-radius: 6px;";
-                        details.innerHTML = `<summary style="cursor: pointer; font-weight: 500;">${question}</summary><p style="margin-top: 0.5rem; color: #525252;">${answer}</p>`;
-                        faqContainer.appendChild(details);
-                      });
-                      section.replaceWith(faqContainer);
-                    }
-                  });
-                  
-                  // Get the HTML content
-                  let htmlContent = clone.innerHTML;
-                  
-                  // Replace CTA banners with styled versions
-                  const ctaBanners = clone.querySelectorAll(".cta-banner, [class*='cta']");
-                  ctaBanners.forEach((banner) => {
-                    const headline = banner.querySelector("[class*='headline']")?.textContent || "";
-                    const description = banner.querySelector("[class*='description']")?.textContent || "";
-                    const button = banner.querySelector("a");
-                    const buttonText = button?.textContent || "Learn More";
-                    const buttonUrl = button?.getAttribute("href") || "#";
-                    
-                    const styledCta = document.createElement("div");
-                    styledCta.style.cssText = `margin: 2rem 0; padding: 1.5rem; background: linear-gradient(135deg, ${selectedColorPalette?.primary || "#6366f1"} 0%, ${selectedColorPalette?.secondary || "#a855f7"} 100%); border-radius: 12px; text-align: center; color: white;`;
-                    styledCta.innerHTML = `
-                      <p style="font-size: 1.25rem; font-weight: 700; margin: 0 0 0.5rem;">${headline}</p>
-                      <p style="margin: 0 0 1rem; opacity: 0.9;">${description}</p>
-                      <a href="${buttonUrl}" style="display: inline-block; padding: 0.75rem 1.5rem; background: white; color: ${selectedColorPalette?.primary || "#6366f1"}; font-weight: 600; border-radius: 6px; text-decoration: none;">${buttonText}</a>
-                    `;
-                    banner.replaceWith(styledCta);
-                  });
-                  
-                  // Get final HTML
-                  htmlContent = clone.innerHTML;
-                  
-                  navigator.clipboard.writeText(htmlContent).then(() => {
-                    toast({
-                      title: "HTML copied to clipboard!",
-                      description: "Ready to paste into Shopify or WordPress.",
-                    });
-                  }).catch(() => {
-                    // Fallback: download as file
-                    const blob = new Blob([htmlContent], { type: "text/html" });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement("a");
-                    a.href = url;
-                    a.download = "article.html";
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                    URL.revokeObjectURL(url);
-                  });
+                // Generate clean HTML from source data (not DOM parsing)
+                const primaryColor = selectedColorPalette?.primary || "#7c3aed";
+                const secondaryColor = selectedColorPalette?.secondary || "#9333ea";
+                const accentColor = selectedColorPalette?.accent || primaryColor;
+                
+                // Extract navigation and FAQ items from markdown
+                let navItems = extractInThisArticleItems(generatedContent);
+                if (navItems.length === 0) {
+                  navItems = extractNavigationFromContent(generatedContent);
                 }
+                const faqItems = extractFAQFromContent(generatedContent);
+                
+                // Get article element for base HTML structure
+                const article = document.querySelector("article");
+                if (!article) return;
+                
+                // Clone and process for base content
+                const clone = article.cloneNode(true) as HTMLElement;
+                
+                // Remove React-rendered navigation panel (we'll add proper HTML)
+                const navPanelContainers = clone.querySelectorAll('[class*="rounded-lg border bg-muted"]');
+                navPanelContainers.forEach((el) => {
+                  const hasInThisArticle = el.textContent?.includes('In This Article');
+                  if (hasInThisArticle) {
+                    el.remove();
+                  }
+                });
+                
+                // Remove React-rendered FAQ panel
+                const faqPanelContainers = clone.querySelectorAll('[class*="rounded-lg border bg-muted"]');
+                faqPanelContainers.forEach((el) => {
+                  const hasFAQ = el.textContent?.includes('Frequently Asked Questions');
+                  if (hasFAQ) {
+                    el.remove();
+                  }
+                });
+                
+                // Remove CTA banners (we'll add proper HTML)
+                clone.querySelectorAll('[data-cta-banner]').forEach((el) => el.remove());
+                
+                // Clean up Tailwind classes and convert to inline styles
+                let htmlContent = clone.innerHTML;
+                
+                // Process links - ensure internal links work and external have target blank
+                htmlContent = htmlContent.replace(/<a\s+([^>]*href="([^"]*)"[^>]*)>/gi, (match, attrs, href) => {
+                  if (href.startsWith('#')) {
+                    // Internal anchor link - keep as is but ensure no target blank
+                    return `<a href="${href}" style="color: ${primaryColor}; text-decoration: none;">`;
+                  } else {
+                    // External link
+                    return `<a href="${href}" target="_blank" rel="noopener noreferrer" style="color: ${primaryColor}; text-decoration: none;">`;
+                  }
+                });
+                
+                // Style tables with brand colors
+                htmlContent = htmlContent.replace(/<table[^>]*>/gi, `<table style="width: 100%; border-collapse: collapse; margin: 24px 0; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">`);
+                htmlContent = htmlContent.replace(/<thead[^>]*>/gi, `<thead style="background: linear-gradient(135deg, ${primaryColor} 0%, ${secondaryColor} 100%);">`);
+                htmlContent = htmlContent.replace(/<th[^>]*>/gi, `<th style="padding: 12px 16px; text-align: left; color: white; font-weight: 600;">`);
+                htmlContent = htmlContent.replace(/<tr[^>]*>/gi, (match, offset) => {
+                  // Alternate row colors
+                  return `<tr style="background: #ffffff;">`;
+                });
+                htmlContent = htmlContent.replace(/<td[^>]*>/gi, `<td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb;">`);
+                
+                // Style TL;DR section
+                htmlContent = htmlContent.replace(/<h2[^>]*id="[^"]*tldr[^"]*"[^>]*>(.*?)<\/h2>/gi, 
+                  `<h2 style="background: #f8f4ff; border-left: 4px solid ${primaryColor}; padding: 12px 16px; margin: 24px 0 0 0; border-radius: 0 8px 0 0; font-size: 1.5rem; font-weight: 700;">$1</h2>`);
+                
+                // Style blockquotes
+                htmlContent = htmlContent.replace(/<blockquote[^>]*>/gi, 
+                  `<blockquote style="background: #f8f4ff; border-left: 4px solid ${primaryColor}; padding: 16px 24px; margin: 24px 0; border-radius: 0 8px 8px 0; font-style: normal;">`);
+                
+                // Style headings
+                htmlContent = htmlContent.replace(/<h1[^>]*>/gi, `<h1 style="font-size: 2rem; font-weight: 700; margin: 0 0 16px 0; color: #1f2937;">`);
+                htmlContent = htmlContent.replace(/<h2[^>]*(?!id="[^"]*tldr)[^>]*>/gi, `<h2 style="font-size: 1.5rem; font-weight: 600; margin: 32px 0 16px 0; color: #1f2937;">`);
+                htmlContent = htmlContent.replace(/<h3[^>]*>/gi, `<h3 style="font-size: 1.25rem; font-weight: 600; margin: 24px 0 12px 0; color: #1f2937;">`);
+                
+                // Style paragraphs
+                htmlContent = htmlContent.replace(/<p[^>]*>/gi, `<p style="margin: 0 0 16px 0; line-height: 1.7; color: #374151;">`);
+                
+                // Style lists
+                htmlContent = htmlContent.replace(/<ul[^>]*>/gi, `<ul style="margin: 0 0 16px 0; padding-left: 24px; list-style-type: disc;">`);
+                htmlContent = htmlContent.replace(/<ol[^>]*>/gi, `<ol style="margin: 0 0 16px 0; padding-left: 24px; list-style-type: decimal;">`);
+                htmlContent = htmlContent.replace(/<li[^>]*>/gi, `<li style="margin: 8px 0; line-height: 1.6; color: #374151;">`);
+                
+                // Remove empty class attributes and data attributes
+                htmlContent = htmlContent.replace(/\s+class="[^"]*"/gi, '');
+                htmlContent = htmlContent.replace(/\s+data-[a-z-]+="[^"]*"/gi, '');
+                
+                // Build final HTML with navigation, content, FAQ, and CTAs in correct order
+                let finalHtml = '';
+                
+                // Find where to insert navigation (after TL;DR section)
+                const tldrMatch = htmlContent.match(/(<h2[^>]*>.*?TL;?DR.*?<\/h2>[\s\S]*?<\/ul>)/i);
+                
+                if (tldrMatch && navItems.length > 0) {
+                  const tldrEndIndex = htmlContent.indexOf(tldrMatch[0]) + tldrMatch[0].length;
+                  const beforeNav = htmlContent.slice(0, tldrEndIndex);
+                  const afterNav = htmlContent.slice(tldrEndIndex);
+                  
+                  finalHtml = beforeNav + generateNavigationHtml(navItems, selectedColorPalette) + afterNav;
+                } else {
+                  finalHtml = htmlContent;
+                }
+                
+                // Add FAQ section before References/Final Thoughts
+                if (faqItems.length > 0) {
+                  const faqHtml = generateFAQHtml(faqItems, selectedColorPalette);
+                  // Try to insert before References or at the end
+                  const referencesMatch = finalHtml.match(/<h2[^>]*>.*?References.*?<\/h2>/i);
+                  const finalThoughtsMatch = finalHtml.match(/<h2[^>]*>.*?Final Thoughts.*?<\/h2>/i);
+                  
+                  if (finalThoughtsMatch) {
+                    const insertPoint = finalHtml.indexOf(finalThoughtsMatch[0]);
+                    finalHtml = finalHtml.slice(0, insertPoint) + faqHtml + finalHtml.slice(insertPoint);
+                  } else if (referencesMatch) {
+                    const insertPoint = finalHtml.indexOf(referencesMatch[0]);
+                    finalHtml = finalHtml.slice(0, insertPoint) + faqHtml + finalHtml.slice(insertPoint);
+                  } else {
+                    finalHtml += faqHtml;
+                  }
+                }
+                
+                // Add CTA banners
+                if (generatedCTAs && ctaUrl) {
+                  // Add middle CTA at ~40% of content
+                  const h2Matches = [...finalHtml.matchAll(/<h2[^>]*>/gi)];
+                  if (h2Matches.length > 3 && generatedCTAs.middle) {
+                    const middleIndex = Math.floor(h2Matches.length * 0.4);
+                    const insertPoint = h2Matches[middleIndex].index;
+                    if (insertPoint) {
+                      const middleCTAHtml = generateCTAHtml(
+                        generatedCTAs.middle.headline,
+                        generatedCTAs.middle.description,
+                        generatedCTAs.middle.buttonText,
+                        ctaUrl,
+                        selectedColorPalette
+                      );
+                      finalHtml = finalHtml.slice(0, insertPoint) + middleCTAHtml + finalHtml.slice(insertPoint);
+                    }
+                  }
+                  
+                  // Add end CTA
+                  if (generatedCTAs.end) {
+                    const endCTAHtml = generateCTAHtml(
+                      generatedCTAs.end.headline,
+                      generatedCTAs.end.description,
+                      generatedCTAs.end.buttonText,
+                      ctaUrl,
+                      selectedColorPalette
+                    );
+                    finalHtml += endCTAHtml;
+                  }
+                }
+                
+                // Copy to clipboard
+                navigator.clipboard.writeText(finalHtml).then(() => {
+                  toast({
+                    title: "HTML copied to clipboard!",
+                    description: "Clean, styled HTML ready for Shopify or WordPress.",
+                  });
+                }).catch(() => {
+                  // Fallback: download as file
+                  const blob = new Blob([finalHtml], { type: "text/html" });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = url;
+                  a.download = "article.html";
+                  document.body.appendChild(a);
+                  a.click();
+                  document.body.removeChild(a);
+                  URL.revokeObjectURL(url);
+                });
               }}
             >
               <Download className="h-4 w-4 mr-2" />
