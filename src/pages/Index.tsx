@@ -2081,10 +2081,18 @@ ${tempDiv.innerHTML}
                       contentEditable={isEditMode}
                       suppressContentEditableWarning
                       onBlur={(e) => {
-                        if (isEditMode) {
+                        // Only save if we're still in edit mode and the blur is leaving the article entirely
+                        // This prevents the issue where clicking the switch triggers a save before the switch takes effect
+                        if (isEditMode && !e.currentTarget.contains(e.relatedTarget as Node)) {
                           // Convert edited HTML back to approximate markdown
                           const element = e.currentTarget;
                           const html = element.innerHTML;
+                          
+                          // Skip if no meaningful content
+                          if (!html || html.trim().length === 0) {
+                            console.warn("Skipping empty content save");
+                            return;
+                          }
                           
                           // Simple HTML to Markdown conversion
                           let markdown = html
@@ -2120,7 +2128,10 @@ ${tempDiv.innerHTML}
                             .replace(/\n{3,}/g, '\n\n')
                             .trim();
                           
-                          setGeneratedContent(markdown);
+                          // Only update if we got valid content back
+                          if (markdown && markdown.length > 50) {
+                            setGeneratedContent(markdown);
+                          }
                         }
                       }}
                       style={{ 
