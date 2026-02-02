@@ -280,9 +280,22 @@ export function ImageFolderManager({
         </SelectContent>
       </Select>
 
+      {/* Delete current folder button - only show when a folder is selected */}
+      {selectedFolder && (
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+          onClick={() => setFolderToDelete(selectedFolder)}
+          title={`Delete "${selectedFolder.name}" folder`}
+        >
+          <Trash2 className="h-4 w-4" />
+        </Button>
+      )}
+
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogTrigger asChild>
-          <Button variant="outline" size="icon" className="h-8 w-8" title="Create folder">
+          <Button variant="outline" size="icon" className="h-8 w-8" title="Manage folders">
             <FolderPlus className="h-4 w-4" />
           </Button>
         </DialogTrigger>
