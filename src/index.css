@@ -203,14 +203,47 @@ All colors MUST be HSL.
   @apply font-semibold text-foreground;
 }
 
-/* Actionable Tips Styling - highlighted blockquotes in TL;DR */
+/* Quick Tips Section Styling - numbered circles */
 .prose blockquote:has(strong:first-child) {
-  background: linear-gradient(135deg, hsl(var(--primary) / 0.08) 0%, hsl(var(--primary) / 0.15) 100%);
-  border-left: 4px solid hsl(var(--primary));
-  border-radius: 0.5rem;
-  padding: 1rem 1.25rem;
+  position: relative;
+  background: linear-gradient(135deg, hsl(var(--primary) / 0.06) 0%, hsl(var(--primary) / 0.12) 100%);
+  border: 1px solid hsl(var(--primary) / 0.2);
+  border-left: none;
+  border-radius: 0.75rem;
+  padding: 1rem 1.25rem 1rem 3.5rem;
   margin: 0.75rem 0;
   font-style: normal;
+}
+
+.prose blockquote:has(strong:first-child)::before {
+  content: "";
+  position: absolute;
+  left: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 2rem;
+  height: 2rem;
+  background: hsl(var(--primary));
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 700;
+  font-size: 0.875rem;
+}
+
+/* Numbered tip circles */
+.prose blockquote:nth-of-type(1):has(strong:first-child)::before {
+  content: "1";
+}
+
+.prose blockquote:nth-of-type(2):has(strong:first-child)::before {
+  content: "2";
+}
+
+.prose blockquote:nth-of-type(3):has(strong:first-child)::before {
+  content: "3";
 }
 
 .prose blockquote:has(strong:first-child) p {
@@ -218,39 +251,15 @@ All colors MUST be HSL.
   color: hsl(var(--foreground));
 }
 
-/* Alternative tip styles based on emoji */
-.prose blockquote p:first-child {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.5rem;
+/* Hide the "Tip X:" prefix text since we show it as a circle */
+.prose blockquote:has(strong:first-child) strong:first-child {
+  display: none;
 }
 
-/* Quick tip box variations */
-.prose blockquote:nth-of-type(3n+1):has(strong) {
-  background: linear-gradient(135deg, hsl(45 90% 95%) 0%, hsl(45 80% 90%) 100%);
-  border-left-color: hsl(45 90% 50%);
-}
-
-.prose blockquote:nth-of-type(3n+2):has(strong) {
-  background: linear-gradient(135deg, hsl(170 60% 94%) 0%, hsl(170 50% 88%) 100%);
-  border-left-color: hsl(170 60% 45%);
-}
-
-.prose blockquote:nth-of-type(3n+3):has(strong) {
-  background: linear-gradient(135deg, hsl(220 70% 95%) 0%, hsl(220 60% 90%) 100%);
-  border-left-color: hsl(220 70% 55%);
-}
-
-.dark .prose blockquote:nth-of-type(3n+1):has(strong) {
-  background: linear-gradient(135deg, hsl(45 50% 15%) 0%, hsl(45 40% 20%) 100%);
-}
-
-.dark .prose blockquote:nth-of-type(3n+2):has(strong) {
-  background: linear-gradient(135deg, hsl(170 40% 15%) 0%, hsl(170 30% 20%) 100%);
-}
-
-.dark .prose blockquote:nth-of-type(3n+3):has(strong) {
-  background: linear-gradient(135deg, hsl(220 40% 18%) 0%, hsl(220 35% 22%) 100%);
+/* Dark mode adjustments */
+.dark .prose blockquote:has(strong:first-child) {
+  background: linear-gradient(135deg, hsl(var(--primary) / 0.1) 0%, hsl(var(--primary) / 0.18) 100%);
+  border-color: hsl(var(--primary) / 0.3);
 }
 
 /* CTA Banner Styling */
