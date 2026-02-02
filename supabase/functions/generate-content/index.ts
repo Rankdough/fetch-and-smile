@@ -13,9 +13,17 @@ serve(async (req) => {
   }
 
   try {
-    const { topic, length, outline, instructions, gapAnalysis, formatReference, contextFiles, keywords, generateCTAs, useKnowledgeBase, toneProfileId, articleImages } = await req.json();
+    const { topic, length, outline, instructions, gapAnalysis, formatReference, contextFiles, keywords, generateCTAs, useKnowledgeBase, toneProfileId, articleImages, expandExistingContent, existingContent, wordsToAdd, wordCount } = await req.json();
 
-    if (!topic) {
+    // Handle expand mode - different validation
+    if (expandExistingContent) {
+      if (!existingContent) {
+        return new Response(
+          JSON.stringify({ error: "Existing content is required for expansion" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    } else if (!topic) {
       return new Response(
         JSON.stringify({ error: "Topic is required" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -35,7 +43,7 @@ serve(async (req) => {
       extended: 3000,
       comprehensive: 3500,
     };
-    const targetWords = wordCounts[length] || 1000;
+    const targetWords = wordCount || wordCounts[length] || 1000;
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -213,64 +221,96 @@ IMPORTANT: Match the formatting style and structure of this reference article:
 ${formatReference.substring(0, 2000)}`;
     }
 
-    let userPrompt = `Write a blog post about: ${topic}
+    let userPrompt = "";
+    
+    // Handle expansion mode
+    if (expandExistingContent && existingContent) {
+      userPrompt = `EXPAND AND ENHANCE this existing article to reach ${targetWords} words total.
+
+CURRENT ARTICLE (keep all existing content, expand each section):
+${existingContent}
+
+EXPANSION REQUIREMENTS:
+- Current word count is approximately ${targetWords - (wordsToAdd || 500)} words
+- Target word count: ${targetWords} words (need to add ~${wordsToAdd || 500} more words)
+- Keep ALL existing content intact - do not remove or shorten anything
+- Expand each major section with additional details, examples, and explanations
+- Add more subsections under existing H2s where it makes sense
+- Include additional practical examples, case studies, or scenarios
+- Add more comparison content or tables if helpful
+- Ensure new content is substantive and valuable, not filler
+- Maintain the same tone, style, and formatting as the original
+- The final output MUST be at least ${targetWords} words
+
+OUTPUT THE COMPLETE EXPANDED ARTICLE with all original content plus expansions.`;
+
+      if (instructions && instructions.trim()) {
+        userPrompt += `
+
+Additional expansion instructions:
+${instructions}`;
+      }
+    } else {
+      // Normal generation mode
+      userPrompt = `Write a blog post about: ${topic}
 
 Target length: approximately ${targetWords} words`;
 
-    // Add keywords if provided
-    if (keywords && Array.isArray(keywords) && keywords.length > 0) {
-      userPrompt += `
+      // Add keywords if provided
+      if (keywords && Array.isArray(keywords) && keywords.length > 0) {
+        userPrompt += `
 
 IMPORTANT SEO KEYWORDS TO USE:
 The following keywords MUST be naturally incorporated throughout the article, especially in headings, the first paragraph, and key sections:
 ${keywords.map((k: string, i: number) => `${i + 1}. ${k}`).join("\n")}
 
 Use each keyword at least 2-3 times throughout the article where it fits naturally.`;
-    }
+      }
 
-    if (gapAnalysis) {
-      userPrompt += `
+      if (gapAnalysis) {
+        userPrompt += `
 
 IMPORTANT: Address these content gaps that competitors are missing:
 ${gapAnalysis}`;
-    }
+      }
 
-    if (outline && outline.trim()) {
-      userPrompt += `
+      if (outline && outline.trim()) {
+        userPrompt += `
 
 Follow this outline structure:
 ${outline}`;
-    }
+      }
 
-    if (instructions && instructions.trim()) {
-      userPrompt += `
+      if (instructions && instructions.trim()) {
+        userPrompt += `
 
 Additional instructions:
 ${instructions}`;
-    }
+      }
 
-    if (contextFiles && Array.isArray(contextFiles) && contextFiles.length > 0) {
-      const contextContent = contextFiles
-        .map((f: { name: string; content: string }) => `--- ${f.name} ---\n${f.content}`)
-        .join("\n\n");
-      userPrompt += `
+      if (contextFiles && Array.isArray(contextFiles) && contextFiles.length > 0) {
+        const contextContent = contextFiles
+          .map((f: { name: string; content: string }) => `--- ${f.name} ---\n${f.content}`)
+          .join("\n\n");
+        userPrompt += `
 
 Reference materials to incorporate:
 ${contextContent}`;
-    }
+      }
 
-    // Add article images for AI placement
-    if (articleImages && Array.isArray(articleImages) && articleImages.length > 0) {
-      userPrompt += `
+      // Add article images for AI placement
+      if (articleImages && Array.isArray(articleImages) && articleImages.length > 0) {
+        userPrompt += `
 
 ARTICLE IMAGES TO USE:
 You have ${articleImages.length} image(s) available to place in the article. Insert them at relevant points using markdown image syntax.
 ${articleImages.map((img: { alt: string; url: string }, i: number) => `${i + 1}. ![${img.alt}](${img.url})`).join("\n")}
 
 Place these images throughout the article at logical locations, typically after relevant paragraphs. Distribute them evenly across different sections.`;
+      }
     }
 
-    console.log("Generating content for topic:", topic);
+    console.log(expandExistingContent ? "Expanding existing content" : "Generating content for topic:", topic);
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",

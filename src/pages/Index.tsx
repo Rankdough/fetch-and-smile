@@ -3405,46 +3405,63 @@ const Index = () => {
                         });
                       }}
                       onRegenerateForWordCount={async () => {
-                        if (!formData.topic.trim()) return;
+                        if (!generatedContent.trim()) return;
                         
                         setIsGenerating(true);
                         try {
                           const targetWords = appliedRules?.targetWordCount || 1000;
-                          const requiredTables = targetWords >= 3000 ? 4 : targetWords >= 2000 ? 3 : 1;
+                          
+                          // Calculate current word count (excluding FAQ/References)
+                          let contentForCount = generatedContent;
+                          const faqMatch = contentForCount.match(/^## .*(?:FAQ|Frequently Asked Questions)/im);
+                          if (faqMatch && faqMatch.index !== undefined) {
+                            contentForCount = contentForCount.substring(0, faqMatch.index);
+                          }
+                          const referencesMatch = contentForCount.match(/^## .*(?:References|Sources|Bibliography)/im);
+                          if (referencesMatch && referencesMatch.index !== undefined) {
+                            contentForCount = contentForCount.substring(0, referencesMatch.index);
+                          }
+                          const currentWordCount = contentForCount.trim().split(/\s+/).filter(Boolean).length;
+                          const wordsNeeded = targetWords - currentWordCount;
                           
                           const { data, error } = await supabase.functions.invoke("generate-content", {
                             body: {
-                              ...formData,
-                              keywords: keywords.length > 0 ? keywords.slice(0, 5) : undefined,
-                              gapAnalysis: gapAnalysis || undefined,
-                              formatReference: formatReference || undefined,
-                              contextFiles: contextFiles.length > 0 ? contextFiles : undefined,
-                              generateCTAs: ctaUrl.trim().length > 0,
-                              useKnowledgeBase: useKnowledgeBase,
-                              toneProfileId: selectedToneProfileId || undefined,
-                              instructions: `${formData.instructions || ""}\n\nCRITICAL REQUIREMENTS - YOU MUST FOLLOW THESE:
-1. The article MUST be at least ${targetWords} words. Expand each section with more detail, examples, and explanations.
-2. Include a MINIMUM of ${requiredTables} markdown tables comparing different aspects, features, or options.
-3. Add more subsections, examples, case studies, and detailed explanations to reach the word count.
-4. Do NOT pad with filler - add genuinely useful, substantive content.`.trim(),
+                              topic: formData.topic,
+                              wordCount: targetWords,
+                              expandExistingContent: true,
+                              existingContent: generatedContent,
+                              wordsToAdd: wordsNeeded,
+                              instructions: `EXPAND THIS EXISTING ARTICLE to reach ${targetWords} words. Currently ${currentWordCount} words, need ${wordsNeeded} more.
+
+CRITICAL EXPANSION RULES:
+1. Keep ALL existing content intact - do not remove or shorten anything
+2. Expand each section with more details, examples, and explanations
+3. Add more subsections under existing H2s where appropriate
+4. Include additional practical examples and case studies
+5. Add more comparison tables if helpful
+6. Ensure new content is substantive, not filler
+7. Maintain the same tone and style as the existing content
+8. The final output MUST be at least ${targetWords} words`,
                             },
                           });
 
                           if (error) throw error;
                           setGeneratedContent(data.content);
-                          setAppliedRules(data.appliedRules || null);
+                          if (data.appliedRules) {
+                            setAppliedRules(data.appliedRules);
+                          }
                           if (data.ctas) {
                             setGeneratedCTAs(data.ctas);
                           }
                           toast({
-                            title: "Content regenerated",
-                            description: "Article expanded to meet word count target.",
+                            title: "Content expanded",
+                            description: `Article expanded to meet ${targetWords} word target.`,
                           });
                         } catch (error) {
-                          console.error("Regeneration error:", error);
+                          console.error("Expansion error:", error);
                           toast({
-                            title: "Regeneration failed",
-                            description: error instanceof Error ? error.message : "Failed to regenerate",
+                            title: "Expansion failed",
+                            description: error instanceof Error ? error.message : "Failed to expand content",
                             variant: "destructive",
                           });
                         } finally {
