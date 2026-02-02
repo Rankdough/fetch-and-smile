@@ -265,11 +265,24 @@ const removeInThisArticleSection = (content: string): string => {
   // Remove "# In This Article" (H1 format from some imports)
   cleaned = cleaned.replace(/^# In This Article\s*\n[\s\S]*?(?=\n## |\n# [^I]|$)/gim, "");
   
-  // Remove "## In This Article" (H2 format)
-  cleaned = cleaned.replace(/^## In This Article\s*\n[\s\S]*?(?=\n## [^I]|\n## [A-Z](?!n This)|$)/gim, "");
+  // Remove "## In This Article" (H2 format) - match until the next H2 that's NOT "In This Article"
+  cleaned = cleaned.replace(/^## In This Article\s*\n[\s\S]*?(?=\n## (?!In This Article))/gim, "");
   
   // Also catch sections that have numbered lists with "Jump to section" links
   cleaned = cleaned.replace(/^#+\s*In This Article[\s\S]*?(?=\n## [A-Z])/gim, "");
+  
+  // Remove standalone navigation-style bullet lists with numbered items
+  // Pattern: Lines starting with "- **1. Title** - Description" or "- 1. Title - Description"
+  cleaned = cleaned.replace(/^- \*\*\d+\.\s*[^*]+\*\*\s*[-–—]\s*[^\n]+$/gm, "");
+  cleaned = cleaned.replace(/^- \d+\.\s*[A-Z][^\n]*[-–—][^\n]{30,}$/gm, "");
+  
+  // Also remove bullet list items that look like navigation (numbered bold titles with long descriptions)
+  // This catches items like: "- **2. The World of Porcelain Veneers** - Explore the high-end world..."
+  const navItemPattern = /^-\s*\*\*\d+\.\s*[^*]+\*\*\s*[-–—]\s*.+$/gm;
+  cleaned = cleaned.replace(navItemPattern, "");
+  
+  // Remove empty lines left behind (multiple consecutive newlines -> max 2)
+  cleaned = cleaned.replace(/\n{3,}/g, "\n\n");
   
   // Remove any stray CSS that leaked through
   cleaned = cleaned.replace(/details\[open\][\s\S]*?display:\s*none;\s*\}/g, "");
