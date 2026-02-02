@@ -251,55 +251,84 @@ Return the enhanced article.`;
   }
 });
 
-// Helper function to insert images locally without AI
+// Helper function to insert images locally without AI - places images ABOVE H2 headings
 function insertImagesLocally(content: string, images: ArticleImage[]): string {
-  // Find all H2 headings and insert images after the first paragraph following each
-  const lines = content.split("\n");
-  const result: string[] = [];
-  let imageIndex = 0;
-  let afterH2 = false;
-  let paragraphAfterH2Count = 0;
+  if (images.length === 0) return content;
   
+  const lines = content.split("\n");
+  
+  // Headings to skip for image placement
+  const skipHeadings = [
+    "tl;dr", "tldr", "in this article", "faq", "frequently asked questions",
+    "references", "sources", "final thoughts", "conclusion", "summary"
+  ];
+  
+  // Find all H2 heading indices that are valid for image placement
+  const h2Indices: number[] = [];
   for (let i = 0; i < lines.length; i++) {
-    result.push(lines[i]);
-    
-    // Check if this is an H2 heading
     if (lines[i].startsWith("## ")) {
-      afterH2 = true;
-      paragraphAfterH2Count = 0;
-      continue;
+      const headingText = lines[i].replace(/^## /, "").toLowerCase().trim();
+      const shouldSkip = skipHeadings.some(skip => headingText.includes(skip));
+      if (!shouldSkip) {
+        h2Indices.push(i);
+      }
     }
+  }
+  
+  console.log(`Found ${h2Indices.length} valid H2 headings for ${images.length} images`);
+  
+  // If no valid H2s found, insert images after first paragraph
+  if (h2Indices.length === 0) {
+    const result: string[] = [];
+    let inserted = false;
+    let imageIndex = 0;
     
-    // If we're after an H2 and this is a non-empty paragraph, count it
-    if (afterH2 && lines[i].trim() && !lines[i].startsWith("#") && !lines[i].startsWith("|") && !lines[i].startsWith("-") && !lines[i].startsWith("*")) {
-      paragraphAfterH2Count++;
+    for (let i = 0; i < lines.length; i++) {
+      result.push(lines[i]);
       
-      // After the first full paragraph following an H2, insert an image
-      if (paragraphAfterH2Count === 1 && imageIndex < images.length) {
-        // Check if next line is empty or another content line
+      // After first non-empty paragraph, insert all images
+      if (!inserted && lines[i].trim() && !lines[i].startsWith("#") && imageIndex < images.length) {
         const nextLine = lines[i + 1];
-        if (nextLine === undefined || nextLine.trim() === "" || nextLine.startsWith("#")) {
+        if (nextLine === undefined || nextLine.trim() === "") {
+          for (const img of images) {
+            result.push("");
+            result.push(`![${img.alt}](${img.url})`);
+          }
           result.push("");
-          result.push(`![${images[imageIndex].alt}](${images[imageIndex].url})`);
-          result.push("");
-          imageIndex++;
-          afterH2 = false;
+          inserted = true;
         }
       }
     }
     
-    // Reset after we've moved past the immediate section
-    if (afterH2 && lines[i].startsWith("## ")) {
-      afterH2 = false;
-    }
+    return result.join("\n");
   }
   
-  // If we still have unused images, append them before the last section
-  while (imageIndex < images.length) {
-    result.push("");
-    result.push(`![${images[imageIndex].alt}](${images[imageIndex].url})`);
-    result.push("");
-    imageIndex++;
+  // Distribute images evenly across H2 headings
+  // Each H2 gets at least one image, extras go to first headings
+  const imagesPerHeading: ArticleImage[][] = h2Indices.map(() => []);
+  
+  for (let i = 0; i < images.length; i++) {
+    const headingIndex = i % h2Indices.length;
+    imagesPerHeading[headingIndex].push(images[i]);
+  }
+  
+  // Build result with images inserted ABOVE each H2
+  const result: string[] = [];
+  let currentH2Index = 0;
+  
+  for (let i = 0; i < lines.length; i++) {
+    // Check if this line is one of our target H2 headings
+    if (currentH2Index < h2Indices.length && i === h2Indices[currentH2Index]) {
+      // Insert images for this heading BEFORE the heading
+      const imagesToInsert = imagesPerHeading[currentH2Index];
+      for (const img of imagesToInsert) {
+        result.push(`![${img.alt}](${img.url})`);
+        result.push("");
+      }
+      currentH2Index++;
+    }
+    
+    result.push(lines[i]);
   }
   
   return result.join("\n");
