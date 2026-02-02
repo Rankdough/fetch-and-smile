@@ -47,6 +47,7 @@ import { ArticleImagesPanel, ArticleImage } from "@/components/ArticleImagesPane
 import { HtmlImportDialog } from "@/components/HtmlImportDialog";
 import { CollapsibleSection } from "@/components/CollapsibleSection";
 import { CreditUsageDisplay } from "@/components/CreditUsageDisplay";
+import { GenerationProgress, PipelineStage } from "@/components/GenerationProgress";
 
 const SAMPLE_CONTENT = `# Composite Bonding vs Veneers: Which Smile Transformation is Right for You?
 
@@ -410,6 +411,17 @@ const Index = () => {
   const [isAllocatingImages, setIsAllocatingImages] = useState(false);
   const [isImagePopoverOpen, setIsImagePopoverOpen] = useState(false);
   const [cursorInsertPosition, setCursorInsertPosition] = useState<number | null>(null);
+  
+  // Human mode (4-stage pipeline) state
+  const [useHumanMode, setUseHumanMode] = useState(() => {
+    const saved = localStorage.getItem("seo-generator-useHumanMode");
+    return saved !== null ? JSON.parse(saved) : false;
+  });
+  const [pipelineStages, setPipelineStages] = useState<PipelineStage[]>([]);
+  const [currentPipelineStage, setCurrentPipelineStage] = useState(0);
+  const [currentSectionIndex, setCurrentSectionIndex] = useState(0);
+  const [totalSections, setTotalSections] = useState(0);
+  const [pipelineError, setPipelineError] = useState<string | undefined>();
 
   // Voice input for Value Promise
   const {
@@ -505,6 +517,11 @@ const Index = () => {
   useEffect(() => {
     localStorage.setItem("seo-generator-articleImages", JSON.stringify(articleImages));
   }, [articleImages]);
+
+  // Persist human mode preference
+  useEffect(() => {
+    localStorage.setItem("seo-generator-useHumanMode", JSON.stringify(useHumanMode));
+  }, [useHumanMode]);
 
   // Persist generated content
   useEffect(() => {
@@ -733,6 +750,170 @@ const Index = () => {
     }
   };
 
+  // Human mode pipeline generation
+  const handleHumanModeGenerate = async () => {
+    // Initialize pipeline stages
+    const stages: PipelineStage[] = [
+      { id: "brief", name: "Create Brief", description: "Planning article structure and key claims", status: "pending" },
+      { id: "sections", name: "Write Sections", description: "Writing each section atomically", status: "pending", substeps: [] },
+      { id: "humanise", name: "Humanise Rewrite", description: "Applying style transformations", status: "pending" },
+      { id: "gate", name: "Quality Gate", description: "Checking for AI patterns", status: "pending" },
+    ];
+    setPipelineStages(stages);
+    setCurrentPipelineStage(0);
+    setPipelineError(undefined);
+
+    // Map length to word count
+    const wordCounts: Record<string, number> = {
+      short: 500, medium: 1000, long: 2000, extended: 3000, comprehensive: 3500,
+    };
+    const targetWords = wordCounts[formData.length] || 1000;
+
+    // Fetch knowledge rules if enabled
+    let knowledgeRules: string[] = [];
+    if (useKnowledgeBase) {
+      const { data: knowledgeData } = await supabase
+        .from("seo_knowledge")
+        .select("key_rules")
+        .not("key_rules", "is", null);
+      if (knowledgeData) {
+        knowledgeRules = knowledgeData.flatMap((item) => item.key_rules || []);
+      }
+    }
+
+    // Fetch tone profile if selected
+    let toneProfile = null;
+    if (selectedToneProfileId) {
+      const { data: profileData } = await supabase
+        .from("tone_profiles")
+        .select("summary, characteristics, example_phrases")
+        .eq("id", selectedToneProfileId)
+        .maybeSingle();
+      if (profileData) {
+        toneProfile = profileData;
+      }
+    }
+
+    // Stage 1: Create Brief
+    stages[0].status = "running";
+    setPipelineStages([...stages]);
+
+    const { data: briefData, error: briefError } = await supabase.functions.invoke("humanise-create-brief", {
+      body: {
+        topic: formData.topic,
+        valuePromise: valuePromise || undefined,
+        gapAnalysis: gapAnalysis || undefined,
+        contextFiles: contextFiles.length > 0 ? contextFiles : undefined,
+        uniqueAngles: selectedAngles.length > 0 ? selectedAngles : undefined,
+        targetWords,
+        keywords: keywords.length > 0 ? keywords.slice(0, 5) : undefined,
+      },
+    });
+
+    if (briefError || !briefData?.brief) {
+      throw new Error(briefError?.message || "Failed to create brief");
+    }
+
+    const brief = briefData.brief;
+    stages[0].status = "completed";
+    setCurrentPipelineStage(1);
+
+    // Stage 2: Write Sections
+    stages[1].status = "running";
+    stages[1].substeps = brief.sections.map((s: { h2: string }) => ({ name: s.h2, status: "pending" as const }));
+    setPipelineStages([...stages]);
+    setTotalSections(brief.sections.length);
+
+    const sectionContents: string[] = [];
+    for (let i = 0; i < brief.sections.length; i++) {
+      setCurrentSectionIndex(i);
+      stages[1].substeps![i].status = "running";
+      setPipelineStages([...stages]);
+
+      const { data: sectionData, error: sectionError } = await supabase.functions.invoke("humanise-write-section", {
+        body: {
+          section: brief.sections[i],
+          sectionIndex: i,
+          totalSections: brief.sections.length,
+          audience: brief.audience,
+          intent: brief.intent,
+          angle: brief.angle,
+          keyClaims: brief.keyClaims,
+          toneProfile,
+          knowledgeRules: knowledgeRules.slice(0, 20),
+        },
+      });
+
+      if (sectionError) {
+        throw new Error(`Failed to write section ${i + 1}: ${sectionError.message}`);
+      }
+
+      sectionContents.push(sectionData.content);
+      stages[1].substeps![i].status = "completed";
+      setPipelineStages([...stages]);
+    }
+
+    stages[1].status = "completed";
+    setCurrentPipelineStage(2);
+
+    // Assemble draft with title
+    let draft = `# ${formData.topic}\n\n${sectionContents.join("\n\n")}`;
+
+    // Stage 3: Humanise Rewrite
+    stages[2].status = "running";
+    setPipelineStages([...stages]);
+
+    const { data: rewriteData, error: rewriteError } = await supabase.functions.invoke("humanise-rewrite", {
+      body: {
+        draft,
+        knowledgeRules: knowledgeRules.slice(0, 20),
+        toneProfile,
+      },
+    });
+
+    if (rewriteError) {
+      throw new Error(`Failed to humanise content: ${rewriteError.message}`);
+    }
+
+    draft = rewriteData.content;
+    stages[2].status = "completed";
+    setCurrentPipelineStage(3);
+
+    // Stage 4: Quality Gate
+    stages[3].status = "running";
+    setPipelineStages([...stages]);
+
+    const { data: gateData, error: gateError } = await supabase.functions.invoke("humanise-quality-gate", {
+      body: { draft, valuePromise },
+    });
+
+    if (gateError) {
+      throw new Error(`Quality gate failed: ${gateError.message}`);
+    }
+
+    // If quality gate failed, try one more rewrite pass
+    if (!gateData.passed && gateData.issues?.length > 0) {
+      console.log("Quality gate failed, attempting fix pass...", gateData);
+      
+      const { data: fixData, error: fixError } = await supabase.functions.invoke("humanise-rewrite", {
+        body: {
+          draft,
+          issues: gateData.issues,
+          toneProfile,
+        },
+      });
+
+      if (!fixError && fixData?.content) {
+        draft = fixData.content;
+      }
+    }
+
+    stages[3].status = "completed";
+    setPipelineStages([...stages]);
+
+    return draft;
+  };
+
   const handleGenerate = async () => {
     if (!formData.topic.trim()) {
       toast({
@@ -748,57 +929,72 @@ const Index = () => {
     setAppliedRules(null);
 
     try {
-      // Build enhanced instructions with value promise and unique angles
-      let enhancedInstructions = formData.instructions || "";
-      
-      if (valuePromise.trim()) {
-        enhancedInstructions += `\n\nVALUE PROMISE - The reader MUST be able to: ${valuePromise}. Ensure every section helps achieve this outcome.`;
-      }
-      
-      if (selectedAngles.length > 0) {
-        enhancedInstructions += `\n\nUNIQUE ANGLES TO INCORPORATE:\n${selectedAngles.map((a, i) => `${i + 1}. ${a}`).join("\n")}\n\nUse these angles to differentiate this content from competitors.`;
-      }
+      let content: string;
 
-      const { data, error } = await supabase.functions.invoke("generate-content", {
-        body: {
-          ...formData,
-          instructions: enhancedInstructions,
-          keywords: keywords.length > 0 ? keywords.slice(0, 5) : undefined,
-          gapAnalysis: gapAnalysis || undefined,
-          formatReference: formatReference || undefined,
-          contextFiles: contextFiles.length > 0 ? contextFiles : undefined,
-          generateCTAs: ctaUrl.trim().length > 0,
-          useKnowledgeBase: useKnowledgeBase,
-          toneProfileId: selectedToneProfileId || undefined,
-          articleImages: articleImages.length > 0 ? articleImages.map(img => ({ alt: img.alt, url: img.url })) : undefined,
-        },
-      });
-
-      if (error) throw error;
-
-      setGeneratedContent(data.content, true); // true = new generation, save as original
-      setAppliedRules(data.appliedRules || null);
-      if (data.ctas) {
-        console.log("CTAs received from API:", data.ctas);
-        setGeneratedCTAs(data.ctas);
+      if (useHumanMode) {
+        // Use 4-stage humanising pipeline
+        content = await handleHumanModeGenerate();
         
-        // Save CTA URL to history if used
-        if (ctaUrl.trim()) {
-          setCtaUrlHistory(prev => {
-            const filtered = prev.filter(u => u !== ctaUrl.trim());
-            return [ctaUrl.trim(), ...filtered].slice(0, 10);
-          });
-        }
+        toast({
+          title: "Human-like content generated!",
+          description: "4-stage pipeline complete. Review the result.",
+        });
       } else {
-        console.log("No CTAs in response, generateCTAs was:", ctaUrl.trim().length > 0);
-        setGeneratedCTAs(null);
+        // Use original quick generation
+        let enhancedInstructions = formData.instructions || "";
+        
+        if (valuePromise.trim()) {
+          enhancedInstructions += `\n\nVALUE PROMISE - The reader MUST be able to: ${valuePromise}. Ensure every section helps achieve this outcome.`;
+        }
+        
+        if (selectedAngles.length > 0) {
+          enhancedInstructions += `\n\nUNIQUE ANGLES TO INCORPORATE:\n${selectedAngles.map((a, i) => `${i + 1}. ${a}`).join("\n")}\n\nUse these angles to differentiate this content from competitors.`;
+        }
+
+        const { data, error } = await supabase.functions.invoke("generate-content", {
+          body: {
+            ...formData,
+            instructions: enhancedInstructions,
+            keywords: keywords.length > 0 ? keywords.slice(0, 5) : undefined,
+            gapAnalysis: gapAnalysis || undefined,
+            formatReference: formatReference || undefined,
+            contextFiles: contextFiles.length > 0 ? contextFiles : undefined,
+            generateCTAs: ctaUrl.trim().length > 0,
+            useKnowledgeBase: useKnowledgeBase,
+            toneProfileId: selectedToneProfileId || undefined,
+            articleImages: articleImages.length > 0 ? articleImages.map(img => ({ alt: img.alt, url: img.url })) : undefined,
+          },
+        });
+
+        if (error) throw error;
+
+        content = data.content;
+        setAppliedRules(data.appliedRules || null);
+        
+        if (data.ctas) {
+          console.log("CTAs received from API:", data.ctas);
+          setGeneratedCTAs(data.ctas);
+          
+          if (ctaUrl.trim()) {
+            setCtaUrlHistory(prev => {
+              const filtered = prev.filter(u => u !== ctaUrl.trim());
+              return [ctaUrl.trim(), ...filtered].slice(0, 10);
+            });
+          }
+        } else {
+          setGeneratedCTAs(null);
+        }
+        
+        toast({
+          title: "Content generated!",
+          description: "Your article has been created successfully.",
+        });
       }
-      toast({
-        title: "Content generated!",
-        description: "Your article has been created successfully.",
-      });
+
+      setGeneratedContent(content, true);
     } catch (error) {
       console.error("Generation error:", error);
+      setPipelineError(error instanceof Error ? error.message : "Failed to generate content");
       toast({
         title: "Generation failed",
         description: error instanceof Error ? error.message : "Failed to generate content",
@@ -1045,7 +1241,7 @@ const Index = () => {
               {isGenerating ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Generating...
+                  {useHumanMode ? "Human Mode..." : "Generating..."}
                 </>
               ) : (
                 <>
@@ -1054,6 +1250,22 @@ const Index = () => {
                 </>
               )}
             </Button>
+
+            {/* Human Mode Toggle */}
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-background border">
+              <Label htmlFor="human-mode" className="text-sm font-medium cursor-pointer">
+                Human Mode
+              </Label>
+              <Switch
+                id="human-mode"
+                checked={useHumanMode}
+                onCheckedChange={setUseHumanMode}
+                disabled={isGenerating}
+              />
+              {useHumanMode && (
+                <span className="text-xs text-muted-foreground">(4-stage pipeline)</span>
+              )}
+            </div>
 
             <div className="h-6 w-px bg-border" />
 
@@ -2111,6 +2323,17 @@ const Index = () => {
               </div>
             </CardHeader>
             <CardContent className="flex-1 overflow-auto space-y-4">
+              {/* Human Mode Progress Indicator */}
+              {isGenerating && useHumanMode && pipelineStages.length > 0 && (
+                <GenerationProgress
+                  stages={pipelineStages}
+                  currentStage={currentPipelineStage}
+                  totalSections={totalSections}
+                  currentSection={currentSectionIndex}
+                  error={pipelineError}
+                />
+              )}
+
               {generatedContent ? (
                 <>
                   {/* Inline Editing Toggle + Insert Image */}
