@@ -55,16 +55,41 @@ export const ContentVerification = ({
   const verificationResults = useMemo(() => {
     const results: VerificationItem[] = [];
 
-    // Count words
-    const wordCount = content.trim().split(/\s+/).filter(Boolean).length;
+    // Count words - excluding FAQ and References sections
+    let contentForWordCount = content;
+    
+    // Find and remove FAQ section (## FAQ or ## Frequently Asked Questions)
+    const faqMatch = contentForWordCount.match(/^## .*(?:FAQ|Frequently Asked Questions)/im);
+    if (faqMatch && faqMatch.index !== undefined) {
+      // Find next H2 after FAQ or end of content
+      const afterFaq = contentForWordCount.substring(faqMatch.index + faqMatch[0].length);
+      const nextH2Match = afterFaq.match(/^## /m);
+      if (nextH2Match && nextH2Match.index !== undefined) {
+        // Remove just the FAQ section
+        const faqEndIndex = faqMatch.index + faqMatch[0].length + nextH2Match.index;
+        contentForWordCount = contentForWordCount.substring(0, faqMatch.index) + contentForWordCount.substring(faqEndIndex);
+      } else {
+        // FAQ goes to end, check for References before it
+        contentForWordCount = contentForWordCount.substring(0, faqMatch.index);
+      }
+    }
+    
+    // Find and remove References section
+    const referencesMatch = contentForWordCount.match(/^## .*(?:References|Sources|Bibliography)/im);
+    if (referencesMatch && referencesMatch.index !== undefined) {
+      contentForWordCount = contentForWordCount.substring(0, referencesMatch.index);
+    }
+    
+    const wordCount = contentForWordCount.trim().split(/\s+/).filter(Boolean).length;
+    const totalWordCount = content.trim().split(/\s+/).filter(Boolean).length;
     const targetWords = appliedRules?.targetWordCount || 1000;
     const wordCountPercentage = (wordCount / targetWords) * 100;
 
     results.push({
       id: "word-count",
-      label: "Word count",
+      label: "Word count (excl. FAQ/References)",
       status: wordCountPercentage >= 100 ? "passed" : wordCountPercentage >= 80 ? "warning" : "failed",
-      details: `${wordCount} words (target: ${targetWords})`,
+      details: `${wordCount} words (target: ${targetWords}) — total: ${totalWordCount}`,
       fixable: wordCountPercentage < 100,
       fixType: "word-count",
     });
