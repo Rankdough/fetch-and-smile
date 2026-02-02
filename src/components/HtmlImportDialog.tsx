@@ -103,25 +103,59 @@ export function HtmlImportDialog({ onImport }: HtmlImportDialogProps) {
       // Preserve CTA banners by converting to markdown format
       turndownService.addRule("ctaBanner", {
         filter: function (node) {
-          return (
-            node.nodeName === "DIV" &&
-            (node.classList?.contains("cta-banner") ||
-             node.getAttribute("style")?.includes("linear-gradient"))
-          );
+          // Detect CTA banners by their gradient background style
+          if (node.nodeName !== "DIV") return false;
+          const style = node.getAttribute("style") || "";
+          return style.includes("linear-gradient") && style.includes("#1a2744");
         },
         replacement: function (content, node) {
           const div = node as HTMLElement;
+          const children = div.children;
           
-          // Try to extract CTA parts
-          const headline = div.querySelector(".cta-headline, [class*='headline']")?.textContent?.trim();
-          const description = div.querySelector(".cta-description, [class*='description']")?.textContent?.trim();
-          const buttonEl = div.querySelector(".cta-button, a[class*='button']") as HTMLAnchorElement;
-          const buttonText = buttonEl?.textContent?.trim();
-          const buttonUrl = buttonEl?.href || "#";
+          // The CTA structure is: headline div, description div, button a, tagline div
+          // Extract based on position and styles
+          let headline = "";
+          let description = "";
+          let buttonText = "";
+          let buttonUrl = "#";
+          
+          // Find the link element for button
+          const linkEl = div.querySelector("a") as HTMLAnchorElement;
+          if (linkEl) {
+            buttonText = linkEl.textContent?.trim().replace(/\s*→\s*$/, "") || "Learn More";
+            buttonUrl = linkEl.href || "#";
+          }
+          
+          // Get all direct child divs
+          const childDivs = Array.from(children).filter(el => el.tagName === "DIV");
+          
+          // First div with uppercase/bold style is headline
+          // Second div with white color is description
+          // Last div with muted color is tagline (ignore)
+          for (const child of childDivs) {
+            const childStyle = child.getAttribute("style") || "";
+            const text = child.textContent?.trim() || "";
+            
+            if (!headline && (childStyle.includes("text-transform: uppercase") || childStyle.includes("font-weight: 700"))) {
+              // This is the headline
+              headline = text;
+            } else if (!description && childStyle.includes("color: white") && !childStyle.includes("rgba")) {
+              // This is the description
+              description = text;
+            }
+          }
+          
+          // Fallback: use first child as headline, second as description
+          if (!headline && childDivs.length >= 1) {
+            headline = childDivs[0]?.textContent?.trim() || "";
+          }
+          if (!description && childDivs.length >= 2) {
+            description = childDivs[1]?.textContent?.trim() || "";
+          }
           
           if (headline || buttonText) {
             // Convert to markdown CTA format that we can recognize
-            return `\n\n---CTA---\n**${headline || "Learn More"}**\n${description || ""}\n[${buttonText || "Click Here"}](${buttonUrl})\n---/CTA---\n\n`;
+            return `\n\n> **${headline || "Learn More"}**\n> ${description || ""}\n> [${buttonText}](${buttonUrl})\n\n`;
           }
           
           return content;
@@ -195,13 +229,7 @@ export function HtmlImportDialog({ onImport }: HtmlImportDialogProps) {
         ""
       );
 
-      // Convert CTA markers back to proper markdown blockquotes
-      cleanedMarkdown = cleanedMarkdown.replace(
-        /---CTA---\n\*\*(.+?)\*\*\n(.*?)\n\[(.+?)\]\((.+?)\)\n---\/CTA---/gs,
-        (_, headline, desc, btnText, btnUrl) => {
-          return `\n> **${headline}**\n> ${desc}\n> [${btnText}](${btnUrl})\n`;
-        }
-      );
+      // Note: CTAs are now directly converted to blockquote format in the turndown rule
 
       onImport(cleanedMarkdown);
       setHtmlContent("");
