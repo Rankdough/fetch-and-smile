@@ -1140,7 +1140,7 @@ const Index = () => {
                 
                 // Style all tables
                 clone.querySelectorAll('table').forEach((table) => {
-                  table.setAttribute('style', 'width: 100%; border-collapse: collapse; margin: 24px 0; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border: 1px solid #e5e7eb;');
+                  table.setAttribute('style', 'width: 100%; border-collapse: collapse; margin: 24px 0; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border: 1px solid #e5e7eb; table-layout: auto;');
                   table.removeAttribute('class');
                 });
                 
@@ -1152,7 +1152,7 @@ const Index = () => {
                 
                 // Style th cells
                 clone.querySelectorAll('th').forEach((th) => {
-                  th.setAttribute('style', 'padding: 12px 16px; text-align: left; color: white; font-weight: 600; border: 1px solid rgba(255,255,255,0.2);');
+                  th.setAttribute('style', 'padding: 12px 16px; text-align: left; color: white; font-weight: 600; border: 1px solid rgba(255,255,255,0.2); white-space: normal; word-wrap: break-word;');
                   th.removeAttribute('class');
                 });
                 
@@ -1169,7 +1169,7 @@ const Index = () => {
                 
                 // Style td cells
                 clone.querySelectorAll('td').forEach((td) => {
-                  td.setAttribute('style', 'padding: 12px 16px; border: 1px solid #e5e7eb;');
+                  td.setAttribute('style', 'padding: 12px 16px; border: 1px solid #e5e7eb; white-space: normal; word-wrap: break-word;');
                   td.removeAttribute('class');
                 });
                 
