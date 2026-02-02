@@ -12,7 +12,14 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { Loader2, Sparkles, FileText, Link, Search, X, Upload, Plus, Tag, Download, ExternalLink, BookOpen, Eye, Edit2, Mic2, RotateCcw, Target, Maximize2, Minimize2, ImagePlus, Wand2, Image } from "lucide-react";
+import { Loader2, Sparkles, FileText, Link, Search, X, Upload, Plus, Tag, Download, ExternalLink, BookOpen, Eye, Edit2, Mic2, RotateCcw, Target, Maximize2, Minimize2, ImagePlus, Wand2, Image, ChevronDown, Trash2, Settings } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Popover,
   PopoverContent,
@@ -1006,6 +1013,67 @@ const Index = () => {
     }
   };
 
+  // Clear only blog post settings (keep generated content)
+  const handleClearSettings = () => {
+    setFormData({
+      topic: "",
+      length: "medium",
+      outline: "",
+      instructions: "",
+    });
+    setCompetitorUrls(["", "", ""]);
+    setFormatUrl("");
+    setFormatReference("");
+    setGapAnalysis("");
+    setContextFiles([]);
+    setKeywords([]);
+    setKeywordInput("");
+    setCtaUrl("");
+    setSelectedToneProfileId(null);
+    setValuePromise("");
+    setSelectedAngles([]);
+    setArticleImages([]);
+    
+    // Clear settings from localStorage (keep content)
+    localStorage.removeItem("seo-generator-formData");
+    localStorage.removeItem("seo-generator-competitorUrls");
+    localStorage.removeItem("seo-generator-formatUrl");
+    localStorage.removeItem("seo-generator-formatReference");
+    localStorage.removeItem("seo-generator-gapAnalysis");
+    localStorage.removeItem("seo-generator-contextFiles");
+    localStorage.removeItem("seo-generator-keywords");
+    localStorage.removeItem("seo-generator-ctaUrl");
+    localStorage.removeItem("seo-generator-useKnowledgeBase");
+    localStorage.removeItem("seo-generator-toneProfileId");
+    localStorage.removeItem("seo-generator-valuePromise");
+    localStorage.removeItem("seo-generator-selectedAngles");
+    localStorage.removeItem("seo-generator-articleImages");
+    
+    toast({
+      title: "Settings cleared",
+      description: "Blog post settings have been reset. Generated content is preserved.",
+    });
+  };
+
+  // Clear only generated content (keep settings)
+  const handleClearContent = () => {
+    setGeneratedContent("", true);
+    setOriginalContent("");
+    setAppliedRules(null);
+    setGeneratedCTAs(null);
+    
+    // Clear content from localStorage (keep settings)
+    localStorage.removeItem("seo-generator-generatedContent");
+    localStorage.removeItem("seo-generator-appliedRules");
+    localStorage.removeItem("seo-generator-generatedCTAs");
+    localStorage.removeItem("seo-generator-originalContent");
+    
+    toast({
+      title: "Content cleared",
+      description: "Generated article has been cleared. Settings are preserved.",
+    });
+  };
+
   // Clear all form fields to start fresh
   const handleClearForm = () => {
     setFormData({
@@ -1733,14 +1801,33 @@ const Index = () => {
               </Button>
             )}
 
-            <Button
-              variant="outline"
-              onClick={handleClearForm}
-              disabled={isGenerating}
-            >
-              <RotateCcw className="h-4 w-4 mr-2" />
-              Clear Form
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  disabled={isGenerating}
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Clear
+                  <ChevronDown className="h-4 w-4 ml-2" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={handleClearContent} disabled={!generatedContent}>
+                  <FileText className="h-4 w-4 mr-2" />
+                  Clear Generated Content
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleClearSettings}>
+                  <Settings className="h-4 w-4 mr-2" />
+                  Clear Blog Post Settings
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleClearForm} className="text-destructive">
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Clear Everything
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       </div>
