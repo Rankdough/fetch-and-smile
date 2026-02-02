@@ -81,9 +81,18 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
+    // Check if content already has CTAs (blockquote format with bold + link)
+    const existingCtaPattern = />\s*\*\*[^*]+\*\*[\s\S]*?\[.+\]\(.+\)/;
+    const hasExistingCtas = existingCtaPattern.test(content);
+    
+    // Don't add CTAs if content already has them
+    const shouldAddCtas = addCtas && !hasExistingCtas;
+
     console.log("Enhancing imported content", {
       hasTone: !!toneProfile,
       addCtas,
+      hasExistingCtas,
+      shouldAddCtas,
       hasImages: images && images.length > 0,
       contentLength: content.length
     });
@@ -113,7 +122,8 @@ Rewrite sentences to match this tone while preserving the meaning.`;
     }
 
     // Add CTA instructions if needed - use markdown blockquote format that our renderer understands
-    if (addCtas && ctaConfig) {
+    // Skip if content already has CTAs
+    if (shouldAddCtas && ctaConfig) {
       systemPrompt += `
 
 CALL-TO-ACTION BANNERS:
@@ -130,7 +140,7 @@ IMPORTANT: Each CTA must be a blockquote (lines starting with >) with:
 - Link on third line
 
 Place CTAs strategically - not at the very beginning or end, but after compelling sections.`;
-    } else if (addCtas) {
+    } else if (shouldAddCtas) {
       systemPrompt += `
 
 CALL-TO-ACTION BANNERS:
@@ -225,7 +235,8 @@ Return the enhanced article.`;
       JSON.stringify({ 
         content: enhancedContent,
         toneApplied: !!toneProfile,
-        ctasAdded: addCtas,
+        ctasAdded: shouldAddCtas,
+        existingCtasPreserved: hasExistingCtas,
         imagesInserted: images && images.length > 0
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
