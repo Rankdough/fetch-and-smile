@@ -112,19 +112,22 @@ ${toneProfile.example_phrases?.length ? `- Example phrases to emulate: ${tonePro
 Rewrite sentences to match this tone while preserving the meaning.`;
     }
 
-    // Add CTA instructions if needed
+    // Add CTA instructions if needed - use markdown blockquote format that our renderer understands
     if (addCtas && ctaConfig) {
       systemPrompt += `
 
 CALL-TO-ACTION BANNERS:
 Insert 2-3 CTA banners at natural break points in the article (after major sections).
-Use this format for each CTA:
+Use this EXACT markdown blockquote format for each CTA:
 
-<div class="cta-banner">
-  <div class="cta-headline">${ctaConfig.headline}</div>
-  <div class="cta-description">${ctaConfig.description}</div>
-  <a href="${ctaConfig.buttonUrl}" class="cta-button">${ctaConfig.buttonText}</a>
-</div>
+> **${ctaConfig.headline.toUpperCase()}**
+> ${ctaConfig.description}
+> [${ctaConfig.buttonText}](${ctaConfig.buttonUrl})
+
+IMPORTANT: Each CTA must be a blockquote (lines starting with >) with:
+- Bold headline on first line
+- Description on second line  
+- Link on third line
 
 Place CTAs strategically - not at the very beginning or end, but after compelling sections.`;
     } else if (addCtas) {
@@ -132,13 +135,16 @@ Place CTAs strategically - not at the very beginning or end, but after compellin
 
 CALL-TO-ACTION BANNERS:
 Insert 2-3 generic CTA banners at natural break points in the article.
-Use this format:
+Use this EXACT markdown blockquote format:
 
-<div class="cta-banner">
-  <div class="cta-headline">Want to Learn More?</div>
-  <div class="cta-description">Get expert insights delivered to your inbox.</div>
-  <a href="#signup" class="cta-button">Subscribe Now</a>
-</div>
+> **WANT TO LEARN MORE?**
+> Get expert insights delivered to your inbox.
+> [Subscribe Now](#signup)
+
+IMPORTANT: Each CTA must be a blockquote (lines starting with >) with:
+- Bold headline on first line
+- Description on second line
+- Link on third line
 
 Place CTAs strategically after compelling sections.`;
     }
