@@ -42,5 +42,8 @@ verify_jwt = false
 [functions.scrape-format]
 verify_jwt = false
 
+[functions.verify-value-promise]
+verify_jwt = false
+
 [functions.voice-edit-content]
 verify_jwt = false

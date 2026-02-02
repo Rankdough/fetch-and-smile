@@ -48,6 +48,7 @@ import { HtmlImportDialog } from "@/components/HtmlImportDialog";
 import { CollapsibleSection } from "@/components/CollapsibleSection";
 import { CreditUsageDisplay } from "@/components/CreditUsageDisplay";
 import { GenerationProgress, PipelineStage } from "@/components/GenerationProgress";
+import { ValuePromiseVerification } from "@/components/ValuePromiseVerification";
 
 const SAMPLE_CONTENT = `# Composite Bonding vs Veneers: Which Smile Transformation is Right for You?
 
@@ -3165,6 +3166,14 @@ const Index = () => {
                       ctaUrl={ctaUrl}
                       generatedCTAs={generatedCTAs}
                     />
+                    
+                    {/* Value Promise Verification */}
+                    {valuePromise.trim() && (
+                      <ValuePromiseVerification
+                        content={generatedContent}
+                        valuePromise={valuePromise}
+                      />
+                    )}
                     
                     {/* Quality Scoring Panel */}
                     <QualityScoringPanel
