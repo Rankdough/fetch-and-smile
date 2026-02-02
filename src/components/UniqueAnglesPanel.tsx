@@ -99,8 +99,8 @@ export const UniqueAnglesPanel = ({
               Unique Angle Generator
             </h4>
             <p className="text-xs text-muted-foreground mt-1">
-              {hasGapAnalysis 
-                ? "Get 5 fresh perspectives based on competitor gaps" 
+{hasGapAnalysis 
+                ? "Get 3 strong perspectives based on competitor gaps" 
                 : "Run gap analysis first to generate unique angles"}
             </p>
           </div>
