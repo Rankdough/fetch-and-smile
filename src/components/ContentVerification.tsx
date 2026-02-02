@@ -12,6 +12,7 @@ interface AppliedRules {
   keywords: string[];
   targetWordCount: number;
   outlineProvided: boolean;
+  outlineText?: string;
   customInstructionsProvided: boolean;
   knowledgeBaseUsed?: boolean;
   knowledgeRulesCount?: number;
@@ -209,6 +210,65 @@ export const ContentVerification = ({
       status: hasFAQ ? "passed" : "warning",
       details: hasFAQ ? "FAQ section found" : "No FAQ section detected",
     });
+
+    // Check outline compliance
+    if (appliedRules?.outlineProvided && appliedRules.outlineText) {
+      // Extract section headers from outline (look for numbered items or bullet points)
+      const outlineLines = appliedRules.outlineText.split('\n').filter(line => 
+        /^\d+[\.\)]\s*/.test(line.trim()) || /^[-•*]\s*/.test(line.trim())
+      );
+      
+      // Extract H2 headings from content
+      const contentH2s = content.match(/^## .+$/gm) || [];
+      const contentH2Lower = contentH2s.map(h => h.replace(/^## /, '').toLowerCase().trim());
+      
+      // Check how many outline sections are represented in the content
+      let matchedSections = 0;
+      const outlineSections: string[] = [];
+      
+      outlineLines.forEach(line => {
+        // Clean the line to get the section name
+        const sectionName = line.replace(/^\d+[\.\)]\s*/, '').replace(/^[-•*]\s*/, '').replace(/\([^)]*\)/g, '').trim();
+        if (sectionName.length > 3) {
+          outlineSections.push(sectionName);
+          // Check if any H2 contains key words from this section
+          const sectionWords = sectionName.toLowerCase().split(/\s+/).filter(w => w.length > 3);
+          const hasMatch = contentH2Lower.some(h2 => 
+            sectionWords.some(word => h2.includes(word))
+          );
+          if (hasMatch) matchedSections++;
+        }
+      });
+      
+      const complianceRate = outlineSections.length > 0 
+        ? (matchedSections / outlineSections.length) * 100 
+        : 100;
+      
+      results.push({
+        id: "outline-compliance",
+        label: "Outline structure followed",
+        status: complianceRate >= 70 ? "passed" : complianceRate >= 40 ? "warning" : "failed",
+        details: outlineSections.length > 0
+          ? `${matchedSections}/${outlineSections.length} outline sections found in content (${Math.round(complianceRate)}%)`
+          : "Outline provided - verify structure matches",
+      });
+    } else if (appliedRules?.outlineProvided) {
+      results.push({
+        id: "outline-compliance",
+        label: "Outline structure followed",
+        status: "passed",
+        details: "Outline was provided for content generation",
+      });
+    } else {
+      results.push({
+        id: "outline-compliance",
+        label: "Outline structure followed",
+        status: "warning",
+        details: appliedRules === null
+          ? "Imported content - no outline to verify"
+          : "No outline provided - content uses AI-generated structure",
+      });
+    }
 
     // Check for no em dashes
     const hasEmDash = content.includes("—");
