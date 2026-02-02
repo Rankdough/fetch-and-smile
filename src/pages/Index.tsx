@@ -1269,6 +1269,23 @@ const Index = () => {
                   }
                 });
                 
+                // IMPORTANT: Unwrap ALL remaining divs to allow WordPress editing
+                // WordPress block editor needs clean semantic HTML without wrapper divs
+                let divsToUnwrap = clone.querySelectorAll('div');
+                while (divsToUnwrap.length > 0) {
+                  divsToUnwrap.forEach((div) => {
+                    if (div.parentNode) {
+                      // Move all children out of the div
+                      while (div.firstChild) {
+                        div.parentNode.insertBefore(div.firstChild, div);
+                      }
+                      // Remove the empty div
+                      div.parentNode.removeChild(div);
+                    }
+                  });
+                  divsToUnwrap = clone.querySelectorAll('div');
+                }
+                
                 // Remove all remaining class and data attributes
                 clone.querySelectorAll('*').forEach((el) => {
                   el.removeAttribute('class');
