@@ -40,7 +40,6 @@ export function ArticleImagesPanel({
   const { toast } = useToast();
   const [isUploading, setIsUploading] = useState(false);
   const [isLoadingFromCloud, setIsLoadingFromCloud] = useState(false);
-  const [allocateCount, setAllocateCount] = useState(1);
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [folders, setFolders] = useState<ImageFolder[]>([]);
   
@@ -327,47 +326,27 @@ export function ArticleImagesPanel({
         </Button>
       </div>
 
-      {/* Allocate Logically section */}
+      {/* Allocate Logically button */}
       {filteredImages.length > 0 && hasContent && (
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <Label htmlFor="allocate-count" className="text-xs whitespace-nowrap">
-              Images to place:
-            </Label>
-            <select
-              id="allocate-count"
-              value={allocateCount}
-              onChange={(e) => setAllocateCount(Number(e.target.value))}
-              className="flex-1 h-8 px-2 text-sm rounded-md border border-input bg-background"
-              disabled={isAllocating}
-            >
-              {Array.from({ length: filteredImages.length }, (_, i) => i + 1).map((num) => (
-                <option key={num} value={num}>
-                  {num} {num === 1 ? "image" : "images"}
-                </option>
-              ))}
-            </select>
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            className="w-full"
-            onClick={() => onAllocateLogically?.(filteredImages.slice(0, allocateCount))}
-            disabled={isAllocating || !hasContent}
-          >
-            {isAllocating ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Placing images...
-              </>
-            ) : (
-              <>
-                <Wand2 className="h-4 w-4 mr-2" />
-                Allocate Logically
-              </>
-            )}
-          </Button>
-        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          className="w-full"
+          onClick={() => onAllocateLogically?.(filteredImages)}
+          disabled={isAllocating || !hasContent}
+        >
+          {isAllocating ? (
+            <>
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              Placing {filteredImages.length} images...
+            </>
+          ) : (
+            <>
+              <Wand2 className="h-4 w-4 mr-2" />
+              Allocate All {filteredImages.length} Images
+            </>
+          )}
+        </Button>
       )}
 
       {/* Loading indicator */}
