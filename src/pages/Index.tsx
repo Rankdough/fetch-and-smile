@@ -68,11 +68,11 @@ We've all been there - looking in the mirror and focusing on that one chipped to
 
 ## Quick Tips
 
-> **Tip 1:** Always ask your dentist to show you before-and-after photos of their previous bonding and veneer work before committing to treatment.
+> **Tip 1:** Ask to see before-and-after photos of your dentist's previous work.
 
-> **Tip 2:** If you drink coffee or red wine regularly, factor staining into your decision - veneers resist stains far better than bonding.
+> **Tip 2:** Coffee drinkers should lean towards veneers for better stain resistance.
 
-> **Tip 3:** Request a "mock-up" or digital smile preview to visualise results before any permanent enamel removal.
+> **Tip 3:** Request a digital smile preview before any permanent enamel removal.
 
 ## What is Composite Bonding?
 

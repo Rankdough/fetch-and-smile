@@ -125,15 +125,15 @@ ARTICLE STRUCTURE (in this order):
 3. ## Quick Tips - MANDATORY section immediately after TL;DR with exactly 3 actionable tips:
    Format each tip as a blockquote with numbered prefix:
    
-   > **Tip 1:** [Specific actionable advice relevant to the topic]
+   > **Tip 1:** [One short sentence - max 15 words]
    
-   > **Tip 2:** [Another practical tip the reader can apply immediately]
+   > **Tip 2:** [One short sentence - max 15 words]
    
-   > **Tip 3:** [Third useful tip with concrete action]
+   > **Tip 3:** [One short sentence - max 15 words]
    
-   - Each tip MUST be specific, practical, and directly useful to someone reading about this topic
-   - Tips should provide real value - not generic advice
-   - Keep tips concise (1-2 sentences each)
+   - CRITICAL: Each tip must be ONE SHORT LINE only (under 15 words)
+   - Be specific and actionable - no filler words
+   - Tips should fit on a single line when displayed
    
 4. ## In This Article - THIS SECTION IS MANDATORY AND MUST APPEAR IMMEDIATELY AFTER Quick Tips
    - This is a navigation guide showing what the reader will learn
