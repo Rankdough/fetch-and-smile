@@ -1201,6 +1201,19 @@ const Index = () => {
                   const id = h.getAttribute('id') || '';
                   if (id.includes('tldr')) {
                     h.setAttribute('style', `background: #f8f4ff; border-left: 4px solid ${primaryColor}; padding: 12px 16px; margin: 24px 0 0 0; border-radius: 0 8px 0 0; font-size: 1.5rem; font-weight: 700;`);
+                    // Style the UL that immediately follows the TL;DR heading
+                    const nextSibling = h.nextElementSibling;
+                    if (nextSibling && nextSibling.tagName === 'UL') {
+                      nextSibling.setAttribute('style', `background: #f8f4ff; border-left: 4px solid ${primaryColor}; padding: 16px 24px 16px 40px; margin: 0 0 24px 0; border-radius: 0 0 8px 0; list-style-type: disc;`);
+                      // Also clean up LI items inside TL;DR to remove double bullets
+                      nextSibling.querySelectorAll('li').forEach((li) => {
+                        li.setAttribute('style', 'margin: 8px 0; line-height: 1.6; color: #374151;');
+                        // Clean text content of double dashes/bullets
+                        if (li.innerHTML) {
+                          li.innerHTML = li.innerHTML.replace(/^[\s]*[-–—•]\s*[-–—]?\s*/i, '');
+                        }
+                      });
+                    }
                   } else {
                     h.setAttribute('style', 'font-size: 1.5rem; font-weight: 600; margin: 32px 0 16px 0; color: #1f2937;');
                   }
@@ -1217,9 +1230,11 @@ const Index = () => {
                   p.removeAttribute('class');
                 });
                 
-                // Style lists
+                // Style lists (but not TL;DR list which was already styled)
                 clone.querySelectorAll('ul').forEach((ul) => {
-                  ul.setAttribute('style', 'margin: 0 0 16px 0; padding-left: 24px; list-style-type: disc;');
+                  if (!ul.getAttribute('style')?.includes('f8f4ff')) {
+                    ul.setAttribute('style', 'margin: 0 0 16px 0; padding-left: 24px; list-style-type: disc;');
+                  }
                   ul.removeAttribute('class');
                 });
                 clone.querySelectorAll('ol').forEach((ol) => {
@@ -1227,8 +1242,14 @@ const Index = () => {
                   ol.removeAttribute('class');
                 });
                 clone.querySelectorAll('li').forEach((li) => {
-                  li.setAttribute('style', 'margin: 8px 0; line-height: 1.6; color: #374151;');
+                  if (!li.getAttribute('style')) {
+                    li.setAttribute('style', 'margin: 8px 0; line-height: 1.6; color: #374151;');
+                  }
                   li.removeAttribute('class');
+                  // Clean any remaining double bullets
+                  if (li.innerHTML) {
+                    li.innerHTML = li.innerHTML.replace(/^[\s]*[-–—•]\s*[-–—]\s*/i, '');
+                  }
                 });
                 
                 // Style blockquotes
