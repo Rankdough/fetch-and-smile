@@ -9,6 +9,16 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -56,6 +66,7 @@ export function ImageFolderManager({
   const [isCreating, setIsCreating] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [folderToDelete, setFolderToDelete] = useState<FolderWithCount | null>(null);
 
   // Load folders on mount
   useEffect(() => {
@@ -142,30 +153,29 @@ export function ImageFolderManager({
     }
   };
 
-  const deleteFolder = async (folderId: string) => {
-    const folder = folders.find((f) => f.id === folderId);
-    if (!folder) return;
+  const confirmDeleteFolder = async () => {
+    if (!folderToDelete) return;
 
     try {
       const { error } = await supabase
         .from("image_folders")
         .delete()
-        .eq("id", folderId);
+        .eq("id", folderToDelete.id);
 
       if (error) throw error;
 
-      const newFolders = folders.filter((f) => f.id !== folderId);
+      const newFolders = folders.filter((f) => f.id !== folderToDelete.id);
       setFolders(newFolders);
       onFoldersLoaded?.(newFolders);
       
       // If we deleted the selected folder, reset to "All"
-      if (selectedFolderId === folderId) {
+      if (selectedFolderId === folderToDelete.id) {
         onFolderChange(null);
       }
 
       toast({
         title: "Folder deleted",
-        description: `"${folder.name}" has been deleted`,
+        description: `"${folderToDelete.name}" has been deleted. ${folderToDelete.imageCount} image(s) moved to "All images".`,
       });
     } catch (error) {
       console.error("Failed to delete folder:", error);
@@ -174,6 +184,8 @@ export function ImageFolderManager({
         description: error instanceof Error ? error.message : "Unknown error",
         variant: "destructive",
       });
+    } finally {
+      setFolderToDelete(null);
     }
   };
 
@@ -322,7 +334,7 @@ export function ImageFolderManager({
                         variant="ghost"
                         size="icon"
                         className="h-6 w-6 text-destructive hover:text-destructive"
-                        onClick={() => deleteFolder(folder.id)}
+                        onClick={() => setFolderToDelete(folder)}
                         title="Delete folder"
                       >
                         <Trash2 className="h-3 w-3" />
@@ -335,6 +347,28 @@ export function ImageFolderManager({
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!folderToDelete} onOpenChange={(open) => !open && setFolderToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete folder "{folderToDelete?.name}"?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will delete the folder only. {folderToDelete?.imageCount ? (
+                <>The {folderToDelete.imageCount} image{folderToDelete.imageCount > 1 ? 's' : ''} in this folder will be preserved and moved to "All images".</>
+              ) : (
+                <>This folder is empty.</>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteFolder} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete folder
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
