@@ -3,7 +3,7 @@ import { useState, useCallback } from "react";
 export interface CreditUsage {
   id: string;
   action: string;
-  type: "voice_edit" | "quality_analysis" | "apply_improvements";
+  type: "voice_edit" | "quality_analysis" | "apply_improvements" | "humanise_brief" | "humanise_section" | "humanise_rewrite" | "humanise_gate";
   estimatedCredits: number;
   timestamp: Date;
   details?: string;
@@ -15,6 +15,11 @@ export const CREDIT_ESTIMATES = {
   voice_edit: 2, // ~1500 tokens input + 1000 tokens output
   quality_analysis: 3, // ~2000 tokens input + 500 tokens output (analysis)
   apply_improvements: 4, // ~2500 tokens input + 1500 tokens output (rewrite)
+  // Human mode pipeline stages
+  humanise_brief: 2, // Stage 1: Create structured brief
+  humanise_section: 1, // Stage 2: Write single section (~1 per section)
+  humanise_rewrite: 3, // Stage 3: Style transformation pass
+  humanise_gate: 1, // Stage 4: Quality scoring (lightweight)
 } as const;
 
 export function useCreditTracking() {
