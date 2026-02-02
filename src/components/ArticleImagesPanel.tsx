@@ -45,6 +45,7 @@ export function ArticleImagesPanel({
   const [folders, setFolders] = useState<ImageFolder[]>([]);
   
   const { 
+    assignments,
     assignToFolder, 
     removeFromFolder, 
     getFolderForImage, 
@@ -273,6 +274,8 @@ export function ArticleImagesPanel({
         selectedFolderId={selectedFolderId}
         onFolderChange={setSelectedFolderId}
         onFoldersLoaded={setFolders}
+        allImages={images}
+        folderAssignments={assignments}
       />
 
       <p className="text-sm text-muted-foreground">

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -15,9 +15,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from "@/components/ui/hover-card";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Folder, FolderPlus, Trash2, Loader2 } from "lucide-react";
+import { Folder, FolderPlus, Trash2, Loader2, ImageIcon } from "lucide-react";
+import type { ArticleImage } from "@/components/ArticleImagesPanel";
 
 export interface ImageFolder {
   id: string;
@@ -25,16 +31,24 @@ export interface ImageFolder {
   created_at: string;
 }
 
+interface FolderWithCount extends ImageFolder {
+  imageCount: number;
+}
+
 interface ImageFolderManagerProps {
   selectedFolderId: string | null;
   onFolderChange: (folderId: string | null) => void;
   onFoldersLoaded?: (folders: ImageFolder[]) => void;
+  allImages?: ArticleImage[];
+  folderAssignments?: { folder_id: string; file_path: string }[];
 }
 
 export function ImageFolderManager({
   selectedFolderId,
   onFolderChange,
   onFoldersLoaded,
+  allImages = [],
+  folderAssignments = [],
 }: ImageFolderManagerProps) {
   const { toast } = useToast();
   const [folders, setFolders] = useState<ImageFolder[]>([]);
@@ -71,6 +85,25 @@ export function ImageFolderManager({
     }
   };
 
+  // Calculate folder counts and get images per folder
+  const foldersWithCounts = useMemo((): FolderWithCount[] => {
+    return folders.map((folder) => {
+      const count = folderAssignments.filter((a) => a.folder_id === folder.id).length;
+      return { ...folder, imageCount: count };
+    });
+  }, [folders, folderAssignments]);
+
+  // Get images for a specific folder
+  const getImagesForFolder = (folderId: string): ArticleImage[] => {
+    const filePaths = folderAssignments
+      .filter((a) => a.folder_id === folderId)
+      .map((a) => a.file_path);
+    return allImages.filter((img) => filePaths.includes(img.filePath));
+  };
+
+  // Get total image count
+  const totalImageCount = allImages.length;
+
   const createFolder = async () => {
     if (!newFolderName.trim()) return;
 
@@ -84,7 +117,9 @@ export function ImageFolderManager({
 
       if (error) throw error;
 
-      setFolders((prev) => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)));
+      const newFolders = [...folders, data].sort((a, b) => a.name.localeCompare(b.name));
+      setFolders(newFolders);
+      onFoldersLoaded?.(newFolders);
       setNewFolderName("");
       setDialogOpen(false);
       
@@ -119,7 +154,9 @@ export function ImageFolderManager({
 
       if (error) throw error;
 
-      setFolders((prev) => prev.filter((f) => f.id !== folderId));
+      const newFolders = folders.filter((f) => f.id !== folderId);
+      setFolders(newFolders);
+      onFoldersLoaded?.(newFolders);
       
       // If we deleted the selected folder, reset to "All"
       if (selectedFolderId === folderId) {
@@ -140,6 +177,56 @@ export function ImageFolderManager({
     }
   };
 
+  // Render folder option with hover preview
+  const FolderOption = ({ folder }: { folder: FolderWithCount }) => {
+    const folderImages = getImagesForFolder(folder.id);
+    
+    return (
+      <HoverCard openDelay={200} closeDelay={100}>
+        <HoverCardTrigger asChild>
+          <SelectItem value={folder.id} className="cursor-pointer">
+            <span className="flex items-center gap-2">
+              <span>{folder.name}</span>
+              <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                {folder.imageCount}
+              </span>
+            </span>
+          </SelectItem>
+        </HoverCardTrigger>
+        <HoverCardContent side="right" align="start" className="w-64 p-2">
+          <p className="text-sm font-medium mb-2">{folder.name}</p>
+          {folderImages.length > 0 ? (
+            <div className="grid grid-cols-3 gap-1">
+              {folderImages.slice(0, 6).map((img) => (
+                <div
+                  key={img.filePath}
+                  className="aspect-square rounded overflow-hidden bg-muted"
+                >
+                  <img
+                    src={img.url}
+                    alt={img.alt}
+                    className="w-full h-full object-cover"
+                    loading="lazy"
+                  />
+                </div>
+              ))}
+              {folderImages.length > 6 && (
+                <div className="aspect-square rounded bg-muted flex items-center justify-center text-xs text-muted-foreground">
+                  +{folderImages.length - 6}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center py-4 text-muted-foreground">
+              <ImageIcon className="h-6 w-6 mb-1 opacity-50" />
+              <span className="text-xs">No images yet</span>
+            </div>
+          )}
+        </HoverCardContent>
+      </HoverCard>
+    );
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -148,6 +235,12 @@ export function ImageFolderManager({
       </div>
     );
   }
+
+  // Get selected folder name and count for display
+  const selectedFolder = foldersWithCounts.find((f) => f.id === selectedFolderId);
+  const displayValue = selectedFolder
+    ? `${selectedFolder.name} (${selectedFolder.imageCount})`
+    : `All images (${totalImageCount})`;
 
   return (
     <div className="flex items-center gap-2">
@@ -158,14 +251,19 @@ export function ImageFolderManager({
         onValueChange={(value) => onFolderChange(value === "all" ? null : value)}
       >
         <SelectTrigger className="flex-1 h-8">
-          <SelectValue placeholder="All images" />
+          <SelectValue>{displayValue}</SelectValue>
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">All images</SelectItem>
-          {folders.map((folder) => (
-            <SelectItem key={folder.id} value={folder.id}>
-              {folder.name}
-            </SelectItem>
+          <SelectItem value="all">
+            <span className="flex items-center gap-2">
+              <span>All images</span>
+              <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                {totalImageCount}
+              </span>
+            </span>
+          </SelectItem>
+          {foldersWithCounts.map((folder) => (
+            <FolderOption key={folder.id} folder={folder} />
           ))}
         </SelectContent>
       </Select>
@@ -205,16 +303,21 @@ export function ImageFolderManager({
               </Button>
             </div>
 
-            {folders.length > 0 && (
+            {foldersWithCounts.length > 0 && (
               <div className="border-t pt-4 mt-4">
                 <p className="text-sm font-medium mb-2">Existing folders:</p>
                 <div className="space-y-1 max-h-40 overflow-y-auto">
-                  {folders.map((folder) => (
+                  {foldersWithCounts.map((folder) => (
                     <div
                       key={folder.id}
                       className="flex items-center justify-between py-1 px-2 rounded hover:bg-muted"
                     >
-                      <span className="text-sm">{folder.name}</span>
+                      <span className="text-sm flex items-center gap-2">
+                        {folder.name}
+                        <span className="text-xs text-muted-foreground">
+                          ({folder.imageCount} {folder.imageCount === 1 ? "image" : "images"})
+                        </span>
+                      </span>
                       <Button
                         variant="ghost"
                         size="icon"
