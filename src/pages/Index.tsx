@@ -2702,6 +2702,85 @@ const Index = () => {
                                                     {children}
                                                   </a>
                                                 ),
+                                                blockquote: ({ children, ...props }) => {
+                                                  // Check if this is a CTA blockquote (has bold headline + link)
+                                                  const content = String(children);
+                                                  // Look for pattern: bold text followed by a link
+                                                  const childArray = Array.isArray(children) ? children : [children];
+                                                  let headline = '';
+                                                  let description = '';
+                                                  let buttonText = '';
+                                                  let buttonUrl = '';
+                                                  
+                                                  // Extract text content from children
+                                                  const extractText = (node: React.ReactNode): string => {
+                                                    if (typeof node === 'string') return node;
+                                                    if (typeof node === 'number') return String(node);
+                                                    if (!node) return '';
+                                                    if (Array.isArray(node)) return node.map(extractText).join('');
+                                                    if (typeof node === 'object' && 'props' in node) {
+                                                      const el = node as React.ReactElement;
+                                                      return extractText(el.props?.children);
+                                                    }
+                                                    return '';
+                                                  };
+                                                  
+                                                  // Check for CTA pattern in children
+                                                  let hasStrong = false;
+                                                  let hasLink = false;
+                                                  
+                                                  const findElements = (node: React.ReactNode): void => {
+                                                    if (!node) return;
+                                                    if (Array.isArray(node)) {
+                                                      node.forEach(findElements);
+                                                      return;
+                                                    }
+                                                    if (typeof node === 'object' && 'props' in node) {
+                                                      const el = node as React.ReactElement;
+                                                      if (el.type === 'strong' || (el.props && el.props.node?.tagName === 'strong')) {
+                                                        hasStrong = true;
+                                                        headline = extractText(el.props?.children);
+                                                      }
+                                                      if (el.type === 'a' || (el.props && el.props.href)) {
+                                                        hasLink = true;
+                                                        buttonText = extractText(el.props?.children);
+                                                        buttonUrl = el.props?.href || '';
+                                                      }
+                                                      if (el.type === 'p') {
+                                                        findElements(el.props?.children);
+                                                      }
+                                                      if (el.props?.children) {
+                                                        findElements(el.props.children);
+                                                      }
+                                                    }
+                                                  };
+                                                  
+                                                  findElements(children);
+                                                  
+                                                  // If we have both strong and link, treat as CTA
+                                                  if (hasStrong && hasLink && buttonUrl) {
+                                                    // Extract description: text that's not the headline or button
+                                                    const fullText = extractText(children);
+                                                    description = fullText
+                                                      .replace(headline, '')
+                                                      .replace(buttonText, '')
+                                                      .replace(/\n+/g, ' ')
+                                                      .trim();
+                                                    
+                                                    return (
+                                                      <CTABanner
+                                                        headline={headline}
+                                                        description={description}
+                                                        buttonText={buttonText || 'Learn More'}
+                                                        url={buttonUrl}
+                                                        brandColors={selectedColorPalette}
+                                                      />
+                                                    );
+                                                  }
+                                                  
+                                                  // Regular blockquote
+                                                  return <blockquote {...props}>{children}</blockquote>;
+                                                },
                                               }}
                                             >
                                               {segment.value as string}
