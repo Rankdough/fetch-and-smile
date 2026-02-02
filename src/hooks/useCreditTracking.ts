@@ -3,7 +3,7 @@ import { useState, useCallback } from "react";
 export interface CreditUsage {
   id: string;
   action: string;
-  type: "voice_edit" | "quality_analysis" | "apply_improvements" | "humanise_brief" | "humanise_section" | "humanise_rewrite" | "humanise_gate";
+  type: "voice_edit" | "quality_analysis" | "apply_improvements" | "humanise_brief" | "humanise_section" | "humanise_rewrite" | "humanise_gate" | "value_promise_verification";
   estimatedCredits: number;
   timestamp: Date;
   details?: string;
@@ -20,6 +20,7 @@ export const CREDIT_ESTIMATES = {
   humanise_section: 1, // Stage 2: Write single section (~1 per section)
   humanise_rewrite: 3, // Stage 3: Style transformation pass
   humanise_gate: 1, // Stage 4: Quality scoring (lightweight)
+  value_promise_verification: 2, // Analyze content against value promise
 } as const;
 
 export function useCreditTracking() {
