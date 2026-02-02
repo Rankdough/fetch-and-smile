@@ -1138,10 +1138,21 @@ const Index = () => {
                 
                 // === STYLE ELEMENTS DIRECTLY VIA DOM ===
                 
-                // Style all tables - use fixed layout to prevent horizontal scroll
+                // Wrap tables in scrollable container and style them
                 clone.querySelectorAll('table').forEach((table) => {
-                  table.setAttribute('style', 'width: 100%; max-width: 100%; border-collapse: collapse; margin: 24px 0; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border: 1px solid #e5e7eb; table-layout: fixed;');
+                  // Create a wrapper div for horizontal scroll
+                  const wrapper = document.createElement('div');
+                  wrapper.setAttribute('style', 'width: 100%; overflow-x: auto; margin: 24px 0; -webkit-overflow-scrolling: touch;');
+                  
+                  // Style the table itself
+                  table.setAttribute('style', 'min-width: 100%; border-collapse: collapse; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border: 1px solid #e5e7eb; table-layout: auto;');
                   table.removeAttribute('class');
+                  
+                  // Insert wrapper before table and move table inside
+                  if (table.parentNode) {
+                    table.parentNode.insertBefore(wrapper, table);
+                    wrapper.appendChild(table);
+                  }
                 });
                 
                 // Style theads with gradient
@@ -1150,9 +1161,9 @@ const Index = () => {
                   thead.removeAttribute('class');
                 });
                 
-                // Style th cells - compact padding and smaller font for wide tables
+                // Style th cells
                 clone.querySelectorAll('th').forEach((th) => {
-                  th.setAttribute('style', 'padding: 8px 6px; text-align: left; color: white; font-weight: 600; font-size: 13px; border: 1px solid rgba(255,255,255,0.2); white-space: normal; word-wrap: break-word; overflow-wrap: break-word;');
+                  th.setAttribute('style', 'padding: 12px 16px; text-align: left; color: white; font-weight: 600; font-size: 14px; border: 1px solid rgba(255,255,255,0.2); white-space: nowrap;');
                   th.removeAttribute('class');
                 });
                 
@@ -1167,9 +1178,9 @@ const Index = () => {
                   });
                 });
                 
-                // Style td cells - compact padding and smaller font for wide tables
+                // Style td cells
                 clone.querySelectorAll('td').forEach((td) => {
-                  td.setAttribute('style', 'padding: 8px 6px; font-size: 13px; border: 1px solid #e5e7eb; white-space: normal; word-wrap: break-word; overflow-wrap: break-word;');
+                  td.setAttribute('style', 'padding: 12px 16px; font-size: 14px; border: 1px solid #e5e7eb; white-space: nowrap;');
                   td.removeAttribute('class');
                 });
                 
