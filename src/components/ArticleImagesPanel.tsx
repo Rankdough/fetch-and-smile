@@ -25,7 +25,7 @@ export interface ArticleImage {
 interface ArticleImagesPanelProps {
   images: ArticleImage[];
   onImagesChange: (images: ArticleImage[]) => void;
-  onAllocateLogically?: (count: number) => void;
+  onAllocateLogically?: (imagesToAllocate: ArticleImage[]) => void;
   isAllocating?: boolean;
   hasContent?: boolean;
 }
@@ -338,7 +338,7 @@ export function ArticleImagesPanel({
             variant="outline"
             size="sm"
             className="w-full"
-            onClick={() => onAllocateLogically?.(allocateCount)}
+            onClick={() => onAllocateLogically?.(filteredImages.slice(0, allocateCount))}
             disabled={isAllocating || !hasContent}
           >
             {isAllocating ? (
