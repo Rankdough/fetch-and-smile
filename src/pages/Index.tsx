@@ -1804,17 +1804,30 @@ const Index = () => {
                 // Build final HTML with navigation, content, FAQ, and CTAs in correct order
                 let finalHtml = '';
                 
-                // Find where to insert navigation (after TL;DR section)
+                // Find where to insert navigation (after TL;DR section or Quick Tips)
                 const tldrMatch = htmlContent.match(/(<h2[^>]*>.*?TL;?DR.*?<\/h2>[\s\S]*?<\/ul>)/i);
                 
+                // Remove the duplicate "In This Article" markdown list that appears after Quick Tips
+                // This list has items like "1. Section Name - Description" and should be removed
+                // since we're inserting a properly styled navigation panel
+                let cleanedHtmlContent = htmlContent;
+                
+                // Pattern to match the "In This Article" header or list items with numbered titles
+                // Match a UL that contains navigation-style items (e.g., "1. What is Composite Bonding?" - "Description...")
+                const navListPattern = /<ul[^>]*>[\s\S]*?<li[^>]*>[\s\S]*?<strong[^>]*>\s*\d+\.\s*[^<]+<\/strong>\s*[-–—]\s*[\s\S]*?<\/ul>/gi;
+                cleanedHtmlContent = cleanedHtmlContent.replace(navListPattern, '');
+                
+                // Also remove any standalone "In This Article" H2 heading that might have slipped through
+                cleanedHtmlContent = cleanedHtmlContent.replace(/<h2[^>]*>[\s\S]*?In This Article[\s\S]*?<\/h2>/gi, '');
+                
                 if (tldrMatch && navItems.length > 0) {
-                  const tldrEndIndex = htmlContent.indexOf(tldrMatch[0]) + tldrMatch[0].length;
-                  const beforeNav = htmlContent.slice(0, tldrEndIndex);
-                  const afterNav = htmlContent.slice(tldrEndIndex);
+                  const tldrEndIndex = cleanedHtmlContent.indexOf(tldrMatch[0]) + tldrMatch[0].length;
+                  const beforeNav = cleanedHtmlContent.slice(0, tldrEndIndex);
+                  const afterNav = cleanedHtmlContent.slice(tldrEndIndex);
                   
                   finalHtml = beforeNav + generateNavigationHtml(navItems, selectedColorPalette) + afterNav;
                 } else {
-                  finalHtml = htmlContent;
+                  finalHtml = cleanedHtmlContent;
                 }
                 
                 // Add FAQ section before References/Final Thoughts
