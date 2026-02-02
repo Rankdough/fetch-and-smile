@@ -1556,6 +1556,30 @@ const Index = () => {
                   }
                 });
                 
+                // CRITICAL: Remove duplicate "In This Article" navigation lists
+                // These are plain <ul> lists with numbered items like "2. The Power of Porcelain Veneers - Description..."
+                // They appear after Quick Tips and should be removed since we insert a styled navigation panel
+                clone.querySelectorAll('ul').forEach((ul) => {
+                  const listItems = ul.querySelectorAll('li');
+                  if (listItems.length >= 3) {
+                    // Check if this is a navigation-style list (items start with numbers and have long descriptions)
+                    let isNavList = true;
+                    let navItemCount = 0;
+                    listItems.forEach((li) => {
+                      const text = li.textContent || '';
+                      // Match pattern: "2. Title Name - Long description text..." or with bold
+                      const isNavItem = /^\s*\d+\.\s*[A-Z][^-]*\s*[-–—]\s*.{30,}/i.test(text);
+                      if (isNavItem) {
+                        navItemCount++;
+                      }
+                    });
+                    // If majority of items match navigation pattern, remove the list
+                    if (navItemCount >= 3 || (navItemCount >= listItems.length * 0.5 && navItemCount >= 2)) {
+                      ul.remove();
+                    }
+                  }
+                });
+                
                 // Remove CTA banners (we'll add proper HTML)
                 clone.querySelectorAll('[data-cta-banner]').forEach((el) => el.remove());
                 
