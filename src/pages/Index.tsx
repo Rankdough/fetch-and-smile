@@ -1645,8 +1645,11 @@ const Index = () => {
                 });
                 clone.querySelectorAll('h2').forEach((h) => {
                   const id = h.getAttribute('id') || '';
-                  if (id.includes('tldr')) {
-                    h.setAttribute('style', `background: #f8f4ff; border-left: 4px solid ${primaryColor}; padding: 12px 16px; margin: 24px 0 0 0; border-radius: 0 8px 0 0; font-size: 1.5rem; font-weight: 700;`);
+                  const textContent = h.textContent || '';
+                  const isTldr = id.includes('tldr') || /TL;?DR/i.test(textContent);
+                  
+                  if (isTldr) {
+                    h.setAttribute('style', `background: #f8f4ff; border-left: 4px solid ${primaryColor}; padding: 12px 16px; margin: 24px 0 0 0; border-radius: 0 8px 0 0; font-size: 1.5rem; font-weight: 700; color: #1f2937;`);
                     // Style the UL that immediately follows the TL;DR heading
                     const nextSibling = h.nextElementSibling;
                     if (nextSibling && nextSibling.tagName === 'UL') {
@@ -1659,6 +1662,10 @@ const Index = () => {
                           li.innerHTML = li.innerHTML.replace(/^[\s]*[-–—•]\s*[-–—]?\s*/i, '');
                         }
                       });
+                    }
+                    // Also handle if next sibling is a paragraph (some TL;DR use paragraph instead of list)
+                    if (nextSibling && nextSibling.tagName === 'P') {
+                      nextSibling.setAttribute('style', `background: #f8f4ff; border-left: 4px solid ${primaryColor}; padding: 16px 24px; margin: 0 0 24px 0; border-radius: 0 0 8px 0; line-height: 1.7; color: #374151;`);
                     }
                   } else {
                     h.setAttribute('style', 'font-size: 1.5rem; font-weight: 600; margin: 32px 0 16px 0; color: #1f2937;');
@@ -1698,9 +1705,39 @@ const Index = () => {
                   }
                 });
                 
-                // Style blockquotes
+                // Style blockquotes - detect Quick Tips vs regular blockquotes
+                let tipIndex = 0;
                 clone.querySelectorAll('blockquote').forEach((bq) => {
-                  bq.setAttribute('style', `background: #f8f4ff; border-left: 4px solid ${primaryColor}; padding: 16px 24px; margin: 24px 0; border-radius: 0 8px 8px 0; font-style: normal;`);
+                  const firstStrong = bq.querySelector('strong');
+                  const isQuickTip = firstStrong && /^Tip \d+:?/i.test(firstStrong.textContent || '');
+                  
+                  if (isQuickTip) {
+                    tipIndex++;
+                    // Remove the "Tip X:" text since we'll show it as a circle
+                    if (firstStrong) {
+                      firstStrong.remove();
+                    }
+                    
+                    // Create the numbered circle as inline element
+                    const circleSpan = document.createElement('span');
+                    circleSpan.setAttribute('style', `display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; background: ${primaryColor}; border-radius: 50%; color: white; font-weight: 700; font-size: 14px; margin-right: 12px; flex-shrink: 0; vertical-align: middle;`);
+                    circleSpan.textContent = String(tipIndex);
+                    
+                    // Style the blockquote for tips
+                    bq.setAttribute('style', `display: flex; align-items: center; background: linear-gradient(135deg, ${primaryColor}10 0%, ${primaryColor}20 100%); border: 1px solid ${primaryColor}33; border-radius: 12px; padding: 16px 20px; margin: 12px 0; font-style: normal;`);
+                    
+                    // Wrap content and prepend circle
+                    const content = bq.innerHTML;
+                    bq.innerHTML = '';
+                    bq.appendChild(circleSpan);
+                    const textSpan = document.createElement('span');
+                    textSpan.innerHTML = content.replace(/^[\s]*/, '');
+                    textSpan.setAttribute('style', 'flex: 1;');
+                    bq.appendChild(textSpan);
+                  } else {
+                    // Regular blockquote (like TL;DR content)
+                    bq.setAttribute('style', `background: #f8f4ff; border-left: 4px solid ${primaryColor}; padding: 16px 24px; margin: 24px 0; border-radius: 0 8px 8px 0; font-style: normal;`);
+                  }
                   bq.removeAttribute('class');
                 });
                 
