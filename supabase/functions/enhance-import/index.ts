@@ -260,57 +260,92 @@ function insertImagesLocally(content: string, images: ArticleImage[]): string {
   // Headings to skip for image placement
   const skipHeadings = [
     "tl;dr", "tldr", "in this article", "faq", "frequently asked questions",
-    "references", "sources", "final thoughts", "conclusion", "summary"
+    "references", "sources", "final thoughts", "conclusion", "summary",
+    "introduction"
   ];
   
   // Find all H2 heading indices that are valid for image placement
+  // Also check for bold headings like **Heading** on their own line
   const h2Indices: number[] = [];
   for (let i = 0; i < lines.length; i++) {
-    if (lines[i].startsWith("## ")) {
-      const headingText = lines[i].replace(/^## /, "").toLowerCase().trim();
+    const line = lines[i].trim();
+    
+    // Check for markdown H2 (## Heading)
+    const isH2 = line.startsWith("## ");
+    // Check for bold-style heading (**Heading**) on its own line
+    const isBoldHeading = /^\*\*[^*]+\*\*$/.test(line);
+    
+    if (isH2 || isBoldHeading) {
+      const headingText = line
+        .replace(/^## /, "")
+        .replace(/^\*\*/, "")
+        .replace(/\*\*$/, "")
+        .toLowerCase()
+        .trim();
+      
       const shouldSkip = skipHeadings.some(skip => headingText.includes(skip));
-      if (!shouldSkip) {
+      
+      console.log(`Heading at line ${i}: "${headingText}" - skip: ${shouldSkip}`);
+      
+      if (!shouldSkip && isH2) {
         h2Indices.push(i);
       }
     }
   }
   
   console.log(`Found ${h2Indices.length} valid H2 headings for ${images.length} images`);
+  console.log(`H2 indices: ${JSON.stringify(h2Indices)}`);
   
-  // If no valid H2s found, insert images after first paragraph
+  // If no valid H2s found, distribute images evenly throughout the content
   if (h2Indices.length === 0) {
-    const result: string[] = [];
-    let inserted = false;
-    let imageIndex = 0;
+    console.log("No H2 headings found, distributing images evenly through content");
     
-    for (let i = 0; i < lines.length; i++) {
-      result.push(lines[i]);
-      
-      // After first non-empty paragraph, insert all images
-      if (!inserted && lines[i].trim() && !lines[i].startsWith("#") && imageIndex < images.length) {
-        const nextLine = lines[i + 1];
-        if (nextLine === undefined || nextLine.trim() === "") {
-          for (const img of images) {
-            result.push("");
-            result.push(`![${img.alt}](${img.url})`);
-          }
-          result.push("");
-          inserted = true;
-        }
+    // Find paragraph breaks (empty lines followed by content)
+    const paragraphBreaks: number[] = [];
+    for (let i = 1; i < lines.length - 1; i++) {
+      if (lines[i].trim() === "" && lines[i + 1] && lines[i + 1].trim() && 
+          !lines[i + 1].startsWith("#") && !lines[i + 1].startsWith("|") &&
+          !lines[i + 1].startsWith("!") && !lines[i + 1].startsWith("-")) {
+        paragraphBreaks.push(i);
       }
+    }
+    
+    console.log(`Found ${paragraphBreaks.length} paragraph breaks`);
+    
+    if (paragraphBreaks.length === 0) {
+      // Just append at the end
+      return content + "\n\n" + images.map(img => `![${img.alt}](${img.url})`).join("\n\n");
+    }
+    
+    // Distribute images evenly across paragraph breaks
+    const step = Math.max(1, Math.floor(paragraphBreaks.length / images.length));
+    const insertPoints: {index: number, image: ArticleImage}[] = [];
+    
+    for (let i = 0; i < images.length; i++) {
+      const breakIndex = Math.min(i * step, paragraphBreaks.length - 1);
+      insertPoints.push({ index: paragraphBreaks[breakIndex], image: images[i] });
+    }
+    
+    // Sort by index descending so we insert from bottom to top (preserves indices)
+    insertPoints.sort((a, b) => b.index - a.index);
+    
+    const result = [...lines];
+    for (const point of insertPoints) {
+      result.splice(point.index + 1, 0, "", `![${point.image.alt}](${point.image.url})`, "");
     }
     
     return result.join("\n");
   }
   
   // Distribute images evenly across H2 headings
-  // Each H2 gets at least one image, extras go to first headings
   const imagesPerHeading: ArticleImage[][] = h2Indices.map(() => []);
   
   for (let i = 0; i < images.length; i++) {
     const headingIndex = i % h2Indices.length;
     imagesPerHeading[headingIndex].push(images[i]);
   }
+  
+  console.log(`Distribution: ${imagesPerHeading.map((arr, i) => `H2[${i}]: ${arr.length} images`).join(", ")}`);
   
   // Build result with images inserted ABOVE each H2
   const result: string[] = [];
