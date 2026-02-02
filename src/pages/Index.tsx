@@ -973,8 +973,8 @@ const Index = () => {
   };
 
   // Allocate images logically using AI to match image content to article sections
-  const handleAllocateImagesLogically = async (count: number = articleImages.length) => {
-    if (!generatedContent || articleImages.length === 0) {
+  const handleAllocateImagesLogically = async (imagesToAllocate: ArticleImage[]) => {
+    if (!generatedContent || imagesToAllocate.length === 0) {
       toast({
         title: "Cannot allocate images",
         description: "You need content and uploaded images first.",
@@ -986,9 +986,6 @@ const Index = () => {
     setIsAllocatingImages(true);
 
     try {
-      // Only use the first 'count' images
-      const imagesToAllocate = articleImages.slice(0, count);
-      
       // Call edge function to allocate images based on content analysis
       const { data, error } = await supabase.functions.invoke("enhance-import", {
         body: {
