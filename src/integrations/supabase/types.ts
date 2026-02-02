@@ -14,6 +14,53 @@ export type Database = {
   }
   public: {
     Tables: {
+      image_folder_assignments: {
+        Row: {
+          created_at: string
+          file_path: string
+          folder_id: string
+          id: string
+        }
+        Insert: {
+          created_at?: string
+          file_path: string
+          folder_id: string
+          id?: string
+        }
+        Update: {
+          created_at?: string
+          file_path?: string
+          folder_id?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "image_folder_assignments_folder_id_fkey"
+            columns: ["folder_id"]
+            isOneToOne: false
+            referencedRelation: "image_folders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      image_folders: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
       seo_knowledge: {
         Row: {
           content: string

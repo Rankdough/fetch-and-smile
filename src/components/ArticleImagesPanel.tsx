@@ -1,10 +1,19 @@
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, X, Copy, ImagePlus, GripVertical, Wand2, Cloud } from "lucide-react";
+import { Loader2, X, Copy, ImagePlus, GripVertical, Wand2, Cloud, FolderInput } from "lucide-react";
+import { ImageFolderManager, type ImageFolder } from "@/components/ImageFolderManager";
+import { useImageFolders } from "@/hooks/useImageFolders";
 
 export interface ArticleImage {
   name: string;
@@ -32,6 +41,23 @@ export function ArticleImagesPanel({
   const [isUploading, setIsUploading] = useState(false);
   const [isLoadingFromCloud, setIsLoadingFromCloud] = useState(false);
   const [allocateCount, setAllocateCount] = useState(1);
+  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
+  const [folders, setFolders] = useState<ImageFolder[]>([]);
+  
+  const { 
+    assignToFolder, 
+    removeFromFolder, 
+    getFolderForImage, 
+    getImagesInFolder,
+    refresh: refreshFolderData 
+  } = useImageFolders();
+
+  // Filter images by selected folder
+  const filteredImages = useMemo(() => {
+    if (!selectedFolderId) return images;
+    const folderFilePaths = getImagesInFolder(selectedFolderId);
+    return images.filter((img) => folderFilePaths.includes(img.filePath));
+  }, [images, selectedFolderId, getImagesInFolder]);
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -220,8 +246,35 @@ export function ArticleImagesPanel({
     }
   };
 
+  // Handle assigning image to a folder
+  const handleAssignToFolder = async (filePath: string, folderId: string | null) => {
+    if (folderId) {
+      const success = await assignToFolder(filePath, folderId);
+      if (success) {
+        toast({
+          title: "Image added to folder",
+          description: `Image moved to ${folders.find(f => f.id === folderId)?.name}`,
+        });
+      }
+    } else {
+      const success = await removeFromFolder(filePath);
+      if (success) {
+        toast({
+          title: "Image removed from folder",
+        });
+      }
+    }
+  };
+
   return (
     <div className="space-y-3">
+      {/* Folder selector */}
+      <ImageFolderManager
+        selectedFolderId={selectedFolderId}
+        onFolderChange={setSelectedFolderId}
+        onFoldersLoaded={setFolders}
+      />
+
       <p className="text-sm text-muted-foreground">
         <strong>Drag & drop</strong> images into the preview, or use <strong>Allocate Logically</strong> for AI placement.
       </p>
@@ -258,7 +311,7 @@ export function ArticleImagesPanel({
       </div>
 
       {/* Allocate Logically section */}
-      {images.length > 0 && hasContent && (
+      {filteredImages.length > 0 && hasContent && (
         <div className="space-y-2">
           <div className="flex items-center gap-2">
             <Label htmlFor="allocate-count" className="text-xs whitespace-nowrap">
@@ -271,7 +324,7 @@ export function ArticleImagesPanel({
               className="flex-1 h-8 px-2 text-sm rounded-md border border-input bg-background"
               disabled={isAllocating}
             >
-              {Array.from({ length: images.length }, (_, i) => i + 1).map((num) => (
+              {Array.from({ length: filteredImages.length }, (_, i) => i + 1).map((num) => (
                 <option key={num} value={num}>
                   {num} {num === 1 ? "image" : "images"}
                 </option>
@@ -309,11 +362,11 @@ export function ArticleImagesPanel({
       )}
 
       {/* Image grid */}
-      {images.length > 0 && (
+      {filteredImages.length > 0 && (
         <div className="grid grid-cols-2 gap-3">
-          {images.map((image, index) => (
+          {filteredImages.map((image, index) => (
             <div
-              key={index}
+              key={image.filePath}
               className="relative group rounded-lg border bg-muted/50 p-2 space-y-2 cursor-grab active:cursor-grabbing"
               draggable
               onDragStart={(e) => handleDragStart(e, image)}
@@ -339,6 +392,27 @@ export function ArticleImagesPanel({
                 {image.name}
               </p>
 
+              {/* Folder assignment dropdown */}
+              {folders.length > 0 && (
+                <Select
+                  value={getFolderForImage(image.filePath) || "none"}
+                  onValueChange={(value) => handleAssignToFolder(image.filePath, value === "none" ? null : value)}
+                >
+                  <SelectTrigger className="h-7 text-xs">
+                    <FolderInput className="h-3 w-3 mr-1" />
+                    <SelectValue placeholder="No folder" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No folder</SelectItem>
+                    {folders.map((folder) => (
+                      <SelectItem key={folder.id} value={folder.id}>
+                        {folder.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+
               {/* Actions */}
               <div className="flex gap-1">
                 <Button
@@ -354,7 +428,7 @@ export function ArticleImagesPanel({
                   variant="destructive"
                   size="icon"
                   className="h-7 w-7"
-                  onClick={() => handleDelete(index)}
+                  onClick={() => handleDelete(images.findIndex(img => img.filePath === image.filePath))}
                   title="Remove image"
                 >
                   <X className="h-3 w-3" />
@@ -366,11 +440,11 @@ export function ArticleImagesPanel({
       )}
 
       {/* Empty state */}
-      {images.length === 0 && !isUploading && (
+      {filteredImages.length === 0 && !isUploading && (
         <div className="rounded-lg border-2 border-dashed border-muted-foreground/25 p-6 text-center">
           <ImagePlus className="h-8 w-8 mx-auto text-muted-foreground/50 mb-2" />
           <p className="text-sm text-muted-foreground">
-            No images uploaded yet
+            {selectedFolderId ? "No images in this folder" : "No images uploaded yet"}
           </p>
           <p className="text-xs text-muted-foreground/75 mt-1">
             Supports JPG, PNG, GIF, WebP, SVG
