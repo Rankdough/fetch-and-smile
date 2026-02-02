@@ -120,21 +120,22 @@ SOURCE REFERENCE RULES:
 
 ARTICLE STRUCTURE (in this order):
 1. Title (# H1)
-2. ## TL;DR - as an H2 heading, followed by:
-   a) Bullet points summarizing key takeaways (3-5 points)
-   b) MANDATORY: Include exactly 3 ACTIONABLE TIPS in this format:
-      
-      > 💡 **Quick Tip 1:** [Specific actionable advice relevant to the topic]
-      
-      > ⚡ **Quick Tip 2:** [Another practical tip the reader can apply immediately]
-      
-      > ✅ **Quick Tip 3:** [Third useful tip with concrete action]
-      
+2. ## TL;DR - as an H2 heading, followed by bullet points summarizing key takeaways (3-5 points). Keep this section focused on the summary only.
+
+3. ## Quick Tips - MANDATORY section immediately after TL;DR with exactly 3 actionable tips:
+   Format each tip as a blockquote with numbered prefix:
+   
+   > **Tip 1:** [Specific actionable advice relevant to the topic]
+   
+   > **Tip 2:** [Another practical tip the reader can apply immediately]
+   
+   > **Tip 3:** [Third useful tip with concrete action]
+   
    - Each tip MUST be specific, practical, and directly useful to someone reading about this topic
    - Tips should provide real value - not generic advice
-   - Use different emoji icons for visual variety (💡⚡✅🎯📌💪🔑)
+   - Keep tips concise (1-2 sentences each)
    
-3. ## In This Article - THIS SECTION IS MANDATORY AND MUST APPEAR IMMEDIATELY AFTER TL;DR
+4. ## In This Article - THIS SECTION IS MANDATORY AND MUST APPEAR IMMEDIATELY AFTER Quick Tips
    - This is a navigation guide showing what the reader will learn
    - Format as a BULLETED LIST with each item on its own line
    - Each line format: - **1. Section Title** - DETAILED description (MINIMUM 150 characters, aim for 200+ characters) explaining what the reader will learn in this section
