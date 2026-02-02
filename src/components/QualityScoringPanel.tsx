@@ -24,6 +24,7 @@ interface QualityScoringPanelProps {
   topic: string;
   valuePromise: string;
   onContentUpdate?: (newContent: string) => void;
+  onCreditUsed?: (action: string, type: "quality_analysis" | "apply_improvements", details?: string) => void;
 }
 
 const getScoreColor = (score: number) => {
@@ -60,7 +61,7 @@ const ScoreIcon = ({ dimension }: { dimension: string }) => {
   }
 };
 
-export const QualityScoringPanel = ({ content, topic, valuePromise, onContentUpdate }: QualityScoringPanelProps) => {
+export const QualityScoringPanel = ({ content, topic, valuePromise, onContentUpdate, onCreditUsed }: QualityScoringPanelProps) => {
   const { toast } = useToast();
   const [isScoring, setIsScoring] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
@@ -78,6 +79,10 @@ export const QualityScoringPanel = ({ content, topic, valuePromise, onContentUpd
 
       if (error) throw error;
       setScores(data);
+      
+      // Track credit usage
+      onCreditUsed?.("Score Content", "quality_analysis", `Score: ${data.overallScore}/100`);
+      
       toast({
         title: "Quality analysis complete",
         description: `Overall score: ${data.overallScore}/100`,
@@ -139,6 +144,10 @@ export const QualityScoringPanel = ({ content, topic, valuePromise, onContentUpd
       if (data?.content) {
         onContentUpdate(data.content);
         setScores(null); // Reset scores so user can re-analyze
+        
+        // Track credit usage
+        onCreditUsed?.("Apply Improvements", "apply_improvements", `${improvements.length} improvements applied`);
+        
         toast({
           title: "Improvements applied",
           description: "Content has been rewritten based on the quality analysis. Re-score to see the difference!",

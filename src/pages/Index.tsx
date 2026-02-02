@@ -41,10 +41,12 @@ import { Switch } from "@/components/ui/switch";
 import { ArticleNavigationPanel, extractNavigationFromContent, generateNavigationHtml } from "@/components/ArticleNavigationPanel";
 import { FAQAccordion, extractFAQFromContent, removeFAQSection, generateFAQHtml } from "@/components/FAQAccordion";
 import { useSpeechToText } from "@/hooks/useSpeechToText";
+import { useCreditTracking } from "@/hooks/useCreditTracking";
 import { SectionIndicator } from "@/components/SectionIndicator";
 import { ArticleImagesPanel, ArticleImage } from "@/components/ArticleImagesPanel";
 import { HtmlImportDialog } from "@/components/HtmlImportDialog";
 import { CollapsibleSection } from "@/components/CollapsibleSection";
+import { CreditUsageDisplay } from "@/components/CreditUsageDisplay";
 
 const SAMPLE_CONTENT = `# Composite Bonding vs Veneers: Which Smile Transformation is Right for You?
 
@@ -263,6 +265,7 @@ const removeInThisArticleSection = (content: string): string => {
 
 const Index = () => {
   const { toast } = useToast();
+  const { trackUsage, getVoiceEditCredits, getQualityAnalysisCredits, getQualityAnalysisBreakdown, clearHistory: clearCreditHistory } = useCreditTracking();
   const [isGenerating, setIsGenerating] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isEnhancingImport, setIsEnhancingImport] = useState(false);
@@ -2865,7 +2868,8 @@ const Index = () => {
                     {/* Voice Edit Agent */}
                     <VoiceEditAgent 
                       content={generatedContent} 
-                      onContentUpdate={setGeneratedContent} 
+                      onContentUpdate={setGeneratedContent}
+                      onCreditUsed={(action, details) => trackUsage(action, "voice_edit", details)}
                     />
                     
                     {/* Content Verification Panel */}
@@ -2945,6 +2949,15 @@ const Index = () => {
                       topic={formData.topic}
                       valuePromise={valuePromise}
                       onContentUpdate={setGeneratedContent}
+                      onCreditUsed={(action, type, details) => trackUsage(action, type, details)}
+                    />
+                    
+                    {/* Credit Usage Display */}
+                    <CreditUsageDisplay
+                      voiceEditCredits={getVoiceEditCredits()}
+                      qualityAnalysisCredits={getQualityAnalysisCredits()}
+                      qualityBreakdown={getQualityAnalysisBreakdown()}
+                      onClear={clearCreditHistory}
                     />
                   </>
                 ) : (

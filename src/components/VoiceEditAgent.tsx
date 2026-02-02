@@ -10,6 +10,7 @@ import { toast } from "sonner";
 interface VoiceEditAgentProps {
   content: string;
   onContentUpdate: (newContent: string) => void;
+  onCreditUsed?: (action: string, details?: string) => void;
 }
 
 // Define types for Web Speech API
@@ -57,7 +58,7 @@ const getSpeechRecognition = (): SpeechRecognitionConstructor | null => {
   return win.SpeechRecognition || win.webkitSpeechRecognition || null;
 };
 
-export function VoiceEditAgent({ content, onContentUpdate }: VoiceEditAgentProps) {
+export function VoiceEditAgent({ content, onContentUpdate, onCreditUsed }: VoiceEditAgentProps) {
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [transcript, setTranscript] = useState("");
@@ -91,6 +92,10 @@ export function VoiceEditAgent({ content, onContentUpdate }: VoiceEditAgentProps
 
       onContentUpdate(data.content);
       setEditHistory(prev => [...prev, { command, timestamp: new Date() }]);
+      
+      // Track credit usage
+      onCreditUsed?.("Voice Edit", command);
+      
       toast.success(`Applied: "${command}"`);
       setTranscript("");
     } catch (error) {
@@ -99,7 +104,7 @@ export function VoiceEditAgent({ content, onContentUpdate }: VoiceEditAgentProps
     } finally {
       setIsProcessing(false);
     }
-  }, [content, onContentUpdate]);
+  }, [content, onContentUpdate, onCreditUsed]);
 
   const startRecording = useCallback(() => {
     if (!SpeechRecognition) {
