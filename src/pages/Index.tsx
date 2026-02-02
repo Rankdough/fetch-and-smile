@@ -973,7 +973,7 @@ const Index = () => {
   };
 
   // Allocate images logically using AI to match image content to article sections
-  const handleAllocateImagesLogically = async () => {
+  const handleAllocateImagesLogically = async (count: number = articleImages.length) => {
     if (!generatedContent || articleImages.length === 0) {
       toast({
         title: "Cannot allocate images",
@@ -986,6 +986,9 @@ const Index = () => {
     setIsAllocatingImages(true);
 
     try {
+      // Only use the first 'count' images
+      const imagesToAllocate = articleImages.slice(0, count);
+      
       // Call edge function to allocate images based on content analysis
       const { data, error } = await supabase.functions.invoke("enhance-import", {
         body: {
@@ -993,7 +996,7 @@ const Index = () => {
           toneProfile: null,
           ctaConfig: null,
           addCtas: false,
-          images: articleImages.map(img => ({ alt: img.alt, url: img.url })),
+          images: imagesToAllocate.map(img => ({ alt: img.alt, url: img.url })),
         },
       });
 
@@ -1004,7 +1007,7 @@ const Index = () => {
         setGeneratedContent(data.content);
         toast({
           title: "Images allocated!",
-          description: `${articleImages.length} image(s) placed at relevant sections.`,
+          description: `${imagesToAllocate.length} image(s) placed at relevant sections.`,
         });
       }
     } catch (error) {

@@ -16,7 +16,7 @@ export interface ArticleImage {
 interface ArticleImagesPanelProps {
   images: ArticleImage[];
   onImagesChange: (images: ArticleImage[]) => void;
-  onAllocateLogically?: () => void;
+  onAllocateLogically?: (count: number) => void;
   isAllocating?: boolean;
   hasContent?: boolean;
 }
@@ -31,6 +31,7 @@ export function ArticleImagesPanel({
   const { toast } = useToast();
   const [isUploading, setIsUploading] = useState(false);
   const [isLoadingFromCloud, setIsLoadingFromCloud] = useState(false);
+  const [allocateCount, setAllocateCount] = useState(1);
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -256,27 +257,47 @@ export function ArticleImagesPanel({
         </Button>
       </div>
 
-      {/* Allocate Logically button */}
+      {/* Allocate Logically section */}
       {images.length > 0 && hasContent && (
-        <Button
-          variant="outline"
-          size="sm"
-          className="w-full"
-          onClick={onAllocateLogically}
-          disabled={isAllocating || !hasContent}
-        >
-          {isAllocating ? (
-            <>
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              Placing images...
-            </>
-          ) : (
-            <>
-              <Wand2 className="h-4 w-4 mr-2" />
-              Allocate Logically ({images.length} images)
-            </>
-          )}
-        </Button>
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <Label htmlFor="allocate-count" className="text-xs whitespace-nowrap">
+              Images to place:
+            </Label>
+            <select
+              id="allocate-count"
+              value={allocateCount}
+              onChange={(e) => setAllocateCount(Number(e.target.value))}
+              className="flex-1 h-8 px-2 text-sm rounded-md border border-input bg-background"
+              disabled={isAllocating}
+            >
+              {Array.from({ length: images.length }, (_, i) => i + 1).map((num) => (
+                <option key={num} value={num}>
+                  {num} {num === 1 ? "image" : "images"}
+                </option>
+              ))}
+            </select>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full"
+            onClick={() => onAllocateLogically?.(allocateCount)}
+            disabled={isAllocating || !hasContent}
+          >
+            {isAllocating ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Placing images...
+              </>
+            ) : (
+              <>
+                <Wand2 className="h-4 w-4 mr-2" />
+                Allocate Logically
+              </>
+            )}
+          </Button>
+        </div>
       )}
 
       {/* Loading indicator */}
