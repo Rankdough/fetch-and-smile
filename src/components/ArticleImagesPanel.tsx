@@ -106,9 +106,23 @@ export function ArticleImagesPanel({
 
       if (newImages.length > 0) {
         onImagesChange([...images, ...newImages]);
+        
+        // Auto-assign to selected folder if one is active
+        if (selectedFolderId) {
+          for (const img of newImages) {
+            await assignToFolder(img.filePath, selectedFolderId);
+          }
+        }
+        
+        const folderName = selectedFolderId 
+          ? folders.find(f => f.id === selectedFolderId)?.name 
+          : null;
+        
         toast({
           title: "Images uploaded",
-          description: `${newImages.length} image(s) uploaded successfully`,
+          description: folderName 
+            ? `${newImages.length} image(s) added to "${folderName}"`
+            : `${newImages.length} image(s) uploaded successfully`,
         });
       }
     } catch (error) {
