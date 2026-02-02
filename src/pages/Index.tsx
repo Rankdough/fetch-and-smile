@@ -970,7 +970,6 @@ const Index = () => {
             generateCTAs: ctaUrl.trim().length > 0,
             useKnowledgeBase: useKnowledgeBase,
             toneProfileId: selectedToneProfileId || undefined,
-            articleImages: articleImages.length > 0 ? articleImages.map(img => ({ alt: img.alt, url: img.url })) : undefined,
           },
         });
 
