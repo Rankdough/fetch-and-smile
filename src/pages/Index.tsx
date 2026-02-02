@@ -1812,13 +1812,31 @@ const Index = () => {
                 // since we're inserting a properly styled navigation panel
                 let cleanedHtmlContent = htmlContent;
                 
-                // Pattern to match the "In This Article" header or list items with numbered titles
-                // Match a UL that contains navigation-style items (e.g., "1. What is Composite Bonding?" - "Description...")
-                const navListPattern = /<ul[^>]*>[\s\S]*?<li[^>]*>[\s\S]*?<strong[^>]*>\s*\d+\.\s*[^<]+<\/strong>\s*[-–—]\s*[\s\S]*?<\/ul>/gi;
-                cleanedHtmlContent = cleanedHtmlContent.replace(navListPattern, '');
-                
                 // Also remove any standalone "In This Article" H2 heading that might have slipped through
                 cleanedHtmlContent = cleanedHtmlContent.replace(/<h2[^>]*>[\s\S]*?In This Article[\s\S]*?<\/h2>/gi, '');
+                
+                // Remove UL lists that contain navigation-style numbered items with bold titles
+                // Pattern: <ul>...<li>...<strong>2. Title</strong> - Description...</li>...</ul>
+                // We need to match ULs that contain at least one li with a bold numbered item followed by dash and description
+                cleanedHtmlContent = cleanedHtmlContent.replace(/<ul[^>]*>([\s\S]*?)<\/ul>/gi, (match, content) => {
+                  // Check if this list contains navigation-style items (numbered bold titles with descriptions)
+                  const hasNavItems = /<li[^>]*>[\s\S]*?<strong[^>]*>\s*\d+\.\s*[^<]+<\/strong>[\s\S]*?[-–—][\s\S]*?<\/li>/i.test(content);
+                  if (hasNavItems) {
+                    return ''; // Remove this list entirely
+                  }
+                  return match; // Keep other lists
+                });
+                
+                // Also catch lists with plain bold numbered items without <strong> (bold via **)
+                // Look for list items like: 2. The Power of Porcelain Veneers - Description
+                cleanedHtmlContent = cleanedHtmlContent.replace(/<ul[^>]*>([\s\S]*?)<\/ul>/gi, (match, content) => {
+                  // Check if list contains items starting with number, period, title, dash pattern
+                  const hasNumberedNavItems = /<li[^>]*>[\s\S]*?\d+\.\s*[A-Z][^<]*[-–—][^<]{50,}<\/li>/i.test(content);
+                  if (hasNumberedNavItems) {
+                    return ''; // Remove this navigation list
+                  }
+                  return match;
+                });
                 
                 if (tldrMatch && navItems.length > 0) {
                   const tldrEndIndex = cleanedHtmlContent.indexOf(tldrMatch[0]) + tldrMatch[0].length;
