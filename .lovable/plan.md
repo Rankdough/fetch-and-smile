@@ -1,166 +1,239 @@
 
-# Plan: Add Article Images Upload Feature
+# Plan: Implement Multi-Stage "Human-Like" Content Generation Pipeline
 
 ## Overview
-Add a new form section that allows uploading images for articles. Images will be stored in a public Lovable Cloud storage bucket and can be inserted into the generated content. The uploaded image URLs will work in the exported HTML since they're hosted on a CDN.
 
-## Architecture
+Transform the current single-pass content generation into a **4-stage pipeline** that produces more human-like writing by enforcing specific quality traits: clear intent, natural rhythm, concrete specificity, and consistency with your house style.
 
-### Storage
-- Create a new **public** storage bucket called `article-images` 
-- Images stored with sanitized filenames and timestamps to prevent conflicts
-- Public bucket ensures images are accessible when HTML is exported and opened elsewhere
+## What I Need From You
 
-### User Interface
-- New Section 11: "Article Images" in the form panel (after Color Palette)
-- Upload multiple images at once (accept jpg, png, gif, webp, svg)
-- Display uploaded images as thumbnails with:
-  - Preview of the image
-  - Copy URL button (for manual insertion)
-  - Delete button
-  - Image name
-- Optional: Add caption/alt text for each image
+Before I begin coding, I need a few things:
 
-### Image Insertion Options
-Two approaches for the user:
-1. **Manual**: Copy the image URL and paste it into the generated content using edit mode
-2. **Auto-suggest**: Pass image URLs to the AI during generation, letting it place `![description](url)` tags at appropriate points in the article
+1. **Your current system prompt / SEO rules** - The existing knowledge base rules are being loaded, but I'd like to see the full text of your SEO instruction document(s) to incorporate your specific style requirements.
 
-## Implementation Steps
+2. **Sample of YOUR writing** (optional but helpful) - If you have 1-2 articles you've written manually that represent your ideal style, I can extract patterns from them.
 
-### Step 1: Create Storage Bucket
-Create a migration to add the `article-images` public storage bucket with appropriate RLS policies allowing anonymous uploads and public reads.
+3. **List of banned words/phrases** - Beyond em dashes, what other AI-isms do you want to flag? (e.g., "In today's world", "It's important to note", "various", "numerous", "in conclusion", "Moreover", "Additionally")
 
-```sql
--- Create public bucket for article images
-INSERT INTO storage.buckets (id, name, public)
-VALUES ('article-images', 'article-images', true);
+## Architecture: The 4-Stage Pipeline
 
--- Allow public read access
-CREATE POLICY "Public can view article images"
-ON storage.objects FOR SELECT
-USING (bucket_id = 'article-images');
-
--- Allow uploads (anonymous for now, can restrict later)
-CREATE POLICY "Anyone can upload article images"
-ON storage.objects FOR INSERT
-WITH CHECK (bucket_id = 'article-images');
-
--- Allow delete
-CREATE POLICY "Anyone can delete article images"
-ON storage.objects FOR DELETE
-USING (bucket_id = 'article-images');
+```text
++------------------+     +---------------------+     +-------------------+     +------------------+
+|  STAGE 1: BRIEF  | --> | STAGE 2: SECTIONS   | --> | STAGE 3: HUMANISE | --> | STAGE 4: GATE    |
+|  (Structure Plan)|     | (Atomic Writing)    |     | (Style Rewrite)   |     | (Quality Check)  |
++------------------+     +---------------------+     +-------------------+     +------------------+
+        |                         |                         |                        |
+   Creates outline           Writes each H2             Applies cadence          Scores for AI
+   with purpose per          section separately         rules, removes           artefacts, fails
+   section                   with specific goals        generic patterns         if score < threshold
 ```
 
-### Step 2: Add State Management
-In `src/pages/Index.tsx`:
-- New state: `articleImages` - array of `{ name: string, url: string, alt: string }`
-- New state: `isUploadingImage` - loading indicator
-- Add localStorage persistence for `articleImages`
-- Add to `handleClearForm` to reset images
+### Stage 1: CREATE_BRIEF
 
-### Step 3: Create Image Upload Handler
-```typescript
-const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-  const files = e.target.files;
-  if (!files) return;
-  
-  setIsUploadingImage(true);
-  
-  for (const file of Array.from(files)) {
-    // Sanitize filename
-    const sanitizedName = file.name
-      .replace(/['']/g, "")
-      .replace(/[^\w\s.-]/g, "_");
-    const filePath = `${Date.now()}-${sanitizedName}`;
-    
-    // Upload to article-images bucket
-    const { error } = await supabase.storage
-      .from("article-images")
-      .upload(filePath, file);
-    
-    if (error) {
-      // Handle error
-      continue;
-    }
-    
-    // Get public URL
-    const { data: urlData } = supabase.storage
-      .from("article-images")
-      .getPublicUrl(filePath);
-    
-    setArticleImages(prev => [...prev, {
-      name: file.name,
-      url: urlData.publicUrl,
-      alt: file.name.replace(/\.[^/.]+$/, "")
-    }]);
-  }
-  
-  setIsUploadingImage(false);
-};
-```
+**Purpose**: Forces the AI to plan BEFORE writing, preventing the "meandering AI essay" problem.
 
-### Step 4: Build UI Section
-Add Section 11 in the form panel:
+**Input**: Topic, value promise, gap analysis, context files, unique angles
 
-```
-Section 11: Article Images
-├── Upload input (multiple, accept image types)
-├── Loading indicator while uploading
-└── Image grid:
-    └── For each image:
-        ├── Thumbnail preview (64x64)
-        ├── File name (truncated)
-        ├── Copy URL button (copies markdown: ![alt](url))
-        └── Delete button (X)
-```
-
-Visual design:
-- Grid of 2-3 columns for image cards
-- Each card shows thumbnail, name, copy/delete actions
-- Uses same styling as Context Files section
-
-### Step 5: Optional AI Integration
-Modify `generate-content` edge function to accept `articleImages` array and include them in the prompt:
-
-```typescript
-// In generate-content/index.ts
-if (articleImages && Array.isArray(articleImages) && articleImages.length > 0) {
-  userPrompt += `
-
-ARTICLE IMAGES TO USE:
-You have ${articleImages.length} images available to place in the article. Insert them at relevant points using markdown image syntax.
-${articleImages.map((img, i) => `${i + 1}. ![${img.alt}](${img.url})`).join("\n")}
-
-Place these images throughout the article at logical locations, typically after relevant paragraphs.`;
+**Output** (structured JSON):
+```json
+{
+  "audience": "UK adults considering cosmetic dentistry",
+  "intent": "Help reader decide between bonding vs veneers",
+  "angle": "Focus on reversibility and long-term cost, not just upfront price",
+  "keyClaims": [
+    { "claim": "Bonding lasts 5-8 years", "source": "context-file-1.pdf" },
+    { "claim": "Veneers are permanent", "source": "NHS guidelines" }
+  ],
+  "sections": [
+    { "h2": "What is Composite Bonding?", "purpose": "Define the procedure and set expectations", "mustInclude": ["single visit", "no anesthesia", "reversible"] },
+    { "h2": "Cost Breakdown", "purpose": "Give exact UK prices so reader can budget", "mustInclude": ["per-tooth pricing", "NHS vs private"] }
+  ]
 }
 ```
 
-### Step 6: Update Export Logic
-The current HTML export already converts markdown images to `<img>` tags via ReactMarkdown. Since images are stored in a public bucket with CDN URLs, they will work correctly in exported HTML without additional changes.
+**Why this helps**: The model can't ramble if it has a checklist per section.
+
+---
+
+### Stage 2: WRITE_SECTIONS (Atomic)
+
+**Purpose**: Write each H2/H3 as a standalone 100-300 word block, following its purpose from the brief.
+
+**Rules per section**:
+- First sentence = direct answer (no lead-in)
+- 2-4 supporting facts
+- 1 concrete example (scenario, numbers, brand, tool)
+- 1 caveat ("works best when...", "avoid if...")
+
+**Why this helps**: Removes the repetitive "LLM essay voice" that comes from generating 2000+ words in one go.
+
+---
+
+### Stage 3: HUMANISE_REWRITE
+
+**Purpose**: Apply specific style transformations that break AI patterns.
+
+**Transformation rules**:
+| Rule | Before (AI) | After (Human) |
+|------|-------------|---------------|
+| Vary sentence length | All 15-20 words | Mix of 5, 12, 22 words |
+| Kill generic openers | "In today's world..." | "Most people assume..." |
+| Add constraints | "This is good" | "This works if you have X. Avoid if Y." |
+| Remove over-signposting | "Additionally, moreover, furthermore" | Direct statements |
+| British English | "optimize, color" | "optimise, colour" |
+| No em dashes | "this - like so - works" | "this, like so, works" |
+
+**Implementation**: A single AI call that receives the draft + your style rules + a checklist, outputs revised draft + "changes made" log.
+
+---
+
+### Stage 4: QUALITY_GATE
+
+**Purpose**: Objective rejection criteria - fails the draft if it reads too "AI".
+
+**Checks**:
+| Check | Threshold | Action if Failed |
+|-------|-----------|------------------|
+| % sentences starting with same pattern | < 15% | Send back to Stage 3 |
+| Count of vague phrases | < 5 per 1000 words | Highlight and fix |
+| Paragraph length uniformity | Variance > 2 sentences | Rebalance |
+| Specific examples per section | >= 1 | Add example |
+| Numbers/data per section | >= 1 | Add stat |
+
+**Output**:
+```json
+{
+  "score": 72,
+  "passed": false,
+  "issues": [
+    { "type": "repetitive_opener", "count": 8, "fix": "Vary sentence starters" },
+    { "type": "missing_example", "sections": ["Cost Breakdown"], "fix": "Add specific UK clinic price" }
+  ]
+}
+```
+
+**Why this helps**: The existing "Quality Scoring Panel" does this AFTER generation. Moving it INTO the pipeline means bad drafts never reach you.
+
+---
+
+## Implementation Details
+
+### New Edge Functions to Create
+
+| Function | Purpose | Credits Est. |
+|----------|---------|--------------|
+| `humanise-create-brief` | Stage 1: Generate structured brief | ~2 |
+| `humanise-write-section` | Stage 2: Write single section | ~1 per section |
+| `humanise-rewrite` | Stage 3: Apply style transformations | ~3 |
+| `humanise-quality-gate` | Stage 4: Score and validate | ~2 |
+
+### Modifications to `generate-content/index.ts`
+
+Replace single AI call with orchestrated pipeline:
+
+```typescript
+// Stage 1: Create brief
+const brief = await createBrief({ topic, valuePromise, gapAnalysis, contextFiles, uniqueAngles });
+
+// Stage 2: Write sections atomically
+const sections = [];
+for (const section of brief.sections) {
+  const content = await writeSection({ section, brief, toneProfile });
+  sections.push(content);
+}
+
+// Assemble draft
+let draft = assembleDraft(sections, brief);
+
+// Stage 3: Humanise rewrite
+draft = await humaniseRewrite({ draft, styleRules: knowledgeRules, bannedPhrases });
+
+// Stage 4: Quality gate (with retry loop)
+let attempts = 0;
+let gateResult = await qualityGate({ draft, valuePromise });
+
+while (!gateResult.passed && attempts < 2) {
+  draft = await humaniseRewrite({ draft, issues: gateResult.issues });
+  gateResult = await qualityGate({ draft, valuePromise });
+  attempts++;
+}
+
+return draft;
+```
+
+### UI Changes to `src/pages/Index.tsx`
+
+1. **Progress indicator**: Show which stage is running during generation
+2. **Pipeline toggle**: Option to use "Quick" (current single-pass) vs "Human" (4-stage) mode
+3. **Stage visibility**: Optional advanced view showing brief, section drafts, rewrite log
+
+### New UI Component: Generation Progress
+
+```text
++------------------------------------------+
+|  Generating Human-Like Content           |
+|  [=====>                    ] 35%        |
+|                                          |
+|  [x] Stage 1: Brief created              |
+|  [x] Stage 2: Section 1/5 written        |
+|  [ ] Stage 2: Section 2/5 writing...     |
+|  [ ] Stage 3: Style rewrite              |
+|  [ ] Stage 4: Quality gate               |
++------------------------------------------+
+```
+
+---
+
+## Credit Estimation
+
+| Mode | Stages | Est. Credits | Time |
+|------|--------|--------------|------|
+| Quick (current) | 1 | ~4-6 | 10-15s |
+| Human (4-stage) | 4-6 calls | ~12-18 | 30-45s |
+
+The "Human" mode costs ~3x more but should produce significantly better first drafts, reducing manual editing time.
+
+---
 
 ## Files to Create/Modify
 
-| File | Changes |
-|------|---------|
-| Migration SQL | Create `article-images` bucket with RLS policies |
-| `src/pages/Index.tsx` | Add state, upload handler, UI section, pass to generation |
-| `supabase/functions/generate-content/index.ts` | Accept articleImages parameter, include in prompt |
+| File | Action | Description |
+|------|--------|-------------|
+| `supabase/functions/humanise-create-brief/index.ts` | Create | Stage 1 edge function |
+| `supabase/functions/humanise-write-section/index.ts` | Create | Stage 2 edge function |
+| `supabase/functions/humanise-rewrite/index.ts` | Create | Stage 3 edge function |
+| `supabase/functions/humanise-quality-gate/index.ts` | Create | Stage 4 edge function |
+| `supabase/functions/generate-content/index.ts` | Modify | Add pipeline orchestration mode |
+| `src/pages/Index.tsx` | Modify | Add toggle, progress indicator |
+| `src/components/GenerationProgress.tsx` | Create | Real-time stage progress |
+| `src/hooks/useCreditTracking.ts` | Modify | Add estimates for new stages |
+| `supabase/config.toml` | Modify | Register new functions |
 
-## User Workflow
+---
 
-1. Open "Article Images" section
-2. Click to upload images (or drag and drop)
-3. See thumbnails appear with copy/delete options
-4. Generate article - AI will place images automatically OR
-5. After generation, use Edit mode to manually insert images using copied URLs
-6. Export HTML - images remain functional via CDN URLs
+## Questions Before Implementation
 
-## Technical Notes
+1. **Banned words list**: Can you provide your full list of phrases to detect/remove?
 
-- Images are NOT base64-encoded in database (follows best practices)
-- Public bucket means no authentication required to view images
-- CDN-hosted for fast loading globally
-- Filename sanitization prevents upload errors (same as context files fix)
-- Local storage persistence means images survive page refresh
+2. **British English enforcement**: Should I auto-convert American spellings? (e.g., "optimize" -> "optimise")
+
+3. **Retry behavior**: If the quality gate fails twice, should I:
+   - (A) Return the best draft with warnings, or
+   - (B) Fail completely and ask you to adjust inputs?
+
+4. **Credit budget**: Is ~15 credits per article acceptable for higher quality output?
+
+5. **Speed priority**: Would you prefer:
+   - (A) Parallel section writing (faster, but uses more concurrent API calls), or
+   - (B) Sequential writing (slower, but more predictable credit usage)?
+
+---
+
+## Expected Outcomes
+
+After implementation:
+- **70-80% reduction in AI-isms** (repetitive openers, vague claims, uniform structure)
+- **Every section has a specific purpose** (no filler paragraphs)
+- **Measurable quality scores** built into generation, not just post-hoc
+- **Consistent house style** enforced automatically
 
