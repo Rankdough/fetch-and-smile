@@ -1828,48 +1828,61 @@ const Index = () => {
                 // Build final HTML with navigation, content, FAQ, and CTAs in correct order
                 let finalHtml = '';
                 
-                // Find where to insert navigation (after TL;DR section or Quick Tips)
-                const tldrMatch = htmlContent.match(/(<h2[^>]*>.*?TL;?DR.*?<\/h2>[\s\S]*?<\/ul>)/i);
-                
-                // Remove the duplicate "In This Article" markdown list that appears after Quick Tips
-                // This list has items like "1. Section Name - Description" and should be removed
-                // since we're inserting a properly styled navigation panel
+                // Clean the HTML content first
                 let cleanedHtmlContent = htmlContent;
                 
-                // Also remove any standalone "In This Article" H2 heading that might have slipped through
+                // Remove any standalone "In This Article" H2 heading
                 cleanedHtmlContent = cleanedHtmlContent.replace(/<h2[^>]*>[\s\S]*?In This Article[\s\S]*?<\/h2>/gi, '');
                 
-                // Remove UL lists that contain navigation-style numbered items with bold titles
-                // Pattern: <ul>...<li>...<strong>2. Title</strong> - Description...</li>...</ul>
-                // We need to match ULs that contain at least one li with a bold numbered item followed by dash and description
+                // Remove ALL UL lists that contain navigation-style numbered items
+                // These are the duplicate "In This Article" items appearing as plain bullets
                 cleanedHtmlContent = cleanedHtmlContent.replace(/<ul[^>]*>([\s\S]*?)<\/ul>/gi, (match, content) => {
-                  // Check if this list contains navigation-style items (numbered bold titles with descriptions)
-                  const hasNavItems = /<li[^>]*>[\s\S]*?<strong[^>]*>\s*\d+\.\s*[^<]+<\/strong>[\s\S]*?[-–—][\s\S]*?<\/li>/i.test(content);
-                  if (hasNavItems) {
-                    return ''; // Remove this list entirely
-                  }
-                  return match; // Keep other lists
-                });
-                
-                // Also catch lists with plain bold numbered items without <strong> (bold via **)
-                // Look for list items like: 2. The Power of Porcelain Veneers - Description
-                cleanedHtmlContent = cleanedHtmlContent.replace(/<ul[^>]*>([\s\S]*?)<\/ul>/gi, (match, content) => {
-                  // Check if list contains items starting with number, period, title, dash pattern
-                  const hasNumberedNavItems = /<li[^>]*>[\s\S]*?\d+\.\s*[A-Z][^<]*[-–—][^<]{50,}<\/li>/i.test(content);
-                  if (hasNumberedNavItems) {
-                    return ''; // Remove this navigation list
-                  }
-                  return match;
-                });
-                
-                if (tldrMatch && navItems.length > 0) {
-                  const tldrEndIndex = cleanedHtmlContent.indexOf(tldrMatch[0]) + tldrMatch[0].length;
-                  const beforeNav = cleanedHtmlContent.slice(0, tldrEndIndex);
-                  const afterNav = cleanedHtmlContent.slice(tldrEndIndex);
+                  // Check multiple patterns for navigation-style items
+                  // Pattern 1: <strong>2. Title</strong> - Description
+                  const hasStrongNavItems = /<li[^>]*>[\s\S]*?<strong[^>]*>\s*\d+\.\s*[^<]+<\/strong>[\s\S]*?[-–—][\s\S]*?<\/li>/i.test(content);
+                  // Pattern 2: Plain text "2. Title - Description" with long description
+                  const hasPlainNavItems = /<li[^>]*>\s*\d+\.\s*[A-Z][^<]*[-–—][^<]{30,}<\/li>/i.test(content);
+                  // Pattern 3: List items containing navigation text patterns
+                  const hasNavPatterns = /\d+\.\s*(The Power of|Head-to-Head|Cost and|Care and|Which Option|What is|How to|Why|Understanding)/i.test(content);
                   
+                  if (hasStrongNavItems || hasPlainNavItems || hasNavPatterns) {
+                    return ''; // Remove this navigation list entirely
+                  }
+                  return match; // Keep other lists (like TL;DR bullets)
+                });
+                
+                // Find Quick Tips section - navigation should go AFTER Quick Tips
+                // Quick Tips uses blockquotes with "Tip 1:", "Tip 2:", etc.
+                const quickTipsPattern = /(<blockquote[^>]*>[\s\S]*?Tip\s*3[\s\S]*?<\/blockquote>)/i;
+                const quickTipsMatch = cleanedHtmlContent.match(quickTipsPattern);
+                
+                // Also try to find the last blockquote that's a tip
+                const allBlockquotes = [...cleanedHtmlContent.matchAll(/<blockquote[^>]*>[\s\S]*?<\/blockquote>/gi)];
+                let lastTipIndex = -1;
+                let lastTipEndPos = -1;
+                
+                allBlockquotes.forEach((match) => {
+                  if (/Tip\s*\d/i.test(match[0])) {
+                    lastTipEndPos = (match.index || 0) + match[0].length;
+                  }
+                });
+                
+                if (lastTipEndPos > 0 && navItems.length > 0) {
+                  // Insert navigation after Quick Tips
+                  const beforeNav = cleanedHtmlContent.slice(0, lastTipEndPos);
+                  const afterNav = cleanedHtmlContent.slice(lastTipEndPos);
                   finalHtml = beforeNav + generateNavigationHtml(navItems, selectedColorPalette) + afterNav;
                 } else {
-                  finalHtml = cleanedHtmlContent;
+                  // Fallback: insert after TL;DR section
+                  const tldrMatch = cleanedHtmlContent.match(/(<h2[^>]*>.*?TL;?DR.*?<\/h2>[\s\S]*?<\/ul>)/i);
+                  if (tldrMatch && navItems.length > 0) {
+                    const tldrEndIndex = cleanedHtmlContent.indexOf(tldrMatch[0]) + tldrMatch[0].length;
+                    const beforeNav = cleanedHtmlContent.slice(0, tldrEndIndex);
+                    const afterNav = cleanedHtmlContent.slice(tldrEndIndex);
+                    finalHtml = beforeNav + generateNavigationHtml(navItems, selectedColorPalette) + afterNav;
+                  } else {
+                    finalHtml = cleanedHtmlContent;
+                  }
                 }
                 
                 // Add FAQ section before References/Final Thoughts
