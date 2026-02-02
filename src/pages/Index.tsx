@@ -1101,20 +1101,22 @@ const Index = () => {
                 // Clone and process for base content
                 const clone = article.cloneNode(true) as HTMLElement;
                 
+                // Remove all buttons (delete buttons on images, etc.)
+                clone.querySelectorAll('button').forEach((el) => el.remove());
+                
+                // Remove SVG icons (like X icons on buttons)
+                clone.querySelectorAll('svg').forEach((el) => el.remove());
+                
                 // Remove React-rendered navigation panel (we'll add proper HTML)
-                const navPanelContainers = clone.querySelectorAll('[class*="rounded-lg border bg-muted"]');
-                navPanelContainers.forEach((el) => {
-                  const hasInThisArticle = el.textContent?.includes('In This Article');
-                  if (hasInThisArticle) {
+                clone.querySelectorAll('div').forEach((el) => {
+                  if (el.textContent?.includes('In This Article') && el.className?.includes('rounded')) {
                     el.remove();
                   }
                 });
                 
                 // Remove React-rendered FAQ panel
-                const faqPanelContainers = clone.querySelectorAll('[class*="rounded-lg border bg-muted"]');
-                faqPanelContainers.forEach((el) => {
-                  const hasFAQ = el.textContent?.includes('Frequently Asked Questions');
-                  if (hasFAQ) {
+                clone.querySelectorAll('div').forEach((el) => {
+                  if (el.textContent?.includes('Frequently Asked Questions') && el.className?.includes('rounded')) {
                     el.remove();
                   }
                 });
@@ -1122,7 +1124,141 @@ const Index = () => {
                 // Remove CTA banners (we'll add proper HTML)
                 clone.querySelectorAll('[data-cta-banner]').forEach((el) => el.remove());
                 
-                // Clean up Tailwind classes and convert to inline styles
+                // Unwrap images from their React wrapper divs
+                clone.querySelectorAll('div').forEach((wrapper) => {
+                  const classList = wrapper.className || '';
+                  if ((classList.includes('relative') && classList.includes('group')) || 
+                      (classList.includes('relative') && classList.includes('block'))) {
+                    const img = wrapper.querySelector('img');
+                    if (img && wrapper.parentNode) {
+                      wrapper.parentNode.replaceChild(img.cloneNode(true), wrapper);
+                    }
+                  }
+                });
+                
+                // === STYLE ELEMENTS DIRECTLY VIA DOM ===
+                
+                // Style all tables
+                clone.querySelectorAll('table').forEach((table) => {
+                  table.setAttribute('style', 'width: 100%; border-collapse: collapse; margin: 24px 0; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border: 1px solid #e5e7eb;');
+                  table.removeAttribute('class');
+                });
+                
+                // Style theads with gradient
+                clone.querySelectorAll('thead').forEach((thead) => {
+                  thead.setAttribute('style', `background: linear-gradient(135deg, ${primaryColor} 0%, ${secondaryColor} 100%);`);
+                  thead.removeAttribute('class');
+                });
+                
+                // Style th cells
+                clone.querySelectorAll('th').forEach((th) => {
+                  th.setAttribute('style', 'padding: 12px 16px; text-align: left; color: white; font-weight: 600; border: 1px solid rgba(255,255,255,0.2);');
+                  th.removeAttribute('class');
+                });
+                
+                // Style tbody rows with alternating colors
+                clone.querySelectorAll('tbody').forEach((tbody) => {
+                  tbody.removeAttribute('class');
+                  const rows = tbody.querySelectorAll('tr');
+                  rows.forEach((tr, idx) => {
+                    const bgColor = idx % 2 === 0 ? '#f9fafb' : '#ffffff';
+                    tr.setAttribute('style', `background: ${bgColor};`);
+                    tr.removeAttribute('class');
+                  });
+                });
+                
+                // Style td cells
+                clone.querySelectorAll('td').forEach((td) => {
+                  td.setAttribute('style', 'padding: 12px 16px; border: 1px solid #e5e7eb;');
+                  td.removeAttribute('class');
+                });
+                
+                // Style links
+                clone.querySelectorAll('a').forEach((a) => {
+                  const href = a.getAttribute('href') || '';
+                  if (href.startsWith('#')) {
+                    a.setAttribute('style', 'color: #2563eb; text-decoration: underline;');
+                  } else {
+                    a.setAttribute('style', 'color: #2563eb; text-decoration: underline;');
+                    a.setAttribute('target', '_blank');
+                    a.setAttribute('rel', 'noopener noreferrer');
+                  }
+                  a.removeAttribute('class');
+                });
+                
+                // Style images
+                clone.querySelectorAll('img').forEach((img) => {
+                  img.setAttribute('style', 'max-width: 100%; height: auto; border-radius: 8px; margin: 16px 0; display: block;');
+                  img.removeAttribute('class');
+                });
+                
+                // Style headings
+                clone.querySelectorAll('h1').forEach((h) => {
+                  h.setAttribute('style', 'font-size: 2rem; font-weight: 700; margin: 0 0 16px 0; color: #1f2937;');
+                  h.removeAttribute('class');
+                });
+                clone.querySelectorAll('h2').forEach((h) => {
+                  const id = h.getAttribute('id') || '';
+                  if (id.includes('tldr')) {
+                    h.setAttribute('style', `background: #f8f4ff; border-left: 4px solid ${primaryColor}; padding: 12px 16px; margin: 24px 0 0 0; border-radius: 0 8px 0 0; font-size: 1.5rem; font-weight: 700;`);
+                  } else {
+                    h.setAttribute('style', 'font-size: 1.5rem; font-weight: 600; margin: 32px 0 16px 0; color: #1f2937;');
+                  }
+                  h.removeAttribute('class');
+                });
+                clone.querySelectorAll('h3').forEach((h) => {
+                  h.setAttribute('style', 'font-size: 1.25rem; font-weight: 600; margin: 24px 0 12px 0; color: #1f2937;');
+                  h.removeAttribute('class');
+                });
+                
+                // Style paragraphs
+                clone.querySelectorAll('p').forEach((p) => {
+                  p.setAttribute('style', 'margin: 0 0 16px 0; line-height: 1.7; color: #374151;');
+                  p.removeAttribute('class');
+                });
+                
+                // Style lists
+                clone.querySelectorAll('ul').forEach((ul) => {
+                  ul.setAttribute('style', 'margin: 0 0 16px 0; padding-left: 24px; list-style-type: disc;');
+                  ul.removeAttribute('class');
+                });
+                clone.querySelectorAll('ol').forEach((ol) => {
+                  ol.setAttribute('style', 'margin: 0 0 16px 0; padding-left: 24px; list-style-type: decimal;');
+                  ol.removeAttribute('class');
+                });
+                clone.querySelectorAll('li').forEach((li) => {
+                  li.setAttribute('style', 'margin: 8px 0; line-height: 1.6; color: #374151;');
+                  li.removeAttribute('class');
+                });
+                
+                // Style blockquotes
+                clone.querySelectorAll('blockquote').forEach((bq) => {
+                  bq.setAttribute('style', `background: #f8f4ff; border-left: 4px solid ${primaryColor}; padding: 16px 24px; margin: 24px 0; border-radius: 0 8px 8px 0; font-style: normal;`);
+                  bq.removeAttribute('class');
+                });
+                
+                // Remove wrapper divs around tables
+                clone.querySelectorAll('div').forEach((div) => {
+                  const className = div.className || '';
+                  if (className.includes('overflow') && div.querySelector('table')) {
+                    const table = div.querySelector('table');
+                    if (table && div.parentNode) {
+                      div.parentNode.replaceChild(table, div);
+                    }
+                  }
+                });
+                
+                // Remove all remaining class and data attributes
+                clone.querySelectorAll('*').forEach((el) => {
+                  el.removeAttribute('class');
+                  Array.from(el.attributes).forEach((attr) => {
+                    if (attr.name.startsWith('data-')) {
+                      el.removeAttribute(attr.name);
+                    }
+                  });
+                });
+                
+                // Get the cleaned HTML
                 let htmlContent = clone.innerHTML;
                 
                 // Remove broken/placeholder images (empty src or failed loads)
@@ -1132,95 +1268,17 @@ const Index = () => {
                 htmlContent = htmlContent.replace(/<figure[^>]*>\s*<\/figure>/gi, '');
                 
                 // Clean up double bullets/dashes in list items (• - or - - patterns)
-                htmlContent = htmlContent.replace(/<li[^>]*>\s*[-–—•]\s*[-–—]\s*/gi, '<li>');
-                htmlContent = htmlContent.replace(/(<li[^>]*>)\s*[-–—]\s+/gi, '$1');
-                
-                // Style images properly
-                htmlContent = htmlContent.replace(/<img([^>]*)>/gi, (match, attrs) => {
-                  // Skip if already has inline style
-                  if (attrs.includes('style=')) return match;
-                  return `<img${attrs} style="max-width: 100%; height: auto; border-radius: 8px; margin: 16px 0; display: block;">`;
+                htmlContent = htmlContent.replace(/<li[^>]*style="[^"]*"[^>]*>\s*[-–—•]\s*[-–—]\s*/gi, (match) => {
+                  const styleMatch = match.match(/style="[^"]*"/);
+                  return `<li ${styleMatch ? styleMatch[0] : ''}>`;
                 });
                 
-                // Process links - ensure internal links work and external have target blank
-                htmlContent = htmlContent.replace(/<a([^>]*)>/gi, (match, attrs) => {
-                  const hrefMatch = attrs.match(/href="([^"]*)"/);
-                  if (!hrefMatch) return match;
-                  const href = hrefMatch[1];
-                  
-                  if (href.startsWith('#')) {
-                    return `<a href="${href}" style="color: #2563eb; text-decoration: underline;">`;
-                  } else {
-                    return `<a href="${href}" target="_blank" rel="noopener noreferrer" style="color: #2563eb; text-decoration: underline;">`;
-                  }
-                });
-                
-                // First remove the wrapper div around tables that ReactMarkdown adds
-                htmlContent = htmlContent.replace(/<div[^>]*class="[^"]*overflow[^"]*"[^>]*>\s*(<table[\s\S]*?<\/table>)\s*<\/div>/gi, '$1');
-                
-                // Style tables with brand colors
-                htmlContent = htmlContent.replace(/<table[^>]*>/gi, 
-                  `<table style="width: 100%; border-collapse: collapse; margin: 24px 0; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border: 1px solid #e5e7eb;">`);
-                
-                // Style thead with gradient background
-                htmlContent = htmlContent.replace(/<thead[^>]*>/gi, 
-                  `<thead style="background: linear-gradient(135deg, ${primaryColor} 0%, ${secondaryColor} 100%);">`);
-                
-                // Style th cells with white text
-                htmlContent = htmlContent.replace(/<th[^>]*>/gi, 
-                  `<th style="padding: 12px 16px; text-align: left; color: white; font-weight: 600; border: 1px solid rgba(255,255,255,0.2);">`);
-                
-                // Style tbody rows with alternating colors
-                let rowIndex = 0;
-                htmlContent = htmlContent.replace(/<tbody[^>]*>([\s\S]*?)<\/tbody>/gi, (match, tbodyContent) => {
-                  rowIndex = 0;
-                  const styledTbody = tbodyContent.replace(/<tr[^>]*>/gi, () => {
-                    const bgColor = rowIndex % 2 === 0 ? '#f9fafb' : '#ffffff';
-                    rowIndex++;
-                    return `<tr style="background: ${bgColor};">`;
-                  });
-                  return `<tbody>${styledTbody}</tbody>`;
-                });
-                
-                // Style td cells
-                htmlContent = htmlContent.replace(/<td[^>]*>/gi, 
-                  `<td style="padding: 12px 16px; border: 1px solid #e5e7eb;">`);
-                
-                // Style TL;DR section (with id containing tldr)
-                htmlContent = htmlContent.replace(/<h2([^>]*id="[^"]*tldr[^"]*"[^>]*)>(.*?)<\/h2>/gi, 
-                  `<h2 style="background: #f8f4ff; border-left: 4px solid ${primaryColor}; padding: 12px 16px; margin: 24px 0 0 0; border-radius: 0 8px 0 0; font-size: 1.5rem; font-weight: 700;">$2</h2>`);
-                
-                // Style the list after TL;DR section
-                htmlContent = htmlContent.replace(/(<h2[^>]*style="[^"]*background: #f8f4ff[^"]*"[^>]*>[^<]*<\/h2>\s*)(<ul)/gi,
-                  `$1<ul style="background: #f8f4ff; border-left: 4px solid ${primaryColor}; padding: 16px 16px 16px 40px; margin: 0 0 24px 0; border-radius: 0 0 8px 0; list-style-type: disc;"`);
-                
-                // Style blockquotes
-                htmlContent = htmlContent.replace(/<blockquote[^>]*>/gi, 
-                  `<blockquote style="background: #f8f4ff; border-left: 4px solid ${primaryColor}; padding: 16px 24px; margin: 24px 0; border-radius: 0 8px 8px 0; font-style: normal;">`);
-                
-                // Style headings - but NOT those already styled
-                htmlContent = htmlContent.replace(/<h1(?![^>]*style=)[^>]*>/gi, 
-                  `<h1 style="font-size: 2rem; font-weight: 700; margin: 0 0 16px 0; color: #1f2937;">`);
-                htmlContent = htmlContent.replace(/<h2(?![^>]*style=)[^>]*>/gi, 
-                  `<h2 style="font-size: 1.5rem; font-weight: 600; margin: 32px 0 16px 0; color: #1f2937;">`);
-                htmlContent = htmlContent.replace(/<h3(?![^>]*style=)[^>]*>/gi, 
-                  `<h3 style="font-size: 1.25rem; font-weight: 600; margin: 24px 0 12px 0; color: #1f2937;">`);
-                
-                // Style paragraphs
-                htmlContent = htmlContent.replace(/<p(?![^>]*style=)[^>]*>/gi, 
-                  `<p style="margin: 0 0 16px 0; line-height: 1.7; color: #374151;">`);
-                
-                // Style lists (not already styled)
-                htmlContent = htmlContent.replace(/<ul(?![^>]*style=)[^>]*>/gi, 
-                  `<ul style="margin: 0 0 16px 0; padding-left: 24px; list-style-type: disc;">`);
-                htmlContent = htmlContent.replace(/<ol(?![^>]*style=)[^>]*>/gi, 
-                  `<ol style="margin: 0 0 16px 0; padding-left: 24px; list-style-type: decimal;">`);
-                htmlContent = htmlContent.replace(/<li(?![^>]*style=)[^>]*>/gi, 
-                  `<li style="margin: 8px 0; line-height: 1.6; color: #374151;">`);
-                
-                // Remove empty class attributes and data attributes
+                // Remove any remaining class attributes that DOM manipulation might have missed
                 htmlContent = htmlContent.replace(/\s+class="[^"]*"/gi, '');
                 htmlContent = htmlContent.replace(/\s+data-[a-z-]+="[^"]*"/gi, '');
+                
+                // Remove any stray React-specific attributes
+                htmlContent = htmlContent.replace(/\s+node="[^"]*"/gi, '');
                 
                 // Build final HTML with navigation, content, FAQ, and CTAs in correct order
                 let finalHtml = '';
