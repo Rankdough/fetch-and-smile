@@ -16,6 +16,7 @@ interface GenerationProgressProps {
   totalSections?: number;
   currentSection?: number;
   error?: string;
+  title?: string;
 }
 
 export function GenerationProgress({
@@ -23,7 +24,8 @@ export function GenerationProgress({
   currentStage,
   totalSections,
   currentSection,
-  error
+  error,
+  title = "Generating Human-Like Content"
 }: GenerationProgressProps) {
   // Calculate overall progress
   const completedStages = stages.filter(s => s.status === "completed").length;
@@ -53,7 +55,7 @@ export function GenerationProgress({
       <CardHeader className="pb-3">
         <CardTitle className="text-lg flex items-center gap-2">
           <Loader2 className="h-5 w-5 animate-spin text-primary" />
-          Generating Human-Like Content
+          {title}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">

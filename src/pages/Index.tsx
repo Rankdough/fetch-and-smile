@@ -430,6 +430,7 @@ const Index = () => {
   const [currentSectionIndex, setCurrentSectionIndex] = useState(0);
   const [totalSections, setTotalSections] = useState(0);
   const [pipelineError, setPipelineError] = useState<string | undefined>();
+  const [isHumanisingOnly, setIsHumanisingOnly] = useState(false);
 
   // Voice input for Value Promise
   const {
@@ -922,6 +923,128 @@ const Index = () => {
     return draft;
   };
 
+  // Humanise Only mode - runs just Stage 3 + 4 on existing content (saves ~4 credits)
+  const handleHumaniseOnly = async () => {
+    if (!generatedContent.trim()) {
+      toast({
+        title: "No content to humanise",
+        description: "Generate or import content first.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsHumanisingOnly(true);
+    
+    // Initialize just the humanise stages
+    const stages: PipelineStage[] = [
+      { id: "humanise", name: "Humanise Rewrite", description: "Applying style transformations", status: "pending" },
+      { id: "gate", name: "Quality Gate", description: "Checking for AI patterns", status: "pending" },
+    ];
+    setPipelineStages(stages);
+    setCurrentPipelineStage(0);
+    setPipelineError(undefined);
+
+    try {
+      // Fetch knowledge rules if enabled
+      let knowledgeRules: string[] = [];
+      if (useKnowledgeBase) {
+        const { data: knowledgeData } = await supabase
+          .from("seo_knowledge")
+          .select("key_rules")
+          .not("key_rules", "is", null);
+        if (knowledgeData) {
+          knowledgeRules = knowledgeData.flatMap((item) => item.key_rules || []);
+        }
+      }
+
+      // Fetch tone profile if selected
+      let toneProfile = null;
+      if (selectedToneProfileId) {
+        const { data: profileData } = await supabase
+          .from("tone_profiles")
+          .select("summary, characteristics, example_phrases")
+          .eq("id", selectedToneProfileId)
+          .maybeSingle();
+        if (profileData) {
+          toneProfile = profileData;
+        }
+      }
+
+      let draft = generatedContent;
+
+      // Stage 1 (of 2): Humanise Rewrite
+      stages[0].status = "running";
+      setPipelineStages([...stages]);
+
+      const { data: rewriteData, error: rewriteError } = await supabase.functions.invoke("humanise-rewrite", {
+        body: {
+          draft,
+          knowledgeRules: knowledgeRules.slice(0, 20),
+          toneProfile,
+        },
+      });
+
+      if (rewriteError) {
+        throw new Error(`Failed to humanise content: ${rewriteError.message}`);
+      }
+
+      draft = rewriteData.content;
+      stages[0].status = "completed";
+      setCurrentPipelineStage(1);
+
+      // Stage 2 (of 2): Quality Gate
+      stages[1].status = "running";
+      setPipelineStages([...stages]);
+
+      const { data: gateData, error: gateError } = await supabase.functions.invoke("humanise-quality-gate", {
+        body: { draft, valuePromise },
+      });
+
+      if (gateError) {
+        throw new Error(`Quality gate failed: ${gateError.message}`);
+      }
+
+      // If quality gate failed, try one more rewrite pass
+      if (!gateData.passed && gateData.issues?.length > 0) {
+        console.log("Quality gate failed, attempting fix pass...", gateData);
+        
+        const { data: fixData, error: fixError } = await supabase.functions.invoke("humanise-rewrite", {
+          body: {
+            draft,
+            issues: gateData.issues,
+            toneProfile,
+          },
+        });
+
+        if (!fixError && fixData?.content) {
+          draft = fixData.content;
+        }
+      }
+
+      stages[1].status = "completed";
+      setPipelineStages([...stages]);
+
+      setGeneratedContent(draft, true);
+      
+      toast({
+        title: "Content humanised!",
+        description: "Stage 3 + 4 complete. Saved ~4 credits vs full pipeline.",
+      });
+    } catch (error) {
+      console.error("Humanise only error:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to humanise content";
+      setPipelineError(errorMessage);
+      toast({
+        title: "Humanise failed",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    } finally {
+      setIsHumanisingOnly(false);
+    }
+  };
+
   const handleGenerate = async () => {
     if (!formData.topic.trim()) {
       toast({
@@ -1334,6 +1457,29 @@ const Index = () => {
                 <span className="text-xs text-muted-foreground">(4-stage pipeline)</span>
               )}
             </div>
+
+            {/* Humanise Only Button - appears when content exists */}
+            {generatedContent && (
+              <Button
+                variant="outline"
+                onClick={handleHumaniseOnly}
+                disabled={isGenerating || isHumanisingOnly || !generatedContent.trim()}
+                size="default"
+                title="Run only Stage 3 + 4 on existing content (~4 credits vs ~10 for full pipeline)"
+              >
+                {isHumanisingOnly ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Humanising...
+                  </>
+                ) : (
+                  <>
+                    <Wand2 className="mr-2 h-4 w-4" />
+                    Humanise Only
+                  </>
+                )}
+              </Button>
+            )}
 
             <div className="h-6 w-px bg-border" />
 
@@ -2410,14 +2556,15 @@ const Index = () => {
               </div>
             </CardHeader>
             <CardContent className="flex-1 overflow-auto space-y-4">
-              {/* Human Mode Progress Indicator */}
-              {isGenerating && useHumanMode && pipelineStages.length > 0 && (
+              {/* Human Mode / Humanise Only Progress Indicator */}
+              {((isGenerating && useHumanMode) || isHumanisingOnly) && pipelineStages.length > 0 && (
                 <GenerationProgress
                   stages={pipelineStages}
                   currentStage={currentPipelineStage}
                   totalSections={totalSections}
                   currentSection={currentSectionIndex}
                   error={pipelineError}
+                  title={isHumanisingOnly ? "Humanising Content" : undefined}
                 />
               )}
 
