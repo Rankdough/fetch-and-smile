@@ -1125,47 +1125,75 @@ const Index = () => {
                 // Clean up Tailwind classes and convert to inline styles
                 let htmlContent = clone.innerHTML;
                 
+                // Remove broken/placeholder images (empty src or failed loads)
+                htmlContent = htmlContent.replace(/<img[^>]*src=""[^>]*>/gi, '');
+                htmlContent = htmlContent.replace(/<img[^>]*src="data:,"[^>]*>/gi, '');
+                // Remove image containers with no valid image
+                htmlContent = htmlContent.replace(/<figure[^>]*>\s*<\/figure>/gi, '');
+                
+                // Style images properly
+                htmlContent = htmlContent.replace(/<img([^>]*)>/gi, (match, attrs) => {
+                  // Skip if already has inline style
+                  if (attrs.includes('style=')) return match;
+                  return `<img${attrs} style="max-width: 100%; height: auto; border-radius: 8px; margin: 16px 0; display: block;">`;
+                });
+                
                 // Process links - ensure internal links work and external have target blank
-                htmlContent = htmlContent.replace(/<a\s+([^>]*href="([^"]*)"[^>]*)>/gi, (match, attrs, href) => {
+                // Use more robust regex that handles various attribute orders
+                htmlContent = htmlContent.replace(/<a([^>]*)>/gi, (match, attrs) => {
+                  const hrefMatch = attrs.match(/href="([^"]*)"/);
+                  if (!hrefMatch) return match;
+                  const href = hrefMatch[1];
+                  
                   if (href.startsWith('#')) {
-                    // Internal anchor link - keep as is but ensure no target blank
-                    return `<a href="${href}" style="color: ${primaryColor}; text-decoration: none;">`;
+                    // Internal anchor link
+                    return `<a href="${href}" style="color: #2563eb; text-decoration: underline;">`;
                   } else {
-                    // External link
-                    return `<a href="${href}" target="_blank" rel="noopener noreferrer" style="color: ${primaryColor}; text-decoration: none;">`;
+                    // External link - blue and underlined
+                    return `<a href="${href}" target="_blank" rel="noopener noreferrer" style="color: #2563eb; text-decoration: underline;">`;
                   }
                 });
                 
-                // Style tables with brand colors
+                // Style tables with brand colors (must happen BEFORE generic styling)
+                // First, mark tables with a placeholder to protect them
                 htmlContent = htmlContent.replace(/<table[^>]*>/gi, `<table style="width: 100%; border-collapse: collapse; margin: 24px 0; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">`);
                 htmlContent = htmlContent.replace(/<thead[^>]*>/gi, `<thead style="background: linear-gradient(135deg, ${primaryColor} 0%, ${secondaryColor} 100%);">`);
                 htmlContent = htmlContent.replace(/<th[^>]*>/gi, `<th style="padding: 12px 16px; text-align: left; color: white; font-weight: 600;">`);
-                htmlContent = htmlContent.replace(/<tr[^>]*>/gi, (match, offset) => {
-                  // Alternate row colors
-                  return `<tr style="background: #ffffff;">`;
+                // Alternate table row colors
+                let rowIndex = 0;
+                htmlContent = htmlContent.replace(/<tbody[^>]*>([\s\S]*?)<\/tbody>/gi, (match, tbodyContent) => {
+                  rowIndex = 0;
+                  const styledTbody = tbodyContent.replace(/<tr[^>]*>/gi, () => {
+                    const bgColor = rowIndex % 2 === 0 ? '#f9fafb' : '#ffffff';
+                    rowIndex++;
+                    return `<tr style="background: ${bgColor};">`;
+                  });
+                  return `<tbody>${styledTbody}</tbody>`;
                 });
+                // Style remaining tr outside tbody
+                htmlContent = htmlContent.replace(/<tr[^>]*>(?![^<]*style=)/gi, `<tr style="background: #ffffff;">`);
                 htmlContent = htmlContent.replace(/<td[^>]*>/gi, `<td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb;">`);
                 
-                // Style TL;DR section
-                htmlContent = htmlContent.replace(/<h2[^>]*id="[^"]*tldr[^"]*"[^>]*>(.*?)<\/h2>/gi, 
-                  `<h2 style="background: #f8f4ff; border-left: 4px solid ${primaryColor}; padding: 12px 16px; margin: 24px 0 0 0; border-radius: 0 8px 0 0; font-size: 1.5rem; font-weight: 700;">$1</h2>`);
+                // Style TL;DR section (with id containing tldr)
+                htmlContent = htmlContent.replace(/<h2([^>]*id="[^"]*tldr[^"]*"[^>]*)>(.*?)<\/h2>/gi, 
+                  `<h2 style="background: #f8f4ff; border-left: 4px solid ${primaryColor}; padding: 12px 16px; margin: 24px 0 0 0; border-radius: 0 8px 0 0; font-size: 1.5rem; font-weight: 700;">$2</h2>`);
                 
                 // Style blockquotes
                 htmlContent = htmlContent.replace(/<blockquote[^>]*>/gi, 
                   `<blockquote style="background: #f8f4ff; border-left: 4px solid ${primaryColor}; padding: 16px 24px; margin: 24px 0; border-radius: 0 8px 8px 0; font-style: normal;">`);
                 
-                // Style headings
-                htmlContent = htmlContent.replace(/<h1[^>]*>/gi, `<h1 style="font-size: 2rem; font-weight: 700; margin: 0 0 16px 0; color: #1f2937;">`);
-                htmlContent = htmlContent.replace(/<h2[^>]*(?!id="[^"]*tldr)[^>]*>/gi, `<h2 style="font-size: 1.5rem; font-weight: 600; margin: 32px 0 16px 0; color: #1f2937;">`);
-                htmlContent = htmlContent.replace(/<h3[^>]*>/gi, `<h3 style="font-size: 1.25rem; font-weight: 600; margin: 24px 0 12px 0; color: #1f2937;">`);
+                // Style headings - but NOT those already styled (like TL;DR)
+                htmlContent = htmlContent.replace(/<h1(?![^>]*style=)[^>]*>/gi, `<h1 style="font-size: 2rem; font-weight: 700; margin: 0 0 16px 0; color: #1f2937;">`);
+                htmlContent = htmlContent.replace(/<h2(?![^>]*style=)[^>]*>/gi, `<h2 style="font-size: 1.5rem; font-weight: 600; margin: 32px 0 16px 0; color: #1f2937;">`);
+                htmlContent = htmlContent.replace(/<h3(?![^>]*style=)[^>]*>/gi, `<h3 style="font-size: 1.25rem; font-weight: 600; margin: 24px 0 12px 0; color: #1f2937;">`);
                 
                 // Style paragraphs
-                htmlContent = htmlContent.replace(/<p[^>]*>/gi, `<p style="margin: 0 0 16px 0; line-height: 1.7; color: #374151;">`);
+                htmlContent = htmlContent.replace(/<p(?![^>]*style=)[^>]*>/gi, `<p style="margin: 0 0 16px 0; line-height: 1.7; color: #374151;">`);
                 
                 // Style lists
-                htmlContent = htmlContent.replace(/<ul[^>]*>/gi, `<ul style="margin: 0 0 16px 0; padding-left: 24px; list-style-type: disc;">`);
-                htmlContent = htmlContent.replace(/<ol[^>]*>/gi, `<ol style="margin: 0 0 16px 0; padding-left: 24px; list-style-type: decimal;">`);
-                htmlContent = htmlContent.replace(/<li[^>]*>/gi, `<li style="margin: 8px 0; line-height: 1.6; color: #374151;">`);
+                htmlContent = htmlContent.replace(/<ul(?![^>]*style=)[^>]*>/gi, `<ul style="margin: 0 0 16px 0; padding-left: 24px; list-style-type: disc;">`);
+                htmlContent = htmlContent.replace(/<ol(?![^>]*style=)[^>]*>/gi, `<ol style="margin: 0 0 16px 0; padding-left: 24px; list-style-type: decimal;">`);
+                htmlContent = htmlContent.replace(/<li(?![^>]*style=)[^>]*>/gi, `<li style="margin: 8px 0; line-height: 1.6; color: #374151;">`);
                 
                 // Remove empty class attributes and data attributes
                 htmlContent = htmlContent.replace(/\s+class="[^"]*"/gi, '');
