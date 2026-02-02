@@ -28,7 +28,7 @@ serve(async (req) => {
 
     const systemPrompt = `You are a content strategist who identifies unique angles and perspectives that will make an article stand out from competitors.
 
-Your job is to analyze what competitors are covering and suggest 5 FRESH PERSPECTIVES that they're ALL missing. 
+Your job is to analyze what competitors are covering and suggest 3 FRESH PERSPECTIVES that they're ALL missing. 
 
 Focus on:
 1. ANGLE gaps (not just topic gaps) - a different way to frame the same information
@@ -56,7 +56,7 @@ Response format:
 ${gapAnalysis ? `Gap Analysis Results:\n${gapAnalysis}\n\n` : ""}
 ${competitorContent ? `Competitor Content Summary:\n${competitorContent.substring(0, 3000)}\n\n` : ""}
 
-Generate 5 unique angles that will make this article STAND OUT from competitors. These should be perspectives and framings that no one else is using.`;
+Generate 3 unique angles that will make this article STAND OUT from competitors. These should be perspectives and framings that no one else is using.`;
 
     console.log("Generating unique angles for topic:", topic);
 
