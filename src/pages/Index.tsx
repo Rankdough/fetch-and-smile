@@ -2024,29 +2024,78 @@ const Index = () => {
                   <Textarea
                     id="value-promise"
                     placeholder="e.g., Choose between composite bonding and veneers based on their budget, timeline, and aesthetic goals"
-                    className="min-h-[60px] resize-none pr-12 bg-input border-2 border-input-border"
+                    className="min-h-[60px] resize-none pr-20 bg-input border-2 border-input-border"
                     value={valuePromise}
                     onChange={(e) => setValuePromise(e.target.value)}
                   />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className={`absolute right-1 bottom-1 h-8 w-8 ${
-                      isListeningValuePromise 
-                        ? "text-destructive bg-destructive/10 animate-pulse" 
-                        : "text-muted-foreground hover:text-primary"
-                    }`}
-                    onClick={toggleValuePromiseListening}
-                    title={isListeningValuePromise ? "Stop recording" : "Record voice input"}
-                    disabled={!isVoiceSupported}
-                  >
-                    <Mic2 className="h-4 w-4" />
-                  </Button>
+                  <div className="absolute right-1 bottom-1 flex gap-1">
+                    {(gapAnalysis.trim() || selectedAngles.length > 0) && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-amber-500 hover:text-amber-600 hover:bg-amber-500/10"
+                        onClick={() => {
+                          // Synthesize value promise from gap analysis and angles
+                          let synthesis = "";
+                          
+                          if (selectedAngles.length > 0) {
+                            synthesis = `After reading this article, readers will understand ${selectedAngles.slice(0, 2).join(" and ").toLowerCase()}`;
+                            if (gapAnalysis.trim()) {
+                              // Extract key insight from gap analysis (first line or first sentence)
+                              const gapInsight = gapAnalysis.split('\n')[0].replace(/^[-•*]\s*/, '').trim();
+                              if (gapInsight) {
+                                synthesis += `, gaining insights that competitors miss: ${gapInsight.toLowerCase()}`;
+                              }
+                            }
+                            synthesis += ".";
+                          } else if (gapAnalysis.trim()) {
+                            const lines = gapAnalysis.split('\n').filter(l => l.trim()).slice(0, 3);
+                            const gaps = lines.map(l => l.replace(/^[-•*\d.)\s]+/, '').trim()).filter(Boolean);
+                            if (gaps.length > 0) {
+                              synthesis = `Help readers understand what competitors miss: ${gaps.join('; ')}.`;
+                            }
+                          }
+                          
+                          if (synthesis) {
+                            setValuePromise(synthesis);
+                            toast({
+                              title: "Value promise generated",
+                              description: "Based on your gap analysis and selected angles",
+                            });
+                          }
+                        }}
+                        title="Auto-fill from gap analysis & angles"
+                      >
+                        <Wand2 className="h-4 w-4" />
+                      </Button>
+                    )}
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className={`h-8 w-8 ${
+                        isListeningValuePromise 
+                          ? "text-destructive bg-destructive/10 animate-pulse" 
+                          : "text-muted-foreground hover:text-primary"
+                      }`}
+                      onClick={toggleValuePromiseListening}
+                      title={isListeningValuePromise ? "Stop recording" : "Record voice input"}
+                      disabled={!isVoiceSupported}
+                    >
+                      <Mic2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
                 {isListeningValuePromise && (
                   <p className="text-xs text-destructive animate-pulse">
                     🎙️ Listening... speak now
+                  </p>
+                )}
+                {(gapAnalysis.trim() || selectedAngles.length > 0) && !valuePromise.trim() && (
+                  <p className="text-xs text-amber-600 flex items-center gap-1">
+                    <Wand2 className="h-3 w-3" />
+                    Tip: Click the wand icon to auto-fill based on your analysis
                   </p>
                 )}
               </CollapsibleSection>
