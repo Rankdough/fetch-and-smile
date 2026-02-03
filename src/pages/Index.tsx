@@ -1763,9 +1763,9 @@ const Index = () => {
                   });
                 });
                 
-                // Style td cells
+                // Style td cells - allow text wrapping for proper column sizing
                 clone.querySelectorAll('td').forEach((td) => {
-                  td.setAttribute('style', 'padding: 12px 16px; font-size: 14px; border: 1px solid #e5e7eb; white-space: nowrap;');
+                  td.setAttribute('style', 'padding: 12px 16px; font-size: 14px; border: 1px solid #e5e7eb; word-wrap: break-word;');
                   td.removeAttribute('class');
                 });
                 
