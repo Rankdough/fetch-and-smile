@@ -2684,9 +2684,36 @@ const Index = () => {
                 />
               </CollapsibleSection>
 
-              {/* Section 14: Article Images */}
+              {/* Section 14: Output Options */}
               <CollapsibleSection
                 number={14}
+                title="Output Options"
+                isComplete={true}
+                summary={skipNavigation ? "Navigation skipped" : "All sections included"}
+                icon={<Settings className="h-4 w-4" />}
+              >
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <label htmlFor="skip-navigation" className="text-sm font-medium">
+                        Skip "In This Article" Section
+                      </label>
+                      <p className="text-xs text-muted-foreground">
+                        Exclude the navigation panel from the generated article and HTML export
+                      </p>
+                    </div>
+                    <Switch
+                      id="skip-navigation"
+                      checked={skipNavigation}
+                      onCheckedChange={setSkipNavigation}
+                    />
+                  </div>
+                </div>
+              </CollapsibleSection>
+
+              {/* Section 15: Article Images */}
+              <CollapsibleSection
+                number={15}
                 title="Article Images (Optional)"
                 isComplete={articleImages.length > 0}
                 summary={articleImages.length > 0 ? `${articleImages.length} image(s) uploaded` : undefined}
