@@ -1977,20 +1977,28 @@ const Index = () => {
                 });
                 
                 // IMPORTANT: Unwrap most divs to allow WordPress editing
-                // BUT preserve CTA banners (marked with data-preserve-cta)
+                // BUT preserve CTA banners AND their children (marked with data-preserve-cta)
                 // WordPress block editor needs clean semantic HTML without wrapper divs
                 let divsToUnwrap = clone.querySelectorAll('div:not([data-preserve-cta])');
                 while (divsToUnwrap.length > 0) {
+                  let unwrappedAny = false;
                   divsToUnwrap.forEach((div) => {
-                    if (div.parentNode && !div.hasAttribute('data-preserve-cta')) {
+                    // Skip if this div has the preserve marker OR is inside a preserved CTA
+                    if (div.hasAttribute('data-preserve-cta') || div.closest('[data-preserve-cta]')) {
+                      return;
+                    }
+                    if (div.parentNode) {
                       // Move all children out of the div
                       while (div.firstChild) {
                         div.parentNode.insertBefore(div.firstChild, div);
                       }
                       // Remove the empty div
                       div.parentNode.removeChild(div);
+                      unwrappedAny = true;
                     }
                   });
+                  // Break if no divs were unwrapped to prevent infinite loop
+                  if (!unwrappedAny) break;
                   divsToUnwrap = clone.querySelectorAll('div:not([data-preserve-cta])');
                 }
                 
