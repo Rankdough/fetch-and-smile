@@ -1694,8 +1694,75 @@ const Index = () => {
                   }
                 });
                 
-                // Remove CTA banners (we'll add proper HTML)
-                clone.querySelectorAll('[data-cta-banner]').forEach((el) => el.remove());
+                // Convert CTA banners to proper inline HTML before removing React components
+                clone.querySelectorAll('[data-cta-banner]').forEach((el) => {
+                  // Extract data from the CTA component
+                  const headlineEl = el.querySelector('div[style*="text-transform: uppercase"], div[style*="font-weight: 700"]');
+                  const descriptionEl = el.querySelectorAll('div[style*="color: white"]')[1]; // Second white div is description
+                  const buttonEl = el.querySelector('a');
+                  const taglineEl = el.querySelector('div[style*="rgba(255"]'); // Tagline has rgba color
+                  
+                  // Alternative: extract from text content structure
+                  const allDivs = el.querySelectorAll(':scope > div');
+                  let headline = '';
+                  let description = '';
+                  let buttonText = '';
+                  let buttonUrl = '';
+                  let tagline = '';
+                  
+                  // Extract button info first (it's the anchor tag)
+                  if (buttonEl) {
+                    buttonText = buttonEl.textContent?.replace(/\s*→\s*$/, '').trim() || 'Learn More';
+                    buttonUrl = buttonEl.getAttribute('href') || ctaUrl || '#';
+                  }
+                  
+                  // Parse the divs - structure is: headline div, description div, button, tagline div
+                  allDivs.forEach((div, idx) => {
+                    const style = div.getAttribute('style') || '';
+                    const text = div.textContent?.trim() || '';
+                    
+                    if (idx === 0 || style.includes('text-transform: uppercase') || style.includes('letter-spacing')) {
+                      // First div or uppercase styled = headline
+                      headline = text.replace(/^[🔥🎨✨💡🚀💪🌟⭐️🎉]+\s*/, '');
+                    } else if (!headline && idx === 0) {
+                      headline = text;
+                    } else if (!description && style.includes('color: white') && !style.includes('rgba')) {
+                      description = text;
+                    } else if (style.includes('rgba(255') || (idx === allDivs.length - 1 && text.includes('•'))) {
+                      tagline = text;
+                    }
+                  });
+                  
+                  // Fallback: use text content parsing
+                  if (!headline) {
+                    const fullText = el.textContent || '';
+                    const lines = fullText.split('\n').map(l => l.trim()).filter(Boolean);
+                    headline = lines[0]?.replace(/^[🔥🎨✨💡🚀💪🌟⭐️🎉]+\s*/, '') || 'Learn More';
+                    description = lines[1] || '';
+                    if (lines.length > 3) {
+                      tagline = lines[lines.length - 1];
+                    }
+                  }
+                  
+                  // Generate proper CTA HTML
+                  const ctaHtml = generateCTAHtml(
+                    headline,
+                    description,
+                    buttonText || 'Learn More',
+                    buttonUrl || ctaUrl || '#',
+                    selectedColorPalette,
+                    tagline || undefined
+                  );
+                  
+                  // Replace the React component with styled HTML
+                  const tempDiv = document.createElement('div');
+                  tempDiv.innerHTML = ctaHtml;
+                  const ctaElement = tempDiv.firstElementChild;
+                  
+                  if (ctaElement && el.parentNode) {
+                    el.parentNode.replaceChild(ctaElement, el);
+                  }
+                });
                 
                 // Unwrap images from their React wrapper divs
                 clone.querySelectorAll('div').forEach((wrapper) => {
