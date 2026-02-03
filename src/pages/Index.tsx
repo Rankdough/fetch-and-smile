@@ -1819,9 +1819,9 @@ const Index = () => {
                   img.removeAttribute('class');
                 });
                 
-                // Style headings
+                // Style headings - only set margins, let website inherit font-size/weight/color
                 clone.querySelectorAll('h1').forEach((h) => {
-                  h.setAttribute('style', 'font-size: 2rem; font-weight: 700; margin: 0 0 16px 0; color: #1f2937;');
+                  h.setAttribute('style', 'margin: 0 0 16px 0;');
                   h.removeAttribute('class');
                 });
                 clone.querySelectorAll('h2').forEach((h) => {
@@ -1830,14 +1830,15 @@ const Index = () => {
                   const isTldr = id.includes('tldr') || /TL;?DR/i.test(textContent);
                   
                   if (isTldr) {
-                    h.setAttribute('style', `background: #f8f4ff; border-left: 4px solid ${primaryColor}; padding: 12px 16px; margin: 24px 0 0 0; border-radius: 0 8px 0 0; font-size: 1.5rem; font-weight: 700; color: #1f2937;`);
+                    // TL;DR gets special background styling but no font overrides
+                    h.setAttribute('style', `background: #f8f4ff; border-left: 4px solid ${primaryColor}; padding: 12px 16px; margin: 24px 0 0 0; border-radius: 0 8px 0 0;`);
                     // Style the UL that immediately follows the TL;DR heading
                     const nextSibling = h.nextElementSibling;
                     if (nextSibling && nextSibling.tagName === 'UL') {
                       nextSibling.setAttribute('style', `background: #f8f4ff; border-left: 4px solid ${primaryColor}; padding: 16px 24px 16px 40px; margin: 0 0 24px 0; border-radius: 0 0 8px 0; list-style-type: disc;`);
                       // Also clean up LI items inside TL;DR to remove double bullets
                       nextSibling.querySelectorAll('li').forEach((li) => {
-                        li.setAttribute('style', 'margin: 8px 0; line-height: 1.6; color: #374151;');
+                        li.setAttribute('style', 'margin: 8px 0; line-height: 1.6;');
                         // Clean text content of double dashes/bullets
                         if (li.innerHTML) {
                           li.innerHTML = li.innerHTML.replace(/^[\s]*[-–—•]\s*[-–—]?\s*/i, '');
@@ -1846,15 +1847,17 @@ const Index = () => {
                     }
                     // Also handle if next sibling is a paragraph (some TL;DR use paragraph instead of list)
                     if (nextSibling && nextSibling.tagName === 'P') {
-                      nextSibling.setAttribute('style', `background: #f8f4ff; border-left: 4px solid ${primaryColor}; padding: 16px 24px; margin: 0 0 24px 0; border-radius: 0 0 8px 0; line-height: 1.7; color: #374151;`);
+                      nextSibling.setAttribute('style', `background: #f8f4ff; border-left: 4px solid ${primaryColor}; padding: 16px 24px; margin: 0 0 24px 0; border-radius: 0 0 8px 0; line-height: 1.7;`);
                     }
                   } else {
-                    h.setAttribute('style', 'font-size: 1.5rem; font-weight: 600; margin: 32px 0 16px 0; color: #1f2937;');
+                    // Regular H2 - only margins, inherit everything else
+                    h.setAttribute('style', 'margin: 32px 0 16px 0;');
                   }
                   h.removeAttribute('class');
                 });
                 clone.querySelectorAll('h3').forEach((h) => {
-                  h.setAttribute('style', 'font-size: 1.25rem; font-weight: 600; margin: 24px 0 12px 0; color: #1f2937;');
+                  // H3 - only margins, inherit everything else
+                  h.setAttribute('style', 'margin: 24px 0 12px 0;');
                   h.removeAttribute('class');
                 });
                 
