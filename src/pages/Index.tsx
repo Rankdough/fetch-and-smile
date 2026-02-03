@@ -3536,6 +3536,7 @@ const Index = () => {
                                                   let description = '';
                                                   let buttonText = '';
                                                   let buttonUrl = '';
+                                                  let tagline = '';
                                                   
                                                   // Extract text content from children
                                                   const extractText = (node: React.ReactNode): string => {
@@ -3553,11 +3554,13 @@ const Index = () => {
                                                   // Check for CTA pattern in children
                                                   let hasStrong = false;
                                                   let hasLink = false;
+                                                  let linkFound = false;
+                                                  const paragraphs: string[] = [];
                                                   
-                                                  const findElements = (node: React.ReactNode): void => {
+                                                  const findElements = (node: React.ReactNode, depth = 0): void => {
                                                     if (!node) return;
                                                     if (Array.isArray(node)) {
-                                                      node.forEach(findElements);
+                                                      node.forEach(n => findElements(n, depth));
                                                       return;
                                                     }
                                                     if (typeof node === 'object' && 'props' in node) {
@@ -3568,14 +3571,16 @@ const Index = () => {
                                                       }
                                                       if (el.type === 'a' || (el.props && el.props.href)) {
                                                         hasLink = true;
+                                                        linkFound = true;
                                                         buttonText = extractText(el.props?.children);
                                                         buttonUrl = el.props?.href || '';
                                                       }
                                                       if (el.type === 'p') {
-                                                        findElements(el.props?.children);
-                                                      }
-                                                      if (el.props?.children) {
-                                                        findElements(el.props.children);
+                                                        const pText = extractText(el.props?.children);
+                                                        paragraphs.push(pText);
+                                                        findElements(el.props?.children, depth + 1);
+                                                      } else if (el.props?.children) {
+                                                        findElements(el.props.children, depth + 1);
                                                       }
                                                     }
                                                   };
@@ -3584,13 +3589,24 @@ const Index = () => {
                                                   
                                                   // If we have both strong and link, treat as CTA
                                                   if (hasStrong && hasLink && buttonUrl) {
-                                                    // Extract description: text that's not the headline or button
+                                                    // Extract description and tagline from full text
                                                     const fullText = extractText(children);
-                                                    description = fullText
+                                                    
+                                                    // Split text to find parts
+                                                    let remainingText = fullText
                                                       .replace(headline, '')
                                                       .replace(buttonText, '')
                                                       .replace(/\n+/g, ' ')
                                                       .trim();
+                                                    
+                                                    // Check for tagline pattern (text with • separators after the button)
+                                                    const taglineMatch = remainingText.match(/([^•]+•[^•]+•[^•]+)$/);
+                                                    if (taglineMatch) {
+                                                      tagline = taglineMatch[1].trim();
+                                                      remainingText = remainingText.replace(taglineMatch[1], '').trim();
+                                                    }
+                                                    
+                                                    description = remainingText;
                                                     
                                                     return (
                                                       <div className="relative group">
@@ -3599,6 +3615,7 @@ const Index = () => {
                                                           description={description}
                                                           buttonText={buttonText || 'Learn More'}
                                                           url={buttonUrl}
+                                                          tagline={tagline || undefined}
                                                           brandColors={selectedColorPalette}
                                                         />
                                                         <button

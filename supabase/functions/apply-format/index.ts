@@ -111,54 +111,72 @@ Answer in 1-2 sentences.
 
 CTA BANNERS - CRITICAL RULES:
 - Insert EXACTLY 2 CTA banners - NO MORE, NO LESS
+- CTAs must be CONTEXTUALLY RELEVANT to the article topic
 - Do NOT add more than 2 CTAs under any circumstances
 
-Use this EXACT markdown blockquote format for each CTA:
-
-> **[HEADLINE IN ALL CAPS]**
-> [Description text]
-> [Button Text](${ctaConfig.buttonUrl})
-
-CUSTOM CTA INSTRUCTIONS - FOLLOW THESE EXACTLY:
+CUSTOM CTA INSTRUCTIONS TO FOLLOW:
 ${customInstructions}
 
-Based on the custom instructions above, create appropriate headline, description, and button text for the CTAs.
-The URL to use for all CTA links is: ${ctaConfig.buttonUrl}
+CTA STRUCTURE (use this EXACT 4-line markdown blockquote format):
 
-IMPORTANT FORMAT RULES:
-- Each CTA must be a blockquote (lines starting with >)
-- Bold headline on first line (ALL CAPS) - based on custom instructions
-- Description on second line - based on custom instructions  
-- Link on third line - use button text from custom instructions
+> **🎯 [MAIN HEADLINE IN ALL CAPS - relevant to article topic]**
+> [Subheading: 1-2 sentences describing the product/offer, relating to article content]
+> [SHOP [RELEVANT PRODUCT] →](${ctaConfig.buttonUrl})
+> [Tagline: 3 short benefits separated by • like "Free shipping • Fast delivery • Quality guaranteed"]
+
+CONTENT RULES:
+1. HEADLINE: Start with a relevant emoji, then a catchy phrase related to the article topic (ALL CAPS)
+2. SUBHEADING: Describe how the product/service helps with what the article discusses
+3. BUTTON: Must say "SHOP [PRODUCT]" or similar action verb, relevant to what's being promoted per the custom instructions
+4. TAGLINE: 3 short benefit phrases separated by bullets (•)
+
+MAKE IT CONTEXTUAL:
+- Read the article topic and tailor the CTA messaging to relate to it
+- If article is about bowling, CTA should mention bowling jerseys/gear
+- If article is about softball, CTA should mention softball uniforms/equipment
+- The headline, subheading, and button text should all feel relevant to the reader
+
+The URL to use for all CTA links is: ${ctaConfig.buttonUrl}
 
 PLACEMENT:
 - First CTA: Place about 40% into the article (after a major section)
 - Second CTA: Place near the end, before Final Thoughts or References
-- MAXIMUM 2 CTAs TOTAL - do not add more`;
+- MAXIMUM 2 CTAs TOTAL`;
       } else {
-        // Use default CTA config
+        // Use default CTA config - still make it contextual to article
         systemPrompt += `
 
 CTA BANNERS - CRITICAL RULES:
 - Insert EXACTLY 2 CTA banners - NO MORE, NO LESS
+- CTAs must be CONTEXTUALLY RELEVANT to the article topic
 - Do NOT add more than 2 CTAs under any circumstances
 
-Use this EXACT markdown blockquote format for each CTA:
+CTA STRUCTURE (use this EXACT 4-line markdown blockquote format):
 
-> **${ctaConfig.headline.toUpperCase()}**
-> ${ctaConfig.description}
-> [${ctaConfig.buttonText}](${ctaConfig.buttonUrl})
+> **🎯 [MAIN HEADLINE IN ALL CAPS - make it catchy and relevant to article]**
+> [Subheading: 1-2 sentences about the product/offer, connecting to article topic]
+> [SHOP NOW →](${ctaConfig.buttonUrl})
+> [Tagline: Free design assistance • Fast turnaround • Team discounts]
 
-IMPORTANT FORMAT RULES:
-- Each CTA must be a blockquote (lines starting with >)
-- Bold headline on first line (ALL CAPS)
-- Description on second line  
-- Link on third line
+CONTENT RULES:
+1. HEADLINE: Start with a relevant emoji, then a catchy phrase related to article (ALL CAPS)
+2. SUBHEADING: Connect the product/offer to what the reader is learning about
+3. BUTTON: Action-oriented text like "SHOP NOW →" or "GET STARTED →"
+4. TAGLINE: 3 short benefit phrases separated by bullets (•)
+
+Default values to use:
+- Headline base: ${ctaConfig.headline.toUpperCase()}
+- Description base: ${ctaConfig.description}
+- Button text: ${ctaConfig.buttonText}
+
+But adapt them to be contextually relevant to the article topic.
+
+The URL to use for all CTA links is: ${ctaConfig.buttonUrl}
 
 PLACEMENT:
 - First CTA: Place about 40% into the article (after a major section)
 - Second CTA: Place near the end, before Final Thoughts or References
-- MAXIMUM 2 CTAs TOTAL - do not add more`;
+- MAXIMUM 2 CTAs TOTAL`;
       }
     } else if (hasExistingCtas) {
       systemPrompt += `
