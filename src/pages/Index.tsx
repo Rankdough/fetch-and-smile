@@ -1708,7 +1708,7 @@ const Index = () => {
                   const buttonUrl = buttonEl?.getAttribute('href') || ctaUrl || '#';
                   const tagline = taglineEl?.textContent?.trim() || '';
                   
-                  // Generate proper CTA HTML
+                  // Generate proper CTA HTML with preserve marker
                   const ctaHtml = generateCTAHtml(
                     headline,
                     description,
@@ -1721,9 +1721,11 @@ const Index = () => {
                   // Replace the React component with styled HTML
                   const tempDiv = document.createElement('div');
                   tempDiv.innerHTML = ctaHtml;
-                  const ctaElement = tempDiv.firstElementChild;
+                  const ctaElement = tempDiv.firstElementChild as HTMLElement;
                   
                   if (ctaElement && el.parentNode) {
+                    // Mark this CTA to prevent it from being unwrapped
+                    ctaElement.setAttribute('data-preserve-cta', 'true');
                     el.parentNode.replaceChild(ctaElement, el);
                   }
                 });
@@ -1974,12 +1976,13 @@ const Index = () => {
                   }
                 });
                 
-                // IMPORTANT: Unwrap ALL remaining divs to allow WordPress editing
+                // IMPORTANT: Unwrap most divs to allow WordPress editing
+                // BUT preserve CTA banners (marked with data-preserve-cta)
                 // WordPress block editor needs clean semantic HTML without wrapper divs
-                let divsToUnwrap = clone.querySelectorAll('div');
+                let divsToUnwrap = clone.querySelectorAll('div:not([data-preserve-cta])');
                 while (divsToUnwrap.length > 0) {
                   divsToUnwrap.forEach((div) => {
-                    if (div.parentNode) {
+                    if (div.parentNode && !div.hasAttribute('data-preserve-cta')) {
                       // Move all children out of the div
                       while (div.firstChild) {
                         div.parentNode.insertBefore(div.firstChild, div);
@@ -1988,7 +1991,7 @@ const Index = () => {
                       div.parentNode.removeChild(div);
                     }
                   });
-                  divsToUnwrap = clone.querySelectorAll('div');
+                  divsToUnwrap = clone.querySelectorAll('div:not([data-preserve-cta])');
                 }
                 
                 // Remove all remaining class and data attributes
