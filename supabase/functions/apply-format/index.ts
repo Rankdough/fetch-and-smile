@@ -6,8 +6,21 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+interface ArticleImage {
+  alt: string;
+  url: string;
+}
+
 interface ApplyFormatRequest {
   content: string;
+  images?: ArticleImage[];
+  ctaConfig?: {
+    headline: string;
+    description: string;
+    buttonText: string;
+    buttonUrl: string;
+  };
+  customInstructions?: string;
 }
 
 serve(async (req) => {
@@ -16,7 +29,7 @@ serve(async (req) => {
   }
 
   try {
-    const { content } = await req.json() as ApplyFormatRequest;
+    const { content, images, ctaConfig, customInstructions } = await req.json() as ApplyFormatRequest;
 
     if (!content) {
       return new Response(
@@ -31,23 +44,30 @@ serve(async (req) => {
     }
 
     console.log("Applying article format structure to content", {
-      contentLength: content.length
+      contentLength: content.length,
+      hasImages: images && images.length > 0,
+      hasCta: !!ctaConfig,
+      hasCustomInstructions: !!customInstructions
     });
 
-    // Check what's missing
+    // Check what structural elements are missing
     const hasTldr = /##\s*TL;?DR/i.test(content);
     const hasQuickTips = /##\s*Quick\s*Tips/i.test(content) || />\s*\*\*Tip\s*1/i.test(content);
     const hasInThisArticle = /##\s*In\s*This\s*Article/i.test(content);
     const hasFaq = /##\s*(FAQ|Frequently\s*Asked\s*Questions)/i.test(content);
 
-    console.log("Content analysis:", { hasTldr, hasQuickTips, hasInThisArticle, hasFaq });
+    // Check for existing CTAs
+    const existingCtaPattern = />\s*\*\*[^*]+\*\*[\s\S]*?\[.+\]\(.+\)/;
+    const hasExistingCtas = existingCtaPattern.test(content);
 
-    const systemPrompt = `You are an expert content editor. Your task is to add structural formatting elements to an existing article WITHOUT changing any of the original content.
+    console.log("Content analysis:", { hasTldr, hasQuickTips, hasInThisArticle, hasFaq, hasExistingCtas });
+
+    let systemPrompt = `You are an expert content editor. Your task is to add structural formatting elements and enhancements to an existing article WITHOUT changing any of the original content text.
 
 CRITICAL RULES:
-- DO NOT rewrite, rephrase, or modify ANY existing content
+- DO NOT rewrite, rephrase, or modify ANY existing paragraphs or sentences
 - DO NOT remove any existing sections, paragraphs, or text
-- DO NOT change the meaning or wording of anything
+- DO NOT change the meaning or wording of anything that already exists
 - ONLY ADD new structural elements where they are missing
 - Return the FULL article with additions
 
@@ -68,24 +88,76 @@ ${!hasInThisArticle ? `3. IN THIS ARTICLE NAVIGATION (add after Quick Tips):
 Create a "## In This Article" section listing the main H2 sections with brief descriptions:
 1. **Section Title** - Brief one-line description of what this section covers
 2. **Section Title** - Brief one-line description
-(etc for each main H2 section)
+(etc for each main H2 section, excluding TL;DR, Quick Tips, FAQ, References, Final Thoughts)
 ` : "3. In This Article: Already present - keep as is"}
 
 ${!hasFaq ? `4. FAQ SECTION (add before Final Thoughts/Conclusion/References):
 Create a "## Frequently Asked Questions" section with 4-5 Q&As based on the article content:
 **Question here?**
 Answer in 1-2 sentences.
-` : "4. FAQ: Already present - keep as is"}
+` : "4. FAQ: Already present - keep as is"}`;
+
+    // Add CTA instructions if provided
+    if (ctaConfig && !hasExistingCtas) {
+      systemPrompt += `
+
+CTA BANNERS TO INSERT:
+Insert 2 CTA banners at strategic locations in the article.
+Use this EXACT markdown blockquote format for each CTA:
+
+> **${ctaConfig.headline.toUpperCase()}**
+> ${ctaConfig.description}
+> [${ctaConfig.buttonText}](${ctaConfig.buttonUrl})
+
+IMPORTANT: Each CTA must be a blockquote (lines starting with >) with:
+- Bold headline on first line (ALL CAPS)
+- Description on second line  
+- Link on third line
+
+Place the first CTA about 40% into the article (after a major section).
+Place the second CTA near the end, before Final Thoughts or References.`;
+    } else if (hasExistingCtas) {
+      systemPrompt += `
+
+CTAs: Article already has CTA banners - keep them as they are.`;
+    }
+
+    // Add image instructions if provided
+    if (images && images.length > 0) {
+      systemPrompt += `
+
+IMAGES TO INSERT:
+Insert these images at appropriate locations in the article, placing them ABOVE relevant H2 headings.
+Skip placing images above: TL;DR, Quick Tips, In This Article, FAQ, Frequently Asked Questions, References, Final Thoughts, Conclusion.
+
+Available images to insert:
+${images.map((img, i) => `${i + 1}. ![${img.alt}](${img.url})`).join("\n")}
+
+Distribute images evenly throughout the article content sections.
+Place each image on its own line, with a blank line before and after.`;
+    }
+
+    // Add custom instructions if provided
+    if (customInstructions && customInstructions.trim()) {
+      systemPrompt += `
+
+ADDITIONAL CUSTOM INSTRUCTIONS:
+${customInstructions}
+
+Apply these instructions while preserving all original content.`;
+    }
+
+    systemPrompt += `
 
 FORMATTING RULES:
 - NEVER use em dashes (—) or en dashes (–) - use regular hyphens (-) only
 - NEVER add horizontal rules (---, ***, ___)
-- Keep all existing structure intact
+- Keep all existing structure and text intact
 - Use proper markdown formatting
 
-Return ONLY the enhanced markdown content, no explanations.`;
+Return ONLY the enhanced markdown content, no explanations or commentary.`;
 
-    const userPrompt = `Here is the article content. Add ONLY the missing structural elements while keeping ALL existing content exactly as is:
+    const userPrompt = `Here is the article content. Add the missing structural elements and enhancements while keeping ALL existing content exactly as is:
 
 ${content}`;
 
@@ -140,12 +212,17 @@ ${content}`;
     const newHasQuickTips = /##\s*Quick\s*Tips/i.test(formattedContent) || />\s*\*\*Tip\s*1/i.test(formattedContent);
     const newHasInThisArticle = /##\s*In\s*This\s*Article/i.test(formattedContent);
     const newHasFaq = /##\s*(FAQ|Frequently\s*Asked\s*Questions)/i.test(formattedContent);
+    const newHasCtas = existingCtaPattern.test(formattedContent);
+    const hasImages = images && images.length > 0 && images.some(img => formattedContent.includes(img.url));
 
     const additions = [];
     if (!hasTldr && newHasTldr) additions.push("TL;DR");
     if (!hasQuickTips && newHasQuickTips) additions.push("Quick Tips");
     if (!hasInThisArticle && newHasInThisArticle) additions.push("In This Article");
     if (!hasFaq && newHasFaq) additions.push("FAQ");
+    if (!hasExistingCtas && newHasCtas) additions.push("CTAs");
+    if (hasImages) additions.push("Images");
+    if (customInstructions) additions.push("Custom instructions applied");
 
     console.log("Format applied successfully. Additions:", additions);
 
@@ -153,12 +230,14 @@ ${content}`;
       JSON.stringify({ 
         content: formattedContent,
         additions,
-        originalHad: { hasTldr, hasQuickTips, hasInThisArticle, hasFaq },
+        originalHad: { hasTldr, hasQuickTips, hasInThisArticle, hasFaq, hasExistingCtas },
         nowHas: { 
           hasTldr: newHasTldr, 
           hasQuickTips: newHasQuickTips, 
           hasInThisArticle: newHasInThisArticle, 
-          hasFaq: newHasFaq 
+          hasFaq: newHasFaq,
+          hasCtas: newHasCtas,
+          hasImages
         }
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
