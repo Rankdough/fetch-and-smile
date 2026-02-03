@@ -131,11 +131,13 @@ export const generateCTAHtml = (
   const buttonColor = brandColors?.accent || BUTTON_COLOR;
   const displayTagline = tagline || DEFAULT_TAGLINE;
 
+  // Note: data-cta-banner attribute is added for identification during export
+  // The anchor has data-cta-button to prevent link styling from overwriting button styles
   return `
-<div style="background: ${bgGradient}; border-radius: 16px; padding: 48px 32px 40px; text-align: center; margin: 32px 0; font-family: inherit;">
+<div data-cta-banner="true" style="background: ${bgGradient}; border-radius: 16px; padding: 48px 32px 40px; text-align: center; margin: 32px 0; font-family: inherit;">
   <div style="font-size: 1.25em; font-weight: 700; letter-spacing: 0.08em; margin-bottom: 16px; color: ${headlineColor}; font-family: inherit; text-transform: uppercase;">${headline}</div>
   <div style="font-size: 1em; margin-bottom: 28px; color: white; font-family: inherit; max-width: 480px; margin-left: auto; margin-right: auto; line-height: 1.7; opacity: 0.95;">${description}</div>
-  <a href="${url}" target="_blank" rel="noopener noreferrer" style="display: inline-block; background: ${buttonColor}; color: #1a1a1a; font-weight: 700; font-size: 0.9em; padding: 16px 48px; border-radius: 9999px; text-decoration: none; font-family: inherit; text-transform: uppercase; letter-spacing: 0.06em; box-shadow: 0 8px 24px rgba(255, 107, 107, 0.35), 0 4px 8px rgba(0, 0, 0, 0.2);">${buttonText}</a>
+  <a href="${url}" target="_blank" rel="noopener noreferrer" data-cta-button="true" style="display: inline-block; background: ${buttonColor}; color: #1a1a1a; font-weight: 700; font-size: 0.9em; padding: 16px 48px; border-radius: 9999px; text-decoration: none; font-family: inherit; text-transform: uppercase; letter-spacing: 0.06em; box-shadow: 0 8px 24px rgba(255, 107, 107, 0.35), 0 4px 8px rgba(0, 0, 0, 0.2);">${buttonText}</a>
   <div style="margin-top: 20px; font-size: 0.85em; color: rgba(255, 255, 255, 0.6); font-family: inherit; letter-spacing: 0.02em;">${displayTagline}</div>
 </div>`;
 };
