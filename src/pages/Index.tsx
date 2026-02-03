@@ -1404,9 +1404,28 @@ const Index = () => {
     setIsApplyingFormat(true);
 
     try {
+      // Prepare CTA config if URL is set
+      let ctaConfig = null;
+      if (ctaUrl.trim()) {
+        ctaConfig = {
+          headline: "Want to Learn More?",
+          description: "Get expert guidance and personalized recommendations.",
+          buttonText: "Get Started",
+          buttonUrl: ctaUrl,
+        };
+      }
+
+      // Prepare images for insertion
+      const imagesToInsert = articleImages.length > 0 
+        ? articleImages.map(img => ({ alt: img.alt, url: img.url })) 
+        : undefined;
+
       const { data, error } = await supabase.functions.invoke("apply-format", {
         body: {
           content: generatedContent,
+          images: imagesToInsert,
+          ctaConfig,
+          customInstructions: formData.instructions?.trim() || undefined,
         },
       });
 
@@ -1414,6 +1433,22 @@ const Index = () => {
       if (data.error) throw new Error(data.error);
 
       setGeneratedContent(data.content, true);
+
+      // If CTAs were added, set generated CTAs for HTML export
+      if (data.nowHas?.hasCtas && ctaConfig) {
+        setGeneratedCTAs({
+          middle: {
+            headline: ctaConfig.headline,
+            description: ctaConfig.description,
+            buttonText: ctaConfig.buttonText,
+          },
+          end: {
+            headline: "Ready to Take Action?",
+            description: "Start your journey today.",
+            buttonText: "Get Started",
+          },
+        });
+      }
 
       const additions = data.additions || [];
       if (additions.length > 0) {
