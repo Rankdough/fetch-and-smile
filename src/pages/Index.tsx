@@ -1434,21 +1434,9 @@ const Index = () => {
 
       setGeneratedContent(data.content, true);
 
-      // If CTAs were added, set generated CTAs for HTML export
-      if (data.nowHas?.hasCtas && ctaConfig) {
-        setGeneratedCTAs({
-          middle: {
-            headline: ctaConfig.headline,
-            description: ctaConfig.description,
-            buttonText: ctaConfig.buttonText,
-          },
-          end: {
-            headline: "Ready to Take Action?",
-            description: "Start your journey today.",
-            buttonText: "Get Started",
-          },
-        });
-      }
+      // CTAs are now in the markdown content as blockquotes - clear any legacy generatedCTAs
+      // to avoid duplicate CTAs showing
+      setGeneratedCTAs(null);
 
       const additions = data.additions || [];
       if (additions.length > 0) {

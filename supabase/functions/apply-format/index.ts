@@ -274,6 +274,22 @@ ${content}`;
     formattedContent = formattedContent.replace(/—/g, "-").replace(/–/g, "-");
     formattedContent = formattedContent.replace(/^\s*[-*_]{3,}\s*$/gm, "");
 
+    // Post-process: Enforce exactly 2 CTAs maximum
+    // Find all CTA blockquotes (pattern: > **...**\n> ...\n> [...](url)\n> ...)
+    const ctaPattern = />\s*\*\*[^*]+\*\*[\s\S]*?(?=\n\n|\n(?!>)|$)/g;
+    const ctaMatches = formattedContent.match(ctaPattern) || [];
+    
+    // If more than 2 CTAs found, remove the extras (keep first 2)
+    if (ctaMatches.length > 2) {
+      console.log(`Found ${ctaMatches.length} CTAs, removing extras to keep only 2`);
+      // Remove CTAs starting from the 3rd one
+      for (let i = 2; i < ctaMatches.length; i++) {
+        formattedContent = formattedContent.replace(ctaMatches[i], '');
+      }
+      // Clean up extra newlines
+      formattedContent = formattedContent.replace(/\n{3,}/g, '\n\n');
+    }
+
     // Detect what was added
     const newHasTldr = /##\s*TL;?DR/i.test(formattedContent);
     const newHasQuickTips = /##\s*Quick\s*Tips/i.test(formattedContent) || />\s*\*\*Tip\s*1/i.test(formattedContent);
