@@ -109,8 +109,10 @@ Answer in 1-2 sentences.
         // Use custom instructions to guide CTA content
         systemPrompt += `
 
-CTA BANNERS TO INSERT:
-Insert 2 CTA banners at strategic locations in the article.
+CTA BANNERS - CRITICAL RULES:
+- Insert EXACTLY 2 CTA banners - NO MORE, NO LESS
+- Do NOT add more than 2 CTAs under any circumstances
+
 Use this EXACT markdown blockquote format for each CTA:
 
 > **[HEADLINE IN ALL CAPS]**
@@ -121,34 +123,42 @@ CUSTOM CTA INSTRUCTIONS - FOLLOW THESE EXACTLY:
 ${customInstructions}
 
 Based on the custom instructions above, create appropriate headline, description, and button text for the CTAs.
-The URL to use is: ${ctaConfig.buttonUrl}
+The URL to use for all CTA links is: ${ctaConfig.buttonUrl}
 
-IMPORTANT: Each CTA must be a blockquote (lines starting with >) with:
+IMPORTANT FORMAT RULES:
+- Each CTA must be a blockquote (lines starting with >)
 - Bold headline on first line (ALL CAPS) - based on custom instructions
-- Description on second line - based on custom instructions
+- Description on second line - based on custom instructions  
 - Link on third line - use button text from custom instructions
 
-Place the first CTA about 40% into the article (after a major section).
-Place the second CTA near the end, before Final Thoughts or References.`;
+PLACEMENT:
+- First CTA: Place about 40% into the article (after a major section)
+- Second CTA: Place near the end, before Final Thoughts or References
+- MAXIMUM 2 CTAs TOTAL - do not add more`;
       } else {
         // Use default CTA config
         systemPrompt += `
 
-CTA BANNERS TO INSERT:
-Insert 2 CTA banners at strategic locations in the article.
+CTA BANNERS - CRITICAL RULES:
+- Insert EXACTLY 2 CTA banners - NO MORE, NO LESS
+- Do NOT add more than 2 CTAs under any circumstances
+
 Use this EXACT markdown blockquote format for each CTA:
 
 > **${ctaConfig.headline.toUpperCase()}**
 > ${ctaConfig.description}
 > [${ctaConfig.buttonText}](${ctaConfig.buttonUrl})
 
-IMPORTANT: Each CTA must be a blockquote (lines starting with >) with:
+IMPORTANT FORMAT RULES:
+- Each CTA must be a blockquote (lines starting with >)
 - Bold headline on first line (ALL CAPS)
 - Description on second line  
 - Link on third line
 
-Place the first CTA about 40% into the article (after a major section).
-Place the second CTA near the end, before Final Thoughts or References.`;
+PLACEMENT:
+- First CTA: Place about 40% into the article (after a major section)
+- Second CTA: Place near the end, before Final Thoughts or References
+- MAXIMUM 2 CTAs TOTAL - do not add more`;
       }
     } else if (hasExistingCtas) {
       systemPrompt += `
