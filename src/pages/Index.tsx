@@ -297,6 +297,7 @@ const Index = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isEnhancingImport, setIsEnhancingImport] = useState(false);
+  const [isApplyingFormat, setIsApplyingFormat] = useState(false);
   const [generatedContent, setGeneratedContentRaw] = useState(() => {
     const saved = localStorage.getItem("seo-generator-generatedContent");
     return saved ? cleanContent(saved) : "";
@@ -1389,6 +1390,55 @@ const Index = () => {
     }
   };
 
+  // Apply article format structure (TL;DR, Quick Tips, Navigation, FAQ) without changing content
+  const handleApplyFormat = async () => {
+    if (!generatedContent.trim()) {
+      toast({
+        title: "No content",
+        description: "Import some content first before applying format.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsApplyingFormat(true);
+
+    try {
+      const { data, error } = await supabase.functions.invoke("apply-format", {
+        body: {
+          content: generatedContent,
+        },
+      });
+
+      if (error) throw error;
+      if (data.error) throw new Error(data.error);
+
+      setGeneratedContent(data.content, true);
+
+      const additions = data.additions || [];
+      if (additions.length > 0) {
+        toast({
+          title: "Format applied!",
+          description: `Added: ${additions.join(", ")}`,
+        });
+      } else {
+        toast({
+          title: "Format complete",
+          description: "Article already has all structural elements.",
+        });
+      }
+    } catch (error) {
+      console.error("Apply format error:", error);
+      toast({
+        title: "Format failed",
+        description: error instanceof Error ? error.message : "Failed to apply format",
+        variant: "destructive",
+      });
+    } finally {
+      setIsApplyingFormat(false);
+    }
+  };
+
   // Allocate images logically using AI to match image content to article sections
   const handleAllocateImagesLogically = async (imagesToAllocate: ArticleImage[]) => {
     if (!generatedContent || imagesToAllocate.length === 0) {
@@ -1529,6 +1579,26 @@ const Index = () => {
                 <>
                   <Wand2 className="h-4 w-4 mr-2" />
                   Enhance Import
+                </>
+              )}
+            </Button>
+
+            <Button
+              variant="outline"
+              size="default"
+              onClick={handleApplyFormat}
+              disabled={isApplyingFormat || !generatedContent}
+              title="Add TL;DR, Quick Tips, Navigation, and FAQ sections without changing content"
+            >
+              {isApplyingFormat ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Applying...
+                </>
+              ) : (
+                <>
+                  <FileText className="h-4 w-4 mr-2" />
+                  Apply Format
                 </>
               )}
             </Button>
