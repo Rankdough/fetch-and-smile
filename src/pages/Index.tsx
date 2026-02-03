@@ -3593,13 +3593,39 @@ const Index = () => {
                                                       .trim();
                                                     
                                                     return (
-                                                      <CTABanner
-                                                        headline={headline}
-                                                        description={description}
-                                                        buttonText={buttonText || 'Learn More'}
-                                                        url={buttonUrl}
-                                                        brandColors={selectedColorPalette}
-                                                      />
+                                                      <div className="relative group">
+                                                        <CTABanner
+                                                          headline={headline}
+                                                          description={description}
+                                                          buttonText={buttonText || 'Learn More'}
+                                                          url={buttonUrl}
+                                                          brandColors={selectedColorPalette}
+                                                        />
+                                                        <button
+                                                          type="button"
+                                                          className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-destructive text-destructive-foreground rounded-full p-1.5 shadow-lg hover:bg-destructive/90 z-10"
+                                                          onClick={(e) => {
+                                                            e.preventDefault();
+                                                            e.stopPropagation();
+                                                            // Remove CTA blockquote from markdown content
+                                                            // Pattern: > **HEADLINE**\n> description\n> [button](url)
+                                                            const escapedUrl = buttonUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                                                            const ctaPattern = new RegExp(
+                                                              `>\\s*\\*\\*[^*]+\\*\\*[\\s\\S]*?\\[[^\\]]+\\]\\(${escapedUrl}\\)\\n*`,
+                                                              'g'
+                                                            );
+                                                            const newContent = generatedContent.replace(ctaPattern, '');
+                                                            setGeneratedContent(newContent.replace(/\n{3,}/g, '\n\n'));
+                                                            toast({
+                                                              title: "CTA removed",
+                                                              description: "The CTA banner has been removed from the article",
+                                                            });
+                                                          }}
+                                                          title="Remove CTA"
+                                                        >
+                                                          <X className="h-4 w-4" />
+                                                        </button>
+                                                      </div>
                                                     );
                                                   }
                                                   
