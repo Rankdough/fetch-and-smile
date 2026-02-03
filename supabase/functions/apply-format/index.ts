@@ -99,7 +99,40 @@ Answer in 1-2 sentences.
 
     // Add CTA instructions if provided
     if (ctaConfig && !hasExistingCtas) {
-      systemPrompt += `
+      // Check if custom instructions contain CTA-specific guidance
+      const hasCtaCustomInstructions = customInstructions && 
+        (customInstructions.toLowerCase().includes('cta') || 
+         customInstructions.toLowerCase().includes('button') ||
+         customInstructions.toLowerCase().includes('call to action'));
+
+      if (hasCtaCustomInstructions) {
+        // Use custom instructions to guide CTA content
+        systemPrompt += `
+
+CTA BANNERS TO INSERT:
+Insert 2 CTA banners at strategic locations in the article.
+Use this EXACT markdown blockquote format for each CTA:
+
+> **[HEADLINE IN ALL CAPS]**
+> [Description text]
+> [Button Text](${ctaConfig.buttonUrl})
+
+CUSTOM CTA INSTRUCTIONS - FOLLOW THESE EXACTLY:
+${customInstructions}
+
+Based on the custom instructions above, create appropriate headline, description, and button text for the CTAs.
+The URL to use is: ${ctaConfig.buttonUrl}
+
+IMPORTANT: Each CTA must be a blockquote (lines starting with >) with:
+- Bold headline on first line (ALL CAPS) - based on custom instructions
+- Description on second line - based on custom instructions
+- Link on third line - use button text from custom instructions
+
+Place the first CTA about 40% into the article (after a major section).
+Place the second CTA near the end, before Final Thoughts or References.`;
+      } else {
+        // Use default CTA config
+        systemPrompt += `
 
 CTA BANNERS TO INSERT:
 Insert 2 CTA banners at strategic locations in the article.
@@ -116,6 +149,7 @@ IMPORTANT: Each CTA must be a blockquote (lines starting with >) with:
 
 Place the first CTA about 40% into the article (after a major section).
 Place the second CTA near the end, before Final Thoughts or References.`;
+      }
     } else if (hasExistingCtas) {
       systemPrompt += `
 
@@ -137,8 +171,13 @@ Distribute images evenly throughout the article content sections.
 Place each image on its own line, with a blank line before and after.`;
     }
 
-    // Add custom instructions if provided
-    if (customInstructions && customInstructions.trim()) {
+    // Add custom instructions if provided (and not already used for CTAs)
+    const hasCtaCustomInstructions = customInstructions && 
+      (customInstructions.toLowerCase().includes('cta') || 
+       customInstructions.toLowerCase().includes('button') ||
+       customInstructions.toLowerCase().includes('call to action'));
+    
+    if (customInstructions && customInstructions.trim() && !hasCtaCustomInstructions) {
       systemPrompt += `
 
 ADDITIONAL CUSTOM INSTRUCTIONS:
