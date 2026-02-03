@@ -121,6 +121,15 @@ export const COLOR_PALETTES: ColorPalette[] = [
     background: "#3A3D25",
     text: "#FFFFFF",
   },
+  {
+    id: "big-league",
+    name: "Big League",
+    primary: "#E31837",
+    secondary: "#CC1630",
+    accent: "#FF3B54",
+    background: "#1A1A1A",
+    text: "#FFFFFF",
+  },
 ];
 
 interface ColorPaletteSelectorProps {
