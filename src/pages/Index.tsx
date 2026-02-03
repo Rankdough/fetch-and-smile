@@ -1792,9 +1792,12 @@ const Index = () => {
                 
                 // Style links - BUT skip links inside CTA banners (they have their own button styling)
                 clone.querySelectorAll('a').forEach((a) => {
-                  // Skip if this anchor is inside a preserved CTA banner
-                  if (a.closest('[data-preserve-cta]') || a.closest('[data-cta-banner]')) {
-                    // Just remove class, keep existing inline styles
+                  // Skip if this anchor is a CTA button (has data-cta-button) or is inside a CTA banner
+                  const isCTAButton = a.hasAttribute('data-cta-button');
+                  const isInsideCTA = a.closest('[data-preserve-cta]') || a.closest('[data-cta-banner]');
+                  
+                  if (isCTAButton || isInsideCTA) {
+                    // Just remove class, keep existing inline styles (the button styling)
                     a.removeAttribute('class');
                     return;
                   }
@@ -1984,14 +1987,17 @@ const Index = () => {
                 });
                 
                 // IMPORTANT: Unwrap most divs to allow WordPress editing
-                // BUT preserve CTA banners AND their children (marked with data-preserve-cta)
+                // BUT preserve CTA banners AND their children (marked with data-preserve-cta or data-cta-banner)
                 // WordPress block editor needs clean semantic HTML without wrapper divs
-                let divsToUnwrap = clone.querySelectorAll('div:not([data-preserve-cta])');
+                let divsToUnwrap = clone.querySelectorAll('div:not([data-preserve-cta]):not([data-cta-banner])');
                 while (divsToUnwrap.length > 0) {
                   let unwrappedAny = false;
                   divsToUnwrap.forEach((div) => {
                     // Skip if this div has the preserve marker OR is inside a preserved CTA
-                    if (div.hasAttribute('data-preserve-cta') || div.closest('[data-preserve-cta]')) {
+                    if (div.hasAttribute('data-preserve-cta') || 
+                        div.hasAttribute('data-cta-banner') || 
+                        div.closest('[data-preserve-cta]') || 
+                        div.closest('[data-cta-banner]')) {
                       return;
                     }
                     if (div.parentNode) {
@@ -2006,7 +2012,7 @@ const Index = () => {
                   });
                   // Break if no divs were unwrapped to prevent infinite loop
                   if (!unwrappedAny) break;
-                  divsToUnwrap = clone.querySelectorAll('div:not([data-preserve-cta])');
+                  divsToUnwrap = clone.querySelectorAll('div:not([data-preserve-cta]):not([data-cta-banner])');
                 }
                 
                 // Remove all remaining class and data attributes
