@@ -326,24 +326,24 @@ export function ArticleImagesPanel({
         </Button>
       </div>
 
-      {/* Allocate Logically button */}
-      {filteredImages.length > 0 && hasContent && (
+      {/* Allocate Logically button - show when there are images AND content */}
+      {hasContent && (
         <Button
           variant="outline"
           size="sm"
           className="w-full"
           onClick={() => onAllocateLogically?.(filteredImages)}
-          disabled={isAllocating || !hasContent}
+          disabled={isAllocating || !hasContent || filteredImages.length === 0}
         >
           {isAllocating ? (
             <>
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              Placing {filteredImages.length} images...
+              Placing images...
             </>
           ) : (
             <>
               <Wand2 className="h-4 w-4 mr-2" />
-              Allocate All {filteredImages.length} Images
+              Allocate Logically{filteredImages.length > 0 ? ` (${filteredImages.length})` : ""}
             </>
           )}
         </Button>
