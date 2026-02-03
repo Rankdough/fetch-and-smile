@@ -78,10 +78,18 @@ Create a "## TL;DR" section with 2-3 bullet points summarizing the main takeaway
 ` : "1. TL;DR: Already present - keep as is"}
 
 ${!hasQuickTips ? `2. QUICK TIPS SECTION (add after TL;DR):
-Create a "## Quick Tips" section with exactly 3 actionable tips using this format:
+Create a "## Quick Tips" section with exactly 3 actionable tips.
+CRITICAL: Each tip MUST be on its own separate line with a BLANK LINE between them.
+
+Use this EXACT format (note the blank lines between tips):
+
 > **Tip 1:** [One actionable sentence, max 15 words]
-> **Tip 2:** [One actionable sentence, max 15 words]  
+
+> **Tip 2:** [One actionable sentence, max 15 words]
+
 > **Tip 3:** [One actionable sentence, max 15 words]
+
+DO NOT combine tips into one paragraph. Each tip is a separate blockquote.
 ` : "2. Quick Tips: Already present - keep as is"}
 
 ${!hasInThisArticle ? `3. IN THIS ARTICLE NAVIGATION (add after Quick Tips):
@@ -235,7 +243,7 @@ ${content}`;
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: "google/gemini-3-flash-preview",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt }
@@ -275,13 +283,16 @@ ${content}`;
     formattedContent = formattedContent.replace(/^\s*[-*_]{3,}\s*$/gm, "");
 
     // Post-process: Enforce exactly 2 CTAs maximum
-    // Find all CTA blockquotes (pattern: > **...**\n> ...\n> [...](url)\n> ...)
-    const ctaPattern = />\s*\*\*[^*]+\*\*[\s\S]*?(?=\n\n|\n(?!>)|$)/g;
-    const ctaMatches = formattedContent.match(ctaPattern) || [];
+    // CTA pattern: blockquote with bold headline AND a markdown link (not Quick Tips which don't have links)
+    // Pattern looks for: > **...** followed by > [...](http...)
+    const ctaBlockPattern = />\s*\*\*[^*]+\*\*[^>]*\n(?:>\s*[^\n]+\n)*>\s*\[[^\]]+\]\(https?:\/\/[^)]+\)[^\n]*(?:\n>\s*[^\n]+)*/g;
+    const ctaMatches = formattedContent.match(ctaBlockPattern) || [];
+    
+    console.log(`Found ${ctaMatches.length} CTA blocks in content`);
     
     // If more than 2 CTAs found, remove the extras (keep first 2)
     if (ctaMatches.length > 2) {
-      console.log(`Found ${ctaMatches.length} CTAs, removing extras to keep only 2`);
+      console.log(`Removing ${ctaMatches.length - 2} extra CTAs to keep only 2`);
       // Remove CTAs starting from the 3rd one
       for (let i = 2; i < ctaMatches.length; i++) {
         formattedContent = formattedContent.replace(ctaMatches[i], '');
