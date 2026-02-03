@@ -415,6 +415,10 @@ const Index = () => {
     const saved = localStorage.getItem("seo-generator-useKnowledgeBase");
     return saved !== null ? JSON.parse(saved) : true;
   });
+  const [skipNavigation, setSkipNavigation] = useState(() => {
+    const saved = localStorage.getItem("seo-generator-skipNavigation");
+    return saved !== null ? JSON.parse(saved) : false;
+  });
   const [isEditMode, setIsEditMode] = useState(false);
   const [selectedToneProfileId, setSelectedToneProfileId] = useState<string | null>(() => {
     const saved = localStorage.getItem("seo-generator-toneProfileId");
@@ -515,6 +519,10 @@ const Index = () => {
   useEffect(() => {
     localStorage.setItem("seo-generator-useKnowledgeBase", JSON.stringify(useKnowledgeBase));
   }, [useKnowledgeBase]);
+
+  useEffect(() => {
+    localStorage.setItem("seo-generator-skipNavigation", JSON.stringify(skipNavigation));
+  }, [skipNavigation]);
   
   useEffect(() => {
     if (selectedToneProfileId) {
@@ -1880,12 +1888,12 @@ const Index = () => {
                   }
                 });
                 
-                if (lastTipEndPos > 0 && navItems.length > 0) {
+                if (lastTipEndPos > 0 && navItems.length > 0 && !skipNavigation) {
                   // Insert navigation after Quick Tips
                   const beforeNav = cleanedHtmlContent.slice(0, lastTipEndPos);
                   const afterNav = cleanedHtmlContent.slice(lastTipEndPos);
                   finalHtml = beforeNav + generateNavigationHtml(navItems, selectedColorPalette) + afterNav;
-                } else {
+                } else if (!skipNavigation) {
                   // Fallback: insert after TL;DR section
                   const tldrMatch = cleanedHtmlContent.match(/(<h2[^>]*>.*?TL;?DR.*?<\/h2>[\s\S]*?<\/ul>)/i);
                   if (tldrMatch && navItems.length > 0) {
@@ -1896,6 +1904,8 @@ const Index = () => {
                   } else {
                     finalHtml = cleanedHtmlContent;
                   }
+                } else {
+                  finalHtml = cleanedHtmlContent;
                 }
                 
                 // Add FAQ section before References/Final Thoughts
@@ -3244,9 +3254,31 @@ const Index = () => {
                           <>
                             {parts.map((part, idx) => (
                               <div key={idx}>
-                                {part.navPanel && navItems.length > 0 ? (
+                                {part.navPanel && navItems.length > 0 && !skipNavigation ? (
                                   <div className="my-6">
-                                    <ArticleNavigationPanel items={navItems} />
+                                    <ArticleNavigationPanel 
+                                      items={navItems}
+                                      skipNavigation={skipNavigation}
+                                      onSkipNavigationChange={setSkipNavigation}
+                                    />
+                                  </div>
+                                ) : part.navPanel && navItems.length > 0 && skipNavigation ? (
+                                  <div className="my-6 rounded-lg border border-dashed border-muted-foreground/30 p-4">
+                                    <div className="flex items-center justify-between text-sm text-muted-foreground">
+                                      <span className="flex items-center gap-2">
+                                        <span className="flex items-center justify-center w-5 h-5 rounded-full bg-muted text-muted-foreground text-xs font-bold">
+                                          #
+                                        </span>
+                                        In This Article (skipped)
+                                      </span>
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-xs">Skip</span>
+                                        <Switch 
+                                          checked={skipNavigation}
+                                          onCheckedChange={setSkipNavigation}
+                                        />
+                                      </div>
+                                    </div>
                                   </div>
                                 ) : part.ctaPosition === 'middle' && generatedCTAs?.middle && ctaUrl ? (
                                   <CTABanner

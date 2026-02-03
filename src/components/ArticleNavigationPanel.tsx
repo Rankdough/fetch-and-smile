@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { ChevronDown, ExternalLink, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 
 interface NavigationItem {
@@ -15,11 +16,15 @@ interface NavigationItem {
 interface ArticleNavigationPanelProps {
   items: NavigationItem[];
   onJumpToSection?: (slug: string) => void;
+  skipNavigation?: boolean;
+  onSkipNavigationChange?: (skip: boolean) => void;
 }
 
 export const ArticleNavigationPanel = ({ 
   items, 
-  onJumpToSection 
+  onJumpToSection,
+  skipNavigation = false,
+  onSkipNavigationChange
 }: ArticleNavigationPanelProps) => {
   const [expandedItem, setExpandedItem] = useState<number | null>(null);
 
@@ -62,9 +67,20 @@ export const ArticleNavigationPanel = ({
           </span>
           In This Article
         </h4>
-        <span className="text-xs text-muted-foreground">
-          {items.length} sections
-        </span>
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-muted-foreground">
+            {items.length} sections
+          </span>
+          {onSkipNavigationChange && (
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs text-muted-foreground">Skip</span>
+              <Switch 
+                checked={skipNavigation}
+                onCheckedChange={onSkipNavigationChange}
+              />
+            </div>
+          )}
+        </div>
       </div>
 
       <p className="text-xs text-muted-foreground">
