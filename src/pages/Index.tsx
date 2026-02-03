@@ -1790,8 +1790,15 @@ const Index = () => {
                   td.removeAttribute('class');
                 });
                 
-                // Style links
+                // Style links - BUT skip links inside CTA banners (they have their own button styling)
                 clone.querySelectorAll('a').forEach((a) => {
+                  // Skip if this anchor is inside a preserved CTA banner
+                  if (a.closest('[data-preserve-cta]') || a.closest('[data-cta-banner]')) {
+                    // Just remove class, keep existing inline styles
+                    a.removeAttribute('class');
+                    return;
+                  }
+                  
                   const href = a.getAttribute('href') || '';
                   if (href.startsWith('#')) {
                     a.setAttribute('style', 'color: #2563eb; text-decoration: underline;');
