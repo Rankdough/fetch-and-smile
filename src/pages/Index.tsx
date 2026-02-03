@@ -1843,13 +1843,66 @@ const Index = () => {
                   }
                 });
                 
-                // Style blockquotes - detect Quick Tips vs regular blockquotes
+                // Style blockquotes - detect Quick Tips vs CTA vs regular blockquotes
                 let tipIndex = 0;
                 clone.querySelectorAll('blockquote').forEach((bq) => {
                   const firstStrong = bq.querySelector('strong');
                   const isQuickTip = firstStrong && /^Tip \d+:?/i.test(firstStrong.textContent || '');
                   
-                  if (isQuickTip) {
+                  // Check if this is a CTA blockquote (contains a link that's NOT a tip)
+                  const linkElement = bq.querySelector('a');
+                  const hasLink = linkElement && linkElement.getAttribute('href')?.startsWith('http');
+                  const isCTA = hasLink && !isQuickTip;
+                  
+                  if (isCTA && linkElement) {
+                    // Extract CTA content from the blockquote
+                    // Structure: > **Headline**\n> Description\n> [Button](url)\n> Tagline
+                    const headlines = bq.querySelectorAll('strong');
+                    const headline = headlines[0]?.textContent?.replace(/^[🔥🎨✨💡🚀💪🌟⭐️🎉]+\s*/, '') || 'Learn More';
+                    
+                    // Get all text nodes and paragraphs
+                    const paragraphs = bq.querySelectorAll('p');
+                    let description = '';
+                    let tagline = '';
+                    
+                    if (paragraphs.length >= 2) {
+                      // If structured with paragraphs: first is headline, second is description, etc.
+                      description = paragraphs[1]?.textContent || '';
+                    } else {
+                      // Extract from text content - description is between headline and button
+                      const fullText = bq.textContent || '';
+                      const afterHeadline = fullText.split(headline)[1] || '';
+                      const buttonText = linkElement.textContent || '';
+                      const beforeButton = afterHeadline.split(buttonText)[0] || '';
+                      description = beforeButton.replace(/^\s*[-–—]\s*/, '').trim();
+                      
+                      // Tagline is after the button
+                      const afterButton = afterHeadline.split(buttonText)[1] || '';
+                      tagline = afterButton.replace(/^\s*[-–—→]\s*/, '').trim();
+                    }
+                    
+                    const buttonText = linkElement.textContent?.replace(/\s*→\s*$/, '') || 'Learn More';
+                    const buttonUrl = linkElement.getAttribute('href') || ctaUrl || '#';
+                    
+                    // Replace blockquote with proper CTA HTML
+                    const ctaHtml = generateCTAHtml(
+                      headline,
+                      description,
+                      buttonText,
+                      buttonUrl,
+                      selectedColorPalette,
+                      tagline || undefined
+                    );
+                    
+                    // Create a temporary container to parse the HTML
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = ctaHtml;
+                    const ctaElement = tempDiv.firstElementChild;
+                    
+                    if (ctaElement && bq.parentNode) {
+                      bq.parentNode.replaceChild(ctaElement, bq);
+                    }
+                  } else if (isQuickTip) {
                     tipIndex++;
                     // Remove the "Tip X:" text since we'll show it as a circle
                     if (firstStrong) {
