@@ -3797,7 +3797,11 @@ const Index = () => {
                                                       remainingText = remainingText.replace(taglineMatch[1], '').trim();
                                                     }
                                                     
-                                                    description = remainingText;
+                                                    // Clean up description - remove any "Description:" prefix and emoji icons
+                                                    description = remainingText
+                                                      .replace(/^Description:\s*/i, '')
+                                                      .replace(/^[🔔📢📣🔵🔴⚪️⭕️❌✅☑️✔️]\s*Description:\s*/i, '')
+                                                      .trim();
                                                     
                                                     return (
                                                       <div className="relative group">

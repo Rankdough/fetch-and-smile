@@ -145,25 +145,31 @@ CTA BANNERS - CRITICAL RULES:
 CUSTOM CTA INSTRUCTIONS TO FOLLOW:
 ${customInstructions}
 
-CTA STRUCTURE - USE THIS EXACT FORMAT (each line MUST start with >):
+CTA STRUCTURE - USE THIS EXACT 4-LINE FORMAT:
 
-> **🎯 HEADLINE IN ALL CAPS**
-> Description: 1-2 sentences about the product/offer relating to the article.
-> [SHOP NOW →](${ctaConfig.buttonUrl})
+> **🎳 LEVEL UP YOUR LEAGUE LOOK!**
+> Stand out on the lanes with **custom bowling jerseys** designed for your team. Unlimited designs, premium quality.
+> [SHOP CUSTOM JERSEYS →](${ctaConfig.buttonUrl})
 > Free design assistance • Fast turnaround • Team discounts
 
-CRITICAL FORMAT RULES:
-1. Line 1: > **emoji HEADLINE** (bold, ALL CAPS, starts with emoji)
-2. Line 2: > Description text (plain text describing the offer)
-3. Line 3: > [Button Text →](URL) (markdown link format)
+CRITICAL FORMAT RULES - EVERY LINE MUST START WITH ">":
+1. Line 1: > **emoji + HEADLINE IN ALL CAPS** (bold, with relevant emoji)
+2. Line 2: > Description paragraph - NO "Description:" prefix! Just the text with **bold** product name
+3. Line 3: > [PRODUCT-SPECIFIC BUTTON TEXT →](URL) - include product name in button, end with →
 4. Line 4: > Tagline with bullet separators (•)
 
-EVERY LINE MUST START WITH ">" - this creates the proper blockquote banner.
+WRONG FORMAT - DO NOT USE:
+- "Description: Look like the pros..." ❌ (has "Description:" prefix)
+- "[SHOP NOW →]" ❌ (too generic)
+
+CORRECT FORMAT:
+- "Stand out on the lanes with **custom bowling jerseys**..." ✓ (no prefix)
+- "[SHOP CUSTOM JERSEYS →]" ✓ (product-specific)
 
 MAKE IT CONTEXTUAL:
-- Tailor the headline and description to the article topic
-- If about bowling, mention bowling jerseys/gear
-- If about softball, mention softball uniforms
+- Adapt headline emoji and text to article topic
+- Include product name with **bold** in description
+- Button text should mention specific product
 
 PLACEMENT:
 - First CTA: About 40% into the article (after a major section)
@@ -178,27 +184,30 @@ CTA BANNERS - CRITICAL RULES:
 - Do NOT add more than 2 CTAs under any circumstances
 - ALL 4 LINES of each CTA MUST start with > (blockquote marker)
 
-CTA STRUCTURE - USE THIS EXACT FORMAT (each line MUST start with >):
+CTA STRUCTURE - USE THIS EXACT 4-LINE FORMAT:
 
-> **🎯 HEADLINE IN ALL CAPS**
-> Description: 1-2 sentences about the product/offer relating to the article.
-> [SHOP NOW →](${ctaConfig.buttonUrl})
+> **🎳 LEVEL UP YOUR LEAGUE LOOK!**
+> Stand out on the lanes with **custom bowling jerseys** designed for your team. Unlimited designs, premium quality.
+> [SHOP CUSTOM JERSEYS →](${ctaConfig.buttonUrl})
 > Free design assistance • Fast turnaround • Team discounts
 
-CRITICAL FORMAT RULES:
-1. Line 1: > **emoji HEADLINE** (bold, ALL CAPS, starts with emoji)
-2. Line 2: > Description text (plain text describing the offer)
-3. Line 3: > [Button Text →](URL) (markdown link format)
+CRITICAL FORMAT RULES - EVERY LINE MUST START WITH ">":
+1. Line 1: > **emoji + HEADLINE IN ALL CAPS** (bold, with relevant emoji)
+2. Line 2: > Description paragraph - NO "Description:" prefix! Just the text with **bold** product name
+3. Line 3: > [PRODUCT-SPECIFIC BUTTON TEXT →](URL) - include product name in button, end with →
 4. Line 4: > Tagline with bullet separators (•)
 
-EVERY LINE MUST START WITH ">" - this creates the proper blockquote banner.
+WRONG FORMAT - DO NOT USE:
+- "Description: Look like the pros..." ❌ (has "Description:" prefix)
+- "[SHOP NOW →]" ❌ (too generic)
 
-Default values:
+CORRECT FORMAT:
+- "Stand out on the lanes with **custom bowling jerseys**..." ✓ (no prefix)
+- "[SHOP CUSTOM JERSEYS →]" ✓ (product-specific)
+
+Default inspiration:
 - Headline: ${ctaConfig.headline.toUpperCase()}
-- Description: ${ctaConfig.description}
-- Button: ${ctaConfig.buttonText}
-
-Adapt them to be contextually relevant to the article topic.
+- Product focus: ${ctaConfig.description}
 
 PLACEMENT:
 - First CTA: About 40% into the article (after a major section)
