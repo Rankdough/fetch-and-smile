@@ -56,6 +56,7 @@ import { CollapsibleSection } from "@/components/CollapsibleSection";
 import { CreditUsageDisplay } from "@/components/CreditUsageDisplay";
 import { GenerationProgress, PipelineStage } from "@/components/GenerationProgress";
 import { ValuePromiseVerification } from "@/components/ValuePromiseVerification";
+import { ApplyFormatProgress, FormatStep, DEFAULT_FORMAT_STEPS } from "@/components/ApplyFormatProgress";
 
 const SAMPLE_CONTENT = `# Composite Bonding vs Veneers: Which Smile Transformation is Right for You?
 
@@ -298,6 +299,9 @@ const Index = () => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isEnhancingImport, setIsEnhancingImport] = useState(false);
   const [isApplyingFormat, setIsApplyingFormat] = useState(false);
+  const [showFormatProgress, setShowFormatProgress] = useState(false);
+  const [formatSteps, setFormatSteps] = useState<FormatStep[]>(DEFAULT_FORMAT_STEPS);
+  const [formatError, setFormatError] = useState<string | null>(null);
   const [generatedContent, setGeneratedContentRaw] = useState(() => {
     const saved = localStorage.getItem("seo-generator-generatedContent");
     return saved ? cleanContent(saved) : "";
@@ -1401,9 +1405,54 @@ const Index = () => {
       return;
     }
 
+    // Reset and show progress dialog
+    setFormatError(null);
+    setFormatSteps(DEFAULT_FORMAT_STEPS.map(s => ({ ...s, status: 'pending' as const })));
+    setShowFormatProgress(true);
     setIsApplyingFormat(true);
 
+    const updateStep = (id: string, status: FormatStep['status'], detail?: string) => {
+      setFormatSteps(prev => prev.map(s => 
+        s.id === id ? { ...s, status, detail } : s
+      ));
+    };
+
     try {
+      // Step 1: Analyze content
+      updateStep('analyze', 'checking', 'Scanning for existing sections...');
+      await new Promise(r => setTimeout(r, 300)); // Brief delay for visual feedback
+
+      // Detect what exists
+      const hasTldr = /##\s*TL;?DR/i.test(generatedContent) || /###\s*TL;?DR/i.test(generatedContent);
+      const hasQuickTips = /##\s*Quick\s*Tips/i.test(generatedContent) || />\s*\*\*Tip\s*1/i.test(generatedContent);
+      const hasInThisArticle = /##\s*In\s*This\s*Article/i.test(generatedContent);
+      const hasFaq = /##\s*(FAQ|Frequently\s*Asked\s*Questions)/i.test(generatedContent);
+      const hasCtaUrl = !!ctaUrl.trim();
+
+      updateStep('analyze', 'done', 'Content analyzed');
+
+      // Update step statuses based on what exists
+      updateStep('tldr', hasTldr ? 'skipped' : 'missing', hasTldr ? 'Already exists' : 'Will be generated');
+      updateStep('quicktips', hasQuickTips ? 'skipped' : 'missing', hasQuickTips ? 'Already exists' : 'Will be generated');
+      updateStep('navigation', hasInThisArticle ? 'skipped' : 'missing', hasInThisArticle ? 'Already exists' : 'Will be generated');
+      updateStep('faq', hasFaq ? 'skipped' : 'missing', hasFaq ? 'Already exists' : 'Will be generated');
+      updateStep('ctas', hasCtaUrl ? 'missing' : 'skipped', hasCtaUrl ? 'Will insert 2 CTAs' : 'No CTA URL provided');
+
+      await new Promise(r => setTimeout(r, 500)); // Brief delay to show status
+
+      // Step 2-6: Generate missing sections (all done in one AI call)
+      const missingSteps = ['tldr', 'quicktips', 'navigation', 'faq', 'ctas'].filter(id => {
+        const step = formatSteps.find(s => s.id === id);
+        return step?.status === 'missing';
+      });
+
+      // Mark generating steps
+      if (!hasTldr) updateStep('tldr', 'generating', 'Creating TL;DR summary...');
+      if (!hasQuickTips) updateStep('quicktips', 'generating', 'Creating Quick Tips...');
+      if (!hasInThisArticle) updateStep('navigation', 'generating', 'Building navigation...');
+      if (!hasFaq) updateStep('faq', 'generating', 'Generating FAQ...');
+      if (hasCtaUrl) updateStep('ctas', 'generating', 'Inserting CTA banners...');
+
       // Prepare CTA config if URL is set
       let ctaConfig = null;
       if (ctaUrl.trim()) {
@@ -1414,9 +1463,6 @@ const Index = () => {
           buttonUrl: ctaUrl,
         };
       }
-
-      // NOTE: Images are NOT passed to apply-format.
-      // Users should use "Insert Image" button or "Allocate Logically" for image placement.
 
       const { data, error } = await supabase.functions.invoke("apply-format", {
         body: {
@@ -1429,29 +1475,49 @@ const Index = () => {
       if (error) throw error;
       if (data.error) throw new Error(data.error);
 
-      setGeneratedContent(data.content, true);
+      // Update step statuses based on what was added
+      const additions = data.additions || [];
+      const nowHas = data.nowHas || {};
 
-      // CTAs are now in the markdown content as blockquotes - clear any legacy generatedCTAs
-      // to avoid duplicate CTAs showing
+      updateStep('tldr', nowHas.hasTldr ? (hasTldr ? 'skipped' : 'done') : 'error', 
+        nowHas.hasTldr ? (hasTldr ? 'Already existed' : 'Generated ✓') : 'Failed to generate');
+      updateStep('quicktips', nowHas.hasQuickTips ? (hasQuickTips ? 'skipped' : 'done') : 'error',
+        nowHas.hasQuickTips ? (hasQuickTips ? 'Already existed' : 'Generated ✓') : 'Failed to generate');
+      updateStep('navigation', nowHas.hasInThisArticle ? (hasInThisArticle ? 'skipped' : 'done') : 'error',
+        nowHas.hasInThisArticle ? (hasInThisArticle ? 'Already existed' : 'Generated ✓') : 'Failed to generate');
+      updateStep('faq', nowHas.hasFaq ? (hasFaq ? 'skipped' : 'done') : 'error',
+        nowHas.hasFaq ? (hasFaq ? 'Already existed' : 'Generated ✓') : 'Failed to generate');
+      updateStep('ctas', nowHas.hasCtas || !hasCtaUrl ? (hasCtaUrl ? 'done' : 'skipped') : 'error',
+        hasCtaUrl ? (nowHas.hasCtas ? 'CTAs inserted ✓' : 'Failed to insert') : 'No URL provided');
+
+      // Step 7: Finalize
+      updateStep('finalize', 'generating', 'Applying styles and formatting...');
+      await new Promise(r => setTimeout(r, 300));
+
+      setGeneratedContent(data.content, true);
       setGeneratedCTAs(null);
 
-      const additions = data.additions || [];
-      if (additions.length > 0) {
-        toast({
-          title: "Format applied!",
-          description: `Added: ${additions.join(", ")}`,
-        });
-      } else {
-        toast({
-          title: "Format complete",
-          description: "Article already has all structural elements.",
-        });
-      }
+      updateStep('finalize', 'done', 'Complete!');
+
+      toast({
+        title: "Format applied!",
+        description: additions.length > 0 ? `Added: ${additions.join(", ")}` : "Article already formatted.",
+      });
     } catch (error) {
       console.error("Apply format error:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to apply format";
+      setFormatError(errorMessage);
+      
+      // Mark remaining steps as error
+      setFormatSteps(prev => prev.map(s => 
+        s.status === 'generating' || s.status === 'missing' || s.status === 'checking' 
+          ? { ...s, status: 'error' as const, detail: 'Failed' } 
+          : s
+      ));
+
       toast({
         title: "Format failed",
-        description: error instanceof Error ? error.message : "Failed to apply format",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -3965,6 +4031,19 @@ CRITICAL EXPANSION RULES:
           )}
         </div>
       </div>
+
+      {/* Apply Format Progress Dialog */}
+      <ApplyFormatProgress
+        open={showFormatProgress}
+        onOpenChange={(open) => {
+          if (!isApplyingFormat) {
+            setShowFormatProgress(open);
+          }
+        }}
+        steps={formatSteps}
+        isComplete={!isApplyingFormat && formatSteps.some(s => s.status === 'done')}
+        error={formatError}
+      />
     </div>
   );
 };
