@@ -44,7 +44,7 @@ serve(async (req) => {
     });
 
     // Check what structural elements are missing
-    const hasTldr = /##\s*TL;?DR/i.test(content);
+    const hasTldr = /##\s*TL;?DR/i.test(content) || /###\s*TL;?DR/i.test(content);
     const hasQuickTips = /##\s*Quick\s*Tips/i.test(content) || />\s*\*\*Tip\s*1/i.test(content);
     const hasInThisArticle = /##\s*In\s*This\s*Article/i.test(content);
     const hasFaq = /##\s*(FAQ|Frequently\s*Asked\s*Questions)/i.test(content);
@@ -52,62 +52,76 @@ serve(async (req) => {
     // Check for existing CTAs
     const existingCtaPattern = />\s*\*\*[^*]+\*\*[\s\S]*?\[.+\]\(.+\)/;
     const hasExistingCtas = existingCtaPattern.test(content);
+    const hasCtaMarkers = /<!--CTA_BANNER_\d+-->/.test(content);
 
-    console.log("Content analysis:", { hasTldr, hasQuickTips, hasInThisArticle, hasFaq, hasExistingCtas });
+    console.log("Content analysis:", { hasTldr, hasQuickTips, hasInThisArticle, hasFaq, hasExistingCtas, hasCtaMarkers });
 
-    let systemPrompt = `You are an expert content editor. Your task is to add structural formatting elements and enhancements to an existing article WITHOUT changing any of the original content text.
+    let systemPrompt = `You are an expert content editor. Your task is to add structural formatting elements to an existing article WITHOUT changing any original content.
 
 CRITICAL RULES:
-- DO NOT rewrite, rephrase, or modify ANY existing paragraphs or sentences
-- DO NOT remove any existing sections, paragraphs, or text
-- DO NOT change the meaning or wording of anything that already exists
-- ONLY ADD new structural elements where they are missing
+- DO NOT rewrite, rephrase, or modify ANY existing paragraphs
+- DO NOT remove any existing sections or text
+- ONLY ADD new structural elements where missing
 - Return the FULL article with additions
 
 STRUCTURAL ELEMENTS TO ADD (if missing):
 
-${!hasTldr ? `1. TL;DR SECTION (add after the H1 title):
-Create a "## TL;DR" section with 2-3 bullet points summarizing the main takeaways from the article.
+${!hasTldr ? `1. TL;DR SECTION - MANDATORY FORMAT:
+Add IMMEDIATELY after the H1 title. Use this EXACT format:
+
+## TL;DR
+
+- First key takeaway in one sentence
+- Second key takeaway in one sentence
+- Third key takeaway (optional)
+
+CRITICAL: Must use ## (H2 level), not ### (H3).
 ` : "1. TL;DR: Already present - keep as is"}
 
-${!hasQuickTips ? `2. QUICK TIPS SECTION (add after TL;DR):
-Create a "## Quick Tips" section with exactly 3 actionable tips.
-CRITICAL: Each tip MUST be on its own separate line with a BLANK LINE between them.
+${!hasQuickTips ? `2. QUICK TIPS SECTION - MANDATORY FORMAT:
+Add after TL;DR. Use this EXACT format with BLANK LINES between tips:
 
-Use this EXACT format (note the blank lines between tips):
+## Quick Tips
 
-> **Tip 1:** [One actionable sentence, max 15 words]
+> **Tip 1:** One actionable sentence, max 15 words.
 
-> **Tip 2:** [One actionable sentence, max 15 words]
+> **Tip 2:** One actionable sentence, max 15 words.
 
-> **Tip 3:** [One actionable sentence, max 15 words]
+> **Tip 3:** One actionable sentence, max 15 words.
 
-DO NOT combine tips into one paragraph. Each tip is a separate blockquote.
+CRITICAL: Each tip is a SEPARATE blockquote with a blank line between them.
 ` : "2. Quick Tips: Already present - keep as is"}
 
-${!hasInThisArticle ? `3. IN THIS ARTICLE NAVIGATION (add after Quick Tips) - THIS IS MANDATORY:
-You MUST create a "## In This Article" section. This section MUST be added.
-
-Use this EXACT format:
+${!hasInThisArticle ? `3. IN THIS ARTICLE - MANDATORY:
+Add after Quick Tips. Use this EXACT format:
 
 ## In This Article
 
-1. **[First H2 Section Title]** - Brief one-line description of what this section covers
-2. **[Second H2 Section Title]** - Brief one-line description
-3. **[Third H2 Section Title]** - Brief one-line description
-(continue for each main H2 section)
+1. **[First H2 Title]** - Brief description
+2. **[Second H2 Title]** - Brief description
+3. **[Third H2 Title]** - Brief description
 
-IMPORTANT RULES for In This Article:
-- List ALL main H2 sections from the article content
-- EXCLUDE these sections: TL;DR, Quick Tips, FAQ, Frequently Asked Questions, References, Final Thoughts, Conclusion, Sources
-- Each item must have a number, bold title, and brief description
-- This section is REQUIRED - do not skip it
+List ALL main H2 sections EXCEPT: TL;DR, Quick Tips, FAQ, References, Final Thoughts, Conclusion.
 ` : "3. In This Article: Already present - keep as is"}
 
-${!hasFaq ? `4. FAQ SECTION (add before Final Thoughts/Conclusion/References):
-Create a "## Frequently Asked Questions" section with 4-5 Q&As based on the article content:
-**Question here?**
-Answer in 1-2 sentences.
+${!hasFaq ? `4. FAQ SECTION - MANDATORY FORMAT:
+Add BEFORE Final Thoughts/Conclusion/References. Use this EXACT format:
+
+## Frequently Asked Questions
+
+**What is the first common question about this topic?**
+Answer in 1-2 clear sentences with specific information.
+
+**What is another question readers commonly ask?**
+Answer in 1-2 clear sentences with specific information.
+
+**How does this relate to [key topic aspect]?**
+Answer in 1-2 clear sentences with specific information.
+
+**What should readers know about [another aspect]?**
+Answer in 1-2 clear sentences with specific information.
+
+CRITICAL: Create 4-5 relevant Q&As based on the article content. Each question in bold, answer as plain text paragraph.
 ` : "4. FAQ: Already present - keep as is"}`;
 
     // Add CTA instructions if provided
@@ -273,6 +287,18 @@ ${content}`;
     // Post-process: Remove any em dashes and horizontal rules
     formattedContent = formattedContent.replace(/—/g, "-").replace(/–/g, "-");
     formattedContent = formattedContent.replace(/^\s*[-*_]{3,}\s*$/gm, "");
+
+    // Post-process: Fix TL;DR heading level - convert ### TL;DR to ## TL;DR
+    formattedContent = formattedContent.replace(/^###\s*(TL;?DR:?)\s*$/gim, "## $1");
+    
+    // Post-process: Ensure Quick Tips has proper ## heading
+    formattedContent = formattedContent.replace(/^###\s*(Quick\s*Tips:?)\s*$/gim, "## $1");
+    
+    // Post-process: Ensure In This Article has proper ## heading
+    formattedContent = formattedContent.replace(/^###\s*(In\s*This\s*Article:?)\s*$/gim, "## $1");
+    
+    // Post-process: Ensure FAQ has proper ## heading
+    formattedContent = formattedContent.replace(/^###\s*(FAQ|Frequently\s*Asked\s*Questions:?)\s*$/gim, "## $1");
 
     // Post-process: Enforce exactly 2 CTAs maximum
     // CTA pattern: blockquote with bold headline AND a markdown link (not Quick Tips which don't have links)

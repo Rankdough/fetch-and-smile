@@ -1853,8 +1853,30 @@ const Index = () => {
                   h.removeAttribute('class');
                 });
                 clone.querySelectorAll('h3').forEach((h) => {
-                  // H3 - only margins, inherit everything else
-                  h.setAttribute('style', 'margin: 24px 0 12px 0;');
+                  const id = h.getAttribute('id') || '';
+                  const textContent = h.textContent || '';
+                  const isTldr = id.includes('tldr') || /TL;?DR/i.test(textContent);
+                  
+                  if (isTldr) {
+                    // TL;DR H3 gets same styling as H2 TL;DR
+                    h.setAttribute('style', `background: #f8f4ff; border-left: 4px solid ${primaryColor}; padding: 12px 16px; margin: 24px 0 0 0; border-radius: 0 8px 0 0;`);
+                    const nextSibling = h.nextElementSibling;
+                    if (nextSibling && nextSibling.tagName === 'UL') {
+                      nextSibling.setAttribute('style', `background: #f8f4ff; border-left: 4px solid ${primaryColor}; padding: 16px 24px 16px 40px; margin: 0 0 24px 0; border-radius: 0 0 8px 0; list-style-type: disc;`);
+                      nextSibling.querySelectorAll('li').forEach((li) => {
+                        li.setAttribute('style', 'margin: 8px 0; line-height: 1.6;');
+                        if (li.innerHTML) {
+                          li.innerHTML = li.innerHTML.replace(/^[\s]*[-–—•]\s*[-–—]?\s*/i, '');
+                        }
+                      });
+                    }
+                    if (nextSibling && nextSibling.tagName === 'P') {
+                      nextSibling.setAttribute('style', `background: #f8f4ff; border-left: 4px solid ${primaryColor}; padding: 16px 24px; margin: 0 0 24px 0; border-radius: 0 0 8px 0; line-height: 1.7;`);
+                    }
+                  } else {
+                    // Regular H3 - only margins, inherit everything else
+                    h.setAttribute('style', 'margin: 24px 0 12px 0;');
+                  }
                   h.removeAttribute('class');
                 });
                 
