@@ -1415,15 +1415,12 @@ const Index = () => {
         };
       }
 
-      // Prepare images for insertion
-      const imagesToInsert = articleImages.length > 0 
-        ? articleImages.map(img => ({ alt: img.alt, url: img.url })) 
-        : undefined;
+      // NOTE: Images are NOT passed to apply-format.
+      // Users should use "Insert Image" button or "Allocate Logically" for image placement.
 
       const { data, error } = await supabase.functions.invoke("apply-format", {
         body: {
           content: generatedContent,
-          images: imagesToInsert,
           ctaConfig,
           customInstructions: formData.instructions?.trim() || undefined,
         },
@@ -3628,9 +3625,7 @@ const Index = () => {
                                                 ),
                                                 blockquote: ({ children, ...props }) => {
                                                   // Check if this is a CTA blockquote (has bold headline + link)
-                                                  const content = String(children);
                                                   // Look for pattern: bold text followed by a link
-                                                  const childArray = Array.isArray(children) ? children : [children];
                                                   let headline = '';
                                                   let description = '';
                                                   let buttonText = '';
@@ -3650,11 +3645,9 @@ const Index = () => {
                                                     return '';
                                                   };
                                                   
-                                                  // Check for CTA pattern in children
+                                                  // Check for CTA pattern in children - improved detection
                                                   let hasStrong = false;
                                                   let hasLink = false;
-                                                  let linkFound = false;
-                                                  const paragraphs: string[] = [];
                                                   
                                                   const findElements = (node: React.ReactNode, depth = 0): void => {
                                                     if (!node) return;
@@ -3664,21 +3657,29 @@ const Index = () => {
                                                     }
                                                     if (typeof node === 'object' && 'props' in node) {
                                                       const el = node as React.ReactElement;
-                                                      if (el.type === 'strong' || (el.props && el.props.node?.tagName === 'strong')) {
+                                                      const elType = el.type;
+                                                      
+                                                      // Check for strong element (various ways it can appear)
+                                                      if (elType === 'strong' || 
+                                                          (typeof elType === 'string' && elType === 'strong') ||
+                                                          (el.props?.node?.tagName === 'strong')) {
                                                         hasStrong = true;
-                                                        headline = extractText(el.props?.children);
+                                                        const text = extractText(el.props?.children);
+                                                        // Remove emoji prefix for cleaner headline
+                                                        headline = text.replace(/^[🔥🎨✨💡🚀💪🌟⭐️🎉🎯]+\s*/, '');
                                                       }
-                                                      if (el.type === 'a' || (el.props && el.props.href)) {
+                                                      
+                                                      // Check for link element (various ways it can appear)
+                                                      if (elType === 'a' || 
+                                                          (typeof elType === 'string' && elType === 'a') ||
+                                                          el.props?.href) {
                                                         hasLink = true;
-                                                        linkFound = true;
                                                         buttonText = extractText(el.props?.children);
                                                         buttonUrl = el.props?.href || '';
                                                       }
-                                                      if (el.type === 'p') {
-                                                        const pText = extractText(el.props?.children);
-                                                        paragraphs.push(pText);
-                                                        findElements(el.props?.children, depth + 1);
-                                                      } else if (el.props?.children) {
+                                                      
+                                                      // Recurse into children
+                                                      if (el.props?.children) {
                                                         findElements(el.props.children, depth + 1);
                                                       }
                                                     }
@@ -3686,19 +3687,22 @@ const Index = () => {
                                                   
                                                   findElements(children);
                                                   
-                                                  // If we have both strong and link, treat as CTA
-                                                  if (hasStrong && hasLink && buttonUrl) {
+                                                  // Also check full text for CTA patterns in case element detection fails
+                                                  const fullText = extractText(children);
+                                                  const hasCtaPattern = /\*\*[^*]+\*\*/.test(fullText) && 
+                                                                       /\[[^\]]+\]\(https?:\/\/[^)]+\)/.test(fullText);
+                                                  
+                                                  // If we have both strong and link (or CTA pattern in text), treat as CTA
+                                                  if ((hasStrong && hasLink && buttonUrl) || 
+                                                      (hasCtaPattern && buttonUrl)) {
                                                     // Extract description and tagline from full text
-                                                    const fullText = extractText(children);
-                                                    
-                                                    // Split text to find parts
                                                     let remainingText = fullText
                                                       .replace(headline, '')
                                                       .replace(buttonText, '')
                                                       .replace(/\n+/g, ' ')
                                                       .trim();
                                                     
-                                                    // Check for tagline pattern (text with • separators after the button)
+                                                    // Check for tagline pattern (text with • separators)
                                                     const taglineMatch = remainingText.match(/([^•]+•[^•]+•[^•]+)$/);
                                                     if (taglineMatch) {
                                                       tagline = taglineMatch[1].trim();
@@ -3724,10 +3728,9 @@ const Index = () => {
                                                             e.preventDefault();
                                                             e.stopPropagation();
                                                             // Remove CTA blockquote from markdown content
-                                                            // Pattern: > **HEADLINE**\n> description\n> [button](url)
                                                             const escapedUrl = buttonUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
                                                             const ctaPattern = new RegExp(
-                                                              `>\\s*\\*\\*[^*]+\\*\\*[\\s\\S]*?\\[[^\\]]+\\]\\(${escapedUrl}\\)\\n*`,
+                                                              `>\\s*\\*\\*[^*]+\\*\\*[\\s\\S]*?\\[[^\\]]+\\]\\(${escapedUrl}\\)[^\\n]*(?:\\n>\\s*[^\\n]+)*\\n*`,
                                                               'g'
                                                             );
                                                             const newContent = generatedContent.replace(ctaPattern, '');
@@ -3743,6 +3746,13 @@ const Index = () => {
                                                         </button>
                                                       </div>
                                                     );
+                                                  }
+                                                  
+                                                  // Check if this is a Quick Tip (skip CTA detection for tips)
+                                                  const isQuickTip = /^Tip \d+:?/i.test(fullText);
+                                                  if (isQuickTip) {
+                                                    // Let the default prose styling handle it
+                                                    return <blockquote {...props}>{children}</blockquote>;
                                                   }
                                                   
                                                   // Regular blockquote

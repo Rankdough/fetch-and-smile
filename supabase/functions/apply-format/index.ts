@@ -6,14 +6,8 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-interface ArticleImage {
-  alt: string;
-  url: string;
-}
-
 interface ApplyFormatRequest {
   content: string;
-  images?: ArticleImage[];
   ctaConfig?: {
     headline: string;
     description: string;
@@ -29,7 +23,7 @@ serve(async (req) => {
   }
 
   try {
-    const { content, images, ctaConfig, customInstructions } = await req.json() as ApplyFormatRequest;
+    const { content, ctaConfig, customInstructions } = await req.json() as ApplyFormatRequest;
 
     if (!content) {
       return new Response(
@@ -45,7 +39,6 @@ serve(async (req) => {
 
     console.log("Applying article format structure to content", {
       contentLength: content.length,
-      hasImages: images && images.length > 0,
       hasCta: !!ctaConfig,
       hasCustomInstructions: !!customInstructions
     });
@@ -203,20 +196,8 @@ PLACEMENT:
 CTAs: Article already has CTA banners - keep them as they are.`;
     }
 
-    // Add image instructions if provided
-    if (images && images.length > 0) {
-      systemPrompt += `
-
-IMAGES TO INSERT:
-Insert these images at appropriate locations in the article, placing them ABOVE relevant H2 headings.
-Skip placing images above: TL;DR, Quick Tips, In This Article, FAQ, Frequently Asked Questions, References, Final Thoughts, Conclusion.
-
-Available images to insert:
-${images.map((img, i) => `${i + 1}. ![${img.alt}](${img.url})`).join("\n")}
-
-Distribute images evenly throughout the article content sections.
-Place each image on its own line, with a blank line before and after.`;
-    }
+    // NOTE: Images are NOT handled by apply-format.
+    // Users should use "Insert Image" button or "Allocate Logically" for image placement.
 
     // Add custom instructions if provided (and not already used for CTAs)
     const hasCtaCustomInstructions = customInstructions && 
@@ -318,16 +299,18 @@ ${content}`;
     const newHasInThisArticle = /##\s*In\s*This\s*Article/i.test(formattedContent);
     const newHasFaq = /##\s*(FAQ|Frequently\s*Asked\s*Questions)/i.test(formattedContent);
     const newHasCtas = existingCtaPattern.test(formattedContent);
-    const hasImages = images && images.length > 0 && images.some(img => formattedContent.includes(img.url));
-
     const additions = [];
     if (!hasTldr && newHasTldr) additions.push("TL;DR");
     if (!hasQuickTips && newHasQuickTips) additions.push("Quick Tips");
     if (!hasInThisArticle && newHasInThisArticle) additions.push("In This Article");
     if (!hasFaq && newHasFaq) additions.push("FAQ");
     if (!hasExistingCtas && newHasCtas) additions.push("CTAs");
-    if (hasImages) additions.push("Images");
     if (customInstructions) additions.push("Custom instructions applied");
+    
+    // Warn if "In This Article" was requested but not added
+    if (!hasInThisArticle && !newHasInThisArticle) {
+      console.warn("WARNING: 'In This Article' section was requested but AI did not add it");
+    }
 
     console.log("Format applied successfully. Additions:", additions);
 
@@ -341,8 +324,7 @@ ${content}`;
           hasQuickTips: newHasQuickTips, 
           hasInThisArticle: newHasInThisArticle, 
           hasFaq: newHasFaq,
-          hasCtas: newHasCtas,
-          hasImages
+          hasCtas: newHasCtas
         }
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
