@@ -1541,6 +1541,55 @@ const Index = () => {
     }
   };
 
+  // Refresh CTAs in existing content - strips old ones and regenerates contextual ones
+  const handleRefreshCTAs = async () => {
+    if (!generatedContent.trim() || !ctaUrl.trim()) {
+      toast({
+        title: "Cannot refresh CTAs",
+        description: "You need both content and a CTA URL configured.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsApplyingFormat(true);
+    try {
+      const ctaConfig = {
+        headline: "",
+        description: "",
+        buttonText: "",
+        buttonUrl: ctaUrl,
+      };
+
+      const { data, error } = await supabase.functions.invoke("apply-format", {
+        body: {
+          content: generatedContent,
+          ctaConfig,
+          customInstructions: formData.instructions?.trim() || undefined,
+          forceRegenerateCtas: true,
+        },
+      });
+
+      if (error) throw error;
+      if (data.error) throw new Error(data.error);
+
+      setGeneratedContent(data.content);
+      toast({
+        title: "CTAs refreshed!",
+        description: "Old CTAs replaced with contextually relevant ones.",
+      });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to refresh CTAs";
+      toast({
+        title: "CTA refresh failed",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    } finally {
+      setIsApplyingFormat(false);
+    }
+  };
+
   // Allocate images logically using AI to match image content to article sections
   const handleAllocateImagesLogically = async (imagesToAllocate: ArticleImage[]) => {
     if (!generatedContent || imagesToAllocate.length === 0) {
@@ -2959,9 +3008,28 @@ const Index = () => {
                 </div>
                 
                 {ctaUrl.trim() && (
-                  <p className="text-xs text-primary">
-                    ✓ Two CTA banners will be generated (middle + end of article)
-                  </p>
+                  <div className="space-y-2">
+                    <p className="text-xs text-primary">
+                      ✓ Two CTA banners will be generated (middle + end of article)
+                    </p>
+                    {generatedContent.trim() && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleRefreshCTAs}
+                        disabled={isApplyingFormat}
+                        className="w-full text-xs"
+                      >
+                        {isApplyingFormat ? (
+                          <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                        ) : (
+                          <RotateCcw className="h-3 w-3 mr-1" />
+                        )}
+                        Refresh CTAs in Current Article
+                      </Button>
+                    )}
+                  </div>
                 )}
               </CollapsibleSection>
 

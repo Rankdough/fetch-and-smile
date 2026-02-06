@@ -15,6 +15,7 @@ interface ApplyFormatRequest {
     buttonUrl: string;
   };
   customInstructions?: string;
+  forceRegenerateCtas?: boolean;
 }
 
 serve(async (req) => {
@@ -23,7 +24,7 @@ serve(async (req) => {
   }
 
   try {
-    const { content, ctaConfig, customInstructions } = await req.json() as ApplyFormatRequest;
+    const { content, ctaConfig, customInstructions, forceRegenerateCtas } = await req.json() as ApplyFormatRequest;
 
     if (!content) {
       return new Response(
@@ -51,10 +52,23 @@ serve(async (req) => {
 
     // Check for existing CTAs
     const existingCtaPattern = />\s*\*\*[^*]+\*\*[\s\S]*?\[.+\]\(.+\)/;
-    const hasExistingCtas = existingCtaPattern.test(content);
+    const hasExistingCtas = existingCtaPattern.test(content) && !forceRegenerateCtas;
     const hasCtaMarkers = /<!--CTA_BANNER_\d+-->/.test(content);
 
-    console.log("Content analysis:", { hasTldr, hasQuickTips, hasInThisArticle, hasFaq, hasExistingCtas, hasCtaMarkers });
+    // If force-regenerating CTAs, strip existing ones from content first
+    let processedContent = content;
+    if (forceRegenerateCtas) {
+      // Remove existing CTA blockquotes (4-line blockquote blocks with a link)
+      processedContent = processedContent.replace(
+        /(?:^|\n)(>\s*\*\*[^*]+\*\*[^\n]*\n(?:>\s*[^\n]+\n)*>\s*\[[^\]]+\]\(https?:\/\/[^)]+\)[^\n]*(?:\n>\s*[^\n]+)*)/gm,
+        ''
+      );
+      // Clean up extra newlines
+      processedContent = processedContent.replace(/\n{3,}/g, '\n\n');
+      console.log("Force-regenerating CTAs: stripped existing CTA blocks");
+    }
+
+    console.log("Content analysis:", { hasTldr, hasQuickTips, hasInThisArticle, hasFaq, hasExistingCtas, hasCtaMarkers, forceRegenerateCtas });
 
     let systemPrompt = `You are an expert content editor. Your task is to add structural formatting elements to an existing article WITHOUT changing any original content.
 
@@ -247,7 +261,7 @@ Return ONLY the enhanced markdown content, no explanations or commentary.`;
 
     const userPrompt = `Here is the article content. Add the missing structural elements and enhancements while keeping ALL existing content exactly as is:
 
-${content}`;
+${processedContent}`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
