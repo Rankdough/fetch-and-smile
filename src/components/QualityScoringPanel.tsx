@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Loader2, TrendingUp, CheckCircle2, AlertCircle, Lightbulb, Target, Sparkles, MessageSquare, Wand2 } from "lucide-react";
+import { Loader2, TrendingUp, CheckCircle2, AlertCircle, Lightbulb, Target, Sparkles, MessageSquare, Wand2, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -11,6 +11,7 @@ interface QualityScores {
     specificity: { score: number; reasoning: string; improvement: string };
     uniqueness: { score: number; reasoning: string; improvement: string };
     engagement: { score: number; reasoning: string; improvement: string };
+    humanness: { score: number; reasoning: string; improvement: string };
   };
   overallScore: number;
   valuePromiseDelivered: boolean;
@@ -56,10 +57,15 @@ const ScoreIcon = ({ dimension }: { dimension: string }) => {
       return <Sparkles className="h-4 w-4" />;
     case "engagement":
       return <MessageSquare className="h-4 w-4" />;
+    case "humanness":
+      return <User className="h-4 w-4" />;
     default:
       return <TrendingUp className="h-4 w-4" />;
   }
 };
+
+// Order dimensions so humanness appears first (highest priority)
+const DIMENSION_ORDER = ["humanness", "actionability", "specificity", "uniqueness", "engagement"] as const;
 
 export const QualityScoringPanel = ({ content, topic, valuePromise, onContentUpdate, onCreditUsed }: QualityScoringPanelProps) => {
   const { toast } = useToast();
@@ -80,7 +86,6 @@ export const QualityScoringPanel = ({ content, topic, valuePromise, onContentUpd
       if (error) throw error;
       setScores(data);
       
-      // Track credit usage
       onCreditUsed?.("Score Content", "quality_analysis", `Score: ${data.overallScore}/100`);
       
       toast({
@@ -104,22 +109,25 @@ export const QualityScoringPanel = ({ content, topic, valuePromise, onContentUpd
     
     setIsApplying(true);
     try {
-      // Collect all improvements into a single instruction
       const improvements: string[] = [];
       
-      // Add critical weakness as the main fix
+      // Humanness improvements go FIRST (highest priority)
+      if (scores.scores.humanness && scores.scores.humanness.score < 80 && scores.scores.humanness.improvement) {
+        improvements.push(`HIGHEST PRIORITY — HUMANNESS FIX: ${scores.scores.humanness.improvement}. Make this content sound like a real human expert wrote it. Remove AI patterns: formal transitions (Moreover, Furthermore, Additionally), vague descriptors (various, numerous, significant), and uniform sentence structure. Add personality, contractions, rhetorical questions, and varied rhythm.`);
+      }
+      
+      // Critical weakness next
       if (scores.criticalWeakness) {
         improvements.push(`CRITICAL FIX: ${scores.criticalWeakness}`);
       }
       
-      // Add dimension-specific improvements for low scores
+      // Other dimension improvements for low scores (skip humanness, already handled)
       Object.entries(scores.scores).forEach(([dimension, data]) => {
-        if (data.score < 70 && data.improvement) {
+        if (dimension !== "humanness" && data.score < 70 && data.improvement) {
           improvements.push(`Improve ${dimension}: ${data.improvement}`);
         }
       });
       
-      // Add value promise fix if not delivered
       if (!scores.valuePromiseDelivered && scores.valuePromiseAnalysis) {
         improvements.push(`Fix value promise delivery: ${scores.valuePromiseAnalysis}`);
       }
@@ -143,9 +151,8 @@ export const QualityScoringPanel = ({ content, topic, valuePromise, onContentUpd
       
       if (data?.content) {
         onContentUpdate(data.content);
-        setScores(null); // Reset scores so user can re-analyze
+        setScores(null);
         
-        // Track credit usage
         onCreditUsed?.("Apply Improvements", "apply_improvements", `${improvements.length} improvements applied`);
         
         toast({
@@ -177,7 +184,7 @@ export const QualityScoringPanel = ({ content, topic, valuePromise, onContentUpd
               Quality Analysis
             </h4>
             <p className="text-xs text-muted-foreground mt-1">
-              Score your content on actionability, specificity, uniqueness & engagement
+              Score your content on humanness, actionability, specificity, uniqueness & engagement
             </p>
           </div>
           <Button
@@ -218,40 +225,82 @@ export const QualityScoringPanel = ({ content, topic, valuePromise, onContentUpd
         </div>
       </div>
 
-      {/* Score Grid */}
-      <div className="grid grid-cols-2 gap-3">
-        {Object.entries(scores.scores).map(([dimension, data]) => (
+      {/* Score Grid — humanness first, then 2x2 for the rest */}
+      <div className="space-y-3">
+        {/* Humanness — full width, highlighted */}
+        {scores.scores.humanness && (
           <button
-            key={dimension}
-            onClick={() => setExpandedDimension(expandedDimension === dimension ? null : dimension)}
+            onClick={() => setExpandedDimension(expandedDimension === "humanness" ? null : "humanness")}
             className={cn(
-              "p-3 rounded-lg border text-left transition-all hover:shadow-sm",
-              expandedDimension === dimension ? "ring-2 ring-primary" : ""
+              "w-full p-3 rounded-lg border text-left transition-all hover:shadow-sm",
+              scores.scores.humanness.score < 60 ? "border-red-300 dark:border-red-700 bg-red-50/50 dark:bg-red-900/10" : "",
+              expandedDimension === "humanness" ? "ring-2 ring-primary" : ""
             )}
           >
             <div className="flex items-center justify-between mb-1">
               <span className="text-xs font-medium capitalize flex items-center gap-1.5">
-                <ScoreIcon dimension={dimension} />
-                {dimension}
+                <User className="h-4 w-4" />
+                Humanness
+                <span className="text-[10px] text-muted-foreground font-normal ml-1">(30% weight)</span>
               </span>
-              <span className={cn("text-sm font-bold", getScoreColor(data.score))}>
-                {data.score}
+              <span className={cn("text-sm font-bold", getScoreColor(scores.scores.humanness.score))}>
+                {scores.scores.humanness.score}
               </span>
             </div>
             <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
               <div
                 className={cn(
                   "h-full rounded-full transition-all",
-                  data.score >= 80 ? "bg-green-500" : data.score >= 60 ? "bg-amber-500" : "bg-red-500"
+                  scores.scores.humanness.score >= 80 ? "bg-green-500" : scores.scores.humanness.score >= 60 ? "bg-amber-500" : "bg-red-500"
                 )}
-                style={{ width: `${data.score}%` }}
+                style={{ width: `${scores.scores.humanness.score}%` }}
               />
             </div>
-            <span className={cn("text-xs mt-1 inline-block", getScoreColor(data.score))}>
-              {getScoreLabel(data.score)}
+            <span className={cn("text-xs mt-1 inline-block", getScoreColor(scores.scores.humanness.score))}>
+              {getScoreLabel(scores.scores.humanness.score)}
             </span>
           </button>
-        ))}
+        )}
+
+        {/* Other 4 dimensions in 2x2 grid */}
+        <div className="grid grid-cols-2 gap-3">
+          {DIMENSION_ORDER.filter(d => d !== "humanness").map((dimension) => {
+            const data = scores.scores[dimension];
+            if (!data) return null;
+            return (
+              <button
+                key={dimension}
+                onClick={() => setExpandedDimension(expandedDimension === dimension ? null : dimension)}
+                className={cn(
+                  "p-3 rounded-lg border text-left transition-all hover:shadow-sm",
+                  expandedDimension === dimension ? "ring-2 ring-primary" : ""
+                )}
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-medium capitalize flex items-center gap-1.5">
+                    <ScoreIcon dimension={dimension} />
+                    {dimension}
+                  </span>
+                  <span className={cn("text-sm font-bold", getScoreColor(data.score))}>
+                    {data.score}
+                  </span>
+                </div>
+                <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
+                  <div
+                    className={cn(
+                      "h-full rounded-full transition-all",
+                      data.score >= 80 ? "bg-green-500" : data.score >= 60 ? "bg-amber-500" : "bg-red-500"
+                    )}
+                    style={{ width: `${data.score}%` }}
+                  />
+                </div>
+                <span className={cn("text-xs mt-1 inline-block", getScoreColor(data.score))}>
+                  {getScoreLabel(data.score)}
+                </span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* Expanded Details */}
