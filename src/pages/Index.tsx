@@ -4118,6 +4118,7 @@ const Index = () => {
                     <ContentVerification
                       content={generatedContent} 
                       appliedRules={appliedRules}
+                      internalLinks={internalLinks}
                       onFixEmDashes={() => {
                         const fixed = generatedContent.replace(/—/g, "-");
                         setGeneratedContent(fixed);
