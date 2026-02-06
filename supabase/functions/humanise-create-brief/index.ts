@@ -74,7 +74,7 @@ OUTPUT FORMAT: Return ONLY valid JSON matching this exact structure:
   ],
   "sections": [
     { 
-      "h2": "Section heading", 
+      "h2": "Section heading as a QUESTION", 
       "purpose": "Why this section exists and what it achieves",
       "mustInclude": ["specific point 1", "specific point 2", "specific point 3"],
       "estimatedWords": 200
@@ -82,18 +82,26 @@ OUTPUT FORMAT: Return ONLY valid JSON matching this exact structure:
   ]
 }
 
+CRITICAL RULE - QUESTION-BASED HEADINGS:
+- ALL main content section h2 values MUST be phrased as QUESTIONS (ending with ?)
+- Examples: "What Is Composite Bonding?", "How Much Does It Cost?", "Which Option Lasts Longer?"
+- DO NOT use statement headings like "Benefits of Bonding" or "Cost Breakdown"
+- Exception: TL;DR, Quick Tips, In This Article, FAQ, Final Thoughts may keep their standard names
+
 RULES FOR SECTIONS:
 1. Each section MUST have a clear, distinct purpose
-2. mustInclude should have 3-5 specific points, facts, or examples to cover
-3. Order sections logically (problem → solution → comparison → action)
-4. Include these mandatory sections:
+2. Each section heading MUST be a question that the section answers
+3. mustInclude should have 3-5 specific points, facts, or examples to cover
+4. Each section should answer its question using a mix of: text paragraphs, bullet points/numbered lists, comparison tables where relevant, and source references
+5. Order sections logically (problem → solution → comparison → action)
+6. Include these mandatory sections:
    - TL;DR (brief summary with key takeaways)
    - In This Article (navigation)
-   - Main content sections (3-6 based on word count)
-   - Comparison table section
+   - Main content sections (3-6 based on word count) - ALL as questions
+   - Comparison table section (as a question, e.g., "How Do They Compare?")
    - FAQ section (4-6 questions)
    - Final Thoughts (with call-to-action)
-5. Distribute word count: TL;DR ~100, In This Article ~150, each main section ~${Math.round((targetWords || 1000) / 6)}, FAQ ~200, Final ~150
+7. Distribute word count: TL;DR ~100, In This Article ~150, each main section ~${Math.round((targetWords || 1000) / 6)}, FAQ ~200, Final ~150
 
 RULES FOR KEY CLAIMS:
 1. Extract specific, verifiable facts from context files

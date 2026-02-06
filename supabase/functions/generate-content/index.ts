@@ -98,7 +98,7 @@ ABSOLUTE RULE - NO HORIZONTAL LINES:
 
 CRITICAL MARKDOWN FORMATTING RULES:
 - Title: Use # for the main title (H1) - only one per article
-- Major sections: Use ## for H2 headings (e.g., ## What is Composite Bonding?)
+- Major sections: Use ## for H2 headings - ALL H2 headings MUST be phrased as QUESTIONS (see rule below)
 - Subsections: Use ### for H3 headings
 - DO NOT use numbered headings like "1. Section Name" - use proper markdown ## syntax
 - Use **bold** for emphasis on key terms and important points
@@ -108,6 +108,24 @@ CRITICAL MARKDOWN FORMATTING RULES:
 - Use numbered lists (1.) for easy scanning
 - Use markdown tables with | for comparisons (e.g., Feature | Option A | Option B)
 - DO NOT use blockquotes (>) for TL;DR - use H2 heading instead
+
+CRITICAL: QUESTION-BASED HEADINGS RULE:
+- EVERY H2 section heading (except TL;DR, Quick Tips, In This Article, FAQ, Final Thoughts, References) MUST be phrased as a QUESTION
+- Examples of CORRECT question headings:
+  - ## What Is Composite Bonding?
+  - ## How Much Does It Cost?
+  - ## Which Option Should You Choose?
+  - ## How Long Do Veneers Last?
+  - ## What Are the Risks and Side Effects?
+- Examples of WRONG statement headings (DO NOT USE):
+  - ## The Benefits of Bonding ❌
+  - ## Cost Breakdown ❌
+  - ## Longevity and Care ❌
+- Each section MUST directly answer its question with a mix of:
+  1. Clear text paragraphs (direct answer first, then elaboration)
+  2. Bullet points or numbered lists for scannable takeaways
+  3. A comparison table where relevant (at least ${requiredTables} tables total across the article)
+  4. Source references at the end of the section
 
 CRITICAL TABLE REQUIREMENT:
 - You MUST include a MINIMUM of ${requiredTables} markdown comparison tables in the article
@@ -152,22 +170,23 @@ ARTICLE STRUCTURE (in this order):
      
      ## In This Article
      
-     - **1. What is Composite Bonding?** - Understand the fundamentals of this revolutionary minimally invasive cosmetic dental treatment, including how resin is applied and shaped to transform your smile in just one appointment.
-     - **2. Cost Breakdown** - Get a comprehensive understanding of exactly what you'll pay for different procedures, what factors influence pricing, and how to budget for your perfect smile.
-     - **3. Longevity & Care** - Discover how long your results will realistically last, essential maintenance tips to extend their lifespan, and warning signs that indicate you need a touch-up.
+     - **1. What Is Composite Bonding?** - Understand the fundamentals of this revolutionary minimally invasive cosmetic dental treatment, including how resin is applied and shaped to transform your smile in just one appointment.
+     - **2. How Much Does It Cost?** - Get a comprehensive understanding of exactly what you'll pay for different procedures, what factors influence pricing, and how to budget for your perfect smile.
+     - **3. How Long Do Results Last?** - Discover how long your results will realistically last, essential maintenance tips to extend their lifespan, and warning signs that indicate you need a touch-up.
    
    - List ALL main H2 sections from the article (not TL;DR or References)
    - DO NOT SKIP THIS SECTION - it must be present in every article
    - IMPORTANT: Short one-line descriptions are NOT acceptable - each must be detailed and informative
-4. Main content sections with ## headings (each with **Sources:** at the end)
-5. Comparison table section
-6. "Which Option Should You Choose?" section
-7. "## Frequently Asked Questions" section - include 4-6 common Q&As in bold question format
-8. "## Final Thoughts" section with call-to-action
-9. "## References:" section - list ALL sources used throughout the article as simple markdown links
+5. Main content sections with ## QUESTION headings (each answered with text + bullets + tables + **Sources:** at the end)
+6. Comparison table section (question-based, e.g., "## How Do They Compare Side by Side?")
+7. "## Which Option Should You Choose?" section
+8. "## Frequently Asked Questions" section - include 4-6 common Q&As in bold question format
+9. "## Final Thoughts" section with call-to-action
+10. "## References:" section - list ALL sources used throughout the article as simple markdown links
 
 Content Guidelines:
 - Start with a compelling hook that addresses the reader's pain point
+- Each section answers its heading question directly in the first 1-2 sentences
 - Include comparison tables when comparing options
 - Use short paragraphs (2-3 sentences max)
 - Add a strong conclusion with a clear call-to-action
