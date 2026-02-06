@@ -15,7 +15,6 @@ interface CTABannerProps {
 
 // High-contrast coral for buttons - pops against dark backgrounds
 const BUTTON_COLOR = "#FF6B6B";
-const DEFAULT_TAGLINE = "Free design assistance • Fast turnaround • Team discounts";
 
 export const CTABanner = ({ headline, description, buttonText, url, tagline, brandColors }: CTABannerProps) => {
   // Dark navy gradient background matching reference
@@ -25,8 +24,7 @@ export const CTABanner = ({ headline, description, buttonText, url, tagline, bra
   const headlineColor = brandColors?.accent || BUTTON_COLOR;
   const buttonBg = brandColors?.accent || BUTTON_COLOR;
 
-  // Use provided tagline or default
-  const displayTagline = tagline || DEFAULT_TAGLINE;
+  const displayTagline = tagline || "";
 
   return (
     <div 
@@ -101,19 +99,21 @@ export const CTABanner = ({ headline, description, buttonText, url, tagline, bra
         {buttonText}
       </a>
       
-      {/* Tagline below button */}
-      <div 
-        data-cta-tagline="true"
-        style={{
-          marginTop: "20px",
-          fontSize: "0.85em",
-          color: "rgba(255, 255, 255, 0.6)",
-          fontFamily: "inherit",
-          letterSpacing: "0.02em"
-        }}
-      >
-        {displayTagline}
-      </div>
+      {/* Tagline below button - only show if provided */}
+      {displayTagline && (
+        <div 
+          data-cta-tagline="true"
+          style={{
+            marginTop: "20px",
+            fontSize: "0.85em",
+            color: "rgba(255, 255, 255, 0.6)",
+            fontFamily: "inherit",
+            letterSpacing: "0.02em"
+          }}
+        >
+          {displayTagline}
+        </div>
+      )}
     </div>
   );
 };
@@ -129,7 +129,7 @@ export const generateCTAHtml = (
   const bgGradient = "linear-gradient(135deg, #1a2744 0%, #2d3a52 50%, #1a2744 100%)";
   const headlineColor = brandColors?.accent || BUTTON_COLOR;
   const buttonColor = brandColors?.accent || BUTTON_COLOR;
-  const displayTagline = tagline || DEFAULT_TAGLINE;
+  const displayTagline = tagline || "";
 
   // Note: data-cta-banner attribute is added for identification during export
   // The anchor has data-cta-button to prevent link styling from overwriting button styles

@@ -138,76 +138,74 @@ CRITICAL: Create 4-5 relevant Q&As based on the article content. Each question i
 
 CTA BANNERS - CRITICAL RULES:
 - Insert EXACTLY 2 CTA banners - NO MORE, NO LESS
-- CTAs must be CONTEXTUALLY RELEVANT to the article topic
+- ALL CTA text MUST be contextually relevant to the article topic
+- Do NOT use generic phrases like "Want to Learn More?", "Get Started", "Invest in Development"
 - Do NOT add more than 2 CTAs under any circumstances
 - ALL 4 LINES of each CTA MUST start with > (blockquote marker)
 
 CUSTOM CTA INSTRUCTIONS TO FOLLOW:
 ${customInstructions}
 
-CTA STRUCTURE - USE THIS EXACT 4-LINE FORMAT:
+CONTEXTUAL RELEVANCE IS MANDATORY:
+- The HEADLINE must reference the specific article topic or product
+- The DESCRIPTION must explain value specific to the article's subject matter
+- The BUTTON TEXT must include the specific product/service name from the custom instructions
+- The TAGLINE must list benefits relevant to the article topic - NEVER use generic taglines like "Free design assistance • Fast turnaround • Team discounts"
 
-> **🎳 LEVEL UP YOUR LEAGUE LOOK!**
-> Stand out on the lanes with **custom bowling jerseys** designed for your team. Unlimited designs, premium quality.
-> [SHOP CUSTOM JERSEYS →](${ctaConfig.buttonUrl})
-> Free design assistance • Fast turnaround • Team discounts
+CTA STRUCTURE - USE THIS EXACT 4-LINE FORMAT:
+> **emoji + CONTEXTUAL HEADLINE IN ALL CAPS**
+> Contextual description about how this product/service relates to the article topic. Include **bold product name**.
+> [PRODUCT-SPECIFIC BUTTON TEXT →](${ctaConfig.buttonUrl})
+> Benefit 1 relevant to article • Benefit 2 relevant to article • Benefit 3 relevant to article
 
 CRITICAL FORMAT RULES - EVERY LINE MUST START WITH ">":
-1. Line 1: > **emoji + HEADLINE IN ALL CAPS** (bold, with relevant emoji)
-2. Line 2: > Description paragraph - NO "Description:" prefix! Just the text with **bold** product name
-3. Line 3: > [PRODUCT-SPECIFIC BUTTON TEXT →](URL) - include product name in button, end with →
-4. Line 4: > Tagline with bullet separators (•)
-
-WRONG FORMAT - DO NOT USE:
-- "Description: Look like the pros..." ❌ (has "Description:" prefix)
-- "[SHOP NOW →]" ❌ (too generic)
-
-CORRECT FORMAT:
-- "Stand out on the lanes with **custom bowling jerseys**..." ✓ (no prefix)
-- "[SHOP CUSTOM JERSEYS →]" ✓ (product-specific)
-
-MAKE IT CONTEXTUAL:
-- Adapt headline emoji and text to article topic
-- Include product name with **bold** in description
-- Button text should mention specific product
+1. Line 1: > **emoji + HEADLINE** - Must reference article topic or product
+2. Line 2: > Description connecting article topic to the product/service - NO "Description:" prefix
+3. Line 3: > [BUTTON WITH PRODUCT NAME →](URL) - include specific product name, end with →
+4. Line 4: > Tagline with article-relevant benefits separated by bullets (•) - MUST be contextual, NOT generic
 
 PLACEMENT:
 - First CTA: About 40% into the article (after a major section)
 - Second CTA: Near the end, before Final Thoughts or References`;
       } else {
-        // Use default CTA config - still make it contextual to article
+        // Default CTA config - derive ALL text from article context
         systemPrompt += `
 
 CTA BANNERS - CRITICAL RULES:
 - Insert EXACTLY 2 CTA banners - NO MORE, NO LESS
-- CTAs must be CONTEXTUALLY RELEVANT to the article topic
+- ALL CTA text MUST be contextually relevant to the article topic
+- Do NOT use generic phrases like "Want to Learn More?", "Get Started", "Invest in Development", "Act Now"
 - Do NOT add more than 2 CTAs under any circumstances
 - ALL 4 LINES of each CTA MUST start with > (blockquote marker)
 
-CTA STRUCTURE - USE THIS EXACT 4-LINE FORMAT:
+CONTEXTUAL RELEVANCE IS MANDATORY:
+- Read the article carefully and derive CTA text from its specific topic
+- The HEADLINE must reference the article's main subject or a specific subtopic
+- The DESCRIPTION must explain value specific to what the article is about
+- The BUTTON TEXT must be specific to the article topic (e.g., "EXPLORE [TOPIC] →", "GET YOUR [PRODUCT] →")
+- The TAGLINE must list 3 benefits relevant to the article content - NEVER use generic taglines
 
-> **🎳 LEVEL UP YOUR LEAGUE LOOK!**
-> Stand out on the lanes with **custom bowling jerseys** designed for your team. Unlimited designs, premium quality.
-> [SHOP CUSTOM JERSEYS →](${ctaConfig.buttonUrl})
-> Free design assistance • Fast turnaround • Team discounts
+CTA STRUCTURE - USE THIS EXACT 4-LINE FORMAT:
+> **emoji + CONTEXTUAL HEADLINE IN ALL CAPS**
+> Contextual description directly related to the article topic. Include **bold key term**.
+> [TOPIC-SPECIFIC BUTTON TEXT →](${ctaConfig.buttonUrl})
+> Article-relevant benefit 1 • Article-relevant benefit 2 • Article-relevant benefit 3
 
 CRITICAL FORMAT RULES - EVERY LINE MUST START WITH ">":
-1. Line 1: > **emoji + HEADLINE IN ALL CAPS** (bold, with relevant emoji)
-2. Line 2: > Description paragraph - NO "Description:" prefix! Just the text with **bold** product name
-3. Line 3: > [PRODUCT-SPECIFIC BUTTON TEXT →](URL) - include product name in button, end with →
-4. Line 4: > Tagline with bullet separators (•)
+1. Line 1: > **emoji + HEADLINE** - Must reference article topic directly
+2. Line 2: > Description connecting article topic to a call to action - NO "Description:" prefix
+3. Line 3: > [BUTTON TEXT WITH TOPIC/PRODUCT →](URL) - specific to article, end with →
+4. Line 4: > Tagline with 3 topic-relevant benefits separated by bullets (•) - MUST be derived from article content
 
-WRONG FORMAT - DO NOT USE:
-- "Description: Look like the pros..." ❌ (has "Description:" prefix)
-- "[SHOP NOW →]" ❌ (too generic)
+EXAMPLES OF WRONG (GENERIC) vs RIGHT (CONTEXTUAL):
+WRONG: "ACT NOW: INVEST IN DEVELOPMENT" ❌ (vague, not article-specific)
+RIGHT: "🧸 FIND THE PERFECT LEARNING TOY FOR YOUR CHILD" ✓ (specific to a toys article)
 
-CORRECT FORMAT:
-- "Stand out on the lanes with **custom bowling jerseys**..." ✓ (no prefix)
-- "[SHOP CUSTOM JERSEYS →]" ✓ (product-specific)
+WRONG: "Free design assistance • Fast turnaround • Team discounts" ❌ (irrelevant generic tagline)
+RIGHT: "Age-appropriate • Expert-curated • Screen-free fun" ✓ (relevant to a toys article)
 
-Default inspiration:
-- Headline: ${ctaConfig.headline.toUpperCase()}
-- Product focus: ${ctaConfig.description}
+WRONG: "[SHOP NOW →]" ❌ (too generic)
+RIGHT: "[BROWSE EDUCATIONAL TOYS →]" ✓ (article-specific)
 
 PLACEMENT:
 - First CTA: About 40% into the article (after a major section)
