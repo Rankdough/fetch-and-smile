@@ -34,8 +34,8 @@ All colors MUST be HSL.
     --destructive-foreground: 210 40% 98%;
 
     --border: 214.3 31.8% 91.4%;
-    --input: 300 20% 97%;
-    --input-border: 300 30% 80%;
+    --input: 0 0% 100%;
+    --input-border: 300 40% 70%;
     --ring: 300 52% 36%;
 
     --radius: 0.5rem;
@@ -324,8 +324,8 @@ All colors MUST be HSL.
 .settings-panel textarea,
 .settings-panel select,
 .settings-panel button[role="combobox"] {
-  background-color: hsl(var(--input)) !important;
-  border: 2px solid hsl(var(--input-border)) !important;
+  background-color: hsl(0 0% 100%) !important;
+  border: 2px solid hsl(var(--primary) / 0.35) !important;
   transition: border-color 0.2s, box-shadow 0.2s;
 }
 
@@ -344,12 +344,12 @@ All colors MUST be HSL.
 .settings-panel textarea:focus,
 .settings-panel select:focus {
   border-color: hsl(var(--primary));
-  box-shadow: 0 0 0 3px hsl(var(--primary) / 0.15);
+  box-shadow: 0 0 0 3px hsl(var(--primary) / 0.2);
 }
 
 .settings-panel input[type="file"] {
-  background-color: hsl(var(--input));
-  border: 2px dashed hsl(var(--input-border));
+  background-color: hsl(0 0% 100%);
+  border: 2px dashed hsl(var(--primary) / 0.4);
   padding: 0.75rem;
   border-radius: 0.5rem;
   transition: border-color 0.2s, background-color 0.2s;
@@ -362,8 +362,8 @@ All colors MUST be HSL.
 
 /* Context file items styling */
 .settings-panel .context-file-item {
-  background-color: hsl(var(--input));
-  border: 1px solid hsl(var(--input-border));
+  background-color: hsl(0 0% 100%);
+  border: 1px solid hsl(var(--primary) / 0.25);
 }
 
 /* Collapsible section styling */
@@ -372,4 +372,25 @@ All colors MUST be HSL.
   border-radius: 0.5rem;
   padding: 1rem;
   margin-top: 0.5rem;
+}
+
+/* Dark mode overrides for settings panel inputs */
+.dark .settings-panel input[type="text"],
+.dark .settings-panel input[type="url"],
+.dark .settings-panel input[type="number"],
+.dark .settings-panel textarea,
+.dark .settings-panel select,
+.dark .settings-panel button[role="combobox"] {
+  background-color: hsl(var(--input)) !important;
+  border-color: hsl(var(--input-border)) !important;
+}
+
+.dark .settings-panel input[type="file"] {
+  background-color: hsl(var(--input));
+  border-color: hsl(var(--input-border));
+}
+
+.dark .settings-panel .context-file-item {
+  background-color: hsl(var(--input));
+  border-color: hsl(var(--input-border));
 }
