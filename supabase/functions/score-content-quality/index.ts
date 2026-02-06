@@ -42,6 +42,31 @@ interface HumannessMetrics {
   sectionsWithoutExamples: string[];
 }
 
+// ── Strip structural/format sections so only prose is scored ──
+
+const STRUCTURAL_HEADINGS = [
+  "TL;DR",
+  "Quick Tips",
+  "In This Article",
+  "Frequently Asked Questions",
+  "FAQ",
+  "Final Thoughts",
+  "References",
+];
+
+function stripStructuralSections(content: string): string {
+  let stripped = content;
+  for (const heading of STRUCTURAL_HEADINGS) {
+    // Match ## heading (case-insensitive) and everything until the next ## or end of string
+    const pattern = new RegExp(
+      `^##\\s+${heading.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}[^\\n]*\\n[\\s\\S]*?(?=^## |$)`,
+      "gmi"
+    );
+    stripped = stripped.replace(pattern, "");
+  }
+  return stripped.trim();
+}
+
 function analyzeHumanness(content: string): HumannessMetrics {
   const lowerContent = content.toLowerCase();
   const wordCount = content.split(/\s+/).length;
@@ -141,13 +166,19 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    // ── Step 1: Run deterministic humanness checks ──
-    const metrics = analyzeHumanness(content);
+    // ── Step 0: Strip structural sections so only prose is scored ──
+    const proseContent = stripStructuralSections(content);
+    console.log("Stripped prose length:", proseContent.length, "vs original:", content.length);
+
+    // ── Step 1: Run deterministic humanness checks on prose only ──
+    const metrics = analyzeHumanness(proseContent);
     console.log("Humanness metrics:", JSON.stringify(metrics));
 
     const systemPrompt = `You are a content quality analyst. Your job is to objectively score content on 5 dimensions.
 
-Be HARSH but fair. Most AI-generated content scores 40-60. Only truly exceptional content scores 80+.
+Score fairly based on evidence. Use the full 0-100 range.
+
+IMPORTANT CONTEXT: This article follows a mandated SEO structure (TL;DR, Quick Tips, In This Article, FAQ, Final Thoughts, References, question-based headings). Structural sections have been removed from the content below — you are seeing ONLY the body prose. Judge humanness ONLY by the prose quality of the remaining content, not by the article's overall skeleton.
 
 Scoring criteria:
 
@@ -175,8 +206,8 @@ Scoring criteria:
    - 70-85: Has hooks, questions, surprises
    - 86-100: Compelling narrative, memorable moments
 
-5. HUMANNESS (0-100): Does this sound like a human expert wrote it, NOT an AI?
-   This is the MOST IMPORTANT dimension. Consider both the hard metrics provided AND your own reading of the text.
+5. HUMANNESS (0-100): Does this prose sound like a human expert wrote it, NOT an AI?
+   Evaluate ONLY by prose voice, rhythm, and personality — not article structure.
    - 0-30: Reads like a textbook or corporate memo. Uniform sentence structure, no personality, stiff transitions like "Moreover" and "Furthermore", hedging language everywhere
    - 40-60: Competent but detectable as AI. Formal transitions, vague descriptors ("various", "numerous", "significant"), predictable paragraph structure, no personal voice
    - 70-85: Mostly natural. Some personality and varied rhythm, few AI tells, occasional opinions or asides, uses contractions
@@ -187,7 +218,7 @@ Scoring criteria:
    - Are there personal observations, opinions, or asides?
    - Does the rhythm feel natural — short punchy bits mixed with longer explanations?
    - Are there contractions, rhetorical questions, or colloquial touches?
-   - Does it avoid the "AI essay structure" of intro-point-point-point-conclusion?
+   - Do NOT penalise the article for having a mandated structure (headings, FAQ, etc.) — that is intentional SEO formatting
 
 OVERALL SCORE WEIGHTING: Humanness counts for 30% of the overall score. The other four dimensions share the remaining 70% equally (17.5% each).
 Formula: overallScore = round(humanness * 0.30 + actionability * 0.175 + specificity * 0.175 + uniqueness * 0.175 + engagement * 0.175)
@@ -244,8 +275,8 @@ DETERMINISTIC HUMANNESS METRICS (pre-computed from the content — use these as 
 Topic: ${topic || "Not specified"}
 Value Promise (what reader should be able to DO after reading): ${valuePromise || "Not specified"}
 ${metricsContext}
-CONTENT:
-${content.substring(0, 8000)}`;
+CONTENT (structural sections removed, prose only):
+${proseContent.substring(0, 8000)}`;
 
     console.log("Scoring content quality for topic:", topic);
 
@@ -288,7 +319,24 @@ ${content.substring(0, 8000)}`;
       const s = scores.scores.specificity?.score ?? 50;
       const u = scores.scores.uniqueness?.score ?? 50;
       const e = scores.scores.engagement?.score ?? 50;
-      scores.overallScore = Math.round(h * 0.30 + a * 0.175 + s * 0.175 + u * 0.175 + e * 0.175);
+      // Apply metrics-based humanness floor: if deterministic checks pass,
+      // the subjective scorer should not contradict the objective evidence
+      let adjustedH = h;
+      if (
+        metrics.vaguePer1000 <= 5 &&
+        metrics.aiTransitionsCount <= 3 &&
+        metrics.sentenceLengthStdDev >= 5 &&
+        metrics.repetitiveStarterPct <= 15
+      ) {
+        const HUMANNESS_FLOOR = 55;
+        if (h < HUMANNESS_FLOOR) {
+          console.log(`Humanness floor applied: AI scored ${h}, bumped to ${HUMANNESS_FLOOR} (metrics passed all thresholds)`);
+          adjustedH = HUMANNESS_FLOOR;
+          scores.scores.humanness.score = HUMANNESS_FLOOR;
+          scores.scores.humanness.reasoning += ` (Score raised from ${h} to ${HUMANNESS_FLOOR} — deterministic metrics indicate low AI patterns)`;
+        }
+      }
+      scores.overallScore = Math.round(adjustedH * 0.30 + a * 0.175 + s * 0.175 + u * 0.175 + e * 0.175);
     }
 
     console.log("Quality scores generated, overall:", scores.overallScore);
