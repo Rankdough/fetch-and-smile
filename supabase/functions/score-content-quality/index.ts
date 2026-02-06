@@ -6,6 +6,121 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
+// ── Deterministic pattern lists (mirrored from humanise-quality-gate) ──
+
+const VAGUE_PHRASES = [
+  "various", "numerous", "significant", "important", "notable",
+  "considerable", "substantial", "a number of", "a variety of",
+  "a range of", "many people", "most people", "some people",
+  "can help", "may help", "might help", "tends to",
+  "in general", "generally speaking", "as a rule", "for the most part"
+];
+
+const REPETITIVE_STARTERS = [
+  "this is", "this means", "this includes", "it is", "it's",
+  "there are", "there is", "you can", "you should", "you need",
+  "you will", "we can", "we should", "one can", "the",
+  "when", "if you", "whether"
+];
+
+const AI_TRANSITIONS = [
+  "moreover", "furthermore", "additionally", "in addition",
+  "consequently", "therefore", "thus", "hence",
+  "however", "nevertheless", "nonetheless"
+];
+
+// ── Deterministic pre-analysis ──
+
+interface HumannessMetrics {
+  vaguePhrasesCount: number;
+  vaguePer1000: number;
+  aiTransitionsCount: number;
+  repetitiveStarterPct: number;
+  topRepetitiveStarter: string | null;
+  sentenceLengthStdDev: number;
+  avgSentenceLength: number;
+  sectionsWithoutExamples: string[];
+}
+
+function analyzeHumanness(content: string): HumannessMetrics {
+  const lowerContent = content.toLowerCase();
+  const wordCount = content.split(/\s+/).length;
+
+  // Sentences
+  const sentences = content
+    .split(/[.!?]+/)
+    .map(s => s.trim())
+    .filter(s => s.length > 10);
+
+  // Vague phrases
+  const vaguePhrasesCount = VAGUE_PHRASES.reduce((count, phrase) => {
+    const matches = (lowerContent.match(new RegExp(`\\b${phrase}\\b`, "gi")) || []).length;
+    return count + matches;
+  }, 0);
+  const vaguePer1000 = Math.round((vaguePhrasesCount / wordCount) * 1000);
+
+  // AI transitions
+  const aiTransitionsCount = AI_TRANSITIONS.reduce((count, word) => {
+    const matches = (lowerContent.match(new RegExp(`\\b${word}\\b`, "gi")) || []).length;
+    return count + matches;
+  }, 0);
+
+  // Repetitive starters
+  const starterCounts: Record<string, number> = {};
+  sentences.forEach(s => {
+    const words = s.toLowerCase().split(/\s+/).slice(0, 3).join(" ");
+    const matchedPattern = REPETITIVE_STARTERS.find(p => words.startsWith(p));
+    if (matchedPattern) {
+      starterCounts[matchedPattern] = (starterCounts[matchedPattern] || 0) + 1;
+    }
+  });
+
+  const sorted = Object.entries(starterCounts).sort((a, b) => b[1] - a[1]);
+  const topRepetitiveStarter = sorted.length > 0 ? sorted[0][0] : null;
+  const repetitiveStarterPct = sorted.length > 0
+    ? Math.round((sorted[0][1] / sentences.length) * 100)
+    : 0;
+
+  // Sentence length variance
+  const sentenceLengths = sentences.map(s => s.split(/\s+/).length);
+  const avgLen = sentenceLengths.length > 0
+    ? sentenceLengths.reduce((a, b) => a + b, 0) / sentenceLengths.length
+    : 0;
+  const variance = sentenceLengths.length > 0
+    ? sentenceLengths.reduce((sum, len) => sum + Math.pow(len - avgLen, 2), 0) / sentenceLengths.length
+    : 0;
+  const stdDev = Math.sqrt(variance);
+
+  // Sections without examples
+  const exampleIndicators = ["for example", "for instance", "such as", "e.g.", "like", "£", "$", "%", "specifically"];
+  const sections = content.split(/^## /m).filter(s => s.trim());
+  const sectionsWithoutExamples: string[] = [];
+
+  sections.slice(1).forEach(section => {
+    const sectionTitle = section.split("\n")[0].trim();
+    const hasExample = exampleIndicators.some(indicator =>
+      section.toLowerCase().includes(indicator) || /\d+/.test(section)
+    );
+    if (!hasExample &&
+        !sectionTitle.toLowerCase().includes("tl;dr") &&
+        !sectionTitle.toLowerCase().includes("in this article") &&
+        !sectionTitle.toLowerCase().includes("references")) {
+      sectionsWithoutExamples.push(sectionTitle);
+    }
+  });
+
+  return {
+    vaguePhrasesCount,
+    vaguePer1000,
+    aiTransitionsCount,
+    repetitiveStarterPct,
+    topRepetitiveStarter,
+    sentenceLengthStdDev: Math.round(stdDev * 10) / 10,
+    avgSentenceLength: Math.round(avgLen),
+    sectionsWithoutExamples,
+  };
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -26,7 +141,11 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    const systemPrompt = `You are a content quality analyst. Your job is to objectively score content on 4 dimensions.
+    // ── Step 1: Run deterministic humanness checks ──
+    const metrics = analyzeHumanness(content);
+    console.log("Humanness metrics:", JSON.stringify(metrics));
+
+    const systemPrompt = `You are a content quality analyst. Your job is to objectively score content on 5 dimensions.
 
 Be HARSH but fair. Most AI-generated content scores 40-60. Only truly exceptional content scores 80+.
 
@@ -56,6 +175,25 @@ Scoring criteria:
    - 70-85: Has hooks, questions, surprises
    - 86-100: Compelling narrative, memorable moments
 
+5. HUMANNESS (0-100): Does this sound like a human expert wrote it, NOT an AI?
+   This is the MOST IMPORTANT dimension. Consider both the hard metrics provided AND your own reading of the text.
+   - 0-30: Reads like a textbook or corporate memo. Uniform sentence structure, no personality, stiff transitions like "Moreover" and "Furthermore", hedging language everywhere
+   - 40-60: Competent but detectable as AI. Formal transitions, vague descriptors ("various", "numerous", "significant"), predictable paragraph structure, no personal voice
+   - 70-85: Mostly natural. Some personality and varied rhythm, few AI tells, occasional opinions or asides, uses contractions
+   - 86-100: Indistinguishable from an expert human writer. Has a genuine voice, shares opinions, natural conversational flow, mixes short punchy sentences with longer explanations, uses rhetorical questions, includes personal observations
+
+   Key signals to check:
+   - Does it read like someone talking to a colleague, or like a textbook?
+   - Are there personal observations, opinions, or asides?
+   - Does the rhythm feel natural — short punchy bits mixed with longer explanations?
+   - Are there contractions, rhetorical questions, or colloquial touches?
+   - Does it avoid the "AI essay structure" of intro-point-point-point-conclusion?
+
+OVERALL SCORE WEIGHTING: Humanness counts for 30% of the overall score. The other four dimensions share the remaining 70% equally (17.5% each).
+Formula: overallScore = round(humanness * 0.30 + actionability * 0.175 + specificity * 0.175 + uniqueness * 0.175 + engagement * 0.175)
+
+When writing topStrength and criticalWeakness, ALWAYS consider humanness quality. If the content sounds robotic or AI-generated, that should be the criticalWeakness even if other scores are high.
+
 Return ONLY valid JSON:
 {
   "scores": {
@@ -78,20 +216,34 @@ Return ONLY valid JSON:
       "score": 50,
       "reasoning": "One sentence explanation",
       "improvement": "Specific suggestion to improve"
+    },
+    "humanness": {
+      "score": 40,
+      "reasoning": "One sentence explanation",
+      "improvement": "Specific suggestion to improve"
     }
   },
-  "overallScore": 54,
+  "overallScore": 48,
   "valuePromiseDelivered": true,
   "valuePromiseAnalysis": "How well the content delivers on the stated value promise",
   "topStrength": "The best thing about this content",
   "criticalWeakness": "The one thing that would most improve this content"
 }`;
 
+    const metricsContext = `
+DETERMINISTIC HUMANNESS METRICS (pre-computed from the content — use these as evidence):
+- Vague filler phrases: ${metrics.vaguePhrasesCount} total (${metrics.vaguePer1000} per 1,000 words)
+- AI transition words (Moreover/Furthermore/etc.): ${metrics.aiTransitionsCount}
+- Most repeated sentence starter: "${metrics.topRepetitiveStarter || "none"}" at ${metrics.repetitiveStarterPct}% of sentences
+- Sentence length: avg ${metrics.avgSentenceLength} words, std dev ${metrics.sentenceLengthStdDev} (below 5 = too uniform/robotic)
+- Sections without concrete examples or numbers: ${metrics.sectionsWithoutExamples.length > 0 ? metrics.sectionsWithoutExamples.join(", ") : "none"}
+`;
+
     const userPrompt = `Score this content:
 
 Topic: ${topic || "Not specified"}
 Value Promise (what reader should be able to DO after reading): ${valuePromise || "Not specified"}
-
+${metricsContext}
 CONTENT:
 ${content.substring(0, 8000)}`;
 
@@ -128,6 +280,16 @@ ${content.substring(0, 8000)}`;
     // Parse the JSON response
     const cleanedText = responseContent.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
     const scores = JSON.parse(cleanedText);
+
+    // Recalculate overall score with our weighting to ensure consistency
+    if (scores.scores) {
+      const h = scores.scores.humanness?.score ?? 50;
+      const a = scores.scores.actionability?.score ?? 50;
+      const s = scores.scores.specificity?.score ?? 50;
+      const u = scores.scores.uniqueness?.score ?? 50;
+      const e = scores.scores.engagement?.score ?? 50;
+      scores.overallScore = Math.round(h * 0.30 + a * 0.175 + s * 0.175 + u * 0.175 + e * 0.175);
+    }
 
     console.log("Quality scores generated, overall:", scores.overallScore);
 
