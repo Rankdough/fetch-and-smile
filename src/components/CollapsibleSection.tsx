@@ -39,26 +39,26 @@ export const CollapsibleSection = ({
     : summary;
 
   return (
-    <div className={cn("space-y-0", className)}>
+    <div className={cn("space-y-0 border-b border-border pb-4", className)}>
       <button
         type="button"
         onClick={handleToggle}
         className={cn(
           "w-full flex items-center gap-3 p-3 rounded-lg transition-all text-left group",
           isComplete && !isOpen
-            ? "bg-primary/5 border border-primary/20 hover:bg-primary/10"
+            ? "bg-primary/10 border-2 border-primary/30 hover:bg-primary/15"
             : isOpen
-            ? "bg-muted/30 rounded-b-none"
-            : "hover:bg-muted/50 border border-transparent"
+            ? "bg-muted/50 rounded-b-none border-2 border-primary/15 border-b-0"
+            : "hover:bg-muted/50 border-2 border-transparent"
         )}
       >
         {/* Section indicator */}
         <div
           className={cn(
-            "flex-shrink-0 flex items-center justify-center w-6 h-6 rounded-full text-xs font-medium transition-all",
+            "flex-shrink-0 flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold transition-all",
             isComplete
-              ? "bg-primary text-primary-foreground"
-              : "bg-muted text-muted-foreground border border-muted-foreground/30"
+              ? "bg-primary text-primary-foreground shadow-sm"
+              : "bg-primary/15 text-primary border-2 border-primary/40"
           )}
         >
           {isComplete ? <Check className="h-3.5 w-3.5" /> : number}
@@ -67,10 +67,10 @@ export const CollapsibleSection = ({
         {/* Title and summary */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            {icon && <span className="text-muted-foreground">{icon}</span>}
-            <span className="text-sm font-medium">{title}</span>
+            {icon && <span className="text-primary/70">{icon}</span>}
+            <span className="text-sm font-semibold text-foreground">{title}</span>
             {required && !isComplete && (
-              <span className="text-xs text-destructive">*Required</span>
+              <span className="text-xs font-semibold text-destructive">*Required</span>
             )}
           </div>
           
@@ -97,7 +97,7 @@ export const CollapsibleSection = ({
 
       {/* Content */}
       {isOpen && (
-        <div className="pl-9 pr-2 pb-3 pt-2 space-y-3 bg-muted/30 rounded-b-lg border-x border-b border-primary/10">
+        <div className="pl-9 pr-3 pb-4 pt-3 space-y-3 bg-muted/40 rounded-b-lg border-2 border-t-0 border-primary/15">
           {children}
         </div>
       )}
