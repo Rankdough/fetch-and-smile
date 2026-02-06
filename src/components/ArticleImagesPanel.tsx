@@ -56,6 +56,62 @@ export function ArticleImagesPanel({
     refresh: refreshFolderData 
   } = useImageFolders();
 
+  // Auto-load cloud images when a folder is selected but its images aren't in memory
+  useEffect(() => {
+    if (!selectedFolderId) return;
+    const folderFilePaths = getImagesInFolder(selectedFolderId);
+    if (folderFilePaths.length === 0) return;
+
+    // Check how many folder images are missing from the in-memory images array
+    const missingPaths = folderFilePaths.filter(
+      (fp) => !images.some((img) => img.filePath === fp)
+    );
+
+    if (missingPaths.length === 0) return;
+
+    // Auto-load missing images from cloud storage (or resolve URLs)
+    const loadMissing = async () => {
+      const loaded: ArticleImage[] = [];
+      for (const fp of missingPaths) {
+        if (fp.startsWith("url:")) {
+          // External URL image
+          const url = fp.replace(/^url:/, "");
+          try {
+            const urlObj = new URL(url);
+            const pathParts = urlObj.pathname.split("/").filter(Boolean);
+            const rawName = pathParts[pathParts.length - 1] || "image";
+            const name = decodeURIComponent(rawName);
+            loaded.push({
+              name,
+              url,
+              alt: name.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " "),
+              filePath: fp,
+            });
+          } catch {
+            // skip invalid URLs
+          }
+        } else {
+          // Cloud-stored image
+          const { data: urlData } = supabase.storage
+            .from("article-images")
+            .getPublicUrl(fp);
+          const originalName = fp.replace(/^\d+-/, "");
+          loaded.push({
+            name: originalName,
+            url: urlData.publicUrl,
+            alt: originalName.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " "),
+            filePath: fp,
+          });
+        }
+      }
+      if (loaded.length > 0) {
+        onImagesChange([...images, ...loaded]);
+      }
+    };
+
+    loadMissing();
+  }, [selectedFolderId, getImagesInFolder]);
+
   // Filter images by selected folder
   const filteredImages = useMemo(() => {
     if (!selectedFolderId) return images;
