@@ -32,6 +32,7 @@ interface ContentVerificationProps {
   onRegenerateForWordCount?: () => void;
   ctaUrl?: string;
   generatedCTAs?: CTAData | null;
+  internalLinks?: string[];
 }
 
 interface VerificationItem {
@@ -50,7 +51,8 @@ export const ContentVerification = ({
   onFixHorizontalLines,
   onRegenerateForWordCount,
   ctaUrl,
-  generatedCTAs
+  generatedCTAs,
+  internalLinks
 }: ContentVerificationProps) => {
   const verificationResults = useMemo(() => {
     const results: VerificationItem[] = [];
@@ -317,6 +319,38 @@ export const ContentVerification = ({
       fixType: "horizontal-line",
     });
 
+    // Check for internal links insertion
+    const validInternalLinks = (internalLinks || []).filter(u => u.trim());
+    if (validInternalLinks.length > 0) {
+      // Check how many of the provided URLs actually appear as links in the content
+      const contentLower = content.toLowerCase();
+      const insertedLinks = validInternalLinks.filter(url => {
+        const urlLower = url.trim().toLowerCase();
+        // Check for markdown link syntax containing this URL
+        return contentLower.includes(`(${urlLower})`);
+      });
+
+      results.push({
+        id: "internal-links",
+        label: "Internal links inserted",
+        status: insertedLinks.length === validInternalLinks.length
+          ? "passed"
+          : insertedLinks.length > 0
+          ? "warning"
+          : "failed",
+        details: insertedLinks.length > 0
+          ? `${insertedLinks.length}/${validInternalLinks.length} internal links placed in content`
+          : "Internal links configured but not yet inserted — click 'Insert Links' in settings",
+      });
+    } else {
+      results.push({
+        id: "internal-links",
+        label: "Internal links inserted",
+        status: "warning",
+        details: "No internal links configured — add URLs in Section 13 to improve SEO",
+      });
+    }
+
     // Check for CTA banners - also check for CTA content in imported markdown
     const hasCTABannerHtml = content.includes('class="cta-banner"') || content.includes("cta-banner");
     const hasCTABlockquote = />\s*\*\*[^*]+\*\*.*\[.+\]\(.+\)/s.test(content);
@@ -350,7 +384,7 @@ export const ContentVerification = ({
     }
 
     return results;
-  }, [content, appliedRules, ctaUrl, generatedCTAs]);
+  }, [content, appliedRules, ctaUrl, generatedCTAs, internalLinks]);
 
   const passedCount = verificationResults.filter((r) => r.status === "passed").length;
   const totalCount = verificationResults.length;
