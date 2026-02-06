@@ -1,82 +1,61 @@
 
-
-# Add "Humanness" Scoring Dimension to Quality Analysis
+# Embed Humanness Rules into Content Generation
 
 ## What This Changes
 
-Right now, when you click "Score Content," the system evaluates your article on four dimensions: actionability, specificity, uniqueness, and engagement. None of these specifically ask: *"Does this sound like a human wrote it?"*
+Currently, the humanness checks only run **after** content is generated -- either through the post-generation Quality Analysis scoring panel, or through the 4-stage Human Mode pipeline (Stages 3 and 4). This means the AI first writes in its default style, and then a separate step tries to fix it.
 
-Meanwhile, your app already has a separate rule-based checker (used internally during Human Mode generation) that catches AI patterns like repetitive sentence starters, vague filler phrases, and stiff transitions like "Moreover" and "Furthermore." But those insights never surface in the Quality Analysis panel you see after generation.
-
-This plan combines both approaches - adding a 5th scoring dimension called **"Humanness"** that uses:
-- The existing rule-based pattern detection (hard checks for known AI tells)
-- A new AI prompt layer that evaluates subtler qualities like natural rhythm, conversational flow, and authentic voice
+This plan moves the core humanness writing rules directly into the `generate-content` edge function's system prompt. The AI will follow these rules **while writing** the article, producing more human-sounding content from the very first draft -- regardless of whether Human Mode is toggled on or off.
 
 ## What You Will See
 
-1. A new **"Humanness"** score (0-100) alongside the existing four dimensions in the Quality Analysis grid
-2. The overall score will be weighted to make humanness the **most influential factor** (since that is your top priority)
-3. When you click "Apply Improvements," any humanness issues will be sent as the highest-priority fix instructions
-4. The "Top Strength" and "Critical Fix" will now also consider human-writing quality in their assessment
+- When you hit "Generate Content" (in standard mode), the resulting article will already follow humanness rules: varied sentence lengths, no stiff transitions, no vague filler, conversational tone with contractions and rhetorical questions.
+- No new UI elements or buttons -- this is a prompt-level change that improves the default output quality.
+- The existing Quality Analysis scoring (with the Humanness dimension) and Human Mode pipeline remain available as additional layers if you want even more refinement.
 
-## How The Scoring Works
+## What Rules Get Added to Generation
 
-The humanness dimension will check for:
+The following rules will be appended to the system prompt in the `generate-content` edge function, right after the existing "Content Guidelines" section:
 
-**Hard rules (deterministic - caught every time):**
-- Repetitive sentence starters (e.g., 15%+ of sentences starting with "This is" or "You can")
-- Vague filler phrases per 1,000 words ("various," "numerous," "significant," "can help")
-- AI transition words count ("Moreover," "Furthermore," "Additionally")
-- Sentence length uniformity (standard deviation below 5 = too robotic)
-- Sections missing concrete examples or numbers
+**1. Sentence Rhythm**
+- Mix short punchy sentences (5-8 words), medium sentences (10-15 words), and occasional longer explanations (18-25 words)
+- Never have 3 or more sentences of similar length in a row
 
-**Soft rules (AI-judged nuances):**
-- Does it read like someone talking to a colleague, or like a textbook?
-- Are there personal observations, opinions, or asides?
-- Does the rhythm feel natural - short punchy bits mixed with longer explanations?
-- Are there contractions, rhetorical questions, or colloquial touches?
-- Does it avoid the "AI essay structure" of intro-point-point-point-conclusion?
+**2. Banned AI Phrases**
+- Never use: "Moreover", "Furthermore", "Additionally", "In addition", "Consequently", "Thus", "Hence", "Therefore", "In today's world", "It's important to note", "It goes without saying", "At the end of the day", "In conclusion", "To summarize", "When it comes to", "The reality is"
+- Never use vague descriptors: "various", "numerous", "significant", "substantial", "considerable", "plethora", "myriad"
+- Never use AI buzzwords: "utilize", "leverage", "delve", "embark", "journey", "landscape", "robust", "streamline", "synergy", "paradigm", "holistic", "cutting-edge", "game-changer"
+
+**3. Specificity Over Vagueness**
+- Replace "many people" with specific numbers or groups
+- Replace "significant impact" with measurable outcomes
+- Replace "can help" with exactly how it helps
+- Every claim should have a number, example, or caveat
+
+**4. Conversational Voice**
+- Use contractions naturally (it's, don't, won't, you'll)
+- Include rhetorical questions to engage the reader
+- Add occasional personal observations or asides
+- Write as if explaining to a knowledgeable colleague, not lecturing a student
+
+**5. Anti-Pattern Structure**
+- Do NOT follow the predictable "intro-point-point-point-conclusion" essay structure
+- Vary paragraph lengths (some 1 sentence, some 2-3)
+- Start some sections with a question, others with a bold claim, others with a specific example
+- Include realistic limitations and caveats alongside benefits
+
+**6. British English** (already partially covered but reinforced)
+- Use: optimise, colour, organisation, behaviour, centre, programme
+- Not: optimize, color, organization, behavior, center, program
 
 ---
 
 ## Technical Details
 
-### 1. Update the `score-content-quality` edge function
+### File: `supabase/functions/generate-content/index.ts`
 
-**Add a pre-analysis step** that runs the existing deterministic pattern checks (from the `humanise-quality-gate` logic) before calling the AI. Then pass those metrics into the AI prompt so it has concrete data to work with.
+A new `HUMAN WRITING STYLE` section will be added to the system prompt, inserted between the existing "Content Guidelines" block (ending at line 193) and the knowledge base rules section (starting at line 196). This places it at the end of the core instructions but before any optional/dynamic additions (knowledge base, tone profile, format reference).
 
-Changes to the system prompt:
-- Add a 5th scoring dimension: `humanness` (0-100) with clear rubric
-- Include the rule-based metrics (vague phrase count, transition count, sentence variance) as context for the AI
-- Weight the overall score formula: humanness counts for 30%, the other four share the remaining 70%
-- Update the `topStrength` and `criticalWeakness` prompts to explicitly consider humanness
+The new prompt block will contain all the rules listed above, formatted as clear numbered instructions the model must follow.
 
-New rubric for humanness:
-- 0-30: Reads like a textbook or corporate memo. Uniform structure, no personality
-- 40-60: Competent but detectable as AI. Formal transitions, hedging language
-- 70-85: Mostly natural. Some personality, varied rhythm, few AI tells
-- 86-100: Indistinguishable from an expert human writer. Has voice, opinions, natural flow
-
-### 2. Update the `QualityScoringPanel` component
-
-- Add `humanness` to the `QualityScores` interface alongside the existing four dimensions
-- Add a human-like icon for the new dimension in the score grid
-- Update the "Apply Improvements" logic to prioritise humanness fixes (send them first in the instruction list)
-- Update the overall score display to reflect the new weighted calculation
-
-### 3. Pass rule-based metrics through the pipeline
-
-Inside the edge function, before calling the AI:
-- Run the deterministic checks (reuse the same pattern lists from `humanise-quality-gate`)
-- Include the results as structured context in the user prompt: "This content has X vague phrases, Y AI transitions, Z% repetitive starters, sentence length std dev of N"
-- This gives the AI concrete evidence rather than asking it to guess
-
-### Files Modified
-
-| File | Change |
-|------|--------|
-| `supabase/functions/score-content-quality/index.ts` | Add deterministic pre-analysis, new humanness dimension in prompt, weighted overall score |
-| `src/components/QualityScoringPanel.tsx` | Add humanness to interface, grid, and improvement priority logic |
-
-No other files are changed.
-
+No other files are changed. The existing `humanise-rewrite`, `humanise-quality-gate`, and `score-content-quality` functions remain untouched -- they still serve as additional refinement layers when used.
