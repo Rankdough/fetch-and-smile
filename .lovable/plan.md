@@ -1,239 +1,82 @@
 
-# Plan: Implement Multi-Stage "Human-Like" Content Generation Pipeline
 
-## Overview
+# Add "Humanness" Scoring Dimension to Quality Analysis
 
-Transform the current single-pass content generation into a **4-stage pipeline** that produces more human-like writing by enforcing specific quality traits: clear intent, natural rhythm, concrete specificity, and consistency with your house style.
+## What This Changes
 
-## What I Need From You
+Right now, when you click "Score Content," the system evaluates your article on four dimensions: actionability, specificity, uniqueness, and engagement. None of these specifically ask: *"Does this sound like a human wrote it?"*
 
-Before I begin coding, I need a few things:
+Meanwhile, your app already has a separate rule-based checker (used internally during Human Mode generation) that catches AI patterns like repetitive sentence starters, vague filler phrases, and stiff transitions like "Moreover" and "Furthermore." But those insights never surface in the Quality Analysis panel you see after generation.
 
-1. **Your current system prompt / SEO rules** - The existing knowledge base rules are being loaded, but I'd like to see the full text of your SEO instruction document(s) to incorporate your specific style requirements.
+This plan combines both approaches - adding a 5th scoring dimension called **"Humanness"** that uses:
+- The existing rule-based pattern detection (hard checks for known AI tells)
+- A new AI prompt layer that evaluates subtler qualities like natural rhythm, conversational flow, and authentic voice
 
-2. **Sample of YOUR writing** (optional but helpful) - If you have 1-2 articles you've written manually that represent your ideal style, I can extract patterns from them.
+## What You Will See
 
-3. **List of banned words/phrases** - Beyond em dashes, what other AI-isms do you want to flag? (e.g., "In today's world", "It's important to note", "various", "numerous", "in conclusion", "Moreover", "Additionally")
+1. A new **"Humanness"** score (0-100) alongside the existing four dimensions in the Quality Analysis grid
+2. The overall score will be weighted to make humanness the **most influential factor** (since that is your top priority)
+3. When you click "Apply Improvements," any humanness issues will be sent as the highest-priority fix instructions
+4. The "Top Strength" and "Critical Fix" will now also consider human-writing quality in their assessment
 
-## Architecture: The 4-Stage Pipeline
+## How The Scoring Works
 
-```text
-+------------------+     +---------------------+     +-------------------+     +------------------+
-|  STAGE 1: BRIEF  | --> | STAGE 2: SECTIONS   | --> | STAGE 3: HUMANISE | --> | STAGE 4: GATE    |
-|  (Structure Plan)|     | (Atomic Writing)    |     | (Style Rewrite)   |     | (Quality Check)  |
-+------------------+     +---------------------+     +-------------------+     +------------------+
-        |                         |                         |                        |
-   Creates outline           Writes each H2             Applies cadence          Scores for AI
-   with purpose per          section separately         rules, removes           artefacts, fails
-   section                   with specific goals        generic patterns         if score < threshold
-```
+The humanness dimension will check for:
 
-### Stage 1: CREATE_BRIEF
+**Hard rules (deterministic - caught every time):**
+- Repetitive sentence starters (e.g., 15%+ of sentences starting with "This is" or "You can")
+- Vague filler phrases per 1,000 words ("various," "numerous," "significant," "can help")
+- AI transition words count ("Moreover," "Furthermore," "Additionally")
+- Sentence length uniformity (standard deviation below 5 = too robotic)
+- Sections missing concrete examples or numbers
 
-**Purpose**: Forces the AI to plan BEFORE writing, preventing the "meandering AI essay" problem.
-
-**Input**: Topic, value promise, gap analysis, context files, unique angles
-
-**Output** (structured JSON):
-```json
-{
-  "audience": "UK adults considering cosmetic dentistry",
-  "intent": "Help reader decide between bonding vs veneers",
-  "angle": "Focus on reversibility and long-term cost, not just upfront price",
-  "keyClaims": [
-    { "claim": "Bonding lasts 5-8 years", "source": "context-file-1.pdf" },
-    { "claim": "Veneers are permanent", "source": "NHS guidelines" }
-  ],
-  "sections": [
-    { "h2": "What is Composite Bonding?", "purpose": "Define the procedure and set expectations", "mustInclude": ["single visit", "no anesthesia", "reversible"] },
-    { "h2": "Cost Breakdown", "purpose": "Give exact UK prices so reader can budget", "mustInclude": ["per-tooth pricing", "NHS vs private"] }
-  ]
-}
-```
-
-**Why this helps**: The model can't ramble if it has a checklist per section.
+**Soft rules (AI-judged nuances):**
+- Does it read like someone talking to a colleague, or like a textbook?
+- Are there personal observations, opinions, or asides?
+- Does the rhythm feel natural - short punchy bits mixed with longer explanations?
+- Are there contractions, rhetorical questions, or colloquial touches?
+- Does it avoid the "AI essay structure" of intro-point-point-point-conclusion?
 
 ---
 
-### Stage 2: WRITE_SECTIONS (Atomic)
+## Technical Details
 
-**Purpose**: Write each H2/H3 as a standalone 100-300 word block, following its purpose from the brief.
+### 1. Update the `score-content-quality` edge function
 
-**Rules per section**:
-- First sentence = direct answer (no lead-in)
-- 2-4 supporting facts
-- 1 concrete example (scenario, numbers, brand, tool)
-- 1 caveat ("works best when...", "avoid if...")
+**Add a pre-analysis step** that runs the existing deterministic pattern checks (from the `humanise-quality-gate` logic) before calling the AI. Then pass those metrics into the AI prompt so it has concrete data to work with.
 
-**Why this helps**: Removes the repetitive "LLM essay voice" that comes from generating 2000+ words in one go.
+Changes to the system prompt:
+- Add a 5th scoring dimension: `humanness` (0-100) with clear rubric
+- Include the rule-based metrics (vague phrase count, transition count, sentence variance) as context for the AI
+- Weight the overall score formula: humanness counts for 30%, the other four share the remaining 70%
+- Update the `topStrength` and `criticalWeakness` prompts to explicitly consider humanness
 
----
+New rubric for humanness:
+- 0-30: Reads like a textbook or corporate memo. Uniform structure, no personality
+- 40-60: Competent but detectable as AI. Formal transitions, hedging language
+- 70-85: Mostly natural. Some personality, varied rhythm, few AI tells
+- 86-100: Indistinguishable from an expert human writer. Has voice, opinions, natural flow
 
-### Stage 3: HUMANISE_REWRITE
+### 2. Update the `QualityScoringPanel` component
 
-**Purpose**: Apply specific style transformations that break AI patterns.
+- Add `humanness` to the `QualityScores` interface alongside the existing four dimensions
+- Add a human-like icon for the new dimension in the score grid
+- Update the "Apply Improvements" logic to prioritise humanness fixes (send them first in the instruction list)
+- Update the overall score display to reflect the new weighted calculation
 
-**Transformation rules**:
-| Rule | Before (AI) | After (Human) |
-|------|-------------|---------------|
-| Vary sentence length | All 15-20 words | Mix of 5, 12, 22 words |
-| Kill generic openers | "In today's world..." | "Most people assume..." |
-| Add constraints | "This is good" | "This works if you have X. Avoid if Y." |
-| Remove over-signposting | "Additionally, moreover, furthermore" | Direct statements |
-| British English | "optimize, color" | "optimise, colour" |
-| No em dashes | "this - like so - works" | "this, like so, works" |
+### 3. Pass rule-based metrics through the pipeline
 
-**Implementation**: A single AI call that receives the draft + your style rules + a checklist, outputs revised draft + "changes made" log.
+Inside the edge function, before calling the AI:
+- Run the deterministic checks (reuse the same pattern lists from `humanise-quality-gate`)
+- Include the results as structured context in the user prompt: "This content has X vague phrases, Y AI transitions, Z% repetitive starters, sentence length std dev of N"
+- This gives the AI concrete evidence rather than asking it to guess
 
----
+### Files Modified
 
-### Stage 4: QUALITY_GATE
+| File | Change |
+|------|--------|
+| `supabase/functions/score-content-quality/index.ts` | Add deterministic pre-analysis, new humanness dimension in prompt, weighted overall score |
+| `src/components/QualityScoringPanel.tsx` | Add humanness to interface, grid, and improvement priority logic |
 
-**Purpose**: Objective rejection criteria - fails the draft if it reads too "AI".
-
-**Checks**:
-| Check | Threshold | Action if Failed |
-|-------|-----------|------------------|
-| % sentences starting with same pattern | < 15% | Send back to Stage 3 |
-| Count of vague phrases | < 5 per 1000 words | Highlight and fix |
-| Paragraph length uniformity | Variance > 2 sentences | Rebalance |
-| Specific examples per section | >= 1 | Add example |
-| Numbers/data per section | >= 1 | Add stat |
-
-**Output**:
-```json
-{
-  "score": 72,
-  "passed": false,
-  "issues": [
-    { "type": "repetitive_opener", "count": 8, "fix": "Vary sentence starters" },
-    { "type": "missing_example", "sections": ["Cost Breakdown"], "fix": "Add specific UK clinic price" }
-  ]
-}
-```
-
-**Why this helps**: The existing "Quality Scoring Panel" does this AFTER generation. Moving it INTO the pipeline means bad drafts never reach you.
-
----
-
-## Implementation Details
-
-### New Edge Functions to Create
-
-| Function | Purpose | Credits Est. |
-|----------|---------|--------------|
-| `humanise-create-brief` | Stage 1: Generate structured brief | ~2 |
-| `humanise-write-section` | Stage 2: Write single section | ~1 per section |
-| `humanise-rewrite` | Stage 3: Apply style transformations | ~3 |
-| `humanise-quality-gate` | Stage 4: Score and validate | ~2 |
-
-### Modifications to `generate-content/index.ts`
-
-Replace single AI call with orchestrated pipeline:
-
-```typescript
-// Stage 1: Create brief
-const brief = await createBrief({ topic, valuePromise, gapAnalysis, contextFiles, uniqueAngles });
-
-// Stage 2: Write sections atomically
-const sections = [];
-for (const section of brief.sections) {
-  const content = await writeSection({ section, brief, toneProfile });
-  sections.push(content);
-}
-
-// Assemble draft
-let draft = assembleDraft(sections, brief);
-
-// Stage 3: Humanise rewrite
-draft = await humaniseRewrite({ draft, styleRules: knowledgeRules, bannedPhrases });
-
-// Stage 4: Quality gate (with retry loop)
-let attempts = 0;
-let gateResult = await qualityGate({ draft, valuePromise });
-
-while (!gateResult.passed && attempts < 2) {
-  draft = await humaniseRewrite({ draft, issues: gateResult.issues });
-  gateResult = await qualityGate({ draft, valuePromise });
-  attempts++;
-}
-
-return draft;
-```
-
-### UI Changes to `src/pages/Index.tsx`
-
-1. **Progress indicator**: Show which stage is running during generation
-2. **Pipeline toggle**: Option to use "Quick" (current single-pass) vs "Human" (4-stage) mode
-3. **Stage visibility**: Optional advanced view showing brief, section drafts, rewrite log
-
-### New UI Component: Generation Progress
-
-```text
-+------------------------------------------+
-|  Generating Human-Like Content           |
-|  [=====>                    ] 35%        |
-|                                          |
-|  [x] Stage 1: Brief created              |
-|  [x] Stage 2: Section 1/5 written        |
-|  [ ] Stage 2: Section 2/5 writing...     |
-|  [ ] Stage 3: Style rewrite              |
-|  [ ] Stage 4: Quality gate               |
-+------------------------------------------+
-```
-
----
-
-## Credit Estimation
-
-| Mode | Stages | Est. Credits | Time |
-|------|--------|--------------|------|
-| Quick (current) | 1 | ~4-6 | 10-15s |
-| Human (4-stage) | 4-6 calls | ~12-18 | 30-45s |
-
-The "Human" mode costs ~3x more but should produce significantly better first drafts, reducing manual editing time.
-
----
-
-## Files to Create/Modify
-
-| File | Action | Description |
-|------|--------|-------------|
-| `supabase/functions/humanise-create-brief/index.ts` | Create | Stage 1 edge function |
-| `supabase/functions/humanise-write-section/index.ts` | Create | Stage 2 edge function |
-| `supabase/functions/humanise-rewrite/index.ts` | Create | Stage 3 edge function |
-| `supabase/functions/humanise-quality-gate/index.ts` | Create | Stage 4 edge function |
-| `supabase/functions/generate-content/index.ts` | Modify | Add pipeline orchestration mode |
-| `src/pages/Index.tsx` | Modify | Add toggle, progress indicator |
-| `src/components/GenerationProgress.tsx` | Create | Real-time stage progress |
-| `src/hooks/useCreditTracking.ts` | Modify | Add estimates for new stages |
-| `supabase/config.toml` | Modify | Register new functions |
-
----
-
-## Questions Before Implementation
-
-1. **Banned words list**: Can you provide your full list of phrases to detect/remove?
-
-2. **British English enforcement**: Should I auto-convert American spellings? (e.g., "optimize" -> "optimise")
-
-3. **Retry behavior**: If the quality gate fails twice, should I:
-   - (A) Return the best draft with warnings, or
-   - (B) Fail completely and ask you to adjust inputs?
-
-4. **Credit budget**: Is ~15 credits per article acceptable for higher quality output?
-
-5. **Speed priority**: Would you prefer:
-   - (A) Parallel section writing (faster, but uses more concurrent API calls), or
-   - (B) Sequential writing (slower, but more predictable credit usage)?
-
----
-
-## Expected Outcomes
-
-After implementation:
-- **70-80% reduction in AI-isms** (repetitive openers, vague claims, uniform structure)
-- **Every section has a specific purpose** (no filler paragraphs)
-- **Measurable quality scores** built into generation, not just post-hoc
-- **Consistent house style** enforced automatically
+No other files are changed.
 
