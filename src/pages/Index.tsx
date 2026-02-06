@@ -43,6 +43,7 @@ import { KnowledgeBasePanel } from "@/components/KnowledgeBasePanel";
 import { VoiceEditAgent } from "@/components/VoiceEditAgent";
 import { ToneProfilePanel } from "@/components/ToneProfilePanel";
 import { UniqueAnglesPanel } from "@/components/UniqueAnglesPanel";
+import { GapAnalysisSelector } from "@/components/GapAnalysisSelector";
 import { QualityScoringPanel } from "@/components/QualityScoringPanel";
 import { Switch } from "@/components/ui/switch";
 import { ArticleNavigationPanel, extractNavigationFromContent, generateNavigationHtml } from "@/components/ArticleNavigationPanel";
@@ -437,6 +438,10 @@ const Index = () => {
     const saved = localStorage.getItem("seo-generator-selectedAngles");
     return saved ? JSON.parse(saved) : [];
   });
+  const [selectedGapInsights, setSelectedGapInsights] = useState<string[]>(() => {
+    const saved = localStorage.getItem("seo-generator-selectedGapInsights");
+    return saved ? JSON.parse(saved) : [];
+  });
   const [articleImages, setArticleImages] = useState<ArticleImage[]>(() => {
     const saved = localStorage.getItem("seo-generator-articleImages");
     return saved ? JSON.parse(saved) : [];
@@ -545,6 +550,10 @@ const Index = () => {
     localStorage.setItem("seo-generator-selectedAngles", JSON.stringify(selectedAngles));
   }, [selectedAngles]);
 
+  useEffect(() => {
+    localStorage.setItem("seo-generator-selectedGapInsights", JSON.stringify(selectedGapInsights));
+  }, [selectedGapInsights]);
+
   // Persist color palette selection
   useEffect(() => {
     if (selectedColorPalette) {
@@ -598,6 +607,8 @@ const Index = () => {
     const topKeywords = keywords.slice(0, 5);
     const hasValuePromise = valuePromise.trim().length > 0;
     const hasSelectedAngles = selectedAngles.length > 0;
+    const hasSelectedGapInsights = selectedGapInsights.length > 0;
+    const totalAngles = selectedAngles.length + selectedGapInsights.length;
 
     return [
       {
@@ -616,10 +627,10 @@ const Index = () => {
       },
       {
         id: "unique-angles",
-        label: hasSelectedAngles 
-          ? `Unique angles selected: ${selectedAngles.length}`
-          : "Unique angles selected (differentiates from competitors)",
-        completed: hasSelectedAngles,
+        label: totalAngles > 0
+          ? `Angles selected: ${totalAngles} (${hasSelectedGapInsights ? `${selectedGapInsights.length} from gaps` : ""}${hasSelectedGapInsights && hasSelectedAngles ? " + " : ""}${hasSelectedAngles ? `${selectedAngles.length} unique` : ""})`
+          : "Angles selected (from gap analysis or unique angles)",
+        completed: totalAngles > 0,
         required: false,
       },
       {
@@ -662,7 +673,7 @@ const Index = () => {
         required: true,
       },
     ];
-  }, [competitorUrls, gapAnalysis, formatReference, contextFiles, formData.topic, formData.length, keywords, valuePromise, selectedAngles]);
+  }, [competitorUrls, gapAnalysis, formatReference, contextFiles, formData.topic, formData.length, keywords, valuePromise, selectedAngles, selectedGapInsights]);
 
   const handleAnalyzeUrls = async () => {
     const validUrls = competitorUrls.filter((url) => url.trim());
@@ -845,7 +856,7 @@ const Index = () => {
         valuePromise: valuePromise || undefined,
         gapAnalysis: gapAnalysis || undefined,
         contextFiles: contextFiles.length > 0 ? contextFiles : undefined,
-        uniqueAngles: selectedAngles.length > 0 ? selectedAngles : undefined,
+        uniqueAngles: [...selectedGapInsights, ...selectedAngles].length > 0 ? [...selectedGapInsights, ...selectedAngles] : undefined,
         targetWords,
         keywords: keywords.length > 0 ? keywords.slice(0, 5) : undefined,
       },
@@ -1110,8 +1121,9 @@ const Index = () => {
           enhancedInstructions += `\n\nVALUE PROMISE - The reader MUST be able to: ${valuePromise}. Ensure every section helps achieve this outcome.`;
         }
         
-        if (selectedAngles.length > 0) {
-          enhancedInstructions += `\n\nUNIQUE ANGLES TO INCORPORATE:\n${selectedAngles.map((a, i) => `${i + 1}. ${a}`).join("\n")}\n\nUse these angles to differentiate this content from competitors.`;
+        const allAngles = [...selectedGapInsights, ...selectedAngles];
+        if (allAngles.length > 0) {
+          enhancedInstructions += `\n\nUNIQUE ANGLES TO INCORPORATE:\n${allAngles.map((a, i) => `${i + 1}. ${a}`).join("\n")}\n\nUse these angles to differentiate this content from competitors.`;
         }
 
         const { data, error } = await supabase.functions.invoke("generate-content", {
@@ -1186,6 +1198,7 @@ const Index = () => {
     setSelectedToneProfileId(null);
     setValuePromise("");
     setSelectedAngles([]);
+    setSelectedGapInsights([]);
     setArticleImages([]);
     
     // Clear settings from localStorage (keep content)
@@ -1201,6 +1214,7 @@ const Index = () => {
     localStorage.removeItem("seo-generator-toneProfileId");
     localStorage.removeItem("seo-generator-valuePromise");
     localStorage.removeItem("seo-generator-selectedAngles");
+    localStorage.removeItem("seo-generator-selectedGapInsights");
     localStorage.removeItem("seo-generator-articleImages");
     
     toast({
@@ -1251,6 +1265,7 @@ const Index = () => {
     setSelectedToneProfileId(null);
     setValuePromise("");
     setSelectedAngles([]);
+    setSelectedGapInsights([]);
     setArticleImages([]);
     
     // Clear localStorage
@@ -1266,6 +1281,7 @@ const Index = () => {
     localStorage.removeItem("seo-generator-toneProfileId");
     localStorage.removeItem("seo-generator-valuePromise");
     localStorage.removeItem("seo-generator-selectedAngles");
+    localStorage.removeItem("seo-generator-selectedGapInsights");
     localStorage.removeItem("seo-generator-articleImages");
     localStorage.removeItem("seo-generator-generatedContent");
     localStorage.removeItem("seo-generator-appliedRules");
@@ -2452,25 +2468,18 @@ const Index = () => {
                     onChange={(e) => setValuePromise(e.target.value)}
                   />
                   <div className="absolute right-1 bottom-1 flex gap-1">
-                    {(gapAnalysis.trim() || selectedAngles.length > 0) && (
+                    {(gapAnalysis.trim() || selectedAngles.length > 0 || selectedGapInsights.length > 0) && (
                       <Button
                         type="button"
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8 text-amber-500 hover:text-amber-600 hover:bg-amber-500/10"
                         onClick={() => {
-                          // Synthesize value promise from gap analysis and angles
                           let synthesis = "";
+                          const allAngles = [...selectedGapInsights, ...selectedAngles];
                           
-                          if (selectedAngles.length > 0) {
-                            synthesis = `After reading this article, readers will understand ${selectedAngles.slice(0, 2).join(" and ").toLowerCase()}`;
-                            if (gapAnalysis.trim()) {
-                              // Extract key insight from gap analysis (first line or first sentence)
-                              const gapInsight = gapAnalysis.split('\n')[0].replace(/^[-•*]\s*/, '').trim();
-                              if (gapInsight) {
-                                synthesis += `, gaining insights that competitors miss: ${gapInsight.toLowerCase()}`;
-                              }
-                            }
+                          if (allAngles.length > 0) {
+                            synthesis = `After reading this article, readers will understand ${allAngles.slice(0, 3).join(", ").toLowerCase()}`;
                             synthesis += ".";
                           } else if (gapAnalysis.trim()) {
                             const lines = gapAnalysis.split('\n').filter(l => l.trim()).slice(0, 3);
@@ -2484,7 +2493,7 @@ const Index = () => {
                             setValuePromise(synthesis);
                             toast({
                               title: "Value promise generated",
-                              description: "Based on your gap analysis and selected angles",
+                              description: "Based on your selected gap insights and angles",
                             });
                           }
                         }}
@@ -2515,7 +2524,7 @@ const Index = () => {
                     🎙️ Listening... speak now
                   </p>
                 )}
-                {(gapAnalysis.trim() || selectedAngles.length > 0) && !valuePromise.trim() && (
+                {(gapAnalysis.trim() || selectedAngles.length > 0 || selectedGapInsights.length > 0) && !valuePromise.trim() && (
                   <p className="text-xs text-amber-600 flex items-center gap-1">
                     <Wand2 className="h-3 w-3" />
                     Tip: Click the wand icon to auto-fill based on your analysis
@@ -2579,12 +2588,11 @@ const Index = () => {
                   )}
                 </Button>
                 {gapAnalysis && (
-                  <div className="rounded-md bg-muted p-3 text-sm">
-                    <p className="font-medium mb-2">Gap Analysis Results:</p>
-                    <div className="prose prose-sm dark:prose-invert max-w-none">
-                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{gapAnalysis}</ReactMarkdown>
-                    </div>
-                  </div>
+                  <GapAnalysisSelector
+                    gapAnalysis={gapAnalysis}
+                    selectedInsights={selectedGapInsights}
+                    onInsightsChange={setSelectedGapInsights}
+                  />
                 )}
                 
                 {/* Unique Angles Panel */}
