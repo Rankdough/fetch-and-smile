@@ -224,7 +224,13 @@ HUMAN WRITING STYLE (apply to ALL content):
 
 6. BRITISH ENGLISH:
    - Use: optimise, colour, organisation, behaviour, centre, programme
-   - Not: optimize, color, organization, behavior, center, program`;
+   - Not: optimize, color, organization, behavior, center, program
+
+7. EXPERT QUOTE:
+   - Include at least one quote from a real, named expert or professional relevant to the topic
+   - Format as a blockquote with attribution: > "Quote text" - Name, Title/Role
+   - The person and quote should be real and verifiable, not fabricated
+   - Place the quote where it adds credibility or a human perspective to the discussion`;
 
     // Add knowledge base rules to the prompt
     if (knowledgeRules.length > 0) {
