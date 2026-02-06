@@ -2400,61 +2400,64 @@ const Index = () => {
               variant="outline"
               size="default"
               onClick={async () => {
-                // If a tone profile is selected, generate content with that tone
-                if (selectedToneProfileId) {
-                  setIsGenerating(true);
-                  setGeneratedContent("");
-                  try {
-                    const { data, error } = await supabase.functions.invoke("generate-content", {
-                      body: {
-                        topic: "Composite Bonding vs Veneers: Which Smile Transformation is Right for You?",
-                        length: "long",
-                        outline: "",
-                        instructions: "Compare composite bonding and veneers for cosmetic dental treatments. Include pros and cons, costs, and who each option is best for.",
-                        generateCTAs: !!ctaUrl.trim(),
-                        useKnowledgeBase: useKnowledgeBase,
-                        toneProfileId: selectedToneProfileId,
-                      },
-                    });
-                    if (error) throw error;
-                    setGeneratedContent(data.content, true);
-                    setAppliedRules(data.appliedRules || null);
-                    if (data.ctas) {
-                      setGeneratedCTAs(data.ctas);
-                    }
-                    toast({
-                      title: "Sample generated with tone!",
-                      description: "The sample article uses your selected tone profile.",
-                    });
-                  } catch (error) {
-                    console.error("Generation error:", error);
-                    toast({
-                      title: "Generation failed",
-                      description: error instanceof Error ? error.message : "Failed to generate content",
-                      variant: "destructive",
-                    });
-                  } finally {
-                    setIsGenerating(false);
+                // Always generate through AI to pull in all current settings
+                setIsGenerating(true);
+                setGeneratedContent("");
+                try {
+                  // Use the user's topic if set, otherwise fall back to sample topic
+                  const sampleTopic = formData.topic.trim() || "Composite Bonding vs Veneers: Which Smile Transformation is Right for You?";
+                  
+                  // Build enhanced instructions from all settings
+                  let enhancedInstructions = formData.instructions || "";
+                  if (!formData.topic.trim()) {
+                    enhancedInstructions += "\nCompare composite bonding and veneers for cosmetic dental treatments. Include pros and cons, costs, and who each option is best for.";
                   }
-                } else {
-                  // No tone profile - load static sample
-                  setGeneratedContent(SAMPLE_CONTENT, true);
-                  if (ctaUrl.trim()) {
-                    setGeneratedCTAs({
-                      middle: {
-                        headline: "TRANSFORM YOUR SMILE TODAY!",
-                        description: "Get expert advice on the best cosmetic dental treatment for your needs.",
-                        buttonText: "Book Consultation"
-                      },
-                      end: {
-                        headline: "READY FOR YOUR DREAM SMILE?",
-                        description: "Limited time offer - Free consultation with our cosmetic dentistry experts.",
-                        buttonText: "Get Started Now"
-                      }
-                    });
+                  
+                  if (valuePromise.trim()) {
+                    enhancedInstructions += `\n\nVALUE PROMISE - The reader MUST be able to: ${valuePromise}. Ensure every section helps achieve this outcome.`;
+                  }
+                  
+                  const allAngles = [...selectedGapInsights, ...selectedAngles];
+                  if (allAngles.length > 0) {
+                    enhancedInstructions += `\n\nUNIQUE ANGLES TO INCORPORATE:\n${allAngles.map((a, i) => `${i + 1}. ${a}`).join("\n")}\n\nUse these angles to differentiate this content.`;
+                  }
+
+                  const { data, error } = await supabase.functions.invoke("generate-content", {
+                    body: {
+                      topic: sampleTopic,
+                      length: formData.length || "long",
+                      outline: formData.outline || "",
+                      instructions: enhancedInstructions,
+                      keywords: keywords.length > 0 ? keywords.slice(0, 5) : undefined,
+                      gapAnalysis: gapAnalysis || undefined,
+                      formatReference: formatReference || undefined,
+                      contextFiles: contextFiles.length > 0 ? contextFiles : undefined,
+                      generateCTAs: !!ctaUrl.trim(),
+                      useKnowledgeBase: useKnowledgeBase,
+                      toneProfileId: selectedToneProfileId || undefined,
+                    },
+                  });
+                  if (error) throw error;
+                  setGeneratedContent(data.content, true);
+                  setAppliedRules(data.appliedRules || null);
+                  if (data.ctas) {
+                    setGeneratedCTAs(data.ctas);
                   } else {
                     setGeneratedCTAs(null);
                   }
+                  toast({
+                    title: "Sample generated!",
+                    description: "Generated with all current settings applied.",
+                  });
+                } catch (error) {
+                  console.error("Generation error:", error);
+                  toast({
+                    title: "Generation failed",
+                    description: error instanceof Error ? error.message : "Failed to generate content",
+                    variant: "destructive",
+                  });
+                } finally {
+                  setIsGenerating(false);
                 }
               }}
               disabled={isGenerating}
@@ -2462,12 +2465,7 @@ const Index = () => {
               {isGenerating ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Loading...
-                </>
-              ) : selectedToneProfileId ? (
-                <>
-                  <Mic2 className="h-4 w-4 mr-2" />
-                  Load Sample with Tone
+                  Generating...
                 </>
               ) : (
                 <>
