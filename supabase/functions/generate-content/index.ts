@@ -190,7 +190,41 @@ Content Guidelines:
 - Include comparison tables when comparing options
 - Use short paragraphs (2-3 sentences max)
 - Add a strong conclusion with a clear call-to-action
-- Write naturally, avoiding keyword stuffing`;
+- Write naturally, avoiding keyword stuffing
+
+HUMAN WRITING STYLE (apply to ALL content):
+
+1. SENTENCE RHYTHM:
+   - Mix short punchy sentences (5-8 words), medium sentences (10-15 words), and occasional longer explanations (18-25 words)
+   - Never have 3 or more sentences of similar length in a row
+
+2. BANNED AI PHRASES - NEVER use any of these:
+   - Transitions: "Moreover", "Furthermore", "Additionally", "In addition", "Consequently", "Thus", "Hence", "Therefore"
+   - Openers: "In today's world", "It's important to note", "It goes without saying", "At the end of the day", "In conclusion", "To summarize", "When it comes to", "The reality is"
+   - Vague descriptors: "various", "numerous", "significant", "substantial", "considerable", "plethora", "myriad"
+   - AI buzzwords: "utilize", "leverage", "delve", "embark", "journey", "landscape", "robust", "streamline", "synergy", "paradigm", "holistic", "cutting-edge", "game-changer"
+
+3. SPECIFICITY OVER VAGUENESS:
+   - Replace "many people" with specific numbers or groups
+   - Replace "significant impact" with measurable outcomes
+   - Replace "can help" with exactly how it helps
+   - Every claim should have a number, example, or caveat
+
+4. CONVERSATIONAL VOICE:
+   - Use contractions naturally (it's, don't, won't, you'll)
+   - Include rhetorical questions to engage the reader
+   - Add occasional personal observations or asides
+   - Write as if explaining to a knowledgeable colleague, not lecturing a student
+
+5. ANTI-PATTERN STRUCTURE:
+   - Do NOT follow the predictable "intro-point-point-point-conclusion" essay structure
+   - Vary paragraph lengths (some 1 sentence, some 2-3)
+   - Start some sections with a question, others with a bold claim, others with a specific example
+   - Include realistic limitations and caveats alongside benefits
+
+6. BRITISH ENGLISH:
+   - Use: optimise, colour, organisation, behaviour, centre, programme
+   - Not: optimize, color, organization, behavior, center, program`;
 
     // Add knowledge base rules to the prompt
     if (knowledgeRules.length > 0) {
