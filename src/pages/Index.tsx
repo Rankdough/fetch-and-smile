@@ -1331,9 +1331,9 @@ const Index = () => {
       let ctaConfig = null;
       if (ctaUrl.trim()) {
         ctaConfig = {
-          headline: "Want to Learn More?",
-          description: "Get expert guidance and personalized recommendations.",
-          buttonText: "Get Started",
+          headline: "",
+          description: "",
+          buttonText: "",
           buttonUrl: ctaUrl,
         };
       }
@@ -1469,13 +1469,13 @@ const Index = () => {
       if (!hasFaq) updateStep('faq', 'generating', 'Generating FAQ...');
       if (hasCtaUrl) updateStep('ctas', 'generating', 'Inserting CTA banners...');
 
-      // Prepare CTA config if URL is set
+      // Prepare CTA config if URL is set - text will be generated contextually by AI
       let ctaConfig = null;
       if (ctaUrl.trim()) {
         ctaConfig = {
-          headline: "Want to Learn More?",
-          description: "Get expert guidance and personalized recommendations.",
-          buttonText: "Get Started",
+          headline: "",
+          description: "",
+          buttonText: "",
           buttonUrl: ctaUrl,
         };
       }
