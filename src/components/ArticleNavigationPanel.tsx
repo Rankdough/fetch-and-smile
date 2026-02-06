@@ -42,10 +42,20 @@ export const ArticleNavigationPanel = ({
       return;
     }
     
-    // Find the scrollable container - look for CardContent with overflow-auto or the main scroll area
-    const scrollContainer = element.closest('.overflow-auto') || 
-                           element.closest('[class*="overflow-y-auto"]') ||
-                           element.closest('[data-radix-scroll-area-viewport]');
+    // Walk up the DOM to find any scrollable ancestor
+    const findScrollableParent = (el: HTMLElement | null): HTMLElement | null => {
+      while (el && el !== document.documentElement) {
+        const style = window.getComputedStyle(el);
+        const overflowY = style.overflowY;
+        if ((overflowY === 'auto' || overflowY === 'scroll') && el.scrollHeight > el.clientHeight) {
+          return el;
+        }
+        el = el.parentElement;
+      }
+      return null;
+    };
+
+    const scrollContainer = findScrollableParent(element);
     
     if (scrollContainer) {
       const containerRect = scrollContainer.getBoundingClientRect();
@@ -59,9 +69,9 @@ export const ArticleNavigationPanel = ({
   };
 
   return (
-    <div className="rounded-lg border bg-muted/30 p-4 space-y-3">
-      <div className="flex items-center justify-between">
-        <h4 className="text-sm font-medium flex items-center gap-2">
+    <div className="rounded-lg border bg-muted/30 p-3 sm:p-4 space-y-2 sm:space-y-3">
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <h4 className="text-xs sm:text-sm font-medium flex items-center gap-2">
           <span className="flex items-center justify-center w-5 h-5 rounded-full bg-primary text-primary-foreground text-xs font-bold">
             #
           </span>
@@ -102,7 +112,7 @@ export const ArticleNavigationPanel = ({
             <button 
               type="button"
               className={cn(
-                "flex items-center gap-3 px-3 py-3 w-full text-left transition-colors",
+                "flex items-center gap-2 sm:gap-3 px-2 sm:px-3 py-2.5 sm:py-3 w-full text-left transition-colors",
                 item.isHighlighted 
                   ? "hover:bg-primary/90" 
                   : "hover:bg-muted/50"
@@ -118,7 +128,7 @@ export const ArticleNavigationPanel = ({
                 {item.number}
               </div>
               <span className={cn(
-                "flex-1 text-sm font-semibold",
+                "flex-1 text-xs sm:text-sm font-semibold leading-tight",
                 item.isHighlighted ? "text-primary-foreground" : "text-foreground"
               )}>
                 {item.title}
@@ -139,11 +149,11 @@ export const ArticleNavigationPanel = ({
               expandedItem === index ? "max-h-48 opacity-100" : "max-h-0 opacity-0"
             )}>
               <div className={cn(
-                "px-3 pb-3 pl-12 space-y-2",
+                "px-2 sm:px-3 pb-3 pl-10 sm:pl-12 space-y-2",
                 item.isHighlighted ? "text-primary-foreground/80" : ""
               )}>
                 <p className={cn(
-                  "text-sm leading-relaxed",
+                  "text-xs sm:text-sm leading-relaxed",
                   item.isHighlighted ? "text-primary-foreground/80" : "text-muted-foreground"
                 )}>
                   {item.description.replace(/\.{3}$/, '')} {item.detailedDescription}
