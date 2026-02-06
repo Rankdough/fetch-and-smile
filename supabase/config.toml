@@ -30,6 +30,9 @@ verify_jwt = false
 [functions.humanise-write-section]
 verify_jwt = false
 
+[functions.insert-internal-links]
+verify_jwt = false
+
 [functions.parse-context-file]
 verify_jwt = false
 

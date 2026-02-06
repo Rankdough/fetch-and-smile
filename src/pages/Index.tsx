@@ -446,6 +446,11 @@ const Index = () => {
     const saved = localStorage.getItem("seo-generator-articleImages");
     return saved ? JSON.parse(saved) : [];
   });
+  const [internalLinks, setInternalLinks] = useState<string[]>(() => {
+    const saved = localStorage.getItem("seo-generator-internalLinks");
+    return saved ? JSON.parse(saved) : [""];
+  });
+  const [isInsertingLinks, setIsInsertingLinks] = useState(false);
   const [isPreviewFullscreen, setIsPreviewFullscreen] = useState(false);
   const [isDraggingImage, setIsDraggingImage] = useState(false);
   const [dropTargetElement, setDropTargetElement] = useState<HTMLElement | null>(null);
@@ -567,6 +572,11 @@ const Index = () => {
   useEffect(() => {
     localStorage.setItem("seo-generator-articleImages", JSON.stringify(articleImages));
   }, [articleImages]);
+
+  // Persist internal links
+  useEffect(() => {
+    localStorage.setItem("seo-generator-internalLinks", JSON.stringify(internalLinks));
+  }, [internalLinks]);
 
   // Persist human mode preference
   useEffect(() => {
@@ -1200,9 +1210,11 @@ const Index = () => {
     setSelectedAngles([]);
     setSelectedGapInsights([]);
     setArticleImages([]);
+    setInternalLinks([""]);
     
     // Clear settings from localStorage (keep content)
     localStorage.removeItem("seo-generator-formData");
+    localStorage.removeItem("seo-generator-internalLinks");
     localStorage.removeItem("seo-generator-competitorUrls");
     localStorage.removeItem("seo-generator-formatUrl");
     localStorage.removeItem("seo-generator-formatReference");
@@ -1267,9 +1279,11 @@ const Index = () => {
     setSelectedAngles([]);
     setSelectedGapInsights([]);
     setArticleImages([]);
+    setInternalLinks([""]);
     
     // Clear localStorage
     localStorage.removeItem("seo-generator-formData");
+    localStorage.removeItem("seo-generator-internalLinks");
     localStorage.removeItem("seo-generator-competitorUrls");
     localStorage.removeItem("seo-generator-formatUrl");
     localStorage.removeItem("seo-generator-formatReference");
@@ -1587,6 +1601,49 @@ const Index = () => {
       });
     } finally {
       setIsApplyingFormat(false);
+    }
+  };
+
+  // Insert internal links contextually into existing content
+  const handleInsertInternalLinks = async () => {
+    const validUrls = internalLinks.filter((url) => url.trim());
+    if (!generatedContent.trim() || validUrls.length === 0) {
+      toast({
+        title: "Cannot insert links",
+        description: "You need both content and at least one URL.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsInsertingLinks(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("insert-internal-links", {
+        body: {
+          content: generatedContent,
+          urls: validUrls,
+        },
+      });
+
+      if (error) throw error;
+      if (data.error) throw new Error(data.error);
+
+      setGeneratedContent(data.content);
+
+      const skipped = data.skippedUrls?.length || 0;
+      toast({
+        title: "Internal links inserted!",
+        description: `${data.insertedCount}/${data.totalProvided} links placed contextually.${skipped > 0 ? ` ${skipped} skipped (no matching context).` : ""}`,
+      });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to insert internal links";
+      toast({
+        title: "Link insertion failed",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    } finally {
+      setIsInsertingLinks(false);
     }
   };
 
@@ -3033,9 +3090,82 @@ const Index = () => {
                 )}
               </CollapsibleSection>
 
-              {/* Section 13: Color Palette */}
+              {/* Section 13: Internal Links */}
               <CollapsibleSection
                 number={13}
+                title="Internal Links (Optional)"
+                isComplete={internalLinks.some(u => u.trim())}
+                summary={internalLinks.filter(u => u.trim()).length > 0 ? `${internalLinks.filter(u => u.trim()).length} link(s)` : undefined}
+                icon={<Link className="h-4 w-4" />}
+              >
+                <p className="text-sm text-muted-foreground">
+                  Add up to 6 internal URLs to contextually link within your article
+                </p>
+                <div className="space-y-2">
+                  {internalLinks.map((url, idx) => (
+                    <div key={idx} className="flex items-center gap-1.5">
+                      <span className="text-xs text-muted-foreground font-mono w-4 shrink-0">{idx + 1}.</span>
+                      <Input
+                        placeholder="https://your-site.com/related-page"
+                        value={url}
+                        onChange={(e) => {
+                          const updated = [...internalLinks];
+                          updated[idx] = e.target.value;
+                          setInternalLinks(updated);
+                        }}
+                        className="bg-input border-2 border-input-border text-sm h-9"
+                      />
+                      {internalLinks.length > 1 && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 shrink-0"
+                          onClick={() => {
+                            const updated = internalLinks.filter((_, i) => i !== idx);
+                            setInternalLinks(updated.length === 0 ? [""] : updated);
+                          }}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                  {internalLinks.length < 6 && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="text-xs w-full"
+                      onClick={() => setInternalLinks([...internalLinks, ""])}
+                    >
+                      <Plus className="h-3 w-3 mr-1" />
+                      Add URL
+                    </Button>
+                  )}
+                </div>
+                {internalLinks.some(u => u.trim()) && generatedContent.trim() && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleInsertInternalLinks}
+                    disabled={isInsertingLinks}
+                    className="w-full text-xs"
+                  >
+                    {isInsertingLinks ? (
+                      <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                    ) : (
+                      <Link className="h-3 w-3 mr-1" />
+                    )}
+                    Insert Links into Article
+                  </Button>
+                )}
+              </CollapsibleSection>
+
+              {/* Section 14: Color Palette */}
+              <CollapsibleSection
+                number={14}
                 title="Color Scheme"
                 isComplete={!!selectedColorPalette}
                 summary={selectedColorPalette?.name || "Default"}
@@ -3049,9 +3179,9 @@ const Index = () => {
                 />
               </CollapsibleSection>
 
-              {/* Section 14: Output Options */}
+              {/* Section 15: Output Options */}
               <CollapsibleSection
-                number={14}
+                number={15}
                 title="Output Options"
                 isComplete={true}
                 summary={skipNavigation ? "Navigation skipped" : "All sections included"}
@@ -3076,9 +3206,9 @@ const Index = () => {
                 </div>
               </CollapsibleSection>
 
-              {/* Section 15: Article Images */}
+              {/* Section 16: Article Images */}
               <CollapsibleSection
-                number={15}
+                number={16}
                 title="Article Images (Optional)"
                 isComplete={articleImages.length > 0}
                 summary={articleImages.length > 0 ? `${articleImages.length} image(s) uploaded` : undefined}
