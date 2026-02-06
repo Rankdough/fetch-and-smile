@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -11,7 +12,7 @@ import {
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, X, Copy, ImagePlus, GripVertical, Wand2, Cloud, FolderInput } from "lucide-react";
+import { Loader2, X, Copy, ImagePlus, GripVertical, Wand2, Cloud, FolderInput, Link, Plus } from "lucide-react";
 import { ImageFolderManager, type ImageFolder } from "@/components/ImageFolderManager";
 import { useImageFolders } from "@/hooks/useImageFolders";
 
@@ -42,6 +43,9 @@ export function ArticleImagesPanel({
   const [isLoadingFromCloud, setIsLoadingFromCloud] = useState(false);
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [folders, setFolders] = useState<ImageFolder[]>([]);
+  const [urlInput, setUrlInput] = useState("");
+  const [isAddingUrl, setIsAddingUrl] = useState(false);
+  const [showUrlInput, setShowUrlInput] = useState(false);
   
   const { 
     assignments,
@@ -260,6 +264,71 @@ export function ArticleImagesPanel({
     }
   };
 
+  const handleAddFromUrl = async () => {
+    const urls = urlInput
+      .split("\n")
+      .map((u) => u.trim())
+      .filter((u) => u && (u.startsWith("http://") || u.startsWith("https://")));
+
+    if (urls.length === 0) {
+      toast({
+        title: "No valid URLs",
+        description: "Enter one or more image URLs (starting with http:// or https://)",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsAddingUrl(true);
+    const newImages: ArticleImage[] = [];
+
+    for (const url of urls) {
+      try {
+        // Extract filename from URL
+        const urlObj = new URL(url);
+        const pathParts = urlObj.pathname.split("/").filter(Boolean);
+        const rawName = pathParts[pathParts.length - 1] || "image";
+        const name = decodeURIComponent(rawName);
+        const alt = name.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " ");
+
+        // Use a unique filePath for external URLs (prefix with "url:")
+        const filePath = `url:${url}`;
+
+        // Skip if already added
+        if (images.some((img) => img.filePath === filePath)) {
+          continue;
+        }
+
+        newImages.push({ name, url, alt, filePath });
+      } catch {
+        toast({
+          title: "Invalid URL",
+          description: `Could not parse: ${url.substring(0, 60)}...`,
+          variant: "destructive",
+        });
+      }
+    }
+
+    if (newImages.length > 0) {
+      onImagesChange([...images, ...newImages]);
+
+      if (selectedFolderId) {
+        for (const img of newImages) {
+          await assignToFolder(img.filePath, selectedFolderId);
+        }
+      }
+
+      toast({
+        title: "Images added",
+        description: `${newImages.length} image(s) added from URL`,
+      });
+      setUrlInput("");
+      setShowUrlInput(false);
+    }
+
+    setIsAddingUrl(false);
+  };
+
   // Handle assigning image to a folder
   const handleAssignToFolder = async (filePath: string, folderId: string | null) => {
     if (folderId) {
@@ -278,6 +347,21 @@ export function ArticleImagesPanel({
         });
       }
     }
+  };
+
+  // For external URL images, skip storage deletion
+  const handleDeleteImage = async (index: number) => {
+    const image = images[index];
+    
+    if (image.filePath.startsWith("url:")) {
+      // External URL — just remove from state
+      onImagesChange(images.filter((_, i) => i !== index));
+      toast({ title: "Image removed", description: `${image.name} has been removed` });
+      return;
+    }
+    
+    // Original cloud deletion logic
+    handleDelete(index);
   };
 
   return (
@@ -324,7 +408,52 @@ export function ArticleImagesPanel({
             <Cloud className="h-4 w-4" />
           )}
         </Button>
+        <Button
+          variant={showUrlInput ? "secondary" : "outline"}
+          size="icon"
+          onClick={() => setShowUrlInput(!showUrlInput)}
+          title="Add images from URL"
+        >
+          <Link className="h-4 w-4" />
+        </Button>
       </div>
+
+      {/* URL input section */}
+      {showUrlInput && (
+        <div className="rounded-lg border bg-muted/30 p-3 space-y-2">
+          <p className="text-xs font-medium text-muted-foreground">
+            Paste image URLs (one per line):
+          </p>
+          <Textarea
+            placeholder={"https://example.com/image1.jpg\nhttps://example.com/image2.png"}
+            value={urlInput}
+            onChange={(e) => setUrlInput(e.target.value)}
+            className="min-h-[60px] text-xs bg-input border-2 border-input-border resize-none"
+          />
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              className="flex-1"
+              onClick={handleAddFromUrl}
+              disabled={isAddingUrl || !urlInput.trim()}
+            >
+              {isAddingUrl ? (
+                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+              ) : (
+                <Plus className="h-3 w-3 mr-1" />
+              )}
+              Add {urlInput.split("\n").filter(u => u.trim()).length || ""} Image{urlInput.split("\n").filter(u => u.trim()).length !== 1 ? "s" : ""}
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => { setShowUrlInput(false); setUrlInput(""); }}
+            >
+              Cancel
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Allocate Logically button - show when there are images AND content */}
       {hasContent && (
@@ -384,9 +513,14 @@ export function ArticleImagesPanel({
               </div>
 
               {/* Image name */}
-              <p className="text-xs text-muted-foreground truncate" title={image.name}>
-                {image.name}
-              </p>
+              <div className="flex items-center gap-1">
+                {image.filePath.startsWith("url:") && (
+                  <Link className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                )}
+                <p className="text-xs text-muted-foreground truncate" title={image.name}>
+                  {image.name}
+                </p>
+              </div>
 
               {/* Folder assignment dropdown */}
               {folders.length > 0 && (
@@ -424,7 +558,7 @@ export function ArticleImagesPanel({
                   variant="destructive"
                   size="icon"
                   className="h-7 w-7"
-                  onClick={() => handleDelete(images.findIndex(img => img.filePath === image.filePath))}
+                  onClick={() => handleDeleteImage(images.findIndex(img => img.filePath === image.filePath))}
                   title="Remove image"
                 >
                   <X className="h-3 w-3" />
@@ -443,7 +577,7 @@ export function ArticleImagesPanel({
             {selectedFolderId ? "No images in this folder" : "No images uploaded yet"}
           </p>
           <p className="text-xs text-muted-foreground/75 mt-1">
-            Supports JPG, PNG, GIF, WebP, SVG
+            Upload files, add from URL, or load from cloud
           </p>
         </div>
       )}
