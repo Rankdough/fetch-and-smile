@@ -2438,13 +2438,33 @@ const Index = () => {
                     },
                   });
                   if (error) throw error;
-                  setGeneratedContent(data.content, true);
+                  let finalContent = data.content;
                   setAppliedRules(data.appliedRules || null);
                   if (data.ctas) {
                     setGeneratedCTAs(data.ctas);
                   } else {
                     setGeneratedCTAs(null);
                   }
+
+                  // Auto-insert internal links if configured
+                  const validUrls = internalLinks.filter((url) => url.trim());
+                  if (validUrls.length > 0 && finalContent.trim()) {
+                    try {
+                      const linkResult = await supabase.functions.invoke("insert-internal-links", {
+                        body: {
+                          content: finalContent,
+                          urls: validUrls,
+                        },
+                      });
+                      if (!linkResult.error && linkResult.data?.content) {
+                        finalContent = linkResult.data.content;
+                      }
+                    } catch (linkErr) {
+                      console.warn("Auto internal link insertion failed:", linkErr);
+                    }
+                  }
+
+                  setGeneratedContent(finalContent, true);
                   toast({
                     title: "Sample generated!",
                     description: "Generated with all current settings applied.",
