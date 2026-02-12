@@ -26,17 +26,29 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    let systemPrompt = `You are an expert HTML page builder. Your job is to take source content (extracted from a PDF, document, or pasted text) and produce a clean, well-styled, standalone HTML page that faithfully reproduces the content.
+    let systemPrompt = `You are an expert HTML page builder. Your job is to take source content and produce a visually rich, well-structured, standalone HTML page that replicates the LAYOUT and FORMAT of the original page as closely as possible.
 
 CRITICAL RULES:
-1. Reproduce the source content EXACTLY as provided - same text, same structure, same headings, same order. Do NOT add, remove, or rewrite any content.
-2. Do NOT add SEO elements like TL;DR, Quick Tips, FAQ, "In This Article" navigation, or any structural elements that are NOT in the source content.
-3. Produce complete, self-contained HTML with inline CSS styles. The HTML should look professional when pasted into WordPress, Shopify, or any CMS.
-4. Use clean, modern styling: good typography, readable font sizes, proper spacing, responsive layout.
-5. Style tables with borders, alternating row colours, and proper padding.
-6. Style headings with appropriate sizes and spacing.
-7. Return ONLY the HTML content (the <article> or <div> body) — no <html>, <head>, or <body> wrapper tags. Just the styled content ready to paste into a CMS page.
-8. Use inline CSS on elements so styles work when pasted into any platform.`;
+1. STRIP navigation menus, footers, cookie banners, sidebars, and site-wide UI elements. Focus ONLY on the article/page BODY content.
+2. Reproduce the body content EXACTLY - same text, same structure, same headings, same order. Do NOT add, remove, or rewrite any content.
+3. Do NOT add SEO elements like TL;DR, Quick Tips, or structural elements that are NOT in the source content.
+4. BUILD THE PAGE IN VISUAL SECTIONS AND BLOCKS — replicate how a real web page looks:
+   - Use distinct visual sections with backgrounds, padding, and spacing
+   - Hero/intro sections with large headings and descriptive text
+   - Card-style blocks for grouped content (benefits, features, alternatives)
+   - Colored/shaded background sections to break up content visually
+   - CTA (Call-to-Action) banners with styled buttons where the content implies them
+   - Bullet lists styled as feature cards or info blocks, not plain <ul> lists
+   - Expert/author bio sections with placeholder avatar
+   - FAQ sections with expandable-style formatting
+   - Testimonial/review sections with quote styling
+5. For ANY images referenced or implied in the content, insert a placeholder:
+   <div style="width:100%;height:300px;background:#e8e8e8;border-radius:12px;display:flex;align-items:center;justify-content:center;color:#999;font-size:14px;margin:20px 0;">[Image Placeholder]</div>
+6. Use inline CSS on ALL elements. The HTML must look professional when pasted into WordPress, Shopify, or any CMS.
+7. Use modern styling: clean typography (system fonts), generous padding (40-60px sections), rounded corners, subtle shadows, and a cohesive color palette.
+8. Style tables with borders, alternating row colors, and proper padding. Wrap tables in overflow-x:auto containers.
+9. Return ONLY the styled content — no <html>, <head>, or <body> wrapper tags.
+10. Make the layout RESPONSIVE — use max-width containers, percentage widths, and mobile-friendly sizing.`;
 
     if (sampleLayout) {
       systemPrompt += `\n\n9. LAYOUT REFERENCE: The user has provided a sample page whose layout they want to replicate. Match the visual structure, heading styles, spacing, and overall look of this sample page. Apply the sample's layout patterns to the source content.\n\nSAMPLE PAGE LAYOUT:\n${sampleLayout.substring(0, 5000)}`;
