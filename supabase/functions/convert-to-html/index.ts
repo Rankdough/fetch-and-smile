@@ -26,32 +26,44 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    let systemPrompt = `You are an expert HTML page builder. Your job is to take source content and produce a visually rich, well-structured, standalone HTML page that replicates the LAYOUT and FORMAT of the original page as closely as possible.
+    let systemPrompt = `You are an expert HTML page builder. Your job is to take source content and produce a visually rich, well-structured, standalone HTML page.
 
-CRITICAL RULES:
-1. STRIP navigation menus, footers, cookie banners, sidebars, and site-wide UI elements. Focus ONLY on the article/page BODY content.
-2. Reproduce the body content EXACTLY - same text, same structure, same headings, same order. Do NOT add, remove, or rewrite any content.
-3. Do NOT add SEO elements like TL;DR, Quick Tips, or structural elements that are NOT in the source content.
-4. BUILD THE PAGE IN VISUAL SECTIONS AND BLOCKS — replicate how a real web page looks:
-   - Use distinct visual sections with backgrounds, padding, and spacing
-   - Hero/intro sections with large headings and descriptive text
+STEP 1 - STRIP THESE ELEMENTS (MANDATORY - DO THIS FIRST):
+Remove ALL of the following from the source content before building:
+- Navigation menus (Home, Blog, About, Contact links)
+- Language selectors (English, etc.)
+- "Try today" or similar site-wide promotional banners at the top
+- "Ordered before 23:59" shipping banners
+- Cookie consent banners and disclaimers
+- Footer content: copyright notices, site maps, addresses, email, social media, "Follow Us", "MANY LINKS"
+- Sidebar widgets, heatmap overlays, recording overlays
+- Any "© 20XX" copyright lines
+- Repeated menu items appearing at the end of content
+- Any "[product_page id=...]" shortcodes — replace with a styled CTA button placeholder
+
+STEP 2 - BUILD THE PAGE from the remaining article body content:
+1. Reproduce the body content EXACTLY - same text, headings, order. Do NOT add or rewrite.
+2. Do NOT add SEO elements (TL;DR, Quick Tips, "In This Article") unless they exist in the source.
+3. BUILD IN VISUAL SECTIONS AND BLOCKS like a real web page:
+   - Hero/intro section with large H1 heading and intro paragraph
    - Card-style blocks for grouped content (benefits, features, alternatives)
-   - Colored/shaded background sections to break up content visually
-   - CTA (Call-to-Action) banners with styled buttons where the content implies them
-   - Bullet lists styled as feature cards or info blocks, not plain <ul> lists
-   - Expert/author bio sections with placeholder avatar
-   - FAQ sections with expandable-style formatting
-   - Testimonial/review sections with quote styling
-5. For ANY images referenced or implied in the content, insert a placeholder:
-   <div style="width:100%;height:300px;background:#e8e8e8;border-radius:12px;display:flex;align-items:center;justify-content:center;color:#999;font-size:14px;margin:20px 0;">[Image Placeholder]</div>
-6. Use inline CSS on ALL elements. The HTML must look professional when pasted into WordPress, Shopify, or any CMS.
-7. Use modern styling: clean typography (system fonts), generous padding (40-60px sections), rounded corners, subtle shadows, and a cohesive color palette.
-8. Style tables with borders, alternating row colors, and proper padding. Wrap tables in overflow-x:auto containers.
-9. Return ONLY the styled content — no <html>, <head>, or <body> wrapper tags.
-10. Make the layout RESPONSIVE — use max-width containers, percentage widths, and mobile-friendly sizing.`;
+   - Colored/shaded background sections to visually separate content areas
+   - CTA banners with styled buttons where the content implies them
+   - Bullet/numbered lists styled as feature cards or info blocks
+   - Expert/author bio sections with a circular placeholder avatar
+   - FAQ sections styled with bold questions and indented answers
+   - Testimonial/review quotes with styled quote blocks
+   - Product sections with placeholder images and descriptions
+4. For ANY images referenced or implied, insert:
+   <div style="width:100%;height:300px;background:linear-gradient(135deg,#e8e8e8,#f5f5f5);border-radius:12px;display:flex;align-items:center;justify-content:center;color:#999;font-size:14px;margin:20px 0;">[Image Placeholder]</div>
+5. Use inline CSS on ALL elements. Must work in WordPress/Shopify/any CMS.
+6. Modern styling: system fonts, generous padding (40-60px per section), rounded corners, subtle shadows, cohesive color palette.
+7. Tables: borders, alternating row colors, padding, wrapped in overflow-x:auto.
+8. Return ONLY styled content — no <html>, <head>, <body> tags.
+9. RESPONSIVE: max-width:800px centered container, percentage widths, mobile-friendly.`;
 
     if (sampleLayout) {
-      systemPrompt += `\n\n9. LAYOUT REFERENCE: The user has provided a sample page whose layout they want to replicate. Match the visual structure, heading styles, spacing, and overall look of this sample page. Apply the sample's layout patterns to the source content.\n\nSAMPLE PAGE LAYOUT:\n${sampleLayout.substring(0, 5000)}`;
+      systemPrompt += `\n\nLAYOUT REFERENCE: Match the visual structure, heading styles, spacing, and overall look of this sample page:\n${sampleLayout.substring(0, 5000)}`;
     }
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
