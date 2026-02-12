@@ -137,8 +137,19 @@ serve(async (req) => {
       // Old .doc format is binary and harder to parse without specialized libraries
       textContent = `[.doc format not supported. Please save as .docx or paste the content directly.]`;
     } else if (fileExtension === "pdf") {
-      // PDF parsing would require a library - for now, return a message
-      textContent = `[PDF parsing not yet supported. Please paste the content directly or convert to text.]`;
+      try {
+        const { extractText } = await import("npm:unpdf@0.12.1");
+        const arrayBuffer = await fileData.arrayBuffer();
+        const { text } = await extractText(new Uint8Array(arrayBuffer));
+        textContent = text || "";
+        console.log("Extracted text from PDF, length:", textContent.length);
+        if (!textContent || textContent.length < 20) {
+          textContent = `[Could not extract meaningful text from PDF: ${fileName}. The PDF may be image-based. Please paste the content directly.]`;
+        }
+      } catch (e) {
+        console.error("Error parsing PDF:", e);
+        textContent = `[Error parsing PDF: ${fileName}. Error: ${e instanceof Error ? e.message : "Unknown"}. Please paste the content directly.]`;
+      }
     } else {
       // For other files, try to read as text
       try {

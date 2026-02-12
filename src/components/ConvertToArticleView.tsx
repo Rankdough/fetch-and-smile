@@ -82,12 +82,14 @@ export function ConvertToArticleView({ formatReference, onContentReady }: Conver
         return;
       }
 
-      let instructions = `REFORMAT ONLY: The following content has been provided by the user. Restructure it into the standard article format (TL;DR, Quick Tips, In This Article navigation, question-based H2 headings, FAQ, References) but preserve the original text, facts, and voice as closely as possible. Do not invent new information. Only reorganise and add the required structural elements.`;
+      let instructions = "";
 
       if (scrapedLayout) {
-        instructions += `\n\nLAYOUT REFERENCE: The user wants the output to match the structure and layout of this sample page. Mimic its heading hierarchy, section ordering, table usage, and content density:\n\n${scrapedLayout.substring(0, 4000)}`;
-      } else if (formatReference) {
-        instructions += `\n\nFORMAT REFERENCE: Use this format reference for structural guidance:\n\n${formatReference.substring(0, 4000)}`;
+        // User provided a sample page — mimic THAT layout, not the SEO generator format
+        instructions = `LAYOUT REPLICATION: Convert the user's source content into a well-structured HTML-ready article that follows the EXACT same layout, heading hierarchy, section ordering, and content density as the sample page below. Do NOT apply any other template (no TL;DR, Quick Tips, FAQ, or other SEO generator sections unless the sample page itself uses them). Preserve the user's original text, facts, and voice. Only reorganise to match the sample layout.\n\nSAMPLE PAGE LAYOUT:\n${scrapedLayout.substring(0, 5000)}`;
+      } else {
+        // No sample page — preserve the source content's own structure as-is
+        instructions = `CONTENT CONVERSION: Convert the following source content into clean, well-formatted markdown suitable for HTML export. PRESERVE the original structure, headings, sections, and formatting exactly as they appear in the source. Do NOT add TL;DR, Quick Tips, FAQ, "In This Article" navigation, or any other structural elements that are not already in the source content. Keep the original text, facts, voice, and layout intact. Your job is to faithfully reproduce the content in clean markdown, not to restructure it.`;
       }
 
       const topicMatch = sourceText.match(/^#\s+(.+)$/m) || sourceText.match(/^(.{10,80})/);
@@ -98,7 +100,7 @@ export function ConvertToArticleView({ formatReference, onContentReady }: Conver
           topic,
           length: "long",
           instructions,
-          contextFiles: [{ name: "source-content", content: sourceText.substring(0, 8000) }],
+          contextFiles: [{ name: "source-content", content: sourceText.substring(0, 12000) }],
         },
       });
 
