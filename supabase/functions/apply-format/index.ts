@@ -50,8 +50,9 @@ serve(async (req) => {
     const hasInThisArticle = /##\s*In\s*This\s*Article/i.test(content);
     const hasFaq = /##\s*(FAQ|Frequently\s*Asked\s*Questions)/i.test(content);
 
-    // Check for existing CTAs
-    const existingCtaPattern = />\s*\*\*[^*]+\*\*[\s\S]*?\[.+\]\(.+\)/;
+    // Check for existing CTAs - must match the specific 4-line CTA format with ALL CAPS headline and URL button
+    // Pattern: > **emoji + HEADLINE IN CAPS** followed by lines with a [BUTTON TEXT →](url)
+    const existingCtaPattern = />\s*\*\*[^\n*]*[A-Z]{3,}[^\n*]*\*\*\s*\n(?:>\s*[^\n]+\n)*>\s*\[[^\]]+→\]\(https?:\/\/[^)]+\)/;
     const hasExistingCtas = existingCtaPattern.test(content) && !forceRegenerateCtas;
     const hasCtaMarkers = /<!--CTA_BANNER_\d+-->/.test(content);
 
@@ -345,7 +346,8 @@ ${processedContent}`;
     const newHasQuickTips = /##\s*Quick\s*Tips/i.test(formattedContent) || />\s*\*\*Tip\s*1/i.test(formattedContent);
     const newHasInThisArticle = /##\s*In\s*This\s*Article/i.test(formattedContent);
     const newHasFaq = /##\s*(FAQ|Frequently\s*Asked\s*Questions)/i.test(formattedContent);
-    const newHasCtas = existingCtaPattern.test(formattedContent);
+    const newCtaPattern = />\s*\*\*[^\n*]+\*\*[^>]*\n(?:>\s*[^\n]+\n)*>\s*\[[^\]]+\]\(https?:\/\/[^)]+\)/;
+    const newHasCtas = newCtaPattern.test(formattedContent);
     const additions = [];
     if (!hasTldr && newHasTldr) additions.push("TL;DR");
     if (!hasQuickTips && newHasQuickTips) additions.push("Quick Tips");
