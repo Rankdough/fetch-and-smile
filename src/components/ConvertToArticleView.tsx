@@ -60,7 +60,19 @@ export function ConvertToArticleView({ formatReference, onContentReady }: Conver
   const [isConverting, setIsConverting] = useState(false);
   const [isScraping, setIsScraping] = useState(false);
   const [scrapedLayout, setScrapedLayout] = useState("");
-  const [outputHtml, setOutputHtml] = useState("");
+  const [outputHtml, setOutputHtmlRaw] = useState(() => {
+    const saved = localStorage.getItem("convert-article-outputHtml");
+    return saved || "";
+  });
+
+  const setOutputHtml = (html: string) => {
+    setOutputHtmlRaw(html);
+    if (html) {
+      localStorage.setItem("convert-article-outputHtml", html);
+    } else {
+      localStorage.removeItem("convert-article-outputHtml");
+    }
+  };
   const [viewMode, setViewMode] = useState<"preview" | "code">("preview");
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [pageUrl, setPageUrl] = useState("");
