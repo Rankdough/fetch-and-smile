@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -307,6 +307,7 @@ const Index = () => {
   const [showFormatProgress, setShowFormatProgress] = useState(false);
   const [formatSteps, setFormatSteps] = useState<FormatStep[]>(DEFAULT_FORMAT_STEPS);
   const [formatError, setFormatError] = useState<string | null>(null);
+  const pendingApplyFormatRef = useRef(false);
   const [generatedContent, setGeneratedContentRaw] = useState(() => {
     const saved = localStorage.getItem("seo-generator-generatedContent");
     return saved ? cleanContent(saved) : "";
@@ -1559,6 +1560,18 @@ const Index = () => {
     }
   };
 
+  // Auto-apply format when content arrives from Convert to Article tool
+  useEffect(() => {
+    if (pendingApplyFormatRef.current && activeTool === "generator" && generatedContent.trim()) {
+      pendingApplyFormatRef.current = false;
+      // Small delay to let the UI settle before triggering format
+      const timer = setTimeout(() => {
+        handleApplyFormat();
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [activeTool, generatedContent]);
+
   // Refresh CTAs in existing content - strips old ones and regenerates contextual ones
   const handleRefreshCTAs = async () => {
     if (!generatedContent.trim() || !ctaUrl.trim()) {
@@ -1735,6 +1748,7 @@ const Index = () => {
           onContentReady={(content) => {
             setGeneratedContent(content, true);
             setActiveTool("generator");
+            pendingApplyFormatRef.current = true;
           }}
         />
       ) : (
