@@ -5,10 +5,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { FileUp, Loader2, Link, Upload, Download, Eye, Edit2 } from "lucide-react";
+import { FileUp, Loader2, Link, Upload, Download, Eye, Code } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 
 interface ConvertToArticleViewProps {
   formatReference?: string;
@@ -23,8 +21,8 @@ export function ConvertToArticleView({ formatReference, onContentReady }: Conver
   const [isConverting, setIsConverting] = useState(false);
   const [isScraping, setIsScraping] = useState(false);
   const [scrapedLayout, setScrapedLayout] = useState("");
-  const [convertedContent, setConvertedContent] = useState("");
-  const [isPreview, setIsPreview] = useState(true);
+  const [outputHtml, setOutputHtml] = useState("");
+  const [viewMode, setViewMode] = useState<"preview" | "code">("preview");
 
   const handleScrapeLayout = async () => {
     if (!samplePageUrl.trim()) return;
@@ -61,11 +59,13 @@ export function ConvertToArticleView({ formatReference, onContentReady }: Conver
     try {
       let sourceText = pastedText.trim();
 
+      // Parse uploaded file
       if (uploadedFile) {
         const ext = uploadedFile.name.split(".").pop()?.toLowerCase();
         if (ext === "txt" || ext === "md") {
           sourceText = await uploadedFile.text();
         } else {
+          // Use parse-context-file for PDF/DOCX
           const formData = new FormData();
           formData.append("file", uploadedFile);
           const { data, error } = await supabase.functions.invoke("parse-context-file", { body: formData });
@@ -77,41 +77,26 @@ export function ConvertToArticleView({ formatReference, onContentReady }: Conver
         }
       }
 
-      if (!sourceText) {
-        toast({ title: "Empty content", description: "No text could be extracted.", variant: "destructive" });
+      if (!sourceText || sourceText.startsWith("[")) {
+        toast({ title: "Could not extract content", description: sourceText || "No text found in the file.", variant: "destructive" });
+        setIsConverting(false);
         return;
       }
 
-      let instructions = "";
-
-      if (scrapedLayout) {
-        // User provided a sample page — mimic THAT layout, not the SEO generator format
-        instructions = `LAYOUT REPLICATION: Convert the user's source content into a well-structured HTML-ready article that follows the EXACT same layout, heading hierarchy, section ordering, and content density as the sample page below. Do NOT apply any other template (no TL;DR, Quick Tips, FAQ, or other SEO generator sections unless the sample page itself uses them). Preserve the user's original text, facts, and voice. Only reorganise to match the sample layout.\n\nSAMPLE PAGE LAYOUT:\n${scrapedLayout.substring(0, 5000)}`;
-      } else {
-        // No sample page — preserve the source content's own structure as-is
-        instructions = `CONTENT CONVERSION: Convert the following source content into clean, well-formatted markdown suitable for HTML export. PRESERVE the original structure, headings, sections, and formatting exactly as they appear in the source. Do NOT add TL;DR, Quick Tips, FAQ, "In This Article" navigation, or any other structural elements that are not already in the source content. Keep the original text, facts, voice, and layout intact. Your job is to faithfully reproduce the content in clean markdown, not to restructure it.`;
-      }
-
-      const topicMatch = sourceText.match(/^#\s+(.+)$/m) || sourceText.match(/^(.{10,80})/);
-      const topic = topicMatch ? topicMatch[1].trim() : "Article";
-
-      const { data, error } = await supabase.functions.invoke("generate-content", {
+      // Call the new convert-to-html edge function (uses Lovable AI, no SEO rules)
+      const { data, error } = await supabase.functions.invoke("convert-to-html", {
         body: {
-          topic,
-          length: "long",
-          instructions,
-          contextFiles: [{ name: "source-content", content: sourceText.substring(0, 12000) }],
+          sourceContent: sourceText,
+          sampleLayout: scrapedLayout || undefined,
         },
       });
 
       if (error) throw error;
-      const content = data.content || data.generatedContent || "";
-      if (!content) throw new Error("No content returned from generation");
+      const html = data.html || "";
+      if (!html) throw new Error("No HTML returned");
 
-      setConvertedContent(content);
-      onContentReady?.(content);
-
-      toast({ title: "Content converted!", description: "Your content has been restructured. Preview below or copy as HTML." });
+      setOutputHtml(html);
+      toast({ title: "HTML generated!", description: "Your content has been converted to styled HTML. Click 'Copy HTML' to use it." });
     } catch (err) {
       console.error("Conversion error:", err);
       toast({ title: "Conversion failed", description: err instanceof Error ? err.message : "Failed to convert content.", variant: "destructive" });
@@ -121,11 +106,21 @@ export function ConvertToArticleView({ formatReference, onContentReady }: Conver
   };
 
   const handleCopyHtml = () => {
-    if (!convertedContent) return;
-    // Simple HTML wrapping — for full styled export, user can switch to generator tool
-    const html = `<article>\n${convertedContent}\n</article>`;
-    navigator.clipboard.writeText(html).then(() => {
-      toast({ title: "HTML copied!", description: "Article HTML copied to clipboard." });
+    if (!outputHtml) return;
+    navigator.clipboard.writeText(outputHtml).then(() => {
+      toast({ title: "HTML copied!", description: "Styled HTML copied to clipboard. Paste it into WordPress, Shopify, or any CMS." });
+    }).catch(() => {
+      // Fallback: download as file
+      const blob = new Blob([outputHtml], { type: "text/html" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "converted-article.html";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast({ title: "HTML downloaded!", description: "File saved as converted-article.html" });
     });
   };
 
@@ -184,11 +179,11 @@ export function ConvertToArticleView({ formatReference, onContentReady }: Conver
                 Sample Page URL (optional layout reference)
               </Label>
               <p className="text-xs text-muted-foreground">
-                Provide a URL of a page whose layout you want to replicate.
+                Provide a URL of a page whose layout and styling you want to replicate.
               </p>
               <div className="flex gap-2">
                 <Input
-                  placeholder="https://example.com/article-i-like"
+                  placeholder="https://example.com/page-i-like"
                   value={samplePageUrl}
                   onChange={(e) => setSamplePageUrl(e.target.value)}
                   className="flex-1"
@@ -218,35 +213,35 @@ export function ConvertToArticleView({ formatReference, onContentReady }: Conver
               {isConverting ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Converting...
+                  Converting to HTML...
                 </>
               ) : (
                 <>
                   <FileUp className="mr-2 h-4 w-4" />
-                  Convert to Article
+                  Convert to HTML
                 </>
               )}
             </Button>
           </CardContent>
         </Card>
 
-        {/* Right: Preview Panel */}
+        {/* Right: Output Panel */}
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
-              <CardTitle className="text-lg">Output Preview</CardTitle>
-              {convertedContent && (
+              <CardTitle className="text-lg">Output</CardTitle>
+              {outputHtml && (
                 <div className="flex items-center gap-2">
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => setIsPreview(!isPreview)}
+                    onClick={() => setViewMode(viewMode === "preview" ? "code" : "preview")}
                     className="gap-1"
                   >
-                    {isPreview ? <Edit2 className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    {isPreview ? "Edit" : "Preview"}
+                    {viewMode === "preview" ? <Code className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    {viewMode === "preview" ? "View Code" : "Preview"}
                   </Button>
-                  <Button variant="outline" size="sm" onClick={handleCopyHtml} className="gap-1">
+                  <Button variant="default" size="sm" onClick={handleCopyHtml} className="gap-1">
                     <Download className="h-4 w-4" />
                     Copy HTML
                   </Button>
@@ -255,21 +250,22 @@ export function ConvertToArticleView({ formatReference, onContentReady }: Conver
             </div>
           </CardHeader>
           <CardContent>
-            {convertedContent ? (
-              isPreview ? (
-                <div className="prose prose-sm max-w-none dark:prose-invert overflow-auto max-h-[70vh]">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{convertedContent}</ReactMarkdown>
-                </div>
+            {outputHtml ? (
+              viewMode === "preview" ? (
+                <div
+                  className="overflow-auto max-h-[70vh] border rounded-md p-4"
+                  dangerouslySetInnerHTML={{ __html: outputHtml }}
+                />
               ) : (
                 <Textarea
-                  value={convertedContent}
-                  onChange={(e) => setConvertedContent(e.target.value)}
+                  value={outputHtml}
+                  onChange={(e) => setOutputHtml(e.target.value)}
                   className="min-h-[60vh] font-mono text-xs resize-none"
                 />
               )
             ) : (
-              <div className="flex items-center justify-center h-64 text-muted-foreground text-sm">
-                Upload content or paste text, then click "Convert to Article" to see the result here.
+              <div className="flex items-center justify-center h-64 text-muted-foreground text-sm text-center px-4">
+                Upload a PDF/document or paste text, then click "Convert to HTML" to generate styled HTML you can copy into any website.
               </div>
             )}
           </CardContent>
