@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { Loader2, Sparkles, FileText, Link, Search, X, Upload, Plus, Tag, Download, ExternalLink, BookOpen, Eye, Edit2, Mic2, RotateCcw, Target, Maximize2, Minimize2, ImagePlus, Wand2, Image, ChevronDown, Trash2, Settings } from "lucide-react";
+import { Loader2, Sparkles, FileText, Link, Search, X, Upload, Plus, Tag, Download, ExternalLink, BookOpen, Eye, Edit2, Mic2, RotateCcw, Target, Maximize2, Minimize2, ImagePlus, Wand2, Image, ChevronDown, Trash2, Settings, FileUp } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -53,7 +53,7 @@ import { useCreditTracking } from "@/hooks/useCreditTracking";
 import { SectionIndicator } from "@/components/SectionIndicator";
 import { ArticleImagesPanel, ArticleImage } from "@/components/ArticleImagesPanel";
 import { HtmlImportDialog } from "@/components/HtmlImportDialog";
-import { ConvertFileDialog } from "@/components/ConvertFileDialog";
+import { ConvertToArticleView } from "@/components/ConvertToArticleView";
 import { CollapsibleSection } from "@/components/CollapsibleSection";
 import { CreditUsageDisplay } from "@/components/CreditUsageDisplay";
 import { GenerationProgress, PipelineStage } from "@/components/GenerationProgress";
@@ -294,7 +294,10 @@ const removeInThisArticleSection = (content: string): string => {
   return cleaned;
 };
 
+type ActiveTool = "generator" | "converter";
+
 const Index = () => {
+  const [activeTool, setActiveTool] = useState<ActiveTool>("generator");
   const { toast } = useToast();
   const { trackUsage, getVoiceEditCredits, getQualityAnalysisCredits, getQualityAnalysisBreakdown, clearHistory: clearCreditHistory } = useCreditTracking();
   const [isGenerating, setIsGenerating] = useState(false);
@@ -1697,14 +1700,45 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
+      {/* Header with Tool Tabs */}
       <header className="border-b bg-card">
-        <div className="container mx-auto px-4 py-4 flex items-center gap-2">
-          <Sparkles className="h-6 w-6 text-primary" />
-          <h1 className="text-xl font-semibold">SEO Content Generator</h1>
+        <div className="container mx-auto px-4 py-4 flex items-center gap-6">
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-6 w-6 text-primary" />
+          </div>
+          <nav className="flex items-center gap-1">
+            <Button
+              variant={activeTool === "generator" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setActiveTool("generator")}
+              className="gap-2"
+            >
+              <Sparkles className="h-4 w-4" />
+              SEO Content Generator
+            </Button>
+            <Button
+              variant={activeTool === "converter" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setActiveTool("converter")}
+              className="gap-2"
+            >
+              <FileUp className="h-4 w-4" />
+              Convert to Article
+            </Button>
+          </nav>
         </div>
       </header>
 
+      {activeTool === "converter" ? (
+        <ConvertToArticleView
+          formatReference={formatReference}
+          onContentReady={(content) => {
+            setGeneratedContent(content, true);
+            setActiveTool("generator");
+          }}
+        />
+      ) : (
+      <>
       {/* Action Toolbar */}
       <div className="border-b bg-muted/30">
         <div className="container mx-auto px-4 py-3 max-w-[1800px]">
@@ -1771,10 +1805,6 @@ const Index = () => {
 
             {/* Import/Export */}
             <HtmlImportDialog onImport={(content) => setGeneratedContent(content, true)} />
-            <ConvertFileDialog
-              onConvert={(content) => setGeneratedContent(content, true)}
-              formatReference={formatReference}
-            />
             
             <Button
               variant="outline"
@@ -4278,6 +4308,8 @@ CRITICAL EXPANSION RULES:
         isComplete={!isApplyingFormat && formatSteps.some(s => s.status === 'done')}
         error={formatError}
       />
+      </>
+      )}
     </div>
   );
 };
