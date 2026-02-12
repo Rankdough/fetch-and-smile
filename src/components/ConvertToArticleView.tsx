@@ -5,7 +5,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { FileUp, Loader2, Link, Upload, Download, Eye, Code, Image } from "lucide-react";
+import { FileUp, Loader2, Link, Upload, Download, Eye, Code, Image, Maximize2, Minimize2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 function cleanSourceText(text: string): string {
@@ -61,6 +61,8 @@ export function ConvertToArticleView({ formatReference, onContentReady }: Conver
   const [scrapedLayout, setScrapedLayout] = useState("");
   const [outputHtml, setOutputHtml] = useState("");
   const [viewMode, setViewMode] = useState<"preview" | "code">("preview");
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [pageUrl, setPageUrl] = useState("");
 
   const handleScreenshotUpload = (file: File | null) => {
     setScreenshotFile(file);
@@ -101,9 +103,10 @@ export function ConvertToArticleView({ formatReference, onContentReady }: Conver
     const hasScreenshot = !!screenshotFile;
     const hasText = !!pastedText.trim();
     const hasFile = !!uploadedFile;
+    const hasUrl = !!pageUrl.trim();
 
-    if (!hasScreenshot && !hasText && !hasFile) {
-      toast({ title: "No content", description: "Upload a screenshot, file, or paste text to convert.", variant: "destructive" });
+    if (!hasScreenshot && !hasText && !hasFile && !hasUrl) {
+      toast({ title: "No content", description: "Upload a screenshot, provide a URL, or paste text to convert.", variant: "destructive" });
       return;
     }
 
@@ -115,6 +118,27 @@ export function ConvertToArticleView({ formatReference, onContentReady }: Conver
       // If screenshot is provided, convert to base64 for vision analysis
       if (hasScreenshot) {
         screenshotBase64 = await fileToBase64(screenshotFile!);
+      }
+
+      // If URL is provided, scrape it for content
+      if (hasUrl && !sourceText) {
+        try {
+          const { data, error } = await supabase.functions.invoke("scrape-format", {
+            body: { url: pageUrl.trim() },
+          });
+          if (error) throw error;
+          sourceText = data.markdown || "";
+          if (!scrapedLayout && data.markdown) {
+            setScrapedLayout(data.markdown);
+          }
+        } catch (err) {
+          console.error("URL scrape error:", err);
+          if (!screenshotBase64) {
+            toast({ title: "Could not scrape URL", description: "Failed to fetch content from the provided URL.", variant: "destructive" });
+            setIsConverting(false);
+            return;
+          }
+        }
       }
 
       // Parse uploaded document file (not images) — fall back to pasted text if it fails
@@ -210,7 +234,7 @@ export function ConvertToArticleView({ formatReference, onContentReady }: Conver
     });
   };
 
-  const hasInput = !!pastedText.trim() || !!uploadedFile || !!screenshotFile;
+  const hasInput = !!pastedText.trim() || !!uploadedFile || !!screenshotFile || !!pageUrl.trim();
 
   return (
     <div className="container mx-auto px-4 py-6 max-w-[1400px]">
@@ -285,6 +309,30 @@ export function ConvertToArticleView({ formatReference, onContentReady }: Conver
               <div className="h-px flex-1 bg-border" />
             </div>
 
+            {/* Page URL - scrape content directly */}
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                <Link className="h-4 w-4" />
+                Page URL (scrape content from a URL)
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                Provide the URL of the page you want to convert. Content will be scraped automatically.
+              </p>
+              <Input
+                placeholder="https://example.com/article-to-convert"
+                value={pageUrl}
+                onChange={(e) => setPageUrl(e.target.value)}
+                className="flex-1"
+              />
+            </div>
+
+            {/* Divider */}
+            <div className="flex items-center gap-3">
+              <div className="h-px flex-1 bg-border" />
+              <span className="text-xs text-muted-foreground">AND / OR</span>
+              <div className="h-px flex-1 bg-border" />
+            </div>
+
             {/* Paste Text */}
             <div className="space-y-2">
               <Label>Paste Text Content</Label>
@@ -350,46 +398,59 @@ export function ConvertToArticleView({ formatReference, onContentReady }: Conver
         </Card>
 
         {/* Right: Output Panel */}
-        <Card>
+        <Card className={isFullscreen ? "fixed inset-0 z-50 rounded-none" : ""}>
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle className="text-lg">Output</CardTitle>
-              {outputHtml && (
-                <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2">
+                {outputHtml && (
+                  <>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setViewMode(viewMode === "preview" ? "code" : "preview")}
+                      className="gap-1"
+                    >
+                      {viewMode === "preview" ? <Code className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      {viewMode === "preview" ? "View Code" : "Preview"}
+                    </Button>
+                    <Button variant="default" size="sm" onClick={handleCopyHtml} className="gap-1">
+                      <Download className="h-4 w-4" />
+                      Copy HTML
+                    </Button>
+                  </>
+                )}
+                {outputHtml && (
                   <Button
-                    variant="ghost"
+                    variant="outline"
                     size="sm"
-                    onClick={() => setViewMode(viewMode === "preview" ? "code" : "preview")}
+                    onClick={() => setIsFullscreen(!isFullscreen)}
                     className="gap-1"
                   >
-                    {viewMode === "preview" ? <Code className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    {viewMode === "preview" ? "View Code" : "Preview"}
+                    {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+                    {isFullscreen ? "Exit" : "Expand"}
                   </Button>
-                  <Button variant="default" size="sm" onClick={handleCopyHtml} className="gap-1">
-                    <Download className="h-4 w-4" />
-                    Copy HTML
-                  </Button>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           </CardHeader>
           <CardContent>
             {outputHtml ? (
               viewMode === "preview" ? (
                 <div
-                  className="overflow-auto max-h-[70vh] border rounded-md p-4"
+                  className={`overflow-auto border rounded-md p-4 ${isFullscreen ? "max-h-[calc(100vh-100px)]" : "max-h-[70vh]"}`}
                   dangerouslySetInnerHTML={{ __html: outputHtml }}
                 />
               ) : (
                 <Textarea
                   value={outputHtml}
                   onChange={(e) => setOutputHtml(e.target.value)}
-                  className="min-h-[60vh] font-mono text-xs resize-none"
+                  className={`font-mono text-xs resize-none ${isFullscreen ? "min-h-[calc(100vh-120px)]" : "min-h-[60vh]"}`}
                 />
               )
             ) : (
               <div className="flex items-center justify-center h-64 text-muted-foreground text-sm text-center px-4">
-                Upload a screenshot, document, or paste text, then click "Convert to HTML" to generate styled HTML you can copy into any website.
+                Upload a screenshot, provide a URL, or paste text, then click "Convert to HTML" to generate styled HTML you can copy into any website.
               </div>
             )}
           </CardContent>
