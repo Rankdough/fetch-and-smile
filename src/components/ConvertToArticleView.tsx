@@ -5,7 +5,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { FileUp, Loader2, Link, Upload, Download, Eye, Code } from "lucide-react";
+import { FileUp, Loader2, Link, Upload, Download, Eye, Code, Image } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 function cleanSourceText(text: string): string {
@@ -27,6 +27,23 @@ function cleanSourceText(text: string): string {
     .trim();
 }
 
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      // Strip data URL prefix to get raw base64
+      resolve(result.split(",")[1]);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+function isImageFile(file: File): boolean {
+  return file.type.startsWith("image/") || /\.(png|jpg|jpeg|webp|gif)$/i.test(file.name);
+}
+
 interface ConvertToArticleViewProps {
   formatReference?: string;
   onContentReady?: (markdown: string) => void;
@@ -36,12 +53,24 @@ export function ConvertToArticleView({ formatReference, onContentReady }: Conver
   const { toast } = useToast();
   const [pastedText, setPastedText] = useState("");
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [screenshotFile, setScreenshotFile] = useState<File | null>(null);
+  const [screenshotPreview, setScreenshotPreview] = useState<string>("");
   const [samplePageUrl, setSamplePageUrl] = useState("");
   const [isConverting, setIsConverting] = useState(false);
   const [isScraping, setIsScraping] = useState(false);
   const [scrapedLayout, setScrapedLayout] = useState("");
   const [outputHtml, setOutputHtml] = useState("");
   const [viewMode, setViewMode] = useState<"preview" | "code">("preview");
+
+  const handleScreenshotUpload = (file: File | null) => {
+    setScreenshotFile(file);
+    if (file) {
+      const url = URL.createObjectURL(file);
+      setScreenshotPreview(url);
+    } else {
+      setScreenshotPreview("");
+    }
+  };
 
   const handleScrapeLayout = async () => {
     if (!samplePageUrl.trim()) return;
@@ -69,26 +98,36 @@ export function ConvertToArticleView({ formatReference, onContentReady }: Conver
   };
 
   const handleConvert = async () => {
-    if (!pastedText.trim() && !uploadedFile) {
-      toast({ title: "No content", description: "Upload a file or paste text to convert.", variant: "destructive" });
+    const hasScreenshot = !!screenshotFile;
+    const hasText = !!pastedText.trim();
+    const hasFile = !!uploadedFile;
+
+    if (!hasScreenshot && !hasText && !hasFile) {
+      toast({ title: "No content", description: "Upload a screenshot, file, or paste text to convert.", variant: "destructive" });
       return;
     }
 
     setIsConverting(true);
     try {
       let sourceText = pastedText.trim();
+      let screenshotBase64: string | undefined;
 
-      // Parse uploaded file — fall back to pasted text if it fails
-      if (uploadedFile) {
+      // If screenshot is provided, convert to base64 for vision analysis
+      if (hasScreenshot) {
+        screenshotBase64 = await fileToBase64(screenshotFile!);
+      }
+
+      // Parse uploaded document file (not images) — fall back to pasted text if it fails
+      if (hasFile && !isImageFile(uploadedFile!)) {
         let fileText = "";
         let fileFailed = false;
         try {
-          const ext = uploadedFile.name.split(".").pop()?.toLowerCase();
+          const ext = uploadedFile!.name.split(".").pop()?.toLowerCase();
           if (ext === "txt" || ext === "md") {
-            fileText = await uploadedFile.text();
+            fileText = await uploadedFile!.text();
           } else {
             const formData = new FormData();
-            formData.append("file", uploadedFile);
+            formData.append("file", uploadedFile!);
             const { data, error } = await supabase.functions.invoke("parse-context-file", { body: formData });
             if (error) throw error;
             fileText = data.content || "";
@@ -105,29 +144,37 @@ export function ConvertToArticleView({ formatReference, onContentReady }: Conver
 
         if (fileFailed && sourceText) {
           toast({ title: "File couldn't be read", description: "Using pasted text instead." });
-        } else if (fileFailed) {
+        } else if (fileFailed && !screenshotBase64) {
           toast({ title: "Could not extract content", description: "The file couldn't be read and no pasted text was provided.", variant: "destructive" });
           setIsConverting(false);
           return;
-        } else {
+        } else if (!fileFailed) {
           sourceText = fileText;
         }
       }
 
-      if (!sourceText) {
+      // If uploaded file IS an image, treat it as screenshot
+      if (hasFile && isImageFile(uploadedFile!) && !screenshotBase64) {
+        screenshotBase64 = await fileToBase64(uploadedFile!);
+      }
+
+      // Need at least screenshot or text
+      if (!screenshotBase64 && !sourceText) {
         toast({ title: "No content", description: "No text found to convert.", variant: "destructive" });
         setIsConverting(false);
         return;
       }
 
       // Clean noise from source text
-      sourceText = cleanSourceText(sourceText);
+      if (sourceText) {
+        sourceText = cleanSourceText(sourceText);
+      }
 
-      // Call the new convert-to-html edge function (uses Lovable AI, no SEO rules)
       const { data, error } = await supabase.functions.invoke("convert-to-html", {
         body: {
-          sourceContent: sourceText,
+          sourceContent: sourceText || undefined,
           sampleLayout: scrapedLayout || undefined,
+          screenshotBase64: screenshotBase64 || undefined,
         },
       });
 
@@ -150,7 +197,6 @@ export function ConvertToArticleView({ formatReference, onContentReady }: Conver
     navigator.clipboard.writeText(outputHtml).then(() => {
       toast({ title: "HTML copied!", description: "Styled HTML copied to clipboard. Paste it into WordPress, Shopify, or any CMS." });
     }).catch(() => {
-      // Fallback: download as file
       const blob = new Blob([outputHtml], { type: "text/html" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -164,6 +210,8 @@ export function ConvertToArticleView({ formatReference, onContentReady }: Conver
     });
   };
 
+  const hasInput = !!pastedText.trim() || !!uploadedFile || !!screenshotFile;
+
   return (
     <div className="container mx-auto px-4 py-6 max-w-[1400px]">
       <div className="grid gap-6 grid-cols-1 lg:grid-cols-2">
@@ -176,9 +224,45 @@ export function ConvertToArticleView({ formatReference, onContentReady }: Conver
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-5">
-            {/* File Upload */}
+            {/* Screenshot Upload */}
             <div className="space-y-2">
-              <Label>Upload File (PDF, DOCX, TXT, MD)</Label>
+              <Label className="flex items-center gap-2">
+                <Image className="h-4 w-4" />
+                Upload Screenshot (PNG, JPG) — AI will replicate the layout
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                Upload a screenshot of a page and the AI will analyze its visual layout and replicate it as HTML.
+              </p>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="file"
+                  accept="image/png,image/jpeg,image/jpg,image/webp"
+                  onChange={(e) => handleScreenshotUpload(e.target.files?.[0] || null)}
+                  className="flex-1"
+                />
+                {screenshotFile && (
+                  <Button variant="ghost" size="sm" onClick={() => handleScreenshotUpload(null)}>
+                    Clear
+                  </Button>
+                )}
+              </div>
+              {screenshotPreview && (
+                <div className="border rounded-md overflow-hidden max-h-[200px]">
+                  <img src={screenshotPreview} alt="Screenshot preview" className="w-full h-auto object-contain max-h-[200px]" />
+                </div>
+              )}
+            </div>
+
+            {/* Divider */}
+            <div className="flex items-center gap-3">
+              <div className="h-px flex-1 bg-border" />
+              <span className="text-xs text-muted-foreground">AND / OR</span>
+              <div className="h-px flex-1 bg-border" />
+            </div>
+
+            {/* Document Upload */}
+            <div className="space-y-2">
+              <Label>Upload Document (PDF, DOCX, TXT, MD)</Label>
               <div className="flex items-center gap-2">
                 <Input
                   type="file"
@@ -197,7 +281,7 @@ export function ConvertToArticleView({ formatReference, onContentReady }: Conver
             {/* Divider */}
             <div className="flex items-center gap-3">
               <div className="h-px flex-1 bg-border" />
-              <span className="text-xs text-muted-foreground">OR</span>
+              <span className="text-xs text-muted-foreground">AND / OR</span>
               <div className="h-px flex-1 bg-border" />
             </div>
 
@@ -206,7 +290,7 @@ export function ConvertToArticleView({ formatReference, onContentReady }: Conver
               <Label>Paste Text Content</Label>
               <Textarea
                 placeholder="Paste your article text here..."
-                className="min-h-[200px] text-sm resize-none"
+                className="min-h-[150px] text-sm resize-none"
                 value={pastedText}
                 onChange={(e) => setPastedText(e.target.value)}
               />
@@ -246,7 +330,7 @@ export function ConvertToArticleView({ formatReference, onContentReady }: Conver
             {/* Convert Button */}
             <Button
               onClick={handleConvert}
-              disabled={isConverting || (!pastedText.trim() && !uploadedFile)}
+              disabled={isConverting || !hasInput}
               className="w-full"
               size="lg"
             >
@@ -305,7 +389,7 @@ export function ConvertToArticleView({ formatReference, onContentReady }: Conver
               )
             ) : (
               <div className="flex items-center justify-center h-64 text-muted-foreground text-sm text-center px-4">
-                Upload a PDF/document or paste text, then click "Convert to HTML" to generate styled HTML you can copy into any website.
+                Upload a screenshot, document, or paste text, then click "Convert to HTML" to generate styled HTML you can copy into any website.
               </div>
             )}
           </CardContent>

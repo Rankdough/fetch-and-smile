@@ -12,11 +12,11 @@ serve(async (req) => {
   }
 
   try {
-    const { sourceContent, sampleLayout } = await req.json();
+    const { sourceContent, sampleLayout, screenshotBase64 } = await req.json();
 
-    if (!sourceContent) {
+    if (!sourceContent && !screenshotBase64) {
       return new Response(
-        JSON.stringify({ error: "Source content is required" }),
+        JSON.stringify({ error: "Source content or screenshot is required" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -26,7 +26,7 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    let systemPrompt = `You are an expert HTML page builder. Your job is to take source content and produce a visually rich, well-structured, standalone HTML page.
+    const systemPrompt = `You are an expert HTML page builder. Your job is to produce a visually rich, well-structured, standalone HTML page.
 
 STEP 1 - STRIP THESE ELEMENTS (MANDATORY - DO THIS FIRST):
 Remove ALL of the following from the source content before building:
@@ -62,9 +62,35 @@ STEP 2 - BUILD THE PAGE from the remaining article body content:
 8. Return ONLY styled content — no <html>, <head>, <body> tags.
 9. RESPONSIVE: max-width:800px centered container, percentage widths, mobile-friendly.`;
 
-    if (sampleLayout) {
-      systemPrompt += `\n\nLAYOUT REFERENCE: Match the visual structure, heading styles, spacing, and overall look of this sample page:\n${sampleLayout.substring(0, 5000)}`;
+    // Build the user message with optional image
+    const userContent: any[] = [];
+
+    if (screenshotBase64) {
+      userContent.push({
+        type: "image_url",
+        image_url: { url: `data:image/png;base64,${screenshotBase64}` },
+      });
+      if (sourceContent) {
+        userContent.push({
+          type: "text",
+          text: `Replicate the EXACT layout, visual structure, and styling shown in this screenshot. Use the following text as the article content:\n\n${sourceContent.substring(0, 15000)}`,
+        });
+      } else {
+        userContent.push({
+          type: "text",
+          text: "Replicate the EXACT layout, visual structure, styling, and content shown in this screenshot as HTML. Match the sections, cards, spacing, colors, and typography as closely as possible. Use image placeholders where images appear.",
+        });
+      }
+    } else {
+      let text = `Convert this content into styled HTML:\n\n${sourceContent.substring(0, 15000)}`;
+      if (sampleLayout) {
+        text += `\n\nLAYOUT REFERENCE - match the visual structure of this page:\n${sampleLayout.substring(0, 5000)}`;
+      }
+      userContent.push({ type: "text", text });
     }
+
+    // Use vision-capable model when screenshot is provided
+    const model = screenshotBase64 ? "google/gemini-2.5-flash" : "google/gemini-2.5-flash";
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -73,10 +99,10 @@ STEP 2 - BUILD THE PAGE from the remaining article body content:
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model,
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: `Convert this content into styled HTML:\n\n${sourceContent.substring(0, 15000)}` },
+          { role: "user", content: userContent },
         ],
         stream: false,
       }),
