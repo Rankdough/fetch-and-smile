@@ -5,7 +5,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { FileUp, Loader2, Link, Upload, Download, Eye, Code, Image, Maximize2, Minimize2 } from "lucide-react";
+import { FileUp, Loader2, Link, Upload, Download, Eye, Code, Image, Maximize2, Minimize2, ArrowRight } from "lucide-react";
+import TurndownService from "turndown";
 import { supabase } from "@/integrations/supabase/client";
 
 function cleanSourceText(text: string): string {
@@ -234,6 +235,30 @@ export function ConvertToArticleView({ formatReference, onContentReady }: Conver
     });
   };
 
+  const handleSendToGenerator = () => {
+    if (!outputHtml || !onContentReady) return;
+    const turndown = new TurndownService({ headingStyle: "atx", codeBlockStyle: "fenced" });
+    turndown.addRule("table", {
+      filter: ["table"],
+      replacement: function (_content, node) {
+        const table = node as HTMLTableElement;
+        const rows = Array.from(table.rows);
+        if (rows.length === 0) return "";
+        const mdRows = rows.map((row) =>
+          "| " + Array.from(row.cells).map((c) => c.textContent?.trim() || "").join(" | ") + " |"
+        );
+        if (mdRows.length > 1) {
+          const sep = "| " + Array.from(rows[0].cells).map(() => "---").join(" | ") + " |";
+          mdRows.splice(1, 0, sep);
+        }
+        return "\n\n" + mdRows.join("\n") + "\n\n";
+      },
+    });
+    const markdown = turndown.turndown(outputHtml);
+    onContentReady(markdown);
+    toast({ title: "Sent to SEO Generator", description: "Content loaded into the generator with all rules applied." });
+  };
+
   const hasInput = !!pastedText.trim() || !!uploadedFile || !!screenshotFile || !!pageUrl.trim();
 
   return (
@@ -418,6 +443,12 @@ export function ConvertToArticleView({ formatReference, onContentReady }: Conver
                       <Download className="h-4 w-4" />
                       Copy HTML
                     </Button>
+                    {onContentReady && (
+                      <Button variant="secondary" size="sm" onClick={handleSendToGenerator} className="gap-1">
+                        <ArrowRight className="h-4 w-4" />
+                        Use in SEO Generator
+                      </Button>
+                    )}
                   </>
                 )}
                 {outputHtml && (
