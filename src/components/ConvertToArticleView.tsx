@@ -8,6 +8,25 @@ import { useToast } from "@/hooks/use-toast";
 import { FileUp, Loader2, Link, Upload, Download, Eye, Code } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
+function cleanSourceText(text: string): string {
+  const navPatterns = /^(home|blog|about|contact|shop|cart|menu|search|login|sign ?in|sign ?up|register|faq|help|support|privacy|terms|sitemap|site map|english|deutsch|français|nederlands)$/i;
+  const noisePatterns = /^(follow us|many links|heatmap|recording|area|ordered before|free shipping|© |copyright |\(c\) |cookie|we use cookies|accept all|reject all)/i;
+
+  return text
+    .split("\n")
+    .filter((line) => {
+      const trimmed = line.trim();
+      if (!trimmed) return true;
+      if (trimmed.length < 3) return false;
+      if (navPatterns.test(trimmed)) return false;
+      if (noisePatterns.test(trimmed)) return false;
+      return true;
+    })
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 interface ConvertToArticleViewProps {
   formatReference?: string;
   onContentReady?: (markdown: string) => void;
@@ -59,29 +78,50 @@ export function ConvertToArticleView({ formatReference, onContentReady }: Conver
     try {
       let sourceText = pastedText.trim();
 
-      // Parse uploaded file
+      // Parse uploaded file — fall back to pasted text if it fails
       if (uploadedFile) {
-        const ext = uploadedFile.name.split(".").pop()?.toLowerCase();
-        if (ext === "txt" || ext === "md") {
-          sourceText = await uploadedFile.text();
-        } else {
-          // Use parse-context-file for PDF/DOCX
-          const formData = new FormData();
-          formData.append("file", uploadedFile);
-          const { data, error } = await supabase.functions.invoke("parse-context-file", { body: formData });
-          if (error) throw error;
-          sourceText = data.content || "";
-          if (data.truncated) {
-            toast({ title: "Content truncated", description: "File was too large — first 10,000 characters used." });
+        let fileText = "";
+        let fileFailed = false;
+        try {
+          const ext = uploadedFile.name.split(".").pop()?.toLowerCase();
+          if (ext === "txt" || ext === "md") {
+            fileText = await uploadedFile.text();
+          } else {
+            const formData = new FormData();
+            formData.append("file", uploadedFile);
+            const { data, error } = await supabase.functions.invoke("parse-context-file", { body: formData });
+            if (error) throw error;
+            fileText = data.content || "";
+            if (data.truncated) {
+              toast({ title: "Content truncated", description: "File was too large — first 10,000 characters used." });
+            }
           }
+          if (!fileText || fileText.startsWith("[")) {
+            fileFailed = true;
+          }
+        } catch {
+          fileFailed = true;
+        }
+
+        if (fileFailed && sourceText) {
+          toast({ title: "File couldn't be read", description: "Using pasted text instead." });
+        } else if (fileFailed) {
+          toast({ title: "Could not extract content", description: "The file couldn't be read and no pasted text was provided.", variant: "destructive" });
+          setIsConverting(false);
+          return;
+        } else {
+          sourceText = fileText;
         }
       }
 
-      if (!sourceText || sourceText.startsWith("[")) {
-        toast({ title: "Could not extract content", description: sourceText || "No text found in the file.", variant: "destructive" });
+      if (!sourceText) {
+        toast({ title: "No content", description: "No text found to convert.", variant: "destructive" });
         setIsConverting(false);
         return;
       }
+
+      // Clean noise from source text
+      sourceText = cleanSourceText(sourceText);
 
       // Call the new convert-to-html edge function (uses Lovable AI, no SEO rules)
       const { data, error } = await supabase.functions.invoke("convert-to-html", {
