@@ -270,7 +270,8 @@ ${toneProfile.example_phrases.map((p, i) => `${i + 1}. "${p}"`).join("\n")}`;
 
       systemPrompt += `
 
-IMPORTANT: Maintain this tone consistently throughout the entire article.`;
+IMPORTANT: Maintain this tone consistently throughout the entire article.
+CRITICAL: Always write in first person ("we", "our", "I"). NEVER refer to the tone profile owner by name or write in third person about them. The tone profile defines HOW to write, not WHO is speaking. Do not say things like "Hi, it's [Name]" or "[Name] recommends..." - just adopt the style naturally.`;
     }
 
     if (formatReference) {
