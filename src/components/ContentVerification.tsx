@@ -33,6 +33,7 @@ interface ContentVerificationProps {
   ctaUrl?: string;
   generatedCTAs?: CTAData | null;
   internalLinks?: string[];
+  selectedGapInsights?: string[];
 }
 
 interface VerificationItem {
@@ -52,7 +53,8 @@ export const ContentVerification = ({
   onRegenerateForWordCount,
   ctaUrl,
   generatedCTAs,
-  internalLinks
+  internalLinks,
+  selectedGapInsights
 }: ContentVerificationProps) => {
   const verificationResults = useMemo(() => {
     const results: VerificationItem[] = [];
@@ -186,7 +188,50 @@ export const ContentVerification = ({
           : "No competitor analysis applied - add competitor URLs to analyze gaps",
     });
 
-    // Check context files were used and content is based on them
+    // Check if selected gap insights are addressed in the content
+    if (selectedGapInsights && selectedGapInsights.length > 0) {
+      const contentLower = content.toLowerCase();
+      const addressedInsights: string[] = [];
+      const missingInsights: string[] = [];
+      
+      selectedGapInsights.forEach(insight => {
+        // Extract key terms from the insight (first few meaningful words)
+        const keyTerms = insight
+          .toLowerCase()
+          .replace(/["""'']/g, "")
+          .split(/\s+/)
+          .filter(w => w.length > 3 && !["the", "and", "for", "that", "this", "with", "from", "have", "been", "they", "their", "there", "about", "which", "would", "could", "should", "into", "also", "most", "very", "while", "articles", "article"].includes(w))
+          .slice(0, 5);
+        
+        // Check if enough key terms appear in the content
+        const matchedTerms = keyTerms.filter(term => contentLower.includes(term));
+        const matchRate = keyTerms.length > 0 ? matchedTerms.length / keyTerms.length : 0;
+        
+        // Get a short label for the insight (first ~40 chars)
+        const shortLabel = insight.length > 40 ? insight.slice(0, 40).trim() + "..." : insight;
+        
+        if (matchRate >= 0.4) {
+          addressedInsights.push(shortLabel);
+        } else {
+          missingInsights.push(shortLabel);
+        }
+      });
+      
+      const allAddressed = missingInsights.length === 0;
+      const someAddressed = addressedInsights.length > 0;
+      
+      results.push({
+        id: "gap-insights-addressed",
+        label: `Selected gap insights addressed (${addressedInsights.length}/${selectedGapInsights.length})`,
+        status: allAddressed ? "passed" : someAddressed ? "warning" : "failed",
+        details: allAddressed
+          ? `All ${selectedGapInsights.length} selected gap insights are covered in the content`
+          : missingInsights.length > 0
+            ? `Missing: ${missingInsights.join("; ")}`
+            : "Selected gap insights not found in content",
+      });
+    }
+
     if (appliedRules?.contextFilesUsed && appliedRules.contextFileNames.length > 0) {
       // Check if any content from context files is likely referenced
       // Look for source citations or references section
@@ -397,7 +442,7 @@ export const ContentVerification = ({
     }
 
     return results;
-  }, [content, appliedRules, ctaUrl, generatedCTAs, internalLinks]);
+  }, [content, appliedRules, ctaUrl, generatedCTAs, internalLinks, selectedGapInsights]);
 
   const passedCount = verificationResults.filter((r) => r.status === "passed").length;
   const totalCount = verificationResults.length;

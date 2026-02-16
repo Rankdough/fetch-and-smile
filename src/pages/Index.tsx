@@ -4361,6 +4361,7 @@ const Index = () => {
                       content={generatedContent} 
                       appliedRules={appliedRules}
                       internalLinks={internalLinks}
+                      selectedGapInsights={selectedGapInsights}
                       onFixEmDashes={() => {
                         const fixed = generatedContent.replace(/—/g, "-");
                         setGeneratedContent(fixed);
