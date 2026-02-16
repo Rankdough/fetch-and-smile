@@ -15,6 +15,7 @@ import {
   Calendar,
   Hash,
   Tag,
+  Eye,
 } from "lucide-react";
 import {
   AlertDialog,
@@ -113,8 +114,7 @@ const Articles = () => {
     }
   };
 
-  const handleLoad = (article: SavedArticle) => {
-    // Store all settings in localStorage so the generator picks them up
+  const restoreSettings = (article: SavedArticle) => {
     localStorage.setItem("seo-generator-generatedContent", article.generated_content);
     localStorage.setItem("seo-generator-originalContent", article.original_content || article.generated_content);
     
@@ -166,7 +166,6 @@ const Articles = () => {
     if (article.applied_rules) localStorage.setItem("seo-generator-appliedRules", JSON.stringify(article.applied_rules));
     else localStorage.removeItem("seo-generator-appliedRules");
 
-    // Context files - we store names only, content won't be restored
     if (article.context_file_names?.length) {
       localStorage.setItem("seo-generator-contextFiles", JSON.stringify(
         article.context_file_names.map(name => ({ name, content: "[Previously uploaded]" }))
@@ -174,15 +173,31 @@ const Articles = () => {
     } else {
       localStorage.setItem("seo-generator-contextFiles", JSON.stringify([]));
     }
+  };
+
+  const handleLoad = (article: SavedArticle) => {
+    restoreSettings(article);
+    // Remove any pending rerun flag
+    localStorage.removeItem("seo-generator-autoRerun");
 
     toast({
       title: "Article loaded",
-      description: `"${article.title}" settings restored. Navigating to generator...`,
+      description: `"${article.title}" loaded with all settings. Make any changes and regenerate when ready.`,
     });
 
-    // Navigate to generator - it will pick up from localStorage
-    navigate("/");
-    // Force a page reload to reinitialize state from localStorage
+    window.location.href = "/";
+  };
+
+  const handleRerun = (article: SavedArticle) => {
+    restoreSettings(article);
+    // Set flag so the generator auto-triggers generation on load
+    localStorage.setItem("seo-generator-autoRerun", "true");
+
+    toast({
+      title: "Rerunning article",
+      description: `"${article.title}" will regenerate with current settings.`,
+    });
+
     window.location.href = "/";
   };
 
@@ -284,10 +299,18 @@ const Articles = () => {
                   <div className="flex flex-col gap-2 flex-shrink-0">
                     <Button
                       size="sm"
+                      variant="outline"
                       onClick={() => handleLoad(article)}
                     >
+                      <Eye className="h-3.5 w-3.5 mr-1" />
+                      Load
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={() => handleRerun(article)}
+                    >
                       <RotateCcw className="h-3.5 w-3.5 mr-1" />
-                      Load & Rerun
+                      Rerun
                     </Button>
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
