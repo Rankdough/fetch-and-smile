@@ -1,0 +1,264 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+};
+
+serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const {
+      existingContent,
+      changedSettings,
+      topic,
+      keywords,
+      toneProfileId,
+      useKnowledgeBase,
+      instructions,
+      valuePromise,
+      selectedAngles,
+      selectedGapInsights,
+      gapAnalysis,
+      formatReference,
+      contextFiles,
+      outline,
+      targetLength,
+    } = await req.json();
+
+    if (!existingContent || !changedSettings || changedSettings.length === 0) {
+      return new Response(
+        JSON.stringify({ error: "Existing content and at least one changed setting are required" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) {
+      throw new Error("LOVABLE_API_KEY is not configured");
+    }
+
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    console.log("Changed settings:", changedSettings);
+
+    // Build context for each changed setting
+    const changeInstructions: string[] = [];
+
+    for (const change of changedSettings) {
+      switch (change) {
+        case "toneProfileId": {
+          if (toneProfileId) {
+            const { data: profileData } = await supabase
+              .from("tone_profiles")
+              .select("summary, characteristics, example_phrases")
+              .eq("id", toneProfileId)
+              .maybeSingle();
+
+            if (profileData) {
+              const chars = Object.entries(profileData.characteristics || {})
+                .map(([k, v]) => `- ${k}: ${v}`)
+                .join("\n");
+              const phrases = profileData.example_phrases?.slice(0, 5).join('" | "') || "";
+              changeInstructions.push(
+                `APPLY TONE OF VOICE: Rewrite the content to match this writing style:\n` +
+                `Summary: ${profileData.summary || "N/A"}\n` +
+                `Characteristics:\n${chars}\n` +
+                `Example phrases: "${phrases}"\n` +
+                `Preserve all facts, structure, headings, tables, and information. Only change the writing style and voice.`
+              );
+            }
+          } else {
+            changeInstructions.push(
+              "REMOVE TONE OF VOICE: Rewrite the content in a neutral, professional tone. Preserve all facts, structure, and information."
+            );
+          }
+          break;
+        }
+
+        case "keywords": {
+          changeInstructions.push(
+            `OPTIMIZE FOR KEYWORDS: Naturally incorporate these keywords throughout the content: ${(keywords || []).join(", ")}. ` +
+            `Ensure they appear in headings, early paragraphs, and throughout the body. Do not keyword-stuff. Preserve all existing structure and information.`
+          );
+          break;
+        }
+
+        case "useKnowledgeBase": {
+          if (useKnowledgeBase) {
+            const { data: knowledgeData } = await supabase
+              .from("seo_knowledge")
+              .select("key_rules")
+              .not("key_rules", "is", null);
+
+            if (knowledgeData) {
+              const rules = knowledgeData.flatMap((item: any) => item.key_rules || []);
+              if (rules.length > 0) {
+                changeInstructions.push(
+                  `APPLY SEO KNOWLEDGE BASE RULES: Ensure the content follows these rules:\n` +
+                  rules.map((r: string, i: number) => `${i + 1}. ${r}`).join("\n") +
+                  `\nAdjust content as needed while preserving the core information and structure.`
+                );
+              }
+            }
+          }
+          break;
+        }
+
+        case "instructions": {
+          changeInstructions.push(
+            `APPLY NEW INSTRUCTIONS: Follow these additional instructions when rewriting:\n${instructions || "(none)"}\nPreserve existing structure and information unless the instructions specifically contradict them.`
+          );
+          break;
+        }
+
+        case "valuePromise": {
+          changeInstructions.push(
+            `UPDATE VALUE PROMISE: The reader MUST be able to: ${valuePromise}. ` +
+            `Review every section and ensure it helps achieve this outcome. Add, modify, or strengthen content to better deliver on this promise.`
+          );
+          break;
+        }
+
+        case "selectedAngles":
+        case "selectedGapInsights": {
+          const allAngles = [...(selectedGapInsights || []), ...(selectedAngles || [])];
+          if (allAngles.length > 0) {
+            changeInstructions.push(
+              `INCORPORATE UNIQUE ANGLES: Weave these perspectives/insights into the content:\n` +
+              allAngles.map((a: string, i: number) => `${i + 1}. ${a}`).join("\n") +
+              `\nAdd new sections or enrich existing ones to address these angles. Preserve existing structure where possible.`
+            );
+          }
+          break;
+        }
+
+        case "gapAnalysis": {
+          changeInstructions.push(
+            `APPLY GAP ANALYSIS: Address the following content gaps identified from competitor analysis:\n${gapAnalysis}\n` +
+            `Strengthen or add content to cover these gaps while preserving existing structure.`
+          );
+          break;
+        }
+
+        case "formatReference": {
+          changeInstructions.push(
+            `APPLY FORMAT REFERENCE: Restructure the content to match this format/structure:\n${formatReference}\n` +
+            `Preserve all information but reorganize to match the reference format.`
+          );
+          break;
+        }
+
+        case "contextFiles": {
+          const fileContents = (contextFiles || [])
+            .map((f: { name: string; content: string }) => `--- ${f.name} ---\n${f.content}`)
+            .join("\n\n");
+          changeInstructions.push(
+            `INCORPORATE CONTEXT FILES: Use information from these files to enrich the content:\n${fileContents}\n` +
+            `Cite sources where appropriate. Preserve existing structure.`
+          );
+          break;
+        }
+
+        case "outline": {
+          changeInstructions.push(
+            `APPLY NEW OUTLINE: Restructure the content to follow this outline:\n${outline}\n` +
+            `Preserve existing information but reorganize to match the new outline.`
+          );
+          break;
+        }
+
+        case "targetLength": {
+          const wordCounts: Record<string, number> = {
+            short: 500, medium: 1000, long: 2000, extended: 3000, comprehensive: 3500,
+          };
+          const target = wordCounts[targetLength] || 1000;
+          changeInstructions.push(
+            `ADJUST LENGTH: Modify the content to be approximately ${target} words. ` +
+            `If expanding, add depth and detail. If shortening, keep the most important information and remove redundancy.`
+          );
+          break;
+        }
+
+        default:
+          console.log("Unknown changed setting:", change);
+      }
+    }
+
+    if (changeInstructions.length === 0) {
+      return new Response(
+        JSON.stringify({ content: existingContent, message: "No applicable changes found" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const systemPrompt = `You are an expert SEO content editor. You will receive an existing article and specific change instructions. 
+Your job is to apply ONLY the requested changes while preserving everything else exactly as-is.
+
+CRITICAL RULES:
+1. Preserve ALL existing headings, sections, tables, lists, and structure unless a change specifically requires modification
+2. Preserve ALL existing facts, data, statistics, and citations
+3. Preserve the overall markdown formatting
+4. Do NOT add new sections unless a change specifically requires it
+5. Do NOT remove content unless a change specifically requires it
+6. Apply changes seamlessly - the result should read as if it was originally written this way
+7. Keep the same approximate length unless a length change is requested
+8. Return ONLY the modified article content in markdown format, no explanations`;
+
+    const userPrompt = `Here is the existing article:\n\n${existingContent}\n\n---\n\nApply the following changes to this article:\n\n${changeInstructions.join("\n\n---\n\n")}`;
+
+    console.log(`Applying ${changeInstructions.length} change(s) to existing content`);
+
+    const response = await fetch("https://api.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+        temperature: 0.3,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("AI API error:", errorText);
+      throw new Error(`AI API returned ${response.status}: ${errorText}`);
+    }
+
+    const data = await response.json();
+    let content = data.choices?.[0]?.message?.content || "";
+
+    // Clean up any markdown code fences
+    content = content.replace(/^```(?:markdown)?\s*\n?/i, "").replace(/\n?```\s*$/i, "").trim();
+
+    console.log("Rerun complete. Output length:", content.length);
+
+    return new Response(
+      JSON.stringify({
+        content,
+        appliedChanges: changedSettings,
+        changeCount: changeInstructions.length,
+      }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  } catch (error) {
+    console.error("Rerun changes error:", error);
+    return new Response(
+      JSON.stringify({ error: error.message }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+});
