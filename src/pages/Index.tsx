@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -12,7 +13,7 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { Loader2, Sparkles, FileText, Link, Search, X, Upload, Plus, Tag, Download, ExternalLink, BookOpen, Eye, Edit2, Mic2, RotateCcw, Target, Maximize2, Minimize2, ImagePlus, Wand2, Image, ChevronDown, Trash2, Settings, FileUp } from "lucide-react";
+import { Loader2, Sparkles, FileText, Link, Search, X, Upload, Plus, Tag, Download, ExternalLink, BookOpen, Eye, Edit2, Mic2, RotateCcw, Target, Maximize2, Minimize2, ImagePlus, Wand2, Image, ChevronDown, Trash2, Settings, FileUp, Save, FolderOpen } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -297,6 +298,7 @@ const removeInThisArticleSection = (content: string): string => {
 type ActiveTool = "generator" | "converter";
 
 const Index = () => {
+  const navigate = useNavigate();
   const [activeTool, setActiveTool] = useState<ActiveTool>("generator");
   const { toast } = useToast();
   const { trackUsage, getVoiceEditCredits, getQualityAnalysisCredits, getQualityAnalysisBreakdown, clearHistory: clearCreditHistory } = useCreditTracking();
@@ -341,6 +343,62 @@ const Index = () => {
         title: "Content reset",
         description: "Restored to the original generated version.",
       });
+    }
+  };
+  const [isSavingArticle, setIsSavingArticle] = useState(false);
+  
+  const handleSaveArticle = async () => {
+    if (!generatedContent.trim()) return;
+    
+    setIsSavingArticle(true);
+    try {
+      // Extract title from content (first H1 or H2, or use topic)
+      const titleMatch = generatedContent.match(/^#{1,2}\s+(.+)$/m);
+      const title = titleMatch ? titleMatch[1].replace(/[*_]/g, "").trim() : formData.topic || "Untitled Article";
+      
+      const wordCount = generatedContent.split(/\s+/).filter(Boolean).length;
+      
+      const { error } = await (supabase.from("saved_articles") as any).insert({
+        title,
+        topic: formData.topic,
+        generated_content: generatedContent,
+        original_content: originalContent || null,
+        value_promise: valuePromise || null,
+        gap_analysis: gapAnalysis || null,
+        format_reference: formatReference || null,
+        outline: formData.outline || null,
+        instructions: formData.instructions || null,
+        keywords: keywords.length > 0 ? keywords : [],
+        target_length: formData.length || "medium",
+        competitor_urls: competitorUrls.filter(u => u.trim()),
+        selected_angles: selectedAngles,
+        selected_gap_insights: selectedGapInsights,
+        tone_profile_id: selectedToneProfileId || null,
+        use_knowledge_base: useKnowledgeBase,
+        context_file_names: contextFiles.map(f => f.name),
+        cta_url: ctaUrl || null,
+        generated_ctas: generatedCTAs || null,
+        color_palette: selectedColorPalette?.id || null,
+        article_images: articleImages.length > 0 ? articleImages : null,
+        applied_rules: appliedRules || null,
+        word_count: wordCount,
+      });
+      
+      if (error) throw error;
+      
+      toast({
+        title: "Article saved!",
+        description: `"${title}" saved with all settings.`,
+      });
+    } catch (error) {
+      console.error("Save error:", error);
+      toast({
+        title: "Save failed",
+        description: error instanceof Error ? error.message : "Failed to save article",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSavingArticle(false);
     }
   };
   const [appliedRules, setAppliedRules] = useState<{
@@ -2558,6 +2616,37 @@ const Index = () => {
                 Reset Content
               </Button>
             )}
+
+            {/* Save Article button - only show when content exists */}
+            {generatedContent.trim() && (
+              <Button
+                variant="outline"
+                onClick={handleSaveArticle}
+                disabled={isSavingArticle || isGenerating}
+              >
+                {isSavingArticle ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save className="h-4 w-4 mr-2" />
+                    Save Article
+                  </>
+                )}
+              </Button>
+            )}
+
+            {/* Saved Articles link */}
+            <Button
+              variant="ghost"
+              onClick={() => navigate("/articles")}
+              title="View saved articles"
+            >
+              <FolderOpen className="h-4 w-4 mr-2" />
+              Saved Articles
+            </Button>
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

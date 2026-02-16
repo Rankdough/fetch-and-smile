@@ -61,6 +61,93 @@ export type Database = {
         }
         Relationships: []
       }
+      saved_articles: {
+        Row: {
+          applied_rules: Json | null
+          article_images: Json | null
+          color_palette: string | null
+          competitor_urls: string[] | null
+          context_file_names: string[] | null
+          created_at: string
+          cta_url: string | null
+          format_reference: string | null
+          gap_analysis: string | null
+          generated_content: string
+          generated_ctas: Json | null
+          id: string
+          instructions: string | null
+          keywords: string[] | null
+          original_content: string | null
+          outline: string | null
+          selected_angles: string[] | null
+          selected_gap_insights: string[] | null
+          target_length: string | null
+          title: string
+          tone_profile_id: string | null
+          topic: string
+          updated_at: string
+          use_knowledge_base: boolean | null
+          value_promise: string | null
+          word_count: number | null
+        }
+        Insert: {
+          applied_rules?: Json | null
+          article_images?: Json | null
+          color_palette?: string | null
+          competitor_urls?: string[] | null
+          context_file_names?: string[] | null
+          created_at?: string
+          cta_url?: string | null
+          format_reference?: string | null
+          gap_analysis?: string | null
+          generated_content: string
+          generated_ctas?: Json | null
+          id?: string
+          instructions?: string | null
+          keywords?: string[] | null
+          original_content?: string | null
+          outline?: string | null
+          selected_angles?: string[] | null
+          selected_gap_insights?: string[] | null
+          target_length?: string | null
+          title: string
+          tone_profile_id?: string | null
+          topic: string
+          updated_at?: string
+          use_knowledge_base?: boolean | null
+          value_promise?: string | null
+          word_count?: number | null
+        }
+        Update: {
+          applied_rules?: Json | null
+          article_images?: Json | null
+          color_palette?: string | null
+          competitor_urls?: string[] | null
+          context_file_names?: string[] | null
+          created_at?: string
+          cta_url?: string | null
+          format_reference?: string | null
+          gap_analysis?: string | null
+          generated_content?: string
+          generated_ctas?: Json | null
+          id?: string
+          instructions?: string | null
+          keywords?: string[] | null
+          original_content?: string | null
+          outline?: string | null
+          selected_angles?: string[] | null
+          selected_gap_insights?: string[] | null
+          target_length?: string | null
+          title?: string
+          tone_profile_id?: string | null
+          topic?: string
+          updated_at?: string
+          use_knowledge_base?: boolean | null
+          value_promise?: string | null
+          word_count?: number | null
+        }
+        Relationships: []
+      }
       seo_knowledge: {
         Row: {
           content: string
