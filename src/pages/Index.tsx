@@ -311,6 +311,25 @@ const Index = () => {
   const [formatError, setFormatError] = useState<string | null>(null);
   const pendingApplyFormatRef = useRef(false);
   const pendingAutoRerunRef = useRef(localStorage.getItem("seo-generator-autoRerun") === "true");
+  const [isRerunning, setIsRerunning] = useState(false);
+  
+  // Snapshot of settings when an article was loaded - used to diff for smart rerun
+  const loadedSettingsSnapshotRef = useRef<{
+    topic: string;
+    length: string;
+    outline: string;
+    instructions: string;
+    keywords: string[];
+    toneProfileId: string | null;
+    useKnowledgeBase: boolean;
+    valuePromise: string;
+    selectedAngles: string[];
+    selectedGapInsights: string[];
+    gapAnalysis: string;
+    formatReference: string;
+    contextFiles: { name: string; content: string }[];
+    targetLength: string;
+  } | null>(null);
   const [generatedContent, setGeneratedContentRaw] = useState(() => {
     const saved = localStorage.getItem("seo-generator-generatedContent");
     return saved ? cleanContent(saved) : "";
@@ -1254,12 +1273,136 @@ const Index = () => {
     }
   };
 
-  // Auto-rerun from saved articles page
+  // Capture settings snapshot on load (for smart rerun diffing)
+  useEffect(() => {
+    // If content exists on mount, snapshot current settings so Rerun can diff against them
+    const hasContent = localStorage.getItem("seo-generator-generatedContent");
+    if (hasContent) {
+      loadedSettingsSnapshotRef.current = {
+        topic: formData.topic,
+        length: formData.length,
+        outline: formData.outline,
+        instructions: formData.instructions,
+        keywords: [...keywords],
+        toneProfileId: selectedToneProfileId,
+        useKnowledgeBase,
+        valuePromise,
+        selectedAngles: [...selectedAngles],
+        selectedGapInsights: [...selectedGapInsights],
+        gapAnalysis,
+        formatReference,
+        contextFiles: contextFiles.map(f => ({ ...f })),
+        targetLength: formData.length,
+      };
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Smart rerun - only applies changed settings to existing content
+  const handleSmartRerun = async () => {
+    const snapshot = loadedSettingsSnapshotRef.current;
+    
+    // If no snapshot exists, fall back to full regeneration
+    if (!snapshot) {
+      handleGenerate();
+      return;
+    }
+
+    // Detect which settings changed
+    const changedSettings: string[] = [];
+    
+    if (selectedToneProfileId !== snapshot.toneProfileId) changedSettings.push("toneProfileId");
+    if (JSON.stringify(keywords) !== JSON.stringify(snapshot.keywords)) changedSettings.push("keywords");
+    if (useKnowledgeBase !== snapshot.useKnowledgeBase) changedSettings.push("useKnowledgeBase");
+    if (formData.instructions !== snapshot.instructions) changedSettings.push("instructions");
+    if (valuePromise !== snapshot.valuePromise) changedSettings.push("valuePromise");
+    if (JSON.stringify(selectedAngles) !== JSON.stringify(snapshot.selectedAngles)) changedSettings.push("selectedAngles");
+    if (JSON.stringify(selectedGapInsights) !== JSON.stringify(snapshot.selectedGapInsights)) changedSettings.push("selectedGapInsights");
+    if (gapAnalysis !== snapshot.gapAnalysis) changedSettings.push("gapAnalysis");
+    if (formatReference !== snapshot.formatReference) changedSettings.push("formatReference");
+    if (JSON.stringify(contextFiles.map(f => f.name)) !== JSON.stringify(snapshot.contextFiles.map(f => f.name))) changedSettings.push("contextFiles");
+    if (formData.outline !== snapshot.outline) changedSettings.push("outline");
+    if (formData.length !== snapshot.targetLength) changedSettings.push("targetLength");
+    if (formData.topic !== snapshot.topic) changedSettings.push("topic");
+
+    // If topic changed or no changes detected, do full regen
+    if (changedSettings.includes("topic") || changedSettings.length === 0) {
+      if (changedSettings.length === 0) {
+        toast({
+          title: "No changes detected",
+          description: "No settings have been modified. Change a setting first, then click Rerun.",
+        });
+        return;
+      }
+      // Topic change requires full regen
+      handleGenerate();
+      return;
+    }
+
+    setIsRerunning(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("rerun-changes", {
+        body: {
+          existingContent: generatedContent,
+          changedSettings,
+          topic: formData.topic,
+          keywords,
+          toneProfileId: selectedToneProfileId,
+          useKnowledgeBase,
+          instructions: formData.instructions,
+          valuePromise,
+          selectedAngles,
+          selectedGapInsights,
+          gapAnalysis,
+          formatReference,
+          contextFiles: contextFiles.length > 0 ? contextFiles : undefined,
+          outline: formData.outline,
+          targetLength: formData.length,
+        },
+      });
+
+      if (error) throw error;
+
+      setGeneratedContent(data.content, true);
+
+      // Update snapshot to current settings
+      loadedSettingsSnapshotRef.current = {
+        topic: formData.topic,
+        length: formData.length,
+        outline: formData.outline,
+        instructions: formData.instructions,
+        keywords: [...keywords],
+        toneProfileId: selectedToneProfileId,
+        useKnowledgeBase,
+        valuePromise,
+        selectedAngles: [...selectedAngles],
+        selectedGapInsights: [...selectedGapInsights],
+        gapAnalysis,
+        formatReference,
+        contextFiles: contextFiles.map(f => ({ ...f })),
+        targetLength: formData.length,
+      };
+
+      toast({
+        title: "Changes applied!",
+        description: `Updated ${data.changeCount} setting(s): ${changedSettings.join(", ")}`,
+      });
+    } catch (error) {
+      console.error("Smart rerun error:", error);
+      toast({
+        title: "Rerun failed",
+        description: error instanceof Error ? error.message : "Failed to apply changes",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRerunning(false);
+    }
+  };
+
+  // Auto-rerun from saved articles page (full regen)
   useEffect(() => {
     if (pendingAutoRerunRef.current) {
       pendingAutoRerunRef.current = false;
       localStorage.removeItem("seo-generator-autoRerun");
-      // Small delay to ensure state is fully initialized from localStorage
       const timer = setTimeout(() => {
         if (formData.topic.trim()) {
           handleGenerate();
@@ -2637,14 +2780,14 @@ const Index = () => {
             {generatedContent.trim() && (
               <Button
                 variant="outline"
-                onClick={handleGenerate}
-                disabled={isGenerating}
-                title="Regenerate article with current settings"
+                onClick={handleSmartRerun}
+                disabled={isGenerating || isRerunning}
+                title="Apply only changed settings to existing content"
               >
-                {isGenerating ? (
+                {isRerunning ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Generating...
+                    Applying changes...
                   </>
                 ) : (
                   <>
