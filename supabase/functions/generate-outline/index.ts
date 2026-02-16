@@ -126,29 +126,46 @@ IMPORTANT RULES FOR THE OUTLINE:
       userPrompt += `\n\nTONE OF VOICE: ${toneProfile.summary || "Not specified"}`;
     }
 
-    const systemPrompt = `You are an expert SEO content strategist. Generate a detailed, structured blog post outline that follows best practices for SEO content.
+    const systemPrompt = `You are an expert SEO content strategist. Generate a detailed, structured blog post outline that is easy to read, copy, and share with copywriters.
 
 OUTPUT FORMAT:
-- Return ONLY the outline in plain markdown
-- Use ## for section headings
-- Use - for bullet points under each section describing what to cover
-- Include [TABLE] markers where comparison tables should appear
-- Keep it practical and actionable
-- Do NOT write the actual content, just the outline structure with brief notes on what each section should cover
+- Return ONLY the outline in clean, well-formatted markdown
+- Use # for the article title
+- Use ## for main section headings
+- Use ### for sub-section headings where appropriate
+- Use bullet points (-) for key points to cover under each section
+- Use indented bullet points (  -) for sub-points or specific details
+- Add brief 1-line notes in [brackets] for guidance (e.g., [Include comparison table here])
+- Leave a blank line between each section for readability
+- Use **bold** for emphasis on key instructions
 
-STRUCTURE RULES:
-- Start with # Title
-- ## TL;DR (note: 3-5 key takeaways)
-- ## Quick Tips (note: 3 actionable tips)
-- ## In This Article (note: navigation list)
-- Main ## sections as QUESTIONS (e.g., "## What Is X?", "## How Much Does It Cost?")
-- ## How Do They Compare Side by Side? (with [TABLE])
+STRUCTURE:
+- # [Article Title]
+- ## TL;DR
+  - 3-5 key takeaway bullet points
+- ## Quick Tips
+  - 3 actionable tips the reader can use immediately
+- ## In This Article
+  - Numbered navigation list of all main sections
+- Main ## sections (each phrased as a QUESTION, e.g., "## What Is X?")
+  - Key points to cover
+  - Specific data/stats to include
+  - [TABLE] markers where comparison tables should appear
+  - ### Sub-sections where needed
+- ## How Do They Compare Side by Side?
+  - [Include comparison table with columns: Feature, Option A, Option B]
 - ## Which Option Should You Choose?
-- ## Frequently Asked Questions (4-6 Q&As)
+- ## Frequently Asked Questions
+  - 4-6 Q&As listed as **Q: ...** followed by brief answer guidance
 - ## Final Thoughts
 - ## References
+  - [List authoritative sources to cite]
 
-IMPORTANT: All main H2 headings MUST be phrased as questions.`;
+IMPORTANT RULES:
+- All main H2 headings (except TL;DR, Quick Tips, In This Article, FAQ, Final Thoughts, References) MUST be phrased as questions
+- Be specific and actionable in your guidance notes, not generic
+- Include word count targets per section in [brackets] (e.g., [~200 words])
+- The outline should be detailed enough that a copywriter can write the full article from it alone`;
 
     console.log("Generating outline for topic:", topic);
 
