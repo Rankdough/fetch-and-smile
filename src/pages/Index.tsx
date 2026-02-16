@@ -2762,11 +2762,33 @@ const Index = () => {
                   )}
                 </Button>
                 {gapAnalysis && (
-                  <GapAnalysisSelector
-                    gapAnalysis={gapAnalysis}
-                    selectedInsights={selectedGapInsights}
-                    onInsightsChange={setSelectedGapInsights}
-                  />
+                  <div className="space-y-3">
+                    {/* Show the full analysis */}
+                    <Collapsible>
+                      <CollapsibleTrigger asChild>
+                        <Button variant="ghost" size="sm" className="w-full justify-between text-xs text-muted-foreground">
+                          <span className="flex items-center gap-1">
+                            <Eye className="h-3 w-3" />
+                            View Full Analysis
+                          </span>
+                          <ChevronDown className="h-3 w-3" />
+                        </Button>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent>
+                        <ScrollArea className="h-[200px] rounded-md border p-3 bg-muted/30">
+                          <div className="prose prose-sm max-w-none text-xs text-muted-foreground whitespace-pre-wrap">
+                            {gapAnalysis}
+                          </div>
+                        </ScrollArea>
+                      </CollapsibleContent>
+                    </Collapsible>
+                    
+                    <GapAnalysisSelector
+                      gapAnalysis={gapAnalysis}
+                      selectedInsights={selectedGapInsights}
+                      onInsightsChange={setSelectedGapInsights}
+                    />
+                  </div>
                 )}
                 
                 {/* Unique Angles Panel */}
