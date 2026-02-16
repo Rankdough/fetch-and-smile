@@ -18,6 +18,7 @@ serve(async (req) => {
       valuePromise,
       gapAnalysis,
       selectedAngles,
+      selectedGapInsights,
       formatReference,
       contextFiles,
       toneProfileId,
@@ -95,11 +96,15 @@ IMPORTANT RULES FOR THE OUTLINE:
     }
 
     if (gapAnalysis && gapAnalysis.trim()) {
-      userPrompt += `\n\nCONTENT GAPS TO ADDRESS:\n${gapAnalysis}`;
+      userPrompt += `\n\n⚠️ HIGH PRIORITY - CONTENT GAPS FROM COMPETITOR ANALYSIS:\nThe following gaps were identified by analyzing competitor articles. The outline MUST include dedicated sections or sub-sections that explicitly address each of these gaps. Do NOT skip any.\n${gapAnalysis}`;
+    }
+
+    if (selectedGapInsights && selectedGapInsights.length > 0) {
+      userPrompt += `\n\n⚠️ HIGH PRIORITY - SELECTED GAP INSIGHTS TO ADDRESS:\nThe user specifically selected these insights from the gap analysis. Each one MUST have a clear place in the outline where it will be covered. Map each insight to a specific section:\n${selectedGapInsights.map((a: string, i: number) => `${i + 1}. ${a}`).join("\n")}`;
     }
 
     if (selectedAngles && selectedAngles.length > 0) {
-      userPrompt += `\n\nUNIQUE ANGLES TO INCORPORATE:\n${selectedAngles.map((a: string, i: number) => `${i + 1}. ${a}`).join("\n")}`;
+      userPrompt += `\n\n⚠️ HIGH PRIORITY - UNIQUE ANGLES TO INCORPORATE:\nThese unique angles MUST be woven into the outline. Each angle should map to at least one section or sub-section. Add sections if needed to ensure full coverage:\n${selectedAngles.map((a: string, i: number) => `${i + 1}. ${a}`).join("\n")}`;
     }
 
     if (formatReference && formatReference.trim()) {
