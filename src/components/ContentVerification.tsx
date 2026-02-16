@@ -238,6 +238,19 @@ export const ContentVerification = ({
       details: hasFAQ ? "FAQ section found" : "No FAQ section detected",
     });
 
+    // Check outline was provided
+    const outlineProvided = appliedRules?.outlineProvided === true;
+    results.push({
+      id: "outline-provided",
+      label: "Outline provided",
+      status: outlineProvided ? "passed" : "failed",
+      details: outlineProvided
+        ? "Content generated with a provided outline"
+        : appliedRules === null
+          ? "Imported content - no outline was used"
+          : "No outline provided - generate or write an outline before generating content",
+    });
+
     // Check outline compliance
     if (appliedRules?.outlineProvided && appliedRules.outlineText) {
       // Extract section headers from outline (look for numbered items or bullet points)
