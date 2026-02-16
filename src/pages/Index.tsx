@@ -310,6 +310,7 @@ const Index = () => {
   const [formatSteps, setFormatSteps] = useState<FormatStep[]>(DEFAULT_FORMAT_STEPS);
   const [formatError, setFormatError] = useState<string | null>(null);
   const pendingApplyFormatRef = useRef(false);
+  const pendingAutoRerunRef = useRef(localStorage.getItem("seo-generator-autoRerun") === "true");
   const [generatedContent, setGeneratedContentRaw] = useState(() => {
     const saved = localStorage.getItem("seo-generator-generatedContent");
     return saved ? cleanContent(saved) : "";
@@ -1252,6 +1253,21 @@ const Index = () => {
       setIsGenerating(false);
     }
   };
+
+  // Auto-rerun from saved articles page
+  useEffect(() => {
+    if (pendingAutoRerunRef.current) {
+      pendingAutoRerunRef.current = false;
+      localStorage.removeItem("seo-generator-autoRerun");
+      // Small delay to ensure state is fully initialized from localStorage
+      const timer = setTimeout(() => {
+        if (formData.topic.trim()) {
+          handleGenerate();
+        }
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Clear only blog post settings (keep generated content)
   const handleClearSettings = () => {
