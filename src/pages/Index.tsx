@@ -474,6 +474,7 @@ const Index = () => {
   const [totalSections, setTotalSections] = useState(0);
   const [pipelineError, setPipelineError] = useState<string | undefined>();
   const [isHumanisingOnly, setIsHumanisingOnly] = useState(false);
+  const [isGeneratingOutline, setIsGeneratingOutline] = useState(false);
 
   // Voice input for Value Promise
   const {
@@ -3051,15 +3052,76 @@ const Index = () => {
                 isComplete={!!formData.outline.trim()}
                 summary={formData.outline.split("\n")[0]}
               >
-                <Textarea
-                  id="outline"
-                  placeholder="- Introduction&#10;- Main points&#10;- Conclusion"
-                  className="min-h-[100px] resize-none bg-input border-2 border-input-border"
-                  value={formData.outline}
-                  onChange={(e) =>
-                    setFormData((prev) => ({ ...prev, outline: e.target.value }))
-                  }
-                />
+                <div className="space-y-2">
+                  <Textarea
+                    id="outline"
+                    placeholder="- Introduction&#10;- Main points&#10;- Conclusion"
+                    className="min-h-[100px] resize-none bg-input border-2 border-input-border"
+                    value={formData.outline}
+                    onChange={(e) =>
+                      setFormData((prev) => ({ ...prev, outline: e.target.value }))
+                    }
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                    disabled={isGeneratingOutline || !formData.topic.trim()}
+                    onClick={async () => {
+                      setIsGeneratingOutline(true);
+                      try {
+                        const allAngles = [...selectedGapInsights, ...selectedAngles];
+                        const { data, error } = await supabase.functions.invoke("generate-outline", {
+                          body: {
+                            topic: formData.topic,
+                            valuePromise: valuePromise || undefined,
+                            gapAnalysis: gapAnalysis || undefined,
+                            selectedAngles: allAngles.length > 0 ? allAngles : undefined,
+                            formatReference: formatReference || undefined,
+                            contextFiles: contextFiles.length > 0 ? contextFiles : undefined,
+                            toneProfileId: selectedToneProfileId || undefined,
+                            useKnowledgeBase,
+                            keywords: keywords.length > 0 ? keywords.slice(0, 5) : undefined,
+                            length: formData.length,
+                          },
+                        });
+                        if (error) throw error;
+                        if (data?.outline) {
+                          setFormData((prev: typeof formData) => ({ ...prev, outline: data.outline }));
+                          toast({
+                            title: "Outline generated",
+                            description: "Your outline has been created based on all your settings.",
+                          });
+                        }
+                      } catch (err) {
+                        console.error("Outline generation error:", err);
+                        toast({
+                          title: "Failed to generate outline",
+                          description: err instanceof Error ? err.message : "Please try again.",
+                          variant: "destructive",
+                        });
+                      } finally {
+                        setIsGeneratingOutline(false);
+                      }
+                    }}
+                  >
+                    {isGeneratingOutline ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Generating outline...
+                      </>
+                    ) : (
+                      <>
+                        <Wand2 className="h-4 w-4 mr-2" />
+                        Auto-Generate Outline
+                      </>
+                    )}
+                  </Button>
+                  {!formData.topic.trim() && (
+                    <p className="text-xs text-muted-foreground">Enter a topic first to auto-generate an outline.</p>
+                  )}
+                </div>
               </CollapsibleSection>
 
               {/* Section 11: Custom Instructions */}
