@@ -2633,6 +2633,28 @@ const Index = () => {
               </Button>
             )}
 
+            {/* Rerun button - only show when content exists */}
+            {generatedContent.trim() && (
+              <Button
+                variant="outline"
+                onClick={handleGenerate}
+                disabled={isGenerating}
+                title="Regenerate article with current settings"
+              >
+                {isGenerating ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <RotateCcw className="h-4 w-4 mr-2" />
+                    Rerun
+                  </>
+                )}
+              </Button>
+            )}
+
             {/* Save Article button - only show when content exists */}
             {generatedContent.trim() && (
               <Button
