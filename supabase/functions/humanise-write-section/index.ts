@@ -86,7 +86,8 @@ OUTPUT FORMAT:
     if (toneProfile) {
       systemPrompt += `\n\nTONE OF VOICE:
 Summary: ${toneProfile.summary || "Professional and helpful"}
-Style: ${Object.entries(toneProfile.characteristics || {}).map(([k, v]) => `${k}: ${v}`).join(", ")}`;
+Style: ${Object.entries(toneProfile.characteristics || {}).map(([k, v]) => `${k}: ${v}`).join(", ")}
+CRITICAL: Always write in first person ("we", "our", "I"). NEVER refer to the tone profile owner by name or write in third person about them. The tone defines HOW to write, not WHO is speaking.`;
       
       if (toneProfile.example_phrases?.length > 0) {
         systemPrompt += `\nExample phrases to emulate: ${toneProfile.example_phrases.slice(0, 3).join("; ")}`;

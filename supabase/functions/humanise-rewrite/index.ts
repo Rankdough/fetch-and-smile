@@ -127,7 +127,8 @@ Return the rewritten draft followed by a brief "### Changes Made" section listin
     if (toneProfile) {
       systemPrompt += `\n\nMAINTAIN THIS TONE:
 ${toneProfile.summary || "Professional and helpful"}
-${toneProfile.example_phrases?.length > 0 ? `Emulate phrases like: ${toneProfile.example_phrases.slice(0, 3).join("; ")}` : ""}`;
+${toneProfile.example_phrases?.length > 0 ? `Emulate phrases like: ${toneProfile.example_phrases.slice(0, 3).join("; ")}` : ""}
+CRITICAL: Always write in first person ("we", "our", "I"). NEVER refer to the tone profile owner by name or write in third person about them. The tone defines HOW to write, not WHO is speaking.`;
     }
 
     // Add specific issues to fix if provided (from quality gate)
