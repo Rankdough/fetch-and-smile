@@ -3363,13 +3363,13 @@ const Index = () => {
                     onClick={async () => {
                       setIsGeneratingOutline(true);
                       try {
-                        const allAngles = [...selectedGapInsights, ...selectedAngles];
                         const { data, error } = await supabase.functions.invoke("generate-outline", {
                           body: {
                             topic: formData.topic,
                             valuePromise: valuePromise || undefined,
                             gapAnalysis: gapAnalysis || undefined,
-                            selectedAngles: allAngles.length > 0 ? allAngles : undefined,
+                            selectedAngles: selectedAngles.length > 0 ? selectedAngles : undefined,
+                            selectedGapInsights: selectedGapInsights.length > 0 ? selectedGapInsights : undefined,
                             formatReference: formatReference || undefined,
                             contextFiles: contextFiles.length > 0 ? contextFiles : undefined,
                             toneProfileId: selectedToneProfileId || undefined,
