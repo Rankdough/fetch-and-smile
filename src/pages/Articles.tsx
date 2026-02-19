@@ -125,8 +125,13 @@ const Articles = () => {
       instructions: article.instructions || "",
     }));
 
-    if (article.value_promise) localStorage.setItem("seo-generator-valuePromise", article.value_promise);
-    else localStorage.removeItem("seo-generator-valuePromise");
+    if (article.value_promise) {
+      // Store as claims array (first slot) for new format compatibility
+      const claims = [article.value_promise, "", "", "", ""];
+      localStorage.setItem("seo-generator-valuePromiseClaims", JSON.stringify(claims));
+    } else {
+      localStorage.removeItem("seo-generator-valuePromiseClaims");
+    }
 
     if (article.gap_analysis) localStorage.setItem("seo-generator-gapAnalysis", article.gap_analysis);
     else localStorage.removeItem("seo-generator-gapAnalysis");

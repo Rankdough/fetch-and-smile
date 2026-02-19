@@ -513,10 +513,32 @@ const Index = () => {
     const saved = localStorage.getItem("seo-generator-toneProfileId");
     return saved || null;
   });
-  const [valuePromise, setValuePromise] = useState(() => {
-    const saved = localStorage.getItem("seo-generator-valuePromise");
-    return saved || "";
+  const [valuePromiseClaims, setValuePromiseClaims] = useState<string[]>(() => {
+    const saved = localStorage.getItem("seo-generator-valuePromiseClaims");
+    if (saved) {
+      try { return JSON.parse(saved); } catch { /* fall through */ }
+    }
+    // Migrate from old single string format
+    const oldSaved = localStorage.getItem("seo-generator-valuePromise");
+    if (oldSaved) return [oldSaved, "", "", "", ""];
+    return ["", "", "", "", ""];
   });
+  // Derived combined string for downstream compatibility
+  const valuePromise = valuePromiseClaims.filter(c => c.trim()).join("; ");
+  const setValuePromise = (val: string | ((prev: string) => string)) => {
+    if (typeof val === "function") {
+      // For voice input callback compatibility - append to first non-empty or first claim
+      setValuePromiseClaims(prev => {
+        const combined = prev.filter(c => c.trim()).join("; ");
+        const newVal = val(combined);
+        return [newVal, prev[1] || "", prev[2] || "", prev[3] || "", prev[4] || ""];
+      });
+    } else if (val === "") {
+      setValuePromiseClaims(["", "", "", "", ""]);
+    } else {
+      setValuePromiseClaims(prev => [val, prev[1] || "", prev[2] || "", prev[3] || "", prev[4] || ""]);
+    }
+  };
   const [selectedAngles, setSelectedAngles] = useState<string[]>(() => {
     const saved = localStorage.getItem("seo-generator-selectedAngles");
     return saved ? JSON.parse(saved) : [];
@@ -632,8 +654,8 @@ const Index = () => {
   }, [selectedToneProfileId]);
 
   useEffect(() => {
-    localStorage.setItem("seo-generator-valuePromise", valuePromise);
-  }, [valuePromise]);
+    localStorage.setItem("seo-generator-valuePromiseClaims", JSON.stringify(valuePromiseClaims));
+  }, [valuePromiseClaims]);
 
   useEffect(() => {
     localStorage.setItem("seo-generator-selectedAngles", JSON.stringify(selectedAngles));
@@ -699,7 +721,8 @@ const Index = () => {
     const hasTopic = formData.topic.trim().length > 0;
     const hasKeywords = keywords.length > 0;
     const topKeywords = keywords.slice(0, 5);
-    const hasValuePromise = valuePromise.trim().length > 0;
+    const filledClaims = valuePromiseClaims.filter(c => c.trim()).length;
+    const hasValuePromise = filledClaims > 0;
     const hasSelectedAngles = selectedAngles.length > 0;
     const hasSelectedGapInsights = selectedGapInsights.length > 0;
     const totalAngles = selectedAngles.length + selectedGapInsights.length;
@@ -714,8 +737,8 @@ const Index = () => {
       {
         id: "value-promise",
         label: hasValuePromise 
-          ? `Value promise: "${valuePromise.substring(0, 50)}${valuePromise.length > 50 ? "..." : ""}"`
-          : "Value promise defined (what reader will DO after reading)",
+          ? `Value promise: ${filledClaims}/5 claims defined`
+          : "Value promise claims (define what the article must deliver)",
         completed: hasValuePromise,
         required: true,
       },
@@ -3003,78 +3026,84 @@ const Index = () => {
                 required
                 defaultOpen={!valuePromise.trim()}
               >
-                <p className="text-xs text-muted-foreground">
-                  What will the reader be able to DO or DECIDE after reading this?
+                <p className="text-xs text-muted-foreground mb-2">
+                  Define 5 specific points this article must deliver. Each claim will be individually verified.
                 </p>
-                <div className="relative">
-                  <Textarea
-                    id="value-promise"
-                    placeholder="e.g., Choose between composite bonding and veneers based on their budget, timeline, and aesthetic goals"
-                    className="min-h-[60px] resize-none pr-20 bg-input border-2 border-input-border"
-                    value={valuePromise}
-                    onChange={(e) => setValuePromise(e.target.value)}
-                  />
-                  <div className="absolute right-1 bottom-1 flex gap-1">
-                    {(gapAnalysis.trim() || selectedAngles.length > 0 || selectedGapInsights.length > 0) && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-amber-500 hover:text-amber-600 hover:bg-amber-500/10"
-                        onClick={() => {
-                          let synthesis = "";
-                          const allAngles = [...selectedGapInsights, ...selectedAngles];
-                          
-                          if (allAngles.length > 0) {
-                            synthesis = `After reading this article, readers will understand ${allAngles.slice(0, 3).join(", ").toLowerCase()}`;
-                            synthesis += ".";
-                          } else if (gapAnalysis.trim()) {
-                            const lines = gapAnalysis.split('\n').filter(l => l.trim()).slice(0, 3);
-                            const gaps = lines.map(l => l.replace(/^[-•*\d.)\s]+/, '').trim()).filter(Boolean);
-                            if (gaps.length > 0) {
-                              synthesis = `Help readers understand what competitors miss: ${gaps.join('; ')}.`;
-                            }
-                          }
-                          
-                          if (synthesis) {
-                            setValuePromise(synthesis);
-                            toast({
-                              title: "Value promise generated",
-                              description: "Based on your selected gap insights and angles",
-                            });
-                          }
+                <div className="space-y-2">
+                  {valuePromiseClaims.map((claim, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      <span className="text-xs font-medium text-muted-foreground w-5 shrink-0">{index + 1}.</span>
+                      <Input
+                        placeholder={
+                          index === 0 ? "e.g., Compare Albanian vs British food side by side" :
+                          index === 1 ? "e.g., Cover gluten-free options for both cuisines" :
+                          index === 2 ? "e.g., Address common food sensitivities" :
+                          index === 3 ? "e.g., Include practical cost comparisons" :
+                          "e.g., Provide actionable meal planning tips"
+                        }
+                        className="bg-input border-2 border-input-border text-sm"
+                        value={claim}
+                        onChange={(e) => {
+                          setValuePromiseClaims(prev => {
+                            const next = [...prev];
+                            next[index] = e.target.value;
+                            return next;
+                          });
                         }}
-                        title="Auto-fill from gap analysis & angles"
-                      >
-                        <Wand2 className="h-4 w-4" />
-                      </Button>
-                    )}
+                      />
+                    </div>
+                  ))}
+                </div>
+                <div className="flex items-center gap-2 mt-2">
+                  {(gapAnalysis.trim() || selectedAngles.length > 0 || selectedGapInsights.length > 0) && (
                     <Button
                       type="button"
                       variant="ghost"
-                      size="icon"
-                      className={`h-8 w-8 ${
-                        isListeningValuePromise 
-                          ? "text-destructive bg-destructive/10 animate-pulse" 
-                          : "text-muted-foreground hover:text-primary"
-                      }`}
-                      onClick={toggleValuePromiseListening}
-                      title={isListeningValuePromise ? "Stop recording" : "Record voice input"}
-                      disabled={!isVoiceSupported}
+                      size="sm"
+                      className="text-amber-500 hover:text-amber-600 hover:bg-amber-500/10 text-xs"
+                      onClick={() => {
+                        const allAngles = [...selectedGapInsights, ...selectedAngles];
+                        if (allAngles.length > 0) {
+                          const newClaims = ["", "", "", "", ""];
+                          allAngles.slice(0, 5).forEach((a, i) => { newClaims[i] = a; });
+                          setValuePromiseClaims(newClaims);
+                          toast({
+                            title: "Value promise claims populated",
+                            description: "Based on your selected gap insights and angles",
+                          });
+                        }
+                      }}
+                      title="Auto-fill from gap analysis & angles"
                     >
-                      <Mic2 className="h-4 w-4" />
+                      <Wand2 className="h-3 w-3 mr-1" />
+                      Auto-fill from analysis
                     </Button>
-                  </div>
+                  )}
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className={`h-8 w-8 ${
+                      isListeningValuePromise 
+                        ? "text-destructive bg-destructive/10 animate-pulse" 
+                        : "text-muted-foreground hover:text-primary"
+                    }`}
+                    onClick={toggleValuePromiseListening}
+                    title={isListeningValuePromise ? "Stop recording" : "Record voice input"}
+                    disabled={!isVoiceSupported}
+                  >
+                    <Mic2 className="h-4 w-4" />
+                  </Button>
                 </div>
                 {isListeningValuePromise && (
                   <p className="text-xs text-destructive animate-pulse">
-                    🎙️ Listening... speak now
+                    🎙️ Listening... speak now (appends to first claim)
                   </p>
                 )}
                 {(gapAnalysis.trim() || selectedAngles.length > 0 || selectedGapInsights.length > 0) && !valuePromise.trim() && (
                   <p className="text-xs text-amber-600 flex items-center gap-1">
                     <Wand2 className="h-3 w-3" />
-                    Tip: Click the wand icon to auto-fill based on your analysis
+                    Tip: Click "Auto-fill" to populate claims from your analysis
                   </p>
                 )}
               </CollapsibleSection>
@@ -4731,9 +4760,10 @@ CRITICAL EXPANSION RULES:
                     />
                     
                     {/* Value Promise Verification */}
-                    {valuePromise.trim() && (
+                    {valuePromiseClaims.some(c => c.trim()) && (
                       <ValuePromiseVerification
                         content={generatedContent}
+                        claims={valuePromiseClaims.filter(c => c.trim())}
                         valuePromise={valuePromise}
                       />
                     )}

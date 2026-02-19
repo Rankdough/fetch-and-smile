@@ -6,20 +6,11 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-interface SectionEvidence {
-  heading: string;
-  excerpt: string;
-  relevance: "strong" | "partial" | "weak";
-  explanation: string;
-}
-
-interface VerificationResult {
+interface ClaimResult {
+  claim: string;
   fulfilled: boolean;
-  overallScore: number;
-  summary: string;
-  sections: SectionEvidence[];
-  missingElements: string[];
-  suggestions: string[];
+  evidence: string;
+  explanation: string;
 }
 
 serve(async (req) => {
@@ -28,11 +19,11 @@ serve(async (req) => {
   }
 
   try {
-    const { content, valuePromise } = await req.json();
+    const { content, claims, valuePromise } = await req.json();
 
-    if (!content || !valuePromise) {
+    if (!content || (!claims && !valuePromise)) {
       return new Response(
-        JSON.stringify({ error: "Content and value promise are required" }),
+        JSON.stringify({ error: "Content and claims are required" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -42,47 +33,56 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    const systemPrompt = `You are a content quality analyst. Your job is to verify whether an article fulfills its stated value promise.
+    // Support both new claims array and legacy single string
+    const claimsList: string[] = claims && Array.isArray(claims) && claims.length > 0
+      ? claims
+      : valuePromise ? [valuePromise] : [];
 
-Analyze the article against the value promise and identify:
-1. Which sections directly address the promise
-2. How strongly each section supports the promise (strong/partial/weak)
-3. What elements might be missing
-4. Concrete suggestions for improvement
+    if (claimsList.length === 0) {
+      return new Response(
+        JSON.stringify({ error: "At least one claim is required" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
-OUTPUT FORMAT: Return ONLY valid JSON matching this exact structure:
+    const systemPrompt = `You are a strict content auditor. You will be given an article and a list of specific claims/promises the article MUST deliver on.
+
+For EACH claim, determine with a BINARY pass/fail whether the article substantively addresses it. 
+- "Substantively" means there is a dedicated section, paragraph, or detailed treatment — NOT just a passing mention or single sentence.
+- A claim about "comparing X vs Y" requires an actual side-by-side comparison, not just mentioning both.
+- A claim about "covering [specific topic]" requires multiple sentences with actionable detail.
+
+OUTPUT FORMAT: Return ONLY valid JSON:
 {
-  "fulfilled": true/false,
-  "overallScore": 0-100,
-  "summary": "One sentence summary of how well the promise is fulfilled",
-  "sections": [
+  "claims": [
     {
-      "heading": "The exact H2 heading from the article",
-      "excerpt": "A 1-2 sentence quote that proves this section addresses the promise",
-      "relevance": "strong" | "partial" | "weak",
-      "explanation": "Why this section does/doesn't fulfill the promise"
+      "claim": "The exact claim text",
+      "fulfilled": true/false,
+      "evidence": "A direct 1-2 sentence quote from the article that proves fulfillment, or empty string if not fulfilled",
+      "explanation": "Why this passes or fails — be specific about what's missing if it fails"
     }
   ],
-  "missingElements": ["specific thing that should be added"],
-  "suggestions": ["actionable improvement suggestion"]
+  "summary": "One sentence overall assessment"
 }
 
 RULES:
-1. Only include sections that are relevant to the value promise (don't list every section)
-2. Extract actual excerpts from the content as evidence
-3. Be specific about what's missing - don't be vague
-4. Score 70+ means the promise is reasonably fulfilled
-5. Score 90+ means exceptional fulfillment`;
+1. Be STRICT. A passing mention does NOT count as fulfillment.
+2. If the claim says "compare A vs B" and the article only mentions A, it FAILS.
+3. If the claim says "cover gluten-free options" and there's one vague sentence, it FAILS.
+4. Extract actual quotes as evidence — do not paraphrase.
+5. Every claim in the input must appear in the output.`;
 
-    const userPrompt = `VALUE PROMISE:
-${valuePromise}
+    const claimsFormatted = claimsList.map((c: string, i: number) => `${i + 1}. ${c}`).join("\n");
+
+    const userPrompt = `CLAIMS TO VERIFY (each must be independently checked):
+${claimsFormatted}
 
 ARTICLE CONTENT:
 ${content}
 
-Analyze this article and verify whether it fulfills the value promise. Find specific sections and excerpts that address the promise.`;
+Check each claim strictly. A claim is only fulfilled if the article has substantive, detailed coverage — not just a passing mention.`;
 
-    console.log("Verifying value promise:", valuePromise.substring(0, 100));
+    console.log("Verifying", claimsList.length, "claims");
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -124,22 +124,26 @@ Analyze this article and verify whether it fulfills the value promise. Find spec
       throw new Error("No verification result generated");
     }
 
-    // Parse JSON from response (handle markdown code blocks)
     const cleanedContent = resultContent.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
     
-    let result: VerificationResult;
+    let parsed: { claims: ClaimResult[]; summary: string };
     try {
-      result = JSON.parse(cleanedContent);
+      parsed = JSON.parse(cleanedContent);
     } catch (e) {
       console.error("Failed to parse verification JSON:", e, cleanedContent);
       throw new Error("Failed to parse verification result");
     }
 
-    console.log("Value promise verification complete:", {
-      fulfilled: result.fulfilled,
-      score: result.overallScore,
-      sectionsFound: result.sections?.length || 0
-    });
+    const fulfilledCount = parsed.claims.filter(c => c.fulfilled).length;
+
+    const result = {
+      claims: parsed.claims,
+      fulfilledCount,
+      totalClaims: parsed.claims.length,
+      summary: parsed.summary,
+    };
+
+    console.log("Verification complete:", fulfilledCount, "/", parsed.claims.length, "claims fulfilled");
 
     return new Response(
       JSON.stringify(result),
