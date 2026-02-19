@@ -34,6 +34,7 @@ interface ContentVerificationProps {
   generatedCTAs?: CTAData | null;
   internalLinks?: string[];
   selectedGapInsights?: string[];
+  valuePromiseClaims?: string[];
 }
 
 interface VerificationItem {
@@ -54,7 +55,8 @@ export const ContentVerification = ({
   ctaUrl,
   generatedCTAs,
   internalLinks,
-  selectedGapInsights
+  selectedGapInsights,
+  valuePromiseClaims
 }: ContentVerificationProps) => {
   const verificationResults = useMemo(() => {
     const results: VerificationItem[] = [];
@@ -441,8 +443,56 @@ export const ContentVerification = ({
       });
     }
 
+    // Value Promise Claims — point-by-point verification
+    const filledClaims = (valuePromiseClaims || []).filter(c => c.trim());
+    if (filledClaims.length > 0) {
+      const contentLower = content.toLowerCase();
+      let claimsPassed = 0;
+
+      filledClaims.forEach((claim, index) => {
+        // Extract meaningful keywords from the claim (words > 3 chars, excluding common words)
+        const stopWords = ["the", "and", "for", "that", "this", "with", "from", "have", "been", "they", "their", "there", "about", "which", "would", "could", "should", "into", "also", "most", "very", "while", "will", "does", "make", "like", "more", "than", "some", "what", "when", "how"];
+        const keyTerms = claim
+          .toLowerCase()
+          .replace(/["""''.,!?;:()]/g, "")
+          .split(/\s+/)
+          .filter(w => w.length > 3 && !stopWords.includes(w));
+        
+        const matchedTerms = keyTerms.filter(term => contentLower.includes(term));
+        const matchRate = keyTerms.length > 0 ? matchedTerms.length / keyTerms.length : 0;
+        const passed = matchRate >= 0.4;
+        if (passed) claimsPassed++;
+
+        results.push({
+          id: `value-claim-${index}`,
+          label: `VP ${index + 1}: ${claim.length > 50 ? claim.slice(0, 50).trim() + "..." : claim}`,
+          status: passed ? "passed" : "failed",
+          details: passed
+            ? `Claim addressed (${matchedTerms.length}/${keyTerms.length} key terms found)`
+            : `Claim NOT addressed — missing terms: ${keyTerms.filter(t => !contentLower.includes(t)).slice(0, 5).join(", ")}`,
+        });
+      });
+
+      // Overall value promise summary
+      results.push({
+        id: "value-promise-overall",
+        label: `Value promise delivery (${claimsPassed}/${filledClaims.length})`,
+        status: claimsPassed === filledClaims.length ? "passed" : claimsPassed > 0 ? "warning" : "failed",
+        details: claimsPassed === filledClaims.length
+          ? "All value promise claims are addressed in the content"
+          : `${filledClaims.length - claimsPassed} claim(s) not adequately covered`,
+      });
+    } else {
+      results.push({
+        id: "value-promise-overall",
+        label: "Value promise claims",
+        status: "warning",
+        details: "No value promise claims defined — add claims in Section 7 to verify delivery",
+      });
+    }
+
     return results;
-  }, [content, appliedRules, ctaUrl, generatedCTAs, internalLinks, selectedGapInsights]);
+  }, [content, appliedRules, ctaUrl, generatedCTAs, internalLinks, selectedGapInsights, valuePromiseClaims]);
 
   const passedCount = verificationResults.filter((r) => r.status === "passed").length;
   const totalCount = verificationResults.length;
