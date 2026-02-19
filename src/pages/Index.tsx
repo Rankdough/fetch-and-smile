@@ -2667,8 +2667,46 @@ const Index = () => {
                 if (!generatedContent.trim()) return;
                 // Copy as rich text (formatted) using clipboard API
                 const tempDiv = document.createElement("div");
+                // Convert markdown tables to HTML tables first
+                const convertTables = (md: string) => {
+                  const lines = md.split("\n");
+                  let result = "";
+                  let i = 0;
+                  while (i < lines.length) {
+                    // Detect table: line with |, next line is separator |---|
+                    if (
+                      lines[i]?.trim().startsWith("|") &&
+                      lines[i + 1]?.trim().match(/^\|[\s:-]+\|/)
+                    ) {
+                      // Header row
+                      const headerCells = lines[i].trim().replace(/^\||\|$/g, "").split("|").map(c => c.trim());
+                      let table = '<table style="border-collapse:collapse;width:100%;margin:16px 0"><thead><tr>';
+                      headerCells.forEach(cell => {
+                        table += `<th style="border:1px solid #ddd;padding:8px 12px;background:#f5f5f5;font-weight:bold;text-align:left">${cell}</th>`;
+                      });
+                      table += "</tr></thead><tbody>";
+                      i += 2; // skip header + separator
+                      while (i < lines.length && lines[i]?.trim().startsWith("|")) {
+                        const cells = lines[i].trim().replace(/^\||\|$/g, "").split("|").map(c => c.trim());
+                        table += "<tr>";
+                        cells.forEach(cell => {
+                          table += `<td style="border:1px solid #ddd;padding:8px 12px">${cell}</td>`;
+                        });
+                        table += "</tr>";
+                        i++;
+                      }
+                      table += "</tbody></table>";
+                      result += table + "\n";
+                    } else {
+                      result += lines[i] + "\n";
+                      i++;
+                    }
+                  }
+                  return result;
+                };
+
                 // Convert markdown to HTML for rich-text copy, preserving links
-                let html = generatedContent
+                let html = convertTables(generatedContent)
                   .replace(/^### (.+)$/gm, "<h3>$1</h3>")
                   .replace(/^## (.+)$/gm, "<h2>$1</h2>")
                   .replace(/^# (.+)$/gm, "<h1>$1</h1>")
