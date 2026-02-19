@@ -73,6 +73,7 @@ export const QualityScoringPanel = ({ content, topic, valuePromise, onContentUpd
   const [isApplying, setIsApplying] = useState(false);
   const [scores, setScores] = useState<QualityScores | null>(null);
   const [expandedDimension, setExpandedDimension] = useState<string | null>(null);
+  const [preImprovementContent, setPreImprovementContent] = useState<string | null>(null);
 
   const handleScoreContent = async () => {
     if (!content.trim()) return;
@@ -106,6 +107,9 @@ export const QualityScoringPanel = ({ content, topic, valuePromise, onContentUpd
 
   const handleApplyImprovements = async () => {
     if (!scores || !onContentUpdate) return;
+    
+    // Cache current content before applying improvements
+    setPreImprovementContent(content);
     
     setIsApplying(true);
     try {
@@ -364,6 +368,21 @@ export const QualityScoringPanel = ({ content, topic, valuePromise, onContentUpd
 
       {/* Action Buttons */}
       <div className="flex gap-2">
+        {onContentUpdate && preImprovementContent && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              onContentUpdate(preImprovementContent);
+              setPreImprovementContent(null);
+              setScores(null);
+              toast({ title: "Reverted", description: "Content restored to pre-improvement version." });
+            }}
+            disabled={isApplying || isScoring}
+          >
+            Revert
+          </Button>
+        )}
         {onContentUpdate && (
           <Button
             size="sm"
