@@ -1234,14 +1234,12 @@ const Index = () => {
         // Use original quick generation
         let enhancedInstructions = formData.instructions || "";
         
-        if (valuePromise.trim()) {
-          enhancedInstructions += `\n\nVALUE PROMISE - The reader MUST be able to: ${valuePromise}. Ensure every section helps achieve this outcome.`;
-        }
-        
         const allAngles = [...selectedGapInsights, ...selectedAngles];
         if (allAngles.length > 0) {
           enhancedInstructions += `\n\nUNIQUE ANGLES TO INCORPORATE:\n${allAngles.map((a, i) => `${i + 1}. ${a}`).join("\n")}\n\nUse these angles to differentiate this content from competitors.`;
         }
+
+        const filledClaims = valuePromiseClaims.filter(c => c.trim());
 
         const { data, error } = await supabase.functions.invoke("generate-content", {
           body: {
@@ -1254,6 +1252,7 @@ const Index = () => {
             generateCTAs: ctaUrl.trim().length > 0,
             useKnowledgeBase: useKnowledgeBase,
             toneProfileId: selectedToneProfileId || undefined,
+            valuePromiseClaims: filledClaims.length > 0 ? filledClaims : undefined,
           },
         });
 
@@ -3499,6 +3498,7 @@ const Index = () => {
                           body: {
                             topic: formData.topic,
                             valuePromise: valuePromise || undefined,
+                            valuePromiseClaims: valuePromiseClaims.filter(c => c.trim()).length > 0 ? valuePromiseClaims.filter(c => c.trim()) : undefined,
                             gapAnalysis: gapAnalysis || undefined,
                             selectedAngles: selectedAngles.length > 0 ? selectedAngles : undefined,
                             selectedGapInsights: selectedGapInsights.length > 0 ? selectedGapInsights : undefined,
