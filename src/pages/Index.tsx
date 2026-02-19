@@ -2660,6 +2660,70 @@ const Index = () => {
               Copy HTML
             </Button>
 
+            <Button
+              variant="outline"
+              size="default"
+              onClick={() => {
+                if (!generatedContent.trim()) return;
+                // Copy as rich text (formatted) using clipboard API
+                const tempDiv = document.createElement("div");
+                // Convert markdown to basic HTML for rich-text copy
+                let html = generatedContent
+                  .replace(/^### (.+)$/gm, "<h3>$1</h3>")
+                  .replace(/^## (.+)$/gm, "<h2>$1</h2>")
+                  .replace(/^# (.+)$/gm, "<h1>$1</h1>")
+                  .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+                  .replace(/\*(.+?)\*/g, "<em>$1</em>")
+                  .replace(/^- (.+)$/gm, "<li>$1</li>")
+                  .replace(/(<li>.*<\/li>)/s, "<ul>$1</ul>")
+                  .replace(/\n\n/g, "<br><br>")
+                  .replace(/\n/g, "<br>");
+                tempDiv.innerHTML = html;
+                const blob = new Blob([html], { type: "text/html" });
+                const textBlob = new Blob([generatedContent], { type: "text/plain" });
+                navigator.clipboard.write([
+                  new ClipboardItem({
+                    "text/html": blob,
+                    "text/plain": textBlob,
+                  })
+                ]).then(() => {
+                  toast({ title: "Formatted content copied!", description: "Paste into Google Docs, Word, or any rich text editor." });
+                }).catch(() => {
+                  navigator.clipboard.writeText(generatedContent).then(() => {
+                    toast({ title: "Content copied as plain text", description: "Rich text copy not supported in this browser." });
+                  });
+                });
+              }}
+            >
+              <FileUp className="h-4 w-4 mr-2" />
+              Copy Formatted
+            </Button>
+
+            <Button
+              variant="outline"
+              size="default"
+              onClick={() => {
+                if (!generatedContent.trim()) return;
+                const blob = new Blob([generatedContent], { type: "text/markdown" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                const titleMatch = generatedContent.match(/^#{1,2}\s+(.+)$/m);
+                const fileName = titleMatch
+                  ? titleMatch[1].replace(/[^a-zA-Z0-9 ]/g, "").trim().replace(/\s+/g, "-").toLowerCase().slice(0, 50)
+                  : "article";
+                a.download = `${fileName}.md`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                toast({ title: "Article downloaded!", description: `Saved as ${fileName}.md` });
+              }}
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Download
+            </Button>
+
             <div className="h-6 w-px bg-border" />
 
             {/* Secondary Actions */}
