@@ -2667,15 +2667,16 @@ const Index = () => {
                 if (!generatedContent.trim()) return;
                 // Copy as rich text (formatted) using clipboard API
                 const tempDiv = document.createElement("div");
-                // Convert markdown to basic HTML for rich-text copy
+                // Convert markdown to HTML for rich-text copy, preserving links
                 let html = generatedContent
                   .replace(/^### (.+)$/gm, "<h3>$1</h3>")
                   .replace(/^## (.+)$/gm, "<h2>$1</h2>")
                   .replace(/^# (.+)$/gm, "<h1>$1</h1>")
+                  .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>')
                   .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
                   .replace(/\*(.+?)\*/g, "<em>$1</em>")
                   .replace(/^- (.+)$/gm, "<li>$1</li>")
-                  .replace(/(<li>.*<\/li>)/s, "<ul>$1</ul>")
+                  .replace(/((?:<li>.*<\/li>\s*)+)/g, "<ul>$1</ul>")
                   .replace(/\n\n/g, "<br><br>")
                   .replace(/\n/g, "<br>");
                 tempDiv.innerHTML = html;
