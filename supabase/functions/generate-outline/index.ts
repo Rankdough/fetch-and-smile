@@ -16,6 +16,7 @@ serve(async (req) => {
     const {
       topic,
       valuePromise,
+      valuePromiseClaims,
       gapAnalysis,
       selectedAngles,
       selectedGapInsights,
@@ -91,9 +92,20 @@ IMPORTANT RULES FOR THE OUTLINE:
 - Suggest where comparison tables should go
 - Use simple markdown formatting with ## for sections and - for bullet points`;
 
-    if (valuePromise && valuePromise.trim()) {
-      userPrompt += `\n\nVALUE PROMISE: The reader must be able to "${valuePromise}" after reading. Every section should help achieve this outcome.`;
+
+    // Inject value promise claims as mandatory per-claim requirements
+    const claimsArray: string[] = Array.isArray(valuePromiseClaims)
+      ? valuePromiseClaims.filter((c: string) => c && c.trim())
+      : valuePromise && valuePromise.trim() ? [valuePromise] : [];
+
+    if (claimsArray.length > 0) {
+      userPrompt += `\n\n🚨 MANDATORY VALUE PROMISE CLAIMS - EACH MUST HAVE A DEDICATED SECTION:
+The article MUST substantively cover ALL of the following claims. For each claim, create or designate a specific H2 or H3 section in the outline that will cover it with at least 2-3 paragraphs of detail. A passing mention does NOT count.
+${claimsArray.map((c: string, i: number) => `Claim ${i + 1}: ${c}`).join("\n")}
+
+For each claim above, add a note in the outline like: [MUST COVER: Claim ${1}] next to the section that addresses it.`;
     }
+
 
     if (gapAnalysis && gapAnalysis.trim()) {
       userPrompt += `\n\n⚠️ HIGH PRIORITY - CONTENT GAPS FROM COMPETITOR ANALYSIS:\nThe following gaps were identified by analyzing competitor articles. The outline MUST include dedicated sections or sub-sections that explicitly address each of these gaps. Do NOT skip any.\n${gapAnalysis}`;

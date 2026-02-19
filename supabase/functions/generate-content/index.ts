@@ -13,7 +13,7 @@ serve(async (req) => {
   }
 
   try {
-    const { topic, length, outline, instructions, gapAnalysis, formatReference, contextFiles, keywords, generateCTAs, useKnowledgeBase, toneProfileId, articleImages, expandExistingContent, existingContent, wordsToAdd, wordCount } = await req.json();
+    const { topic, length, outline, instructions, gapAnalysis, valuePromiseClaims, formatReference, contextFiles, keywords, generateCTAs, useKnowledgeBase, toneProfileId, articleImages, expandExistingContent, existingContent, wordsToAdd, wordCount } = await req.json();
 
     // Handle expand mode - different validation
     if (expandExistingContent) {
@@ -327,6 +327,27 @@ ${keywords.map((k: string, i: number) => `${i + 1}. ${k}`).join("\n")}
 Use each keyword at least 2-3 times throughout the article where it fits naturally.`;
       }
 
+      // Inject value promise claims as mandatory per-claim requirements
+      const claimsArray: string[] = Array.isArray(valuePromiseClaims)
+        ? valuePromiseClaims.filter((c: string) => c && c.trim())
+        : [];
+
+      if (claimsArray.length > 0) {
+        userPrompt += `
+
+🚨 MANDATORY VALUE PROMISE CLAIMS - NON-NEGOTIABLE:
+The article MUST substantively cover EVERY one of the following ${claimsArray.length} claims. Each claim requires its own dedicated section or clearly identifiable coverage with at least 2-3 paragraphs of specific, detailed content. A single sentence or passing mention is NOT acceptable and will count as a failure.
+
+${claimsArray.map((c: string, i: number) => `CLAIM ${i + 1}: ${c}`).join("\n")}
+
+ENFORCEMENT RULES:
+- If a claim mentions a specific comparison (e.g., "Albanian food vs British food"), include a dedicated section with a comparison table and detailed paragraphs on BOTH sides.
+- If a claim mentions specific populations or conditions (e.g., "gluten-free", "food sensitivities"), dedicate a full section to it with named conditions, practical advice, and examples.
+- If a claim mentions "context files" or specific data sources, explicitly reference and use that material.
+- Before finishing the article, mentally check each claim: is it addressed in a dedicated, substantive way? If not, add a section for it.
+- Do NOT sacrifice any claim for length — expand the article if needed to cover all claims.`;
+      }
+
       if (gapAnalysis) {
         userPrompt += `
 
@@ -369,6 +390,7 @@ ${articleImages.map((img: { alt: string; url: string }, i: number) => `${i + 1}.
 Place these images throughout the article at logical locations, typically after relevant paragraphs. Distribute them evenly across different sections.`;
       }
     }
+
 
     console.log(expandExistingContent ? "Expanding existing content" : "Generating content for topic:", topic);
 
