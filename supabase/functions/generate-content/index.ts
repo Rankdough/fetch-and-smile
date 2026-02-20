@@ -320,7 +320,7 @@ ${instructions}`;
       // Normal generation mode
       userPrompt = `Write a blog post about: ${topic}
 
-Target length: approximately ${targetWords} words`;
+WORD COUNT REQUIREMENT (NON-NEGOTIABLE): You MUST write AT LEAST ${targetWords} words of body content. Do NOT stop early. Keep writing until you have reached ${targetWords} words. If you finish all planned sections before reaching ${targetWords} words, expand each section with more detail, examples, data, and explanation until the target is met. The final article must be ${targetWords} words minimum — this is the single most important constraint.`;
 
       // Add keywords if provided
       if (keywords && Array.isArray(keywords) && keywords.length > 0) {
@@ -408,6 +408,8 @@ Place these images throughout the article at logical locations, typically after 
       },
       body: JSON.stringify({
         model: "google/gemini-3-flash-preview",
+        // ~1.5 tokens per word, plus generous headroom for formatting and structure
+        max_tokens: Math.max(8192, Math.ceil(targetWords * 1.8)),
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
