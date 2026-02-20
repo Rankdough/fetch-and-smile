@@ -34,7 +34,8 @@ serve(async (req) => {
       angle,
       keyClaims,
       toneProfile,
-      knowledgeRules
+      knowledgeRules,
+      useFirstPerson
     } = await req.json();
 
     if (!section || !section.h2) {
@@ -63,8 +64,10 @@ serve(async (req) => {
     let systemPrompt = `You are an expert content writer. Write a single section of an SEO article.
 
 PERSPECTIVE RULE (NON-NEGOTIABLE):
-- Write in THIRD PERSON only. NEVER use "I", "we", "our", "my", "us"
-- Write as an objective narrator: "Hikers will find...", "Readers can expect...", "The data shows..."
+${useFirstPerson
+  ? `- Write in FIRST PERSON. Use "we", "our", "I" naturally throughout the section.`
+  : `- Write in THIRD PERSON only. NEVER use "I", "we", "our", "my", "us"\n- Write as an objective narrator: "Hikers will find...", "Readers can expect...", "The data shows..."`
+}
 
 SECTION RULES:
 1. First sentence = DIRECT answer or statement (no "In today's world..." or "It's important to...")

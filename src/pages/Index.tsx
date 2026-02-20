@@ -509,6 +509,9 @@ const Index = () => {
     return saved !== null ? JSON.parse(saved) : false;
   });
   const [isEditMode, setIsEditMode] = useState(false);
+  const [useFirstPerson, setUseFirstPerson] = useState<boolean>(() => {
+    return localStorage.getItem("seo-generator-useFirstPerson") === "true";
+  });
   const [selectedToneProfileId, setSelectedToneProfileId] = useState<string | null>(() => {
     const saved = localStorage.getItem("seo-generator-toneProfileId");
     return saved || null;
@@ -652,6 +655,10 @@ const Index = () => {
       localStorage.removeItem("seo-generator-toneProfileId");
     }
   }, [selectedToneProfileId]);
+
+  useEffect(() => {
+    localStorage.setItem("seo-generator-useFirstPerson", String(useFirstPerson));
+  }, [useFirstPerson]);
 
   useEffect(() => {
     localStorage.setItem("seo-generator-valuePromiseClaims", JSON.stringify(valuePromiseClaims));
@@ -1010,6 +1017,7 @@ const Index = () => {
           keyClaims: brief.keyClaims,
           toneProfile,
           knowledgeRules: knowledgeRules.slice(0, 20),
+          useFirstPerson,
         },
       });
 
@@ -1253,6 +1261,7 @@ const Index = () => {
             useKnowledgeBase: useKnowledgeBase,
             toneProfileId: selectedToneProfileId || undefined,
             valuePromiseClaims: filledClaims.length > 0 ? filledClaims : undefined,
+            useFirstPerson,
           },
         });
 
@@ -3333,6 +3342,8 @@ const Index = () => {
                 <ToneProfilePanel
                   selectedProfileId={selectedToneProfileId}
                   onProfileSelect={setSelectedToneProfileId}
+                  useFirstPerson={useFirstPerson}
+                  onUseFirstPersonChange={setUseFirstPerson}
                 />
               </CollapsibleSection>
 
