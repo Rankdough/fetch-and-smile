@@ -4785,6 +4785,7 @@ CRITICAL EXPANSION RULES:
                       content={generatedContent}
                       topic={formData.topic}
                       valuePromise={valuePromise}
+                      useFirstPerson={useFirstPerson}
                       onContentUpdate={setGeneratedContent}
                       onCreditUsed={(action, type, details) => trackUsage(action, type, details)}
                     />

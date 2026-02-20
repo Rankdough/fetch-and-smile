@@ -12,7 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    const { content, instruction } = await req.json();
+    const { content, instruction, useFirstPerson = false } = await req.json();
 
     if (!content || !instruction) {
       return new Response(
@@ -49,6 +49,12 @@ CRITICAL RULES:
 - NEVER add horizontal rules (---, ***, ___)
 - Preserve all source citations and references
 - Return ONLY the edited content, no explanations
+
+PERSPECTIVE RULE (NON-NEGOTIABLE — do NOT change this regardless of the instruction):
+${useFirstPerson
+  ? `- Write in FIRST PERSON. Use "we", "our", "I" naturally throughout.`
+  : `- Write in THIRD PERSON ONLY. Do NOT use first-person pronouns: "I", "we", "our", "my", "us". Write as an objective, authoritative narrator.`
+}
 
 Common voice commands:
 - "Shorten the introduction" - make intro more concise
