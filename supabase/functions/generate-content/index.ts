@@ -192,6 +192,11 @@ Content Guidelines:
 - Add a strong conclusion with a clear call-to-action
 - Write naturally, avoiding keyword stuffing
 
+PERSPECTIVE RULE (NON-NEGOTIABLE):
+- Write in THIRD PERSON only. Do NOT use first-person pronouns: "I", "we", "our", "my", "us"
+- Write as an objective, authoritative narrator: "Hikers will find...", "Visitors can expect...", "The data shows..."
+- NEVER personalise the article as if the author is speaking from experience unless a tone profile explicitly instructs it
+
 HUMAN WRITING STYLE (apply to ALL content):
 
 1. SENTENCE RHYTHM:
@@ -271,7 +276,7 @@ ${toneProfile.example_phrases.map((p, i) => `${i + 1}. "${p}"`).join("\n")}`;
       systemPrompt += `
 
 IMPORTANT: Maintain this tone consistently throughout the entire article.
-CRITICAL: Always write in first person ("we", "our", "I"). NEVER refer to the tone profile owner by name or write in third person about them. The tone profile defines HOW to write, not WHO is speaking. Do not say things like "Hi, it's [Name]" or "[Name] recommends..." - just adopt the style naturally.`;
+CRITICAL: The tone profile defines HOW to write (style, vocabulary, rhythm), NOT who is speaking. NEVER refer to the tone profile owner by name. Do not say things like "Hi, it's [Name]" or "[Name] recommends..." - just adopt the style naturally.`;
     }
 
     if (formatReference) {
