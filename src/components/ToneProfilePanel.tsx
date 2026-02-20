@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -61,9 +62,11 @@ interface ToneProfile {
 interface ToneProfilePanelProps {
   selectedProfileId: string | null;
   onProfileSelect: (profileId: string | null) => void;
+  useFirstPerson?: boolean;
+  onUseFirstPersonChange?: (value: boolean) => void;
 }
 
-export const ToneProfilePanel = ({ selectedProfileId, onProfileSelect }: ToneProfilePanelProps) => {
+export const ToneProfilePanel = ({ selectedProfileId, onProfileSelect, useFirstPerson = false, onUseFirstPersonChange }: ToneProfilePanelProps) => {
   const { toast } = useToast();
   const [profiles, setProfiles] = useState<ToneProfile[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -284,6 +287,20 @@ export const ToneProfilePanel = ({ selectedProfileId, onProfileSelect }: TonePro
         <Badge variant="secondary">
           {profiles.length} profile{profiles.length !== 1 ? "s" : ""}
         </Badge>
+      </div>
+
+      {/* Writing Perspective Toggle */}
+      <div className="flex items-center justify-between rounded-lg border p-3">
+        <div className="space-y-0.5">
+          <Label className="text-sm font-medium">First-person writing</Label>
+          <p className="text-xs text-muted-foreground">
+            {useFirstPerson ? 'Article will use "I", "we", "our"' : 'Article will use neutral third-person'}
+          </p>
+        </div>
+        <Switch
+          checked={useFirstPerson}
+          onCheckedChange={onUseFirstPersonChange}
+        />
       </div>
 
       {/* Selected Profile Display */}

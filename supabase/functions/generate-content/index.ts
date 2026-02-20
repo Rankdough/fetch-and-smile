@@ -13,7 +13,7 @@ serve(async (req) => {
   }
 
   try {
-    const { topic, length, outline, instructions, gapAnalysis, valuePromiseClaims, formatReference, contextFiles, keywords, generateCTAs, useKnowledgeBase, toneProfileId, articleImages, expandExistingContent, existingContent, wordsToAdd, wordCount } = await req.json();
+    const { topic, length, outline, instructions, gapAnalysis, valuePromiseClaims, formatReference, contextFiles, keywords, generateCTAs, useKnowledgeBase, toneProfileId, articleImages, expandExistingContent, existingContent, wordsToAdd, wordCount, useFirstPerson } = await req.json();
 
     // Handle expand mode - different validation
     if (expandExistingContent) {
@@ -193,9 +193,10 @@ Content Guidelines:
 - Write naturally, avoiding keyword stuffing
 
 PERSPECTIVE RULE (NON-NEGOTIABLE):
-- Write in THIRD PERSON only. Do NOT use first-person pronouns: "I", "we", "our", "my", "us"
-- Write as an objective, authoritative narrator: "Hikers will find...", "Visitors can expect...", "The data shows..."
-- NEVER personalise the article as if the author is speaking from experience unless a tone profile explicitly instructs it
+${useFirstPerson
+  ? `- Write in FIRST PERSON. Use "we", "our", "I" naturally throughout the article.`
+  : `- Write in THIRD PERSON only. Do NOT use first-person pronouns: "I", "we", "our", "my", "us"\n- Write as an objective, authoritative narrator: "Hikers will find...", "Visitors can expect...", "The data shows..."\n- NEVER personalise the article as if the author is speaking from experience`
+}
 
 HUMAN WRITING STYLE (apply to ALL content):
 
