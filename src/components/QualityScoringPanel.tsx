@@ -24,6 +24,7 @@ interface QualityScoringPanelProps {
   content: string;
   topic: string;
   valuePromise: string;
+  useFirstPerson?: boolean;
   onContentUpdate?: (newContent: string) => void;
   onCreditUsed?: (action: string, type: "quality_analysis" | "apply_improvements", details?: string) => void;
 }
@@ -67,7 +68,7 @@ const ScoreIcon = ({ dimension }: { dimension: string }) => {
 // Order dimensions so humanness appears first (highest priority)
 const DIMENSION_ORDER = ["humanness", "actionability", "specificity", "uniqueness", "engagement"] as const;
 
-export const QualityScoringPanel = ({ content, topic, valuePromise, onContentUpdate, onCreditUsed }: QualityScoringPanelProps) => {
+export const QualityScoringPanel = ({ content, topic, valuePromise, useFirstPerson = false, onContentUpdate, onCreditUsed }: QualityScoringPanelProps) => {
   const { toast } = useToast();
   const [isScoring, setIsScoring] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
@@ -141,7 +142,7 @@ export const QualityScoringPanel = ({ content, topic, valuePromise, onContentUpd
       console.log("Applying improvements:", instruction);
       
       const { data, error } = await supabase.functions.invoke("voice-edit-content", {
-        body: { content, instruction },
+        body: { content, instruction, useFirstPerson },
       });
 
       if (error) {
