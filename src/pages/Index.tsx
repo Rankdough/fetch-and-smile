@@ -54,6 +54,7 @@ import { useCreditTracking } from "@/hooks/useCreditTracking";
 import { SectionIndicator } from "@/components/SectionIndicator";
 import { ArticleImagesPanel, ArticleImage } from "@/components/ArticleImagesPanel";
 import { HtmlImportDialog } from "@/components/HtmlImportDialog";
+import { UrlImportDialog } from "@/components/UrlImportDialog";
 import { ConvertToArticleView } from "@/components/ConvertToArticleView";
 import { CollapsibleSection } from "@/components/CollapsibleSection";
 import { CreditUsageDisplay } from "@/components/CreditUsageDisplay";
@@ -2068,6 +2069,10 @@ const Index = () => {
 
             {/* Import/Export */}
             <HtmlImportDialog onImport={(content) => setGeneratedContent(content, true)} />
+            <UrlImportDialog
+              onImport={(content) => setGeneratedContent(content, true)}
+              formatReference={formatReference}
+            />
             
             <Button
               variant="outline"
