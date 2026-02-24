@@ -56,7 +56,7 @@ export function UrlImportDialog({ onImport, formatReference, targetLength = "med
 
       let instructions = `REFORMAT ONLY: The following content has been scraped from a web page. Restructure it into the standard article format (TL;DR, Quick Tips, In This Article navigation, question-based H2 headings, FAQ, References) but preserve the original text, facts, and voice as closely as possible. Do not invent new information. Only reorganise and add the required structural elements.
 
-CRITICAL WORD COUNT REQUIREMENT: The final article MUST be approximately ${targetWords} words. This is NON-NEGOTIABLE. If the source content is longer, condense and summarise to fit. If shorter, do not pad with invented content—just restructure what exists.`;
+STRICT WORD COUNT LIMIT: The final article MUST NOT exceed ${targetWords} words. This is a HARD MAXIMUM. If the source content is longer than ${targetWords} words, you MUST aggressively condense, summarise, and cut less important details to fit within ${targetWords} words. Aim for exactly ${targetWords} words - not more, not less. Count your words carefully.`;
 
       if (userInstructions) {
         instructions += `\n\nADDITIONAL INSTRUCTIONS FROM USER:\n${userInstructions}`;
@@ -73,6 +73,7 @@ CRITICAL WORD COUNT REQUIREMENT: The final article MUST be approximately ${targe
         body: {
           topic,
           length: targetLength,
+          wordCount: targetWords,
           instructions,
           contextFiles: [{ name: "source-content", content: sourceText.substring(0, 8000) }],
         },

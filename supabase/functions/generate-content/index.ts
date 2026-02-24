@@ -409,7 +409,7 @@ Place these images throughout the article at logical locations, typically after 
       body: JSON.stringify({
         model: "google/gemini-3-flash-preview",
         // ~1.5 tokens per word, plus generous headroom for formatting and structure
-        max_tokens: Math.max(8192, Math.ceil(targetWords * 1.8)),
+        max_tokens: Math.min(Math.max(2048, Math.ceil(targetWords * 3)), 16384),
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
