@@ -2072,6 +2072,8 @@ const Index = () => {
             <UrlImportDialog
               onImport={(content) => setGeneratedContent(content, true)}
               formatReference={formatReference}
+              targetLength={formData.length}
+              instructions={formData.instructions}
             />
             
             <Button

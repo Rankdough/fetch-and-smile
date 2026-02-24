@@ -18,9 +18,11 @@ import { supabase } from "@/integrations/supabase/client";
 interface UrlImportDialogProps {
   onImport: (markdown: string) => void;
   formatReference?: string;
+  targetLength?: string;
+  instructions?: string;
 }
 
-export function UrlImportDialog({ onImport, formatReference }: UrlImportDialogProps) {
+export function UrlImportDialog({ onImport, formatReference, targetLength = "medium", instructions: userInstructions }: UrlImportDialogProps) {
   const { toast } = useToast();
   const [isOpen, setIsOpen] = useState(false);
   const [url, setUrl] = useState("");
@@ -47,7 +49,18 @@ export function UrlImportDialog({ onImport, formatReference }: UrlImportDialogPr
       // Step 2: Convert scraped content into article template
       setStatus("Converting to article format...");
 
-      let instructions = `REFORMAT ONLY: The following content has been scraped from a web page. Restructure it into the standard article format (TL;DR, Quick Tips, In This Article navigation, question-based H2 headings, FAQ, References) but preserve the original text, facts, and voice as closely as possible. Do not invent new information. Only reorganise and add the required structural elements.`;
+      const wordCounts: Record<string, number> = {
+        short: 500, medium: 1000, long: 2000, extended: 3000, comprehensive: 3500,
+      };
+      const targetWords = wordCounts[targetLength] || 1000;
+
+      let instructions = `REFORMAT ONLY: The following content has been scraped from a web page. Restructure it into the standard article format (TL;DR, Quick Tips, In This Article navigation, question-based H2 headings, FAQ, References) but preserve the original text, facts, and voice as closely as possible. Do not invent new information. Only reorganise and add the required structural elements.
+
+CRITICAL WORD COUNT REQUIREMENT: The final article MUST be approximately ${targetWords} words. This is NON-NEGOTIABLE. If the source content is longer, condense and summarise to fit. If shorter, do not pad with invented content—just restructure what exists.`;
+
+      if (userInstructions) {
+        instructions += `\n\nADDITIONAL INSTRUCTIONS FROM USER:\n${userInstructions}`;
+      }
 
       if (formatReference) {
         instructions += `\n\nFORMAT REFERENCE: Use this format reference for structural guidance:\n\n${formatReference.substring(0, 4000)}`;
@@ -59,7 +72,7 @@ export function UrlImportDialog({ onImport, formatReference }: UrlImportDialogPr
       const { data, error } = await supabase.functions.invoke("generate-content", {
         body: {
           topic,
-          length: "long",
+          length: targetLength,
           instructions,
           contextFiles: [{ name: "source-content", content: sourceText.substring(0, 8000) }],
         },
