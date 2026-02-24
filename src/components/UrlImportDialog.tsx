@@ -56,6 +56,8 @@ export function UrlImportDialog({ onImport, formatReference, targetLength = "med
 
       let instructions = `REFORMAT ONLY: The following content has been scraped from a web page. Restructure it into the standard article format (TL;DR, Quick Tips, In This Article navigation, question-based H2 headings, FAQ, References) but preserve the original text, facts, and voice as closely as possible. Do not invent new information. Only reorganise and add the required structural elements.
 
+CRITICAL - PRESERVE ORIGINAL TITLES: Keep the original H1 title and all H2/H3 section headings from the source content EXACTLY as they are. Do NOT rename, rephrase, or convert them into questions. The heading text must remain unchanged - only add the required structural sections (TL;DR, Quick Tips, In This Article, FAQ, References) around the existing content.
+
 STRICT WORD COUNT LIMIT: The final article MUST NOT exceed ${targetWords} words. This is a HARD MAXIMUM. If the source content is longer than ${targetWords} words, you MUST aggressively condense, summarise, and cut less important details to fit within ${targetWords} words. Aim for exactly ${targetWords} words - not more, not less. Count your words carefully.`;
 
       if (userInstructions) {
