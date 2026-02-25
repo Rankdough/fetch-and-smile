@@ -85,17 +85,28 @@ Extract every factual detail from the page and product data. Shoppers need to kn
 - Any other specs a buyer would want before purchasing
 
 OUTPUT FORMAT (follow this EXACTLY):
-1. Write a factual paragraph of approximately ${Math.max(wordCount - 40, 30)} words. Be direct - no waffle, no fluff, no marketing hype. State what the product is, what it's made of, how it fits, and who it's for. Reference the product info data directly.
+1. Write a factual opening paragraph of approximately ${Math.max(wordCount - 80, 30)} words. Be direct - no waffle, no fluff. State what the product is, what it's made of, how it fits, and who it's for. Reference the product info data directly.
 
 2. Then add exactly 3 bullet points starting with "• " that highlight the most important FACTUAL details a shopper needs. Each bullet should be one concise line.
 
+3. Then write a SHORT closing paragraph (2-3 sentences) that paints a picture of how this product LOOKS and FEELS in the actual setting where the sport is played. For "${collection || "the sport"}" — describe the visual impact at the bowling alley, on the pitch, on the court, on the field, etc. How does the design turn heads? What impression does the wearer make? Keep it grounded and vivid.
+
+CRITICAL - UNIQUENESS:
+Every description you write MUST be distinctly different from others. Vary your:
+- Opening sentence structure (don't always start the same way)
+- Word choices and vocabulary
+- Sentence rhythm and length
+- The angle you lead with (sometimes lead with material, sometimes with the design, sometimes with the sport context)
+- Bullet point phrasing
+The product title "${title}" has a unique name and theme — let that guide a fresh angle each time.
+
 RULES:
-- Be FACTUAL. Every claim must come from the product data or scraped page.
+- Be FACTUAL in paragraphs 1 and bullets. Every claim must come from the product data or scraped page.
 - Include materials, sizes, and care info from the provided product data
 - Keep it relevant to the "${collection || ""}" category
 - Do NOT use markdown formatting except "• " for the 3 bullets
 - Do NOT include the product title as a heading
-- Do NOT add flowery language or filler words
+- Do NOT repeat the same generic phrases across products
 - Write for a shopper who wants facts to decide whether to buy`;
 
     console.log("Generating product description, target words:", wordCount);
