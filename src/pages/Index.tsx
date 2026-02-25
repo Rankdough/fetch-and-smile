@@ -1997,6 +1997,15 @@ const Index = () => {
               <Tag className="h-4 w-4" />
               Product Descriptions
             </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => navigate("/keyword-research")}
+              className="gap-2"
+            >
+              <Search className="h-4 w-4" />
+              Keyword Research
+            </Button>
           </nav>
         </div>
       </header>
