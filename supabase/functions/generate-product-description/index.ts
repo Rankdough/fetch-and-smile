@@ -65,35 +65,38 @@ serve(async (req) => {
     }
 
     // Step 2: Generate description using AI
-    const prompt = `You are an expert e-commerce product copywriter specialising in niche sporting goods and apparel.
+    const prompt = `You are an e-commerce product description writer. You write FACTUAL, no-nonsense descriptions for online shoppers who need to make a buying decision.
 
 PRODUCT DETAILS:
 - Product Title: ${title || "Unknown product"}
 - Collection/Category: ${collection || "Not specified"}
 - Product Data from Spreadsheet: ${productInfo || "None provided"}
 
-${scrapedContent ? `SCRAPED PRODUCT PAGE CONTENT (this is the actual live product page - study it carefully):
+${scrapedContent ? `SCRAPED PRODUCT PAGE CONTENT (this is the actual live product page - extract all factual details):
 ${scrapedContent}` : ""}
 
 YOUR TASK:
-Analyse the product page thoroughly. Pay close attention to:
-1. What SPORT or ACTIVITY this product belongs to (e.g. bowling, softball, baseball) based on the collection "${collection || ""}" and page context
-2. The DESIGN and THEME of this specific product - what makes "${title}" unique vs other products in the same collection
-3. Any RELATED PRODUCTS, cross-sells, or collection references visible on the page - use these to understand the brand's niche and audience
-4. The MATERIALS, FEATURES, and CONSTRUCTION details from both the page and the provided product data
-5. The TARGET AUDIENCE - who buys this? League players, casual bowlers, teams, gift buyers?
+Extract every factual detail from the page and product data. Shoppers need to know:
+- What the product IS (type, sport/activity context based on "${collection || ""}" collection)
+- MATERIALS and fabric composition (reference the product info data provided above)
+- SIZES available (find this on the scraped page)
+- Construction quality, fit type, weight
+- Care/washing instructions if available
+- Any other specs a buyer would want before purchasing
 
-WRITING REQUIREMENTS:
-- Write EXACTLY ${wordCount} words (hard limit, count carefully)
-- Write in a professional, engaging e-commerce tone that speaks to the sport's culture
-- Weave in sport-specific terminology naturally (e.g. for bowling: lanes, strikes, frames, league night, tournament)
-- Highlight what makes THIS specific design/product stand out
-- Connect the product to the lifestyle and community around the sport
-- Structure: Opening hook → What makes this product special → Features/benefits → Who it's for → Closing call-to-action
+OUTPUT FORMAT (follow this EXACTLY):
+1. Write a factual paragraph of approximately ${Math.max(wordCount - 40, 30)} words. Be direct - no waffle, no fluff, no marketing hype. State what the product is, what it's made of, how it fits, and who it's for. Reference the product info data directly.
+
+2. Then add exactly 3 bullet points starting with "• " that highlight the most important FACTUAL details a shopper needs. Each bullet should be one concise line.
+
+RULES:
+- Be FACTUAL. Every claim must come from the product data or scraped page.
+- Include materials, sizes, and care info from the provided product data
+- Keep it relevant to the "${collection || ""}" category
+- Do NOT use markdown formatting except "• " for the 3 bullets
 - Do NOT include the product title as a heading
-- Do NOT use markdown formatting - output plain text only
-- Do NOT include any headings, bullet points, or lists
-- Write as flowing paragraphs only`;
+- Do NOT add flowery language or filler words
+- Write for a shopper who wants facts to decide whether to buy`;
 
     console.log("Generating product description, target words:", wordCount);
 
