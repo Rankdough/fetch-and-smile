@@ -96,13 +96,29 @@ OUTPUT FORMAT (follow this EXACTLY):
 
 3. Then write a SHORT closing paragraph (2-3 sentences) that paints a picture of how this product LOOKS and FEELS in the actual setting where the sport is played. For "${collection || "the sport"}" — describe the visual impact at the bowling alley, on the pitch, on the court, on the field, etc. How does the design turn heads? What impression does the wearer make? Keep it grounded and vivid.
 
-CRITICAL - UNIQUENESS:
-Every description you write MUST be distinctly different from others. Vary your:
-- Opening sentence structure (don't always start the same way)
-- Word choices and vocabulary
+CRITICAL - UNIQUENESS AND VARIETY:
+Every description you write MUST be distinctly different from others. You MUST NOT start with "This" followed by an adjective — that pattern is banned.
+
+BANNED OPENING PATTERNS (never use these):
+- "This [adjective] [noun]..." (e.g. "This fully custom...", "This vibrant...", "This professional...")
+- "The [product name] is..."
+- "Introducing the..."
+- Any pattern starting with "This" as the first word
+
+INSTEAD, rotate between these opening styles:
+- Lead with a material/fabric fact: "Constructed from 100% polyester..."
+- Lead with an action: "Step onto the pitch in..."
+- Lead with a question: "Looking for a kit that stands out?"
+- Lead with the sport context: "On match day, details matter."
+- Lead with a bold claim: "No two teams should look the same."
+- Lead with a sensory detail: "Lightweight, breathable, and built to move..."
+- Lead with the team/wearer: "Your squad deserves kit that performs..."
+
+Also vary:
+- Word choices and vocabulary throughout (don't reuse the same adjectives across products)
 - Sentence rhythm and length
-- The angle you lead with (sometimes lead with material, sometimes with the design, sometimes with the sport context)
-- Bullet point phrasing
+- The angle you lead with
+- Bullet point phrasing and structure
 The product title "${title}" has a unique name and theme — let that guide a fresh angle each time.
 
 RULES:
