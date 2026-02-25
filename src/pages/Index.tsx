@@ -1988,6 +1988,15 @@ const Index = () => {
               <FileUp className="h-4 w-4" />
               Convert to Article
             </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => navigate("/product-descriptions")}
+              className="gap-2"
+            >
+              <Tag className="h-4 w-4" />
+              Product Descriptions
+            </Button>
           </nav>
         </div>
       </header>
