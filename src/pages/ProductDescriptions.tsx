@@ -235,6 +235,7 @@ const ProductDescriptions = () => {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="50">~50 words</SelectItem>
+                    <SelectItem value="75">~75 words</SelectItem>
                     <SelectItem value="100">~100 words</SelectItem>
                     <SelectItem value="150">~150 words</SelectItem>
                     <SelectItem value="200">~200 words</SelectItem>
