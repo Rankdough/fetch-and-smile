@@ -144,7 +144,7 @@ RULES:
           { role: "system", content: "You are a product copywriter. Output only the description text, no titles or formatting." },
           { role: "user", content: prompt },
         ],
-        max_tokens: Math.ceil(wordCount * 3),
+        max_tokens: Math.max(Math.ceil(wordCount * 6), 1000),
       }),
     });
 
