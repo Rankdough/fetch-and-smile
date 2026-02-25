@@ -65,21 +65,31 @@ serve(async (req) => {
     }
 
     // Step 2: Generate description using AI
-    const prompt = `You are an expert e-commerce product copywriter. Write a compelling, SEO-optimised product description.
+    const prompt = `You are an expert e-commerce product copywriter specialising in niche sporting goods and apparel.
 
 PRODUCT DETAILS:
-- Title: ${title || "Unknown product"}
-- Category/Collection: ${collection || "Not specified"}
-- Additional Product Info: ${productInfo || "None provided"}
-${scrapedContent ? `\nSCRAPED PAGE CONTENT (use for context and relevant details):\n${scrapedContent}` : ""}
+- Product Title: ${title || "Unknown product"}
+- Collection/Category: ${collection || "Not specified"}
+- Product Data from Spreadsheet: ${productInfo || "None provided"}
 
-REQUIREMENTS:
+${scrapedContent ? `SCRAPED PRODUCT PAGE CONTENT (this is the actual live product page - study it carefully):
+${scrapedContent}` : ""}
+
+YOUR TASK:
+Analyse the product page thoroughly. Pay close attention to:
+1. What SPORT or ACTIVITY this product belongs to (e.g. bowling, softball, baseball) based on the collection "${collection || ""}" and page context
+2. The DESIGN and THEME of this specific product - what makes "${title}" unique vs other products in the same collection
+3. Any RELATED PRODUCTS, cross-sells, or collection references visible on the page - use these to understand the brand's niche and audience
+4. The MATERIALS, FEATURES, and CONSTRUCTION details from both the page and the provided product data
+5. The TARGET AUDIENCE - who buys this? League players, casual bowlers, teams, gift buyers?
+
+WRITING REQUIREMENTS:
 - Write EXACTLY ${wordCount} words (hard limit, count carefully)
-- Write in a professional, engaging e-commerce tone
-- Highlight key features, benefits, and use cases
-- Make it relevant to the "${collection || "general"}" category
-- Include sensory or descriptive language where appropriate
-- Structure: Opening hook → Key features/benefits → Use case or audience → Closing line
+- Write in a professional, engaging e-commerce tone that speaks to the sport's culture
+- Weave in sport-specific terminology naturally (e.g. for bowling: lanes, strikes, frames, league night, tournament)
+- Highlight what makes THIS specific design/product stand out
+- Connect the product to the lifestyle and community around the sport
+- Structure: Opening hook → What makes this product special → Features/benefits → Who it's for → Closing call-to-action
 - Do NOT include the product title as a heading
 - Do NOT use markdown formatting - output plain text only
 - Do NOT include any headings, bullet points, or lists
