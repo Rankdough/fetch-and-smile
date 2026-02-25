@@ -24,6 +24,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Sparkles, Upload, Download, Loader2, CheckCircle2, XCircle, ArrowLeft, FileSpreadsheet, Trash2, StopCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useProductDescriptions, ProductRow } from "@/hooks/useProductDescriptions";
+import InstructionPresetsDropdown from "@/components/InstructionPresetsDropdown";
 
 const parseCSV = (text: string): Omit<ProductRow, "id" | "selected">[] => {
   const records: string[][] = [];
@@ -245,7 +246,16 @@ const ProductDescriptions = () => {
               </div>
 
               <div className="space-y-1.5 flex-1 min-w-[200px]">
-                <Label className="text-xs">Custom Instructions (applied to all descriptions)</Label>
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs">Custom Instructions (applied to all descriptions)</Label>
+                  <InstructionPresetsDropdown
+                    currentInstructions={customInstructions}
+                    onLoad={(instructions) => {
+                      setCustomInstructions(instructions);
+                      saveCustomInstructions(instructions);
+                    }}
+                  />
+                </div>
                 <Textarea
                   value={customInstructions}
                   onChange={(e) => setCustomInstructions(e.target.value)}
