@@ -20,6 +20,7 @@ export const useProductDescriptions = () => {
   const [batchId, setBatchId] = useState<string | null>(null);
   const [wordCount, setWordCount] = useState("200");
   const [fileName, setFileName] = useState("");
+  const [customInstructions, setCustomInstructions] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -42,6 +43,7 @@ export const useProductDescriptions = () => {
         setBatchId(batch.id);
         setWordCount(batch.word_count || "200");
         setFileName(batch.file_name || "");
+        setCustomInstructions((batch as any).custom_instructions || "");
 
         const { data: rows } = await supabase
           .from("product_description_rows")
@@ -81,7 +83,7 @@ export const useProductDescriptions = () => {
       // Create batch
       const { data: batch, error: batchErr } = await supabase
         .from("product_description_batches")
-        .insert({ file_name: name, word_count: wc })
+        .insert({ file_name: name, word_count: wc, custom_instructions: customInstructions } as any)
         .select()
         .single();
 
@@ -129,6 +131,16 @@ export const useProductDescriptions = () => {
     []
   );
 
+  // Save custom instructions to DB when they change
+  const saveCustomInstructions = useCallback(async (instructions: string) => {
+    if (batchId) {
+      await supabase
+        .from("product_description_batches")
+        .update({ custom_instructions: instructions } as any)
+        .eq("id", batchId);
+    }
+  }, [batchId]);
+
   const clearBatch = async () => {
     if (batchId) {
       await supabase.from("product_description_batches").delete().eq("id", batchId);
@@ -136,6 +148,7 @@ export const useProductDescriptions = () => {
     setBatchId(null);
     setProducts([]);
     setFileName("");
+    setCustomInstructions("");
   };
 
   const handleGenerate = async () => {
@@ -159,6 +172,7 @@ export const useProductDescriptions = () => {
             collection: product.collection,
             productInfo: product.productInfo,
             wordCount: targetWords,
+            customInstructions,
           },
         });
 
@@ -196,6 +210,9 @@ export const useProductDescriptions = () => {
     setWordCount,
     fileName,
     setFileName,
+    customInstructions,
+    setCustomInstructions,
+    saveCustomInstructions,
     isGenerating,
     isLoading,
     saveBatch,

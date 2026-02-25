@@ -20,6 +20,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
 import { Sparkles, Upload, Download, Loader2, CheckCircle2, XCircle, ArrowLeft, FileSpreadsheet, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useProductDescriptions, ProductRow } from "@/hooks/useProductDescriptions";
@@ -94,6 +95,9 @@ const ProductDescriptions = () => {
     setWordCount,
     fileName,
     setFileName,
+    customInstructions,
+    setCustomInstructions,
+    saveCustomInstructions,
     isGenerating,
     isLoading,
     saveBatch,
@@ -237,6 +241,17 @@ const ProductDescriptions = () => {
                     <SelectItem value="500">~500 words</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+
+              <div className="space-y-1.5 flex-1 min-w-[200px]">
+                <Label className="text-xs">Custom Instructions (applied to all descriptions)</Label>
+                <Textarea
+                  value={customInstructions}
+                  onChange={(e) => setCustomInstructions(e.target.value)}
+                  onBlur={() => saveCustomInstructions(customInstructions)}
+                  placeholder="e.g. Full team orders available, no minimums, 20 business-day guarantee, price match guarantee..."
+                  className="min-h-[60px] text-sm"
+                />
               </div>
 
               <div className="flex gap-2 ml-auto">
