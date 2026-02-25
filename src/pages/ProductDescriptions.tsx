@@ -360,9 +360,12 @@ const ProductDescriptions = () => {
                           {product.status === "done" && <CheckCircle2 className="h-4 w-4 text-green-600" />}
                           {product.status === "error" && <XCircle className="h-4 w-4 text-destructive" />}
                         </TableCell>
-                        <TableCell className="align-top text-xs leading-relaxed max-w-[300px]">
+                        <TableCell className="align-top text-xs leading-relaxed max-w-[400px]">
                           {product.description ? (
-                            <p className="line-clamp-4">{product.description}</p>
+                            <details className="cursor-pointer">
+                              <summary className="line-clamp-2">{product.description.substring(0, 120)}…</summary>
+                              <p className="mt-2 whitespace-pre-wrap">{product.description}</p>
+                            </details>
                           ) : (
                             <span className="text-muted-foreground italic">—</span>
                           )}
