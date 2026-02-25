@@ -56,3 +56,6 @@ verify_jwt = false
 
 [functions.generate-product-description]
 verify_jwt = false
+
+[functions.generate-keyword-universe]
+verify_jwt = false

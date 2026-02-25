@@ -85,6 +85,30 @@ export type Database = {
         }
         Relationships: []
       }
+      keyword_research: {
+        Row: {
+          context: string | null
+          created_at: string
+          id: string
+          results: Json
+          topic: string
+        }
+        Insert: {
+          context?: string | null
+          created_at?: string
+          id?: string
+          results: Json
+          topic: string
+        }
+        Update: {
+          context?: string | null
+          created_at?: string
+          id?: string
+          results?: Json
+          topic?: string
+        }
+        Relationships: []
+      }
       product_description_batches: {
         Row: {
           created_at: string
