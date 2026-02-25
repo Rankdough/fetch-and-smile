@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { Sparkles, Upload, Download, Loader2, CheckCircle2, XCircle, ArrowLeft, FileSpreadsheet, Trash2 } from "lucide-react";
+import { Sparkles, Upload, Download, Loader2, CheckCircle2, XCircle, ArrowLeft, FileSpreadsheet, Trash2, StopCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useProductDescriptions, ProductRow } from "@/hooks/useProductDescriptions";
 
@@ -103,6 +103,7 @@ const ProductDescriptions = () => {
     saveBatch,
     clearBatch,
     handleGenerate,
+    stopGeneration,
     resetRow,
   } = useProductDescriptions();
 
@@ -255,19 +256,17 @@ const ProductDescriptions = () => {
               </div>
 
               <div className="flex gap-2 ml-auto">
-                <Button onClick={handleGenerate} disabled={isGenerating || selectedCount === 0} className="gap-2">
-                  {isGenerating ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Generating...
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="h-4 w-4" />
-                      Generate ({selectedCount})
-                    </>
-                  )}
-                </Button>
+                {isGenerating ? (
+                  <Button onClick={stopGeneration} variant="destructive" className="gap-2">
+                    <StopCircle className="h-4 w-4" />
+                    Stop
+                  </Button>
+                ) : (
+                  <Button onClick={handleGenerate} disabled={selectedCount === 0} className="gap-2">
+                    <Sparkles className="h-4 w-4" />
+                    Generate ({selectedCount})
+                  </Button>
+                )}
                 <Button variant="outline" onClick={handleDownload} disabled={doneCount === 0} className="gap-2">
                   <Download className="h-4 w-4" />
                   Download CSV
