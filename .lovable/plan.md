@@ -1,50 +1,69 @@
 
 
-## Fix: Convert to Article - Fallback and Reliability
+## Plan: Add Keyword Research Tool
 
-### Problem
-When a user uploads an image-based PDF **and** pastes text content, the tool tries only the PDF, fails, and shows an error — completely ignoring the pasted text that could have been used instead.
+### Overview
+Add a fourth tool tab "Keyword Research" to the app. The user enters a broad topic, optionally adds context, and the AI generates a comprehensive semantic keyword universe organized into categorized clusters. Results are saved to the database for later retrieval.
 
-### Changes
+### Database
 
-**1. Client-side fallback logic (`src/components/ConvertToArticleView.tsx`)**
+**New table: `keyword_research`**
+- `id` (uuid, PK, default `gen_random_uuid()`)
+- `topic` (text, not null)
+- `context` (text, nullable)
+- `results` (jsonb, not null) — structured clusters like `{ categories: [{ name: string, terms: string[] }] }`
+- `created_at` (timestamptz, default `now()`)
+- Public RLS policies (SELECT, INSERT, DELETE) — same pattern as other tables
 
-Update the `handleConvert` function so that:
-- If a file is uploaded, try to parse it first
-- If file parsing fails or returns an error string (starts with `[`), **fall back to the pasted text** instead of showing an error
-- Only show an error if both the file parse AND pasted text are empty
-- Show a toast informing the user: "File couldn't be read — using pasted text instead"
+### Edge Function: `generate-keyword-universe`
 
-**2. Client-side content cleaning (`src/components/ConvertToArticleView.tsx`)**
+**File:** `supabase/functions/generate-keyword-universe/index.ts`
 
-Add a `cleanSourceText` utility function that strips obvious non-article content from the pasted text **before** sending it to the edge function. This acts as a pre-filter to reduce noise:
-- Lines matching common nav patterns (e.g., lines that are just "Home", "Blog", "About", "Contact")
-- Cookie consent text patterns
-- Copyright lines (matching "Little Helpers (c) 2025" etc.)
-- "FOLLOW US", "MANY LINKS", "Site Map" lines
-- "Heatmap", "Recording", "Area" overlay labels
-- Shipping banners like "Ordered before..."
-- Language selector lines like just "English"
+- Accepts `{ topic, context? }` 
+- Calls Lovable AI (`google/gemini-3-flash-preview`) with a detailed prompt instructing the model to act as a domain expert and produce 150-300+ terms across 10-15 categories
+- Uses tool calling to extract structured JSON output (categories with term arrays)
+- Returns the structured result
+- Handles 429/402 errors
 
-This ensures the AI gets cleaner input even though the prompt also instructs stripping.
+**Prompt strategy:**
+- Exhaustively list sub-categories: equipment, rules, techniques, positions, performance metrics, training, slang/jargon, brands, common questions, long-tail search phrases
+- Include niche insider terms that standard keyword tools miss
+- Structure as named categories with arrays of terms
 
-**3. No edge function changes needed**
+### New Page: `src/pages/KeywordResearch.tsx`
 
-The `convert-to-html` prompt already has thorough stripping instructions. The main fix is on the client side: proper fallback + pre-cleaning.
+**Input section:**
+- Topic text input (required)
+- Optional context/guidance textarea
+- Generate button
 
-### Technical Details
+**Results section:**
+- Collapsible cards per category, each showing a list of terms as badges/chips
+- Total term count display
+- "Copy All" button (copies all terms as newline-separated list)
+- "Export CSV" button (exports with category and term columns)
+- Saved research list — shows previously generated keyword universes with ability to load/delete them
 
-```text
-handleConvert flow (updated):
+### Navigation Changes
 
-  uploadedFile exists?
-    YES --> try parse-context-file
-              success + valid text? --> use it
-              fail or "[..." error? --> fall back to pastedText
-    NO  --> use pastedText
+**File:** `src/pages/Index.tsx` (lines ~1996-1999)
+- Add a new nav button "Keyword Research" after "Product Descriptions" that navigates to `/keyword-research`
+- Uses `Search` icon from lucide-react
 
-  cleanSourceText(sourceText)  <-- strip nav/footer noise
+**File:** `src/App.tsx`
+- Add route: `<Route path="/keyword-research" element={<KeywordResearch />} />`
 
-  send to convert-to-html
-```
+**File:** `supabase/config.toml`
+- Add `[functions.generate-keyword-universe]` with `verify_jwt = false`
+
+### Files to create
+1. `supabase/functions/generate-keyword-universe/index.ts`
+2. `src/pages/KeywordResearch.tsx`
+
+### Files to modify
+1. `src/App.tsx` — add route + import
+2. `src/pages/Index.tsx` — add nav button
+
+### Database migration
+1. Create `keyword_research` table with public RLS policies
 
