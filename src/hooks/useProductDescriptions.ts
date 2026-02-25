@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -23,6 +23,7 @@ export const useProductDescriptions = () => {
   const [customInstructions, setCustomInstructions] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const abortRef = useRef(false);
 
   // Load the most recent batch on mount
   useEffect(() => {
@@ -159,9 +160,12 @@ export const useProductDescriptions = () => {
     }
 
     setIsGenerating(true);
+    abortRef.current = false;
     const targetWords = parseInt(wordCount) || 200;
 
     for (const product of selected) {
+      if (abortRef.current) break;
+
       setProducts((prev) => prev.map((p) => (p.id === product.id ? { ...p, status: "generating" } : p)));
 
       try {
@@ -176,15 +180,22 @@ export const useProductDescriptions = () => {
           },
         });
 
+        if (abortRef.current) {
+          // Reset this row back to pending since we're aborting
+          setProducts((prev) => prev.map((p) => (p.id === product.id ? { ...p, status: "pending" } : p)));
+          await updateRow(product.id, { status: "pending" });
+          break;
+        }
+
         if (error) throw error;
 
         const desc = data.description || "";
         setProducts((prev) =>
           prev.map((p) => (p.id === product.id ? { ...p, description: desc, status: "done" } : p))
         );
-        // Persist to DB
         await updateRow(product.id, { description: desc, status: "done" });
       } catch (err) {
+        if (abortRef.current) break;
         console.error("Generation error for", product.title, err);
         setProducts((prev) => prev.map((p) => (p.id === product.id ? { ...p, status: "error" } : p)));
         await updateRow(product.id, { status: "error" });
@@ -192,7 +203,13 @@ export const useProductDescriptions = () => {
     }
 
     setIsGenerating(false);
-    toast({ title: "Generation complete", description: `Processed ${selected.length} products.` });
+    if (abortRef.current) {
+      // Reset any remaining "generating" rows to pending
+      setProducts((prev) => prev.map((p) => (p.status === "generating" ? { ...p, status: "pending" } : p)));
+      toast({ title: "Generation stopped", description: "Remaining products were not processed." });
+    } else {
+      toast({ title: "Generation complete", description: `Processed ${selected.length} products.` });
+    }
   };
 
   const resetRow = async (productId: string) => {
@@ -218,6 +235,7 @@ export const useProductDescriptions = () => {
     saveBatch,
     clearBatch,
     handleGenerate,
+    stopGeneration: () => { abortRef.current = true; },
     resetRow,
   };
 };
