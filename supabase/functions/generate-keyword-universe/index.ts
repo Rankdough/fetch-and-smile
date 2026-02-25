@@ -57,7 +57,7 @@ CRITICAL REQUIREMENTS — READ CAREFULLY:
    - Long-tail conversational search phrases (4-8 words, natural language)
    - Question-format queries starting with what/how/why/where/which/is/can/does
 
-3. Each category MUST have 15-30 specific terms. Aim for 250-400+ total terms.
+3. Each category MUST have 15-30 specific terms. You MUST produce AT LEAST 100 total terms across all categories — aim for 250-400+. If you return fewer than 100 terms total, you have failed the task.
 
 4. DO NOT use special characters like bullets (•), em-dashes (—), or non-ASCII characters. Use only plain ASCII text.
 
@@ -132,16 +132,83 @@ Use the generate_keyword_universe function to return your results.`;
       throw new Error(`AI generation failed: ${response.status}`);
     }
 
-    const data = await response.json();
-    const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
+    let data = await response.json();
+    let toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
 
     if (!toolCall) {
       throw new Error("No structured output returned from AI");
     }
 
-    const results = JSON.parse(toolCall.function.arguments);
-    const totalTerms = results.categories.reduce((sum: number, cat: any) => sum + cat.terms.length, 0);
+    let results = JSON.parse(toolCall.function.arguments);
+    let totalTerms = results.categories.reduce((sum: number, cat: any) => sum + cat.terms.length, 0);
     console.log(`Generated ${results.categories.length} categories with ${totalTerms} total terms for topic: ${topic}`);
+
+    // Retry once if under 100 terms
+    if (totalTerms < 100) {
+      console.log(`Only ${totalTerms} terms, retrying with stronger prompt...`);
+      const retryResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-pro",
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt + "\n\nIMPORTANT: Your previous attempt only produced " + totalTerms + " terms. You MUST produce at least 100 unique, specific terms this time. Add more categories and more terms per category." },
+          ],
+          max_tokens: 10000,
+          tools: [
+            {
+              type: "function",
+              function: {
+                name: "generate_keyword_universe",
+                description: "Return a structured keyword universe organized by categories with highly specific real-world terms",
+                parameters: {
+                  type: "object",
+                  properties: {
+                    categories: {
+                      type: "array",
+                      items: {
+                        type: "object",
+                        properties: {
+                          name: { type: "string", description: "Category name" },
+                          terms: {
+                            type: "array",
+                            items: { type: "string" },
+                            description: "List of specific keyword terms",
+                          },
+                        },
+                        required: ["name", "terms"],
+                        additionalProperties: false,
+                      },
+                    },
+                  },
+                  required: ["categories"],
+                  additionalProperties: false,
+                },
+              },
+            },
+          ],
+          tool_choice: { type: "function", function: { name: "generate_keyword_universe" } },
+        }),
+      });
+
+      if (retryResponse.ok) {
+        const retryData = await retryResponse.json();
+        const retryToolCall = retryData.choices?.[0]?.message?.tool_calls?.[0];
+        if (retryToolCall) {
+          const retryResults = JSON.parse(retryToolCall.function.arguments);
+          const retryTotal = retryResults.categories.reduce((sum: number, cat: any) => sum + cat.terms.length, 0);
+          if (retryTotal > totalTerms) {
+            results = retryResults;
+            totalTerms = retryTotal;
+            console.log(`Retry produced ${totalTerms} terms`);
+          }
+        }
+      }
+    }
 
     return new Response(
       JSON.stringify({ results }),
