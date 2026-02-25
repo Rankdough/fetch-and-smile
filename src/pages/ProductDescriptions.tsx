@@ -330,6 +330,7 @@ const ProductDescriptions = () => {
                       </TableHead>
                       <TableHead className="w-[200px] sticky top-0 bg-card z-10">Title</TableHead>
                       <TableHead className="w-[100px] sticky top-0 bg-card z-10">Collection</TableHead>
+                      <TableHead className="w-[200px] sticky top-0 bg-card z-10">Product Info</TableHead>
                       <TableHead className="w-[160px] sticky top-0 bg-card z-10">URL</TableHead>
                       <TableHead className="w-[70px] sticky top-0 bg-card z-10">Status</TableHead>
                       <TableHead className="w-[300px] sticky top-0 bg-card z-10">Description</TableHead>
@@ -343,6 +344,9 @@ const ProductDescriptions = () => {
                         </TableCell>
                         <TableCell className="align-top font-medium text-sm truncate max-w-[200px]">{product.title}</TableCell>
                         <TableCell className="align-top text-sm text-muted-foreground">{product.collection}</TableCell>
+                        <TableCell className="align-top text-xs text-muted-foreground max-w-[200px]">
+                          <p className="line-clamp-3">{product.productInfo || "—"}</p>
+                        </TableCell>
                         <TableCell className="align-top text-xs text-muted-foreground truncate max-w-[160px]">
                           {product.url && (
                             <a href={product.url.startsWith("http") ? product.url : `https://${product.url}`} target="_blank" rel="noopener noreferrer" className="hover:underline text-primary">
