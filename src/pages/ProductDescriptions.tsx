@@ -38,46 +38,65 @@ type ProductRow = {
 };
 
 const parseCSV = (text: string): ProductRow[] => {
-  const lines = text.split("\n").filter((l) => l.trim());
-  if (lines.length < 2) return [];
+  // Full CSV parser that handles multiline quoted fields
+  const records: string[][] = [];
+  let current: string[] = [];
+  let field = "";
+  let inQuotes = false;
 
-  // Parse header
-  const header = lines[0].split(",").map((h) => h.trim().toLowerCase().replace(/"/g, ""));
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+    const next = text[i + 1];
 
-  // Find column indices - flexible matching
-  const urlIdx = header.findIndex((h) => h.includes("url") || h.includes("link"));
-  const collectionIdx = header.findIndex((h) => h.includes("collection") || h.includes("category") || h.includes("type"));
-  const titleIdx = header.findIndex((h) => h.includes("title") || h.includes("name") || h.includes("product"));
-  const infoIdx = header.findIndex((h) => h.includes("info") || h.includes("description") || h.includes("detail") || h.includes("material"));
-
-  return lines.slice(1).map((line, i) => {
-    // Simple CSV parse (handles basic quoted fields)
-    const cols: string[] = [];
-    let current = "";
-    let inQuotes = false;
-    for (const char of line) {
-      if (char === '"') {
-        inQuotes = !inQuotes;
-      } else if (char === "," && !inQuotes) {
-        cols.push(current.trim());
-        current = "";
+    if (inQuotes) {
+      if (char === '"' && next === '"') {
+        field += '"';
+        i++; // skip escaped quote
+      } else if (char === '"') {
+        inQuotes = false;
       } else {
-        current += char;
+        field += char;
+      }
+    } else {
+      if (char === '"') {
+        inQuotes = true;
+      } else if (char === ",") {
+        current.push(field.trim());
+        field = "";
+      } else if (char === "\n" || (char === "\r" && next === "\n")) {
+        current.push(field.trim());
+        field = "";
+        if (current.some((c) => c)) records.push(current);
+        current = [];
+        if (char === "\r") i++; // skip \n in \r\n
+      } else {
+        field += char;
       }
     }
-    cols.push(current.trim());
+  }
+  // Last field/record
+  current.push(field.trim());
+  if (current.some((c) => c)) records.push(current);
 
-    return {
-      id: i,
-      url: urlIdx >= 0 ? cols[urlIdx] || "" : "",
-      collection: collectionIdx >= 0 ? cols[collectionIdx] || "" : "",
-      title: titleIdx >= 0 ? cols[titleIdx] || "" : cols[0] || "",
-      productInfo: infoIdx >= 0 ? cols[infoIdx] || "" : "",
-      description: "",
-      status: "pending" as const,
-      selected: false,
-    };
-  }).filter((r) => r.title || r.url);
+  if (records.length < 2) return [];
+
+  const header = records[0].map((h) => h.toLowerCase());
+
+  const urlIdx = header.findIndex((h) => h === "url" || h === "link");
+  const collectionIdx = header.findIndex((h) => h.includes("collection") || h.includes("category"));
+  const titleIdx = header.findIndex((h) => h === "title" || h === "name");
+  const infoIdx = header.findIndex((h) => h.includes("product description data") || h.includes("info") || h.includes("detail") || h.includes("material"));
+
+  return records.slice(1).map((cols, i) => ({
+    id: i,
+    url: urlIdx >= 0 ? cols[urlIdx] || "" : "",
+    collection: collectionIdx >= 0 ? cols[collectionIdx] || "" : "",
+    title: titleIdx >= 0 ? cols[titleIdx] || "" : cols[0] || "",
+    productInfo: infoIdx >= 0 ? cols[infoIdx] || "" : "",
+    description: "",
+    status: "pending" as const,
+    selected: false,
+  })).filter((r) => r.title || r.url);
 };
 
 const ProductDescriptions = () => {
@@ -299,50 +318,47 @@ const ProductDescriptions = () => {
                 </CardTitle>
               </div>
             </CardHeader>
-            <CardContent className="p-0">
-              <ScrollArea className="max-h-[calc(100vh-320px)]">
+            <CardContent className="p-0 overflow-auto max-h-[calc(100vh-300px)]">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-10">
+                      <TableHead className="w-10 sticky top-0 bg-card z-10">
                         <Checkbox
                           checked={products.length > 0 && products.every((p) => p.selected)}
                           onCheckedChange={(checked) => toggleAll(!!checked)}
                         />
                       </TableHead>
-                      <TableHead className="min-w-[200px]">Title</TableHead>
-                      <TableHead className="min-w-[120px]">Collection</TableHead>
-                      <TableHead className="min-w-[180px]">URL</TableHead>
-                      <TableHead className="w-20">Status</TableHead>
-                      <TableHead className="min-w-[300px]">Description</TableHead>
+                      <TableHead className="w-[200px] sticky top-0 bg-card z-10">Title</TableHead>
+                      <TableHead className="w-[100px] sticky top-0 bg-card z-10">Collection</TableHead>
+                      <TableHead className="w-[160px] sticky top-0 bg-card z-10">URL</TableHead>
+                      <TableHead className="w-[70px] sticky top-0 bg-card z-10">Status</TableHead>
+                      <TableHead className="w-[300px] sticky top-0 bg-card z-10">Description</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {products.map((product) => (
                       <TableRow key={product.id} className={product.selected ? "bg-primary/5" : ""}>
-                        <TableCell>
+                        <TableCell className="align-top">
                           <Checkbox checked={product.selected} onCheckedChange={() => toggleRow(product.id)} />
                         </TableCell>
-                        <TableCell className="font-medium text-sm">{product.title}</TableCell>
-                        <TableCell className="text-sm text-muted-foreground">{product.collection}</TableCell>
-                        <TableCell className="text-xs text-muted-foreground max-w-[180px] truncate">
+                        <TableCell className="align-top font-medium text-sm truncate max-w-[200px]">{product.title}</TableCell>
+                        <TableCell className="align-top text-sm text-muted-foreground">{product.collection}</TableCell>
+                        <TableCell className="align-top text-xs text-muted-foreground truncate max-w-[160px]">
                           {product.url && (
                             <a href={product.url.startsWith("http") ? product.url : `https://${product.url}`} target="_blank" rel="noopener noreferrer" className="hover:underline text-primary">
-                              {product.url.replace(/https?:\/\//, "").substring(0, 40)}...
+                              {product.url.replace(/https?:\/\//, "").substring(0, 35)}…
                             </a>
                           )}
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="align-top">
                           {product.status === "pending" && <Badge variant="outline" className="text-xs">Pending</Badge>}
                           {product.status === "generating" && <Loader2 className="h-4 w-4 animate-spin text-primary" />}
                           {product.status === "done" && <CheckCircle2 className="h-4 w-4 text-green-600" />}
                           {product.status === "error" && <XCircle className="h-4 w-4 text-destructive" />}
                         </TableCell>
-                        <TableCell className="text-xs leading-relaxed max-w-[300px]">
+                        <TableCell className="align-top text-xs leading-relaxed max-w-[300px]">
                           {product.description ? (
-                            <ScrollArea className="max-h-24">
-                              <p className="pr-2">{product.description}</p>
-                            </ScrollArea>
+                            <p className="line-clamp-4">{product.description}</p>
                           ) : (
                             <span className="text-muted-foreground italic">—</span>
                           )}
@@ -351,7 +367,6 @@ const ProductDescriptions = () => {
                     ))}
                   </TableBody>
                 </Table>
-              </ScrollArea>
             </CardContent>
           </Card>
         )}
