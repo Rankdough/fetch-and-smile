@@ -61,6 +61,30 @@ export type Database = {
         }
         Relationships: []
       }
+      instruction_presets: {
+        Row: {
+          created_at: string
+          id: string
+          instructions: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          instructions?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          instructions?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       product_description_batches: {
         Row: {
           created_at: string
