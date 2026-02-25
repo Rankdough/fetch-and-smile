@@ -25,6 +25,7 @@ import { Sparkles, Upload, Download, Loader2, CheckCircle2, XCircle, ArrowLeft, 
 import { useToast } from "@/hooks/use-toast";
 import { useProductDescriptions, ProductRow } from "@/hooks/useProductDescriptions";
 import InstructionPresetsDropdown from "@/components/InstructionPresetsDropdown";
+import { GenerationChecklist } from "@/components/GenerationChecklist";
 
 const parseCSV = (text: string): Omit<ProductRow, "id" | "selected">[] => {
   const records: string[][] = [];
@@ -265,27 +266,55 @@ const ProductDescriptions = () => {
                 />
               </div>
 
-              <div className="flex gap-2 ml-auto">
-                {isGenerating ? (
-                  <Button onClick={stopGeneration} variant="destructive" className="gap-2">
-                    <StopCircle className="h-4 w-4" />
-                    Stop
+              <div className="flex items-end gap-4 ml-auto">
+                <GenerationChecklist
+                  items={[
+                    {
+                      id: "products-selected",
+                      label: "Select products to generate",
+                      completed: selectedCount > 0,
+                      required: true,
+                    },
+                    {
+                      id: "word-count",
+                      label: `Word count set (${wordCount} words)`,
+                      completed: !!wordCount && wordCount !== "",
+                      required: true,
+                    },
+                    {
+                      id: "custom-instructions",
+                      label: "Custom instructions provided",
+                      completed: customInstructions.trim().length > 0,
+                      required: true,
+                    },
+                  ]}
+                />
+                <div className="flex gap-2">
+                  {isGenerating ? (
+                    <Button onClick={stopGeneration} variant="destructive" className="gap-2">
+                      <StopCircle className="h-4 w-4" />
+                      Stop
+                    </Button>
+                  ) : (
+                    <Button
+                      onClick={handleGenerate}
+                      disabled={selectedCount === 0 || !customInstructions.trim()}
+                      className="gap-2"
+                    >
+                      <Sparkles className="h-4 w-4" />
+                      Generate ({selectedCount})
+                    </Button>
+                  )}
+                  <Button variant="outline" onClick={handleDownload} disabled={doneCount === 0} className="gap-2">
+                    <Download className="h-4 w-4" />
+                    Download CSV
                   </Button>
-                ) : (
-                  <Button onClick={handleGenerate} disabled={selectedCount === 0} className="gap-2">
-                    <Sparkles className="h-4 w-4" />
-                    Generate ({selectedCount})
-                  </Button>
-                )}
-                <Button variant="outline" onClick={handleDownload} disabled={doneCount === 0} className="gap-2">
-                  <Download className="h-4 w-4" />
-                  Download CSV
-                </Button>
-                {products.length > 0 && (
-                  <Button variant="ghost" size="icon" onClick={clearBatch}>
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                )}
+                  {products.length > 0 && (
+                    <Button variant="ghost" size="icon" onClick={clearBatch}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
               </div>
             </div>
           </CardContent>
