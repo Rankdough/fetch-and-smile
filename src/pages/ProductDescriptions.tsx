@@ -243,6 +243,7 @@ const ProductDescriptions = () => {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="50">~50 words</SelectItem>
                     <SelectItem value="100">~100 words</SelectItem>
                     <SelectItem value="150">~150 words</SelectItem>
                     <SelectItem value="200">~200 words</SelectItem>
@@ -362,7 +363,17 @@ const ProductDescriptions = () => {
                         </TableCell>
                         <TableCell className="align-top text-sm leading-relaxed min-w-[400px]">
                           {product.description ? (
-                            <p className="whitespace-pre-wrap">{product.description}</p>
+                            <div className="flex gap-2">
+                              <p className="whitespace-pre-wrap flex-1">{product.description}</p>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="shrink-0 h-6 w-6 mt-0.5"
+                                onClick={() => setProducts((prev) => prev.map((p) => p.id === product.id ? { ...p, description: "", status: "pending" } : p))}
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            </div>
                           ) : (
                             <span className="text-muted-foreground italic">—</span>
                           )}
