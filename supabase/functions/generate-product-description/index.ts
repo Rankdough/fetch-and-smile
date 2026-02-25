@@ -75,8 +75,10 @@ PRODUCT DETAILS:
 ${scrapedContent ? `SCRAPED PRODUCT PAGE CONTENT (this is the actual live product page - extract all factual details):
 ${scrapedContent}` : ""}
 
-${customInstructions ? `ADDITIONAL INSTRUCTIONS FROM THE USER (incorporate these key selling points/details into the description naturally):
-${customInstructions}` : ""}
+${customInstructions ? `MANDATORY CUSTOM INSTRUCTIONS (YOU MUST incorporate ALL of these points into the description — these are non-negotiable requirements from the client):
+${customInstructions}
+
+You MUST weave every point from the custom instructions above into the description. If the instructions mention guarantees, team orders, unique selling points, or any specific details — they MUST appear prominently in the output.` : ""}
 
 YOUR TASK:
 Extract every factual detail from the page and product data. Shoppers need to know:
