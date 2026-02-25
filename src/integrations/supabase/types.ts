@@ -61,6 +61,80 @@ export type Database = {
         }
         Relationships: []
       }
+      product_description_batches: {
+        Row: {
+          created_at: string
+          file_name: string | null
+          id: string
+          updated_at: string
+          word_count: string
+        }
+        Insert: {
+          created_at?: string
+          file_name?: string | null
+          id?: string
+          updated_at?: string
+          word_count?: string
+        }
+        Update: {
+          created_at?: string
+          file_name?: string | null
+          id?: string
+          updated_at?: string
+          word_count?: string
+        }
+        Relationships: []
+      }
+      product_description_rows: {
+        Row: {
+          batch_id: string
+          collection: string | null
+          created_at: string
+          description: string | null
+          id: string
+          product_info: string | null
+          row_index: number
+          status: string
+          title: string | null
+          updated_at: string
+          url: string | null
+        }
+        Insert: {
+          batch_id: string
+          collection?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          product_info?: string | null
+          row_index: number
+          status?: string
+          title?: string | null
+          updated_at?: string
+          url?: string | null
+        }
+        Update: {
+          batch_id?: string
+          collection?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          product_info?: string | null
+          row_index?: number
+          status?: string
+          title?: string | null
+          updated_at?: string
+          url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_description_rows_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "product_description_batches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       saved_articles: {
         Row: {
           applied_rules: Json | null
