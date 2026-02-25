@@ -1,0 +1,1 @@
+ALTER TABLE public.product_description_batches ADD COLUMN custom_instructions text DEFAULT '' NOT NULL;

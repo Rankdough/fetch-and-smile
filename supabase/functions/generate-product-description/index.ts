@@ -12,7 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    const { url, title, collection, productInfo, wordCount = 200 } = await req.json();
+    const { url, title, collection, productInfo, wordCount = 200, customInstructions = "" } = await req.json();
 
     if (!url && !title) {
       return new Response(
@@ -74,6 +74,9 @@ PRODUCT DETAILS:
 
 ${scrapedContent ? `SCRAPED PRODUCT PAGE CONTENT (this is the actual live product page - extract all factual details):
 ${scrapedContent}` : ""}
+
+${customInstructions ? `ADDITIONAL INSTRUCTIONS FROM THE USER (incorporate these key selling points/details into the description naturally):
+${customInstructions}` : ""}
 
 YOUR TASK:
 Extract every factual detail from the page and product data. Shoppers need to know:
