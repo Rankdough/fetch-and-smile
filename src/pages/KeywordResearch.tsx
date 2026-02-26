@@ -13,6 +13,7 @@ import {
   ArrowLeft, Search, Sparkles, Copy, Download, Trash2,
   ChevronDown, ChevronRight, Clock, Loader2
 } from "lucide-react";
+import QuestionnaireUpload, { BrandAnalysis } from "@/components/keyword-research/QuestionnaireUpload";
 
 interface KeywordCategory {
   name: string;
@@ -43,6 +44,8 @@ const KeywordResearch = () => {
   const [savedResearch, setSavedResearch] = useState<SavedResearch[]>([]);
   const [openCategories, setOpenCategories] = useState<Set<string>>(new Set());
   const [isLoadingSaved, setIsLoadingSaved] = useState(true);
+  const [brandAnalysis, setBrandAnalysis] = useState<BrandAnalysis | null>(null);
+  const [questionnaireText, setQuestionnaireText] = useState("");
 
   useEffect(() => {
     loadSavedResearch();
@@ -73,8 +76,15 @@ const KeywordResearch = () => {
     setResults(null);
 
     try {
+      // Build context from manual input + questionnaire analysis
+      let fullContext = context.trim() || "";
+      if (brandAnalysis) {
+        const brandContext = `Brand: ${brandAnalysis.brand}. Industry: ${brandAnalysis.industry}. Target Audience: ${brandAnalysis.target_audience}. Products/Services: ${brandAnalysis.products_services}. Goals: ${brandAnalysis.goals}. Competitors: ${brandAnalysis.competitors.join(", ")}. Key Insights: ${brandAnalysis.key_insights.join("; ")}`;
+        fullContext = fullContext ? `${fullContext}\n\n${brandContext}` : brandContext;
+      }
+
       const { data, error } = await supabase.functions.invoke("generate-keyword-universe", {
-        body: { topic: topic.trim(), context: context.trim() || undefined },
+        body: { topic: topic.trim(), context: fullContext || undefined },
       });
 
       if (error) throw error;
@@ -200,12 +210,41 @@ const KeywordResearch = () => {
                 rows={2}
               />
             </div>
-            <Button onClick={generateKeywords} disabled={!topic.trim() || isGenerating} className="gap-2">
-              {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-              {isGenerating ? "Generating..." : "Generate Keywords"}
-            </Button>
+            <div className="flex items-center gap-3 flex-wrap">
+              <Button onClick={generateKeywords} disabled={!topic.trim() || isGenerating} className="gap-2">
+                {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                {isGenerating ? "Generating..." : "Generate Keywords"}
+              </Button>
+              <QuestionnaireUpload
+                analysis={brandAnalysis}
+                onAnalysisComplete={(analysis, rawText) => {
+                  setBrandAnalysis(analysis);
+                  setQuestionnaireText(rawText);
+                  if (!topic.trim()) setTopic(analysis.brand);
+                }}
+                onClear={() => {
+                  setBrandAnalysis(null);
+                  setQuestionnaireText("");
+                }}
+              />
+            </div>
           </CardContent>
         </Card>
+
+        {/* Brand Analysis Card */}
+        {brandAnalysis && (
+          <QuestionnaireUpload
+            analysis={brandAnalysis}
+            onAnalysisComplete={(analysis, rawText) => {
+              setBrandAnalysis(analysis);
+              setQuestionnaireText(rawText);
+            }}
+            onClear={() => {
+              setBrandAnalysis(null);
+              setQuestionnaireText("");
+            }}
+          />
+        )}
 
         {/* Loading skeleton */}
         {isGenerating && (
