@@ -12,9 +12,17 @@ serve(async (req) => {
   }
 
   try {
-    const { textContent } = await req.json();
+    const { textContent, fileBase64, fileMimeType } = await req.json();
 
-    if (!textContent || textContent.trim().length < 20) {
+    const hasText = textContent && textContent.trim().length >= 20;
+    const hasFile = fileBase64 && fileMimeType;
+
+    if (!hasText && !hasFile) {
+      return new Response(
+        JSON.stringify({ error: "Not enough content to analyze. Provide text or a file." }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
       return new Response(
         JSON.stringify({ error: "Not enough content to analyze" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -53,7 +61,20 @@ CRITICAL RULES FOR IDENTIFYING THE CORRECT BRAND:
           },
           {
             role: "user",
-            content: `Analyze this document and extract the key brand information about the CLIENT BRAND being discussed:\n\n${textContent}`,
+            content: hasFile
+              ? [
+                  {
+                    type: "text",
+                    text: `Analyze this document and extract the key brand information about the CLIENT BRAND being discussed.${hasText ? `\n\nAdditional extracted text:\n${textContent}` : ""}`,
+                  },
+                  {
+                    type: "image_url",
+                    image_url: {
+                      url: `data:${fileMimeType};base64,${fileBase64}`,
+                    },
+                  },
+                ]
+              : `Analyze this document and extract the key brand information about the CLIENT BRAND being discussed:\n\n${textContent}`,
           },
         ],
         tools: [
