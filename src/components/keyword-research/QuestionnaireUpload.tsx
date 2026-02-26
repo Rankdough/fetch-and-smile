@@ -76,69 +76,8 @@ const QuestionnaireUpload = ({ onAnalysisComplete, analysis, onClear }: Question
     }
   };
 
-  if (analysis) {
-    return (
-      <Card className="border-primary/30 bg-primary/5">
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-base flex items-center gap-2">
-              <CheckCircle2 className="h-4 w-4 text-primary" />
-              Extracted from Questionnaire
-            </CardTitle>
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onClear}>
-              <X className="h-3.5 w-3.5" />
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-3 text-sm">
-          <div className="grid grid-cols-[140px_1fr] gap-y-3 gap-x-4">
-            <span className="text-primary font-medium">Brand</span>
-            <span className="text-right font-semibold">{analysis.brand}</span>
-
-            <span className="text-primary font-medium">Industry</span>
-            <span className="text-right">{analysis.industry}</span>
-
-            <span className="text-primary font-medium">Target Audience</span>
-            <span className="text-right">{analysis.target_audience}</span>
-
-            <span className="text-primary font-medium">Products/Services</span>
-            <span className="text-right">{analysis.products_services}</span>
-
-            <span className="text-primary font-medium">Goals</span>
-            <span className="text-right">{analysis.goals}</span>
-          </div>
-
-          {analysis.competitors.length > 0 && (
-            <div>
-              <span className="text-primary font-medium text-xs block mb-1.5">Competitors found</span>
-              <div className="flex flex-wrap gap-1.5">
-                {analysis.competitors.map((c, i) => (
-                  <Badge key={i} variant="secondary" className="text-xs">{c}</Badge>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {analysis.key_insights.length > 0 && (
-            <div>
-              <span className="text-primary font-medium text-xs block mb-1.5">Key Insights</span>
-              <ul className="space-y-1 text-xs text-muted-foreground">
-                {analysis.key_insights.map((insight, i) => (
-                  <li key={i} className="flex gap-1.5">
-                    <span className="text-primary mt-0.5">•</span>
-                    <span>{insight}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    );
-  }
-
   return (
-    <div>
+    <div className="space-y-2">
       <input
         ref={fileInputRef}
         type="file"
@@ -161,10 +100,65 @@ const QuestionnaireUpload = ({ onAnalysisComplete, analysis, onClear }: Question
         ) : (
           <>
             <FileText className="h-3.5 w-3.5" />
-            Upload Questionnaire
+            {analysis ? "Replace Questionnaire" : "Upload Questionnaire"}
           </>
         )}
       </Button>
+
+      {analysis && (
+        <Card className="border-primary/30 bg-primary/5">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4 text-primary" />
+                Extracted from Questionnaire
+              </CardTitle>
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onClear}>
+                <X className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            <div className="grid grid-cols-[140px_1fr] gap-y-3 gap-x-4">
+              <span className="text-primary font-medium">Brand</span>
+              <span className="text-right font-semibold">{analysis.brand}</span>
+              <span className="text-primary font-medium">Industry</span>
+              <span className="text-right">{analysis.industry}</span>
+              <span className="text-primary font-medium">Target Audience</span>
+              <span className="text-right">{analysis.target_audience}</span>
+              <span className="text-primary font-medium">Products/Services</span>
+              <span className="text-right">{analysis.products_services}</span>
+              <span className="text-primary font-medium">Goals</span>
+              <span className="text-right">{analysis.goals}</span>
+            </div>
+
+            {analysis.competitors.length > 0 && (
+              <div>
+                <span className="text-primary font-medium text-xs block mb-1.5">Competitors found</span>
+                <div className="flex flex-wrap gap-1.5">
+                  {analysis.competitors.map((c, i) => (
+                    <Badge key={i} variant="secondary" className="text-xs">{c}</Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {analysis.key_insights.length > 0 && (
+              <div>
+                <span className="text-primary font-medium text-xs block mb-1.5">Key Insights</span>
+                <ul className="space-y-1 text-xs text-muted-foreground">
+                  {analysis.key_insights.map((insight, i) => (
+                    <li key={i} className="flex gap-1.5">
+                      <span className="text-primary mt-0.5">•</span>
+                      <span>{insight}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 };
