@@ -17,6 +17,7 @@ import QuestionnaireUpload, { BrandAnalysis } from "@/components/keyword-researc
 import SeedKeywordsUpload, { SeedFile } from "@/components/keyword-research/SeedKeywordsUpload";
 import SeedThemesDisplay from "@/components/keyword-research/SeedThemesDisplay";
 import { extractSeedThemes, type SeedThemes } from "@/components/keyword-research/seedThemeExtractor";
+import ContextFileUpload, { ContextFile } from "@/components/keyword-research/ContextFileUpload";
 
 interface KeywordCategory {
   name: string;
@@ -51,6 +52,7 @@ const KeywordResearch = () => {
   const [questionnaireText, setQuestionnaireText] = useState("");
   const [seedFiles, setSeedFiles] = useState<SeedFile[]>([]);
   const [extractedThemes, setExtractedThemes] = useState<SeedThemes | null>(null);
+  const [contextFiles, setContextFiles] = useState<ContextFile[]>([]);
   const abortControllerRef = useRef<AbortController | null>(null);
 
   // Extract themes whenever seed files change
@@ -131,6 +133,10 @@ const KeywordResearch = () => {
       if (brandAnalysis) {
         const brandContext = `Brand: ${brandAnalysis.brand}. Industry: ${brandAnalysis.industry}. Target Audience: ${brandAnalysis.target_audience}. Products/Services: ${brandAnalysis.products_services}. Goals: ${brandAnalysis.goals}. Competitors: ${brandAnalysis.competitors.join(", ")}. Key Insights: ${brandAnalysis.key_insights.join("; ")}`;
         fullContext = fullContext ? `${fullContext}\n\n${brandContext}` : brandContext;
+      }
+      if (contextFiles.length > 0) {
+        const fileContext = contextFiles.map(f => `--- ${f.name} ---\n${f.content}`).join("\n\n");
+        fullContext = fullContext ? `${fullContext}\n\n${fileContext}` : fileContext;
       }
 
       const response = await fetch(
@@ -332,6 +338,7 @@ const KeywordResearch = () => {
                 />
               )}
             </div>
+            <ContextFileUpload files={contextFiles} onFilesChange={setContextFiles} />
             <SeedKeywordsUpload
               seedFiles={seedFiles}
               onSeedFilesChange={async (newFiles) => {
