@@ -71,7 +71,8 @@ const KeywordResearch = () => {
   };
 
   const generateKeywords = async () => {
-    if (!topic.trim()) return;
+    const effectiveTopic = topic.trim() || (brandAnalysis ? `${brandAnalysis.brand} - ${brandAnalysis.industry}` : "");
+    if (!effectiveTopic) return;
     setIsGenerating(true);
     setResults(null);
 
@@ -84,7 +85,7 @@ const KeywordResearch = () => {
       }
 
       const { data, error } = await supabase.functions.invoke("generate-keyword-universe", {
-        body: { topic: topic.trim(), context: fullContext || undefined },
+        body: { topic: effectiveTopic, context: fullContext || undefined },
       });
 
       if (error) throw error;
@@ -92,14 +93,15 @@ const KeywordResearch = () => {
 
       const keywordResults = data.results as KeywordResult;
       setResults(keywordResults);
-      setCurrentTopic(topic.trim());
+      setCurrentTopic(effectiveTopic);
+      if (!topic.trim()) setTopic(effectiveTopic);
       setOpenCategories(new Set(keywordResults.categories.map((c) => c.name)));
 
       // Save to database
       const { error: saveError } = await supabase
         .from("keyword_research" as any)
         .insert({
-          topic: topic.trim(),
+          topic: effectiveTopic,
           context: context.trim() || null,
           results: keywordResults as any,
         });
@@ -211,7 +213,7 @@ const KeywordResearch = () => {
               />
             </div>
             <div className="flex items-center gap-3 flex-wrap">
-              <Button onClick={generateKeywords} disabled={!topic.trim() || isGenerating} className="gap-2">
+              <Button onClick={generateKeywords} disabled={(!topic.trim() && !brandAnalysis) || isGenerating} className="gap-2">
                 {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
                 {isGenerating ? "Generating..." : "Generate Keywords"}
               </Button>
