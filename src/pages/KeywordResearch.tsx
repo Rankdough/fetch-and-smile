@@ -215,18 +215,20 @@ const KeywordResearch = () => {
                 {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
                 {isGenerating ? "Generating..." : "Generate Keywords"}
               </Button>
-              <QuestionnaireUpload
-                analysis={brandAnalysis}
-                onAnalysisComplete={(analysis, rawText) => {
-                  setBrandAnalysis(analysis);
-                  setQuestionnaireText(rawText);
-                  if (!topic.trim()) setTopic(analysis.brand);
-                }}
-                onClear={() => {
-                  setBrandAnalysis(null);
-                  setQuestionnaireText("");
-                }}
-              />
+              {!brandAnalysis && (
+                <QuestionnaireUpload
+                  analysis={null}
+                  onAnalysisComplete={(analysis, rawText) => {
+                    setBrandAnalysis(analysis);
+                    setQuestionnaireText(rawText);
+                    if (!topic.trim()) setTopic(analysis.brand);
+                  }}
+                  onClear={() => {
+                    setBrandAnalysis(null);
+                    setQuestionnaireText("");
+                  }}
+                />
+              )}
             </div>
           </CardContent>
         </Card>
