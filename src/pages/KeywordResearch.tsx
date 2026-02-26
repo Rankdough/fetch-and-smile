@@ -15,6 +15,8 @@ import {
 } from "lucide-react";
 import QuestionnaireUpload, { BrandAnalysis } from "@/components/keyword-research/QuestionnaireUpload";
 import SeedKeywordsUpload, { SeedFile } from "@/components/keyword-research/SeedKeywordsUpload";
+import SeedThemesDisplay from "@/components/keyword-research/SeedThemesDisplay";
+import { extractSeedThemes, type SeedThemes } from "@/components/keyword-research/seedThemeExtractor";
 
 interface KeywordCategory {
   name: string;
@@ -48,7 +50,20 @@ const KeywordResearch = () => {
   const [brandAnalysis, setBrandAnalysis] = useState<BrandAnalysis | null>(null);
   const [questionnaireText, setQuestionnaireText] = useState("");
   const [seedFiles, setSeedFiles] = useState<SeedFile[]>([]);
+  const [extractedThemes, setExtractedThemes] = useState<SeedThemes | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Extract themes whenever seed files change
+  useEffect(() => {
+    if (seedFiles.length > 0) {
+      const allKeywords = [...new Set(seedFiles.flatMap((f) => f.keywords))];
+      const brandTerms = brandAnalysis ? [brandAnalysis.brand.toLowerCase()] : [];
+      const themes = extractSeedThemes(allKeywords, brandTerms);
+      setExtractedThemes(themes);
+    } else {
+      setExtractedThemes(null);
+    }
+  }, [seedFiles, brandAnalysis]);
 
   useEffect(() => {
     loadSavedResearch();
@@ -101,8 +116,20 @@ const KeywordResearch = () => {
             topic: effectiveTopic,
             context: fullContext || undefined,
             brandAnalysis: brandAnalysis || undefined,
-            seedKeywords: seedFiles.length > 0
+            seedThemes: extractedThemes
+              ? {
+                  coreTopics: extractedThemes.coreTopics.map((t) => t.term),
+                  demographics: extractedThemes.demographics.map((t) => t.term),
+                  activities: extractedThemes.activities.map((t) => t.term),
+                  intentModifiers: extractedThemes.intentModifiers.map((t) => t.term),
+                  locations: extractedThemes.locations.map((t) => t.term),
+                  patterns: extractedThemes.patterns.map((t) => t.term),
+                }
+              : undefined,
+            rawSample: seedFiles.length > 0
               ? [...new Set(seedFiles.flatMap((f) => f.keywords))]
+                  .filter((_, i) => i % Math.max(1, Math.floor(seedFiles.flatMap(f => f.keywords).length / 50)) === 0)
+                  .slice(0, 50)
               : undefined,
           }),
           signal: controller.signal,
@@ -279,6 +306,9 @@ const KeywordResearch = () => {
             <SeedKeywordsUpload seedFiles={seedFiles} onSeedFilesChange={setSeedFiles} />
           </CardContent>
         </Card>
+
+        {/* Extracted Themes */}
+        {extractedThemes && <SeedThemesDisplay themes={extractedThemes} />}
 
         {/* Brand Analysis Card */}
         {brandAnalysis && (

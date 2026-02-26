@@ -6,23 +6,25 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-function buildPrompt(topic: string, context?: string, brandAnalysis?: any, seedKeywords?: string[]): { system: string; user: string } {
-  const hasBrand = !!brandAnalysis;
-  const hasSeeds = seedKeywords && seedKeywords.length > 0;
+interface SeedThemes {
+  coreTopics: string[];
+  demographics: string[];
+  activities: string[];
+  intentModifiers: string[];
+  locations: string[];
+  patterns: string[];
+}
 
-  // If we have seed data, sample up to 300 representative keywords
-  let seedSample: string[] = [];
-  if (hasSeeds) {
-    // Deduplicate and take a representative sample
-    const unique = [...new Set(seedKeywords)];
-    if (unique.length > 300) {
-      // Take evenly distributed sample
-      const step = Math.floor(unique.length / 300);
-      seedSample = unique.filter((_, i) => i % step === 0).slice(0, 300);
-    } else {
-      seedSample = unique;
-    }
-  }
+function buildPrompt(
+  topic: string,
+  context?: string,
+  brandAnalysis?: any,
+  seedThemes?: SeedThemes,
+  rawSample?: string[]
+): { system: string; user: string } {
+  const hasThemes = seedThemes && Object.values(seedThemes).some(
+    (v) => Array.isArray(v) && v.length > 0
+  );
 
   const system = `You are a world-class SEO keyword researcher. Your job is to produce a COMPREHENSIVE keyword universe of real search queries.
 
@@ -33,20 +35,24 @@ CRITICAL RULES:
 - DO NOT return generic marketing jargon that nobody searches for
 - DO NOT use special characters like bullets, em-dashes, or non-ASCII characters
 - You MUST produce at least 200 total terms across all categories
-${hasSeeds ? `
-SEED DATA INSTRUCTIONS:
-You have been given REAL keyword data from Ahrefs/GSC. These are PROVEN search queries with actual volume.
-Your job is to:
-1. ANALYZE the patterns in the seed data — common modifiers, structures, demographics, intents
-2. IDENTIFY GAPS — what intent categories or topic angles are NOT covered by the seed data
-3. GENERATE NEW KEYWORDS using the same patterns and structures found in the real data
-4. DO NOT simply repeat the seed keywords — expand into new territory using proven patterns
-5. Every generated keyword should follow patterns observed in the real data (e.g., if "[activity] near me" appears often, generate more of those)
+${hasThemes ? `
+SEED THEME INSTRUCTIONS:
+You have been given DECOMPOSED SEMANTIC BUILDING BLOCKS extracted from real keyword data (Ahrefs/GSC).
+These are the core concepts, modifiers, demographics, activities, intents, and locations found in proven search queries.
+
+Your job is to COMBINATORIALLY EXPAND these building blocks:
+1. COMBINE core topics × demographics × intents to create long-tail keywords
+2. COMBINE activities × locations × modifiers for local/activity queries  
+3. COMBINE demographics × activities for audience-specific queries
+4. CREATE question-format queries using the core topics and demographics
+5. ADD comparison queries using competitor/alternative terms
+6. IDENTIFY gaps — what combinations are NOT obvious but highly relevant?
+7. Every generated keyword should be a plausible Google search, not a random combination
 ` : ""}`;
 
-  let user: string;
+  let user = "";
 
-  if (hasBrand) {
+  if (brandAnalysis) {
     const ba = brandAnalysis;
     user = `TOPIC: "${topic}"
 ${context ? `CONTEXT: ${context}` : ""}
@@ -64,20 +70,36 @@ BRAND PROFILE:
 ${context ? `CONTEXT: ${context}` : ""}`;
   }
 
-  if (hasSeeds) {
+  if (hasThemes) {
     user += `
 
-REAL SEED KEYWORD DATA (${seedKeywords!.length} total, sample of ${seedSample.length} shown):
-${seedSample.join("\n")}
+SEMANTIC BUILDING BLOCKS (extracted from real search data):
 
-Based on these REAL keywords with proven search volume, analyze the patterns and generate a comprehensive keyword universe. Group into intent-based categories. Focus on:
-1. Patterns you see repeated (e.g., "[thing] near me", "best [thing] for [audience]", "how to [action]")
-2. Topics/intents NOT covered in the seed data but relevant to the topic
-3. Long-tail variations of high-value seed terms
-4. Question-format queries related to the topic
-5. Comparison and alternative queries
+${seedThemes!.coreTopics.length > 0 ? `CORE TOPIC WORDS: ${seedThemes!.coreTopics.join(", ")}` : ""}
+${seedThemes!.demographics.length > 0 ? `DEMOGRAPHIC MODIFIERS: ${seedThemes!.demographics.join(", ")}` : ""}
+${seedThemes!.activities.length > 0 ? `ACTIVITIES & INTERESTS: ${seedThemes!.activities.join(", ")}` : ""}
+${seedThemes!.intentModifiers.length > 0 ? `INTENT MODIFIERS: ${seedThemes!.intentModifiers.join(", ")}` : ""}
+${seedThemes!.locations.length > 0 ? `LOCATION TERMS: ${seedThemes!.locations.join(", ")}` : ""}
+${seedThemes!.patterns.length > 0 ? `RECURRING SEARCH PATTERNS: ${seedThemes!.patterns.join(", ")}` : ""}`;
 
-Create 12-20 categories with 15-30 terms each. Every term must follow patterns from real search data.`;
+    if (rawSample && rawSample.length > 0) {
+      user += `
+
+EXAMPLE REAL KEYWORDS (sample of ${rawSample.length} from seed data — use these to understand search style):
+${rawSample.join("\n")}`;
+    }
+
+    user += `
+
+Using these building blocks, generate a massive keyword universe. Create 12-20 categories with 15-30 terms each.
+COMBINE the building blocks systematically:
+- "[activity] + [demographic]" → e.g., "hiking groups for over 50s"
+- "[core topic] + [intent]" → e.g., "best social apps for seniors"
+- "[core topic] + [location]" → e.g., "meetup groups near me"
+- "[demographic] + [activity] + [location]" → e.g., "over 40 tennis clubs berlin"
+- Question formats → "how to meet people over 50", "what are the best apps for making friends"
+
+Categories MUST include: demographic-specific, activity-based, intent-based (informational, commercial, transactional), location-based, comparison/alternative, question-format, and problem-aware queries.`;
   } else {
     user += `
 
@@ -90,7 +112,7 @@ Every term must be a plausible Google search query. Be extremely specific.`;
 }
 
 async function callAI(system: string, user: string, apiKey: string, maxTokens: number) {
-  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+  return await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${apiKey}`,
@@ -108,7 +130,7 @@ async function callAI(system: string, user: string, apiKey: string, maxTokens: n
           type: "function",
           function: {
             name: "generate_keyword_universe",
-            description: "Return a structured keyword universe organized by categories with real search queries",
+            description: "Return a structured keyword universe organized by categories",
             parameters: {
               type: "object",
               properties: {
@@ -117,12 +139,8 @@ async function callAI(system: string, user: string, apiKey: string, maxTokens: n
                   items: {
                     type: "object",
                     properties: {
-                      name: { type: "string", description: "Category name" },
-                      terms: {
-                        type: "array",
-                        items: { type: "string" },
-                        description: "Real Google search queries based on patterns from seed data",
-                      },
+                      name: { type: "string" },
+                      terms: { type: "array", items: { type: "string" } },
                     },
                     required: ["name", "terms"],
                     additionalProperties: false,
@@ -138,8 +156,6 @@ async function callAI(system: string, user: string, apiKey: string, maxTokens: n
       tool_choice: { type: "function", function: { name: "generate_keyword_universe" } },
     }),
   });
-
-  return response;
 }
 
 serve(async (req) => {
@@ -148,7 +164,7 @@ serve(async (req) => {
   }
 
   try {
-    const { topic, context, brandAnalysis, seedKeywords } = await req.json();
+    const { topic, context, brandAnalysis, seedThemes, rawSample } = await req.json();
 
     if (!topic) {
       return new Response(
@@ -158,13 +174,11 @@ serve(async (req) => {
     }
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
-    }
+    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
-    console.log(`Generating keywords for "${topic}" with ${seedKeywords?.length || 0} seed keywords`);
+    console.log(`Generating keywords for "${topic}" with themes:`, seedThemes ? "yes" : "no");
 
-    const { system, user } = buildPrompt(topic, context, brandAnalysis, seedKeywords);
+    const { system, user } = buildPrompt(topic, context, brandAnalysis, seedThemes, rawSample);
     const response = await callAI(system, user, LOVABLE_API_KEY, 10000);
 
     if (!response.ok) {
@@ -185,10 +199,7 @@ serve(async (req) => {
 
     let data = await response.json();
     let toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
-
-    if (!toolCall) {
-      throw new Error("No structured output returned from AI");
-    }
+    if (!toolCall) throw new Error("No structured output returned from AI");
 
     let results = JSON.parse(toolCall.function.arguments);
     let totalTerms = results.categories.reduce((sum: number, cat: any) => sum + cat.terms.length, 0);
@@ -199,7 +210,7 @@ serve(async (req) => {
       console.log(`Only ${totalTerms} terms, retrying...`);
       const retryResponse = await callAI(
         system,
-        user + `\n\nIMPORTANT: Your previous attempt only produced ${totalTerms} terms. You MUST produce at least 200 unique, specific search queries. Add more categories and more terms per category.`,
+        user + `\n\nIMPORTANT: Your previous attempt only produced ${totalTerms} terms. You MUST produce at least 200 unique, specific search queries.`,
         LOVABLE_API_KEY,
         12000
       );
@@ -213,7 +224,6 @@ serve(async (req) => {
           if (retryTotal > totalTerms) {
             results = retryResults;
             totalTerms = retryTotal;
-            console.log(`Retry produced ${totalTerms} terms`);
           }
         }
       }
