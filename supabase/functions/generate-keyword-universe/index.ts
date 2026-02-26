@@ -6,13 +6,152 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+function buildPrompt(topic: string, context?: string, brandAnalysis?: any): { system: string; user: string } {
+  const hasBrand = !!brandAnalysis;
+
+  const system = `You are a world-class SEO keyword researcher with deep expertise in search behavior and real search data patterns. You know exactly what phrases real people type into Google — not generic marketing terms, but actual search queries with real volume.
+
+Your job is to produce an EXHAUSTIVE keyword universe that a content strategist could use to capture organic traffic.
+
+CRITICAL RULES:
+- Every keyword MUST be something a real person would actually type into Google
+- Prioritize long-tail, specific phrases (3-7 words) that reflect real search intent
+- Include actual brand names, app names, platform names that exist in this space
+- DO NOT return generic marketing jargon that nobody searches for
+- DO NOT use special characters like bullets (•), em-dashes (—), or non-ASCII characters
+- You MUST produce at least 200 total terms across all categories`;
+
+  let user: string;
+
+  if (hasBrand) {
+    const ba = brandAnalysis;
+    user = `I need a keyword universe for a brand with the following profile:
+
+BRAND: ${ba.brand}
+INDUSTRY: ${ba.industry}
+PRODUCT TYPE: ${ba.products_services}
+TARGET AUDIENCE: ${ba.target_audience}
+GOALS: ${ba.goals}
+COMPETITORS: ${ba.competitors?.join(", ") || "Unknown"}
+KEY INSIGHTS: ${ba.key_insights?.join("; ") || "None"}
+
+TOPIC FOCUS: "${topic}"
+${context ? `ADDITIONAL CONTEXT: ${context}` : ""}
+
+STEP 1 — UNDERSTAND THE SEARCH LANDSCAPE:
+This is a ${ba.products_services}. The target user is: ${ba.target_audience}. Think about what these specific people would search for when:
+- They don't know this product exists yet (problem-aware searches)
+- They're looking for solutions (solution-aware searches)  
+- They're comparing options (comparison searches)
+- They're searching for specific activities or experiences
+- They're searching for competitor products by name
+
+STEP 2 — GENERATE KEYWORDS BY THESE CATEGORIES (create 12-20 categories, 15-30 terms each):
+
+1. **Problem-aware queries**: What pain points drive the target audience to search? (e.g., "how to meet people after 40", "lonely after divorce", "how to make friends as an adult")
+2. **Solution-aware queries**: Searches for the type of solution (e.g., "apps for making friends", "social apps for over 50", "group activity apps")
+3. **Competitor brand searches**: Real competitor names + related queries (e.g., "${ba.competitors?.[0] || "meetup"} alternatives", "${ba.competitors?.[0] || "meetup"} vs ${ba.competitors?.[1] || "bumble bff"}")
+4. **Activity-specific searches**: What activities does the target audience search for? (e.g., "hiking groups near me", "book clubs for adults", "walking groups for over 50s")
+5. **Demographic-specific searches**: Queries that include the target demographic (e.g., "social events for over 40s", "friends apps for seniors", "activities for retired people")
+6. **"Best of" and recommendation queries**: (e.g., "best apps for meeting people", "best social clubs for adults")
+7. **Location-intent queries**: Searches with local intent (e.g., "social groups near me", "things to do with people near me")
+8. **How-to and advice queries**: Informational content the audience searches (e.g., "how to expand your social circle", "how to overcome social anxiety")
+9. **Review and comparison queries**: (e.g., "is ${ba.brand} worth it", "${ba.brand} reviews", "best friend-finding apps 2025")
+10. **Seasonal and trending queries**: Time-specific searches
+11. **Long-tail conversational queries**: 5-8 word natural language searches
+12. **Question-format queries**: Starting with what/how/why/where/which/is/can
+
+IMPORTANT: Every term must be a plausible Google search query. Think about what a ${ba.target_audience} would actually type. Be extremely specific — use real app names, real activity names, real demographics.`;
+  } else {
+    user = `Generate a massive, highly specific semantic keyword universe for: "${topic}"
+
+${context ? `Additional context/guidance: ${context}` : ""}
+
+CRITICAL REQUIREMENTS:
+
+1. SPECIFICITY IS EVERYTHING. Give REAL, SPECIFIC examples — actual brand names, product names, real search queries.
+
+2. Create 12-18 categories with 15-30 terms each. Categories MUST include:
+   - Specific product/brand names and comparisons
+   - Problem-aware searches (what pain drives people to search)
+   - Solution-aware searches (looking for answers)
+   - Activity or use-case specific searches
+   - "Best of" and recommendation queries
+   - Competitor comparisons
+   - Troubleshooting/problem queries
+   - Long-tail conversational phrases (4-8 words)
+   - Question-format queries (what/how/why/where)
+   - Demographic-specific queries if applicable
+   - Local-intent queries if applicable
+
+3. You MUST produce at least 200 total terms. Each must be a plausible Google search query.
+
+4. DO NOT use special characters like bullets (•), em-dashes (—), or non-ASCII characters.`;
+  }
+
+  return { system, user };
+}
+
+async function callAI(system: string, user: string, apiKey: string, maxTokens: number) {
+  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "google/gemini-2.5-pro",
+      messages: [
+        { role: "system", content: system },
+        { role: "user", content: user },
+      ],
+      max_tokens: maxTokens,
+      tools: [
+        {
+          type: "function",
+          function: {
+            name: "generate_keyword_universe",
+            description: "Return a structured keyword universe organized by categories with real search queries people actually type into Google",
+            parameters: {
+              type: "object",
+              properties: {
+                categories: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: {
+                      name: { type: "string", description: "Category name" },
+                      terms: {
+                        type: "array",
+                        items: { type: "string" },
+                        description: "Real Google search queries — specific, long-tail, with actual brand/product names",
+                      },
+                    },
+                    required: ["name", "terms"],
+                    additionalProperties: false,
+                  },
+                },
+              },
+              required: ["categories"],
+              additionalProperties: false,
+            },
+          },
+        },
+      ],
+      tool_choice: { type: "function", function: { name: "generate_keyword_universe" } },
+    }),
+  });
+
+  return response;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { topic, context } = await req.json();
+    const { topic, context, brandAnalysis } = await req.json();
 
     if (!topic) {
       return new Response(
@@ -26,95 +165,8 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    const systemPrompt = `You are a world-class SEO keyword researcher AND a genuine domain expert in whatever topic you are given. You have deep insider knowledge — you know the real product names, brand names, model numbers, popular titles, slang, jargon, community terminology, and the exact phrases real people type into Google.
-
-Your job is to produce an EXHAUSTIVE semantic keyword universe that a content strategist could use to dominate search results for an entire niche. You must go far beyond generic terms.`;
-
-    const userPrompt = `Generate a massive, highly specific semantic keyword universe for: "${topic}"
-
-${context ? `Additional context/guidance: ${context}` : ""}
-
-CRITICAL REQUIREMENTS — READ CAREFULLY:
-
-1. SPECIFICITY IS EVERYTHING. Do NOT give generic terms. Give REAL, SPECIFIC examples:
-   - BAD: "popular games", "gaming accessories", "game titles"
-   - GOOD: "PlayStation 5", "Xbox Series X", "Nintendo Switch OLED", "Elden Ring", "Fortnite Battle Royale", "DualSense controller", "Razer BlackShark V2"
-
-2. You MUST include ALL of the following category types (create 12-18 categories total):
-   - Specific product/brand names (real names like "Sony", "Microsoft", "Nintendo", "Steam Deck")
-   - Specific model names and versions (e.g. "PS5 Slim", "Xbox Elite Controller Series 2")
-   - Specific titles/works/items in the field (e.g. actual game names, book titles, song names, etc.)
-   - Technical specifications and jargon insiders use
-   - Community slang and abbreviations (e.g. "GG", "nerf", "meta", "AFK", "FPS", "RPG")
-   - Price-related and buying-intent search queries (e.g. "best gaming laptop under $1000")
-   - Comparison queries people search (e.g. "PS5 vs Xbox Series X", "mechanical vs membrane keyboard")
-   - Problem/troubleshooting queries (e.g. "PS5 won't connect to WiFi", "controller drift fix")
-   - "Best of" and recommendation queries (e.g. "best co-op games 2025", "best gaming monitor for FPS")
-   - Accessories, peripherals, and related equipment with real product names
-   - Beginner/getting-started terms
-   - Advanced/competitive/professional terms
-   - Trending and seasonal terms
-   - Long-tail conversational search phrases (4-8 words, natural language)
-   - Question-format queries starting with what/how/why/where/which/is/can/does
-
-3. Each category MUST have 15-30 specific terms. You MUST produce AT LEAST 100 total terms across all categories — aim for 250-400+. If you return fewer than 100 terms total, you have failed the task.
-
-4. DO NOT use special characters like bullets (•), em-dashes (—), or non-ASCII characters. Use only plain ASCII text.
-
-5. Every term should be something a real person would actually search for on Google or discuss in an online community.
-
-6. When the topic involves products, entertainment, or any field with named entities — you MUST list actual names, not generic placeholders.
-
-Use the generate_keyword_universe function to return your results.`;
-
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-pro",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-        max_tokens: 8000,
-        tools: [
-          {
-            type: "function",
-            function: {
-              name: "generate_keyword_universe",
-              description: "Return a structured keyword universe organized by categories with highly specific real-world terms",
-              parameters: {
-                type: "object",
-                properties: {
-                  categories: {
-                    type: "array",
-                    items: {
-                      type: "object",
-                      properties: {
-                        name: { type: "string", description: "Category name" },
-                        terms: {
-                          type: "array",
-                          items: { type: "string" },
-                          description: "List of specific keyword terms — use real brand names, product names, titles, and phrases people actually search",
-                        },
-                      },
-                      required: ["name", "terms"],
-                      additionalProperties: false,
-                    },
-                  },
-                },
-                required: ["categories"],
-                additionalProperties: false,
-              },
-            },
-          },
-        ],
-        tool_choice: { type: "function", function: { name: "generate_keyword_universe" } },
-      }),
-    });
+    const { system, user } = buildPrompt(topic, context, brandAnalysis);
+    const response = await callAI(system, user, LOVABLE_API_KEY, 10000);
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -143,57 +195,15 @@ Use the generate_keyword_universe function to return your results.`;
     let totalTerms = results.categories.reduce((sum: number, cat: any) => sum + cat.terms.length, 0);
     console.log(`Generated ${results.categories.length} categories with ${totalTerms} total terms for topic: ${topic}`);
 
-    // Retry once if under 100 terms
-    if (totalTerms < 100) {
-      console.log(`Only ${totalTerms} terms, retrying with stronger prompt...`);
-      const retryResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "google/gemini-2.5-pro",
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userPrompt + "\n\nIMPORTANT: Your previous attempt only produced " + totalTerms + " terms. You MUST produce at least 100 unique, specific terms this time. Add more categories and more terms per category." },
-          ],
-          max_tokens: 10000,
-          tools: [
-            {
-              type: "function",
-              function: {
-                name: "generate_keyword_universe",
-                description: "Return a structured keyword universe organized by categories with highly specific real-world terms",
-                parameters: {
-                  type: "object",
-                  properties: {
-                    categories: {
-                      type: "array",
-                      items: {
-                        type: "object",
-                        properties: {
-                          name: { type: "string", description: "Category name" },
-                          terms: {
-                            type: "array",
-                            items: { type: "string" },
-                            description: "List of specific keyword terms",
-                          },
-                        },
-                        required: ["name", "terms"],
-                        additionalProperties: false,
-                      },
-                    },
-                  },
-                  required: ["categories"],
-                  additionalProperties: false,
-                },
-              },
-            },
-          ],
-          tool_choice: { type: "function", function: { name: "generate_keyword_universe" } },
-        }),
-      });
+    // Retry once if under 150 terms
+    if (totalTerms < 150) {
+      console.log(`Only ${totalTerms} terms, retrying...`);
+      const retryResponse = await callAI(
+        system,
+        user + `\n\nIMPORTANT: Your previous attempt only produced ${totalTerms} terms. You MUST produce at least 200 unique, specific search queries. Add more categories and more terms per category. Every term must be a real search query.`,
+        LOVABLE_API_KEY,
+        12000
+      );
 
       if (retryResponse.ok) {
         const retryData = await retryResponse.json();

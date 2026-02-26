@@ -85,7 +85,11 @@ const KeywordResearch = () => {
       }
 
       const { data, error } = await supabase.functions.invoke("generate-keyword-universe", {
-        body: { topic: effectiveTopic, context: fullContext || undefined },
+        body: { 
+          topic: effectiveTopic, 
+          context: fullContext || undefined,
+          brandAnalysis: brandAnalysis || undefined,
+        },
       });
 
       if (error) throw error;
