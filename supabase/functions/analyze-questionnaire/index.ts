@@ -37,7 +37,7 @@ serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: `You are a brand analyst. You receive a completed questionnaire or brand brief and extract key brand information from it. Be concise but comprehensive. Extract real data from the document — do not make up information that isn't present.`,
+            content: `You are a brand analyst and SEO strategist. You receive a completed questionnaire or brand brief and extract key brand information from it. Be concise but comprehensive. Extract real data from the document — do not make up information that isn't present. You must also suggest a keyword research topic that captures the core niche/industry the brand operates in — NOT the brand name itself, but the broader topic area their customers would search for.`,
           },
           {
             role: "user",
@@ -68,8 +68,12 @@ serve(async (req) => {
                     items: { type: "string" },
                     description: "5-8 key strategic insights extracted from the document",
                   },
+                  suggested_topic: {
+                    type: "string",
+                    description: "A broad, SEO-relevant topic for keyword research based on the brand's niche. NOT the brand name. Examples: 'social networking apps for making friends', 'group activities and events for adults over 40', 'meeting new people and reducing loneliness'. Should be what the target audience would search for.",
+                  },
                 },
-                required: ["brand", "industry", "target_audience", "products_services", "goals", "competitors", "key_insights"],
+                required: ["brand", "industry", "target_audience", "products_services", "goals", "competitors", "key_insights", "suggested_topic"],
                 additionalProperties: false,
               },
             },

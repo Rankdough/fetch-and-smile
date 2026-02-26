@@ -71,7 +71,7 @@ const KeywordResearch = () => {
   };
 
   const generateKeywords = async () => {
-    const effectiveTopic = topic.trim() || (brandAnalysis ? `${brandAnalysis.brand} - ${brandAnalysis.industry}` : "");
+    const effectiveTopic = topic.trim() || (brandAnalysis?.suggested_topic) || "";
     if (!effectiveTopic) return;
     setIsGenerating(true);
     setResults(null);
@@ -223,7 +223,7 @@ const KeywordResearch = () => {
                   onAnalysisComplete={(analysis, rawText) => {
                     setBrandAnalysis(analysis);
                     setQuestionnaireText(rawText);
-                    if (!topic.trim()) setTopic(analysis.brand);
+                    if (!topic.trim()) setTopic(analysis.suggested_topic || "");
                   }}
                   onClear={() => {
                     setBrandAnalysis(null);
