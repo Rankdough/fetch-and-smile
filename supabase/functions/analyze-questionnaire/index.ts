@@ -37,11 +37,23 @@ serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: `You are a brand analyst and SEO strategist. You receive a completed questionnaire or brand brief and extract key brand information from it. Be concise but comprehensive. Extract real data from the document — do not make up information that isn't present. You must also suggest a keyword research topic that captures the core niche/industry the brand operates in — NOT the brand name itself, but the broader topic area their customers would search for.`,
+            content: `You are a brand analyst and SEO strategist. You receive documents that may be questionnaires, brand briefs, email conversations, strategy documents, or any mix of these.
+
+Your job is to extract key brand information about THE CLIENT BRAND — the company whose SEO/marketing is being discussed or worked on.
+
+CRITICAL RULES FOR IDENTIFYING THE CORRECT BRAND:
+- The document may be an email thread between an agency/consultant and their client. The CLIENT is the brand you should analyze, NOT the agency/consultant sending the email.
+- Look for clues: Who is answering questionnaire questions? Whose products, audience, and competitors are being discussed? That is the client brand.
+- If a company is described as providing SEO services, digital marketing, or consulting TO another company, the OTHER company is the client brand.
+- If someone says "our app", "our product", "our users" — that person's company is the client brand.
+- Extract real data from the document — do not make up information that isn't present.
+- Be concise but comprehensive.
+- You must also suggest a keyword research topic that captures the core niche/industry the brand operates in — NOT the brand name itself, but the broader topic area their customers would search for.
+- Also extract any additional strategic context, SEO plans, content ideas, or action items mentioned in the document as key_insights.`,
           },
           {
             role: "user",
-            content: `Analyze this questionnaire/brand brief and extract the key brand information:\n\n${textContent}`,
+            content: `Analyze this document and extract the key brand information about the CLIENT BRAND being discussed:\n\n${textContent}`,
           },
         ],
         tools: [
