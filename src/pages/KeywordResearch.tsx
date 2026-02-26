@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -11,7 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import {
   ArrowLeft, Search, Sparkles, Copy, Download, Trash2,
-  ChevronDown, ChevronRight, Clock, Loader2
+  ChevronDown, ChevronRight, Clock, Loader2, Square
 } from "lucide-react";
 import QuestionnaireUpload, { BrandAnalysis } from "@/components/keyword-research/QuestionnaireUpload";
 
@@ -46,6 +46,7 @@ const KeywordResearch = () => {
   const [isLoadingSaved, setIsLoadingSaved] = useState(true);
   const [brandAnalysis, setBrandAnalysis] = useState<BrandAnalysis | null>(null);
   const [questionnaireText, setQuestionnaireText] = useState("");
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     loadSavedResearch();
@@ -75,6 +76,8 @@ const KeywordResearch = () => {
     if (!effectiveTopic) return;
     setIsGenerating(true);
     setResults(null);
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
 
     try {
       // Build context from manual input + questionnaire analysis
@@ -84,13 +87,30 @@ const KeywordResearch = () => {
         fullContext = fullContext ? `${fullContext}\n\n${brandContext}` : brandContext;
       }
 
-      const { data, error } = await supabase.functions.invoke("generate-keyword-universe", {
-        body: { 
-          topic: effectiveTopic, 
-          context: fullContext || undefined,
-          brandAnalysis: brandAnalysis || undefined,
-        },
-      });
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-keyword-universe`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({
+            topic: effectiveTopic,
+            context: fullContext || undefined,
+            brandAnalysis: brandAnalysis || undefined,
+          }),
+          signal: controller.signal,
+        }
+      );
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || `Request failed: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const error = null;
 
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
@@ -118,11 +138,20 @@ const KeywordResearch = () => {
 
       toast({ title: "Keyword universe generated!", description: `${getTotalTerms(keywordResults)} terms across ${keywordResults.categories.length} categories` });
     } catch (err: any) {
-      console.error(err);
-      toast({ title: "Generation failed", description: err.message || "Please try again", variant: "destructive" });
+      if (err.name === "AbortError") {
+        toast({ title: "Generation stopped" });
+      } else {
+        console.error(err);
+        toast({ title: "Generation failed", description: err.message || "Please try again", variant: "destructive" });
+      }
     } finally {
+      abortControllerRef.current = null;
       setIsGenerating(false);
     }
+  };
+
+  const stopGenerating = () => {
+    abortControllerRef.current?.abort();
   };
 
   const getTotalTerms = (r: KeywordResult) => r.categories.reduce((sum, c) => sum + c.terms.length, 0);
@@ -221,6 +250,12 @@ const KeywordResearch = () => {
                 {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
                 {isGenerating ? "Generating..." : "Generate Keywords"}
               </Button>
+              {isGenerating && (
+                <Button variant="destructive" size="sm" onClick={stopGenerating} className="gap-2">
+                  <Square className="h-3.5 w-3.5" />
+                  Stop
+                </Button>
+              )}
               {!brandAnalysis && (
                 <QuestionnaireUpload
                   analysis={null}
