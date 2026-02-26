@@ -2,8 +2,9 @@ import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Upload, FileText, X, Database, ChevronDown, ChevronRight } from "lucide-react";
+import { Upload, FileText, X, Database, ChevronDown, ChevronRight, Type, Plus } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 export interface SeedFile {
@@ -98,6 +99,8 @@ const SeedKeywordsUpload = ({ seedFiles, onSeedFilesChange }: SeedKeywordsUpload
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [expandedFiles, setExpandedFiles] = useState<Set<string>>(new Set());
+  const [manualInput, setManualInput] = useState("");
+  const [showManualInput, setShowManualInput] = useState(false);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -157,6 +160,29 @@ const SeedKeywordsUpload = ({ seedFiles, onSeedFilesChange }: SeedKeywordsUpload
     });
   };
 
+  const handleAddManualKeywords = () => {
+    const keywords = manualInput
+      .split(/[\n,]+/)
+      .map((k) => k.trim().toLowerCase())
+      .filter((k) => k.length > 1 && k.length < 200);
+
+    const unique = Array.from(new Set(keywords));
+    if (unique.length === 0) {
+      toast({ title: "No valid keywords found", description: "Enter keywords separated by commas or new lines.", variant: "destructive" });
+      return;
+    }
+
+    const seedFile: SeedFile = {
+      name: `Manual keywords (${unique.length})`,
+      type: "generic",
+      keywords: unique,
+    };
+    onSeedFilesChange([...seedFiles, seedFile]);
+    setManualInput("");
+    setShowManualInput(false);
+    toast({ title: "Keywords added", description: `${unique.length} keywords added manually` });
+  };
+
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-3 flex-wrap">
@@ -177,12 +203,41 @@ const SeedKeywordsUpload = ({ seedFiles, onSeedFilesChange }: SeedKeywordsUpload
           <Database className="h-3.5 w-3.5" />
           Upload Seed CSVs
         </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-2"
+          onClick={() => setShowManualInput(!showManualInput)}
+        >
+          <Type className="h-3.5 w-3.5" />
+          Paste Keywords
+        </Button>
         {totalKeywords > 0 && (
           <Badge variant="secondary" className="text-xs">
             {uniqueKeywords} unique seed keywords from {seedFiles.length} file{seedFiles.length !== 1 ? "s" : ""}
           </Badge>
         )}
       </div>
+
+      {showManualInput && (
+        <div className="space-y-2">
+          <Textarea
+            placeholder={"Paste your seed keywords here, one per line or comma-separated...\n\ne.g.:\nbest hiking boots\nhiking gear for beginners\nwaterproof hiking shoes"}
+            value={manualInput}
+            onChange={(e) => setManualInput(e.target.value)}
+            className="min-h-[100px] text-sm"
+          />
+          <div className="flex gap-2">
+            <Button size="sm" onClick={handleAddManualKeywords} disabled={!manualInput.trim()} className="gap-1.5">
+              <Plus className="h-3.5 w-3.5" />
+              Add Keywords
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => { setShowManualInput(false); setManualInput(""); }}>
+              Cancel
+            </Button>
+          </div>
+        </div>
+      )}
 
       {seedFiles.length > 0 && (
         <div className="space-y-2">
