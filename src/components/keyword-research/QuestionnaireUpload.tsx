@@ -14,6 +14,7 @@ export interface BrandAnalysis {
   goals: string;
   competitors: string[];
   key_insights: string[];
+  suggested_topic: string;
 }
 
 interface QuestionnaireUploadProps {
