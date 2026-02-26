@@ -349,20 +349,18 @@ const KeywordResearch = () => {
                   Stop
                 </Button>
               )}
-              {!brandAnalysis && (
-                <QuestionnaireUpload
-                  analysis={null}
-                  onAnalysisComplete={(analysis, rawText) => {
-                    setBrandAnalysis(analysis);
-                    setQuestionnaireText(rawText);
-                    if (!topic.trim()) setTopic(analysis.suggested_topic || "");
-                  }}
-                  onClear={() => {
-                    setBrandAnalysis(null);
-                    setQuestionnaireText("");
-                  }}
-                />
-              )}
+              <QuestionnaireUpload
+                analysis={brandAnalysis}
+                onAnalysisComplete={(analysis, rawText) => {
+                  setBrandAnalysis(analysis);
+                  setQuestionnaireText(rawText);
+                  if (!topic.trim()) setTopic(analysis.suggested_topic || "");
+                }}
+                onClear={() => {
+                  setBrandAnalysis(null);
+                  setQuestionnaireText("");
+                }}
+              />
             </div>
             <ContextFileUpload
               files={contextFiles}
@@ -402,20 +400,6 @@ const KeywordResearch = () => {
         {/* Extracted Themes */}
         {extractedThemes && <SeedThemesDisplay themes={extractedThemes} onRefresh={reExtractThemes} />}
 
-        {/* Brand Analysis Card */}
-        {brandAnalysis && (
-          <QuestionnaireUpload
-            analysis={brandAnalysis}
-            onAnalysisComplete={(analysis, rawText) => {
-              setBrandAnalysis(analysis);
-              setQuestionnaireText(rawText);
-            }}
-            onClear={() => {
-              setBrandAnalysis(null);
-              setQuestionnaireText("");
-            }}
-          />
-        )}
 
         {/* Loading skeleton */}
         {isGenerating && (
