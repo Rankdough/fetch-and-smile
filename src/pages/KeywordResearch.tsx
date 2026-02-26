@@ -14,6 +14,7 @@ import {
   ChevronDown, ChevronRight, Clock, Loader2, Square
 } from "lucide-react";
 import QuestionnaireUpload, { BrandAnalysis } from "@/components/keyword-research/QuestionnaireUpload";
+import SeedKeywordsUpload, { SeedFile } from "@/components/keyword-research/SeedKeywordsUpload";
 
 interface KeywordCategory {
   name: string;
@@ -46,6 +47,7 @@ const KeywordResearch = () => {
   const [isLoadingSaved, setIsLoadingSaved] = useState(true);
   const [brandAnalysis, setBrandAnalysis] = useState<BrandAnalysis | null>(null);
   const [questionnaireText, setQuestionnaireText] = useState("");
+  const [seedFiles, setSeedFiles] = useState<SeedFile[]>([]);
   const abortControllerRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -99,6 +101,9 @@ const KeywordResearch = () => {
             topic: effectiveTopic,
             context: fullContext || undefined,
             brandAnalysis: brandAnalysis || undefined,
+            seedKeywords: seedFiles.length > 0
+              ? [...new Set(seedFiles.flatMap((f) => f.keywords))]
+              : undefined,
           }),
           signal: controller.signal,
         }
@@ -271,6 +276,7 @@ const KeywordResearch = () => {
                 />
               )}
             </div>
+            <SeedKeywordsUpload seedFiles={seedFiles} onSeedFilesChange={setSeedFiles} />
           </CardContent>
         </Card>
 
