@@ -364,7 +364,16 @@ const KeywordResearch = () => {
                 />
               )}
             </div>
-            <ContextFileUpload files={contextFiles} onFilesChange={setContextFiles} />
+            <ContextFileUpload
+              files={contextFiles}
+              onFilesChange={setContextFiles}
+              onAnalysisExtracted={(analysis) => {
+                if (!brandAnalysis) {
+                  setBrandAnalysis(analysis);
+                  if (!topic.trim()) setTopic(analysis.suggested_topic || "");
+                }
+              }}
+            />
             <SeedKeywordsUpload
               seedFiles={seedFiles}
               onSeedFilesChange={async (newFiles) => {
