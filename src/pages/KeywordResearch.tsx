@@ -67,7 +67,36 @@ const KeywordResearch = () => {
 
   useEffect(() => {
     loadSavedResearch();
+    loadSavedSeedFiles();
   }, []);
+
+  const loadSavedSeedFiles = async () => {
+    const { data, error } = await supabase
+      .from("seed_keyword_files" as any)
+      .select("*")
+      .order("created_at", { ascending: true });
+    if (!error && data) {
+      setSeedFiles(data.map((d: any) => ({
+        name: d.name,
+        type: d.file_type as SeedFile["type"],
+        keywords: d.keywords as string[],
+        dbId: d.id,
+      })));
+    }
+  };
+
+  const saveSeedFile = async (file: SeedFile) => {
+    const { data, error } = await supabase
+      .from("seed_keyword_files" as any)
+      .insert({ name: file.name, file_type: file.type, keywords: file.keywords })
+      .select("id")
+      .single();
+    return (data as any)?.id;
+  };
+
+  const deleteSeedFile = async (dbId: string) => {
+    await supabase.from("seed_keyword_files" as any).delete().eq("id", dbId);
+  };
 
   const loadSavedResearch = async () => {
     setIsLoadingSaved(true);
@@ -303,7 +332,28 @@ const KeywordResearch = () => {
                 />
               )}
             </div>
-            <SeedKeywordsUpload seedFiles={seedFiles} onSeedFilesChange={setSeedFiles} />
+            <SeedKeywordsUpload
+              seedFiles={seedFiles}
+              onSeedFilesChange={async (newFiles) => {
+                // Find added files (no dbId)
+                const added = newFiles.filter(f => !f.dbId && !seedFiles.some(s => s.name === f.name && s.type === f.type));
+                // Find removed files
+                const removed = seedFiles.filter(s => !newFiles.some(n => n.name === s.name && n.type === s.type));
+
+                // Save new files to DB
+                for (const file of added) {
+                  const dbId = await saveSeedFile(file);
+                  if (dbId) file.dbId = dbId;
+                }
+
+                // Delete removed files from DB
+                for (const file of removed) {
+                  if (file.dbId) await deleteSeedFile(file.dbId);
+                }
+
+                setSeedFiles(newFiles);
+              }}
+            />
           </CardContent>
         </Card>
 

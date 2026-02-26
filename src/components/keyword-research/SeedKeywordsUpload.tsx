@@ -10,6 +10,7 @@ export interface SeedFile {
   name: string;
   type: "gsc" | "organic" | "content-gap" | "generic";
   keywords: string[];
+  dbId?: string;
 }
 
 interface SeedKeywordsUploadProps {

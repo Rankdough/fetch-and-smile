@@ -273,6 +273,30 @@ export type Database = {
         }
         Relationships: []
       }
+      seed_keyword_files: {
+        Row: {
+          created_at: string
+          file_type: string
+          id: string
+          keywords: Json
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          file_type?: string
+          id?: string
+          keywords?: Json
+          name: string
+        }
+        Update: {
+          created_at?: string
+          file_type?: string
+          id?: string
+          keywords?: Json
+          name?: string
+        }
+        Relationships: []
+      }
       seo_knowledge: {
         Row: {
           content: string
