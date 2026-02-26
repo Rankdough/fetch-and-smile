@@ -11,6 +11,8 @@ interface ContextFile {
   name: string;
   content: string;
   analysis?: BrandAnalysis | null;
+  fileBase64?: string;
+  fileMimeType?: string;
 }
 
 interface ContextFileUploadProps {
@@ -37,6 +39,21 @@ const ContextFileUpload = ({ files, onFilesChange, onAnalysisExtracted }: Contex
 
     setIsParsing(true);
     try {
+      // Read raw file as base64 for PDF fallback
+      let fileBase64: string | undefined;
+      let fileMimeType: string | undefined;
+      const isPdf = file.name.toLowerCase().endsWith(".pdf");
+      if (isPdf) {
+        const arrayBuffer = await file.arrayBuffer();
+        const bytes = new Uint8Array(arrayBuffer);
+        let binary = "";
+        for (let i = 0; i < bytes.length; i++) {
+          binary += String.fromCharCode(bytes[i]);
+        }
+        fileBase64 = btoa(binary);
+        fileMimeType = "application/pdf";
+      }
+
       const formData = new FormData();
       formData.append("file", file);
 
@@ -45,11 +62,20 @@ const ContextFileUpload = ({ files, onFilesChange, onAnalysisExtracted }: Contex
       });
 
       if (error) throw error;
-      if (!data?.content || data.content.length < 10) {
+
+      const textContent = data?.content || "";
+      const textTooShort = textContent.length < 50;
+
+      if (textTooShort && !isPdf) {
         throw new Error("Could not extract text from file.");
       }
 
-      const newFile: ContextFile = { name: file.name, content: data.content };
+      const newFile: ContextFile = {
+        name: file.name,
+        content: textTooShort ? `[PDF file: ${file.name} — sent as document to AI for analysis]` : textContent,
+        fileBase64: textTooShort ? fileBase64 : undefined,
+        fileMimeType: textTooShort ? fileMimeType : undefined,
+      };
       const newFiles = [...files, newFile];
       onFilesChange(newFiles);
       toast({ title: "Context file added", description: file.name });
@@ -68,9 +94,14 @@ const ContextFileUpload = ({ files, onFilesChange, onAnalysisExtracted }: Contex
   const analyzeFile = async (file: ContextFile, currentFiles: ContextFile[]) => {
     setAnalyzingFile(file.name);
     try {
+      const body: any = { textContent: file.content };
+      if (file.fileBase64) {
+        body.fileBase64 = file.fileBase64;
+        body.fileMimeType = file.fileMimeType;
+      }
       const { data: analysisData, error: analysisError } = await supabase.functions.invoke(
         "analyze-questionnaire",
-        { body: { textContent: file.content } }
+        { body }
       );
 
       if (analysisError) throw analysisError;
