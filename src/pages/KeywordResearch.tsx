@@ -48,15 +48,19 @@ const KeywordResearch = () => {
   const [savedResearch, setSavedResearch] = useState<SavedResearch[]>([]);
   const [openCategories, setOpenCategories] = useState<Set<string>>(new Set());
   const [isLoadingSaved, setIsLoadingSaved] = useState(true);
-  const [brandAnalysis, setBrandAnalysis] = useState<BrandAnalysis | null>(null);
-  const [questionnaireText, setQuestionnaireText] = useState("");
+  const [brandAnalysis, setBrandAnalysis] = useState<BrandAnalysis | null>(() => {
+    const saved = localStorage.getItem("kw-brand-analysis");
+    return saved ? JSON.parse(saved) : null;
+  });
+  const [questionnaireText, setQuestionnaireText] = useState(() => {
+    return localStorage.getItem("kw-questionnaire-text") || "";
+  });
   const [seedFiles, setSeedFiles] = useState<SeedFile[]>([]);
   const [extractedThemes, setExtractedThemes] = useState<SeedThemes | null>(null);
   const [contextFiles, setContextFiles] = useState<ContextFile[]>([]);
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  // Extract themes whenever seed files change
-  useEffect(() => {
+  const reExtractThemes = () => {
     if (seedFiles.length > 0) {
       const allKeywords = [...new Set(seedFiles.flatMap((f) => f.keywords))];
       const brandTerms = brandAnalysis ? [brandAnalysis.brand.toLowerCase()] : [];
@@ -65,7 +69,29 @@ const KeywordResearch = () => {
     } else {
       setExtractedThemes(null);
     }
+  };
+
+  // Extract themes whenever seed files change
+  useEffect(() => {
+    reExtractThemes();
   }, [seedFiles, brandAnalysis]);
+
+  // Persist brandAnalysis to localStorage
+  useEffect(() => {
+    if (brandAnalysis) {
+      localStorage.setItem("kw-brand-analysis", JSON.stringify(brandAnalysis));
+    } else {
+      localStorage.removeItem("kw-brand-analysis");
+    }
+  }, [brandAnalysis]);
+
+  useEffect(() => {
+    if (questionnaireText) {
+      localStorage.setItem("kw-questionnaire-text", questionnaireText);
+    } else {
+      localStorage.removeItem("kw-questionnaire-text");
+    }
+  }, [questionnaireText]);
 
   useEffect(() => {
     loadSavedResearch();
@@ -365,7 +391,7 @@ const KeywordResearch = () => {
         </Card>
 
         {/* Extracted Themes */}
-        {extractedThemes && <SeedThemesDisplay themes={extractedThemes} />}
+        {extractedThemes && <SeedThemesDisplay themes={extractedThemes} onRefresh={reExtractThemes} />}
 
         {/* Brand Analysis Card */}
         {brandAnalysis && (

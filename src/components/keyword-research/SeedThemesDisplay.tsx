@@ -1,10 +1,12 @@
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SeedThemes } from "./seedThemeExtractor";
-import { Layers, Users, MapPin, Target, Activity, Repeat } from "lucide-react";
+import { Layers, Users, MapPin, Target, Activity, Repeat, RefreshCw } from "lucide-react";
 
 interface SeedThemesDisplayProps {
   themes: SeedThemes;
+  onRefresh?: () => void;
 }
 
 const ThemeSection = ({
@@ -39,7 +41,7 @@ const ThemeSection = ({
   );
 };
 
-const SeedThemesDisplay = ({ themes }: SeedThemesDisplayProps) => {
+const SeedThemesDisplay = ({ themes, onRefresh }: SeedThemesDisplayProps) => {
   const hasContent =
     themes.coreTopics.length > 0 ||
     themes.demographics.length > 0 ||
@@ -56,6 +58,11 @@ const SeedThemesDisplay = ({ themes }: SeedThemesDisplayProps) => {
         <CardTitle className="text-sm flex items-center gap-2">
           <Layers className="h-4 w-4 text-primary" />
           Extracted Seed Themes
+          {onRefresh && (
+            <Button variant="ghost" size="icon" className="h-6 w-6 ml-1" onClick={onRefresh} title="Re-extract themes">
+              <RefreshCw className="h-3.5 w-3.5" />
+            </Button>
+          )}
           <Badge variant="outline" className="text-xs font-normal ml-auto">
             {themes.nonBrandedCount} non-branded / {themes.totalAnalyzed} total keywords
           </Badge>
