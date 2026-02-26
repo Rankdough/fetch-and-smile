@@ -1,0 +1,120 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+};
+
+serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const { textContent } = await req.json();
+
+    if (!textContent || textContent.trim().length < 20) {
+      return new Response(
+        JSON.stringify({ error: "Not enough content to analyze" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) {
+      throw new Error("LOVABLE_API_KEY is not configured");
+    }
+
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash",
+        messages: [
+          {
+            role: "system",
+            content: `You are a brand analyst. You receive a completed questionnaire or brand brief and extract key brand information from it. Be concise but comprehensive. Extract real data from the document — do not make up information that isn't present.`,
+          },
+          {
+            role: "user",
+            content: `Analyze this questionnaire/brand brief and extract the key brand information:\n\n${textContent}`,
+          },
+        ],
+        tools: [
+          {
+            type: "function",
+            function: {
+              name: "extract_brand_analysis",
+              description: "Extract structured brand analysis from a questionnaire",
+              parameters: {
+                type: "object",
+                properties: {
+                  brand: { type: "string", description: "Brand/company name" },
+                  industry: { type: "string", description: "Industry or sector" },
+                  target_audience: { type: "string", description: "Description of target audience/customer avatar" },
+                  products_services: { type: "string", description: "Main products or services offered" },
+                  goals: { type: "string", description: "Key business/marketing goals" },
+                  competitors: {
+                    type: "array",
+                    items: { type: "string" },
+                    description: "List of competitor names or URLs",
+                  },
+                  key_insights: {
+                    type: "array",
+                    items: { type: "string" },
+                    description: "5-8 key strategic insights extracted from the document",
+                  },
+                },
+                required: ["brand", "industry", "target_audience", "products_services", "goals", "competitors", "key_insights"],
+                additionalProperties: false,
+              },
+            },
+          },
+        ],
+        tool_choice: { type: "function", function: { name: "extract_brand_analysis" } },
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("AI error:", response.status, errorText);
+      if (response.status === 429) {
+        return new Response(JSON.stringify({ error: "Rate limit exceeded, please try again later." }), {
+          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      if (response.status === 402) {
+        return new Response(JSON.stringify({ error: "Payment required, please add credits." }), {
+          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`AI analysis failed: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
+
+    if (!toolCall) {
+      throw new Error("No structured output returned from AI");
+    }
+
+    const analysis = JSON.parse(toolCall.function.arguments);
+    console.log("Brand analysis extracted:", analysis.brand);
+
+    return new Response(
+      JSON.stringify({ analysis }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  } catch (error) {
+    console.error("Analyze questionnaire error:", error);
+    const errorMessage = error instanceof Error ? error.message : "Failed to analyze questionnaire";
+    return new Response(
+      JSON.stringify({ error: errorMessage }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+});
