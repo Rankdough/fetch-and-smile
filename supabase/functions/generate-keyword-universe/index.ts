@@ -6,87 +6,84 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-function buildPrompt(topic: string, context?: string, brandAnalysis?: any): { system: string; user: string } {
+function buildPrompt(topic: string, context?: string, brandAnalysis?: any, seedKeywords?: string[]): { system: string; user: string } {
   const hasBrand = !!brandAnalysis;
+  const hasSeeds = seedKeywords && seedKeywords.length > 0;
 
-  const system = `You are a world-class SEO keyword researcher with deep expertise in search behavior and real search data patterns. You know exactly what phrases real people type into Google — not generic marketing terms, but actual search queries with real volume.
+  // If we have seed data, sample up to 300 representative keywords
+  let seedSample: string[] = [];
+  if (hasSeeds) {
+    // Deduplicate and take a representative sample
+    const unique = [...new Set(seedKeywords)];
+    if (unique.length > 300) {
+      // Take evenly distributed sample
+      const step = Math.floor(unique.length / 300);
+      seedSample = unique.filter((_, i) => i % step === 0).slice(0, 300);
+    } else {
+      seedSample = unique;
+    }
+  }
 
-Your job is to produce an EXHAUSTIVE keyword universe that a content strategist could use to capture organic traffic.
+  const system = `You are a world-class SEO keyword researcher. Your job is to produce a COMPREHENSIVE keyword universe of real search queries.
 
 CRITICAL RULES:
 - Every keyword MUST be something a real person would actually type into Google
 - Prioritize long-tail, specific phrases (3-7 words) that reflect real search intent
 - Include actual brand names, app names, platform names that exist in this space
 - DO NOT return generic marketing jargon that nobody searches for
-- DO NOT use special characters like bullets (•), em-dashes (—), or non-ASCII characters
-- You MUST produce at least 200 total terms across all categories`;
+- DO NOT use special characters like bullets, em-dashes, or non-ASCII characters
+- You MUST produce at least 200 total terms across all categories
+${hasSeeds ? `
+SEED DATA INSTRUCTIONS:
+You have been given REAL keyword data from Ahrefs/GSC. These are PROVEN search queries with actual volume.
+Your job is to:
+1. ANALYZE the patterns in the seed data — common modifiers, structures, demographics, intents
+2. IDENTIFY GAPS — what intent categories or topic angles are NOT covered by the seed data
+3. GENERATE NEW KEYWORDS using the same patterns and structures found in the real data
+4. DO NOT simply repeat the seed keywords — expand into new territory using proven patterns
+5. Every generated keyword should follow patterns observed in the real data (e.g., if "[activity] near me" appears often, generate more of those)
+` : ""}`;
 
   let user: string;
 
   if (hasBrand) {
     const ba = brandAnalysis;
-    user = `I need a keyword universe for a brand with the following profile:
+    user = `TOPIC: "${topic}"
+${context ? `CONTEXT: ${context}` : ""}
 
-BRAND: ${ba.brand}
-INDUSTRY: ${ba.industry}
-PRODUCT TYPE: ${ba.products_services}
-TARGET AUDIENCE: ${ba.target_audience}
-GOALS: ${ba.goals}
-COMPETITORS: ${ba.competitors?.join(", ") || "Unknown"}
-KEY INSIGHTS: ${ba.key_insights?.join("; ") || "None"}
-
-TOPIC FOCUS: "${topic}"
-${context ? `ADDITIONAL CONTEXT: ${context}` : ""}
-
-STEP 1 — UNDERSTAND THE SEARCH LANDSCAPE:
-This is a ${ba.products_services}. The target user is: ${ba.target_audience}. Think about what these specific people would search for when:
-- They don't know this product exists yet (problem-aware searches)
-- They're looking for solutions (solution-aware searches)  
-- They're comparing options (comparison searches)
-- They're searching for specific activities or experiences
-- They're searching for competitor products by name
-
-STEP 2 — GENERATE KEYWORDS BY THESE CATEGORIES (create 12-20 categories, 15-30 terms each):
-
-1. **Problem-aware queries**: What pain points drive the target audience to search? (e.g., "how to meet people after 40", "lonely after divorce", "how to make friends as an adult")
-2. **Solution-aware queries**: Searches for the type of solution (e.g., "apps for making friends", "social apps for over 50", "group activity apps")
-3. **Competitor brand searches**: Real competitor names + related queries (e.g., "${ba.competitors?.[0] || "meetup"} alternatives", "${ba.competitors?.[0] || "meetup"} vs ${ba.competitors?.[1] || "bumble bff"}")
-4. **Activity-specific searches**: What activities does the target audience search for? (e.g., "hiking groups near me", "book clubs for adults", "walking groups for over 50s")
-5. **Demographic-specific searches**: Queries that include the target demographic (e.g., "social events for over 40s", "friends apps for seniors", "activities for retired people")
-6. **"Best of" and recommendation queries**: (e.g., "best apps for meeting people", "best social clubs for adults")
-7. **Location-intent queries**: Searches with local intent (e.g., "social groups near me", "things to do with people near me")
-8. **How-to and advice queries**: Informational content the audience searches (e.g., "how to expand your social circle", "how to overcome social anxiety")
-9. **Review and comparison queries**: (e.g., "is ${ba.brand} worth it", "${ba.brand} reviews", "best friend-finding apps 2025")
-10. **Seasonal and trending queries**: Time-specific searches
-11. **Long-tail conversational queries**: 5-8 word natural language searches
-12. **Question-format queries**: Starting with what/how/why/where/which/is/can
-
-IMPORTANT: Every term must be a plausible Google search query. Think about what a ${ba.target_audience} would actually type. Be extremely specific — use real app names, real activity names, real demographics.`;
+BRAND PROFILE:
+- Brand: ${ba.brand}
+- Industry: ${ba.industry}
+- Product Type: ${ba.products_services}
+- Target Audience: ${ba.target_audience}
+- Goals: ${ba.goals}
+- Competitors: ${ba.competitors?.join(", ") || "Unknown"}
+- Key Insights: ${ba.key_insights?.join("; ") || "None"}`;
   } else {
-    user = `Generate a massive, highly specific semantic keyword universe for: "${topic}"
+    user = `TOPIC: "${topic}"
+${context ? `CONTEXT: ${context}` : ""}`;
+  }
 
-${context ? `Additional context/guidance: ${context}` : ""}
+  if (hasSeeds) {
+    user += `
 
-CRITICAL REQUIREMENTS:
+REAL SEED KEYWORD DATA (${seedKeywords!.length} total, sample of ${seedSample.length} shown):
+${seedSample.join("\n")}
 
-1. SPECIFICITY IS EVERYTHING. Give REAL, SPECIFIC examples — actual brand names, product names, real search queries.
+Based on these REAL keywords with proven search volume, analyze the patterns and generate a comprehensive keyword universe. Group into intent-based categories. Focus on:
+1. Patterns you see repeated (e.g., "[thing] near me", "best [thing] for [audience]", "how to [action]")
+2. Topics/intents NOT covered in the seed data but relevant to the topic
+3. Long-tail variations of high-value seed terms
+4. Question-format queries related to the topic
+5. Comparison and alternative queries
 
-2. Create 12-18 categories with 15-30 terms each. Categories MUST include:
-   - Specific product/brand names and comparisons
-   - Problem-aware searches (what pain drives people to search)
-   - Solution-aware searches (looking for answers)
-   - Activity or use-case specific searches
-   - "Best of" and recommendation queries
-   - Competitor comparisons
-   - Troubleshooting/problem queries
-   - Long-tail conversational phrases (4-8 words)
-   - Question-format queries (what/how/why/where)
-   - Demographic-specific queries if applicable
-   - Local-intent queries if applicable
+Create 12-20 categories with 15-30 terms each. Every term must follow patterns from real search data.`;
+  } else {
+    user += `
 
-3. You MUST produce at least 200 total terms. Each must be a plausible Google search query.
-
-4. DO NOT use special characters like bullets (•), em-dashes (—), or non-ASCII characters.`;
+Generate a massive, highly specific keyword universe. Create 12-18 categories with 15-30 terms each.
+Categories MUST include problem-aware, solution-aware, comparison, activity-specific, demographic-specific, "best of", local-intent, how-to, and question-format queries.
+Every term must be a plausible Google search query. Be extremely specific.`;
   }
 
   return { system, user };
@@ -111,7 +108,7 @@ async function callAI(system: string, user: string, apiKey: string, maxTokens: n
           type: "function",
           function: {
             name: "generate_keyword_universe",
-            description: "Return a structured keyword universe organized by categories with real search queries people actually type into Google",
+            description: "Return a structured keyword universe organized by categories with real search queries",
             parameters: {
               type: "object",
               properties: {
@@ -124,7 +121,7 @@ async function callAI(system: string, user: string, apiKey: string, maxTokens: n
                       terms: {
                         type: "array",
                         items: { type: "string" },
-                        description: "Real Google search queries — specific, long-tail, with actual brand/product names",
+                        description: "Real Google search queries based on patterns from seed data",
                       },
                     },
                     required: ["name", "terms"],
@@ -151,7 +148,7 @@ serve(async (req) => {
   }
 
   try {
-    const { topic, context, brandAnalysis } = await req.json();
+    const { topic, context, brandAnalysis, seedKeywords } = await req.json();
 
     if (!topic) {
       return new Response(
@@ -165,7 +162,9 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    const { system, user } = buildPrompt(topic, context, brandAnalysis);
+    console.log(`Generating keywords for "${topic}" with ${seedKeywords?.length || 0} seed keywords`);
+
+    const { system, user } = buildPrompt(topic, context, brandAnalysis, seedKeywords);
     const response = await callAI(system, user, LOVABLE_API_KEY, 10000);
 
     if (!response.ok) {
@@ -193,14 +192,14 @@ serve(async (req) => {
 
     let results = JSON.parse(toolCall.function.arguments);
     let totalTerms = results.categories.reduce((sum: number, cat: any) => sum + cat.terms.length, 0);
-    console.log(`Generated ${results.categories.length} categories with ${totalTerms} total terms for topic: ${topic}`);
+    console.log(`Generated ${results.categories.length} categories with ${totalTerms} total terms`);
 
     // Retry once if under 150 terms
     if (totalTerms < 150) {
       console.log(`Only ${totalTerms} terms, retrying...`);
       const retryResponse = await callAI(
         system,
-        user + `\n\nIMPORTANT: Your previous attempt only produced ${totalTerms} terms. You MUST produce at least 200 unique, specific search queries. Add more categories and more terms per category. Every term must be a real search query.`,
+        user + `\n\nIMPORTANT: Your previous attempt only produced ${totalTerms} terms. You MUST produce at least 200 unique, specific search queries. Add more categories and more terms per category.`,
         LOVABLE_API_KEY,
         12000
       );
