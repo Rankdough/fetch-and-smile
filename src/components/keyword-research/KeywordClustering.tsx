@@ -718,9 +718,17 @@ const KeywordClustering = () => {
                                       <p className="text-xs text-primary/80 italic">↳ {idea.reason}</p>
                                       {idea.target_keywords && idea.target_keywords.length > 0 && (
                                         <div className="flex flex-wrap gap-1 mt-1">
-                                          {idea.target_keywords.map((kw, ki) => (
-                                            <span key={ki} className="inline-block text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-medium">{kw}</span>
-                                          ))}
+                                          {idea.target_keywords.map((kw, ki) => {
+                                            const vol = cluster.keyword_volumes?.[kw];
+                                            return (
+                                              <span key={ki} className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-medium">
+                                                {kw}
+                                                {vol != null && (
+                                                  <span className="text-primary/70 font-semibold">{vol.toLocaleString()}</span>
+                                                )}
+                                              </span>
+                                            );
+                                          })}
                                         </div>
                                       )}
                                     </div>
