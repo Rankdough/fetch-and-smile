@@ -694,13 +694,24 @@ const KeywordClustering = () => {
                                 return (
                                 <div key={i} className={`border rounded-md p-3 space-y-1 transition-colors ${isUsed ? "border-green-500 bg-green-50 dark:bg-green-950/30" : ""}`}>
                                   <div className="flex items-start gap-2">
-                                    {isUsed ? (
-                                      <span className="mt-0.5 shrink-0 flex items-center justify-center h-4 w-4 rounded-full bg-green-500/20 text-green-600">
+                                    <button
+                                      className={`mt-0.5 shrink-0 flex items-center justify-center h-5 w-5 rounded-full border transition-colors ${
+                                        isUsed
+                                          ? "bg-green-500 border-green-500 text-white hover:bg-green-600"
+                                          : "border-muted-foreground/30 text-muted-foreground hover:border-green-500 hover:text-green-500"
+                                      }`}
+                                      title={isUsed ? "Mark as not done" : "Mark as done"}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setUsedIdeas(toggleStoredSet(USED_IDEAS_KEY, ideaKey));
+                                      }}
+                                    >
+                                      {isUsed ? (
                                         <Check className="h-3 w-3" />
-                                      </span>
-                                    ) : (
-                                      <span className="text-xs font-bold text-primary mt-0.5 shrink-0">{i + 1}.</span>
-                                    )}
+                                      ) : (
+                                        <span className="text-[10px] font-bold">{i + 1}</span>
+                                      )}
+                                    </button>
                                     <div className="space-y-1 min-w-0 flex-1">
                                       <p className={`text-sm font-medium leading-snug ${isUsed ? "text-green-700 dark:text-green-400" : ""}`}>{idea.title}</p>
                                       <p className="text-xs text-muted-foreground">{idea.description}</p>
