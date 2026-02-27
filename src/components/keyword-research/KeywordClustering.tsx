@@ -784,18 +784,7 @@ const KeywordClustering = () => {
                     </CollapsibleTrigger>
                     <CollapsibleContent>
                       <CardContent className="pt-0 pb-4 px-4 space-y-4">
-                        <div className="flex items-center justify-between gap-4">
-                          <p className="text-sm text-muted-foreground flex-1">{cluster.description}</p>
-                          <Button
-                            variant="default"
-                            size="sm"
-                            className="gap-1.5 text-xs shrink-0"
-                            onClick={() => sendSiloToGenerator(cluster)}
-                          >
-                            <FileText className="h-3.5 w-3.5" />
-                            Generate Blog Post
-                          </Button>
-                        </div>
+                        <p className="text-sm text-muted-foreground">{cluster.description}</p>
                         
                         {/* Keywords column with volume - collapsible, collapsed by default */}
                         <Collapsible>
