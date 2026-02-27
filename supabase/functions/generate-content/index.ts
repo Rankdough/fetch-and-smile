@@ -13,7 +13,7 @@ serve(async (req) => {
   }
 
   try {
-    const { topic, length, outline, instructions, gapAnalysis, valuePromiseClaims, formatReference, contextFiles, keywords, generateCTAs, useKnowledgeBase, toneProfileId, articleImages, expandExistingContent, existingContent, wordsToAdd, wordCount, useFirstPerson } = await req.json();
+    const { topic, length, outline, instructions, gapAnalysis, valuePromiseClaims, formatReference, contextFiles, keywords, generateCTAs, ctaUrl, useKnowledgeBase, toneProfileId, articleImages, expandExistingContent, existingContent, wordsToAdd, wordCount, useFirstPerson } = await req.json();
 
     // Handle expand mode - different validation
     if (expandExistingContent) {
@@ -487,6 +487,9 @@ Place these images throughout the article at logical locations, typically after 
       
       // Build CTA prompt with custom instructions if provided
       let ctaUserPrompt = `Generate two CTAs for an article about: ${topic}`;
+      if (ctaUrl) {
+        ctaUserPrompt += `\n\nThe CTAs MUST promote this specific URL: ${ctaUrl}\nAnalyse the URL to determine the product/service/brand being promoted and tailor all CTA copy to drive clicks to this destination.`;
+      }
       if (instructions && instructions.trim()) {
         ctaUserPrompt += `\n\nIMPORTANT CUSTOM INSTRUCTIONS FOR THE CTAs:\n${instructions}`;
       }

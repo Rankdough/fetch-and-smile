@@ -70,9 +70,8 @@ export const CTABanner = ({ headline, description, buttonText, url, tagline, bra
           lineHeight: 1.5,
           opacity: 0.9
         }}
-      >
-        {description}
-      </div>
+        dangerouslySetInnerHTML={{ __html: description }}
+      />
       
       {/* Button - high contrast */}
       <a 
