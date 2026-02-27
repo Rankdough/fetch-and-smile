@@ -455,8 +455,7 @@ const KeywordClustering = () => {
     }
   };
 
-  const sendToGenerator = (cluster: KeywordCluster, idea: BlogIdea) => {
-    // Clear ALL old generator state first to avoid stale data
+  const clearGeneratorState = () => {
     const keysToRemove = [
       "seo-generator-formData", "seo-generator-internalLinks", "seo-generator-competitorUrls",
       "seo-generator-formatUrl", "seo-generator-formatReference", "seo-generator-gapAnalysis",
@@ -467,6 +466,34 @@ const KeywordClustering = () => {
       "seo-generator-originalContent", "seo-generator-valuePromiseClaims", "seo-generator-colorPalette",
     ];
     keysToRemove.forEach(k => localStorage.removeItem(k));
+  };
+
+  const sendSiloToGenerator = (cluster: KeywordCluster) => {
+    clearGeneratorState();
+
+    const formData = {
+      topic: cluster.topic,
+      length: "medium",
+      outline: "",
+      instructions: `Write a comprehensive article about ${cluster.topic}. ${cluster.description}`,
+    };
+
+    localStorage.setItem("seo-generator-formData", JSON.stringify(formData));
+    // Use top keywords by volume as SEO keywords
+    const topKeywords = cluster.keyword_volumes
+      ? Object.entries(cluster.keyword_volumes)
+          .sort(([, a], [, b]) => (b ?? 0) - (a ?? 0))
+          .slice(0, 10)
+          .map(([kw]) => kw)
+      : cluster.keywords.slice(0, 10);
+    localStorage.setItem("seo-generator-keywords", JSON.stringify(topKeywords));
+
+    toast({ title: "Pre-filled article settings", description: `Silo: ${cluster.topic} with ${topKeywords.length} keywords` });
+    window.location.href = "/";
+  };
+
+  const sendToGenerator = (cluster: KeywordCluster, idea: BlogIdea) => {
+    clearGeneratorState();
 
     const formData = {
       topic: idea.title,
@@ -490,7 +517,6 @@ const KeywordClustering = () => {
     setUsedIdeas(prev => new Set(prev).add(key));
 
     toast({ title: "Pre-filled article settings", description: `Topic: ${idea.title}` });
-    // Use full page navigation to ensure Index mounts fresh with new localStorage values
     window.location.href = "/";
   };
 
@@ -758,7 +784,18 @@ const KeywordClustering = () => {
                     </CollapsibleTrigger>
                     <CollapsibleContent>
                       <CardContent className="pt-0 pb-4 px-4 space-y-4">
-                        <p className="text-sm text-muted-foreground">{cluster.description}</p>
+                        <div className="flex items-center justify-between gap-4">
+                          <p className="text-sm text-muted-foreground flex-1">{cluster.description}</p>
+                          <Button
+                            variant="default"
+                            size="sm"
+                            className="gap-1.5 text-xs shrink-0"
+                            onClick={() => sendSiloToGenerator(cluster)}
+                          >
+                            <FileText className="h-3.5 w-3.5" />
+                            Generate Blog Post
+                          </Button>
+                        </div>
                         
                         {/* Keywords column with volume - collapsible, collapsed by default */}
                         <Collapsible>

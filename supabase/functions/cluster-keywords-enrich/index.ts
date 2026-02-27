@@ -23,13 +23,6 @@ serve(async (req) => {
 
     console.log(`Pass 2: Enriching ${clusters.length} clusters with metadata & blog ideas...`);
 
-    // Build prompt with sample keywords per cluster
-    const clusterDescriptions = clusters.map((c: any) => {
-      const sample = c.keywords.slice(0, 15).join(", ");
-      const more = c.keywords.length > 15 ? ` (+${c.keywords.length - 15} more)` : "";
-      return `Topic: "${c.topic}" (${c.keywords.length} keywords, ~${c.estimated_monthly_volume} monthly volume)\nSample: ${sample}${more}`;
-    }).join("\n\n");
-
     const systemPrompt = `You are an expert SEO content strategist. For each topic cluster, provide enrichment metadata.
 
 OUTPUT ONLY valid JSON, no markdown fences.
@@ -40,78 +33,89 @@ JSON FORMAT:
 RULES:
 - Exactly 5 blog ideas per cluster
 - Each blog idea MUST include "target_keywords": an array of 2-5 keywords from the cluster's keyword list that this article should target
-- Each blog idea MUST include "value_promises": an array of exactly 3 concise value promises describing what the reader will gain or learn from this article. Each promise should be specific, actionable, and directly tied to the article topic.
+- Each blog idea MUST include "value_promises": an array of exactly 3 concise value promises describing what the reader will gain or learn from this article.
 
 CRITICAL KEYWORD DEDUPLICATION RULES:
 - Each keyword in the cluster should be assigned to AT MOST ONE blog idea. Do NOT repeat the same keyword across multiple ideas.
 - Think of the 5 blog ideas as a content silo: each idea should own a distinct subset of keywords with minimal overlap.
 - Before finalizing, review all 5 ideas together and redistribute any duplicated keywords so each appears in only one idea.
-- If two potential blog ideas would target nearly the same keywords, merge them into one idea and create a genuinely different angle for the freed slot.
-- Prefer grouping keywords by specific search intent (informational vs. transactional, beginner vs. advanced, specific sub-topic) to naturally separate them.
 
 - Match topic names exactly as provided
 - Priority based on volume and business value
 - Content type based on search intent`;
 
-    const userPrompt = `Enrich these ${clusters.length} topic clusters:\n\n${clusterDescriptions}`;
+    // Process clusters in batches to avoid response truncation
+    const BATCH_SIZE = 5;
+    const allEnrichments: Record<string, any> = {};
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-      }),
-    });
+    for (let i = 0; i < clusters.length; i += BATCH_SIZE) {
+      const batch = clusters.slice(i, i + BATCH_SIZE);
+      console.log(`Enriching batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(clusters.length / BATCH_SIZE)} (${batch.length} clusters)...`);
 
-    if (!response.ok) {
-      if (response.status === 429) {
-        return new Response(JSON.stringify({ error: "Rate limit exceeded. Please try again in a moment." }), {
-          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+      const clusterDescriptions = batch.map((c: any) => {
+        const sample = c.keywords.slice(0, 15).join(", ");
+        const more = c.keywords.length > 15 ? ` (+${c.keywords.length - 15} more)` : "";
+        return `Topic: "${c.topic}" (${c.keywords.length} keywords, ~${c.estimated_monthly_volume} monthly volume)\nSample: ${sample}${more}`;
+      }).join("\n\n");
+
+      const userPrompt = `Enrich these ${batch.length} topic clusters:\n\n${clusterDescriptions}`;
+
+      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash",
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt },
+          ],
+        }),
+      });
+
+      if (!response.ok) {
+        if (response.status === 429) {
+          return new Response(JSON.stringify({ error: "Rate limit exceeded. Please try again in a moment." }), {
+            status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        if (response.status === 402) {
+          return new Response(JSON.stringify({ error: "AI credits exhausted. Please add credits." }), {
+            status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        const t = await response.text();
+        console.error("AI gateway error:", response.status, t);
+        throw new Error("AI gateway error");
       }
-      if (response.status === 402) {
-        return new Response(JSON.stringify({ error: "AI credits exhausted. Please add credits." }), {
-          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      const t = await response.text();
-      console.error("AI gateway error:", response.status, t);
-      throw new Error("AI gateway error");
-    }
 
-    const data = await response.json();
-    const content = data.choices?.[0]?.message?.content || "";
+      const data = await response.json();
+      const content = data.choices?.[0]?.message?.content || "";
 
-    let parsed: { enrichments: any[] };
-    try {
-      let cleaned = content.replace(/^```(?:json)?\s*\n?/i, "").replace(/\n?```\s*$/i, "");
-      parsed = JSON.parse(cleaned);
-    } catch {
+      let parsed: { enrichments: any[] };
       try {
-        const m = content.match(/\{[\s\S]*\}/);
-        if (!m) throw new Error("No JSON");
-        parsed = JSON.parse(m[0]);
+        let cleaned = content.replace(/^```(?:json)?\s*\n?/i, "").replace(/\n?```\s*$/i, "");
+        parsed = JSON.parse(cleaned);
       } catch {
-        console.error("Pass 2 parse failed:", content.slice(0, 500));
-        parsed = { enrichments: [] };
+        try {
+          const m = content.match(/\{[\s\S]*\}/);
+          if (!m) throw new Error("No JSON");
+          parsed = JSON.parse(m[0]);
+        } catch {
+          console.error(`Batch ${Math.floor(i / BATCH_SIZE) + 1} parse failed:`, content.slice(0, 500));
+          parsed = { enrichments: [] };
+        }
       }
-    }
 
-    // Merge enrichment data back into clusters
-    const enrichmentMap: Record<string, any> = {};
-    for (const e of (parsed.enrichments || [])) {
-      enrichmentMap[e.topic] = e;
+      for (const e of (parsed.enrichments || [])) {
+        allEnrichments[e.topic] = e;
+      }
     }
 
     const enrichedClusters = clusters.map((c: any) => {
-      const e = enrichmentMap[c.topic] || {};
+      const e = allEnrichments[c.topic] || {};
       return {
         ...c,
         description: e.description || `Keywords related to ${c.topic}`,
