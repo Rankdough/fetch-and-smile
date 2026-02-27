@@ -59,3 +59,6 @@ verify_jwt = false
 
 [functions.generate-keyword-universe]
 verify_jwt = false
+
+[functions.cluster-keywords]
+verify_jwt = false

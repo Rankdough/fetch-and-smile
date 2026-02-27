@@ -18,6 +18,7 @@ import SeedKeywordsUpload, { SeedFile } from "@/components/keyword-research/Seed
 import SeedThemesDisplay from "@/components/keyword-research/SeedThemesDisplay";
 import { extractSeedThemes, type SeedThemes } from "@/components/keyword-research/seedThemeExtractor";
 import ContextFileUpload, { ContextFile } from "@/components/keyword-research/ContextFileUpload";
+import KeywordClustering from "@/components/keyword-research/KeywordClustering";
 
 interface KeywordCategory {
   name: string;
@@ -399,6 +400,9 @@ const KeywordResearch = () => {
 
         {/* Extracted Themes */}
         {extractedThemes && <SeedThemesDisplay themes={extractedThemes} onRefresh={reExtractThemes} />}
+
+        {/* Keyword Clustering */}
+        <KeywordClustering />
 
 
         {/* Loading skeleton */}
