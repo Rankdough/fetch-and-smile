@@ -390,17 +390,23 @@ const KeywordClustering = () => {
   };
 
   const sendToGenerator = (cluster: KeywordCluster, idea: BlogIdea) => {
-    const instructions = [
-      `Cluster: ${cluster.topic} — ${cluster.description}`,
-      `Blog idea: ${idea.description}`,
-      `Strategic reason: ${idea.reason}`,
-    ].join("\n\n");
+    // Clear ALL old generator state first to avoid stale data
+    const keysToRemove = [
+      "seo-generator-formData", "seo-generator-internalLinks", "seo-generator-competitorUrls",
+      "seo-generator-formatUrl", "seo-generator-formatReference", "seo-generator-gapAnalysis",
+      "seo-generator-contextFiles", "seo-generator-keywords", "seo-generator-ctaUrl",
+      "seo-generator-useKnowledgeBase", "seo-generator-toneProfileId", "seo-generator-valuePromise",
+      "seo-generator-selectedAngles", "seo-generator-selectedGapInsights", "seo-generator-articleImages",
+      "seo-generator-generatedContent", "seo-generator-appliedRules", "seo-generator-generatedCTAs",
+      "seo-generator-originalContent", "seo-generator-valuePromiseClaims", "seo-generator-colorPalette",
+    ];
+    keysToRemove.forEach(k => localStorage.removeItem(k));
 
     const formData = {
       topic: idea.title,
       length: "medium",
       outline: "",
-      instructions,
+      instructions: "",
     };
 
     localStorage.setItem("seo-generator-formData", JSON.stringify(formData));
@@ -408,7 +414,8 @@ const KeywordClustering = () => {
 
     // Pre-fill value promise claims (3 from blog idea + 2 empty slots)
     if (idea.value_promises && idea.value_promises.length > 0) {
-      const claims = [...idea.value_promises.slice(0, 3), "", ""];
+      const claims = [...idea.value_promises.slice(0, 5)];
+      while (claims.length < 5) claims.push("");
       localStorage.setItem("seo-generator-valuePromiseClaims", JSON.stringify(claims));
     }
 
