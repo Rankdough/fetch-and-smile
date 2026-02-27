@@ -9,7 +9,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { supabase } from "@/integrations/supabase/client";
 import {
   Upload, Layers, ChevronDown, ChevronRight, Loader2, Square,
-  TrendingUp, FileText, Copy, Download, BarChart3, Target, Info, Lightbulb, Trash2
+  TrendingUp, FileText, Copy, Download, BarChart3, Target, Info, Lightbulb, Trash2, RefreshCw
 } from "lucide-react";
 
 interface KeywordWithVolume {
@@ -305,6 +305,54 @@ const KeywordClustering = () => {
     }
   };
 
+  const reEnrichClusters = async () => {
+    if (!result) return;
+    setIsAnalyzing(true);
+    setAnalysisStage("enrich");
+
+    try {
+      const enrichResponse = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/cluster-keywords-enrich`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({ clusters: result.clusters }),
+        }
+      );
+
+      if (!enrichResponse.ok) {
+        const errData = await enrichResponse.json().catch(() => ({}));
+        throw new Error(errData.error || `Enrichment failed: ${enrichResponse.status}`);
+      }
+
+      const enrichData = await enrichResponse.json();
+      const updatedResult: ClusteringResult = {
+        ...result,
+        clusters: enrichData.clusters,
+      };
+
+      setResult(updatedResult);
+      toast({ title: "Blog ideas regenerated", description: "Target keywords now included for each blog idea." });
+
+      // Update saved result in database
+      if (activeResultId) {
+        await supabase
+          .from("keyword_clustering_results")
+          .update({ result: updatedResult as any })
+          .eq("id", activeResultId);
+        loadSavedResults();
+      }
+    } catch (err: any) {
+      toast({ title: "Re-enrichment failed", description: err.message, variant: "destructive" });
+    } finally {
+      setIsAnalyzing(false);
+      setAnalysisStage(null);
+    }
+  };
+
   const toggleCluster = (topic: string) => {
     setExpandedClusters(prev => {
       const next = new Set(prev);
@@ -451,10 +499,16 @@ const KeywordClustering = () => {
                   ~{formatVolume(totalVolume)} est. monthly volume
                 </Badge>
               </div>
-              <Button variant="outline" size="sm" onClick={exportClustersCSV} className="gap-1.5">
-                <Download className="h-3.5 w-3.5" />
-                Export CSV
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={reEnrichClusters} disabled={isAnalyzing} className="gap-1.5">
+                  <RefreshCw className="h-3.5 w-3.5" />
+                  Regenerate Blog Ideas
+                </Button>
+                <Button variant="outline" size="sm" onClick={exportClustersCSV} className="gap-1.5">
+                  <Download className="h-3.5 w-3.5" />
+                  Export CSV
+                </Button>
+              </div>
             </div>
 
             {/* Cluster cards */}
