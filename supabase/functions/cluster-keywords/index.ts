@@ -1,0 +1,120 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+};
+
+serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  try {
+    const { keywords } = await req.json();
+
+    if (!keywords || !Array.isArray(keywords) || keywords.length === 0) {
+      return new Response(JSON.stringify({ error: "Please provide an array of keywords" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
+
+    // For very large keyword lists, sample + summarize
+    const maxKeywords = 2000;
+    const keywordsToAnalyze = keywords.length > maxKeywords
+      ? keywords.slice(0, maxKeywords)
+      : keywords;
+
+    const systemPrompt = `You are an expert SEO strategist specializing in keyword clustering and content strategy.
+
+Your task: Given a list of keywords, group them into topical silos/clusters that represent distinct content opportunities.
+
+RULES:
+- Return AT LEAST 10 topic clusters (more if the data supports it, up to 30)
+- Each cluster should have a clear, descriptive topic name suitable as a content pillar
+- Estimate the combined monthly search volume for each cluster (use your knowledge of typical search volumes)
+- Sort clusters by estimated search volume (highest first)
+- Every keyword must be assigned to exactly one cluster
+- Clusters should be actionable content ideas — each could become a blog post, landing page, or content series
+- Group by user intent and semantic similarity, not just surface-level word matching
+
+OUTPUT FORMAT (strict JSON, no markdown):
+{
+  "clusters": [
+    {
+      "topic": "Descriptive Topic Name",
+      "description": "One sentence explaining what this content cluster covers and why it matters",
+      "estimated_monthly_volume": 12000,
+      "keywords": ["keyword 1", "keyword 2", ...],
+      "content_type": "blog_post | landing_page | guide | comparison | listicle | how_to",
+      "difficulty": "low | medium | high",
+      "priority": "high | medium | low"
+    }
+  ],
+  "total_keywords_clustered": 150,
+  "unclustered": []
+}`;
+
+    const userPrompt = `Analyze and cluster these ${keywordsToAnalyze.length} keywords into topical silos:\n\n${keywordsToAnalyze.join("\n")}`;
+
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+      }),
+    });
+
+    if (!response.ok) {
+      if (response.status === 429) {
+        return new Response(JSON.stringify({ error: "Rate limit exceeded. Please try again in a moment." }), {
+          status: 429,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      if (response.status === 402) {
+        return new Response(JSON.stringify({ error: "AI credits exhausted. Please add credits." }), {
+          status: 402,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const t = await response.text();
+      console.error("AI gateway error:", response.status, t);
+      throw new Error("AI gateway error");
+    }
+
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content || "";
+
+    // Parse JSON from response
+    let parsed;
+    try {
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) throw new Error("No JSON found in response");
+      parsed = JSON.parse(jsonMatch[0]);
+    } catch (e) {
+      console.error("Failed to parse AI response:", content);
+      throw new Error("Failed to parse clustering results");
+    }
+
+    return new Response(JSON.stringify(parsed), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  } catch (e) {
+    console.error("cluster-keywords error:", e);
+    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+});
