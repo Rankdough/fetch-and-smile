@@ -54,6 +54,7 @@ interface BlogIdea {
   description: string;
   reason: string;
   target_keywords?: string[];
+  value_promises?: string[];
 }
 
 interface KeywordCluster {
@@ -405,6 +406,12 @@ const KeywordClustering = () => {
     localStorage.setItem("seo-generator-formData", JSON.stringify(formData));
     localStorage.setItem("seo-generator-keywords", JSON.stringify(idea.target_keywords || []));
 
+    // Pre-fill value promise claims (3 from blog idea + 2 empty slots)
+    if (idea.value_promises && idea.value_promises.length > 0) {
+      const claims = [...idea.value_promises.slice(0, 3), "", ""];
+      localStorage.setItem("seo-generator-valuePromiseClaims", JSON.stringify(claims));
+    }
+
     const key = makeIdeaKey(cluster.topic, idea.title);
     markIdeaUsed(key);
     setUsedIdeas(prev => new Set(prev).add(key));
@@ -435,7 +442,7 @@ const KeywordClustering = () => {
         ? c.keywords.map(kw => `${kw}: ${c.keyword_volumes?.[kw] ?? "n/a"}`).join("; ")
         : "";
       const blogStr = c.blog_ideas 
-        ? c.blog_ideas.map((b, i) => `${i+1}. ${b.title} — ${b.description} (${b.reason}) [Keywords: ${b.target_keywords?.join(", ") || "n/a"}]`).join(" | ")
+        ? c.blog_ideas.map((b, i) => `${i+1}. ${b.title} — ${b.description} (${b.reason}) [Keywords: ${b.target_keywords?.join(", ") || "n/a"}] [Value Promises: ${b.value_promises?.join("; ") || "n/a"}]`).join(" | ")
         : "";
       rows.push([c.topic, c.description, c.estimated_monthly_volume.toString(), c.keywords.length.toString(), c.content_type, c.difficulty, c.priority, c.keywords.join("; "), volStr, blogStr]);
     });
@@ -731,6 +738,17 @@ const KeywordClustering = () => {
                                           })}
                                         </div>
                                       )}
+                                      {idea.value_promises && idea.value_promises.length > 0 && (
+                                        <div className="mt-1.5 space-y-0.5">
+                                          <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Value Promises</span>
+                                          {idea.value_promises.map((vp, vi) => (
+                                            <div key={vi} className="flex items-start gap-1.5">
+                                              <span className="text-[10px] text-primary mt-0.5">✓</span>
+                                              <span className="text-[11px] text-muted-foreground leading-tight">{vp}</span>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )}
                                     </div>
                                     <div className="flex flex-col gap-1 shrink-0">
                                       <Button
@@ -770,6 +788,9 @@ Article concept: ${idea.description}
 Strategic angle: ${idea.reason}
 
 Target keywords: ${idea.target_keywords?.join(", ") || "N/A"}
+
+Value promises this article must deliver:
+${idea.value_promises?.map((vp, i) => `${i+1}. ${vp}`).join("\n") || "N/A"}
 
 Please conduct deep research on this topic and provide:
 
