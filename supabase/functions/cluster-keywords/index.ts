@@ -62,7 +62,7 @@ serve(async (req) => {
     const pass1System = `You are an expert SEO strategist. Your task is to classify every keyword into a topic silo.
 
 RULES:
-- Create 10-30 topic silos based on semantic similarity and search intent
+- Create 10-20 topic silos based on semantic similarity and search intent (never more than 20)
 - Every keyword must be assigned to exactly one topic
 - Topic names should be clear, descriptive, and action-oriented
 - Group by user intent & semantic meaning
@@ -72,7 +72,7 @@ RULES:
 JSON FORMAT:
 {"assignments":{"keyword1":"Topic Name","keyword2":"Topic Name",...},"topics":["Topic Name 1","Topic Name 2",...]}`;
 
-    const pass1User = `Classify these ${uniqueKeywords.length} keywords into 10-30 topic silos:\n\n${kwLines}`;
+    const pass1User = `const pass1User = `Classify these ${uniqueKeywords.length} keywords into 10-20 topic silos (maximum 20):\n\n${kwLines}`;:\n\n${kwLines}`;
 
     console.log("Pass 1: Classifying all keywords into topics...");
     const pass1Data = await callAI(LOVABLE_API_KEY, "google/gemini-2.5-flash-lite", [
