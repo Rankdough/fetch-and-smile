@@ -45,7 +45,7 @@ RULES:
 JSON FORMAT:
 {"assignments":{"keyword1":"Topic Name","keyword2":"Topic Name",...},"topics":["Topic Name 1","Topic Name 2",...]}`;
 
-    const userPrompt = `const userPrompt = `Classify these ${uniqueKeywords.length} keywords into 10-20 topic silos (maximum 20):\n\n${kwLines}`;:\n\n${kwLines}`;
+    const userPrompt = `Classify these ${uniqueKeywords.length} keywords into 10-20 topic silos (maximum 20):\n\n${kwLines}`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
