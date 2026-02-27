@@ -10,19 +10,30 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { supabase } from "@/integrations/supabase/client";
 import {
   Upload, Layers, ChevronDown, ChevronRight, Loader2, Square,
-  TrendingUp, FileText, Copy, Download, BarChart3, Target, Info, Lightbulb, Trash2, RefreshCw, ArrowRight, Search
+  TrendingUp, FileText, Copy, Download, BarChart3, Target, Info, Lightbulb, Trash2, RefreshCw, ArrowRight, Search, Bookmark
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import { Check } from "lucide-react";
 
 const USED_IDEAS_KEY = "kw-used-blog-ideas";
+const BOOKMARKED_IDEAS_KEY = "kw-bookmarked-blog-ideas";
 
-const getUsedIdeas = (): Set<string> => {
+const getStoredSet = (key: string): Set<string> => {
   try {
-    const stored = localStorage.getItem(USED_IDEAS_KEY);
+    const stored = localStorage.getItem(key);
     return stored ? new Set(JSON.parse(stored)) : new Set();
   } catch { return new Set(); }
 };
+
+const toggleStoredSet = (key: string, value: string): Set<string> => {
+  const set = getStoredSet(key);
+  if (set.has(value)) set.delete(value); else set.add(value);
+  localStorage.setItem(key, JSON.stringify([...set]));
+  return new Set(set);
+};
+
+const getUsedIdeas = (): Set<string> => getStoredSet(USED_IDEAS_KEY);
+const getBookmarkedIdeas = (): Set<string> => getStoredSet(BOOKMARKED_IDEAS_KEY);
 
 const markIdeaUsed = (ideaKey: string) => {
   const used = getUsedIdeas();
@@ -103,6 +114,7 @@ const KeywordClustering = () => {
   const [analysisStage, setAnalysisStage] = useState<"classify" | "enrich" | null>(null);
   const [result, setResult] = useState<ClusteringResult | null>(null);
   const [usedIdeas, setUsedIdeas] = useState<Set<string>>(getUsedIdeas);
+  const [bookmarkedIdeas, setBookmarkedIdeas] = useState<Set<string>>(getBookmarkedIdeas);
   const [expandedClusters, setExpandedClusters] = useState<Set<string>>(new Set());
   const [rawInput, setRawInput] = useState("");
   const [savedResults, setSavedResults] = useState<SavedClustering[]>([]);
@@ -598,6 +610,20 @@ const KeywordClustering = () => {
                               </Badge>
                             );
                           })()}
+                          {(() => {
+                            const ideas = cluster.blog_ideas || [];
+                            const bmCount = ideas.filter(idea => bookmarkedIdeas.has(makeIdeaKey(cluster.topic, idea.title))).length;
+                            if (bmCount === 0) return null;
+                            return (
+                              <Badge
+                                variant="outline"
+                                className="text-xs gap-1 shrink-0 border-amber-500 text-amber-600 bg-amber-50 dark:bg-amber-950/30"
+                              >
+                                <Bookmark className="h-3 w-3 fill-current" />
+                                {bmCount} saved
+                              </Badge>
+                            );
+                          })()}
                         </div>
                         <div className="flex items-center gap-2 shrink-0 ml-2">
                           <Badge variant="outline" className="text-xs gap-1">
@@ -688,6 +714,18 @@ const KeywordClustering = () => {
                                       )}
                                     </div>
                                     <div className="flex flex-col gap-1 shrink-0">
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className={`gap-1 text-xs h-7 px-2 ${bookmarkedIdeas.has(ideaKey) ? "text-amber-600" : "text-muted-foreground"}`}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setBookmarkedIdeas(toggleStoredSet(BOOKMARKED_IDEAS_KEY, ideaKey));
+                                        }}
+                                      >
+                                        <Bookmark className={`h-3 w-3 ${bookmarkedIdeas.has(ideaKey) ? "fill-current" : ""}`} />
+                                        {bookmarkedIdeas.has(ideaKey) ? "Saved" : "Save"}
+                                      </Button>
                                       <Button
                                         variant="ghost"
                                         size="sm"
