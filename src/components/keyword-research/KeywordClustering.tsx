@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,6 +13,25 @@ import {
   TrendingUp, FileText, Copy, Download, BarChart3, Target, Info, Lightbulb, Trash2, RefreshCw, ArrowRight, Search
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
+import { Check } from "lucide-react";
+
+const USED_IDEAS_KEY = "kw-used-blog-ideas";
+
+const getUsedIdeas = (): Set<string> => {
+  try {
+    const stored = localStorage.getItem(USED_IDEAS_KEY);
+    return stored ? new Set(JSON.parse(stored)) : new Set();
+  } catch { return new Set(); }
+};
+
+const markIdeaUsed = (ideaKey: string) => {
+  const used = getUsedIdeas();
+  used.add(ideaKey);
+  localStorage.setItem(USED_IDEAS_KEY, JSON.stringify([...used]));
+};
+
+const makeIdeaKey = (clusterTopic: string, ideaTitle: string) =>
+  `${clusterTopic}::${ideaTitle}`;
 
 interface KeywordWithVolume {
   keyword: string;
@@ -83,6 +102,7 @@ const KeywordClustering = () => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisStage, setAnalysisStage] = useState<"classify" | "enrich" | null>(null);
   const [result, setResult] = useState<ClusteringResult | null>(null);
+  const [usedIdeas, setUsedIdeas] = useState<Set<string>>(getUsedIdeas);
   const [expandedClusters, setExpandedClusters] = useState<Set<string>>(new Set());
   const [rawInput, setRawInput] = useState("");
   const [savedResults, setSavedResults] = useState<SavedClustering[]>([]);
@@ -373,6 +393,10 @@ const KeywordClustering = () => {
     localStorage.setItem("seo-generator-formData", JSON.stringify(formData));
     localStorage.setItem("seo-generator-keywords", JSON.stringify(idea.target_keywords || []));
 
+    const key = makeIdeaKey(cluster.topic, idea.title);
+    markIdeaUsed(key);
+    setUsedIdeas(prev => new Set(prev).add(key));
+
     toast({ title: "Pre-filled article settings", description: `Topic: ${idea.title}` });
     navigate("/");
   };
@@ -618,12 +642,21 @@ const KeywordClustering = () => {
                               Blog Ideas
                             </h4>
                             <div className="space-y-2">
-                              {cluster.blog_ideas.map((idea, i) => (
-                                <div key={i} className="border rounded-md p-3 space-y-1">
+                              {cluster.blog_ideas.map((idea, i) => {
+                                const ideaKey = makeIdeaKey(cluster.topic, idea.title);
+                                const isUsed = usedIdeas.has(ideaKey);
+                                return (
+                                <div key={i} className={`border rounded-md p-3 space-y-1 transition-colors ${isUsed ? "border-green-500/40 bg-green-500/5" : ""}`}>
                                   <div className="flex items-start gap-2">
-                                    <span className="text-xs font-bold text-primary mt-0.5 shrink-0">{i + 1}.</span>
+                                    {isUsed ? (
+                                      <span className="mt-0.5 shrink-0 flex items-center justify-center h-4 w-4 rounded-full bg-green-500/20 text-green-600">
+                                        <Check className="h-3 w-3" />
+                                      </span>
+                                    ) : (
+                                      <span className="text-xs font-bold text-primary mt-0.5 shrink-0">{i + 1}.</span>
+                                    )}
                                     <div className="space-y-1 min-w-0 flex-1">
-                                      <p className="text-sm font-medium leading-snug">{idea.title}</p>
+                                      <p className={`text-sm font-medium leading-snug ${isUsed ? "text-green-700 dark:text-green-400" : ""}`}>{idea.title}</p>
                                       <p className="text-xs text-muted-foreground">{idea.description}</p>
                                       <p className="text-xs text-primary/80 italic">↳ {idea.reason}</p>
                                       {idea.target_keywords && idea.target_keywords.length > 0 && (
@@ -689,7 +722,8 @@ Focus on providing actionable research that will help create a comprehensive, di
                                     </div>
                                   </div>
                                 </div>
-                              ))}
+                                );
+                              })}
                             </div>
                           </div>
                         )}
