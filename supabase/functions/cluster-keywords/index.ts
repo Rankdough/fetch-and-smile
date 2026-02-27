@@ -109,15 +109,23 @@ OUTPUT FORMAT (strict JSON, no markdown):
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content || "";
 
-    // Parse JSON from response
+    // Parse JSON from response - strip markdown fences first
     let parsed;
     try {
-      const jsonMatch = content.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) throw new Error("No JSON found in response");
-      parsed = JSON.parse(jsonMatch[0]);
+      let cleaned = content;
+      // Remove markdown code fences
+      cleaned = cleaned.replace(/^```(?:json)?\s*\n?/i, "").replace(/\n?```\s*$/i, "");
+      parsed = JSON.parse(cleaned);
     } catch (e) {
-      console.error("Failed to parse AI response:", content);
-      throw new Error("Failed to parse clustering results");
+      // Fallback: try to extract JSON object
+      try {
+        const jsonMatch = content.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) throw new Error("No JSON found");
+        parsed = JSON.parse(jsonMatch[0]);
+      } catch (e2) {
+        console.error("Failed to parse AI response:", content.slice(0, 500));
+        throw new Error("Failed to parse clustering results");
+      }
     }
 
     return new Response(JSON.stringify(parsed), {
