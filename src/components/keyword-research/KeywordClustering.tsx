@@ -578,6 +578,26 @@ const KeywordClustering = () => {
                             <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
                           )}
                           <span className="font-medium text-sm truncate">{cluster.topic}</span>
+                          {(() => {
+                            const ideas = cluster.blog_ideas || [];
+                            const usedCount = ideas.filter(idea => usedIdeas.has(makeIdeaKey(cluster.topic, idea.title))).length;
+                            if (ideas.length === 0) return null;
+                            return (
+                              <Badge
+                                variant="outline"
+                                className={`text-xs gap-1 shrink-0 ${
+                                  usedCount === ideas.length
+                                    ? "border-green-500 text-green-600 bg-green-50 dark:bg-green-950/30"
+                                    : usedCount > 0
+                                    ? "border-yellow-500 text-yellow-600 bg-yellow-50 dark:bg-yellow-950/30"
+                                    : ""
+                                }`}
+                              >
+                                <FileText className="h-3 w-3" />
+                                {usedCount}/{ideas.length} articles
+                              </Badge>
+                            );
+                          })()}
                         </div>
                         <div className="flex items-center gap-2 shrink-0 ml-2">
                           <Badge variant="outline" className="text-xs gap-1">
