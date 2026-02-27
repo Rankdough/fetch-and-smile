@@ -412,7 +412,7 @@ const KeywordClustering = () => {
     localStorage.setItem("seo-generator-formData", JSON.stringify(formData));
     localStorage.setItem("seo-generator-keywords", JSON.stringify(idea.target_keywords || []));
 
-    // Pre-fill value promise claims (3 from blog idea + 2 empty slots)
+    // Pre-fill value promise claims (up to 5 from blog idea)
     if (idea.value_promises && idea.value_promises.length > 0) {
       const claims = [...idea.value_promises.slice(0, 5)];
       while (claims.length < 5) claims.push("");
@@ -424,7 +424,8 @@ const KeywordClustering = () => {
     setUsedIdeas(prev => new Set(prev).add(key));
 
     toast({ title: "Pre-filled article settings", description: `Topic: ${idea.title}` });
-    navigate("/");
+    // Use full page navigation to ensure Index mounts fresh with new localStorage values
+    window.location.href = "/";
   };
 
   const toggleCluster = (topic: string) => {
