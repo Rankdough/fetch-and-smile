@@ -38,12 +38,14 @@ RULES:
 - Return AT LEAST 10 topic clusters (more if the data supports it, up to 30)
 - Each cluster should have a clear, descriptive topic name suitable as a content pillar
 ${hasVolume 
-  ? "- Calculate estimated_monthly_volume as the SUM of the actual search volumes of keywords in each cluster"
-  : "- Estimate the combined monthly search volume for each cluster (use your knowledge of typical search volumes)"}
+  ? "- For each keyword in a cluster, include its actual search volume in the keyword_volumes object"
+  : "- For each keyword in a cluster, estimate its individual monthly search volume in the keyword_volumes object"}
+- Calculate estimated_monthly_volume as the SUM of all keyword volumes in the cluster
 - Sort clusters by estimated_monthly_volume (highest first)
 - Every keyword must be assigned to exactly one cluster
 - Clusters should be actionable content ideas — each could become a blog post, landing page, or content series
 - Group by user intent and semantic similarity, not just surface-level word matching
+- For each cluster, suggest exactly 5 blog post ideas that would target the keywords in that cluster
 
 OUTPUT FORMAT (strict JSON, no markdown):
 {
@@ -52,10 +54,18 @@ OUTPUT FORMAT (strict JSON, no markdown):
       "topic": "Descriptive Topic Name",
       "description": "One sentence explaining what this content cluster covers and why it matters",
       "estimated_monthly_volume": 12000,
-      "keywords": ["keyword 1", "keyword 2", ...],
+      "keywords": ["keyword 1", "keyword 2"],
+      "keyword_volumes": {"keyword 1": 8000, "keyword 2": 4000},
       "content_type": "blog_post | landing_page | guide | comparison | listicle | how_to",
       "difficulty": "low | medium | high",
-      "priority": "high | medium | low"
+      "priority": "high | medium | low",
+      "blog_ideas": [
+        {
+          "title": "Blog Post Title",
+          "description": "One sentence describing what this post covers",
+          "reason": "Why this blog is worth writing from an SEO/business perspective"
+        }
+      ]
     }
   ],
   "total_keywords_clustered": 150,
