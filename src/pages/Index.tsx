@@ -4308,9 +4308,9 @@ const Index = () => {
                         let tldrEndIndex = -1;
                         const tldrStartIndex = lines.findIndex(line => /^## TL;?DR/i.test(line));
                         if (tldrStartIndex >= 0) {
-                          // Find next H2 after TL;DR
+                          // Find next H2 after TL;DR, skipping Quick Tips so navigation goes AFTER tips
                           for (let i = tldrStartIndex + 1; i < lines.length; i++) {
-                            if (/^## /.test(lines[i]) && !/tldr/i.test(lines[i])) {
+                            if (/^## /.test(lines[i]) && !/tldr/i.test(lines[i]) && !/quick\s*tips/i.test(lines[i])) {
                               tldrEndIndex = i;
                               break;
                             }

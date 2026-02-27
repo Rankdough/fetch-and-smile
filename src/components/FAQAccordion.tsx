@@ -107,8 +107,8 @@ export const extractFAQFromContent = (content: string): FAQItem[] => {
   
   const faqContent = faqMatch[1];
   
-  // Match Q&A pairs: **Question?**\nAnswer text
-  const qaRegex = /\*\*([^*]+\??)\*\*\s*\n([^*\n][^\n]*(?:\n(?!\*\*)[^\n]+)*)/g;
+  // Match Q&A pairs: **Question?**\n(optional blank line)\nAnswer text
+  const qaRegex = /\*\*([^*]+\??)\*\*\s*\n\n?([^*\n][^\n]*(?:\n(?!\*\*|\n\*\*)[^\n]+)*)/g;
   let match;
   
   while ((match = qaRegex.exec(faqContent)) !== null) {
