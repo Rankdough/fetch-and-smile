@@ -41,7 +41,14 @@ RULES:
 - Exactly 5 blog ideas per cluster
 - Each blog idea MUST include "target_keywords": an array of 2-5 keywords from the cluster's keyword list that this article should target
 - Each blog idea MUST include "value_promises": an array of exactly 3 concise value promises describing what the reader will gain or learn from this article. Each promise should be specific, actionable, and directly tied to the article topic.
-- Pick the most relevant keywords for each blog idea based on topical fit and search intent
+
+CRITICAL KEYWORD DEDUPLICATION RULES:
+- Each keyword in the cluster should be assigned to AT MOST ONE blog idea. Do NOT repeat the same keyword across multiple ideas.
+- Think of the 5 blog ideas as a content silo: each idea should own a distinct subset of keywords with minimal overlap.
+- Before finalizing, review all 5 ideas together and redistribute any duplicated keywords so each appears in only one idea.
+- If two potential blog ideas would target nearly the same keywords, merge them into one idea and create a genuinely different angle for the freed slot.
+- Prefer grouping keywords by specific search intent (informational vs. transactional, beginner vs. advanced, specific sub-topic) to naturally separate them.
+
 - Match topic names exactly as provided
 - Priority based on volume and business value
 - Content type based on search intent`;
