@@ -85,6 +85,33 @@ export type Database = {
         }
         Relationships: []
       }
+      keyword_clustering_results: {
+        Row: {
+          created_at: string
+          id: string
+          input_keywords: string[]
+          name: string | null
+          result: Json
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          input_keywords?: string[]
+          name?: string | null
+          result: Json
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          input_keywords?: string[]
+          name?: string | null
+          result?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
       keyword_research: {
         Row: {
           context: string | null

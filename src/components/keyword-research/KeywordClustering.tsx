@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -6,9 +6,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { supabase } from "@/integrations/supabase/client";
 import {
   Upload, Layers, ChevronDown, ChevronRight, Loader2, Square,
-  TrendingUp, FileText, Copy, Download, BarChart3, Target, Info, Lightbulb
+  TrendingUp, FileText, Copy, Download, BarChart3, Target, Info, Lightbulb, Trash2
 } from "lucide-react";
 
 interface KeywordWithVolume {
@@ -38,6 +39,14 @@ interface ClusteringResult {
   clusters: KeywordCluster[];
   total_keywords_clustered: number;
   unclustered: string[];
+}
+
+interface SavedClustering {
+  id: string;
+  created_at: string;
+  name: string | null;
+  input_keywords: string[];
+  result: ClusteringResult;
 }
 
 const difficultyColors: Record<string, string> = {
@@ -70,8 +79,67 @@ const KeywordClustering = () => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [result, setResult] = useState<ClusteringResult | null>(null);
   const [expandedClusters, setExpandedClusters] = useState<Set<string>>(new Set());
-
   const [rawInput, setRawInput] = useState("");
+  const [savedResults, setSavedResults] = useState<SavedClustering[]>([]);
+  const [activeResultId, setActiveResultId] = useState<string | null>(null);
+
+  // Load saved results on mount
+  useEffect(() => {
+    loadSavedResults();
+  }, []);
+
+  const loadSavedResults = async () => {
+    const { data, error } = await supabase
+      .from("keyword_clustering_results")
+      .select("*")
+      .order("created_at", { ascending: false });
+    if (data && !error) {
+      setSavedResults(data.map(d => ({
+        ...d,
+        result: d.result as unknown as ClusteringResult,
+      })));
+      // Auto-load most recent
+      if (data.length > 0 && !result) {
+        const latest = data[0];
+        setResult(latest.result as unknown as ClusteringResult);
+        setRawInput(latest.input_keywords.join("\n"));
+        setActiveResultId(latest.id);
+        const clusters = (latest.result as unknown as ClusteringResult).clusters;
+        setExpandedClusters(new Set(clusters.slice(0, 3).map(c => c.topic)));
+      }
+    }
+  };
+
+  const saveResult = async (keywords: string[], clusteringResult: ClusteringResult) => {
+    const name = `${clusteringResult.clusters.length} silos · ${keywords.length} keywords`;
+    const { data, error } = await supabase
+      .from("keyword_clustering_results")
+      .insert({ input_keywords: keywords, result: clusteringResult as any, name })
+      .select()
+      .single();
+    if (data && !error) {
+      setActiveResultId(data.id);
+      loadSavedResults();
+    }
+  };
+
+  const deleteResult = async (id: string) => {
+    await supabase.from("keyword_clustering_results").delete().eq("id", id);
+    if (activeResultId === id) {
+      setResult(null);
+      setActiveResultId(null);
+      setRawInput("");
+    }
+    loadSavedResults();
+    toast({ title: "Analysis deleted" });
+  };
+
+  const loadResult = (saved: SavedClustering) => {
+    setResult(saved.result);
+    setRawInput(saved.input_keywords.join("\n"));
+    setActiveResultId(saved.id);
+    setExpandedClusters(new Set(saved.result.clusters.slice(0, 3).map(c => c.topic)));
+  };
 
   const parseKeywordsFromText = (text: string): string[] => {
     return text
@@ -158,6 +226,7 @@ const KeywordClustering = () => {
 
     setIsAnalyzing(true);
     setResult(null);
+    setActiveResultId(null);
     const controller = new AbortController();
     abortRef.current = controller;
 
@@ -187,6 +256,9 @@ const KeywordClustering = () => {
       setResult(data);
       setExpandedClusters(new Set(data.clusters.slice(0, 3).map(c => c.topic)));
       toast({ title: "Clustering complete!", description: `${data.clusters.length} topic silos identified from ${keywords.length} keywords` });
+      
+      // Auto-save to database
+      await saveResult(keywords, data);
     } catch (err: any) {
       if (err.name === "AbortError") {
         toast({ title: "Analysis stopped" });
@@ -247,6 +319,32 @@ const KeywordClustering = () => {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* Saved results selector */}
+        {savedResults.length > 0 && (
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground">Previous Analyses</label>
+            <div className="flex flex-wrap gap-2">
+              {savedResults.map(saved => (
+                <div key={saved.id} className="flex items-center gap-1">
+                  <Badge
+                    variant={activeResultId === saved.id ? "default" : "outline"}
+                    className="text-xs cursor-pointer hover:bg-primary/20 transition-colors"
+                    onClick={() => loadResult(saved)}
+                  >
+                    {saved.name || "Untitled"} · {new Date(saved.created_at).toLocaleDateString()}
+                  </Badge>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); deleteResult(saved.id); }}
+                    className="text-muted-foreground/50 hover:text-destructive transition-colors"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Input area */}
         <div className="space-y-2">
           <div className="flex items-center gap-2 flex-wrap">
