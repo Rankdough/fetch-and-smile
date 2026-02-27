@@ -77,6 +77,7 @@ const KeywordClustering = () => {
 
   const [keywordsWithVolume, setKeywordsWithVolume] = useState<KeywordWithVolume[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analysisStage, setAnalysisStage] = useState<"classify" | "enrich" | null>(null);
   const [result, setResult] = useState<ClusteringResult | null>(null);
   const [expandedClusters, setExpandedClusters] = useState<Set<string>>(new Set());
   const [rawInput, setRawInput] = useState("");
@@ -227,12 +228,14 @@ const KeywordClustering = () => {
     setIsAnalyzing(true);
     setResult(null);
     setActiveResultId(null);
+    setAnalysisStage("classify");
     const controller = new AbortController();
     abortRef.current = controller;
 
     try {
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/cluster-keywords`,
+      // PASS 1: Classify keywords into topics
+      const classifyResponse = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/cluster-keywords-classify`,
         {
           method: "POST",
           headers: {
@@ -247,18 +250,47 @@ const KeywordClustering = () => {
         }
       );
 
-      if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.error || `Request failed: ${response.status}`);
+      if (!classifyResponse.ok) {
+        const errData = await classifyResponse.json().catch(() => ({}));
+        throw new Error(errData.error || `Classification failed: ${classifyResponse.status}`);
       }
 
-      const data: ClusteringResult = await response.json();
-      setResult(data);
-      setExpandedClusters(new Set(data.clusters.slice(0, 3).map(c => c.topic)));
-      toast({ title: "Clustering complete!", description: `${data.clusters.length} topic silos identified from ${keywords.length} keywords` });
+      const classifyData = await classifyResponse.json();
+      toast({ title: `${classifyData.clusters.length} topic silos identified`, description: "Now generating blog ideas & metadata..." });
+
+      // PASS 2: Enrich clusters with metadata & blog ideas
+      setAnalysisStage("enrich");
+      const enrichResponse = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/cluster-keywords-enrich`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({ clusters: classifyData.clusters }),
+          signal: controller.signal,
+        }
+      );
+
+      if (!enrichResponse.ok) {
+        const errData = await enrichResponse.json().catch(() => ({}));
+        throw new Error(errData.error || `Enrichment failed: ${enrichResponse.status}`);
+      }
+
+      const enrichData = await enrichResponse.json();
+      const finalResult: ClusteringResult = {
+        clusters: enrichData.clusters,
+        total_keywords_clustered: classifyData.total_keywords_clustered,
+        unclustered: classifyData.unclustered || [],
+      };
+
+      setResult(finalResult);
+      setExpandedClusters(new Set(finalResult.clusters.slice(0, 3).map(c => c.topic)));
+      toast({ title: "Clustering complete!", description: `${finalResult.clusters.length} topic silos with blog ideas from ${keywords.length} keywords` });
       
       // Auto-save to database
-      await saveResult(keywords, data);
+      await saveResult(keywords, finalResult);
     } catch (err: any) {
       if (err.name === "AbortError") {
         toast({ title: "Analysis stopped" });
@@ -268,6 +300,7 @@ const KeywordClustering = () => {
     } finally {
       abortRef.current = null;
       setIsAnalyzing(false);
+      setAnalysisStage(null);
     }
   };
 
@@ -392,9 +425,11 @@ const KeywordClustering = () => {
           <div className="space-y-2">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" />
-              Analyzing {keywordCount} keywords and grouping into topic silos...
+              {analysisStage === "classify" 
+                ? `Pass 1: Classifying ${keywordCount} keywords into topic silos...`
+                : `Pass 2: Generating blog ideas & metadata for each silo...`}
             </div>
-            <Progress value={undefined} className="h-1" />
+            <Progress value={analysisStage === "enrich" ? 60 : 20} className="h-1" />
           </div>
         )}
 
