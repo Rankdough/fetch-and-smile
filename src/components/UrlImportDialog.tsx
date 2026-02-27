@@ -110,7 +110,7 @@ STRICT WORD COUNT LIMIT: The final article MUST NOT exceed ${targetWords} words.
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="default" className="gap-2">
+        <Button variant="outline" size="default" className="gap-2" title="Enter any webpage URL to scrape and import its content as editable Markdown. The page is fetched, cleaned of ads and navigation, and converted to a structured article you can edit, enhance, or reformat.">
           <Globe className="h-4 w-4" />
           Import URL
         </Button>
