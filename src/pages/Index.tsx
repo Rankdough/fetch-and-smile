@@ -2673,7 +2673,8 @@ const Index = () => {
                         generatedCTAs.middle.description,
                         generatedCTAs.middle.buttonText,
                         ctaUrl,
-                        selectedColorPalette
+                        selectedColorPalette,
+                        (generatedCTAs.middle as any).tagline
                       );
                       finalHtml = finalHtml.slice(0, insertPoint) + middleCTAHtml + finalHtml.slice(insertPoint);
                     }
@@ -2686,7 +2687,8 @@ const Index = () => {
                       generatedCTAs.end.description,
                       generatedCTAs.end.buttonText,
                       ctaUrl,
-                      selectedColorPalette
+                      selectedColorPalette,
+                      (generatedCTAs.end as any).tagline
                     );
                     finalHtml += endCTAHtml;
                   }
@@ -4397,6 +4399,7 @@ const Index = () => {
                                     description={generatedCTAs.middle.description}
                                     buttonText={generatedCTAs.middle.buttonText}
                                     url={ctaUrl}
+                                    tagline={(generatedCTAs.middle as any).tagline}
                                     brandColors={selectedColorPalette}
                                   />
                                 ) : part.content ? (
@@ -4664,6 +4667,7 @@ const Index = () => {
                                 description={generatedCTAs.end.description}
                                 buttonText={generatedCTAs.end.buttonText}
                                 url={ctaUrl}
+                                tagline={(generatedCTAs.end as any).tagline}
                                 brandColors={selectedColorPalette}
                               />
                             )}
