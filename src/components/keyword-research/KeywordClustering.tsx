@@ -646,7 +646,7 @@ const KeywordClustering = () => {
                                 const ideaKey = makeIdeaKey(cluster.topic, idea.title);
                                 const isUsed = usedIdeas.has(ideaKey);
                                 return (
-                                <div key={i} className={`border rounded-md p-3 space-y-1 transition-colors ${isUsed ? "border-green-500/40 bg-green-500/5" : ""}`}>
+                                <div key={i} className={`border rounded-md p-3 space-y-1 transition-colors ${isUsed ? "border-green-500 bg-green-50 dark:bg-green-950/30" : ""}`}>
                                   <div className="flex items-start gap-2">
                                     {isUsed ? (
                                       <span className="mt-0.5 shrink-0 flex items-center justify-center h-4 w-4 rounded-full bg-green-500/20 text-green-600">
