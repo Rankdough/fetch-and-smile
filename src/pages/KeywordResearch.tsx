@@ -11,7 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import {
   ArrowLeft, Search, Sparkles, Copy, Download, Trash2,
-  ChevronDown, ChevronRight, Clock, Loader2, Square
+  ChevronDown, ChevronRight, Clock, Loader2, Square, ChevronUp
 } from "lucide-react";
 import QuestionnaireUpload, { BrandAnalysis } from "@/components/keyword-research/QuestionnaireUpload";
 import SeedKeywordsUpload, { SeedFile } from "@/components/keyword-research/SeedKeywordsUpload";
@@ -60,6 +60,7 @@ const KeywordResearch = () => {
   const [extractedThemes, setExtractedThemes] = useState<SeedThemes | null>(null);
   const [contextFiles, setContextFiles] = useState<ContextFile[]>([]);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const [isGeneratorOpen, setIsGeneratorOpen] = useState(true);
 
   const reExtractThemes = () => {
     if (seedFiles.length > 0) {
@@ -313,90 +314,96 @@ const KeywordResearch = () => {
 
       <main className="max-w-7xl mx-auto px-4 py-6 space-y-6">
         {/* Input Section */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-primary" />
-              Generate Semantic Keyword Universe
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <label className="text-sm font-medium mb-1 block">Topic *</label>
-              <Input
-                placeholder="e.g. video games, baseball, digital marketing..."
-                value={topic}
-                onChange={(e) => setTopic(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && !isGenerating && generateKeywords()}
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium mb-1 block">Context / Guidance (optional)</label>
-              <Textarea
-                placeholder="e.g. Focus on competitive gaming and esports terminology..."
-                value={context}
-                onChange={(e) => setContext(e.target.value)}
-                rows={2}
-              />
-            </div>
-            <div className="flex items-center gap-3 flex-wrap">
-              <Button onClick={generateKeywords} disabled={(!topic.trim() && !brandAnalysis) || isGenerating} className="gap-2">
-                {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-                {isGenerating ? "Generating..." : "Generate Keywords"}
-              </Button>
-              {isGenerating && (
-                <Button variant="destructive" size="sm" onClick={stopGenerating} className="gap-2">
-                  <Square className="h-3.5 w-3.5" />
-                  Stop
-                </Button>
-              )}
-              <QuestionnaireUpload
-                analysis={brandAnalysis}
-                onAnalysisComplete={(analysis, rawText) => {
-                  setBrandAnalysis(analysis);
-                  setQuestionnaireText(rawText);
-                  if (!topic.trim()) setTopic(analysis.suggested_topic || "");
-                }}
-                onClear={() => {
-                  setBrandAnalysis(null);
-                  setQuestionnaireText("");
-                }}
-              />
-            </div>
-            <ContextFileUpload
-              files={contextFiles}
-              onFilesChange={setContextFiles}
-              onAnalysisExtracted={(analysis) => {
-                if (!brandAnalysis) {
-                  setBrandAnalysis(analysis);
-                  if (!topic.trim()) setTopic(analysis.suggested_topic || "");
-                }
-              }}
-            />
-            <SeedKeywordsUpload
-              seedFiles={seedFiles}
-              onSeedFilesChange={async (newFiles) => {
-                // Find added files (no dbId)
-                const added = newFiles.filter(f => !f.dbId && !seedFiles.some(s => s.name === f.name && s.type === f.type));
-                // Find removed files
-                const removed = seedFiles.filter(s => !newFiles.some(n => n.name === s.name && n.type === s.type));
-
-                // Save new files to DB
-                for (const file of added) {
-                  const dbId = await saveSeedFile(file);
-                  if (dbId) file.dbId = dbId;
-                }
-
-                // Delete removed files from DB
-                for (const file of removed) {
-                  if (file.dbId) await deleteSeedFile(file.dbId);
-                }
-
-                setSeedFiles(newFiles);
-              }}
-            />
-          </CardContent>
-        </Card>
+        <Collapsible open={isGeneratorOpen} onOpenChange={setIsGeneratorOpen}>
+          <Card>
+            <CollapsibleTrigger className="w-full">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 text-primary" />
+                    Generate Semantic Keyword Universe
+                  </CardTitle>
+                  {isGeneratorOpen ? (
+                    <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                  )}
+                </div>
+              </CardHeader>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent className="space-y-4 pt-0">
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Topic *</label>
+                  <Input
+                    placeholder="e.g. video games, baseball, digital marketing..."
+                    value={topic}
+                    onChange={(e) => setTopic(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && !isGenerating && generateKeywords()}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Context / Guidance (optional)</label>
+                  <Textarea
+                    placeholder="e.g. Focus on competitive gaming and esports terminology..."
+                    value={context}
+                    onChange={(e) => setContext(e.target.value)}
+                    rows={2}
+                  />
+                </div>
+                <div className="flex items-center gap-3 flex-wrap">
+                  <Button onClick={generateKeywords} disabled={(!topic.trim() && !brandAnalysis) || isGenerating} className="gap-2">
+                    {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                    {isGenerating ? "Generating..." : "Generate Keywords"}
+                  </Button>
+                  {isGenerating && (
+                    <Button variant="destructive" size="sm" onClick={stopGenerating} className="gap-2">
+                      <Square className="h-3.5 w-3.5" />
+                      Stop
+                    </Button>
+                  )}
+                  <QuestionnaireUpload
+                    analysis={brandAnalysis}
+                    onAnalysisComplete={(analysis, rawText) => {
+                      setBrandAnalysis(analysis);
+                      setQuestionnaireText(rawText);
+                      if (!topic.trim()) setTopic(analysis.suggested_topic || "");
+                    }}
+                    onClear={() => {
+                      setBrandAnalysis(null);
+                      setQuestionnaireText("");
+                    }}
+                  />
+                </div>
+                <ContextFileUpload
+                  files={contextFiles}
+                  onFilesChange={setContextFiles}
+                  onAnalysisExtracted={(analysis) => {
+                    if (!brandAnalysis) {
+                      setBrandAnalysis(analysis);
+                      if (!topic.trim()) setTopic(analysis.suggested_topic || "");
+                    }
+                  }}
+                />
+                <SeedKeywordsUpload
+                  seedFiles={seedFiles}
+                  onSeedFilesChange={async (newFiles) => {
+                    const added = newFiles.filter(f => !f.dbId && !seedFiles.some(s => s.name === f.name && s.type === f.type));
+                    const removed = seedFiles.filter(s => !newFiles.some(n => n.name === s.name && n.type === s.type));
+                    for (const file of added) {
+                      const dbId = await saveSeedFile(file);
+                      if (dbId) file.dbId = dbId;
+                    }
+                    for (const file of removed) {
+                      if (file.dbId) await deleteSeedFile(file.dbId);
+                    }
+                    setSeedFiles(newFiles);
+                  }}
+                />
+              </CardContent>
+            </CollapsibleContent>
+          </Card>
+        </Collapsible>
 
         {/* Extracted Themes */}
         {extractedThemes && <SeedThemesDisplay themes={extractedThemes} onRefresh={reExtractThemes} />}
