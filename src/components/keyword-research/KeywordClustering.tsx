@@ -8,7 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
   Upload, Layers, ChevronDown, ChevronRight, Loader2, Square,
-  TrendingUp, FileText, Copy, Download, BarChart3, Target, Info
+  TrendingUp, FileText, Copy, Download, BarChart3, Target, Info, Lightbulb
 } from "lucide-react";
 
 interface KeywordWithVolume {
@@ -16,14 +16,22 @@ interface KeywordWithVolume {
   volume: number | null;
 }
 
+interface BlogIdea {
+  title: string;
+  description: string;
+  reason: string;
+}
+
 interface KeywordCluster {
   topic: string;
   description: string;
   estimated_monthly_volume: number;
   keywords: string[];
+  keyword_volumes?: Record<string, number>;
   content_type: string;
   difficulty: "low" | "medium" | "high";
   priority: "high" | "medium" | "low";
+  blog_ideas?: BlogIdea[];
 }
 
 interface ClusteringResult {
@@ -72,7 +80,6 @@ const KeywordClustering = () => {
       .filter((k) => k.length > 1 && k.length < 200);
   };
 
-  // Proper CSV parser that handles quoted fields with commas
   const parseCSVRow = (line: string): string[] => {
     const cells: string[] = [];
     let current = "";
@@ -144,7 +151,6 @@ const KeywordClustering = () => {
       return;
     }
 
-    // Build volume map from CSV data if available
     const volumeMap: Record<string, number> = {};
     for (const item of keywordsWithVolume) {
       if (item.volume !== null) volumeMap[item.keyword] = item.volume;
@@ -179,7 +185,6 @@ const KeywordClustering = () => {
 
       const data: ClusteringResult = await response.json();
       setResult(data);
-      // Expand top 3 clusters by default
       setExpandedClusters(new Set(data.clusters.slice(0, 3).map(c => c.topic)));
       toast({ title: "Clustering complete!", description: `${data.clusters.length} topic silos identified from ${keywords.length} keywords` });
     } catch (err: any) {
@@ -210,9 +215,15 @@ const KeywordClustering = () => {
 
   const exportClustersCSV = () => {
     if (!result) return;
-    const rows = [["Topic", "Description", "Est. Monthly Volume", "Keywords Count", "Content Type", "Difficulty", "Priority", "Keywords"]];
+    const rows = [["Topic", "Description", "Est. Monthly Volume", "Keywords Count", "Content Type", "Difficulty", "Priority", "Keywords", "Keyword Volumes", "Blog Ideas"]];
     result.clusters.forEach(c => {
-      rows.push([c.topic, c.description, c.estimated_monthly_volume.toString(), c.keywords.length.toString(), c.content_type, c.difficulty, c.priority, c.keywords.join("; ")]);
+      const volStr = c.keyword_volumes 
+        ? c.keywords.map(kw => `${kw}: ${c.keyword_volumes?.[kw] ?? "n/a"}`).join("; ")
+        : "";
+      const blogStr = c.blog_ideas 
+        ? c.blog_ideas.map((b, i) => `${i+1}. ${b.title} — ${b.description} (${b.reason})`).join(" | ")
+        : "";
+      rows.push([c.topic, c.description, c.estimated_monthly_volume.toString(), c.keywords.length.toString(), c.content_type, c.difficulty, c.priority, c.keywords.join("; "), volStr, blogStr]);
     });
     const csv = rows.map(r => r.map(v => `"${v.replace(/"/g, '""')}"`).join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
@@ -353,23 +364,63 @@ const KeywordClustering = () => {
                       </div>
                     </CollapsibleTrigger>
                     <CollapsibleContent>
-                      <CardContent className="pt-0 pb-4 px-4 space-y-3">
+                      <CardContent className="pt-0 pb-4 px-4 space-y-4">
                         <p className="text-sm text-muted-foreground">{cluster.description}</p>
-                        <div className="flex flex-wrap gap-1.5">
-                          {cluster.keywords.map((kw, i) => (
-                            <Badge
-                              key={i}
-                              variant="secondary"
-                              className="text-xs cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
-                              onClick={() => {
-                                navigator.clipboard.writeText(kw);
-                                toast({ title: "Copied", description: kw });
-                              }}
-                            >
-                              {kw}
-                            </Badge>
-                          ))}
+                        
+                        {/* Keywords column with volume */}
+                        <div>
+                          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Keywords</h4>
+                          <div className="border rounded-md overflow-hidden">
+                            <div className="grid grid-cols-[1fr_auto] gap-x-4 px-3 py-1.5 bg-muted/50 text-xs font-medium text-muted-foreground border-b">
+                              <span>Keyword</span>
+                              <span className="text-right">Volume</span>
+                            </div>
+                            <div className="max-h-[300px] overflow-y-auto">
+                              {cluster.keywords.map((kw, i) => {
+                                const vol = cluster.keyword_volumes?.[kw];
+                                return (
+                                  <div
+                                    key={i}
+                                    className="grid grid-cols-[1fr_auto] gap-x-4 px-3 py-1.5 text-sm border-b last:border-b-0 hover:bg-muted/30 cursor-pointer transition-colors"
+                                    onClick={() => {
+                                      navigator.clipboard.writeText(kw);
+                                      toast({ title: "Copied", description: kw });
+                                    }}
+                                  >
+                                    <span className="truncate">{kw}</span>
+                                    <span className="text-right text-muted-foreground tabular-nums">
+                                      {vol != null ? formatVolume(vol) : "—"}
+                                    </span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
                         </div>
+
+                        {/* Blog Ideas */}
+                        {cluster.blog_ideas && cluster.blog_ideas.length > 0 && (
+                          <div>
+                            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 flex items-center gap-1.5">
+                              <Lightbulb className="h-3.5 w-3.5" />
+                              Blog Ideas
+                            </h4>
+                            <div className="space-y-2">
+                              {cluster.blog_ideas.map((idea, i) => (
+                                <div key={i} className="border rounded-md p-3 space-y-1">
+                                  <div className="flex items-start gap-2">
+                                    <span className="text-xs font-bold text-primary mt-0.5 shrink-0">{i + 1}.</span>
+                                    <div className="space-y-1 min-w-0">
+                                      <p className="text-sm font-medium leading-snug">{idea.title}</p>
+                                      <p className="text-xs text-muted-foreground">{idea.description}</p>
+                                      <p className="text-xs text-primary/80 italic">↳ {idea.reason}</p>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </CardContent>
                     </CollapsibleContent>
                   </Card>
