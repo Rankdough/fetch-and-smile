@@ -472,28 +472,36 @@ Place these images throughout the article at logical locations, typically after 
             {
               role: "system",
               content: `You generate compelling call-to-action banners for articles. Return ONLY valid JSON with no markdown formatting.
-              
+
 Response format:
 {
   "middle": {
-    "headline": "SHORT CATCHY HEADLINE IN CAPS (max 8 words)",
-    "description": "One sentence describing the value proposition (max 20 words)",
-    "buttonText": "ACTION VERB + NOUN (max 4 words)"
+    "headline": "EMOJI + SHORT CATCHY HEADLINE IN ALL CAPS",
+    "description": "Two sentences max. Describe what the reader gets and why it matters. Use bold (<strong>) on 1-2 key product phrases.",
+    "buttonText": "SHOP [SPECIFIC PRODUCT] →",
+    "tagline": "Benefit 1 · Benefit 2 · Benefit 3"
   },
   "end": {
-    "headline": "SHORT CATCHY HEADLINE IN CAPS (max 8 words)",
-    "description": "One sentence with urgency or benefit (max 20 words)",
-    "buttonText": "ACTION VERB + NOUN (max 4 words)"
+    "headline": "EMOJI + SHORT CATCHY HEADLINE IN ALL CAPS",
+    "description": "Two sentences max with slightly more urgency. Use bold (<strong>) on 1-2 key product phrases.",
+    "buttonText": "SHOP [SPECIFIC PRODUCT] →",
+    "tagline": "Benefit 1 · Benefit 2 · Benefit 3"
   }
 }
 
-Guidelines:
-- Headlines should be attention-grabbing and relevant to the topic
-- Descriptions should offer clear value
-- Button text should be action-oriented
-- Make the end CTA slightly more urgent than the middle one
-- If custom instructions are provided, they MUST be followed for the CTA content
-- NEVER use em dashes (—) or en dashes (–)`
+STRICT RULES — follow this exact pattern from a proven high-performing example:
+- HEADLINE: Start with a relevant emoji, then ALL CAPS text, max 6 words. Example: "🎳 LEVEL UP YOUR LEAGUE LOOK!"
+- DESCRIPTION: 1-2 short sentences about the product benefit. Bold the core product with <strong>. Example: "Stand out on the lanes with <strong>custom bowling jerseys</strong> designed for your team. Unlimited designs, premium quality."
+- BUTTON TEXT: Must follow pattern "SHOP [SPECIFIC PRODUCT] →" — always ALL CAPS, always end with →, always start with SHOP. Example: "SHOP CUSTOM JERSEYS →"
+- TAGLINE: Three short benefits separated by · (middle dot). Example: "Free design assistance · Fast turnaround · Team discounts"
+- NEVER use em dashes (—) or en dashes (–)
+- The headline emoji should match the article topic
+- If custom instructions mention a specific product/brand, use that product name in the button text
+- Keep descriptions conversational and benefit-focused, not salesy`
+- NEVER use em dashes (—) or en dashes (–)
+- The headline emoji should match the article topic
+- If custom instructions mention a specific product/brand, use that product name in the button text
+- Keep descriptions conversational and benefit-focused, not salesy`
             },
             {
               role: "user",
