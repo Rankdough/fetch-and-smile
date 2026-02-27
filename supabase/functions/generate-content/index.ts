@@ -498,10 +498,6 @@ STRICT RULES — follow this exact pattern from a proven high-performing example
 - The headline emoji should match the article topic
 - If custom instructions mention a specific product/brand, use that product name in the button text
 - Keep descriptions conversational and benefit-focused, not salesy`
-- NEVER use em dashes (—) or en dashes (–)
-- The headline emoji should match the article topic
-- If custom instructions mention a specific product/brand, use that product name in the button text
-- Keep descriptions conversational and benefit-focused, not salesy`
             },
             {
               role: "user",
