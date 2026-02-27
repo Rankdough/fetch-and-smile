@@ -402,8 +402,8 @@ Place these images throughout the article at logical locations, typically after 
 
     // Use stronger model for long articles, flash for shorter ones
     const model = targetWords >= 2000 ? "google/gemini-2.5-flash" : "google/gemini-3-flash-preview";
-    // ~2 tokens per word, capped at 1.5x target to prevent overshooting
-    const maxTokens = Math.min(Math.max(4096, Math.ceil(targetWords * 2.5)), 16384);
+    // ~3.5 tokens per word accounts for markdown formatting (tables, blockquotes, etc.)
+    const maxTokens = Math.min(Math.max(4096, Math.ceil(targetWords * 3.5)), 16384);
 
     console.log(`Using model: ${model}, max_tokens: ${maxTokens}, target words: ${targetWords}`);
 
