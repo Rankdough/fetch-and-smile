@@ -10,7 +10,7 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { keywords } = await req.json();
+    const { keywords, volumeMap } = await req.json();
 
     if (!keywords || !Array.isArray(keywords) || keywords.length === 0) {
       return new Response(JSON.stringify({ error: "Please provide an array of keywords" }), {
@@ -28,15 +28,19 @@ serve(async (req) => {
       ? keywords.slice(0, maxKeywords)
       : keywords;
 
+    const hasVolume = volumeMap && Object.keys(volumeMap).length > 0;
+
     const systemPrompt = `You are an expert SEO strategist specializing in keyword clustering and content strategy.
 
-Your task: Given a list of keywords, group them into topical silos/clusters that represent distinct content opportunities.
+Your task: Given a list of keywords${hasVolume ? " with their actual monthly search volumes" : ""}, group them into topical silos/clusters that represent distinct content opportunities.
 
 RULES:
 - Return AT LEAST 10 topic clusters (more if the data supports it, up to 30)
 - Each cluster should have a clear, descriptive topic name suitable as a content pillar
-- Estimate the combined monthly search volume for each cluster (use your knowledge of typical search volumes)
-- Sort clusters by estimated search volume (highest first)
+${hasVolume 
+  ? "- Calculate estimated_monthly_volume as the SUM of the actual search volumes of keywords in each cluster"
+  : "- Estimate the combined monthly search volume for each cluster (use your knowledge of typical search volumes)"}
+- Sort clusters by estimated_monthly_volume (highest first)
 - Every keyword must be assigned to exactly one cluster
 - Clusters should be actionable content ideas — each could become a blog post, landing page, or content series
 - Group by user intent and semantic similarity, not just surface-level word matching
@@ -58,7 +62,16 @@ OUTPUT FORMAT (strict JSON, no markdown):
   "unclustered": []
 }`;
 
-    const userPrompt = `Analyze and cluster these ${keywordsToAnalyze.length} keywords into topical silos:\n\n${keywordsToAnalyze.join("\n")}`;
+    let userPrompt: string;
+    if (hasVolume) {
+      const kwLines = keywordsToAnalyze.map(kw => {
+        const vol = volumeMap[kw];
+        return vol !== undefined ? `${kw} [vol: ${vol}]` : kw;
+      }).join("\n");
+      userPrompt = `Analyze and cluster these ${keywordsToAnalyze.length} keywords (with search volume data) into topical silos:\n\n${kwLines}`;
+    } else {
+      userPrompt = `Analyze and cluster these ${keywordsToAnalyze.length} keywords into topical silos:\n\n${keywordsToAnalyze.join("\n")}`;
+    }
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
