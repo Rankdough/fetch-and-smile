@@ -35,10 +35,12 @@ serve(async (req) => {
 OUTPUT ONLY valid JSON, no markdown fences.
 
 JSON FORMAT:
-{"enrichments":[{"topic":"Exact Topic Name","description":"1-sentence description of this cluster","content_type":"blog_post|landing_page|guide|comparison|listicle|how_to","difficulty":"low|medium|high","priority":"high|medium|low","blog_ideas":[{"title":"...","description":"...","reason":"..."},{"title":"...","description":"...","reason":"..."},{"title":"...","description":"...","reason":"..."},{"title":"...","description":"...","reason":"..."},{"title":"...","description":"...","reason":"..."}]}]}
+{"enrichments":[{"topic":"Exact Topic Name","description":"1-sentence description of this cluster","content_type":"blog_post|landing_page|guide|comparison|listicle|how_to","difficulty":"low|medium|high","priority":"high|medium|low","blog_ideas":[{"title":"...","description":"...","reason":"...","target_keywords":["keyword1","keyword2","keyword3"]},{"title":"...","description":"...","reason":"...","target_keywords":["keyword1","keyword2"]},{"title":"...","description":"...","reason":"...","target_keywords":["keyword1","keyword2","keyword3"]},{"title":"...","description":"...","reason":"...","target_keywords":["keyword1","keyword2"]},{"title":"...","description":"...","reason":"...","target_keywords":["keyword1","keyword2","keyword3"]}]}]}
 
 RULES:
 - Exactly 5 blog ideas per cluster
+- Each blog idea MUST include "target_keywords": an array of 2-5 keywords from the cluster's keyword list that this article should target
+- Pick the most relevant keywords for each blog idea based on topical fit and search intent
 - Match topic names exactly as provided
 - Priority based on volume and business value
 - Content type based on search intent`;

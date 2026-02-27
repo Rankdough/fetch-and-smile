@@ -21,6 +21,7 @@ interface BlogIdea {
   title: string;
   description: string;
   reason: string;
+  target_keywords?: string[];
 }
 
 interface KeywordCluster {
@@ -326,7 +327,7 @@ const KeywordClustering = () => {
         ? c.keywords.map(kw => `${kw}: ${c.keyword_volumes?.[kw] ?? "n/a"}`).join("; ")
         : "";
       const blogStr = c.blog_ideas 
-        ? c.blog_ideas.map((b, i) => `${i+1}. ${b.title} — ${b.description} (${b.reason})`).join(" | ")
+        ? c.blog_ideas.map((b, i) => `${i+1}. ${b.title} — ${b.description} (${b.reason}) [Keywords: ${b.target_keywords?.join(", ") || "n/a"}]`).join(" | ")
         : "";
       rows.push([c.topic, c.description, c.estimated_monthly_volume.toString(), c.keywords.length.toString(), c.content_type, c.difficulty, c.priority, c.keywords.join("; "), volStr, blogStr]);
     });
@@ -547,6 +548,13 @@ const KeywordClustering = () => {
                                       <p className="text-sm font-medium leading-snug">{idea.title}</p>
                                       <p className="text-xs text-muted-foreground">{idea.description}</p>
                                       <p className="text-xs text-primary/80 italic">↳ {idea.reason}</p>
+                                      {idea.target_keywords && idea.target_keywords.length > 0 && (
+                                        <div className="flex flex-wrap gap-1 mt-1">
+                                          {idea.target_keywords.map((kw, ki) => (
+                                            <span key={ki} className="inline-block text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-medium">{kw}</span>
+                                          ))}
+                                        </div>
+                                      )}
                                     </div>
                                   </div>
                                 </div>
