@@ -112,6 +112,7 @@ const KeywordClustering = () => {
 
   const [keywordsWithVolume, setKeywordsWithVolume] = useState<KeywordWithVolume[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [enrichingSilo, setEnrichingSilo] = useState<string | null>(null);
   const [analysisStage, setAnalysisStage] = useState<"classify" | "enrich" | null>(null);
   const [result, setResult] = useState<ClusteringResult | null>(null);
   const [usedIdeas, setUsedIdeas] = useState<Set<string>>(getUsedIdeas);
@@ -386,6 +387,58 @@ const KeywordClustering = () => {
     } finally {
       setIsAnalyzing(false);
       setAnalysisStage(null);
+    }
+  };
+
+  const reEnrichSingleCluster = async (clusterTopic: string) => {
+    if (!result) return;
+    const cluster = result.clusters.find(c => c.topic === clusterTopic);
+    if (!cluster) return;
+
+    setEnrichingSilo(clusterTopic);
+    try {
+      const enrichResponse = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/cluster-keywords-enrich`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({ clusters: [cluster] }),
+        }
+      );
+
+      if (!enrichResponse.ok) {
+        const errData = await enrichResponse.json().catch(() => ({}));
+        throw new Error(errData.error || `Enrichment failed: ${enrichResponse.status}`);
+      }
+
+      const enrichData = await enrichResponse.json();
+      const enrichedCluster = enrichData.clusters?.[0];
+      if (!enrichedCluster) throw new Error("No cluster returned");
+
+      const updatedResult: ClusteringResult = {
+        ...result,
+        clusters: result.clusters.map(c =>
+          c.topic === clusterTopic ? { ...c, ...enrichedCluster } : c
+        ),
+      };
+
+      setResult(updatedResult);
+      toast({ title: `"${clusterTopic}" ideas regenerated` });
+
+      if (activeResultId) {
+        await supabase
+          .from("keyword_clustering_results")
+          .update({ result: updatedResult as any })
+          .eq("id", activeResultId);
+        loadSavedResults();
+      }
+    } catch (err: any) {
+      toast({ title: "Re-enrichment failed", description: err.message, variant: "destructive" });
+    } finally {
+      setEnrichingSilo(null);
     }
   };
 
@@ -704,10 +757,29 @@ const KeywordClustering = () => {
                         {/* Blog Ideas */}
                         {cluster.blog_ideas && cluster.blog_ideas.length > 0 && (
                           <div>
-                            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 flex items-center gap-1.5">
-                              <Lightbulb className="h-3.5 w-3.5" />
-                              Blog Ideas
-                            </h4>
+                            <div className="flex items-center justify-between mb-2">
+                              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                                <Lightbulb className="h-3.5 w-3.5" />
+                                Blog Ideas
+                              </h4>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="gap-1 text-xs h-6 px-2 text-muted-foreground"
+                                disabled={enrichingSilo !== null || isAnalyzing}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  reEnrichSingleCluster(cluster.topic);
+                                }}
+                              >
+                                {enrichingSilo === cluster.topic ? (
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                ) : (
+                                  <RefreshCw className="h-3 w-3" />
+                                )}
+                                {enrichingSilo === cluster.topic ? "Regenerating..." : "Regenerate Ideas"}
+                              </Button>
+                            </div>
                             <div className="space-y-2">
                               {cluster.blog_ideas.map((idea, i) => {
                                 const ideaKey = makeIdeaKey(cluster.topic, idea.title);
