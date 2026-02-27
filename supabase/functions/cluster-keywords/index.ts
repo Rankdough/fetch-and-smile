@@ -138,6 +138,22 @@ OUTPUT FORMAT (strict JSON, no markdown):
       }
     }
 
+    // Inject actual volume data from CSV into clusters (don't rely on LLM to echo it)
+    if (hasVolume && parsed.clusters) {
+      for (const cluster of parsed.clusters) {
+        if (!cluster.keyword_volumes) cluster.keyword_volumes = {};
+        let sum = 0;
+        for (const kw of cluster.keywords) {
+          const vol = volumeMap[kw];
+          if (vol !== undefined) {
+            cluster.keyword_volumes[kw] = vol;
+            sum += vol;
+          }
+        }
+        if (sum > 0) cluster.estimated_monthly_volume = sum;
+      }
+    }
+
     return new Response(JSON.stringify(parsed), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
