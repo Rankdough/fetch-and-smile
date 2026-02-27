@@ -835,7 +835,7 @@ const KeywordClustering = () => {
                         </Collapsible>
 
                         {/* Blog Ideas */}
-                        {cluster.blog_ideas && cluster.blog_ideas.length > 0 && (
+                        {cluster.blog_ideas && cluster.blog_ideas.length > 0 ? (
                           <div>
                             <div className="flex items-center justify-between mb-2">
                               <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
@@ -989,6 +989,27 @@ Focus on providing actionable research that will help create a comprehensive, di
                                 );
                               })}
                             </div>
+                          </div>
+                        ) : (
+                          <div className="border border-dashed rounded-md p-4 flex items-center justify-between">
+                            <p className="text-sm text-muted-foreground">No blog ideas generated yet for this silo.</p>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="gap-1.5 text-xs"
+                              disabled={enrichingSilo !== null || isAnalyzing}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                reEnrichSingleCluster(cluster.topic);
+                              }}
+                            >
+                              {enrichingSilo === cluster.topic ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              ) : (
+                                <Lightbulb className="h-3.5 w-3.5" />
+                              )}
+                              Generate Blog Ideas
+                            </Button>
                           </div>
                         )}
                       </CardContent>
