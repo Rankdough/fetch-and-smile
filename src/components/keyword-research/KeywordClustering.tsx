@@ -8,8 +8,13 @@ import { useToast } from "@/hooks/use-toast";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
   Upload, Layers, ChevronDown, ChevronRight, Loader2, Square,
-  TrendingUp, FileText, Copy, Download, BarChart3, Target
+  TrendingUp, FileText, Copy, Download, BarChart3, Target, Info
 } from "lucide-react";
+
+interface KeywordWithVolume {
+  keyword: string;
+  volume: number | null;
+}
 
 interface KeywordCluster {
   topic: string;
@@ -53,10 +58,12 @@ const KeywordClustering = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const abortRef = useRef<AbortController | null>(null);
 
-  const [rawInput, setRawInput] = useState("");
+  const [keywordsWithVolume, setKeywordsWithVolume] = useState<KeywordWithVolume[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [result, setResult] = useState<ClusteringResult | null>(null);
   const [expandedClusters, setExpandedClusters] = useState<Set<string>>(new Set());
+
+  const [rawInput, setRawInput] = useState("");
 
   const parseKeywordsFromText = (text: string): string[] => {
     return text
@@ -65,26 +72,49 @@ const KeywordClustering = () => {
       .filter((k) => k.length > 1 && k.length < 200);
   };
 
-  const parseCSVKeywords = (text: string): string[] => {
-    const lines = text.split(/\r?\n/);
-    if (lines.length < 2) return [];
-    const headers = lines[0].toLowerCase();
-    // Find the keyword column
-    const cols = lines[0].split(",").map(h => h.trim().replace(/"/g, ""));
-    let kwIdx = cols.findIndex(c => c.toLowerCase() === "keyword");
-    if (kwIdx === -1) kwIdx = cols.findIndex(c => c.toLowerCase().includes("keyword"));
-    if (kwIdx === -1) kwIdx = cols.findIndex(c => c.toLowerCase().includes("top queries"));
-    if (kwIdx === -1) kwIdx = 0;
-
-    const keywords: string[] = [];
-    for (let i = 1; i < lines.length; i++) {
-      const parts = lines[i].split(",");
-      const val = parts[kwIdx]?.trim().replace(/^"|"$/g, "");
-      if (val && val.length > 1 && val.length < 200) {
-        keywords.push(val.toLowerCase());
+  // Proper CSV parser that handles quoted fields with commas
+  const parseCSVRow = (line: string): string[] => {
+    const cells: string[] = [];
+    let current = "";
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"') {
+        if (inQuotes && line[i + 1] === '"') { current += '"'; i++; }
+        else inQuotes = !inQuotes;
+      } else if (ch === ',' && !inQuotes) {
+        cells.push(current.trim());
+        current = "";
+      } else {
+        current += ch;
       }
     }
-    return keywords;
+    cells.push(current.trim());
+    return cells;
+  };
+
+  const parseCSVKeywords = (text: string): KeywordWithVolume[] => {
+    const lines = text.split(/\r?\n/).filter(l => l.trim());
+    if (lines.length < 2) return [];
+
+    const headers = parseCSVRow(lines[0]).map(h => h.replace(/^"|"$/g, "").toLowerCase());
+    let kwIdx = headers.findIndex(c => c === "keyword");
+    if (kwIdx === -1) kwIdx = headers.findIndex(c => c.includes("keyword"));
+    if (kwIdx === -1) kwIdx = headers.findIndex(c => c.includes("top queries"));
+    if (kwIdx === -1) kwIdx = 0;
+
+    const volIdx = headers.findIndex(c => c === "volume");
+
+    const results: KeywordWithVolume[] = [];
+    for (let i = 1; i < lines.length; i++) {
+      const cells = parseCSVRow(lines[i]);
+      const kw = cells[kwIdx]?.replace(/^"|"$/g, "").trim();
+      const vol = volIdx >= 0 ? parseInt(cells[volIdx]?.replace(/[^0-9]/g, ""), 10) : null;
+      if (kw && kw.length > 1 && kw.length < 200) {
+        results.push({ keyword: kw.toLowerCase(), volume: isNaN(vol as number) ? null : vol });
+      }
+    }
+    return results;
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -93,13 +123,15 @@ const KeywordClustering = () => {
     const reader = new FileReader();
     reader.onload = (ev) => {
       const text = ev.target?.result as string;
-      const keywords = parseCSVKeywords(text);
-      if (keywords.length === 0) {
+      const parsed = parseCSVKeywords(text);
+      if (parsed.length === 0) {
         toast({ title: "No keywords found", description: "Could not extract keywords from CSV", variant: "destructive" });
         return;
       }
-      setRawInput(keywords.join("\n"));
-      toast({ title: `${keywords.length} keywords loaded from ${file.name}` });
+      setKeywordsWithVolume(parsed);
+      setRawInput(parsed.map(p => p.keyword).join("\n"));
+      const hasVolume = parsed.some(p => p.volume !== null);
+      toast({ title: `${parsed.length} keywords loaded from ${file.name}`, description: hasVolume ? "Search volume data detected" : undefined });
     };
     reader.readAsText(file);
     if (fileInputRef.current) fileInputRef.current.value = "";
@@ -110,6 +142,12 @@ const KeywordClustering = () => {
     if (keywords.length < 10) {
       toast({ title: "Need more keywords", description: "Please provide at least 10 keywords to cluster.", variant: "destructive" });
       return;
+    }
+
+    // Build volume map from CSV data if available
+    const volumeMap: Record<string, number> = {};
+    for (const item of keywordsWithVolume) {
+      if (item.volume !== null) volumeMap[item.keyword] = item.volume;
     }
 
     setIsAnalyzing(true);
@@ -126,7 +164,10 @@ const KeywordClustering = () => {
             "Content-Type": "application/json",
             Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
           },
-          body: JSON.stringify({ keywords }),
+          body: JSON.stringify({ 
+            keywords,
+            volumeMap: Object.keys(volumeMap).length > 0 ? volumeMap : undefined,
+          }),
           signal: controller.signal,
         }
       );
@@ -206,6 +247,7 @@ const KeywordClustering = () => {
             {keywordCount > 0 && (
               <Badge variant="secondary" className="text-xs">
                 {keywordCount} keywords ready
+                {keywordsWithVolume.some(k => k.volume !== null) && " (with volume data)"}
               </Badge>
             )}
           </div>
