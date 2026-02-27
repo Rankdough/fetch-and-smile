@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -9,7 +10,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { supabase } from "@/integrations/supabase/client";
 import {
   Upload, Layers, ChevronDown, ChevronRight, Loader2, Square,
-  TrendingUp, FileText, Copy, Download, BarChart3, Target, Info, Lightbulb, Trash2, RefreshCw
+  TrendingUp, FileText, Copy, Download, BarChart3, Target, Info, Lightbulb, Trash2, RefreshCw, ArrowRight
 } from "lucide-react";
 
 interface KeywordWithVolume {
@@ -73,6 +74,7 @@ const contentTypeLabels: Record<string, string> = {
 
 const KeywordClustering = () => {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const abortRef = useRef<AbortController | null>(null);
 
@@ -353,6 +355,27 @@ const KeywordClustering = () => {
     }
   };
 
+  const sendToGenerator = (cluster: KeywordCluster, idea: BlogIdea) => {
+    const instructions = [
+      `Cluster: ${cluster.topic} — ${cluster.description}`,
+      `Blog idea: ${idea.description}`,
+      `Strategic reason: ${idea.reason}`,
+    ].join("\n\n");
+
+    const formData = {
+      topic: idea.title,
+      length: "medium",
+      outline: "",
+      instructions,
+    };
+
+    localStorage.setItem("seo-generator-formData", JSON.stringify(formData));
+    localStorage.setItem("seo-generator-keywords", JSON.stringify(idea.target_keywords || []));
+
+    toast({ title: "Pre-filled article settings", description: `Topic: ${idea.title}` });
+    navigate("/");
+  };
+
   const toggleCluster = (topic: string) => {
     setExpandedClusters(prev => {
       const next = new Set(prev);
@@ -598,7 +621,7 @@ const KeywordClustering = () => {
                                 <div key={i} className="border rounded-md p-3 space-y-1">
                                   <div className="flex items-start gap-2">
                                     <span className="text-xs font-bold text-primary mt-0.5 shrink-0">{i + 1}.</span>
-                                    <div className="space-y-1 min-w-0">
+                                    <div className="space-y-1 min-w-0 flex-1">
                                       <p className="text-sm font-medium leading-snug">{idea.title}</p>
                                       <p className="text-xs text-muted-foreground">{idea.description}</p>
                                       <p className="text-xs text-primary/80 italic">↳ {idea.reason}</p>
@@ -610,6 +633,15 @@ const KeywordClustering = () => {
                                         </div>
                                       )}
                                     </div>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="shrink-0 gap-1 text-xs h-7 px-2"
+                                      onClick={() => sendToGenerator(cluster, idea)}
+                                    >
+                                      Use for Article
+                                      <ArrowRight className="h-3 w-3" />
+                                    </Button>
                                   </div>
                                 </div>
                               ))}
