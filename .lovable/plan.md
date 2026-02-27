@@ -1,69 +1,32 @@
 
 
-## Plan: Add Keyword Research Tool
+## Plan: "Use for Article" button on blog ideas
 
-### Overview
-Add a fourth tool tab "Keyword Research" to the app. The user enters a broad topic, optionally adds context, and the AI generates a comprehensive semantic keyword universe organized into categorized clusters. Results are saved to the database for later retrieval.
+### Approach
+Add a small button next to each blog idea in KeywordClustering that writes the idea's data to localStorage (same keys the content generator reads on mount) and navigates to `/`.
 
-### Database
+### What gets pre-filled
+From the blog idea and its parent cluster:
+- **Topic** (`seo-generator-formData.topic`) = blog idea title
+- **Keywords** (`seo-generator-keywords`) = blog idea's `target_keywords` array
+- **Instructions** (`seo-generator-formData.instructions`) = blog idea description + reason as guidance context
 
-**New table: `keyword_research`**
-- `id` (uuid, PK, default `gen_random_uuid()`)
-- `topic` (text, not null)
-- `context` (text, nullable)
-- `results` (jsonb, not null) — structured clusters like `{ categories: [{ name: string, terms: string[] }] }`
-- `created_at` (timestamptz, default `now()`)
-- Public RLS policies (SELECT, INSERT, DELETE) — same pattern as other tables
+The cluster's `content_type` and `description` can also be folded into instructions for additional context.
 
-### Edge Function: `generate-keyword-universe`
+### Changes
 
-**File:** `supabase/functions/generate-keyword-universe/index.ts`
+**File: `src/components/keyword-research/KeywordClustering.tsx`**
 
-- Accepts `{ topic, context? }` 
-- Calls Lovable AI (`google/gemini-3-flash-preview`) with a detailed prompt instructing the model to act as a domain expert and produce 150-300+ terms across 10-15 categories
-- Uses tool calling to extract structured JSON output (categories with term arrays)
-- Returns the structured result
-- Handles 429/402 errors
+1. Accept `useNavigate` from react-router-dom (add import)
+2. Add a `sendToGenerator` function that:
+   - Sets `localStorage["seo-generator-formData"]` with `{ topic: idea.title, length: "medium", outline: "", instructions: <cluster description + idea description + reason> }`
+   - Sets `localStorage["seo-generator-keywords"]` with `idea.target_keywords`
+   - Clears other generator keys that don't apply (gap analysis, format reference, etc.) so stale data doesn't leak -- OR leave them untouched so user's existing settings persist. Safer to leave untouched.
+   - Navigates to `/`
+3. Add a small "Use for Article" button (with an `ArrowRight` or `ExternalLink` icon) next to each blog idea, calling `sendToGenerator(cluster, idea)`
 
-**Prompt strategy:**
-- Exhaustively list sub-categories: equipment, rules, techniques, positions, performance metrics, training, slang/jargon, brands, common questions, long-tail search phrases
-- Include niche insider terms that standard keyword tools miss
-- Structure as named categories with arrays of terms
-
-### New Page: `src/pages/KeywordResearch.tsx`
-
-**Input section:**
-- Topic text input (required)
-- Optional context/guidance textarea
-- Generate button
-
-**Results section:**
-- Collapsible cards per category, each showing a list of terms as badges/chips
-- Total term count display
-- "Copy All" button (copies all terms as newline-separated list)
-- "Export CSV" button (exports with category and term columns)
-- Saved research list — shows previously generated keyword universes with ability to load/delete them
-
-### Navigation Changes
-
-**File:** `src/pages/Index.tsx` (lines ~1996-1999)
-- Add a new nav button "Keyword Research" after "Product Descriptions" that navigates to `/keyword-research`
-- Uses `Search` icon from lucide-react
-
-**File:** `src/App.tsx`
-- Add route: `<Route path="/keyword-research" element={<KeywordResearch />} />`
-
-**File:** `supabase/config.toml`
-- Add `[functions.generate-keyword-universe]` with `verify_jwt = false`
-
-### Files to create
-1. `supabase/functions/generate-keyword-universe/index.ts`
-2. `src/pages/KeywordResearch.tsx`
-
-### Files to modify
-1. `src/App.tsx` — add route + import
-2. `src/pages/Index.tsx` — add nav button
-
-### Database migration
-1. Create `keyword_research` table with public RLS policies
+### What stays unchanged
+- Index.tsx (content generator) -- no changes needed, it already reads from localStorage on mount
+- All other clustering functionality remains identical
+- No database changes needed
 
