@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -10,7 +11,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { supabase } from "@/integrations/supabase/client";
 import {
   Upload, Layers, ChevronDown, ChevronRight, Loader2, Square,
-  TrendingUp, FileText, Copy, Download, BarChart3, Target, Info, Lightbulb, Trash2, RefreshCw, ArrowRight, Search, Bookmark
+  TrendingUp, FileText, Copy, Download, BarChart3, Target, Info, Lightbulb, Trash2, RefreshCw, ArrowRight, Search, Bookmark, Clock
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import { Check } from "lucide-react";
@@ -119,6 +120,7 @@ const KeywordClustering = () => {
   const [bookmarkedIdeas, setBookmarkedIdeas] = useState<Set<string>>(getBookmarkedIdeas);
   const [expandedClusters, setExpandedClusters] = useState<Set<string>>(new Set());
   const [rawInput, setRawInput] = useState("");
+  const [projectName, setProjectName] = useState("");
   const [savedResults, setSavedResults] = useState<SavedClustering[]>([]);
   const [activeResultId, setActiveResultId] = useState<string | null>(null);
 
@@ -149,11 +151,22 @@ const KeywordClustering = () => {
     }
   };
 
-  const saveResult = async (keywords: string[], clusteringResult: ClusteringResult) => {
-    const name = `${clusteringResult.clusters.length} silos · ${keywords.length} keywords`;
+  const saveResult = async (keywords: string[], clusteringResult: ClusteringResult, topicName?: string) => {
+    // Derive a meaningful name from the clusters or keywords
+    let name = topicName || "";
+    if (!name) {
+      // Try to find a common theme from top 3 cluster topics
+      const topTopics = clusteringResult.clusters
+        .sort((a, b) => b.estimated_monthly_volume - a.estimated_monthly_volume)
+        .slice(0, 3)
+        .map(c => c.topic);
+      // Use the most common single word across cluster topics, or just use the first topic
+      name = topTopics[0] || `${clusteringResult.clusters.length} silos`;
+    }
+    const displayName = `${name}`;
     const { data, error } = await supabase
       .from("keyword_clustering_results")
-      .insert({ input_keywords: keywords, result: clusteringResult as any, name })
+      .insert({ input_keywords: keywords, result: clusteringResult as any, name: displayName })
       .select()
       .single();
     if (data && !error) {
@@ -328,7 +341,7 @@ const KeywordClustering = () => {
       toast({ title: "Clustering complete!", description: `${finalResult.clusters.length} topic silos with blog ideas from ${keywords.length} keywords` });
       
       // Auto-save to database
-      await saveResult(keywords, finalResult);
+      await saveResult(keywords, finalResult, projectName.trim() || undefined);
     } catch (err: any) {
       if (err.name === "AbortError") {
         toast({ title: "Analysis stopped" });
@@ -529,30 +542,60 @@ const KeywordClustering = () => {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Saved results selector */}
+        {/* Project name input */}
+        <div className="space-y-1.5">
+          <label className="text-xs font-medium text-muted-foreground">Project Name</label>
+          <Input
+            placeholder="e.g. pickleball, lacrosse, hiking gear..."
+            value={projectName}
+            onChange={(e) => setProjectName(e.target.value)}
+            className="max-w-sm"
+          />
+        </div>
+
+        {/* Saved results - Previous Research style */}
         {savedResults.length > 0 && (
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground">Previous Analyses</label>
-            <div className="flex flex-wrap gap-2">
-              {savedResults.map(saved => (
-                <div key={saved.id} className="flex items-center gap-1">
-                  <Badge
-                    variant={activeResultId === saved.id ? "default" : "outline"}
-                    className="text-xs cursor-pointer hover:bg-primary/20 transition-colors"
-                    onClick={() => loadResult(saved)}
-                  >
-                    {saved.name || "Untitled"} · {new Date(saved.created_at).toLocaleDateString()}
-                  </Badge>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); deleteResult(saved.id); }}
-                    className="text-muted-foreground/50 hover:text-destructive transition-colors"
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
+          <Card className="border-dashed">
+            <CardHeader className="py-3">
+              <CardTitle className="text-sm flex items-center gap-2 text-muted-foreground">
+                <Clock className="h-4 w-4" />
+                Previous Research
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <div className="space-y-2">
+                {savedResults.map(saved => {
+                  const clusterCount = saved.result?.clusters?.length || 0;
+                  const kwCount = saved.input_keywords?.length || 0;
+                  return (
+                    <div
+                      key={saved.id}
+                      className={`flex items-center justify-between p-3 rounded-md border hover:bg-accent/50 transition-colors cursor-pointer ${activeResultId === saved.id ? "border-primary bg-primary/5" : ""}`}
+                      onClick={() => {
+                        loadResult(saved);
+                        setProjectName(saved.name || "");
+                      }}
+                    >
+                      <div className="flex-1 text-left">
+                        <span className="font-medium text-sm">{saved.name || "Untitled"}</span>
+                        <span className="text-xs text-muted-foreground ml-2">
+                          {kwCount} terms · {clusterCount} silos · {new Date(saved.created_at).toLocaleDateString()}
+                        </span>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                        onClick={(e) => { e.stopPropagation(); deleteResult(saved.id); }}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
         )}
 
         {/* Input area */}
