@@ -75,7 +75,7 @@ JSON FORMAT:
     const pass1User = `Classify these ${uniqueKeywords.length} keywords into 10-30 topic silos:\n\n${kwLines}`;
 
     console.log("Pass 1: Classifying all keywords into topics...");
-    const pass1Data = await callAI(LOVABLE_API_KEY, "google/gemini-2.5-flash", [
+    const pass1Data = await callAI(LOVABLE_API_KEY, "google/gemini-2.5-flash-lite", [
       { role: "system", content: pass1System },
       { role: "user", content: pass1User },
     ]);
