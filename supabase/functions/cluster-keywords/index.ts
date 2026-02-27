@@ -22,66 +22,43 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
-    // For very large keyword lists, sample + summarize
-    const maxKeywords = 2000;
-    const keywordsToAnalyze = keywords.length > maxKeywords
-      ? keywords.slice(0, maxKeywords)
-      : keywords;
+    // Cap keywords to avoid output truncation — deduplicate too
+    const maxKeywords = 800;
+    const uniqueKeywords = [...new Set(keywords.map((k: string) => k.toLowerCase().trim()))];
+    const keywordsToAnalyze = uniqueKeywords.length > maxKeywords
+      ? uniqueKeywords.slice(0, maxKeywords)
+      : uniqueKeywords;
 
     const hasVolume = volumeMap && Object.keys(volumeMap).length > 0;
 
-    const systemPrompt = `You are an expert SEO strategist specializing in keyword clustering and content strategy.
-
-Your task: Given a list of keywords${hasVolume ? " with their actual monthly search volumes" : ""}, group them into topical silos/clusters that represent distinct content opportunities.
+    // Compact prompt: do NOT ask LLM to return keyword_volumes (we inject from CSV)
+    const systemPrompt = `You are an expert SEO strategist. Group the given keywords into topical silos.
 
 RULES:
-- Return AT LEAST 10 topic clusters (more if the data supports it, up to 30)
-- Each cluster should have a clear, descriptive topic name suitable as a content pillar
-${hasVolume 
-  ? "- For each keyword in a cluster, include its actual search volume in the keyword_volumes object"
-  : "- For each keyword in a cluster, estimate its individual monthly search volume in the keyword_volumes object"}
-- Calculate estimated_monthly_volume as the SUM of all keyword volumes in the cluster
-- Sort clusters by estimated_monthly_volume (highest first)
-- Every keyword must be assigned to exactly one cluster
-- Clusters should be actionable content ideas — each could become a blog post, landing page, or content series
-- Group by user intent and semantic similarity, not just surface-level word matching
-- For each cluster, suggest exactly 5 blog post ideas that would target the keywords in that cluster
+- 10-30 clusters sorted by estimated_monthly_volume desc
+- Each cluster: clear topic name, 1-sentence description
+- Every keyword in exactly one cluster
+- Group by user intent & semantic similarity
+- 5 blog ideas per cluster
+- Output ONLY valid JSON, no markdown fences
 
-OUTPUT FORMAT (strict JSON, no markdown):
-{
-  "clusters": [
-    {
-      "topic": "Descriptive Topic Name",
-      "description": "One sentence explaining what this content cluster covers and why it matters",
-      "estimated_monthly_volume": 12000,
-      "keywords": ["keyword 1", "keyword 2"],
-      "keyword_volumes": {"keyword 1": 8000, "keyword 2": 4000},
-      "content_type": "blog_post | landing_page | guide | comparison | listicle | how_to",
-      "difficulty": "low | medium | high",
-      "priority": "high | medium | low",
-      "blog_ideas": [
-        {
-          "title": "Blog Post Title",
-          "description": "One sentence describing what this post covers",
-          "reason": "Why this blog is worth writing from an SEO/business perspective"
-        }
-      ]
-    }
-  ],
-  "total_keywords_clustered": 150,
-  "unclustered": []
-}`;
+JSON FORMAT:
+{"clusters":[{"topic":"Name","description":"...","estimated_monthly_volume":12000,"keywords":["kw1","kw2"],"content_type":"blog_post|landing_page|guide|comparison|listicle|how_to","difficulty":"low|medium|high","priority":"high|medium|low","blog_ideas":[{"title":"...","description":"...","reason":"..."}]}],"total_keywords_clustered":0,"unclustered":[]}`;
 
+    // Build user prompt — include volume hints but don't ask LLM to echo them back
     let userPrompt: string;
     if (hasVolume) {
+      // Only include top-volume keywords with their volumes to save tokens
       const kwLines = keywordsToAnalyze.map(kw => {
         const vol = volumeMap[kw];
-        return vol !== undefined ? `${kw} [vol: ${vol}]` : kw;
+        return vol !== undefined && vol > 0 ? `${kw} [${vol}]` : kw;
       }).join("\n");
-      userPrompt = `Analyze and cluster these ${keywordsToAnalyze.length} keywords (with search volume data) into topical silos:\n\n${kwLines}`;
+      userPrompt = `Cluster these ${keywordsToAnalyze.length} keywords into topical silos:\n\n${kwLines}`;
     } else {
-      userPrompt = `Analyze and cluster these ${keywordsToAnalyze.length} keywords into topical silos:\n\n${keywordsToAnalyze.join("\n")}`;
+      userPrompt = `Cluster these ${keywordsToAnalyze.length} keywords into topical silos:\n\n${keywordsToAnalyze.join("\n")}`;
     }
+
+    console.log(`Clustering ${keywordsToAnalyze.length} keywords (from ${keywords.length} provided)`);
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -90,7 +67,7 @@ OUTPUT FORMAT (strict JSON, no markdown):
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: "google/gemini-2.5-pro",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
