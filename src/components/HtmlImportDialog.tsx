@@ -254,7 +254,7 @@ export function HtmlImportDialog({ onImport }: HtmlImportDialogProps) {
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="gap-2">
+        <Button variant="outline" size="sm" className="gap-2" title="Paste raw HTML from any webpage and convert it to editable Markdown. Useful for importing existing blog posts or articles from your CMS. The HTML is cleaned and structured for editing.">
           <FileCode className="h-4 w-4" />
           Import HTML
         </Button>

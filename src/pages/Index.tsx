@@ -14,6 +14,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Loader2, Sparkles, FileText, Link, Search, X, Upload, Plus, Tag, Download, ExternalLink, BookOpen, Eye, Edit2, Mic2, RotateCcw, Target, Maximize2, Minimize2, ImagePlus, Wand2, Image, ChevronDown, Trash2, Settings, FileUp, Save, FolderOpen } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -2030,6 +2031,7 @@ const Index = () => {
             <Button
               onClick={handleGenerate}
               disabled={isGenerating || !formData.topic.trim()}
+              title="Creates a fully structured SEO article based on your topic, keywords, tone profile, and all configured settings. Includes TL;DR, Quick Tips, FAQ, comparison tables, and source citations. Uses approximately 1 AI credit per generation."
               size="default"
             >
               {isGenerating ? (
@@ -2046,7 +2048,7 @@ const Index = () => {
             </Button>
 
             {/* Human Mode Toggle */}
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-background border">
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-background border" title="When enabled, content goes through a 4-stage humanisation pipeline: AI generation, brief creation, section-by-section rewriting, and quality gating. Produces more natural, human-sounding content but uses ~10 credits instead of ~1.">
               <Label htmlFor="human-mode" className="text-sm font-medium cursor-pointer">
                 Human Mode
               </Label>
@@ -2068,7 +2070,7 @@ const Index = () => {
                 onClick={handleHumaniseOnly}
                 disabled={isGenerating || isHumanisingOnly || !generatedContent.trim()}
                 size="default"
-                title="Run only Stage 3 + 4 on existing content (~4 credits vs ~10 for full pipeline)"
+                title="Runs only the humanisation stages (Stage 3 + 4) on your existing content. Rewrites for natural, human-sounding language without regenerating the article from scratch. Costs ~4 credits vs ~10 for a full Human Mode generation."
               >
                 {isHumanisingOnly ? (
                   <>
@@ -2100,7 +2102,7 @@ const Index = () => {
               size="default"
               onClick={handleEnhanceImport}
               disabled={isEnhancingImport || !generatedContent}
-              title="Apply tone profile and add CTAs to imported content"
+              title="Enhances imported content by applying your selected tone profile, inserting CTA banners, and placing article images. Use this after importing HTML or URL content to match your brand voice and add promotional elements."
             >
               {isEnhancingImport ? (
                 <>
@@ -2120,7 +2122,7 @@ const Index = () => {
               size="default"
               onClick={handleApplyFormat}
               disabled={isApplyingFormat || !generatedContent}
-              title="Add TL;DR, Quick Tips, Navigation, and FAQ sections without changing content"
+              title="Adds structural formatting to your article without changing the existing content. Inserts TL;DR summary, 3 Quick Tips, 'In This Article' navigation, FAQ section, and 2 contextual CTA banners if a CTA URL is set."
             >
               {isApplyingFormat ? (
                 <>
@@ -2138,6 +2140,7 @@ const Index = () => {
             <Button
               variant="outline"
               size="default"
+              title="Copies your article as clean, production-ready HTML with inline styles for navigation panels, FAQ accordions, CTA banners, and color branding. Ready to paste directly into Shopify, WordPress, or any CMS."
               disabled={!generatedContent}
               onClick={() => {
                 // Generate clean HTML from source data (not DOM parsing)
@@ -2722,6 +2725,7 @@ const Index = () => {
             <Button
               variant="outline"
               size="default"
+              title="Copies your article as rich formatted text that preserves headings, bold, links, and tables. Paste directly into Google Docs, Microsoft Word, or any rich text editor with formatting intact."
               onClick={() => {
                 if (!generatedContent.trim()) return;
                 // Copy as rich text (formatted) using clipboard API
@@ -2800,6 +2804,7 @@ const Index = () => {
             <Button
               variant="outline"
               size="default"
+              title="Downloads your article as a Markdown (.md) file to your computer. The file preserves all formatting, headings, tables, and links. You can open it in any text editor or import it into other tools."
               onClick={() => {
                 if (!generatedContent.trim()) return;
                 const blob = new Blob([generatedContent], { type: "text/markdown" });
@@ -2828,6 +2833,7 @@ const Index = () => {
             <Button
               variant="outline"
               size="default"
+              title="Generates a sample article using a demo topic (Composite Bonding vs Veneers) with all your current settings applied. Great for testing your tone profile, color palette, and other configurations before using your own topic."
               onClick={async () => {
                 // Always generate through AI to pull in all current settings
                 setIsGenerating(true);
@@ -2932,7 +2938,7 @@ const Index = () => {
                 onClick={handleResetContent}
                 disabled={isGenerating}
                 className="text-amber-600 border-amber-300 hover:bg-amber-50 hover:text-amber-700"
-                title="Restore to the original generated version"
+                title="Reverts all edits, voice commands, and format changes back to the original AI-generated version. Useful if you've made changes you want to undo. This cannot be reversed once confirmed."
               >
                 <RotateCcw className="h-4 w-4 mr-2" />
                 Reset Content
@@ -2945,7 +2951,7 @@ const Index = () => {
                 variant="outline"
                 onClick={handleSmartRerun}
                 disabled={isGenerating || isRerunning}
-                title="Apply only changed settings to existing content"
+                title="Detects which settings you've changed since the last generation and applies only those updates to the existing article. Much faster than regenerating from scratch - preserves your content while updating tone, keywords, length, or other modified settings."
               >
                 {isRerunning ? (
                   <>
@@ -2967,6 +2973,7 @@ const Index = () => {
                 variant="outline"
                 onClick={handleSaveArticle}
                 disabled={isSavingArticle || isGenerating}
+                title="Saves your article and all its settings (topic, keywords, tone, images, CTAs) to your library. You can reload and continue editing saved articles anytime from the Saved Articles page."
               >
                 {isSavingArticle ? (
                   <>
@@ -2986,7 +2993,7 @@ const Index = () => {
             <Button
               variant="ghost"
               onClick={() => navigate("/articles")}
-              title="View saved articles"
+              title="Opens your library of previously saved articles. You can load, edit, or re-export any saved article. Articles are saved with all their settings so you can pick up where you left off."
             >
               <FolderOpen className="h-4 w-4 mr-2" />
               Saved Articles
@@ -2997,6 +3004,7 @@ const Index = () => {
                 <Button
                   variant="outline"
                   disabled={isGenerating}
+                  title="Clear options: remove just the generated content, just the blog post settings (topic, keywords, etc.), or clear everything to start fresh."
                 >
                   <Trash2 className="h-4 w-4 mr-2" />
                   Clear
