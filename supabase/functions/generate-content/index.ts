@@ -400,46 +400,77 @@ Place these images throughout the article at logical locations, typically after 
 
     console.log(expandExistingContent ? "Expanding existing content" : "Generating content for topic:", topic);
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        // ~1.5 tokens per word, plus generous headroom for formatting and structure
-        max_tokens: Math.min(Math.max(2048, Math.ceil(targetWords * 3)), 16384),
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-      }),
-    });
+    // Use stronger model for long articles, flash for shorter ones
+    const model = targetWords >= 2000 ? "google/gemini-2.5-flash" : "google/gemini-3-flash-preview";
+    // ~2 tokens per word with generous headroom for markdown formatting
+    const maxTokens = Math.max(4096, Math.ceil(targetWords * 4));
 
-    if (!response.ok) {
-      if (response.status === 429) {
+    console.log(`Using model: ${model}, max_tokens: ${maxTokens}, target words: ${targetWords}`);
+
+    const generateWithRetry = async (attempt: number): Promise<string> => {
+      const retryPrompt = attempt > 1 
+        ? `\n\n⚠️ CRITICAL: Your previous attempt was WAY too short. You MUST write at least ${targetWords} words. Do NOT stop early. Keep writing detailed, substantive content for every section.`
+        : "";
+
+      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model,
+          max_tokens: maxTokens,
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt + retryPrompt },
+          ],
+        }),
+      });
+
+      if (!response.ok) {
+        if (response.status === 429) {
+          return Promise.reject({ status: 429, message: "Rate limit exceeded. Please try again in a moment." });
+        }
+        if (response.status === 402) {
+          return Promise.reject({ status: 402, message: "AI usage limit reached. Please add credits to continue." });
+        }
+        const errorText = await response.text();
+        console.error("AI gateway error:", response.status, errorText);
+        throw new Error(`AI gateway error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const generatedContent = data.choices?.[0]?.message?.content;
+
+      if (!generatedContent) {
+        throw new Error("No content generated");
+      }
+
+      // Check word count - retry if drastically short (less than 50% of target)
+      const wordCount = generatedContent.split(/\s+/).length;
+      const minAcceptable = Math.floor(targetWords * 0.5);
+      console.log(`Attempt ${attempt}: Generated ${wordCount} words (target: ${targetWords}, min acceptable: ${minAcceptable})`);
+
+      if (wordCount < minAcceptable && attempt < 2) {
+        console.warn(`Content too short (${wordCount}/${targetWords}), retrying with stronger prompt...`);
+        return generateWithRetry(attempt + 1);
+      }
+
+      return generatedContent;
+    };
+
+    let content: string;
+    try {
+      content = await generateWithRetry(1);
+    } catch (e: any) {
+      if (e?.status === 429 || e?.status === 402) {
         return new Response(
-          JSON.stringify({ error: "Rate limit exceeded. Please try again in a moment." }),
-          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          JSON.stringify({ error: e.message }),
+          { status: e.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ error: "AI usage limit reached. Please add credits to continue." }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      const errorText = await response.text();
-      console.error("AI gateway error:", response.status, errorText);
-      throw new Error(`AI gateway error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    let content = data.choices?.[0]?.message?.content;
-
-    if (!content) {
-      throw new Error("No content generated");
+      throw e;
     }
 
     // Post-process: Remove any em dashes, en dashes, and horizontal rules
