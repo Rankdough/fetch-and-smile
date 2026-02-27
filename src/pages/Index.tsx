@@ -1644,21 +1644,9 @@ const Index = () => {
         toneProfileUsed: data.toneApplied,
       }));
 
-      // If CTAs were added, set generated CTAs
-      if (data.ctasAdded) {
-        setGeneratedCTAs({
-          middle: {
-            headline: ctaConfig?.headline || "Want to Learn More?",
-            description: ctaConfig?.description || "Get expert guidance.",
-            buttonText: ctaConfig?.buttonText || "Learn More",
-          },
-          end: {
-            headline: "Ready to Take Action?",
-            description: "Start your journey today.",
-            buttonText: "Get Started",
-          },
-        });
-      }
+      // Imported/enhanced CTAs are embedded directly in markdown content.
+      // Keep generatedCTAs cleared to avoid rendering a second duplicate CTA layer.
+      setGeneratedCTAs(null);
 
       const enhancements = [];
       if (data.toneApplied) enhancements.push("Tone applied");
@@ -2089,9 +2077,15 @@ const Index = () => {
             <div className="h-6 w-px bg-border" />
 
             {/* Import/Export */}
-            <HtmlImportDialog onImport={(content) => setGeneratedContent(content, true)} />
+            <HtmlImportDialog onImport={(content) => {
+              setGeneratedContent(content, true);
+              setGeneratedCTAs(null);
+            }} />
             <UrlImportDialog
-              onImport={(content) => setGeneratedContent(content, true)}
+              onImport={(content) => {
+                setGeneratedContent(content, true);
+                setGeneratedCTAs(null);
+              }}
               formatReference={formatReference}
               targetLength={formData.length}
               instructions={formData.instructions}
@@ -2664,8 +2658,9 @@ const Index = () => {
                   }
                 }
                 
-                // Add CTA banners
-                if (generatedCTAs && ctaUrl) {
+                // Add CTA banners only when content does not already contain inline CTA banners
+                const hasInlineCtaBanners = /data-cta-banner="true"/i.test(finalHtml);
+                if (generatedCTAs && ctaUrl && !hasInlineCtaBanners) {
                   // Add middle CTA at ~40% of content
                   const h2Matches = [...finalHtml.matchAll(/<h2[^>]*>/gi)];
                   if (h2Matches.length > 3 && generatedCTAs.middle) {
@@ -4302,6 +4297,7 @@ const Index = () => {
                           inlineCTAs.push({ headline: headline.trim(), description: description.trim(), url: url.trim(), buttonText: buttonText.trim() });
                           return `\n\n<!--CTA_MARKER_${inlineCTAs.length - 1}-->\n\n`;
                         });
+                        const hasInlineCtas = inlineCTAs.length > 0;
                         
                         // Split content to insert CTAs and Navigation Panel
                         const lines = contentWithoutNav.split('\n');
@@ -4343,7 +4339,7 @@ const Index = () => {
                           const restLines = lines.slice(tldrEndIndex);
                           const restContent = restLines.join('\n');
                           
-                          if (middleInsertIndex > 0 && generatedCTAs?.middle && ctaUrl) {
+                          if (middleInsertIndex > 0 && generatedCTAs?.middle && ctaUrl && !hasInlineCtas) {
                             // Calculate relative index for CTA in rest content
                             const restH2Indices: number[] = [];
                             restLines.forEach((line, idx) => {
@@ -4365,7 +4361,7 @@ const Index = () => {
                           } else {
                             parts.push({ content: restContent });
                           }
-                        } else if (middleInsertIndex > 0 && generatedCTAs?.middle && ctaUrl) {
+                        } else if (middleInsertIndex > 0 && generatedCTAs?.middle && ctaUrl && !hasInlineCtas) {
                           parts.push({ content: lines.slice(0, middleInsertIndex).join('\n') });
                           parts.push({ content: '', ctaPosition: 'middle' });
                           parts.push({ content: lines.slice(middleInsertIndex).join('\n') });
