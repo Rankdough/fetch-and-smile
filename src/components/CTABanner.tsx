@@ -34,7 +34,7 @@ export const CTABanner = ({ headline, description, buttonText, url, tagline, bra
       style={{
         background: bgGradient,
         borderRadius: "16px",
-        padding: "48px 32px 40px",
+        padding: "36px 32px 28px",
         textAlign: "center" as const,
         margin: "32px 0",
         fontFamily: "inherit"
@@ -44,10 +44,10 @@ export const CTABanner = ({ headline, description, buttonText, url, tagline, bra
       <div 
         data-cta-headline="true"
         style={{
-          fontSize: "1.25em",
+          fontSize: "1.1em",
           fontWeight: 700,
           letterSpacing: "0.08em",
-          marginBottom: "16px",
+          marginBottom: "12px",
           color: headlineColor,
           fontFamily: "inherit",
           textTransform: "uppercase" as const
@@ -60,15 +60,15 @@ export const CTABanner = ({ headline, description, buttonText, url, tagline, bra
       <div 
         data-cta-description="true"
         style={{
-          fontSize: "1em",
-          marginBottom: "28px",
+          fontSize: "0.95em",
+          marginBottom: "20px",
           color: "white",
           fontFamily: "inherit",
           maxWidth: "480px",
           marginLeft: "auto",
           marginRight: "auto",
-          lineHeight: 1.7,
-          opacity: 0.95
+          lineHeight: 1.5,
+          opacity: 0.9
         }}
       >
         {description}
@@ -85,8 +85,8 @@ export const CTABanner = ({ headline, description, buttonText, url, tagline, bra
           background: buttonBg,
           color: "#1a1a1a",
           fontWeight: 700,
-          fontSize: "0.9em",
-          padding: "16px 48px",
+          fontSize: "0.85em",
+          padding: "14px 40px",
           borderRadius: "9999px",
           textDecoration: "none",
           fontFamily: "inherit",
@@ -104,8 +104,8 @@ export const CTABanner = ({ headline, description, buttonText, url, tagline, bra
         <div 
           data-cta-tagline="true"
           style={{
-            marginTop: "20px",
-            fontSize: "0.85em",
+            marginTop: "14px",
+            fontSize: "0.8em",
             color: "rgba(255, 255, 255, 0.6)",
             fontFamily: "inherit",
             letterSpacing: "0.02em"
@@ -134,10 +134,10 @@ export const generateCTAHtml = (
   // Note: data-cta-banner attribute is added for identification during export
   // The anchor has data-cta-button to prevent link styling from overwriting button styles
   return `
-<div data-cta-banner="true" style="background: ${bgGradient}; border-radius: 16px; padding: 48px 32px 40px; text-align: center; margin: 32px 0; font-family: inherit;">
-  <div style="font-size: 1.25em; font-weight: 700; letter-spacing: 0.08em; margin-bottom: 16px; color: ${headlineColor}; font-family: inherit; text-transform: uppercase;">${headline}</div>
-  <div style="font-size: 1em; margin-bottom: 28px; color: white; font-family: inherit; max-width: 480px; margin-left: auto; margin-right: auto; line-height: 1.7; opacity: 0.95;">${description}</div>
-  <a href="${url}" target="_blank" rel="noopener noreferrer" data-cta-button="true" style="display: inline-block; background: ${buttonColor}; color: #1a1a1a; font-weight: 700; font-size: 0.9em; padding: 16px 48px; border-radius: 9999px; text-decoration: none; font-family: inherit; text-transform: uppercase; letter-spacing: 0.06em; box-shadow: 0 8px 24px rgba(255, 107, 107, 0.35), 0 4px 8px rgba(0, 0, 0, 0.2);">${buttonText}</a>
-  <div style="margin-top: 20px; font-size: 0.85em; color: rgba(255, 255, 255, 0.6); font-family: inherit; letter-spacing: 0.02em;">${displayTagline}</div>
+<div data-cta-banner="true" style="background: ${bgGradient}; border-radius: 16px; padding: 36px 32px 28px; text-align: center; margin: 32px 0; font-family: inherit;">
+  <div data-cta-headline="true" style="font-size: 1.1em; font-weight: 700; letter-spacing: 0.08em; margin-bottom: 12px; color: ${headlineColor}; font-family: inherit; text-transform: uppercase;">${headline}</div>
+  <div data-cta-description="true" style="font-size: 0.95em; margin-bottom: 20px; color: white; font-family: inherit; max-width: 480px; margin-left: auto; margin-right: auto; line-height: 1.5; opacity: 0.9;">${description}</div>
+  <a href="${url}" target="_blank" rel="noopener noreferrer" data-cta-button="true" style="display: inline-block; background: ${buttonColor}; color: #1a1a1a; font-weight: 700; font-size: 0.85em; padding: 14px 40px; border-radius: 9999px; text-decoration: none; font-family: inherit; text-transform: uppercase; letter-spacing: 0.06em; box-shadow: 0 8px 24px rgba(255, 107, 107, 0.35), 0 4px 8px rgba(0, 0, 0, 0.2);">${buttonText}</a>
+  <div data-cta-tagline="true" style="margin-top: 14px; font-size: 0.8em; color: rgba(255, 255, 255, 0.6); font-family: inherit; letter-spacing: 0.02em;">${displayTagline}</div>
 </div>`;
 };
