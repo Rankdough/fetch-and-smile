@@ -35,7 +35,7 @@ serve(async (req) => {
     const systemPrompt = `You are an expert SEO strategist. Your task is to classify every keyword into a topic silo.
 
 RULES:
-- Create 10-30 topic silos based on semantic similarity and search intent
+- Create 10-20 topic silos based on semantic similarity and search intent (never more than 20)
 - Every keyword must be assigned to exactly one topic
 - Topic names should be clear, descriptive, and action-oriented
 - Group by user intent & semantic meaning
@@ -45,7 +45,7 @@ RULES:
 JSON FORMAT:
 {"assignments":{"keyword1":"Topic Name","keyword2":"Topic Name",...},"topics":["Topic Name 1","Topic Name 2",...]}`;
 
-    const userPrompt = `Classify these ${uniqueKeywords.length} keywords into 10-30 topic silos:\n\n${kwLines}`;
+    const userPrompt = `const userPrompt = `Classify these ${uniqueKeywords.length} keywords into 10-20 topic silos (maximum 20):\n\n${kwLines}`;:\n\n${kwLines}`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
