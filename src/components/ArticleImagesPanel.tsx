@@ -12,9 +12,10 @@ import {
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, X, Copy, ImagePlus, GripVertical, Wand2, Cloud, FolderInput, Link, Plus } from "lucide-react";
+import { Loader2, X, Copy, ImagePlus, GripVertical, Wand2, Cloud, FolderInput, Link, Plus, Library } from "lucide-react";
 import { ImageFolderManager, type ImageFolder } from "@/components/ImageFolderManager";
 import { useImageFolders } from "@/hooks/useImageFolders";
+import { ImageLibraryBrowser } from "@/components/ImageLibraryBrowser";
 
 export interface ArticleImage {
   name: string;
@@ -46,6 +47,7 @@ export function ArticleImagesPanel({
   const [urlInput, setUrlInput] = useState("");
   const [isAddingUrl, setIsAddingUrl] = useState(false);
   const [showUrlInput, setShowUrlInput] = useState(false);
+  const [showLibrary, setShowLibrary] = useState(false);
   
   const { 
     assignments,
@@ -472,7 +474,27 @@ export function ArticleImagesPanel({
         >
           <Link className="h-4 w-4" />
         </Button>
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => setShowLibrary(true)}
+          title="Browse image library"
+        >
+          <Library className="h-4 w-4" />
+        </Button>
       </div>
+
+      {/* Image Library Browser */}
+      <ImageLibraryBrowser
+        open={showLibrary}
+        onOpenChange={setShowLibrary}
+        existingImages={images}
+        folders={folders}
+        assignments={assignments}
+        onImagesSelected={(picked) => {
+          onImagesChange([...images, ...picked]);
+        }}
+      />
 
       {/* URL input section */}
       {showUrlInput && (
