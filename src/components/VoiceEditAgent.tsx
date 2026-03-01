@@ -64,7 +64,7 @@ export function VoiceEditAgent({ content, onContentUpdate, onCreditUsed }: Voice
   const [transcript, setTranscript] = useState("");
   const [editHistory, setEditHistory] = useState<{ command: string; timestamp: Date }[]>([]);
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
-
+  const finalTranscriptRef = useRef("");
   const SpeechRecognition = getSpeechRecognition();
   const supportsVoice = !!SpeechRecognition;
 
@@ -97,6 +97,7 @@ export function VoiceEditAgent({ content, onContentUpdate, onCreditUsed }: Voice
       onCreditUsed?.("Voice Edit", command);
       
       toast.success(`Applied: "${command}"`);
+      finalTranscriptRef.current = "";
       setTranscript("");
     } catch (error) {
       console.error("Edit processing error:", error);
@@ -119,6 +120,8 @@ export function VoiceEditAgent({ content, onContentUpdate, onCreditUsed }: Voice
 
     recognition.onstart = () => {
       console.log("Speech recognition started");
+      finalTranscriptRef.current = "";
+      setTranscript("");
       setIsRecording(true);
     };
 
@@ -135,12 +138,17 @@ export function VoiceEditAgent({ content, onContentUpdate, onCreditUsed }: Voice
         }
       }
 
-      setTranscript(prev => {
-        if (finalTranscript) {
-          return prev + finalTranscript;
-        }
-        return prev + interimTranscript;
-      });
+      if (finalTranscript) {
+        finalTranscriptRef.current = `${finalTranscriptRef.current} ${finalTranscript}`
+          .replace(/\s+/g, " ")
+          .trim();
+      }
+
+      const nextTranscript = `${finalTranscriptRef.current} ${interimTranscript}`
+        .replace(/\s+/g, " ")
+        .trim();
+
+      setTranscript(nextTranscript);
     };
 
     recognition.onerror = (event) => {
