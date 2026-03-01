@@ -83,14 +83,15 @@ serve(async (req) => {
     // Build the prompt
     let userPrompt = `Generate a detailed blog post outline for the topic: "${topic}"
 
-Target length: ~${targetWords} words
+Target length: approximately ${targetWords} words (the final article must stay within 15% of this target — do NOT plan for significantly more content)
 
 IMPORTANT RULES FOR THE OUTLINE:
 - The outline must follow this structure: Title (H1), TL;DR, Quick Tips, In This Article, then main H2 sections (each as a QUESTION), FAQ, Final Thoughts, References
 - Every H2 section heading (except TL;DR, Quick Tips, In This Article, FAQ, Final Thoughts, References) MUST be phrased as a QUESTION
 - Include 2-4 bullet points under each section describing what to cover
 - Suggest where comparison tables should go
-- Use simple markdown formatting with ## for sections and - for bullet points`;
+- Use simple markdown formatting with ## for sections and - for bullet points
+- CRITICAL: Budget section word counts so ALL sections together total approximately ${targetWords} words. For a ${targetWords}-word article, plan ${Math.max(3, Math.min(6, Math.floor(targetWords / 350)))} main H2 sections (not counting structural sections like TL;DR, FAQ, etc.)`;
 
 
     // Inject value promise claims as mandatory per-claim requirements

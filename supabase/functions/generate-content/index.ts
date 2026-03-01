@@ -291,7 +291,7 @@ ${formatReference.substring(0, 2000)}`;
     
     // Handle expansion mode
     if (expandExistingContent && existingContent) {
-      userPrompt = `EXPAND AND ENHANCE this existing article to reach ${targetWords} words total.
+      userPrompt = `EXPAND AND ENHANCE this existing article to reach approximately ${targetWords} words total (stay within 15% of this target).
 
 CURRENT ARTICLE (keep all existing content, expand each section):
 ${existingContent}
@@ -318,9 +318,11 @@ ${instructions}`;
       }
     } else {
       // Normal generation mode
+      const wordFloor = Math.round(targetWords * 0.85);
+      const wordCeiling = Math.round(targetWords * 1.15);
       userPrompt = `Write a blog post about: ${topic}
 
-WORD COUNT REQUIREMENT (NON-NEGOTIABLE): You MUST write AT LEAST ${targetWords} words of body content. Do NOT stop early. Keep writing until you have reached ${targetWords} words. If you finish all planned sections before reaching ${targetWords} words, expand each section with more detail, examples, data, and explanation until the target is met. The final article must be ${targetWords} words minimum — this is the single most important constraint.`;
+WORD COUNT REQUIREMENT (NON-NEGOTIABLE): The article MUST be between ${wordFloor} and ${wordCeiling} words (target: ${targetWords}). Do NOT write significantly more or less. If you finish all planned sections before reaching ${wordFloor} words, expand sections with more detail. If you are approaching ${wordCeiling} words and still have sections left, be more concise. Aim for approximately ${targetWords} words total.`;
 
       // Add keywords if provided
       if (keywords && Array.isArray(keywords) && keywords.length > 0) {
@@ -351,7 +353,7 @@ ENFORCEMENT RULES:
 - If a claim mentions specific populations or conditions (e.g., "gluten-free", "food sensitivities"), dedicate a full section to it with named conditions, practical advice, and examples.
 - If a claim mentions "context files" or specific data sources, explicitly reference and use that material.
 - Before finishing the article, mentally check each claim: is it addressed in a dedicated, substantive way? If not, add a section for it.
-- Do NOT sacrifice any claim for length — expand the article if needed to cover all claims.`;
+- Do NOT sacrifice any claim for length — but stay within the word count target. Be concise and substantive rather than padding with filler.`;
       }
 
       if (gapAnalysis) {
@@ -402,14 +404,14 @@ Place these images throughout the article at logical locations, typically after 
 
     // Use stronger model for long articles, flash for shorter ones
     const model = targetWords >= 2000 ? "google/gemini-2.5-flash" : "google/gemini-3-flash-preview";
-    // ~3.5 tokens per word accounts for markdown formatting (tables, blockquotes, etc.)
-    const maxTokens = Math.min(Math.max(4096, Math.ceil(targetWords * 3.5)), 16384);
+    // ~2.5 tokens per word with some headroom for markdown formatting
+    const maxTokens = Math.min(Math.max(2048, Math.ceil(targetWords * 2.5)), 16384);
 
     console.log(`Using model: ${model}, max_tokens: ${maxTokens}, target words: ${targetWords}`);
 
     const generateWithRetry = async (attempt: number): Promise<string> => {
       const retryPrompt = attempt > 1 
-        ? `\n\n⚠️ CRITICAL: Your previous attempt was WAY too short. You MUST write at least ${targetWords} words. Do NOT stop early. Keep writing detailed, substantive content for every section.`
+        ? `\n\n⚠️ CRITICAL: Your previous attempt did not meet the word count target of ${targetWords} words. Write approximately ${targetWords} words - not drastically more, not drastically less.`
         : "";
 
       const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
