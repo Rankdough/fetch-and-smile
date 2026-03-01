@@ -6,6 +6,36 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+function countWords(text: string): number {
+  return text.split(/\s+/).filter(Boolean).length;
+}
+
+function extractMaxWordLimit(instruction: string): number | null {
+  const patterns = [
+    /\bmax(?:imum)?\s*(?:of\s*)?(\d{3,5})\s*words?\b/i,
+    /\b(\d{3,5})\s*words?\s*(?:max|maximum|or less|at most)\b/i,
+    /\b(?:reduce|shorten|trim|cut|limit)\b[\s\S]{0,60}?\bto\s+(\d{3,5})\s*words?\b/i,
+  ];
+
+  for (const pattern of patterns) {
+    const match = instruction.match(pattern);
+    if (match?.[1]) {
+      const value = Number(match[1]);
+      if (Number.isFinite(value) && value >= 100 && value <= 10000) {
+        return value;
+      }
+    }
+  }
+
+  return null;
+}
+
+function trimToMaxWords(content: string, maxWords: number): string {
+  const tokens = content.match(/\S+\s*/g) || [];
+  if (tokens.length <= maxWords) return content;
+  return tokens.slice(0, maxWords).join("").trim();
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -27,6 +57,7 @@ serve(async (req) => {
     }
 
     console.log("Processing voice edit instruction:", instruction);
+    const maxWordLimit = extractMaxWordLimit(instruction);
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -49,6 +80,7 @@ CRITICAL RULES:
 - NEVER add horizontal rules (---, ***, ___)
 - Preserve all source citations and references
 - Return ONLY the edited content, no explanations
+${maxWordLimit ? `- HARD CONSTRAINT: Final output must be ${maxWordLimit} words maximum` : ""}
 
 PERSPECTIVE RULE (NON-NEGOTIABLE — do NOT change this regardless of the instruction):
 ${useFirstPerson
@@ -77,7 +109,7 @@ ${content}
 
 Voice instruction: "${instruction}"
 
-Apply this edit and return the updated article.`
+Apply this edit and return the updated article.${maxWordLimit ? ` Keep the final output at ${maxWordLimit} words maximum.` : ""}`
           }
         ],
       }),
@@ -99,6 +131,15 @@ Apply this edit and return the updated article.`
     // Post-process: Remove any em dashes and horizontal rules
     editedContent = editedContent.replace(/—/g, "-").replace(/–/g, "-");
     editedContent = editedContent.replace(/^\s*[-*_]{3,}\s*$/gm, "");
+
+    // Deterministic max-word enforcement when user explicitly asks for a max limit
+    if (maxWordLimit) {
+      const currentWords = countWords(editedContent);
+      if (currentWords > maxWordLimit) {
+        console.warn(`Word limit exceeded (${currentWords} > ${maxWordLimit}), trimming to max`);
+        editedContent = trimToMaxWords(editedContent, maxWordLimit);
+      }
+    }
 
     console.log("Content edited successfully");
 
