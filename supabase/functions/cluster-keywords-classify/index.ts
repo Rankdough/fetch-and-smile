@@ -81,20 +81,25 @@ JSON FORMAT:
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content || "";
 
-    // Parse JSON
+    // Parse JSON — strip markdown fences, inline comments, trailing commas
+    const cleanJson = (raw: string): string => {
+      let s = raw.replace(/^```(?:json)?\s*\n?/i, "").replace(/\n?```\s*$/i, "");
+      // Extract outermost JSON object
+      const m = s.match(/\{[\s\S]*\}/);
+      if (m) s = m[0];
+      // Remove single-line JS comments (// ...)
+      s = s.replace(/\/\/[^\n]*/g, "");
+      // Remove trailing commas before } or ]
+      s = s.replace(/,\s*([}\]])/g, "$1");
+      return s;
+    };
+
     let parsed: { assignments: Record<string, string>; topics: string[] };
     try {
-      let cleaned = content.replace(/^```(?:json)?\s*\n?/i, "").replace(/\n?```\s*$/i, "");
-      parsed = JSON.parse(cleaned);
+      parsed = JSON.parse(cleanJson(content));
     } catch {
-      try {
-        const m = content.match(/\{[\s\S]*\}/);
-        if (!m) throw new Error("No JSON");
-        parsed = JSON.parse(m[0]);
-      } catch {
-        console.error("Parse failed:", content.slice(0, 500));
-        throw new Error("Failed to parse classification results");
-      }
+      console.error("Parse failed:", content.slice(0, 500));
+      throw new Error("Failed to parse classification results");
     }
 
     // Build clusters from assignments
