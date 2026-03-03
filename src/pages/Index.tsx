@@ -56,6 +56,7 @@ import { SectionIndicator } from "@/components/SectionIndicator";
 import { ArticleImagesPanel, ArticleImage } from "@/components/ArticleImagesPanel";
 import { HtmlImportDialog } from "@/components/HtmlImportDialog";
 import { UrlImportDialog } from "@/components/UrlImportDialog";
+import { PasteAndFormatDialog } from "@/components/PasteAndFormatDialog";
 import { ConvertToArticleView } from "@/components/ConvertToArticleView";
 import { CollapsibleSection } from "@/components/CollapsibleSection";
 import { CreditUsageDisplay } from "@/components/CreditUsageDisplay";
@@ -2089,6 +2090,16 @@ const Index = () => {
               formatReference={formatReference}
               targetLength={formData.length}
               instructions={formData.instructions}
+            />
+            <PasteAndFormatDialog
+              onPasteAndFormat={(content) => {
+                setGeneratedContent(content, true);
+                setGeneratedCTAs(null);
+                // Trigger Apply Format after a brief delay to let content settle
+                setTimeout(() => {
+                  handleApplyFormat();
+                }, 300);
+              }}
             />
             
             <Button
