@@ -2095,10 +2095,7 @@ const Index = () => {
               onPasteAndFormat={(content) => {
                 setGeneratedContent(content, true);
                 setGeneratedCTAs(null);
-                // Trigger Apply Format after a brief delay to let content settle
-                setTimeout(() => {
-                  handleApplyFormat();
-                }, 300);
+                pendingApplyFormatRef.current = true;
               }}
             />
             
