@@ -60,6 +60,7 @@ const KeywordResearch = () => {
   const [extractedThemes, setExtractedThemes] = useState<SeedThemes | null>(null);
   const [contextFiles, setContextFiles] = useState<ContextFile[]>([]);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const resultsRef = useRef<HTMLDivElement | null>(null);
   const [isGeneratorOpen, setIsGeneratorOpen] = useState(true);
 
   const reExtractThemes = () => {
@@ -232,6 +233,7 @@ const KeywordResearch = () => {
       }
 
       toast({ title: "Keyword universe generated!", description: `${getTotalTerms(keywordResults)} terms across ${keywordResults.categories.length} categories` });
+      setTimeout(() => resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
     } catch (err: any) {
       if (err.name === "AbortError") {
         toast({ title: "Generation stopped" });
@@ -408,10 +410,6 @@ const KeywordResearch = () => {
         {/* Extracted Themes */}
         {extractedThemes && <SeedThemesDisplay themes={extractedThemes} onRefresh={reExtractThemes} />}
 
-        {/* Keyword Clustering */}
-        <KeywordClustering />
-
-
         {/* Loading skeleton */}
         {isGenerating && (
           <div className="space-y-3">
@@ -422,6 +420,7 @@ const KeywordResearch = () => {
         )}
 
         {/* Results */}
+        <div ref={resultsRef}>
         {results && !isGenerating && (
           <div className="space-y-4">
             <div className="flex items-center justify-between flex-wrap gap-3">
@@ -493,6 +492,10 @@ const KeywordResearch = () => {
             </div>
           </div>
         )}
+        </div>
+
+        {/* Keyword Clustering */}
+        <KeywordClustering />
 
         {/* Saved Research */}
         {savedResearch.length > 0 && (
