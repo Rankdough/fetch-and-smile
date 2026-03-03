@@ -45,10 +45,10 @@ serve(async (req) => {
     });
 
     // Check what structural elements are missing
-    const hasTldr = /##\s*TL;?DR/i.test(content) || /###\s*TL;?DR/i.test(content);
-    const hasQuickTips = /##\s*Quick\s*Tips/i.test(content) || />\s*\*\*Tip\s*1/i.test(content);
-    const hasInThisArticle = /##\s*In\s*This\s*Article/i.test(content);
-    const hasFaq = /##\s*(FAQ|Frequently\s*Asked\s*Questions)/i.test(content);
+    const hasTldr = /#{1,3}\s*TL;?DR/i.test(content) || /^TL;?DR\s*$/im.test(content);
+    const hasQuickTips = /#{1,3}\s*Quick\s*Tips/i.test(content) || />\s*\*\*Tip\s*1/i.test(content);
+    const hasInThisArticle = /#{1,3}\s*In\s*This\s*Article/i.test(content) || /^In\s*This\s*Article\s*$/im.test(content);
+    const hasFaq = /#{1,3}\s*(FAQ|Frequently\s*Asked\s*Questions)/i.test(content) || /^Frequently\s*Asked\s*Questions\s*$/im.test(content);
 
     // Check for existing CTAs - must match the specific 4-line CTA format with ALL CAPS headline and URL button
     // Pattern: > **emoji + HEADLINE IN CAPS** followed by lines with a [BUTTON TEXT →](url)
@@ -264,6 +264,10 @@ Return ONLY the enhanced markdown content, no explanations or commentary.`;
 
 ${processedContent}`;
 
+    // Calculate max_tokens based on content size to avoid timeouts
+    const estimatedTokens = Math.ceil(processedContent.length / 3);
+    const maxTokens = Math.min(Math.max(estimatedTokens + 2000, 4000), 16000);
+
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -272,6 +276,7 @@ ${processedContent}`;
       },
       body: JSON.stringify({
         model: "google/gemini-3-flash-preview",
+        max_tokens: maxTokens,
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt }
