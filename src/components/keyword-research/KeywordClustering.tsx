@@ -878,9 +878,17 @@ const KeywordClustering = () => {
                                       <p className={`text-sm font-medium leading-snug ${isUsed ? "text-green-700 dark:text-green-400" : ""}`}>{idea.title}</p>
                                       <p className="text-xs text-muted-foreground">{idea.description}</p>
                                       <p className="text-xs text-primary/80 italic">↳ {idea.reason}</p>
-                                      {idea.target_keywords && idea.target_keywords.length > 0 && (
-                                        <div className="flex flex-wrap gap-1 mt-1">
-                                          {idea.target_keywords.map((kw, ki) => {
+                                      {idea.target_keywords && idea.target_keywords.length > 0 && (() => {
+                                        const totalVol = idea.target_keywords!.reduce((sum, kw) => sum + (cluster.keyword_volumes?.[kw] || 0), 0);
+                                        return (
+                                        <div className="flex flex-wrap items-center gap-1 mt-1">
+                                          {totalVol > 0 && (
+                                            <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-semibold mr-1">
+                                              <TrendingUp className="h-2.5 w-2.5" />
+                                              {totalVol.toLocaleString()} vol
+                                            </span>
+                                          )}
+                                          {idea.target_keywords!.map((kw, ki) => {
                                             const vol = cluster.keyword_volumes?.[kw];
                                             return (
                                               <span key={ki} className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-medium">
@@ -892,7 +900,8 @@ const KeywordClustering = () => {
                                             );
                                           })}
                                         </div>
-                                      )}
+                                        );
+                                      })()}
                                       {idea.value_promises && idea.value_promises.length > 0 && (
                                         <div className="mt-1.5 space-y-0.5">
                                           <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Value Promises</span>
