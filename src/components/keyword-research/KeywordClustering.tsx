@@ -11,13 +11,14 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { supabase } from "@/integrations/supabase/client";
 import {
   Upload, Layers, ChevronDown, ChevronRight, Loader2, Square,
-  TrendingUp, FileText, Copy, Download, BarChart3, Target, Info, Lightbulb, Trash2, RefreshCw, ArrowRight, Search, Bookmark, Clock
+  TrendingUp, FileText, Copy, Download, BarChart3, Target, Info, Lightbulb, Trash2, RefreshCw, ArrowRight, Search, Bookmark, Clock, Star
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import { Check } from "lucide-react";
 
 const USED_IDEAS_KEY = "kw-used-blog-ideas";
 const BOOKMARKED_IDEAS_KEY = "kw-bookmarked-blog-ideas";
+const FAVORITED_CLUSTERS_KEY = "kw-favorited-clusters";
 
 const getStoredSet = (key: string): Set<string> => {
   try {
@@ -119,6 +120,7 @@ const KeywordClustering = () => {
   const [usedIdeas, setUsedIdeas] = useState<Set<string>>(getUsedIdeas);
   const [bookmarkedIdeas, setBookmarkedIdeas] = useState<Set<string>>(getBookmarkedIdeas);
   const [expandedClusters, setExpandedClusters] = useState<Set<string>>(new Set());
+  const [favoritedClusters, setFavoritedClusters] = useState<Set<string>>(() => getStoredSet(FAVORITED_CLUSTERS_KEY));
   const [rawInput, setRawInput] = useState("");
   const [projectName, setProjectName] = useState("");
   const [savedResults, setSavedResults] = useState<SavedClustering[]>([]);
@@ -710,7 +712,14 @@ const KeywordClustering = () => {
 
             {/* Cluster cards */}
             <div className="space-y-2">
-              {result.clusters.map((cluster, idx) => (
+              {[...result.clusters]
+                .map((cluster, originalIdx) => ({ cluster, originalIdx }))
+                .sort((a, b) => {
+                  const aFav = favoritedClusters.has(a.cluster.topic) ? 0 : 1;
+                  const bFav = favoritedClusters.has(b.cluster.topic) ? 0 : 1;
+                  return aFav - bFav || a.originalIdx - b.originalIdx;
+                })
+                .map(({ cluster, originalIdx: idx }) => (
                 <Collapsible
                   key={cluster.topic}
                   open={expandedClusters.has(cluster.topic)}
@@ -720,6 +729,16 @@ const KeywordClustering = () => {
                     <CollapsibleTrigger className="w-full">
                       <div className="flex items-center justify-between px-4 py-3">
                         <div className="flex items-center gap-3 flex-1 min-w-0">
+                          <button
+                            className="shrink-0 -ml-1 mr-0.5"
+                            title={favoritedClusters.has(cluster.topic) ? "Remove from favorites" : "Add to favorites"}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setFavoritedClusters(toggleStoredSet(FAVORITED_CLUSTERS_KEY, cluster.topic));
+                            }}
+                          >
+                            <Star className={`h-3.5 w-3.5 transition-colors ${favoritedClusters.has(cluster.topic) ? "fill-amber-400 text-amber-400" : "text-muted-foreground/40 hover:text-amber-400"}`} />
+                          </button>
                           <span className="text-xs font-bold text-muted-foreground w-6 shrink-0">#{idx + 1}</span>
                           {expandedClusters.has(cluster.topic) ? (
                             <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
