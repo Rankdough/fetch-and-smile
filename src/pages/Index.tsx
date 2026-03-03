@@ -1361,14 +1361,6 @@ const Index = () => {
 
     // If topic changed or no changes detected, do full regen
     if (changedSettings.includes("topic") || changedSettings.length === 0) {
-      if (changedSettings.length === 0) {
-        toast({
-          title: "No changes detected",
-          description: "No settings have been modified. Change a setting first, then click Rerun.",
-        });
-        return;
-      }
-      // Topic change requires full regen
       handleGenerate();
       return;
     }
