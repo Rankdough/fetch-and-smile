@@ -247,22 +247,64 @@ const KeywordClustering = () => {
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const text = ev.target?.result as string;
-      const parsed = parseCSVKeywords(text);
-      if (parsed.length === 0) {
-        toast({ title: "No keywords found", description: "Could not extract keywords from CSV", variant: "destructive" });
-        return;
-      }
-      setKeywordsWithVolume(parsed);
-      setRawInput(parsed.map(p => p.keyword).join("\n"));
-      const hasVolume = parsed.some(p => p.volume !== null);
-      toast({ title: `${parsed.length} keywords loaded from ${file.name}`, description: hasVolume ? "Search volume data detected" : undefined });
-    };
-    reader.readAsText(file);
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    const fileArray = Array.from(files).slice(0, 3);
+    let totalParsed: KeywordWithVolume[] = [];
+    let filesRead = 0;
+
+    fileArray.forEach((file) => {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const text = ev.target?.result as string;
+        const parsed = parseCSVKeywords(text);
+        totalParsed = [...totalParsed, ...parsed];
+        filesRead++;
+
+        if (filesRead === fileArray.length) {
+          // Deduplicate by keyword (case-insensitive), keeping first volume found
+          const seen = new Map<string, KeywordWithVolume>();
+          for (const item of totalParsed) {
+            const key = item.keyword.toLowerCase().trim();
+            if (!key) continue;
+            if (!seen.has(key)) {
+              seen.set(key, item);
+            } else if (item.volume !== null && seen.get(key)!.volume === null) {
+              seen.set(key, item);
+            }
+          }
+          const deduped = Array.from(seen.values());
+          const dupeCount = totalParsed.length - deduped.length;
+
+          if (deduped.length === 0) {
+            toast({ title: "No keywords found", description: "Could not extract keywords from CSV files", variant: "destructive" });
+            return;
+          }
+
+          // Merge with existing keywords (also deduplicate)
+          const existingMap = new Map<string, KeywordWithVolume>();
+          for (const item of keywordsWithVolume) {
+            existingMap.set(item.keyword.toLowerCase().trim(), item);
+          }
+          for (const item of deduped) {
+            const key = item.keyword.toLowerCase().trim();
+            if (!existingMap.has(key) || (item.volume !== null && existingMap.get(key)!.volume === null)) {
+              existingMap.set(key, item);
+            }
+          }
+          const merged = Array.from(existingMap.values());
+
+          setKeywordsWithVolume(merged);
+          setRawInput(merged.map(p => p.keyword).join("\n"));
+          const hasVolume = merged.some(p => p.volume !== null);
+          toast({
+            title: `${deduped.length} keywords loaded from ${fileArray.length} file${fileArray.length > 1 ? "s" : ""}`,
+            description: `${dupeCount > 0 ? `${dupeCount} duplicates removed. ` : ""}${merged.length} total keywords ready.${hasVolume ? " Volume data detected." : ""}`,
+          });
+        }
+      };
+      reader.readAsText(file);
+    });
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -629,10 +671,10 @@ const KeywordClustering = () => {
         {/* Input area */}
         <div className="space-y-2">
           <div className="flex items-center gap-2 flex-wrap">
-            <input ref={fileInputRef} type="file" accept=".csv" className="hidden" onChange={handleFileUpload} />
+            <input ref={fileInputRef} type="file" accept=".csv" multiple className="hidden" onChange={handleFileUpload} />
             <Button variant="outline" size="sm" className="gap-2" onClick={() => fileInputRef.current?.click()}>
               <Upload className="h-3.5 w-3.5" />
-              Upload CSV
+              Upload CSV (up to 3)
             </Button>
             {keywordCount > 0 && (
               <Badge variant="secondary" className="text-xs">
