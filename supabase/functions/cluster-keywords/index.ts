@@ -150,7 +150,16 @@ JSON FORMAT:
 RULES:
 - Exactly 5 blog ideas per cluster
 - Each blog idea MUST include "target_keywords": an array of 2-5 keywords from the cluster's keyword list that this article should target
-- Pick the most relevant keywords for each blog idea based on topical fit and search intent
+- Each blog idea MUST include "value_promises": an array of exactly 3 concise value promises
+
+CRITICAL TOPICAL COHERENCE RULES:
+- Every target_keyword assigned to a blog idea MUST be directly relevant to that idea's specific title and angle.
+- Do NOT assign keywords about other countries/brands/entities to an article focused on a specific one. For example, an article about "Albania Dental Tourism" must NOT target keywords like "dental tourism germany" — those belong in a separate article.
+- If a cluster contains keywords spanning multiple sub-entities (countries, brands, products), create separate blog ideas for each OR a comparison/roundup article.
+
+CRITICAL KEYWORD DEDUPLICATION RULES:
+- Each keyword should be assigned to AT MOST ONE blog idea with no overlap across ideas.
+
 - Match topic names exactly as provided
 - Priority based on volume and business value
 - Content type based on search intent`;
