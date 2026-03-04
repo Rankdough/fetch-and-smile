@@ -7,6 +7,7 @@ import Index from "./pages/Index";
 import Articles from "./pages/Articles";
 import ProductDescriptions from "./pages/ProductDescriptions";
 import KeywordResearch from "./pages/KeywordResearch";
+import OutlineGenerator from "./pages/OutlineGenerator";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -22,6 +23,7 @@ const App = () => (
           <Route path="/articles" element={<Articles />} />
           <Route path="/product-descriptions" element={<ProductDescriptions />} />
           <Route path="/keyword-research" element={<KeywordResearch />} />
+          <Route path="/outline-generator" element={<OutlineGenerator />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
