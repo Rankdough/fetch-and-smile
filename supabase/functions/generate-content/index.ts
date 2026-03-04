@@ -323,7 +323,7 @@ ${instructions}`;
       const wordCeiling = Math.round(targetWords * 1.15);
       userPrompt = `Write a blog post about: ${topic}
 
-WORD COUNT REQUIREMENT (NON-NEGOTIABLE): The article MUST be between ${wordFloor} and ${wordCeiling} words (target: ${targetWords}). Do NOT write significantly more or less. If you finish all planned sections before reaching ${wordFloor} words, expand sections with more detail. If you are approaching ${wordCeiling} words and still have sections left, be more concise. Aim for approximately ${targetWords} words total.`;
+WORD COUNT REQUIREMENT (NON-NEGOTIABLE): The article MUST be between ${wordFloor} and ${wordCeiling} words (target: ${targetWords}). HARD CEILING: ${wordCeiling} words - going over this limit is a failure. If you are approaching ${wordCeiling} words and still have sections left, be more concise or drop lower-priority detail. If you finish all planned sections before reaching ${wordFloor} words, expand sections with more detail. Count your words as you write.`;
 
       // Add keywords if provided
       if (keywords && Array.isArray(keywords) && keywords.length > 0) {
@@ -481,26 +481,13 @@ Place these images throughout the article at logical locations, typically after 
     // Remove horizontal rules (---, ***, ___ on their own line)
     content = content.replace(/^\s*[-*_]{3,}\s*$/gm, "");
 
-    // Enforce word ceiling — deterministic truncation if AI overshoots by > 15%
+    // Log word count overshoot for monitoring but do NOT truncate —
+    // truncation causes mid-sentence/mid-section cuts. Rely on prompt + max_tokens instead.
     if (!expandExistingContent) {
       const wordCeiling = Math.round(targetWords * 1.15);
       const currentWordCount = content.split(/\s+/).filter(Boolean).length;
       if (currentWordCount > wordCeiling) {
-        console.warn(`Word count overshoot: ${currentWordCount} > ${wordCeiling} ceiling. Trimming.`);
-        // Trim to ceiling by keeping only the first wordCeiling words
-        const tokens = content.match(/\S+\s*/g) || [];
-        content = tokens.slice(0, wordCeiling).join("").trim();
-        // Try to end at the last complete paragraph/sentence
-        const lastDoubleNewline = content.lastIndexOf("\n\n");
-        const lastSentenceEnd = Math.max(
-          content.lastIndexOf(". "),
-          content.lastIndexOf(".\n")
-        );
-        const cutPoint = Math.max(lastDoubleNewline, lastSentenceEnd);
-        if (cutPoint > content.length * 0.9) {
-          content = content.substring(0, cutPoint + 1).trim();
-        }
-        console.log(`Trimmed to ${content.split(/\s+/).filter(Boolean).length} words`);
+        console.warn(`Word count overshoot: ${currentWordCount} words vs ${targetWords} target (ceiling ${wordCeiling}). Not truncating to avoid content damage.`);
       }
     }
 
