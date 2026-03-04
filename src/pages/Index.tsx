@@ -515,6 +515,10 @@ const Index = () => {
     const saved = localStorage.getItem("seo-generator-skipFaqs");
     return saved !== null ? JSON.parse(saved) : false;
   });
+  const [skipQuickTips, setSkipQuickTips] = useState(() => {
+    const saved = localStorage.getItem("seo-generator-skipQuickTips");
+    return saved !== null ? JSON.parse(saved) : false;
+  });
   const [isEditMode, setIsEditMode] = useState(false);
   const [useFirstPerson, setUseFirstPerson] = useState<boolean>(() => {
     return localStorage.getItem("seo-generator-useFirstPerson") === "true";
@@ -658,6 +662,10 @@ const Index = () => {
   useEffect(() => {
     localStorage.setItem("seo-generator-skipFaqs", JSON.stringify(skipFaqs));
   }, [skipFaqs]);
+
+  useEffect(() => {
+    localStorage.setItem("seo-generator-skipQuickTips", JSON.stringify(skipQuickTips));
+  }, [skipQuickTips]);
   
   useEffect(() => {
     if (selectedToneProfileId) {
@@ -1275,6 +1283,7 @@ const Index = () => {
             valuePromiseClaims: filledClaims.length > 0 ? filledClaims : undefined,
             useFirstPerson,
             skipFaqs,
+            skipQuickTips,
           },
         });
 
@@ -1701,7 +1710,7 @@ const Index = () => {
 
       // Detect what exists
       const hasTldr = /##\s*TL;?DR/i.test(generatedContent) || /###\s*TL;?DR/i.test(generatedContent);
-      const hasQuickTips = /##\s*Quick\s*Tips/i.test(generatedContent) || />\s*\*\*Tip\s*1/i.test(generatedContent);
+      const hasQuickTips = skipQuickTips ? true : (/##\s*Quick\s*Tips/i.test(generatedContent) || />\s*\*\*Tip\s*1/i.test(generatedContent));
       const hasInThisArticle = /##\s*In\s*This\s*Article/i.test(generatedContent);
       const hasFaq = skipFaqs ? true : /##\s*(FAQ|Frequently\s*Asked\s*Questions)/i.test(generatedContent);
       const hasCtaUrl = !!ctaUrl.trim();
@@ -1747,6 +1756,7 @@ const Index = () => {
           ctaConfig,
           customInstructions: formData.instructions?.trim() || undefined,
           skipFaqs,
+          skipQuickTips,
         },
       });
 
@@ -3790,7 +3800,7 @@ const Index = () => {
                 number={15}
                 title="Output Options"
                 isComplete={true}
-                summary={[skipNavigation && "Navigation skipped", skipFaqs && "FAQs skipped"].filter(Boolean).join(", ") || "All sections included"}
+                summary={[skipNavigation && "Navigation skipped", skipFaqs && "FAQs skipped", skipQuickTips && "Tips skipped"].filter(Boolean).join(", ") || "All sections included"}
                 icon={<Settings className="h-4 w-4" />}
               >
                 <div className="space-y-3">
@@ -3822,6 +3832,21 @@ const Index = () => {
                       id="skip-faqs"
                       checked={skipFaqs}
                       onCheckedChange={setSkipFaqs}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <label htmlFor="skip-quick-tips" className="text-sm font-medium">
+                        Skip Quick Tips
+                      </label>
+                      <p className="text-xs text-muted-foreground">
+                        Exclude the Quick Tips section from generated articles and Apply Format
+                      </p>
+                    </div>
+                    <Switch
+                      id="skip-quick-tips"
+                      checked={skipQuickTips}
+                      onCheckedChange={setSkipQuickTips}
                     />
                   </div>
                 </div>

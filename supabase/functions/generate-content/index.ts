@@ -13,7 +13,7 @@ serve(async (req) => {
   }
 
   try {
-    const { topic, length, outline, instructions, gapAnalysis, valuePromiseClaims, formatReference, contextFiles, keywords, generateCTAs, ctaUrl, useKnowledgeBase, toneProfileId, articleImages, expandExistingContent, existingContent, wordsToAdd, wordCount, useFirstPerson, skipFaqs } = await req.json();
+    const { topic, length, outline, instructions, gapAnalysis, valuePromiseClaims, formatReference, contextFiles, keywords, generateCTAs, ctaUrl, useKnowledgeBase, toneProfileId, articleImages, expandExistingContent, existingContent, wordsToAdd, wordCount, useFirstPerson, skipFaqs, skipQuickTips } = await req.json();
 
     // Handle expand mode - different validation
     if (expandExistingContent) {
@@ -148,7 +148,7 @@ ARTICLE STRUCTURE (in this order):
 1. Title (# H1)
 2. ## TL;DR - as an H2 heading, followed by bullet points summarizing key takeaways (3-5 points). Keep this section focused on the summary only.
 
-3. ## Quick Tips - MANDATORY section immediately after TL;DR with exactly 3 actionable tips:
+${skipQuickTips ? '' : `3. ## Quick Tips - MANDATORY section immediately after TL;DR with exactly 3 actionable tips:
    Format each tip as a blockquote with numbered prefix:
    
    > **Tip 1:** [One short sentence - max 15 words]
@@ -160,7 +160,7 @@ ARTICLE STRUCTURE (in this order):
    - CRITICAL: Each tip must be ONE SHORT LINE only (under 15 words)
    - Be specific and actionable - no filler words
    - Tips should fit on a single line when displayed
-   
+`}
 4. ## In This Article - THIS SECTION IS MANDATORY AND MUST APPEAR IMMEDIATELY AFTER Quick Tips
    - This is a navigation guide showing what the reader will learn
    - Format as a BULLETED LIST with each item on its own line
