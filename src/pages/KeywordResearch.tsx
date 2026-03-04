@@ -61,7 +61,7 @@ const KeywordResearch = () => {
   const [contextFiles, setContextFiles] = useState<ContextFile[]>([]);
   const abortControllerRef = useRef<AbortController | null>(null);
   const resultsRef = useRef<HTMLDivElement | null>(null);
-  const [isGeneratorOpen, setIsGeneratorOpen] = useState(true);
+  const [isGeneratorOpen, setIsGeneratorOpen] = useState(false);
 
   const reExtractThemes = () => {
     if (seedFiles.length > 0) {
