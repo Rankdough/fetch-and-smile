@@ -444,10 +444,58 @@ Place these images throughout the article at logical locations, typically after 
       }
 
       const data = await response.json();
-      const generatedContent = data.choices?.[0]?.message?.content;
+      const firstChoice = data.choices?.[0];
+      let generatedContent = firstChoice?.message?.content;
+      let finishReason = firstChoice?.finish_reason;
 
       if (!generatedContent) {
         throw new Error("No content generated");
+      }
+
+      // If model output is cut off due to token limit, request continuation(s)
+      let continuationAttempts = 0;
+      while (finishReason === "length" && continuationAttempts < 2) {
+        continuationAttempts += 1;
+        console.warn(`Output truncated by token limit. Fetching continuation (${continuationAttempts}/2)...`);
+
+        const continuationResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${LOVABLE_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model,
+            max_tokens: Math.min(4096, Math.max(1024, Math.ceil(targetWords * 0.75))),
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: userPrompt + retryPrompt },
+              { role: "assistant", content: generatedContent },
+              {
+                role: "user",
+                content:
+                  "Continue exactly from where you stopped. Do not repeat prior content. Return only the remaining article text.",
+              },
+            ],
+          }),
+        });
+
+        if (!continuationResponse.ok) {
+          const errorText = await continuationResponse.text();
+          console.error("Continuation request failed:", continuationResponse.status, errorText);
+          break;
+        }
+
+        const continuationData = await continuationResponse.json();
+        const continuationChoice = continuationData.choices?.[0];
+        const continuationText = continuationChoice?.message?.content;
+
+        if (!continuationText) {
+          break;
+        }
+
+        generatedContent = `${generatedContent}\n${continuationText}`;
+        finishReason = continuationChoice?.finish_reason;
       }
 
       // Check word count - retry if drastically short (less than 50% of target)
