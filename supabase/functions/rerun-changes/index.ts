@@ -177,7 +177,7 @@ serve(async (req) => {
 
         case "targetLength": {
           const wordCounts: Record<string, number> = {
-            short: 500, medium: 1000, long: 2000, extended: 3000, comprehensive: 3500,
+            short: 500, medium: 1000, "medium-long": 1500, long: 2000, extended: 3000, comprehensive: 3500,
           };
           const target = wordCounts[targetLength] || 1000;
           changeInstructions.push(
