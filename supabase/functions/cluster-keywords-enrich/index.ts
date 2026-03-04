@@ -35,6 +35,12 @@ RULES:
 - Each blog idea MUST include "target_keywords": an array of 2-5 keywords from the cluster's keyword list that this article should target
 - Each blog idea MUST include "value_promises": an array of exactly 3 concise value promises describing what the reader will gain or learn from this article.
 
+CRITICAL TOPICAL COHERENCE RULES:
+- Every target_keyword assigned to a blog idea MUST be directly relevant to that idea's specific title and angle.
+- Do NOT assign keywords about other countries/brands/entities to an article focused on a specific one. For example, an article about "Albania Dental Tourism" must NOT target keywords like "dental tourism germany" or "dental tourism italy" — those belong in a separate comparison or destination-specific article.
+- If a cluster contains keywords spanning multiple sub-entities (countries, brands, products), create separate blog ideas for each sub-entity OR a comparison/roundup article that naturally covers all of them.
+- Think of each blog idea as a standalone article: its target_keywords should match what that article would actually rank for.
+
 CRITICAL KEYWORD DEDUPLICATION RULES:
 - Each keyword in the cluster should be assigned to AT MOST ONE blog idea. Do NOT repeat the same keyword across multiple ideas.
 - Think of the 5 blog ideas as a content silo: each idea should own a distinct subset of keywords with minimal overlap.
@@ -42,7 +48,7 @@ CRITICAL KEYWORD DEDUPLICATION RULES:
 
 - Match topic names exactly as provided
 - Priority based on volume and business value
-- Content type based on search intent`;
+- Content type based on search intent
 
     // Process clusters in batches to avoid response truncation
     const BATCH_SIZE = 5;
