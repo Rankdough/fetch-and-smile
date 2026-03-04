@@ -62,3 +62,24 @@ verify_jwt = false
 
 [functions.cluster-keywords]
 verify_jwt = false
+
+[functions.cluster-keywords-classify]
+verify_jwt = false
+
+[functions.cluster-keywords-enrich]
+verify_jwt = false
+
+[functions.generate-standalone-outline]
+verify_jwt = false
+
+[functions.generate-outline]
+verify_jwt = false
+
+[functions.apply-format]
+verify_jwt = false
+
+[functions.rerun-changes]
+verify_jwt = false
+
+[functions.analyze-questionnaire]
+verify_jwt = false
