@@ -148,7 +148,7 @@ const KeywordClustering = () => {
         setRawInput(latest.input_keywords.join("\n"));
         setActiveResultId(latest.id);
         const clusters = (latest.result as unknown as ClusteringResult).clusters;
-        setExpandedClusters(new Set(clusters.slice(0, 3).map(c => c.topic)));
+        setExpandedClusters(new Set());
       }
     }
   };
@@ -192,7 +192,7 @@ const KeywordClustering = () => {
     setResult(saved.result);
     setRawInput(saved.input_keywords.join("\n"));
     setActiveResultId(saved.id);
-    setExpandedClusters(new Set(saved.result.clusters.slice(0, 3).map(c => c.topic)));
+    setExpandedClusters(new Set());
   };
 
   const parseKeywordsFromText = (text: string): string[] => {
@@ -395,7 +395,7 @@ const KeywordClustering = () => {
       };
 
       setResult(finalResult);
-      setExpandedClusters(new Set(finalResult.clusters.slice(0, 3).map(c => c.topic)));
+      setExpandedClusters(new Set());
       toast({ title: "Clustering complete!", description: `${finalResult.clusters.length} topic silos with blog ideas from ${keywords.length} keywords` });
       
       // Auto-save to database
