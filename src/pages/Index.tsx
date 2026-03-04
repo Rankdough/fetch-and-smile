@@ -809,6 +809,7 @@ const Index = () => {
         label: `Word count selected (${
           formData.length === "short" ? "~500" : 
           formData.length === "medium" ? "~1000" : 
+          formData.length === "medium-long" ? "~1500" :
           formData.length === "long" ? "~2000" :
           formData.length === "extended" ? "~3000" : "~3500"
         } words)`,
@@ -960,7 +961,7 @@ const Index = () => {
 
     // Map length to word count
     const wordCounts: Record<string, number> = {
-      short: 500, medium: 1000, long: 2000, extended: 3000, comprehensive: 3500,
+      short: 500, medium: 1000, "medium-long": 1500, long: 2000, extended: 3000, comprehensive: 3500,
     };
     const targetWords = wordCounts[formData.length] || 1000;
 
@@ -3510,7 +3511,7 @@ const Index = () => {
                 number={9}
                 title="How long would you like the blog post to be?"
                 isComplete={true}
-                summary={formData.length === "short" ? "~500 words" : formData.length === "medium" ? "~1000 words" : formData.length === "long" ? "~2000 words" : formData.length === "extended" ? "~3000 words" : "~3500 words"}
+                summary={formData.length === "short" ? "~500 words" : formData.length === "medium" ? "~1000 words" : formData.length === "medium-long" ? "~1500 words" : formData.length === "long" ? "~2000 words" : formData.length === "extended" ? "~3000 words" : "~3500 words"}
               >
                 <Select
                   value={formData.length}
@@ -3524,6 +3525,7 @@ const Index = () => {
                   <SelectContent>
                     <SelectItem value="short">Short (~500 words)</SelectItem>
                     <SelectItem value="medium">Medium (~1000 words)</SelectItem>
+                    <SelectItem value="medium-long">Medium-Long (~1500 words)</SelectItem>
                     <SelectItem value="long">Long (~2000 words)</SelectItem>
                     <SelectItem value="extended">Extended (~3000 words)</SelectItem>
                     <SelectItem value="comprehensive">Comprehensive (~3500 words)</SelectItem>
