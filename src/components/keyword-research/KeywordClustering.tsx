@@ -720,6 +720,85 @@ const KeywordClustering = () => {
               </div>
             </div>
 
+            {/* Used Keywords Tracker */}
+            {(() => {
+              const usedKeywordsMap = new Map<string, { volume: number | null; sources: string[] }>();
+              result.clusters.forEach(cluster => {
+                (cluster.blog_ideas || []).forEach(idea => {
+                  const ideaKey = makeIdeaKey(cluster.topic, idea.title);
+                  if (usedIdeas.has(ideaKey) && idea.target_keywords) {
+                    idea.target_keywords.forEach(kw => {
+                      const vol = cluster.keyword_volumes?.[kw] ?? cluster.keyword_volumes?.[kw.toLowerCase()] ?? null;
+                      const existing = usedKeywordsMap.get(kw.toLowerCase());
+                      if (existing) {
+                        existing.sources.push(idea.title);
+                        if (vol != null && (existing.volume == null || vol > existing.volume)) existing.volume = vol;
+                      } else {
+                        usedKeywordsMap.set(kw.toLowerCase(), { volume: vol, sources: [idea.title] });
+                      }
+                    });
+                  }
+                });
+              });
+              if (usedKeywordsMap.size === 0) return null;
+              const usedKwArray = [...usedKeywordsMap.entries()].sort((a, b) => (b[1].volume ?? 0) - (a[1].volume ?? 0));
+              const totalUsedVol = usedKwArray.reduce((s, [, v]) => s + (v.volume ?? 0), 0);
+              return (
+                <Collapsible>
+                  <Card className="border-green-500/30 bg-green-50/50 dark:bg-green-950/10">
+                    <CollapsibleTrigger className="w-full">
+                      <div className="flex items-center justify-between px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <Check className="h-4 w-4 text-green-600" />
+                          <span className="font-medium text-sm text-green-700 dark:text-green-400">Used Keywords</span>
+                          <Badge variant="outline" className="text-xs border-green-500/30 text-green-600">
+                            {usedKwArray.length} keywords
+                          </Badge>
+                          {totalUsedVol > 0 && (
+                            <Badge variant="outline" className="text-xs gap-1 border-green-500/30 text-green-600">
+                              <TrendingUp className="h-3 w-3" />
+                              {formatVolume(totalUsedVol)} vol
+                            </Badge>
+                          )}
+                        </div>
+                        <ChevronDown className="h-4 w-4 text-green-600/60" />
+                      </div>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <CardContent className="pt-0 pb-4 px-4">
+                        <div className="border rounded-md overflow-hidden bg-background">
+                          <div className="grid grid-cols-[1fr_auto_auto] gap-x-4 px-3 py-1.5 bg-muted/50 text-xs font-medium text-muted-foreground border-b">
+                            <span>Keyword</span>
+                            <span className="text-right">Volume</span>
+                            <span className="text-right">Article(s)</span>
+                          </div>
+                          <div className="max-h-[300px] overflow-y-auto">
+                            {usedKwArray.map(([kw, info]) => (
+                              <div
+                                key={kw}
+                                className="grid grid-cols-[1fr_auto_auto] gap-x-4 px-3 py-1.5 text-sm border-b last:border-b-0 hover:bg-muted/30"
+                              >
+                                <span className="flex items-center gap-1.5 truncate">
+                                  <Check className="h-3 w-3 text-green-500 shrink-0" />
+                                  {kw}
+                                </span>
+                                <span className="text-right text-muted-foreground tabular-nums">
+                                  {info.volume != null ? formatVolume(info.volume) : "—"}
+                                </span>
+                                <span className="text-right text-xs text-muted-foreground max-w-[200px] truncate" title={info.sources.join(", ")}>
+                                  {info.sources.length}×
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </CardContent>
+                    </CollapsibleContent>
+                  </Card>
+                </Collapsible>
+              );
+            })()}
+
             {/* Cluster cards */}
             <div className="space-y-2">
               {[...result.clusters]
