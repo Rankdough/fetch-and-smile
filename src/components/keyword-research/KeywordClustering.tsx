@@ -637,53 +637,6 @@ const KeywordClustering = () => {
           />
         </div>
 
-        {/* Saved results - Previous Research style */}
-        {savedResults.length > 0 && (
-          <Card className="border-dashed">
-            <CardHeader className="py-3">
-              <CardTitle className="text-sm flex items-center gap-2 text-muted-foreground">
-                <Clock className="h-4 w-4" />
-                Previous Research
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pt-0">
-              <div className="space-y-2">
-                {savedResults.map(saved => {
-                  const clusterCount = saved.result?.clusters?.length || 0;
-                  const kwCount = saved.input_keywords?.length || 0;
-                  const totalVol = saved.result?.clusters?.reduce((s, c) => s + (c.estimated_monthly_volume || 0), 0) || 0;
-                  return (
-                    <div
-                      key={saved.id}
-                      className={`flex items-center justify-between p-3 rounded-md border hover:bg-accent/50 transition-colors cursor-pointer ${activeResultId === saved.id ? "border-primary bg-primary/5" : ""}`}
-                      onClick={() => {
-                        loadResult(saved);
-                        setProjectName(saved.name || "");
-                      }}
-                    >
-                      <div className="flex-1 text-left">
-                        <span className="font-medium text-sm">{saved.name || "Untitled"}</span>
-                        <span className="text-xs text-muted-foreground ml-2">
-                          {kwCount} terms · {clusterCount} silos{totalVol > 0 ? ` · ~${formatVolume(totalVol)} vol` : ""} · {new Date(saved.created_at).toLocaleDateString()}
-                        </span>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                        onClick={(e) => { e.stopPropagation(); deleteResult(saved.id); }}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
-                  );
-                })}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Input area */}
         <div className="space-y-2">
           <div className="flex items-center gap-2 flex-wrap">
             <input ref={fileInputRef} type="file" accept=".csv" multiple className="hidden" onChange={handleFileUpload} />
@@ -1099,6 +1052,53 @@ Focus on providing actionable research that will help create a comprehensive, di
               ))}
             </div>
           </div>
+        )}
+
+
+        {/* Saved results - Previous Research */}
+        {savedResults.length > 0 && (
+          <Card className="border-dashed">
+            <CardHeader className="py-3">
+              <CardTitle className="text-sm flex items-center gap-2 text-muted-foreground">
+                <Clock className="h-4 w-4" />
+                Previous Research
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <div className="space-y-2">
+                {savedResults.map(saved => {
+                  const clusterCount = saved.result?.clusters?.length || 0;
+                  const kwCount = saved.input_keywords?.length || 0;
+                  const totalVol = saved.result?.clusters?.reduce((s, c) => s + (c.estimated_monthly_volume || 0), 0) || 0;
+                  return (
+                    <div
+                      key={saved.id}
+                      className={`flex items-center justify-between p-3 rounded-md border hover:bg-accent/50 transition-colors cursor-pointer ${activeResultId === saved.id ? "border-primary bg-primary/5" : ""}`}
+                      onClick={() => {
+                        loadResult(saved);
+                        setProjectName(saved.name || "");
+                      }}
+                    >
+                      <div className="flex-1 text-left">
+                        <span className="font-medium text-sm">{saved.name || "Untitled"}</span>
+                        <span className="text-xs text-muted-foreground ml-2">
+                          {kwCount} terms · {clusterCount} silos{totalVol > 0 ? ` · ~${formatVolume(totalVol)} vol` : ""} · {new Date(saved.created_at).toLocaleDateString()}
+                        </span>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                        onClick={(e) => { e.stopPropagation(); deleteResult(saved.id); }}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
         )}
       </CardContent>
     </Card>
