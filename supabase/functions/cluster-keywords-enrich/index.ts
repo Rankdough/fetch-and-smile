@@ -48,7 +48,7 @@ CRITICAL KEYWORD DEDUPLICATION RULES:
 
 - Match topic names exactly as provided
 - Priority based on volume and business value
-- Content type based on search intent
+- Content type based on search intent`;
 
     // Process clusters in batches to avoid response truncation
     const BATCH_SIZE = 5;
