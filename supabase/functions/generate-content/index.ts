@@ -7,6 +7,10 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+function countWords(text: string): number {
+  return text.split(/\s+/).filter(Boolean).length;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -45,6 +49,8 @@ serve(async (req) => {
       comprehensive: 3500,
     };
     const targetWords = wordCount || wordCounts[length] || 1000;
+    const wordFloor = Math.round(targetWords * 0.85);
+    const wordCeiling = Math.round(targetWords * 1.15);
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -319,8 +325,6 @@ ${instructions}`;
       }
     } else {
       // Normal generation mode
-      const wordFloor = Math.round(targetWords * 0.85);
-      const wordCeiling = Math.round(targetWords * 1.15);
       userPrompt = `Write a blog post about: ${topic}
 
 WORD COUNT REQUIREMENT (NON-NEGOTIABLE): The article MUST be between ${wordFloor} and ${wordCeiling} words (target: ${targetWords}). HARD CEILING: ${wordCeiling} words - going over this limit is a failure. If you are approaching ${wordCeiling} words and still have sections left, be more concise or drop lower-priority detail. If you finish all planned sections before reaching ${wordFloor} words, expand sections with more detail. Count your words as you write.`;
@@ -403,18 +407,14 @@ Place these images throughout the article at logical locations, typically after 
 
     console.log(expandExistingContent ? "Expanding existing content" : "Generating content for topic:", topic);
 
-    // Use stronger model for long articles, flash for shorter ones
+    // Use stronger model for long articles, default flash for shorter ones
     const model = targetWords >= 2000 ? "google/gemini-2.5-flash" : "google/gemini-3-flash-preview";
-    // ~2 tokens per word — tighter cap to discourage overshoot
-    const maxTokens = Math.min(Math.max(2048, Math.ceil(targetWords * 2)), 16384);
+    // Token budget aligned to the max allowed word ceiling to avoid cutoffs/overshoot
+    const maxTokens = Math.min(Math.max(2048, Math.ceil(wordCeiling * 2.1)), 16384);
 
     console.log(`Using model: ${model}, max_tokens: ${maxTokens}, target words: ${targetWords}`);
 
-    const generateWithRetry = async (attempt: number): Promise<string> => {
-      const retryPrompt = attempt > 1 
-        ? `\n\n⚠️ CRITICAL: Your previous attempt did not meet the word count target of ${targetWords} words. Write approximately ${targetWords} words - not drastically more, not drastically less.`
-        : "";
-
+    const callModel = async (promptSuffix = ""): Promise<{ content: string; finishReason: string | undefined }> => {
       const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
         headers: {
@@ -426,7 +426,7 @@ Place these images throughout the article at logical locations, typically after 
           max_tokens: maxTokens,
           messages: [
             { role: "system", content: systemPrompt },
-            { role: "user", content: userPrompt + retryPrompt },
+            { role: "user", content: userPrompt + promptSuffix },
           ],
         }),
       });
@@ -445,20 +445,45 @@ Place these images throughout the article at logical locations, typically after 
 
       const data = await response.json();
       const firstChoice = data.choices?.[0];
-      let generatedContent = firstChoice?.message?.content;
-      let finishReason = firstChoice?.finish_reason;
+      const generatedContent = firstChoice?.message?.content;
 
       if (!generatedContent) {
         throw new Error("No content generated");
       }
 
-      // If model output is cut off due to token limit, request continuation(s)
-      let continuationAttempts = 0;
-      while (finishReason === "length" && continuationAttempts < 2) {
-        continuationAttempts += 1;
-        console.warn(`Output truncated by token limit. Fetching continuation (${continuationAttempts}/2)...`);
+      return {
+        content: generatedContent,
+        finishReason: firstChoice?.finish_reason,
+      };
+    };
 
-        const continuationResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const rebalanceToRange = async (content: string): Promise<string> => {
+      let current = content;
+
+      for (let i = 0; i < 2; i++) {
+        const words = countWords(current);
+        if (words >= wordFloor && words <= wordCeiling) return current;
+
+        const needsCondense = words > wordCeiling;
+        const operation = needsCondense ? "condense" : "expand";
+
+        console.warn(`Word count out of range (${words}). Running ${operation} pass ${i + 1}/2.`);
+
+        const rebalancePrompt = `${needsCondense
+          ? `Rewrite this complete article to ${targetWords} words target (strict range ${wordFloor}-${wordCeiling}). Keep all sections, keep meaning, and condense phrasing/repetition only.`
+          : `Rewrite this complete article to ${targetWords} words target (strict range ${wordFloor}-${wordCeiling}). Keep all sections and add concise depth/examples where needed.`}
+
+CRITICAL RULES:
+- Return the FULL article from # title through ## References
+- Do NOT output partial content
+- Keep headings and structure intact
+- End with a complete sentence
+- Return markdown only
+
+ARTICLE:
+${current}`;
+
+        const rebalanceResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
           method: "POST",
           headers: {
             Authorization: `Bearer ${LOVABLE_API_KEY}`,
@@ -466,54 +491,65 @@ Place these images throughout the article at logical locations, typically after 
           },
           body: JSON.stringify({
             model,
-            max_tokens: Math.min(4096, Math.max(1024, Math.ceil(targetWords * 0.75))),
+            max_tokens: Math.min(Math.max(2048, Math.ceil(wordCeiling * 2.1)), 16384),
             messages: [
               { role: "system", content: systemPrompt },
-              { role: "user", content: userPrompt + retryPrompt },
-              { role: "assistant", content: generatedContent },
-              {
-                role: "user",
-                content:
-                  "Continue exactly from where you stopped. Do not repeat prior content. Return only the remaining article text.",
-              },
+              { role: "user", content: rebalancePrompt },
             ],
           }),
         });
 
-        if (!continuationResponse.ok) {
-          const errorText = await continuationResponse.text();
-          console.error("Continuation request failed:", continuationResponse.status, errorText);
+        if (!rebalanceResponse.ok) {
+          const errorText = await rebalanceResponse.text();
+          console.error("Rebalance failed:", rebalanceResponse.status, errorText);
           break;
         }
 
-        const continuationData = await continuationResponse.json();
-        const continuationChoice = continuationData.choices?.[0];
-        const continuationText = continuationChoice?.message?.content;
+        const rebalanceData = await rebalanceResponse.json();
+        const rewritten = rebalanceData.choices?.[0]?.message?.content;
+        if (!rewritten) break;
 
-        if (!continuationText) {
-          break;
+        current = rewritten;
+      }
+
+      return current;
+    };
+
+    const generateWithRetry = async (): Promise<string> => {
+      let generated = "";
+      let finishReason: string | undefined;
+
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        const retryPrompt = attempt > 1
+          ? `\n\n⚠️ Your previous output was incomplete or off-target. Rewrite the FULL article from scratch and ensure it is complete (no cut-off ending) and within ${wordFloor}-${wordCeiling} words.`
+          : "";
+
+        const result = await callModel(retryPrompt);
+        generated = result.content;
+        finishReason = result.finishReason;
+
+        const words = countWords(generated);
+        console.log(`Attempt ${attempt}: Generated ${words} words (target ${targetWords}, range ${wordFloor}-${wordCeiling}, finish_reason ${finishReason || "unknown"})`);
+
+        // If response hit token limit, regenerate once from scratch with stricter completion instruction
+        if (finishReason === "length" && attempt < 2) {
+          console.warn("Output hit token limit; retrying with strict full-completion instruction.");
+          continue;
         }
 
-        generatedContent = `${generatedContent}\n${continuationText}`;
-        finishReason = continuationChoice?.finish_reason;
+        break;
       }
 
-      // Check word count - retry if drastically short (less than 50% of target)
-      const wordCount = generatedContent.split(/\s+/).length;
-      const minAcceptable = Math.floor(targetWords * 0.5);
-      console.log(`Attempt ${attempt}: Generated ${wordCount} words (target: ${targetWords}, min acceptable: ${minAcceptable})`);
-
-      if (wordCount < minAcceptable && attempt < 2) {
-        console.warn(`Content too short (${wordCount}/${targetWords}), retrying with stronger prompt...`);
-        return generateWithRetry(attempt + 1);
+      if (!generated) {
+        throw new Error("No content generated");
       }
 
-      return generatedContent;
+      return rebalanceToRange(generated);
     };
 
     let content: string;
     try {
-      content = await generateWithRetry(1);
+      content = await generateWithRetry();
     } catch (e: any) {
       if (e?.status === 429 || e?.status === 402) {
         return new Response(
