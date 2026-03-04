@@ -239,7 +239,53 @@ CRITICAL RULES:
     }
 
     const data = await response.json();
-    let content = data.choices?.[0]?.message?.content || "";
+    const firstChoice = data.choices?.[0];
+    let content = firstChoice?.message?.content || "";
+    let finishReason = firstChoice?.finish_reason;
+
+    // If output gets cut off, continue to avoid truncated reruns
+    let continuationAttempts = 0;
+    while (finishReason === "length" && continuationAttempts < 2) {
+      continuationAttempts += 1;
+      console.warn(`Rerun output truncated. Fetching continuation (${continuationAttempts}/2)...`);
+
+      const continuationResponse = await fetch("https://api.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash",
+          temperature: 0.3,
+          max_tokens: 4096,
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt },
+            { role: "assistant", content },
+            {
+              role: "user",
+              content:
+                "Continue exactly from where you stopped. Do not repeat prior content. Return only the remaining article text.",
+            },
+          ],
+        }),
+      });
+
+      if (!continuationResponse.ok) {
+        const errorText = await continuationResponse.text();
+        console.error("Rerun continuation error:", errorText);
+        break;
+      }
+
+      const continuationData = await continuationResponse.json();
+      const continuationChoice = continuationData.choices?.[0];
+      const continuationText = continuationChoice?.message?.content || "";
+      if (!continuationText) break;
+
+      content = `${content}\n${continuationText}`;
+      finishReason = continuationChoice?.finish_reason;
+    }
 
     // Clean up any markdown code fences
     content = content.replace(/^```(?:markdown)?\s*\n?/i, "").replace(/\n?```\s*$/i, "").trim();
