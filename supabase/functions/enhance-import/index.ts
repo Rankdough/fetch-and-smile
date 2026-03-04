@@ -357,33 +357,76 @@ function insertImagesLocally(content: string, images: ArticleImage[]): string {
     return result.join("\n");
   }
   
-  // Distribute images evenly across H2 headings
-  const imagesPerHeading: ArticleImage[][] = h2Indices.map(() => []);
+  // Distribute images: max ONE image per H2, extras go to paragraph breaks between H2s
+  // First pass: assign one image per H2 (evenly spaced if fewer images than H2s)
+  const assignedToH2: Map<number, ArticleImage> = new Map();
   
-  for (let i = 0; i < images.length; i++) {
-    const headingIndex = i % h2Indices.length;
-    imagesPerHeading[headingIndex].push(images[i]);
+  if (images.length <= h2Indices.length) {
+    // Fewer images than H2s — space them evenly
+    const step = Math.max(1, Math.floor(h2Indices.length / images.length));
+    for (let i = 0; i < images.length; i++) {
+      const h2Idx = Math.min(i * step, h2Indices.length - 1);
+      assignedToH2.set(h2Indices[h2Idx], images[i]);
+    }
+  } else {
+    // More images than H2s — one per H2, extras go to paragraph breaks
+    for (let i = 0; i < h2Indices.length && i < images.length; i++) {
+      assignedToH2.set(h2Indices[i], images[i]);
+    }
   }
   
-  console.log(`Distribution: ${imagesPerHeading.map((arr, i) => `H2[${i}]: ${arr.length} images`).join(", ")}`);
+  const remainingImages = images.slice(assignedToH2.size);
   
-  // Build result with images inserted ABOVE each H2
-  const result: string[] = [];
-  let currentH2Index = 0;
+  console.log(`Assigned ${assignedToH2.size} images to H2s, ${remainingImages.length} remaining for paragraph breaks`);
   
-  for (let i = 0; i < lines.length; i++) {
-    // Check if this line is one of our target H2 headings
-    if (currentH2Index < h2Indices.length && i === h2Indices[currentH2Index]) {
-      // Insert images for this heading BEFORE the heading
-      const imagesToInsert = imagesPerHeading[currentH2Index];
-      for (const img of imagesToInsert) {
-        result.push(`![${img.alt}](${img.url})`);
-        result.push("");
+  // Find paragraph breaks between H2s for remaining images (not near headings)
+  const paragraphBreaks: number[] = [];
+  for (let i = 1; i < lines.length - 1; i++) {
+    // Skip lines near H2 headings (within 2 lines)
+    const nearH2 = h2Indices.some(h => Math.abs(h - i) <= 2);
+    if (nearH2) continue;
+    
+    if (lines[i].trim() === "" && lines[i + 1] && lines[i + 1].trim() &&
+        !lines[i + 1].startsWith("#") && !lines[i + 1].startsWith("|") &&
+        !lines[i + 1].startsWith("!") && !lines[i + 1].startsWith("-") &&
+        !lines[i + 1].startsWith(">")) {
+      paragraphBreaks.push(i);
+    }
+  }
+  
+  // Distribute remaining images evenly across paragraph breaks
+  const breakAssignments: Map<number, ArticleImage> = new Map();
+  if (remainingImages.length > 0 && paragraphBreaks.length > 0) {
+    const step = Math.max(1, Math.floor(paragraphBreaks.length / remainingImages.length));
+    for (let i = 0; i < remainingImages.length; i++) {
+      const breakIdx = Math.min(i * step, paragraphBreaks.length - 1);
+      // Only assign if this break isn't already taken
+      if (!breakAssignments.has(paragraphBreaks[breakIdx])) {
+        breakAssignments.set(paragraphBreaks[breakIdx], remainingImages[i]);
       }
-      currentH2Index++;
+    }
+  }
+  
+  console.log(`Assigned ${breakAssignments.size} remaining images to paragraph breaks`);
+  
+  // Build result
+  const result: string[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    // Insert image ABOVE H2 if assigned
+    if (assignedToH2.has(i)) {
+      const img = assignedToH2.get(i)!;
+      result.push(`![${img.alt}](${img.url})`);
+      result.push("");
     }
     
     result.push(lines[i]);
+    
+    // Insert image AFTER paragraph break if assigned
+    if (breakAssignments.has(i)) {
+      const img = breakAssignments.get(i)!;
+      result.push("");
+      result.push(`![${img.alt}](${img.url})`);
+    }
   }
   
   return result.join("\n");
