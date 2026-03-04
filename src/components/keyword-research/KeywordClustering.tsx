@@ -153,19 +153,24 @@ const KeywordClustering = () => {
     }
   };
 
+  const deriveProjectName = (clusteringResult: ClusteringResult): string => {
+    // Pick the top 2-3 cluster topics by volume to form a descriptive name
+    const sorted = [...clusteringResult.clusters]
+      .sort((a, b) => b.estimated_monthly_volume - a.estimated_monthly_volume);
+    if (sorted.length === 0) return "Untitled";
+    if (sorted.length === 1) return sorted[0].topic;
+    // Use top 2 topics joined
+    return sorted.slice(0, 2).map(c => c.topic).join(" & ");
+  };
+
   const saveResult = async (keywords: string[], clusteringResult: ClusteringResult, topicName?: string) => {
-    // Derive a meaningful name from the clusters or keywords
-    let name = topicName || "";
-    if (!name) {
-      // Try to find a common theme from top 3 cluster topics
-      const topTopics = clusteringResult.clusters
-        .sort((a, b) => b.estimated_monthly_volume - a.estimated_monthly_volume)
-        .slice(0, 3)
-        .map(c => c.topic);
-      // Use the most common single word across cluster topics, or just use the first topic
-      name = topTopics[0] || `${clusteringResult.clusters.length} silos`;
+    const displayName = topicName || deriveProjectName(clusteringResult);
+
+    // Auto-fill project name input if it was empty
+    if (!topicName) {
+      setProjectName(displayName);
     }
-    const displayName = `${name}`;
+
     const { data, error } = await supabase
       .from("keyword_clustering_results")
       .insert({ input_keywords: keywords, result: clusteringResult as any, name: displayName })
