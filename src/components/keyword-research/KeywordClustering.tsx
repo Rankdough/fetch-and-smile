@@ -309,15 +309,29 @@ const KeywordClustering = () => {
   };
 
   const analyzeKeywords = async () => {
-    const keywords = [...new Set(parseKeywordsFromText(rawInput))];
+    const allKeywords = [...new Set(parseKeywordsFromText(rawInput))];
+
+    // Build volume map from uploaded CSV data
+    const volumeMap: Record<string, number> = {};
+    for (const item of keywordsWithVolume) {
+      if (item.volume !== null && item.volume > 0) volumeMap[item.keyword] = item.volume;
+    }
+
+    // If we have volume data, only cluster keywords that have volume > 0
+    const hasVolumeData = Object.keys(volumeMap).length > 0;
+    const keywords = hasVolumeData
+      ? allKeywords.filter(kw => volumeMap[kw] !== undefined && volumeMap[kw] > 0)
+      : allKeywords;
+
+    const excludedCount = allKeywords.length - keywords.length;
+
     if (keywords.length < 10) {
-      toast({ title: "Need more keywords", description: "Please provide at least 10 keywords to cluster.", variant: "destructive" });
+      toast({ title: "Need more keywords", description: `Only ${keywords.length} keywords${hasVolumeData ? " with volume data" : ""}. Need at least 10 to cluster.${excludedCount > 0 ? ` (${excludedCount} excluded for having no volume)` : ""}`, variant: "destructive" });
       return;
     }
 
-    const volumeMap: Record<string, number> = {};
-    for (const item of keywordsWithVolume) {
-      if (item.volume !== null) volumeMap[item.keyword] = item.volume;
+    if (excludedCount > 0) {
+      toast({ title: `${excludedCount} keywords excluded`, description: `Only clustering ${keywords.length} keywords that have search volume data.` });
     }
 
     setIsAnalyzing(true);
