@@ -17,6 +17,7 @@ interface ApplyFormatRequest {
   customInstructions?: string;
   forceRegenerateCtas?: boolean;
   skipFaqs?: boolean;
+  skipQuickTips?: boolean;
 }
 
 serve(async (req) => {
@@ -25,7 +26,7 @@ serve(async (req) => {
   }
 
   try {
-    const { content, ctaConfig, customInstructions, forceRegenerateCtas, skipFaqs } = await req.json() as ApplyFormatRequest;
+    const { content, ctaConfig, customInstructions, forceRegenerateCtas, skipFaqs, skipQuickTips } = await req.json() as ApplyFormatRequest;
 
     if (!content) {
       return new Response(
@@ -47,7 +48,7 @@ serve(async (req) => {
 
     // Check what structural elements are missing
     const hasTldr = /#{1,3}\s*TL;?DR/i.test(content) || /^TL;?DR\s*$/im.test(content);
-    const hasQuickTips = /#{1,3}\s*Quick\s*Tips/i.test(content) || />\s*\*\*Tip\s*1/i.test(content);
+    const hasQuickTips = skipQuickTips ? true : (/#{1,3}\s*Quick\s*Tips/i.test(content) || />\s*\*\*Tip\s*1/i.test(content));
     const hasInThisArticle = /#{1,3}\s*In\s*This\s*Article/i.test(content) || /^In\s*This\s*Article\s*$/im.test(content);
     const hasFaq = skipFaqs ? true : (/#{1,3}\s*(FAQ|Frequently\s*Asked\s*Questions)/i.test(content) || /^Frequently\s*Asked\s*Questions\s*$/im.test(content));
 
