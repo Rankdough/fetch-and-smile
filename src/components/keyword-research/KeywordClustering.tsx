@@ -637,6 +637,7 @@ const KeywordClustering = () => {
                 {savedResults.map(saved => {
                   const clusterCount = saved.result?.clusters?.length || 0;
                   const kwCount = saved.input_keywords?.length || 0;
+                  const totalVol = saved.result?.clusters?.reduce((s, c) => s + (c.estimated_monthly_volume || 0), 0) || 0;
                   return (
                     <div
                       key={saved.id}
@@ -649,7 +650,7 @@ const KeywordClustering = () => {
                       <div className="flex-1 text-left">
                         <span className="font-medium text-sm">{saved.name || "Untitled"}</span>
                         <span className="text-xs text-muted-foreground ml-2">
-                          {kwCount} terms · {clusterCount} silos · {new Date(saved.created_at).toLocaleDateString()}
+                          {kwCount} terms · {clusterCount} silos{totalVol > 0 ? ` · ~${formatVolume(totalVol)} vol` : ""} · {new Date(saved.created_at).toLocaleDateString()}
                         </span>
                       </div>
                       <Button
