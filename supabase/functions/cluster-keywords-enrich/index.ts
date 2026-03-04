@@ -37,14 +37,16 @@ RULES:
 
 CRITICAL TOPICAL COHERENCE RULES:
 - Every target_keyword assigned to a blog idea MUST be directly relevant to that idea's specific title and angle.
-- Do NOT assign keywords about other countries/brands/entities to an article focused on a specific one. For example, an article about "Albania Dental Tourism" must NOT target keywords like "dental tourism germany" or "dental tourism italy" — those belong in a separate comparison or destination-specific article.
-- If a cluster contains keywords spanning multiple sub-entities (countries, brands, products), create separate blog ideas for each sub-entity OR a comparison/roundup article that naturally covers all of them.
-- Think of each blog idea as a standalone article: its target_keywords should match what that article would actually rank for.
+- If a silo groups keywords across multiple entities (e.g. countries, cities, brands), design blog ideas that match logically:
+  - A comparison/roundup article (e.g. "Best Countries for Dental Tourism in Europe") can target keywords across entities: "dental tourism italy", "dental tourism germany", etc.
+  - A single-entity article (e.g. "Dental Tourism in Albania") must ONLY target keywords about that specific entity. Never assign "dental tourism germany" to an article about Albania.
+- Ask yourself: "Would this keyword naturally appear in this article?" If not, don't assign it.
+- Each blog idea is a standalone article — its target_keywords must match what that article would actually rank for.
 
 CRITICAL KEYWORD DEDUPLICATION RULES:
 - Each keyword in the cluster should be assigned to AT MOST ONE blog idea. Do NOT repeat the same keyword across multiple ideas.
-- Think of the 5 blog ideas as a content silo: each idea should own a distinct subset of keywords with minimal overlap.
-- Before finalizing, review all 5 ideas together and redistribute any duplicated keywords so each appears in only one idea.
+- The 5 blog ideas form a content silo: each owns a distinct subset of keywords with no overlap.
+- Before finalizing, review all 5 ideas and redistribute any duplicated keywords.
 
 - Match topic names exactly as provided
 - Priority based on volume and business value

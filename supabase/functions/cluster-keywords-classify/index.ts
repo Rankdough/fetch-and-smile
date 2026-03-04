@@ -32,13 +32,22 @@ serve(async (req) => {
       return kw;
     }).join("\n");
 
-    const systemPrompt = `You are an expert SEO strategist. Your task is to classify every keyword into a topic silo.
+    const systemPrompt = `You are an expert SEO strategist. Your task is to classify every keyword into a topic silo the way an experienced human content strategist would.
+
+CRITICAL GROUPING LOGIC:
+- Group keywords by their SHARED THEME or DIMENSION, not by individual entities.
+- If multiple keywords share the same pattern but differ by a variable (country, city, brand, material, procedure), they belong in ONE silo named after the shared dimension.
+  Examples:
+  - "dental tourism italy", "dental tourism germany", "dental tourism greece", "dental tourism spain" → silo: "Dental Tourism Destinations in Europe" (grouped by the shared concept: dental tourism + European country)
+  - "dental implants albania", "dental crowns albania", "dental veneers albania" → silo: "Dental Services in Albania" (grouped by the shared location: Albania + different procedures)
+  - "best dentist istanbul", "best dentist antalya", "best dentist izmir" → silo: "Best Dentists by City in Turkey" (grouped by the shared concept: best dentist + Turkish city)
+- Do NOT create a separate silo for each country/city/brand/product — instead find the higher-level theme they share.
+- Think: "What is the COMMON THREAD across these keywords?" and name the silo after that thread.
 
 RULES:
-- Create 10-20 topic silos based on semantic similarity and search intent (never more than 20)
+- Create 10-20 topic silos (never more than 20)
 - Every keyword must be assigned to exactly one topic
-- Topic names should be clear, descriptive, and action-oriented
-- Group by user intent & semantic meaning
+- Topic names should be clear, descriptive, and reflect the shared theme
 - Numbers in brackets are search volumes — use them to inform grouping but don't output them
 - Output ONLY valid JSON, no markdown fences
 
