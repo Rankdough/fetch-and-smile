@@ -1995,6 +1995,15 @@ const Index = () => {
             <Button
               variant="ghost"
               size="sm"
+              onClick={() => navigate("/outline-generator")}
+              className="gap-2"
+            >
+              <FileText className="h-4 w-4" />
+              Outline Generator
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => navigate("/product-descriptions")}
               className="gap-2"
             >
