@@ -39,6 +39,7 @@ serve(async (req) => {
     const wordCounts: Record<string, number> = {
       short: 500,
       medium: 1000,
+      "medium-long": 1500,
       long: 2000,
       extended: 3000,
       comprehensive: 3500,
@@ -404,8 +405,8 @@ Place these images throughout the article at logical locations, typically after 
 
     // Use stronger model for long articles, flash for shorter ones
     const model = targetWords >= 2000 ? "google/gemini-2.5-flash" : "google/gemini-3-flash-preview";
-    // ~2.5 tokens per word with some headroom for markdown formatting
-    const maxTokens = Math.min(Math.max(2048, Math.ceil(targetWords * 2.5)), 16384);
+    // ~2 tokens per word — tighter cap to discourage overshoot
+    const maxTokens = Math.min(Math.max(2048, Math.ceil(targetWords * 2)), 16384);
 
     console.log(`Using model: ${model}, max_tokens: ${maxTokens}, target words: ${targetWords}`);
 
@@ -479,6 +480,29 @@ Place these images throughout the article at logical locations, typically after 
     content = content.replace(/—/g, "-").replace(/–/g, "-");
     // Remove horizontal rules (---, ***, ___ on their own line)
     content = content.replace(/^\s*[-*_]{3,}\s*$/gm, "");
+
+    // Enforce word ceiling — deterministic truncation if AI overshoots by > 15%
+    if (!expandExistingContent) {
+      const wordCeiling = Math.round(targetWords * 1.15);
+      const currentWordCount = content.split(/\s+/).filter(Boolean).length;
+      if (currentWordCount > wordCeiling) {
+        console.warn(`Word count overshoot: ${currentWordCount} > ${wordCeiling} ceiling. Trimming.`);
+        // Trim to ceiling by keeping only the first wordCeiling words
+        const tokens = content.match(/\S+\s*/g) || [];
+        content = tokens.slice(0, wordCeiling).join("").trim();
+        // Try to end at the last complete paragraph/sentence
+        const lastDoubleNewline = content.lastIndexOf("\n\n");
+        const lastSentenceEnd = Math.max(
+          content.lastIndexOf(". "),
+          content.lastIndexOf(".\n")
+        );
+        const cutPoint = Math.max(lastDoubleNewline, lastSentenceEnd);
+        if (cutPoint > content.length * 0.9) {
+          content = content.substring(0, cutPoint + 1).trim();
+        }
+        console.log(`Trimmed to ${content.split(/\s+/).filter(Boolean).length} words`);
+      }
+    }
 
     console.log("Content generated successfully");
 
