@@ -137,17 +137,34 @@ const KeywordClustering = () => {
       .select("*")
       .order("created_at", { ascending: false });
     if (data && !error) {
-      setSavedResults(data.map(d => ({
+      const mapped = data.map(d => ({
         ...d,
         result: d.result as unknown as ClusteringResult,
-      })));
+      }));
+
+      // Retroactively fix generic names (e.g. "28 silos · 896 keywords")
+      for (const item of mapped) {
+        const name = item.name || "";
+        const isGeneric = !name || /^\d+\s*silos?\s*·/i.test(name) || name === "Untitled";
+        if (isGeneric && item.result?.clusters?.length > 0) {
+          const derived = deriveProjectName(item.result);
+          item.name = derived;
+          // Update in DB silently
+          supabase
+            .from("keyword_clustering_results")
+            .update({ name: derived })
+            .eq("id", item.id)
+            .then();
+        }
+      }
+
+      setSavedResults(mapped);
       // Auto-load most recent
       if (data.length > 0 && !result) {
-        const latest = data[0];
-        setResult(latest.result as unknown as ClusteringResult);
+        const latest = mapped[0];
+        setResult(latest.result);
         setRawInput(latest.input_keywords.join("\n"));
         setActiveResultId(latest.id);
-        const clusters = (latest.result as unknown as ClusteringResult).clusters;
         setExpandedClusters(new Set());
       }
     }
