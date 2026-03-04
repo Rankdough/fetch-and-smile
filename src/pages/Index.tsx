@@ -511,6 +511,10 @@ const Index = () => {
     const saved = localStorage.getItem("seo-generator-skipNavigation");
     return saved !== null ? JSON.parse(saved) : false;
   });
+  const [skipFaqs, setSkipFaqs] = useState(() => {
+    const saved = localStorage.getItem("seo-generator-skipFaqs");
+    return saved !== null ? JSON.parse(saved) : false;
+  });
   const [isEditMode, setIsEditMode] = useState(false);
   const [useFirstPerson, setUseFirstPerson] = useState<boolean>(() => {
     return localStorage.getItem("seo-generator-useFirstPerson") === "true";
@@ -650,6 +654,10 @@ const Index = () => {
   useEffect(() => {
     localStorage.setItem("seo-generator-skipNavigation", JSON.stringify(skipNavigation));
   }, [skipNavigation]);
+
+  useEffect(() => {
+    localStorage.setItem("seo-generator-skipFaqs", JSON.stringify(skipFaqs));
+  }, [skipFaqs]);
   
   useEffect(() => {
     if (selectedToneProfileId) {
@@ -1266,6 +1274,7 @@ const Index = () => {
             toneProfileId: selectedToneProfileId || undefined,
             valuePromiseClaims: filledClaims.length > 0 ? filledClaims : undefined,
             useFirstPerson,
+            skipFaqs,
           },
         });
 
@@ -1694,7 +1703,7 @@ const Index = () => {
       const hasTldr = /##\s*TL;?DR/i.test(generatedContent) || /###\s*TL;?DR/i.test(generatedContent);
       const hasQuickTips = /##\s*Quick\s*Tips/i.test(generatedContent) || />\s*\*\*Tip\s*1/i.test(generatedContent);
       const hasInThisArticle = /##\s*In\s*This\s*Article/i.test(generatedContent);
-      const hasFaq = /##\s*(FAQ|Frequently\s*Asked\s*Questions)/i.test(generatedContent);
+      const hasFaq = skipFaqs ? true : /##\s*(FAQ|Frequently\s*Asked\s*Questions)/i.test(generatedContent);
       const hasCtaUrl = !!ctaUrl.trim();
 
       updateStep('analyze', 'done', 'Content analyzed');
@@ -1737,6 +1746,7 @@ const Index = () => {
           content: generatedContent,
           ctaConfig,
           customInstructions: formData.instructions?.trim() || undefined,
+          skipFaqs,
         },
       });
 
@@ -2147,7 +2157,7 @@ const Index = () => {
                 if (navItems.length === 0) {
                   navItems = extractNavigationFromContent(generatedContent);
                 }
-                const faqItems = extractFAQFromContent(generatedContent);
+                const faqItems = skipFaqs ? [] : extractFAQFromContent(generatedContent);
                 
                 // Get article element for base HTML structure
                 const article = document.querySelector("article");
@@ -3780,7 +3790,7 @@ const Index = () => {
                 number={15}
                 title="Output Options"
                 isComplete={true}
-                summary={skipNavigation ? "Navigation skipped" : "All sections included"}
+                summary={[skipNavigation && "Navigation skipped", skipFaqs && "FAQs skipped"].filter(Boolean).join(", ") || "All sections included"}
                 icon={<Settings className="h-4 w-4" />}
               >
                 <div className="space-y-3">
@@ -3797,6 +3807,21 @@ const Index = () => {
                       id="skip-navigation"
                       checked={skipNavigation}
                       onCheckedChange={setSkipNavigation}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <label htmlFor="skip-faqs" className="text-sm font-medium">
+                        Skip FAQs
+                      </label>
+                      <p className="text-xs text-muted-foreground">
+                        Exclude the FAQ section from generated articles and Apply Format
+                      </p>
+                    </div>
+                    <Switch
+                      id="skip-faqs"
+                      checked={skipFaqs}
+                      onCheckedChange={setSkipFaqs}
                     />
                   </div>
                 </div>
@@ -4285,7 +4310,7 @@ const Index = () => {
                           navItems = extractNavigationFromContent(generatedContent);
                         }
                         // Extract FAQ items
-                        const faqItems = extractFAQFromContent(generatedContent);
+                        const faqItems = skipFaqs ? [] : extractFAQFromContent(generatedContent);
                         // Remove "In This Article" and FAQ sections from markdown for custom rendering
                         let contentWithoutNav = removeInThisArticleSection(generatedContent);
                         contentWithoutNav = removeFAQSection(contentWithoutNav);

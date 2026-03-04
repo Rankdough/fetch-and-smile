@@ -16,6 +16,7 @@ interface ApplyFormatRequest {
   };
   customInstructions?: string;
   forceRegenerateCtas?: boolean;
+  skipFaqs?: boolean;
 }
 
 serve(async (req) => {
@@ -24,7 +25,7 @@ serve(async (req) => {
   }
 
   try {
-    const { content, ctaConfig, customInstructions, forceRegenerateCtas } = await req.json() as ApplyFormatRequest;
+    const { content, ctaConfig, customInstructions, forceRegenerateCtas, skipFaqs } = await req.json() as ApplyFormatRequest;
 
     if (!content) {
       return new Response(
@@ -48,7 +49,7 @@ serve(async (req) => {
     const hasTldr = /#{1,3}\s*TL;?DR/i.test(content) || /^TL;?DR\s*$/im.test(content);
     const hasQuickTips = /#{1,3}\s*Quick\s*Tips/i.test(content) || />\s*\*\*Tip\s*1/i.test(content);
     const hasInThisArticle = /#{1,3}\s*In\s*This\s*Article/i.test(content) || /^In\s*This\s*Article\s*$/im.test(content);
-    const hasFaq = /#{1,3}\s*(FAQ|Frequently\s*Asked\s*Questions)/i.test(content) || /^Frequently\s*Asked\s*Questions\s*$/im.test(content);
+    const hasFaq = skipFaqs ? true : (/#{1,3}\s*(FAQ|Frequently\s*Asked\s*Questions)/i.test(content) || /^Frequently\s*Asked\s*Questions\s*$/im.test(content));
 
     // Check for existing CTAs - must match the specific 4-line CTA format with ALL CAPS headline and URL button
     // Pattern: > **emoji + HEADLINE IN CAPS** followed by lines with a [BUTTON TEXT →](url)
