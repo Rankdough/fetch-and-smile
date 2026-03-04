@@ -255,7 +255,27 @@ Return the enhanced article.`;
 function insertImagesLocally(content: string, images: ArticleImage[]): string {
   if (images.length === 0) return content;
   
-  const lines = content.split("\n");
+  // Build a set of image URLs we're about to insert
+  const imageUrls = new Set(images.map(img => img.url));
+  
+  // Strip any existing markdown image lines that match the images we're inserting
+  // This prevents duplication when re-allocating
+  const cleanedLines = content.split("\n").filter(line => {
+    const imgMatch = line.trim().match(/^!\[.*?\]\((.+?)\)$/);
+    if (imgMatch && imageUrls.has(imgMatch[1])) {
+      return false; // Remove this line — we'll re-insert it
+    }
+    return true;
+  });
+  
+  // Also clean up any resulting double-blank-lines from removal
+  const lines: string[] = [];
+  for (const line of cleanedLines) {
+    if (line.trim() === "" && lines.length > 0 && lines[lines.length - 1].trim() === "") {
+      continue; // skip consecutive blank lines
+    }
+    lines.push(line);
+  }
   
   // Headings to skip for image placement
   const skipHeadings = [
