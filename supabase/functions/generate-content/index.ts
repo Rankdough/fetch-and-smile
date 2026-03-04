@@ -13,7 +13,7 @@ serve(async (req) => {
   }
 
   try {
-    const { topic, length, outline, instructions, gapAnalysis, valuePromiseClaims, formatReference, contextFiles, keywords, generateCTAs, ctaUrl, useKnowledgeBase, toneProfileId, articleImages, expandExistingContent, existingContent, wordsToAdd, wordCount, useFirstPerson } = await req.json();
+    const { topic, length, outline, instructions, gapAnalysis, valuePromiseClaims, formatReference, contextFiles, keywords, generateCTAs, ctaUrl, useKnowledgeBase, toneProfileId, articleImages, expandExistingContent, existingContent, wordsToAdd, wordCount, useFirstPerson, skipFaqs } = await req.json();
 
     // Handle expand mode - different validation
     if (expandExistingContent) {
@@ -180,7 +180,7 @@ ARTICLE STRUCTURE (in this order):
 5. Main content sections with ## QUESTION headings (each answered with text + bullets + tables + **Sources:** at the end)
 6. Comparison table section (question-based, e.g., "## How Do They Compare Side by Side?")
 7. "## Which Option Should You Choose?" section
-8. "## Frequently Asked Questions" section - include 4-6 common Q&As in bold question format
+${skipFaqs ? '' : '8. "## Frequently Asked Questions" section - include 4-6 common Q&As in bold question format'}
 9. "## Final Thoughts" section with call-to-action
 10. "## References:" section - list ALL sources used throughout the article as simple markdown links
 
