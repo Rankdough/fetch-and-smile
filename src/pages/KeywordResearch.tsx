@@ -883,34 +883,42 @@ const KeywordResearch = () => {
 
         {/* Saved Research */}
         {savedResearch.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base flex items-center gap-2">
-                <Clock className="h-4 w-4 text-muted-foreground" />
-                Previous Research
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                {savedResearch.map(saved => (
-                  <div
-                    key={saved.id}
-                    className="flex items-center justify-between p-3 rounded-md border hover:bg-accent/50 transition-colors"
-                  >
-                    <button className="flex-1 text-left" onClick={() => loadResearch(saved)}>
-                      <span className="font-medium text-sm">{saved.topic}</span>
-                      <span className="text-xs text-muted-foreground ml-2">
-                        {getResearchStats(saved)} · {new Date(saved.created_at).toLocaleDateString()}
-                      </span>
-                    </button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={e => { e.stopPropagation(); deleteResearch(saved.id); }}>
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
+          <Collapsible>
+            <Card>
+              <CardHeader>
+                <CollapsibleTrigger className="w-full flex items-center justify-between">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Clock className="h-4 w-4 text-muted-foreground" />
+                    Previous Research
+                    <Badge variant="secondary" className="text-xs">{savedResearch.length}</Badge>
+                  </CardTitle>
+                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                </CollapsibleTrigger>
+              </CardHeader>
+              <CollapsibleContent>
+                <CardContent>
+                  <div className="space-y-2">
+                    {savedResearch.map(saved => (
+                      <div
+                        key={saved.id}
+                        className="flex items-center justify-between p-3 rounded-md border hover:bg-accent/50 transition-colors"
+                      >
+                        <button className="flex-1 text-left" onClick={() => loadResearch(saved)}>
+                          <span className="font-medium text-sm">{saved.topic}</span>
+                          <span className="text-xs text-muted-foreground ml-2">
+                            {getResearchStats(saved)} · {new Date(saved.created_at).toLocaleDateString()}
+                          </span>
+                        </button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={e => { e.stopPropagation(); deleteResearch(saved.id); }}>
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+                </CardContent>
+              </CollapsibleContent>
+            </Card>
+          </Collapsible>
         )}
 
         {isLoadingSaved && !savedResearch.length && (
