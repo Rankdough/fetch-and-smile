@@ -590,7 +590,7 @@ const KeywordClustering = () => {
 
   const exportClustersCSV = () => {
     if (!result) return;
-    const rows = [["Topic", "Description", "Est. Monthly Volume", "Keywords Count", "Content Type", "Difficulty", "Priority", "Keywords", "Keyword Volumes", "Blog Ideas"]];
+    const rows: string[][] = [["Topic", "Description", "Est. Monthly Volume", "Keywords Count", "Content Type", "Difficulty", "Priority", "Keywords", "Keyword Volumes", "Blog Ideas"]];
     result.clusters.forEach(c => {
       const volStr = c.keyword_volumes 
         ? c.keywords.map(kw => `${kw}: ${c.keyword_volumes?.[kw] ?? "n/a"}`).join("; ")
@@ -600,14 +600,20 @@ const KeywordClustering = () => {
         : "";
       rows.push([c.topic, c.description, c.estimated_monthly_volume.toString(), c.keywords.length.toString(), c.content_type, c.difficulty, c.priority, c.keywords.join("; "), volStr, blogStr]);
     });
-    const csv = rows.map(r => r.map(v => `"${v.replace(/"/g, '""')}"`).join(",")).join("\n");
-    const blob = new Blob([csv], { type: "text/csv" });
+    downloadCSV(rows, "keyword-clusters.csv");
+  };
+
+  const downloadCSV = (rows: string[][], filename: string) => {
+    const csv = rows.map(r => r.map(v => `"${(v || "").replace(/"/g, '""')}"`).join(",")).join("\n");
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "keyword-clusters.csv";
+    a.download = filename;
+    document.body.appendChild(a);
     a.click();
-    URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 100);
   };
 
   const exportSiloSummaryCSV = () => {
@@ -634,14 +640,7 @@ const KeywordClustering = () => {
           topKws,
         ]);
       });
-    const csv = rows.map(r => r.map(v => `"${v.replace(/"/g, '""')}"`).join(",")).join("\n");
-    const blob = new Blob([csv], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "silo-summary.csv";
-    a.click();
-    URL.revokeObjectURL(url);
+    downloadCSV(rows, "silo-summary.csv");
   };
 
   const totalVolume = result?.clusters.reduce((s, c) => s + c.estimated_monthly_volume, 0) || 0;
