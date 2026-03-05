@@ -610,6 +610,40 @@ const KeywordClustering = () => {
     URL.revokeObjectURL(url);
   };
 
+  const exportSiloSummaryCSV = () => {
+    if (!result) return;
+    const rows = [["#", "Silo Name", "Keywords", "Est. Monthly Volume", "Difficulty", "Priority", "Content Type", "Top Keywords"]];
+    [...result.clusters]
+      .sort((a, b) => b.estimated_monthly_volume - a.estimated_monthly_volume)
+      .forEach((c, i) => {
+        const topKws = c.keyword_volumes
+          ? Object.entries(c.keyword_volumes)
+              .sort(([, a], [, b]) => (b ?? 0) - (a ?? 0))
+              .slice(0, 5)
+              .map(([kw, vol]) => `${kw} (${vol})`)
+              .join("; ")
+          : c.keywords.slice(0, 5).join("; ");
+        rows.push([
+          (i + 1).toString(),
+          c.topic,
+          c.keywords.length.toString(),
+          c.estimated_monthly_volume.toString(),
+          c.difficulty,
+          c.priority,
+          c.content_type,
+          topKws,
+        ]);
+      });
+    const csv = rows.map(r => r.map(v => `"${v.replace(/"/g, '""')}"`).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "silo-summary.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const totalVolume = result?.clusters.reduce((s, c) => s + c.estimated_monthly_volume, 0) || 0;
   const keywordCount = parseKeywordsFromText(rawInput).length;
 
@@ -739,9 +773,13 @@ const KeywordClustering = () => {
                     </Button>
                   );
                 })()}
+                <Button variant="outline" size="sm" onClick={exportSiloSummaryCSV} className="gap-1.5">
+                  <Download className="h-3.5 w-3.5" />
+                  Silo Summary
+                </Button>
                 <Button variant="outline" size="sm" onClick={exportClustersCSV} className="gap-1.5">
                   <Download className="h-3.5 w-3.5" />
-                  Export CSV
+                  Full Export
                 </Button>
               </div>
             </div>
