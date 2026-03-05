@@ -8,17 +8,21 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import {
   ArrowLeft, Search, Sparkles, Copy, Download, Trash2,
-  ChevronDown, ChevronRight, Clock, Loader2, Square, ChevronUp
+  ChevronDown, ChevronRight, Clock, Loader2, Square, ChevronUp,
+  Plus, X, Edit2, Check, BrainCircuit
 } from "lucide-react";
-import QuestionnaireUpload, { BrandAnalysis } from "@/components/keyword-research/QuestionnaireUpload";
-import SeedKeywordsUpload, { SeedFile } from "@/components/keyword-research/SeedKeywordsUpload";
-import SeedThemesDisplay from "@/components/keyword-research/SeedThemesDisplay";
-import { extractSeedThemes, type SeedThemes } from "@/components/keyword-research/seedThemeExtractor";
-import ContextFileUpload, { ContextFile } from "@/components/keyword-research/ContextFileUpload";
 import KeywordClustering from "@/components/keyword-research/KeywordClustering";
+
+interface Subtopic {
+  name: string;
+  description: string;
+  example_queries: string[];
+  selected: boolean;
+}
 
 interface KeywordCategory {
   name: string;
@@ -41,93 +45,37 @@ const KeywordResearch = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
+  // Step 1: Input
   const [topic, setTopic] = useState("");
   const [context, setContext] = useState("");
+  
+  // Step 2: Subtopics
+  const [subtopics, setSubtopics] = useState<Subtopic[]>([]);
+  const [isExpandingTopics, setIsExpandingTopics] = useState(false);
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [newSubtopicName, setNewSubtopicName] = useState("");
+  const [showAddForm, setShowAddForm] = useState(false);
+  
+  // Step 3: Results
   const [isGenerating, setIsGenerating] = useState(false);
   const [results, setResults] = useState<KeywordResult | null>(null);
   const [currentTopic, setCurrentTopic] = useState("");
-  const [savedResearch, setSavedResearch] = useState<SavedResearch[]>([]);
   const [openCategories, setOpenCategories] = useState<Set<string>>(new Set());
+  
+  // Saved
+  const [savedResearch, setSavedResearch] = useState<SavedResearch[]>([]);
   const [isLoadingSaved, setIsLoadingSaved] = useState(true);
-  const [brandAnalysis, setBrandAnalysis] = useState<BrandAnalysis | null>(() => {
-    const saved = localStorage.getItem("kw-brand-analysis");
-    return saved ? JSON.parse(saved) : null;
-  });
-  const [questionnaireText, setQuestionnaireText] = useState(() => {
-    return localStorage.getItem("kw-questionnaire-text") || "";
-  });
-  const [seedFiles, setSeedFiles] = useState<SeedFile[]>([]);
-  const [extractedThemes, setExtractedThemes] = useState<SeedThemes | null>(null);
-  const [contextFiles, setContextFiles] = useState<ContextFile[]>([]);
+  
   const abortControllerRef = useRef<AbortController | null>(null);
   const resultsRef = useRef<HTMLDivElement | null>(null);
-  const [isGeneratorOpen, setIsGeneratorOpen] = useState(false);
-
-  const reExtractThemes = () => {
-    if (seedFiles.length > 0) {
-      const allKeywords = [...new Set(seedFiles.flatMap((f) => f.keywords))];
-      const brandTerms = brandAnalysis ? [brandAnalysis.brand.toLowerCase()] : [];
-      const themes = extractSeedThemes(allKeywords, brandTerms);
-      setExtractedThemes(themes);
-    } else {
-      setExtractedThemes(null);
-    }
-  };
-
-  // Extract themes whenever seed files change
-  useEffect(() => {
-    reExtractThemes();
-  }, [seedFiles, brandAnalysis]);
-
-  // Persist brandAnalysis to localStorage
-  useEffect(() => {
-    if (brandAnalysis) {
-      localStorage.setItem("kw-brand-analysis", JSON.stringify(brandAnalysis));
-    } else {
-      localStorage.removeItem("kw-brand-analysis");
-    }
-  }, [brandAnalysis]);
-
-  useEffect(() => {
-    if (questionnaireText) {
-      localStorage.setItem("kw-questionnaire-text", questionnaireText);
-    } else {
-      localStorage.removeItem("kw-questionnaire-text");
-    }
-  }, [questionnaireText]);
+  const subtopicsRef = useRef<HTMLDivElement | null>(null);
+  const [isGeneratorOpen, setIsGeneratorOpen] = useState(true);
 
   useEffect(() => {
     loadSavedResearch();
-    loadSavedSeedFiles();
   }, []);
-
-  const loadSavedSeedFiles = async () => {
-    const { data, error } = await supabase
-      .from("seed_keyword_files" as any)
-      .select("*")
-      .order("created_at", { ascending: true });
-    if (!error && data) {
-      setSeedFiles(data.map((d: any) => ({
-        name: d.name,
-        type: d.file_type as SeedFile["type"],
-        keywords: d.keywords as string[],
-        dbId: d.id,
-      })));
-    }
-  };
-
-  const saveSeedFile = async (file: SeedFile) => {
-    const { data, error } = await supabase
-      .from("seed_keyword_files" as any)
-      .insert({ name: file.name, file_type: file.type, keywords: file.keywords })
-      .select("id")
-      .single();
-    return (data as any)?.id;
-  };
-
-  const deleteSeedFile = async (dbId: string) => {
-    await supabase.from("seed_keyword_files" as any).delete().eq("id", dbId);
-  };
 
   const loadSavedResearch = async () => {
     setIsLoadingSaved(true);
@@ -148,28 +96,20 @@ const KeywordResearch = () => {
     setIsLoadingSaved(false);
   };
 
-  const generateKeywords = async () => {
-    const effectiveTopic = topic.trim() || (brandAnalysis?.suggested_topic) || "";
-    if (!effectiveTopic) return;
-    setIsGenerating(true);
+  // ═══════════════════════════════════════════════
+  // STEP 1: Expand topic into subtopics
+  // ═══════════════════════════════════════════════
+  const expandTopics = async () => {
+    if (!topic.trim()) return;
+    setIsExpandingTopics(true);
+    setSubtopics([]);
     setResults(null);
     const controller = new AbortController();
     abortControllerRef.current = controller;
 
     try {
-      // Build context from manual input + questionnaire analysis
-      let fullContext = context.trim() || "";
-      if (brandAnalysis) {
-        const brandContext = `Brand: ${brandAnalysis.brand}. Industry: ${brandAnalysis.industry}. Target Audience: ${brandAnalysis.target_audience}. Products/Services: ${brandAnalysis.products_services}. Goals: ${brandAnalysis.goals}. Competitors: ${brandAnalysis.competitors.join(", ")}. Key Insights: ${brandAnalysis.key_insights.join("; ")}`;
-        fullContext = fullContext ? `${fullContext}\n\n${brandContext}` : brandContext;
-      }
-      if (contextFiles.length > 0) {
-        const fileContext = contextFiles.map(f => `--- ${f.name} ---\n${f.content}`).join("\n\n");
-        fullContext = fullContext ? `${fullContext}\n\n${fileContext}` : fileContext;
-      }
-
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-keyword-universe`,
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/expand-topics`,
         {
           method: "POST",
           headers: {
@@ -177,24 +117,8 @@ const KeywordResearch = () => {
             Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
           },
           body: JSON.stringify({
-            topic: effectiveTopic,
-            context: fullContext || undefined,
-            brandAnalysis: brandAnalysis || undefined,
-            seedThemes: extractedThemes
-              ? {
-                  coreTopics: extractedThemes.coreTopics.map((t) => t.term),
-                  demographics: extractedThemes.demographics.map((t) => t.term),
-                  activities: extractedThemes.activities.map((t) => t.term),
-                  intentModifiers: extractedThemes.intentModifiers.map((t) => t.term),
-                  locations: extractedThemes.locations.map((t) => t.term),
-                  patterns: extractedThemes.patterns.map((t) => t.term),
-                }
-              : undefined,
-            rawSample: seedFiles.length > 0
-              ? [...new Set(seedFiles.flatMap((f) => f.keywords))]
-                  .filter((_, i) => i % Math.max(1, Math.floor(seedFiles.flatMap(f => f.keywords).length / 50)) === 0)
-                  .slice(0, 50)
-              : undefined,
+            topic: topic.trim(),
+            context: context.trim() || undefined,
           }),
           signal: controller.signal,
         }
@@ -206,40 +130,98 @@ const KeywordResearch = () => {
       }
 
       const data = await response.json();
-      const error = null;
+      const expanded = (data.subtopics || []).map((s: any) => ({
+        ...s,
+        selected: true,
+      }));
+      setSubtopics(expanded);
+      toast({
+        title: "Topics expanded!",
+        description: `${expanded.length} subtopic territories identified. Review and edit, then generate keywords.`,
+      });
+      setTimeout(() => subtopicsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
+    } catch (err: any) {
+      if (err.name === "AbortError") {
+        toast({ title: "Expansion stopped" });
+      } else {
+        console.error(err);
+        toast({ title: "Expansion failed", description: err.message, variant: "destructive" });
+      }
+    } finally {
+      abortControllerRef.current = null;
+      setIsExpandingTopics(false);
+    }
+  };
 
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
+  // ═══════════════════════════════════════════════
+  // STEP 2: Generate keywords from selected subtopics
+  // ═══════════════════════════════════════════════
+  const generateKeywords = async () => {
+    const selected = subtopics.filter(s => s.selected);
+    if (selected.length === 0) {
+      toast({ title: "No subtopics selected", description: "Select at least one subtopic territory", variant: "destructive" });
+      return;
+    }
 
+    setIsGenerating(true);
+    setResults(null);
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-keyword-universe`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({
+            topic: topic.trim(),
+            context: context.trim() || undefined,
+            subtopics: selected.map(s => ({
+              name: s.name,
+              description: s.description,
+              example_queries: s.example_queries,
+            })),
+          }),
+          signal: controller.signal,
+        }
+      );
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || `Request failed: ${response.status}`);
+      }
+
+      const data = await response.json();
       const keywordResults = data.results as KeywordResult;
       setResults(keywordResults);
-      setCurrentTopic(effectiveTopic);
-      if (!topic.trim()) setTopic(effectiveTopic);
-      setOpenCategories(new Set(keywordResults.categories.map((c) => c.name)));
+      setCurrentTopic(topic.trim());
+      setOpenCategories(new Set(keywordResults.categories.map(c => c.name)));
 
       // Save to database
-      const { error: saveError } = await supabase
+      await supabase
         .from("keyword_research" as any)
         .insert({
-          topic: effectiveTopic,
+          topic: topic.trim(),
           context: context.trim() || null,
           results: keywordResults as any,
         });
+      loadSavedResearch();
 
-      if (saveError) {
-        console.error("Failed to save:", saveError);
-      } else {
-        loadSavedResearch();
-      }
-
-      toast({ title: "Keyword universe generated!", description: `${getTotalTerms(keywordResults)} terms across ${keywordResults.categories.length} categories` });
+      toast({
+        title: "Keyword universe generated!",
+        description: `${getTotalTerms(keywordResults)} terms across ${keywordResults.categories.length} categories`,
+      });
       setTimeout(() => resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
     } catch (err: any) {
       if (err.name === "AbortError") {
         toast({ title: "Generation stopped" });
       } else {
         console.error(err);
-        toast({ title: "Generation failed", description: err.message || "Please try again", variant: "destructive" });
+        toast({ title: "Generation failed", description: err.message, variant: "destructive" });
       }
     } finally {
       abortControllerRef.current = null;
@@ -247,24 +229,65 @@ const KeywordResearch = () => {
     }
   };
 
-  const stopGenerating = () => {
+  const stopOperation = () => {
     abortControllerRef.current?.abort();
   };
 
+  // ═══════════════════════════════════════════════
+  // Subtopic management
+  // ═══════════════════════════════════════════════
+  const toggleSubtopic = (index: number) => {
+    setSubtopics(prev => prev.map((s, i) => i === index ? { ...s, selected: !s.selected } : s));
+  };
+
+  const toggleAll = (selected: boolean) => {
+    setSubtopics(prev => prev.map(s => ({ ...s, selected })));
+  };
+
+  const removeSubtopic = (index: number) => {
+    setSubtopics(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const startEditing = (index: number) => {
+    setEditingIndex(index);
+    setEditName(subtopics[index].name);
+    setEditDescription(subtopics[index].description);
+  };
+
+  const saveEdit = () => {
+    if (editingIndex === null || !editName.trim()) return;
+    setSubtopics(prev => prev.map((s, i) => i === editingIndex ? { ...s, name: editName.trim(), description: editDescription.trim() } : s));
+    setEditingIndex(null);
+  };
+
+  const addSubtopic = () => {
+    if (!newSubtopicName.trim()) return;
+    setSubtopics(prev => [...prev, {
+      name: newSubtopicName.trim(),
+      description: "",
+      example_queries: [],
+      selected: true,
+    }]);
+    setNewSubtopicName("");
+    setShowAddForm(false);
+  };
+
+  // ═══════════════════════════════════════════════
+  // Results helpers
+  // ═══════════════════════════════════════════════
   const getTotalTerms = (r: KeywordResult) => r.categories.reduce((sum, c) => sum + c.terms.length, 0);
 
   const copyAll = () => {
     if (!results) return;
-    const allTerms = results.categories.flatMap((c) => c.terms).join("\n");
-    navigator.clipboard.writeText(allTerms);
+    navigator.clipboard.writeText(results.categories.flatMap(c => c.terms).join("\n"));
     toast({ title: "Copied!", description: "All terms copied to clipboard" });
   };
 
   const exportCSV = () => {
     if (!results) return;
     const rows = [["Category", "Term"]];
-    results.categories.forEach((c) => c.terms.forEach((t) => rows.push([c.name, t])));
-    const csv = rows.map((r) => r.map((v) => `"${v.replace(/"/g, '""')}"`).join(",")).join("\n");
+    results.categories.forEach(c => c.terms.forEach(t => rows.push([c.name, t])));
+    const csv = rows.map(r => r.map(v => `"${v.replace(/"/g, '""')}"`).join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -279,25 +302,28 @@ const KeywordResearch = () => {
     setCurrentTopic(saved.topic);
     setTopic(saved.topic);
     setContext(saved.context || "");
-    setOpenCategories(new Set(saved.results.categories.map((c) => c.name)));
+    setOpenCategories(new Set(saved.results.categories.map(c => c.name)));
+    setSubtopics([]);
   };
 
   const deleteResearch = async (id: string) => {
     const { error } = await supabase.from("keyword_research" as any).delete().eq("id", id);
     if (!error) {
-      setSavedResearch((prev) => prev.filter((r) => r.id !== id));
+      setSavedResearch(prev => prev.filter(r => r.id !== id));
       toast({ title: "Deleted" });
     }
   };
 
   const toggleCategory = (name: string) => {
-    setOpenCategories((prev) => {
+    setOpenCategories(prev => {
       const next = new Set(prev);
       if (next.has(name)) next.delete(name);
       else next.add(name);
       return next;
     });
   };
+
+  const selectedCount = subtopics.filter(s => s.selected).length;
 
   return (
     <div className="min-h-screen bg-background">
@@ -315,15 +341,15 @@ const KeywordResearch = () => {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 py-6 space-y-6">
-        {/* Input Section */}
+        {/* Step 1: Topic Input */}
         <Collapsible open={isGeneratorOpen} onOpenChange={setIsGeneratorOpen}>
           <Card>
             <CollapsibleTrigger className="w-full">
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-base flex items-center gap-2">
-                    <Sparkles className="h-4 w-4 text-primary" />
-                    Generate Semantic Keyword Universe
+                    <BrainCircuit className="h-4 w-4 text-primary" />
+                    Topic Universe Generator
                   </CardTitle>
                   {isGeneratorOpen ? (
                     <ChevronUp className="h-4 w-4 text-muted-foreground" />
@@ -338,79 +364,166 @@ const KeywordResearch = () => {
                 <div>
                   <label className="text-sm font-medium mb-1 block">Topic *</label>
                   <Input
-                    placeholder="e.g. video games, baseball, digital marketing..."
+                    placeholder="e.g. meeting new people, toys, dental tourism..."
                     value={topic}
-                    onChange={(e) => setTopic(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && !isGenerating && generateKeywords()}
+                    onChange={e => setTopic(e.target.value)}
+                    onKeyDown={e => e.key === "Enter" && !isExpandingTopics && expandTopics()}
                   />
                 </div>
                 <div>
-                  <label className="text-sm font-medium mb-1 block">Context / Guidance (optional)</label>
+                  <label className="text-sm font-medium mb-1 block">Context (optional)</label>
                   <Textarea
-                    placeholder="e.g. Focus on competitive gaming and esports terminology..."
+                    placeholder="Describe the brand, product, target audience, or paste website URLs for context..."
                     value={context}
-                    onChange={(e) => setContext(e.target.value)}
-                    rows={2}
+                    onChange={e => setContext(e.target.value)}
+                    rows={3}
                   />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Add brand info, audience details, competitor URLs, or any context to help the AI think broadly about related topics.
+                  </p>
                 </div>
-                <div className="flex items-center gap-3 flex-wrap">
-                  <Button onClick={generateKeywords} disabled={(!topic.trim() && !brandAnalysis) || isGenerating} className="gap-2">
-                    {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-                    {isGenerating ? "Generating..." : "Generate Keywords"}
+                <div className="flex items-center gap-3">
+                  <Button onClick={expandTopics} disabled={!topic.trim() || isExpandingTopics} className="gap-2">
+                    {isExpandingTopics ? <Loader2 className="h-4 w-4 animate-spin" /> : <BrainCircuit className="h-4 w-4" />}
+                    {isExpandingTopics ? "Expanding..." : "Expand into Subtopics"}
                   </Button>
-                  {isGenerating && (
-                    <Button variant="destructive" size="sm" onClick={stopGenerating} className="gap-2">
+                  {isExpandingTopics && (
+                    <Button variant="destructive" size="sm" onClick={stopOperation} className="gap-2">
                       <Square className="h-3.5 w-3.5" />
                       Stop
                     </Button>
                   )}
-                  <QuestionnaireUpload
-                    analysis={brandAnalysis}
-                    onAnalysisComplete={(analysis, rawText) => {
-                      setBrandAnalysis(analysis);
-                      setQuestionnaireText(rawText);
-                      if (!topic.trim()) setTopic(analysis.suggested_topic || "");
-                    }}
-                    onClear={() => {
-                      setBrandAnalysis(null);
-                      setQuestionnaireText("");
-                    }}
-                  />
                 </div>
-                <ContextFileUpload
-                  files={contextFiles}
-                  onFilesChange={setContextFiles}
-                  onAnalysisExtracted={(analysis) => {
-                    if (!brandAnalysis) {
-                      setBrandAnalysis(analysis);
-                      if (!topic.trim()) setTopic(analysis.suggested_topic || "");
-                    }
-                  }}
-                />
-                <SeedKeywordsUpload
-                  seedFiles={seedFiles}
-                  onSeedFilesChange={async (newFiles) => {
-                    const added = newFiles.filter(f => !f.dbId && !seedFiles.some(s => s.name === f.name && s.type === f.type));
-                    const removed = seedFiles.filter(s => !newFiles.some(n => n.name === s.name && n.type === s.type));
-                    for (const file of added) {
-                      const dbId = await saveSeedFile(file);
-                      if (dbId) file.dbId = dbId;
-                    }
-                    for (const file of removed) {
-                      if (file.dbId) await deleteSeedFile(file.dbId);
-                    }
-                    setSeedFiles(newFiles);
-                  }}
-                />
               </CardContent>
             </CollapsibleContent>
           </Card>
         </Collapsible>
 
-        {/* Extracted Themes */}
-        {extractedThemes && <SeedThemesDisplay themes={extractedThemes} onRefresh={reExtractThemes} />}
+        {/* Loading skeleton for expansion */}
+        {isExpandingTopics && (
+          <div className="space-y-3">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <Skeleton key={i} className="h-16 w-full" />
+            ))}
+          </div>
+        )}
 
-        {/* Loading skeleton */}
+        {/* Step 2: Subtopic Review */}
+        {subtopics.length > 0 && !isExpandingTopics && (
+          <div ref={subtopicsRef}>
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between flex-wrap gap-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 text-primary" />
+                    Subtopic Territories
+                    <Badge variant="secondary">{selectedCount}/{subtopics.length} selected</Badge>
+                  </CardTitle>
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm" onClick={() => toggleAll(true)}>Select All</Button>
+                    <Button variant="outline" size="sm" onClick={() => toggleAll(false)}>Deselect All</Button>
+                    <Button variant="outline" size="sm" onClick={() => setShowAddForm(true)} className="gap-1">
+                      <Plus className="h-3.5 w-3.5" />
+                      Add
+                    </Button>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <p className="text-sm text-muted-foreground mb-3">
+                  Review the AI-identified subtopics. Toggle, edit, or add your own, then generate keywords for the selected ones.
+                </p>
+
+                {showAddForm && (
+                  <div className="flex items-center gap-2 p-3 rounded-md border border-dashed border-primary/40 bg-primary/5 mb-3">
+                    <Input
+                      placeholder="New subtopic name..."
+                      value={newSubtopicName}
+                      onChange={e => setNewSubtopicName(e.target.value)}
+                      onKeyDown={e => e.key === "Enter" && addSubtopic()}
+                      className="flex-1"
+                      autoFocus
+                    />
+                    <Button size="sm" onClick={addSubtopic} disabled={!newSubtopicName.trim()}>
+                      <Check className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => { setShowAddForm(false); setNewSubtopicName(""); }}>
+                      <X className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                )}
+
+                {subtopics.map((subtopic, index) => (
+                  <div
+                    key={index}
+                    className={`flex items-start gap-3 p-3 rounded-md border transition-colors ${
+                      subtopic.selected ? "bg-accent/30 border-primary/20" : "bg-muted/30 border-border opacity-60"
+                    }`}
+                  >
+                    <Checkbox
+                      checked={subtopic.selected}
+                      onCheckedChange={() => toggleSubtopic(index)}
+                      className="mt-0.5"
+                    />
+                    <div className="flex-1 min-w-0">
+                      {editingIndex === index ? (
+                        <div className="space-y-2">
+                          <Input value={editName} onChange={e => setEditName(e.target.value)} className="text-sm font-medium" />
+                          <Input value={editDescription} onChange={e => setEditDescription(e.target.value)} placeholder="Description..." className="text-xs" />
+                          <div className="flex gap-1">
+                            <Button size="sm" onClick={saveEdit}><Check className="h-3 w-3" /></Button>
+                            <Button size="sm" variant="ghost" onClick={() => setEditingIndex(null)}><X className="h-3 w-3" /></Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="font-medium text-sm">{subtopic.name}</div>
+                          {subtopic.description && (
+                            <div className="text-xs text-muted-foreground mt-0.5">{subtopic.description}</div>
+                          )}
+                          {subtopic.example_queries.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-1.5">
+                              {subtopic.example_queries.slice(0, 4).map((q, qi) => (
+                                <Badge key={qi} variant="outline" className="text-[10px] font-normal">
+                                  {q}
+                                </Badge>
+                              ))}
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                    {editingIndex !== index && (
+                      <div className="flex items-center gap-1 shrink-0">
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => startEditing(index)}>
+                          <Edit2 className="h-3 w-3" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => removeSubtopic(index)}>
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+
+                <div className="flex items-center gap-3 pt-3">
+                  <Button onClick={generateKeywords} disabled={selectedCount === 0 || isGenerating} className="gap-2">
+                    {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                    {isGenerating ? "Generating..." : `Generate Keywords (${selectedCount} subtopics)`}
+                  </Button>
+                  {isGenerating && (
+                    <Button variant="destructive" size="sm" onClick={stopOperation} className="gap-2">
+                      <Square className="h-3.5 w-3.5" />
+                      Stop
+                    </Button>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Loading skeleton for generation */}
         {isGenerating && (
           <div className="space-y-3">
             {Array.from({ length: 5 }).map((_, i) => (
@@ -419,79 +532,79 @@ const KeywordResearch = () => {
           </div>
         )}
 
-        {/* Results */}
+        {/* Step 3: Results */}
         <div ref={resultsRef}>
-        {results && !isGenerating && (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between flex-wrap gap-3">
-              <div className="flex items-center gap-3">
-                <h2 className="text-lg font-semibold">"{currentTopic}"</h2>
-                <Badge variant="secondary">
-                  {getTotalTerms(results)} terms · {results.categories.length} categories
-                </Badge>
+          {results && !isGenerating && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between flex-wrap gap-3">
+                <div className="flex items-center gap-3">
+                  <h2 className="text-lg font-semibold">"{currentTopic}"</h2>
+                  <Badge variant="secondary">
+                    {getTotalTerms(results)} terms · {results.categories.length} categories
+                  </Badge>
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={copyAll} className="gap-1.5">
+                    <Copy className="h-3.5 w-3.5" />
+                    Copy All
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={exportCSV} className="gap-1.5">
+                    <Download className="h-3.5 w-3.5" />
+                    Export CSV
+                  </Button>
+                </div>
               </div>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={copyAll} className="gap-1.5">
-                  <Copy className="h-3.5 w-3.5" />
-                  Copy All
-                </Button>
-                <Button variant="outline" size="sm" onClick={exportCSV} className="gap-1.5">
-                  <Download className="h-3.5 w-3.5" />
-                  Export CSV
-                </Button>
-              </div>
-            </div>
 
-            <div className="space-y-2">
-              {results.categories.map((category) => (
-                <Collapsible
-                  key={category.name}
-                  open={openCategories.has(category.name)}
-                  onOpenChange={() => toggleCategory(category.name)}
-                >
-                  <Card>
-                    <CollapsibleTrigger className="w-full">
-                      <CardHeader className="py-3 px-4">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            {openCategories.has(category.name) ? (
-                              <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                            ) : (
-                              <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                            )}
-                            <span className="font-medium text-sm">{category.name}</span>
-                          </div>
-                          <Badge variant="outline" className="text-xs">
-                            {category.terms.length} terms
-                          </Badge>
-                        </div>
-                      </CardHeader>
-                    </CollapsibleTrigger>
-                    <CollapsibleContent>
-                      <CardContent className="pt-0 pb-4 px-4">
-                        <div className="flex flex-wrap gap-1.5">
-                          {category.terms.map((term, idx) => (
-                            <Badge
-                              key={idx}
-                              variant="secondary"
-                              className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors text-xs"
-                              onClick={() => {
-                                navigator.clipboard.writeText(term);
-                                toast({ title: "Copied", description: term });
-                              }}
-                            >
-                              {term}
+              <div className="space-y-2">
+                {results.categories.map(category => (
+                  <Collapsible
+                    key={category.name}
+                    open={openCategories.has(category.name)}
+                    onOpenChange={() => toggleCategory(category.name)}
+                  >
+                    <Card>
+                      <CollapsibleTrigger className="w-full">
+                        <CardHeader className="py-3 px-4">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              {openCategories.has(category.name) ? (
+                                <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                              ) : (
+                                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                              )}
+                              <span className="font-medium text-sm">{category.name}</span>
+                            </div>
+                            <Badge variant="outline" className="text-xs">
+                              {category.terms.length} terms
                             </Badge>
-                          ))}
-                        </div>
-                      </CardContent>
-                    </CollapsibleContent>
-                  </Card>
-                </Collapsible>
-              ))}
+                          </div>
+                        </CardHeader>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent>
+                        <CardContent className="pt-0 pb-4 px-4">
+                          <div className="flex flex-wrap gap-1.5">
+                            {category.terms.map((term, idx) => (
+                              <Badge
+                                key={idx}
+                                variant="secondary"
+                                className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors text-xs"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(term);
+                                  toast({ title: "Copied", description: term });
+                                }}
+                              >
+                                {term}
+                              </Badge>
+                            ))}
+                          </div>
+                        </CardContent>
+                      </CollapsibleContent>
+                    </Card>
+                  </Collapsible>
+                ))}
+              </div>
             </div>
-          </div>
-        )}
+          )}
         </div>
 
         {/* Keyword Clustering */}
@@ -508,15 +621,12 @@ const KeywordResearch = () => {
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
-                {savedResearch.map((saved) => (
+                {savedResearch.map(saved => (
                   <div
                     key={saved.id}
                     className="flex items-center justify-between p-3 rounded-md border hover:bg-accent/50 transition-colors"
                   >
-                    <button
-                      className="flex-1 text-left"
-                      onClick={() => loadResearch(saved)}
-                    >
+                    <button className="flex-1 text-left" onClick={() => loadResearch(saved)}>
                       <span className="font-medium text-sm">{saved.topic}</span>
                       <span className="text-xs text-muted-foreground ml-2">
                         {getTotalTerms(saved.results)} terms · {new Date(saved.created_at).toLocaleDateString()}
@@ -526,7 +636,7 @@ const KeywordResearch = () => {
                       variant="ghost"
                       size="icon"
                       className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                      onClick={(e) => {
+                      onClick={e => {
                         e.stopPropagation();
                         deleteResearch(saved.id);
                       }}

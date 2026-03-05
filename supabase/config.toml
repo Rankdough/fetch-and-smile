@@ -83,3 +83,6 @@ verify_jwt = false
 
 [functions.analyze-questionnaire]
 verify_jwt = false
+
+[functions.expand-topics]
+verify_jwt = false
