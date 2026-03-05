@@ -8,69 +8,72 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import {
   ArrowLeft, Search, Sparkles, Copy, Download, Trash2,
   ChevronDown, ChevronRight, Clock, Loader2, Square, ChevronUp,
-  Plus, X, Edit2, Check, BrainCircuit
+  BrainCircuit, Tag, HelpCircle, SlidersHorizontal, Building2, Ban
 } from "lucide-react";
 import KeywordClustering from "@/components/keyword-research/KeywordClustering";
 
-interface Subtopic {
-  name: string;
-  description: string;
-  example_queries: string[];
-  selected: boolean;
+interface SemanticCluster {
+  cluster_name: string;
+  seed_keywords: string[];
+  example_entities?: string[];
+  questions: string[];
+  modifiers: string[];
 }
 
-interface KeywordCategory {
-  name: string;
-  terms: string[];
+interface SemanticMap {
+  topic: string;
+  definition: string;
+  clusters: SemanticCluster[];
+  cross_cutting_modifiers: string[];
+  negative_keywords: string[];
+  notes: string;
 }
 
-interface KeywordResult {
-  categories: KeywordCategory[];
+// Legacy format for backward compatibility with saved research
+interface LegacyResult {
+  categories: { name: string; terms: string[] }[];
 }
 
 interface SavedResearch {
   id: string;
   topic: string;
   context: string | null;
-  results: KeywordResult;
+  results: SemanticMap | LegacyResult;
   created_at: string;
+}
+
+function isSemanticMap(r: any): r is SemanticMap {
+  return r && Array.isArray(r.clusters);
+}
+
+function isLegacy(r: any): r is LegacyResult {
+  return r && Array.isArray(r.categories);
 }
 
 const KeywordResearch = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  // Step 1: Input
   const [topic, setTopic] = useState("");
-  const [context, setContext] = useState("");
-  
-  // Step 2: Subtopics
-  const [subtopics, setSubtopics] = useState<Subtopic[]>([]);
-  const [isExpandingTopics, setIsExpandingTopics] = useState(false);
-  const [editingIndex, setEditingIndex] = useState<number | null>(null);
-  const [editName, setEditName] = useState("");
-  const [editDescription, setEditDescription] = useState("");
-  const [newSubtopicName, setNewSubtopicName] = useState("");
-  const [showAddForm, setShowAddForm] = useState(false);
-  
-  // Step 3: Results
+  const [audience, setAudience] = useState("");
+  const [country, setCountry] = useState("");
+
   const [isGenerating, setIsGenerating] = useState(false);
-  const [results, setResults] = useState<KeywordResult | null>(null);
+  const [semanticMap, setSemanticMap] = useState<SemanticMap | null>(null);
+  const [legacyResults, setLegacyResults] = useState<LegacyResult | null>(null);
   const [currentTopic, setCurrentTopic] = useState("");
-  const [openCategories, setOpenCategories] = useState<Set<string>>(new Set());
-  
-  // Saved
+  const [openClusters, setOpenClusters] = useState<Set<string>>(new Set());
+
   const [savedResearch, setSavedResearch] = useState<SavedResearch[]>([]);
   const [isLoadingSaved, setIsLoadingSaved] = useState(true);
-  
+
   const abortControllerRef = useRef<AbortController | null>(null);
   const resultsRef = useRef<HTMLDivElement | null>(null);
-  const subtopicsRef = useRef<HTMLDivElement | null>(null);
   const [isGeneratorOpen, setIsGeneratorOpen] = useState(true);
 
   useEffect(() => {
@@ -89,82 +92,18 @@ const KeywordResearch = () => {
         id: d.id,
         topic: d.topic,
         context: d.context,
-        results: d.results as KeywordResult,
+        results: d.results,
         created_at: d.created_at,
       })));
     }
     setIsLoadingSaved(false);
   };
 
-  // ═══════════════════════════════════════════════
-  // STEP 1: Expand topic into subtopics
-  // ═══════════════════════════════════════════════
-  const expandTopics = async () => {
+  const generate = async () => {
     if (!topic.trim()) return;
-    setIsExpandingTopics(true);
-    setSubtopics([]);
-    setResults(null);
-    const controller = new AbortController();
-    abortControllerRef.current = controller;
-
-    try {
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/expand-topics`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-          },
-          body: JSON.stringify({
-            topic: topic.trim(),
-            context: context.trim() || undefined,
-          }),
-          signal: controller.signal,
-        }
-      );
-
-      if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.error || `Request failed: ${response.status}`);
-      }
-
-      const data = await response.json();
-      const expanded = (data.subtopics || []).map((s: any) => ({
-        ...s,
-        selected: true,
-      }));
-      setSubtopics(expanded);
-      toast({
-        title: "Topics expanded!",
-        description: `${expanded.length} subtopic territories identified. Review and edit, then generate keywords.`,
-      });
-      setTimeout(() => subtopicsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
-    } catch (err: any) {
-      if (err.name === "AbortError") {
-        toast({ title: "Expansion stopped" });
-      } else {
-        console.error(err);
-        toast({ title: "Expansion failed", description: err.message, variant: "destructive" });
-      }
-    } finally {
-      abortControllerRef.current = null;
-      setIsExpandingTopics(false);
-    }
-  };
-
-  // ═══════════════════════════════════════════════
-  // STEP 2: Generate keywords from selected subtopics
-  // ═══════════════════════════════════════════════
-  const generateKeywords = async () => {
-    const selected = subtopics.filter(s => s.selected);
-    if (selected.length === 0) {
-      toast({ title: "No subtopics selected", description: "Select at least one subtopic territory", variant: "destructive" });
-      return;
-    }
-
     setIsGenerating(true);
-    setResults(null);
+    setSemanticMap(null);
+    setLegacyResults(null);
     const controller = new AbortController();
     abortControllerRef.current = controller;
 
@@ -179,12 +118,8 @@ const KeywordResearch = () => {
           },
           body: JSON.stringify({
             topic: topic.trim(),
-            context: context.trim() || undefined,
-            subtopics: selected.map(s => ({
-              name: s.name,
-              description: s.description,
-              example_queries: s.example_queries,
-            })),
+            audience: audience.trim() || undefined,
+            country: country.trim() || undefined,
           }),
           signal: controller.signal,
         }
@@ -196,24 +131,25 @@ const KeywordResearch = () => {
       }
 
       const data = await response.json();
-      const keywordResults = data.results as KeywordResult;
-      setResults(keywordResults);
+      const map = data.results as SemanticMap;
+      setSemanticMap(map);
       setCurrentTopic(topic.trim());
-      setOpenCategories(new Set(keywordResults.categories.map(c => c.name)));
+      setOpenClusters(new Set(map.clusters.map(c => c.cluster_name)));
 
       // Save to database
       await supabase
         .from("keyword_research" as any)
         .insert({
           topic: topic.trim(),
-          context: context.trim() || null,
-          results: keywordResults as any,
+          context: [audience.trim(), country.trim()].filter(Boolean).join(" | ") || null,
+          results: map as any,
         });
       loadSavedResearch();
 
+      const totalSeeds = map.clusters.reduce((s, c) => s + c.seed_keywords.length, 0);
       toast({
-        title: "Keyword universe generated!",
-        description: `${getTotalTerms(keywordResults)} terms across ${keywordResults.categories.length} categories`,
+        title: "Semantic map generated!",
+        description: `${map.clusters.length} clusters, ${totalSeeds} seed keywords`,
       });
       setTimeout(() => resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
     } catch (err: any) {
@@ -229,81 +165,61 @@ const KeywordResearch = () => {
     }
   };
 
-  const stopOperation = () => {
-    abortControllerRef.current?.abort();
+  const stopOperation = () => abortControllerRef.current?.abort();
+
+  const toggleCluster = (name: string) => {
+    setOpenClusters(prev => {
+      const next = new Set(prev);
+      next.has(name) ? next.delete(name) : next.add(name);
+      return next;
+    });
   };
 
-  // ═══════════════════════════════════════════════
-  // Subtopic management
-  // ═══════════════════════════════════════════════
-  const toggleSubtopic = (index: number) => {
-    setSubtopics(prev => prev.map((s, i) => i === index ? { ...s, selected: !s.selected } : s));
+  const copyItems = (items: string[], label: string) => {
+    navigator.clipboard.writeText(items.join("\n"));
+    toast({ title: "Copied!", description: `${items.length} ${label} copied` });
   };
 
-  const toggleAll = (selected: boolean) => {
-    setSubtopics(prev => prev.map(s => ({ ...s, selected })));
-  };
-
-  const removeSubtopic = (index: number) => {
-    setSubtopics(prev => prev.filter((_, i) => i !== index));
-  };
-
-  const startEditing = (index: number) => {
-    setEditingIndex(index);
-    setEditName(subtopics[index].name);
-    setEditDescription(subtopics[index].description);
-  };
-
-  const saveEdit = () => {
-    if (editingIndex === null || !editName.trim()) return;
-    setSubtopics(prev => prev.map((s, i) => i === editingIndex ? { ...s, name: editName.trim(), description: editDescription.trim() } : s));
-    setEditingIndex(null);
-  };
-
-  const addSubtopic = () => {
-    if (!newSubtopicName.trim()) return;
-    setSubtopics(prev => [...prev, {
-      name: newSubtopicName.trim(),
-      description: "",
-      example_queries: [],
-      selected: true,
-    }]);
-    setNewSubtopicName("");
-    setShowAddForm(false);
-  };
-
-  // ═══════════════════════════════════════════════
-  // Results helpers
-  // ═══════════════════════════════════════════════
-  const getTotalTerms = (r: KeywordResult) => r.categories.reduce((sum, c) => sum + c.terms.length, 0);
-
-  const copyAll = () => {
-    if (!results) return;
-    navigator.clipboard.writeText(results.categories.flatMap(c => c.terms).join("\n"));
-    toast({ title: "Copied!", description: "All terms copied to clipboard" });
+  const copyAllSeeds = () => {
+    if (!semanticMap) return;
+    const all = semanticMap.clusters.flatMap(c => c.seed_keywords);
+    copyItems(all, "seed keywords");
   };
 
   const exportCSV = () => {
-    if (!results) return;
-    const rows = [["Category", "Term"]];
-    results.categories.forEach(c => c.terms.forEach(t => rows.push([c.name, t])));
+    if (!semanticMap) return;
+    const rows = [["Cluster", "Type", "Item"]];
+    for (const c of semanticMap.clusters) {
+      c.seed_keywords.forEach(k => rows.push([c.cluster_name, "seed_keyword", k]));
+      (c.example_entities || []).forEach(e => rows.push([c.cluster_name, "entity", e]));
+      c.questions.forEach(q => rows.push([c.cluster_name, "question", q]));
+      c.modifiers.forEach(m => rows.push([c.cluster_name, "modifier", m]));
+    }
+    semanticMap.negative_keywords.forEach(k => rows.push(["_negative", "negative", k]));
     const csv = rows.map(r => r.map(v => `"${v.replace(/"/g, '""')}"`).join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `keywords-${currentTopic.replace(/\s+/g, "-").toLowerCase()}.csv`;
+    a.download = `semantic-map-${currentTopic.replace(/\s+/g, "-").toLowerCase()}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
 
   const loadResearch = (saved: SavedResearch) => {
-    setResults(saved.results);
     setCurrentTopic(saved.topic);
     setTopic(saved.topic);
-    setContext(saved.context || "");
-    setOpenCategories(new Set(saved.results.categories.map(c => c.name)));
-    setSubtopics([]);
+    setAudience("");
+    setCountry("");
+    if (isSemanticMap(saved.results)) {
+      setSemanticMap(saved.results);
+      setLegacyResults(null);
+      setOpenClusters(new Set(saved.results.clusters.map(c => c.cluster_name)));
+    } else if (isLegacy(saved.results)) {
+      setLegacyResults(saved.results);
+      setSemanticMap(null);
+      setOpenClusters(new Set(saved.results.categories.map(c => c.name)));
+    }
   };
 
   const deleteResearch = async (id: string) => {
@@ -314,16 +230,17 @@ const KeywordResearch = () => {
     }
   };
 
-  const toggleCategory = (name: string) => {
-    setOpenCategories(prev => {
-      const next = new Set(prev);
-      if (next.has(name)) next.delete(name);
-      else next.add(name);
-      return next;
-    });
+  const getResearchStats = (r: SavedResearch) => {
+    if (isSemanticMap(r.results)) {
+      const seeds = r.results.clusters.reduce((s, c) => s + c.seed_keywords.length, 0);
+      return `${seeds} seeds · ${r.results.clusters.length} clusters`;
+    }
+    if (isLegacy(r.results)) {
+      const terms = r.results.categories.reduce((s, c) => s + c.terms.length, 0);
+      return `${terms} terms · ${r.results.categories.length} categories`;
+    }
+    return "";
   };
-
-  const selectedCount = subtopics.filter(s => s.selected).length;
 
   return (
     <div className="min-h-screen bg-background">
@@ -341,7 +258,7 @@ const KeywordResearch = () => {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 py-6 space-y-6">
-        {/* Step 1: Topic Input */}
+        {/* Input */}
         <Collapsible open={isGeneratorOpen} onOpenChange={setIsGeneratorOpen}>
           <Card>
             <CollapsibleTrigger className="w-full">
@@ -349,13 +266,9 @@ const KeywordResearch = () => {
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-base flex items-center gap-2">
                     <BrainCircuit className="h-4 w-4 text-primary" />
-                    Topic Universe Generator
+                    Semantic Keyword Universe
                   </CardTitle>
-                  {isGeneratorOpen ? (
-                    <ChevronUp className="h-4 w-4 text-muted-foreground" />
-                  ) : (
-                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                  )}
+                  {isGeneratorOpen ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
                 </div>
               </CardHeader>
             </CollapsibleTrigger>
@@ -364,30 +277,36 @@ const KeywordResearch = () => {
                 <div>
                   <label className="text-sm font-medium mb-1 block">Topic *</label>
                   <Input
-                    placeholder="e.g. meeting new people, toys, dental tourism..."
+                    placeholder="e.g. toys, meeting new people, dental tourism..."
                     value={topic}
                     onChange={e => setTopic(e.target.value)}
-                    onKeyDown={e => e.key === "Enter" && !isExpandingTopics && expandTopics()}
+                    onKeyDown={e => e.key === "Enter" && !isGenerating && generate()}
                   />
                 </div>
-                <div>
-                  <label className="text-sm font-medium mb-1 block">Context (optional)</label>
-                  <Textarea
-                    placeholder="Describe the brand, product, target audience, or paste website URLs for context..."
-                    value={context}
-                    onChange={e => setContext(e.target.value)}
-                    rows={3}
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Add brand info, audience details, competitor URLs, or any context to help the AI think broadly about related topics.
-                  </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium mb-1 block">Audience (optional)</label>
+                    <Input
+                      placeholder="e.g. parents, expats, professionals over 40..."
+                      value={audience}
+                      onChange={e => setAudience(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium mb-1 block">Country (optional)</label>
+                    <Input
+                      placeholder="e.g. UK, Germany, USA..."
+                      value={country}
+                      onChange={e => setCountry(e.target.value)}
+                    />
+                  </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <Button onClick={expandTopics} disabled={!topic.trim() || isExpandingTopics} className="gap-2">
-                    {isExpandingTopics ? <Loader2 className="h-4 w-4 animate-spin" /> : <BrainCircuit className="h-4 w-4" />}
-                    {isExpandingTopics ? "Expanding..." : "Expand into Subtopics"}
+                  <Button onClick={generate} disabled={!topic.trim() || isGenerating} className="gap-2">
+                    {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                    {isGenerating ? "Generating..." : "Generate Semantic Map"}
                   </Button>
-                  {isExpandingTopics && (
+                  {isGenerating && (
                     <Button variant="destructive" size="sm" onClick={stopOperation} className="gap-2">
                       <Square className="h-3.5 w-3.5" />
                       Stop
@@ -399,154 +318,29 @@ const KeywordResearch = () => {
           </Card>
         </Collapsible>
 
-        {/* Loading skeleton for expansion */}
-        {isExpandingTopics && (
-          <div className="space-y-3">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <Skeleton key={i} className="h-16 w-full" />
-            ))}
-          </div>
-        )}
-
-        {/* Step 2: Subtopic Review */}
-        {subtopics.length > 0 && !isExpandingTopics && (
-          <div ref={subtopicsRef}>
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between flex-wrap gap-3">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <Sparkles className="h-4 w-4 text-primary" />
-                    Subtopic Territories
-                    <Badge variant="secondary">{selectedCount}/{subtopics.length} selected</Badge>
-                  </CardTitle>
-                  <div className="flex items-center gap-2">
-                    <Button variant="outline" size="sm" onClick={() => toggleAll(true)}>Select All</Button>
-                    <Button variant="outline" size="sm" onClick={() => toggleAll(false)}>Deselect All</Button>
-                    <Button variant="outline" size="sm" onClick={() => setShowAddForm(true)} className="gap-1">
-                      <Plus className="h-3.5 w-3.5" />
-                      Add
-                    </Button>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <p className="text-sm text-muted-foreground mb-3">
-                  Review the AI-identified subtopics. Toggle, edit, or add your own, then generate keywords for the selected ones.
-                </p>
-
-                {showAddForm && (
-                  <div className="flex items-center gap-2 p-3 rounded-md border border-dashed border-primary/40 bg-primary/5 mb-3">
-                    <Input
-                      placeholder="New subtopic name..."
-                      value={newSubtopicName}
-                      onChange={e => setNewSubtopicName(e.target.value)}
-                      onKeyDown={e => e.key === "Enter" && addSubtopic()}
-                      className="flex-1"
-                      autoFocus
-                    />
-                    <Button size="sm" onClick={addSubtopic} disabled={!newSubtopicName.trim()}>
-                      <Check className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button size="sm" variant="ghost" onClick={() => { setShowAddForm(false); setNewSubtopicName(""); }}>
-                      <X className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                )}
-
-                {subtopics.map((subtopic, index) => (
-                  <div
-                    key={index}
-                    className={`flex items-start gap-3 p-3 rounded-md border transition-colors ${
-                      subtopic.selected ? "bg-accent/30 border-primary/20" : "bg-muted/30 border-border opacity-60"
-                    }`}
-                  >
-                    <Checkbox
-                      checked={subtopic.selected}
-                      onCheckedChange={() => toggleSubtopic(index)}
-                      className="mt-0.5"
-                    />
-                    <div className="flex-1 min-w-0">
-                      {editingIndex === index ? (
-                        <div className="space-y-2">
-                          <Input value={editName} onChange={e => setEditName(e.target.value)} className="text-sm font-medium" />
-                          <Input value={editDescription} onChange={e => setEditDescription(e.target.value)} placeholder="Description..." className="text-xs" />
-                          <div className="flex gap-1">
-                            <Button size="sm" onClick={saveEdit}><Check className="h-3 w-3" /></Button>
-                            <Button size="sm" variant="ghost" onClick={() => setEditingIndex(null)}><X className="h-3 w-3" /></Button>
-                          </div>
-                        </div>
-                      ) : (
-                        <>
-                          <div className="font-medium text-sm">{subtopic.name}</div>
-                          {subtopic.description && (
-                            <div className="text-xs text-muted-foreground mt-0.5">{subtopic.description}</div>
-                          )}
-                          {subtopic.example_queries.length > 0 && (
-                            <div className="flex flex-wrap gap-1 mt-1.5">
-                              {subtopic.example_queries.slice(0, 4).map((q, qi) => (
-                                <Badge key={qi} variant="outline" className="text-[10px] font-normal">
-                                  {q}
-                                </Badge>
-                              ))}
-                            </div>
-                          )}
-                        </>
-                      )}
-                    </div>
-                    {editingIndex !== index && (
-                      <div className="flex items-center gap-1 shrink-0">
-                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => startEditing(index)}>
-                          <Edit2 className="h-3 w-3" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => removeSubtopic(index)}>
-                          <X className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                ))}
-
-                <div className="flex items-center gap-3 pt-3">
-                  <Button onClick={generateKeywords} disabled={selectedCount === 0 || isGenerating} className="gap-2">
-                    {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-                    {isGenerating ? "Generating..." : `Generate Keywords (${selectedCount} subtopics)`}
-                  </Button>
-                  {isGenerating && (
-                    <Button variant="destructive" size="sm" onClick={stopOperation} className="gap-2">
-                      <Square className="h-3.5 w-3.5" />
-                      Stop
-                    </Button>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
-
-        {/* Loading skeleton for generation */}
+        {/* Loading */}
         {isGenerating && (
           <div className="space-y-3">
             {Array.from({ length: 5 }).map((_, i) => (
-              <Skeleton key={i} className="h-16 w-full" />
+              <Skeleton key={i} className="h-20 w-full" />
             ))}
           </div>
         )}
 
-        {/* Step 3: Results */}
+        {/* Semantic Map Results */}
         <div ref={resultsRef}>
-          {results && !isGenerating && (
+          {semanticMap && !isGenerating && (
             <div className="space-y-4">
+              {/* Header */}
               <div className="flex items-center justify-between flex-wrap gap-3">
-                <div className="flex items-center gap-3">
-                  <h2 className="text-lg font-semibold">"{currentTopic}"</h2>
-                  <Badge variant="secondary">
-                    {getTotalTerms(results)} terms · {results.categories.length} categories
-                  </Badge>
+                <div>
+                  <h2 className="text-lg font-semibold">"{semanticMap.topic}"</h2>
+                  <p className="text-sm text-muted-foreground mt-0.5">{semanticMap.definition}</p>
                 </div>
                 <div className="flex gap-2">
-                  <Button variant="outline" size="sm" onClick={copyAll} className="gap-1.5">
+                  <Button variant="outline" size="sm" onClick={copyAllSeeds} className="gap-1.5">
                     <Copy className="h-3.5 w-3.5" />
-                    Copy All
+                    Copy All Seeds
                   </Button>
                   <Button variant="outline" size="sm" onClick={exportCSV} className="gap-1.5">
                     <Download className="h-3.5 w-3.5" />
@@ -555,28 +349,272 @@ const KeywordResearch = () => {
                 </div>
               </div>
 
+              {/* Stats */}
+              <div className="flex gap-2 flex-wrap">
+                <Badge variant="secondary">
+                  {semanticMap.clusters.length} clusters
+                </Badge>
+                <Badge variant="secondary">
+                  {semanticMap.clusters.reduce((s, c) => s + c.seed_keywords.length, 0)} seed keywords
+                </Badge>
+                <Badge variant="secondary">
+                  {semanticMap.clusters.reduce((s, c) => s + c.questions.length, 0)} questions
+                </Badge>
+                <Badge variant="secondary">
+                  {semanticMap.clusters.reduce((s, c) => s + (c.example_entities?.length || 0), 0)} entities
+                </Badge>
+              </div>
+
+              {/* Clusters */}
               <div className="space-y-2">
-                {results.categories.map(category => (
+                {semanticMap.clusters.map(cluster => (
                   <Collapsible
-                    key={category.name}
-                    open={openCategories.has(category.name)}
-                    onOpenChange={() => toggleCategory(category.name)}
+                    key={cluster.cluster_name}
+                    open={openClusters.has(cluster.cluster_name)}
+                    onOpenChange={() => toggleCluster(cluster.cluster_name)}
                   >
                     <Card>
                       <CollapsibleTrigger className="w-full">
                         <CardHeader className="py-3 px-4">
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
-                              {openCategories.has(category.name) ? (
+                              {openClusters.has(cluster.cluster_name) ? (
                                 <ChevronDown className="h-4 w-4 text-muted-foreground" />
                               ) : (
                                 <ChevronRight className="h-4 w-4 text-muted-foreground" />
                               )}
+                              <span className="font-medium text-sm">{cluster.cluster_name}</span>
+                            </div>
+                            <div className="flex gap-1.5">
+                              <Badge variant="outline" className="text-xs gap-1">
+                                <Tag className="h-3 w-3" />
+                                {cluster.seed_keywords.length}
+                              </Badge>
+                              <Badge variant="outline" className="text-xs gap-1">
+                                <HelpCircle className="h-3 w-3" />
+                                {cluster.questions.length}
+                              </Badge>
+                              {cluster.example_entities && cluster.example_entities.length > 0 && (
+                                <Badge variant="outline" className="text-xs gap-1">
+                                  <Building2 className="h-3 w-3" />
+                                  {cluster.example_entities.length}
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                        </CardHeader>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent>
+                        <CardContent className="pt-0 pb-4 px-4">
+                          <Tabs defaultValue="seeds" className="w-full">
+                            <TabsList className="mb-3">
+                              <TabsTrigger value="seeds" className="gap-1 text-xs">
+                                <Tag className="h-3 w-3" />
+                                Seeds ({cluster.seed_keywords.length})
+                              </TabsTrigger>
+                              <TabsTrigger value="questions" className="gap-1 text-xs">
+                                <HelpCircle className="h-3 w-3" />
+                                Questions ({cluster.questions.length})
+                              </TabsTrigger>
+                              {cluster.example_entities && cluster.example_entities.length > 0 && (
+                                <TabsTrigger value="entities" className="gap-1 text-xs">
+                                  <Building2 className="h-3 w-3" />
+                                  Entities ({cluster.example_entities.length})
+                                </TabsTrigger>
+                              )}
+                              <TabsTrigger value="modifiers" className="gap-1 text-xs">
+                                <SlidersHorizontal className="h-3 w-3" />
+                                Modifiers ({cluster.modifiers.length})
+                              </TabsTrigger>
+                            </TabsList>
+
+                            <TabsContent value="seeds">
+                              <div className="flex items-center justify-between mb-2">
+                                <span className="text-xs text-muted-foreground">Click to copy individual · button to copy all</span>
+                                <Button variant="ghost" size="sm" className="h-6 text-xs gap-1" onClick={() => copyItems(cluster.seed_keywords, "seed keywords")}>
+                                  <Copy className="h-3 w-3" /> Copy all
+                                </Button>
+                              </div>
+                              <div className="flex flex-wrap gap-1.5">
+                                {cluster.seed_keywords.map((kw, i) => (
+                                  <Badge
+                                    key={i}
+                                    variant="secondary"
+                                    className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors text-xs"
+                                    onClick={() => {
+                                      navigator.clipboard.writeText(kw);
+                                      toast({ title: "Copied", description: kw });
+                                    }}
+                                  >
+                                    {kw}
+                                  </Badge>
+                                ))}
+                              </div>
+                            </TabsContent>
+
+                            <TabsContent value="questions">
+                              <div className="flex items-center justify-end mb-2">
+                                <Button variant="ghost" size="sm" className="h-6 text-xs gap-1" onClick={() => copyItems(cluster.questions, "questions")}>
+                                  <Copy className="h-3 w-3" /> Copy all
+                                </Button>
+                              </div>
+                              <div className="space-y-1">
+                                {cluster.questions.map((q, i) => (
+                                  <div
+                                    key={i}
+                                    className="text-sm py-1 px-2 rounded hover:bg-accent/50 cursor-pointer transition-colors"
+                                    onClick={() => {
+                                      navigator.clipboard.writeText(q);
+                                      toast({ title: "Copied", description: q });
+                                    }}
+                                  >
+                                    {q}
+                                  </div>
+                                ))}
+                              </div>
+                            </TabsContent>
+
+                            {cluster.example_entities && cluster.example_entities.length > 0 && (
+                              <TabsContent value="entities">
+                                <div className="flex items-center justify-end mb-2">
+                                  <Button variant="ghost" size="sm" className="h-6 text-xs gap-1" onClick={() => copyItems(cluster.example_entities!, "entities")}>
+                                    <Copy className="h-3 w-3" /> Copy all
+                                  </Button>
+                                </div>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {cluster.example_entities.map((e, i) => (
+                                    <Badge
+                                      key={i}
+                                      variant="outline"
+                                      className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors text-xs"
+                                      onClick={() => {
+                                        navigator.clipboard.writeText(e);
+                                        toast({ title: "Copied", description: e });
+                                      }}
+                                    >
+                                      {e}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              </TabsContent>
+                            )}
+
+                            <TabsContent value="modifiers">
+                              <div className="flex items-center justify-end mb-2">
+                                <Button variant="ghost" size="sm" className="h-6 text-xs gap-1" onClick={() => copyItems(cluster.modifiers, "modifiers")}>
+                                  <Copy className="h-3 w-3" /> Copy all
+                                </Button>
+                              </div>
+                              <div className="flex flex-wrap gap-1.5">
+                                {cluster.modifiers.map((m, i) => (
+                                  <Badge
+                                    key={i}
+                                    variant="secondary"
+                                    className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors text-xs bg-muted"
+                                    onClick={() => {
+                                      navigator.clipboard.writeText(m);
+                                      toast({ title: "Copied", description: m });
+                                    }}
+                                  >
+                                    {m}
+                                  </Badge>
+                                ))}
+                              </div>
+                            </TabsContent>
+                          </Tabs>
+                        </CardContent>
+                      </CollapsibleContent>
+                    </Card>
+                  </Collapsible>
+                ))}
+              </div>
+
+              {/* Cross-cutting & Negative */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {semanticMap.cross_cutting_modifiers.length > 0 && (
+                  <Card>
+                    <CardHeader className="py-3 px-4">
+                      <CardTitle className="text-sm flex items-center gap-2">
+                        <SlidersHorizontal className="h-4 w-4 text-primary" />
+                        Cross-Cutting Modifiers
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="pt-0 pb-4 px-4">
+                      <div className="flex flex-wrap gap-1.5">
+                        {semanticMap.cross_cutting_modifiers.map((m, i) => (
+                          <Badge key={i} variant="secondary" className="text-xs cursor-pointer hover:bg-primary hover:text-primary-foreground" onClick={() => {
+                            navigator.clipboard.writeText(m);
+                            toast({ title: "Copied", description: m });
+                          }}>
+                            {m}
+                          </Badge>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+                {semanticMap.negative_keywords.length > 0 && (
+                  <Card>
+                    <CardHeader className="py-3 px-4">
+                      <CardTitle className="text-sm flex items-center gap-2">
+                        <Ban className="h-4 w-4 text-destructive" />
+                        Negative Keywords
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="pt-0 pb-4 px-4">
+                      <div className="flex flex-wrap gap-1.5">
+                        {semanticMap.negative_keywords.map((k, i) => (
+                          <Badge key={i} variant="outline" className="text-xs border-destructive/30 text-destructive cursor-pointer" onClick={() => {
+                            navigator.clipboard.writeText(k);
+                            toast({ title: "Copied", description: k });
+                          }}>
+                            {k}
+                          </Badge>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+
+              {/* Notes */}
+              {semanticMap.notes && (
+                <Card>
+                  <CardContent className="py-3 px-4">
+                    <p className="text-sm text-muted-foreground">{semanticMap.notes}</p>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          )}
+
+          {/* Legacy results (backward compat) */}
+          {legacyResults && !isGenerating && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between flex-wrap gap-3">
+                <div className="flex items-center gap-3">
+                  <h2 className="text-lg font-semibold">"{currentTopic}"</h2>
+                  <Badge variant="secondary">
+                    {legacyResults.categories.reduce((s, c) => s + c.terms.length, 0)} terms · {legacyResults.categories.length} categories
+                  </Badge>
+                </div>
+              </div>
+              <div className="space-y-2">
+                {legacyResults.categories.map(category => (
+                  <Collapsible
+                    key={category.name}
+                    open={openClusters.has(category.name)}
+                    onOpenChange={() => toggleCluster(category.name)}
+                  >
+                    <Card>
+                      <CollapsibleTrigger className="w-full">
+                        <CardHeader className="py-3 px-4">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              {openClusters.has(category.name) ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
                               <span className="font-medium text-sm">{category.name}</span>
                             </div>
-                            <Badge variant="outline" className="text-xs">
-                              {category.terms.length} terms
-                            </Badge>
+                            <Badge variant="outline" className="text-xs">{category.terms.length} terms</Badge>
                           </div>
                         </CardHeader>
                       </CollapsibleTrigger>
@@ -584,15 +622,10 @@ const KeywordResearch = () => {
                         <CardContent className="pt-0 pb-4 px-4">
                           <div className="flex flex-wrap gap-1.5">
                             {category.terms.map((term, idx) => (
-                              <Badge
-                                key={idx}
-                                variant="secondary"
-                                className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors text-xs"
-                                onClick={() => {
-                                  navigator.clipboard.writeText(term);
-                                  toast({ title: "Copied", description: term });
-                                }}
-                              >
+                              <Badge key={idx} variant="secondary" className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors text-xs" onClick={() => {
+                                navigator.clipboard.writeText(term);
+                                toast({ title: "Copied", description: term });
+                              }}>
                                 {term}
                               </Badge>
                             ))}
@@ -629,18 +662,10 @@ const KeywordResearch = () => {
                     <button className="flex-1 text-left" onClick={() => loadResearch(saved)}>
                       <span className="font-medium text-sm">{saved.topic}</span>
                       <span className="text-xs text-muted-foreground ml-2">
-                        {getTotalTerms(saved.results)} terms · {new Date(saved.created_at).toLocaleDateString()}
+                        {getResearchStats(saved)} · {new Date(saved.created_at).toLocaleDateString()}
                       </span>
                     </button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                      onClick={e => {
-                        e.stopPropagation();
-                        deleteResearch(saved.id);
-                      }}
-                    >
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={e => { e.stopPropagation(); deleteResearch(saved.id); }}>
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                   </div>
