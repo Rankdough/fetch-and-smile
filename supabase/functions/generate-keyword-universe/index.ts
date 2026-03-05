@@ -30,6 +30,22 @@ serve(async (req) => {
 
 Goal: Given ONE topic, generate a comprehensive set of seed keywords and question-intents that fully map the topic as a knowledge graph, across product types, sub-categories, audiences, use-cases, problems, contexts, and modifiers.
 
+CRITICAL — LATERAL SEMANTIC EXPANSION:
+You MUST think beyond the obvious and consider ADJACENT CONTEXTS, MOTIVATIONS, and USE CASES that connect to the topic even if they don't literally contain the topic keyword. Ask yourself:
+- WHY do people engage with this topic? What underlying needs, goals, or desires drive them?
+- WHAT ACTIVITIES or ACTIONS are associated with this topic? What do people DO in relation to it?
+- WHAT OUTCOMES or PURPOSES does this topic serve? (e.g., toys → child development, STEM learning, motor skills, sensory play, Montessori)
+- WHERE and HOW does this topic intersect with daily life, hobbies, professions, or other domains?
+- What would someone ALSO search for when researching this topic?
+
+Examples of lateral thinking:
+- "meeting people" → yoga classes, book clubs, volunteering, co-working spaces, local events, sports leagues, cooking workshops (things people DO to meet people)
+- "toys" → child development, educational toys, STEM learning, sensory development, motor skills, Montessori, gifting occasions
+- "dental tourism" → travel insurance, medical travel, recovery accommodation, visa requirements, flight booking
+- "home security" → smart home, neighbourhood watch, insurance discounts, package theft prevention
+
+You must include at least 2-3 clusters that represent these LATERAL/ADJACENT territories — topics that a person interested in the main topic would ALSO care about.
+
 Rules:
 - Do NOT return a simple list of synonyms.
 - Prefer concrete entities and common phrases people actually search.
