@@ -389,41 +389,20 @@ const KeywordClustering = () => {
       }
 
       const classifyData = await classifyResponse.json();
-      toast({ title: `${classifyData.clusters.length} topic silos identified`, description: "Now generating blog ideas & metadata..." });
-
-      // PASS 2: Enrich clusters with metadata & blog ideas
-      setAnalysisStage("enrich");
-      const enrichResponse = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/cluster-keywords-enrich`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-          },
-          body: JSON.stringify({ clusters: classifyData.clusters }),
-          signal: controller.signal,
-        }
-      );
-
-      if (!enrichResponse.ok) {
-        const errData = await enrichResponse.json().catch(() => ({}));
-        throw new Error(errData.error || `Enrichment failed: ${enrichResponse.status}`);
-      }
-
-      const enrichData = await enrichResponse.json();
-      const finalResult: ClusteringResult = {
-        clusters: enrichData.clusters,
+      
+      // Stop after Pass 1 — show silo results immediately without blog ideas
+      const siloResult: ClusteringResult = {
+        clusters: classifyData.clusters,
         total_keywords_clustered: classifyData.total_keywords_clustered,
         unclustered: classifyData.unclustered || [],
       };
 
-      setResult(finalResult);
+      setResult(siloResult);
       setExpandedClusters(new Set());
-      toast({ title: "Clustering complete!", description: `${finalResult.clusters.length} topic silos with blog ideas from ${keywords.length} keywords` });
+      toast({ title: "Clustering complete!", description: `${siloResult.clusters.length} topic silos from ${keywords.length} keywords. Generate blog ideas when ready.` });
       
       // Auto-save to database
-      await saveResult(keywords, finalResult, projectName.trim() || undefined);
+      await saveResult(keywords, siloResult, projectName.trim() || undefined);
     } catch (err: any) {
       if (err.name === "AbortError") {
         toast({ title: "Analysis stopped" });
@@ -728,10 +707,10 @@ const KeywordClustering = () => {
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" />
               {analysisStage === "classify" 
-                ? `Pass 1: Classifying ${keywordCount} keywords into topic silos...`
-                : `Pass 2: Generating blog ideas & metadata for each silo...`}
+                ? `Classifying ${keywordCount} keywords into topic silos...`
+                : `Generating blog ideas & metadata for each silo...`}
             </div>
-            <Progress value={analysisStage === "enrich" ? 60 : 20} className="h-1" />
+            <Progress value={analysisStage === "enrich" ? 60 : 30} className="h-1" />
           </div>
         )}
 
@@ -753,10 +732,20 @@ const KeywordClustering = () => {
                 </Badge>
               </div>
               <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" onClick={reEnrichClusters} disabled={isAnalyzing} className="gap-1.5">
-                  <RefreshCw className="h-3.5 w-3.5" />
-                  Regenerate Blog Ideas
-                </Button>
+                {(() => {
+                  const hasBlogIdeas = result.clusters.some(c => c.blog_ideas && c.blog_ideas.length > 0);
+                  return hasBlogIdeas ? (
+                    <Button variant="outline" size="sm" onClick={reEnrichClusters} disabled={isAnalyzing} className="gap-1.5">
+                      <RefreshCw className="h-3.5 w-3.5" />
+                      Regenerate Blog Ideas
+                    </Button>
+                  ) : (
+                    <Button size="sm" onClick={reEnrichClusters} disabled={isAnalyzing} className="gap-1.5">
+                      {isAnalyzing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Lightbulb className="h-3.5 w-3.5" />}
+                      Generate Blog Ideas
+                    </Button>
+                  );
+                })()}
                 <Button variant="outline" size="sm" onClick={exportClustersCSV} className="gap-1.5">
                   <Download className="h-3.5 w-3.5" />
                   Export CSV
