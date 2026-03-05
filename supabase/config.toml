@@ -86,3 +86,6 @@ verify_jwt = false
 
 [functions.expand-topics]
 verify_jwt = false
+
+[functions.scan-website-keywords]
+verify_jwt = false

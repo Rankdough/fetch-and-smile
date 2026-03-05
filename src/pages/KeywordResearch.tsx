@@ -13,7 +13,8 @@ import { useToast } from "@/hooks/use-toast";
 import {
   ArrowLeft, Search, Sparkles, Copy, Download, Trash2,
   ChevronDown, ChevronRight, Clock, Loader2, Square, ChevronUp,
-  BrainCircuit, Tag, HelpCircle, SlidersHorizontal, Building2, Ban
+  BrainCircuit, Tag, HelpCircle, SlidersHorizontal, Building2, Ban,
+  Globe, X
 } from "lucide-react";
 import KeywordClustering from "@/components/keyword-research/KeywordClustering";
 
@@ -62,6 +63,10 @@ const KeywordResearch = () => {
   const [topic, setTopic] = useState("");
   const [audience, setAudience] = useState("");
   const [country, setCountry] = useState("");
+  const [websiteUrl, setWebsiteUrl] = useState("");
+  const [isScanning, setIsScanning] = useState(false);
+  const [scannedTerms, setScannedTerms] = useState<string[]>([]);
+  const [scanStats, setScanStats] = useState<{ url: string; urlCount: number } | null>(null);
 
   const [isGenerating, setIsGenerating] = useState(false);
   const [semanticMap, setSemanticMap] = useState<SemanticMap | null>(null);
@@ -99,6 +104,41 @@ const KeywordResearch = () => {
     setIsLoadingSaved(false);
   };
 
+  // Website scan
+  const scanWebsite = async () => {
+    if (!websiteUrl.trim()) return;
+    setIsScanning(true);
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/scan-website-keywords`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({ url: websiteUrl.trim() }),
+        }
+      );
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || `Scan failed: ${response.status}`);
+      }
+      const data = await response.json();
+      setScannedTerms(data.extracted_terms || []);
+      setScanStats({ url: data.url, urlCount: data.total_urls_found });
+      toast({
+        title: "Website scanned!",
+        description: `Found ${data.extracted_terms?.length || 0} keyword ideas from ${data.total_urls_found} pages`,
+      });
+    } catch (err: any) {
+      console.error(err);
+      toast({ title: "Scan failed", description: err.message, variant: "destructive" });
+    } finally {
+      setIsScanning(false);
+    }
+  };
+
   const generate = async () => {
     if (!topic.trim()) return;
     setIsGenerating(true);
@@ -120,6 +160,7 @@ const KeywordResearch = () => {
             topic: topic.trim(),
             audience: audience.trim() || undefined,
             country: country.trim() || undefined,
+            websiteTerms: scannedTerms.length > 0 ? scannedTerms : undefined,
           }),
           signal: controller.signal,
         }
@@ -301,6 +342,56 @@ const KeywordResearch = () => {
                     />
                   </div>
                 </div>
+
+                {/* Website Scanner */}
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Scan Website (optional)</label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      placeholder="e.g. https://example.com"
+                      value={websiteUrl}
+                      onChange={e => setWebsiteUrl(e.target.value)}
+                      onKeyDown={e => e.key === "Enter" && !isScanning && scanWebsite()}
+                    />
+                    <Button
+                      variant="outline"
+                      onClick={scanWebsite}
+                      disabled={!websiteUrl.trim() || isScanning}
+                      className="gap-2 shrink-0"
+                    >
+                      {isScanning ? <Loader2 className="h-4 w-4 animate-spin" /> : <Globe className="h-4 w-4" />}
+                      {isScanning ? "Scanning..." : "Scan"}
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Crawls the site's pages and menus to extract category/product names as additional keyword seeds.
+                  </p>
+                </div>
+
+                {/* Scanned terms preview */}
+                {scannedTerms.length > 0 && (
+                  <div className="p-3 rounded-md border bg-accent/20">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium flex items-center gap-1.5">
+                        <Globe className="h-3.5 w-3.5 text-primary" />
+                        {scannedTerms.length} terms from {scanStats?.url}
+                        <span className="text-xs text-muted-foreground font-normal">({scanStats?.urlCount} pages found)</span>
+                      </span>
+                      <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => { setScannedTerms([]); setScanStats(null); }}>
+                        <X className="h-3 w-3 mr-1" /> Clear
+                      </Button>
+                    </div>
+                    <div className="flex flex-wrap gap-1 max-h-32 overflow-y-auto">
+                      {scannedTerms.slice(0, 80).map((t, i) => (
+                        <Badge key={i} variant="outline" className="text-[10px] font-normal">{t}</Badge>
+                      ))}
+                      {scannedTerms.length > 80 && (
+                        <Badge variant="outline" className="text-[10px] font-normal">+{scannedTerms.length - 80} more</Badge>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 <div className="flex items-center gap-3">
                   <Button onClick={generate} disabled={!topic.trim() || isGenerating} className="gap-2">
                     {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
