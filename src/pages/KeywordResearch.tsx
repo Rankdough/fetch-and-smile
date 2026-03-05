@@ -14,7 +14,7 @@ import {
   ArrowLeft, Search, Sparkles, Copy, Download, Trash2,
   ChevronDown, ChevronRight, Clock, Loader2, Square, ChevronUp,
   BrainCircuit, Tag, HelpCircle, SlidersHorizontal, Building2, Ban,
-  Globe, X
+  Globe, X, Link2
 } from "lucide-react";
 import KeywordClustering from "@/components/keyword-research/KeywordClustering";
 
@@ -69,6 +69,8 @@ const KeywordResearch = () => {
   const [scanStats, setScanStats] = useState<{ url: string; urlCount: number } | null>(null);
   const [scanBlocked, setScanBlocked] = useState(false);
   const [manualSeeds, setManualSeeds] = useState("");
+  const [urlListInput, setUrlListInput] = useState("");
+  const [urlExtractedTerms, setUrlExtractedTerms] = useState<string[]>([]);
 
   const [isGenerating, setIsGenerating] = useState(false);
   const [semanticMap, setSemanticMap] = useState<SemanticMap | null>(null);
@@ -106,10 +108,65 @@ const KeywordResearch = () => {
     setIsLoadingSaved(false);
   };
 
-  // Combine scanned terms + manual seeds
+  // Parse URLs into keyword terms
+  const stopTerms = new Set([
+    "uk", "en", "en-gb", "en-us", "de", "de-de", "fr", "fr-fr", "es", "es-es", "it", "it-it",
+    "c", "p", "s", "search", "brand", "shop", "category", "categories",
+    "home", "index", "page", "about", "contact", "privacy", "terms",
+    "cookie", "cookies", "login", "signup", "help", "support", "careers",
+    "returns", "shipping-and-delivery", "cookies-policy", "privacy-policy",
+    "terms-and-policies", "accessibility", "transparency-statement",
+    "storefinder", "giftcardtype", "about-us", "in-store-events",
+    "charity-partners", "request-a-catalogue", "gift-finder-hub",
+  ]);
+
+  const extractTermsFromUrls = (urlText: string): string[] => {
+    const lines = urlText.split(/[\n\r]+/).map(l => l.trim()).filter(Boolean);
+    const terms = new Set<string>();
+
+    for (const line of lines) {
+      try {
+        const url = new URL(line.startsWith("http") ? line : `https://${line}`);
+        const segments = url.pathname.split("/").filter(Boolean);
+
+        for (const seg of segments) {
+          // Skip category/product IDs like SM060101, p/245602
+          if (/^(SM|sm)\d+$/i.test(seg)) continue;
+          if (/^\d+$/.test(seg)) continue;
+
+          const cleaned = seg
+            .replace(/[-_]/g, " ")
+            .replace(/\.(html|htm|php|aspx|jsp)$/i, "")
+            .replace(/\?.*$/, "")
+            .trim()
+            .toLowerCase();
+
+          if (cleaned.length >= 3 && cleaned.length <= 60 && !stopTerms.has(cleaned)) {
+            terms.add(cleaned);
+          }
+        }
+      } catch {
+        // Not a valid URL, skip
+      }
+    }
+
+    return [...terms].sort();
+  };
+
+  const parseUrlList = () => {
+    if (!urlListInput.trim()) return;
+    const terms = extractTermsFromUrls(urlListInput);
+    setUrlExtractedTerms(terms);
+    toast({
+      title: "URLs parsed!",
+      description: `Extracted ${terms.length} keyword terms from URL paths`,
+    });
+  };
+
+  // Combine scanned terms + manual seeds + URL-extracted terms
   const getAllSeeds = (): string[] => {
     const manual = manualSeeds.split(/[\n,]+/).map(s => s.trim().toLowerCase()).filter(s => s.length >= 2);
-    const combined = new Set([...scannedTerms, ...manual]);
+    const combined = new Set([...scannedTerms, ...manual, ...urlExtractedTerms]);
     return [...combined];
   };
 
@@ -415,6 +472,58 @@ const KeywordResearch = () => {
                   </div>
                 )}
 
+                {/* URL list parser */}
+                <div>
+                  <label className="text-sm font-medium mb-1 block flex items-center gap-1.5">
+                    <Link2 className="h-3.5 w-3.5" />
+                    Extract Terms from URLs (optional)
+                  </label>
+                  <div className="flex gap-2 items-start">
+                    <Textarea
+                      placeholder="Paste a list of URLs — one per line. Terms will be extracted from the URL paths automatically.&#10;&#10;e.g.&#10;https://www.smythstoys.com/uk/en-gb/toys/action-figures-and-playsets/c/SM060101&#10;https://www.smythstoys.com/uk/en-gb/toys/fashion-and-dolls/barbie/c/SM06010403"
+                      value={urlListInput}
+                      onChange={e => setUrlListInput(e.target.value)}
+                      rows={4}
+                      className="text-sm font-mono text-xs"
+                    />
+                    <Button
+                      variant="outline"
+                      onClick={parseUrlList}
+                      disabled={!urlListInput.trim()}
+                      className="shrink-0 gap-1.5"
+                    >
+                      <Link2 className="h-4 w-4" />
+                      Extract
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Extracts category names, brand names, and product types from URL path segments. Great when site crawling is blocked.
+                  </p>
+                </div>
+
+                {/* URL-extracted terms preview */}
+                {urlExtractedTerms.length > 0 && (
+                  <div className="p-3 rounded-md border bg-accent/20">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium flex items-center gap-1.5">
+                        <Link2 className="h-3.5 w-3.5 text-primary" />
+                        {urlExtractedTerms.length} terms extracted from URLs
+                      </span>
+                      <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => { setUrlExtractedTerms([]); setUrlListInput(""); }}>
+                        <X className="h-3 w-3 mr-1" /> Clear
+                      </Button>
+                    </div>
+                    <div className="flex flex-wrap gap-1 max-h-32 overflow-y-auto">
+                      {urlExtractedTerms.slice(0, 100).map((t, i) => (
+                        <Badge key={i} variant="outline" className="text-[10px] font-normal">{t}</Badge>
+                      ))}
+                      {urlExtractedTerms.length > 100 && (
+                        <Badge variant="outline" className="text-[10px] font-normal">+{urlExtractedTerms.length - 100} more</Badge>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 {/* Manual keyword seeds */}
                 <div>
                   <label className="text-sm font-medium mb-1 block">Additional Keyword Seeds (optional)</label>
@@ -426,7 +535,7 @@ const KeywordResearch = () => {
                     className="text-sm"
                   />
                   <p className="text-xs text-muted-foreground mt-1">
-                    These will be combined with any scanned terms and fed into the semantic generator.
+                    These will be combined with any scanned/extracted terms and fed into the semantic generator.
                   </p>
                 </div>
 
