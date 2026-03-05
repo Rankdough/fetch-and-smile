@@ -126,6 +126,7 @@ const KeywordClustering = () => {
   const [suggestedSilos, setSuggestedSilos] = useState("");
   const [savedResults, setSavedResults] = useState<SavedClustering[]>([]);
   const [activeResultId, setActiveResultId] = useState<string | null>(null);
+  const [userSuggestedSilos, setUserSuggestedSilos] = useState<string[]>([]);
 
   // Load saved results on mount
   useEffect(() => {
@@ -389,6 +390,10 @@ const KeywordClustering = () => {
         total_keywords_clustered: classifyData.total_keywords_clustered,
         unclustered: classifyData.unclustered || [],
       };
+
+      // Track which silos were user-suggested
+      const suggested = suggestedSilos.trim() ? suggestedSilos.split("\n").map(s => s.trim().toLowerCase()).filter(Boolean) : [];
+      setUserSuggestedSilos(suggested);
 
       setResult(siloResult);
       setExpandedClusters(new Set());
@@ -900,6 +905,11 @@ const KeywordClustering = () => {
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2 flex-wrap">
                               <span className="font-medium text-sm truncate">{cluster.topic}</span>
+                              {userSuggestedSilos.length > 0 && userSuggestedSilos.some(s => cluster.topic.toLowerCase().includes(s) || s.includes(cluster.topic.toLowerCase())) && (
+                                <Badge variant="outline" className="text-[10px] shrink-0 border-primary/40 text-primary bg-primary/5">
+                                  Suggested
+                                </Badge>
+                              )}
                               {(() => {
                                 const ideas = cluster.blog_ideas || [];
                                 const usedCount = ideas.filter(idea => usedIdeas.has(makeIdeaKey(cluster.topic, idea.title))).length;
