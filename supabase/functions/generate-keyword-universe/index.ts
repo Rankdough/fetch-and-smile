@@ -36,6 +36,7 @@ Rules:
 - Cover breadth first, then depth.
 - Avoid duplicates.
 - Keep items short (2–6 words for seed keywords).
+- NEVER add country or region suffixes (like "uk", "us", "australia") to keywords UNLESS the user explicitly provides a country. If no country is given, keep all keywords location-neutral.
 - Include regional variants only if the user specifies a country.
 - Seed keywords must be SHORT and REAL — things you'd type into Ahrefs or Google, not hallucinated long-tail phrases.
 - Think like an SEO strategist building a content map: capture every angle, entity, subtopic, and adjacent concept.
