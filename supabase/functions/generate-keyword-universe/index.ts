@@ -51,7 +51,7 @@ For the given topic:
 3. Add "negative_keywords" (things often confused with the topic but not in scope).
 4. Add "cross_cutting_modifiers" — dimensions that apply across all clusters (age, budget, location, intent).
 5. Add "notes" with any ambiguity you detected and how you resolved it.
-6. Tag every keyword and question with one intent label: informational, transactional, local, comparison, troubleshooting, inspirational.`;
+6. Do NOT append intent labels or tags like [transactional] or [informational] to keywords. Return plain, clean keywords only.`;
 
     const lang = language || "English (UK)";
     const user = `Topic: ${topic}
