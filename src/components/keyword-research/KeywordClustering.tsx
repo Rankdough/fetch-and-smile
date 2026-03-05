@@ -336,26 +336,18 @@ const KeywordClustering = () => {
     const allKeywords = [...new Set(parseKeywordsFromText(rawInput))];
 
     // Build volume map from uploaded CSV data
+    // Ahrefs exports "0-10" as null/0, so treat missing volume as 10
     const volumeMap: Record<string, number> = {};
+    const hasVolumeData = keywordsWithVolume.some(k => k.volume !== null);
     for (const item of keywordsWithVolume) {
-      if (item.volume !== null && item.volume > 0) volumeMap[item.keyword] = item.volume;
+      volumeMap[item.keyword] = (item.volume !== null && item.volume > 0) ? item.volume : 10;
     }
 
-    // If we have volume data, only cluster keywords that have volume > 0
-    const hasVolumeData = Object.keys(volumeMap).length > 0;
-    const keywords = hasVolumeData
-      ? allKeywords.filter(kw => volumeMap[kw] !== undefined && volumeMap[kw] > 0)
-      : allKeywords;
-
-    const excludedCount = allKeywords.length - keywords.length;
+    const keywords = allKeywords;
 
     if (keywords.length < 10) {
-      toast({ title: "Need more keywords", description: `Only ${keywords.length} keywords${hasVolumeData ? " with volume data" : ""}. Need at least 10 to cluster.${excludedCount > 0 ? ` (${excludedCount} excluded for having no volume)` : ""}`, variant: "destructive" });
+      toast({ title: "Need more keywords", description: `Only ${keywords.length} keywords. Need at least 10 to cluster.`, variant: "destructive" });
       return;
-    }
-
-    if (excludedCount > 0) {
-      toast({ title: `${excludedCount} keywords excluded`, description: `Only clustering ${keywords.length} keywords that have search volume data.` });
     }
 
     setIsAnalyzing(true);
