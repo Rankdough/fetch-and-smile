@@ -12,7 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    const { topic, audience, country, language } = await req.json();
+    const { topic, audience, country, language, websiteTerms } = await req.json();
 
     if (!topic) {
       return new Response(
@@ -58,6 +58,7 @@ For the given topic:
     const user = `Topic: ${topic}
 ${audience ? `Audience (optional): ${audience}` : ""}
 ${country ? `Country (optional): ${country}` : ""}
+${websiteTerms && websiteTerms.length > 0 ? `\nWEBSITE-EXTRACTED TERMS (use these as additional seeds — these were scraped from a real website related to this topic, incorporate them into your clusters):\n${websiteTerms.join(", ")}` : ""}
 Language: ${lang}`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
