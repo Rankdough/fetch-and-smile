@@ -259,13 +259,30 @@ const KeywordClustering = () => {
 
     const volIdx = headers.findIndex(c => c === "volume");
 
+    const parseVolume = (raw: string | undefined): number | null => {
+      if (!raw) return null;
+      const s = raw.replace(/^"|"$/g, "").trim().toLowerCase();
+      if (!s || s === "-" || s === "n/a") return null;
+      // Handle abbreviated formats: 3.9K → 3900, 1.2M → 1200000
+      const abbrevMatch = s.match(/^([0-9]*\.?[0-9]+)\s*([km])$/i);
+      if (abbrevMatch) {
+        const num = parseFloat(abbrevMatch[1]);
+        const multiplier = abbrevMatch[2].toLowerCase() === 'k' ? 1000 : 1000000;
+        return Math.round(num * multiplier);
+      }
+      // Standard numeric with possible commas/spaces: "3,900" or "3 900"
+      const cleaned = s.replace(/[,\s]/g, "");
+      const parsed = parseInt(cleaned, 10);
+      return isNaN(parsed) ? null : parsed;
+    };
+
     const results: KeywordWithVolume[] = [];
     for (let i = 1; i < lines.length; i++) {
       const cells = parseCSVRow(lines[i]);
       const kw = cells[kwIdx]?.replace(/^"|"$/g, "").trim();
-      const vol = volIdx >= 0 ? parseInt(cells[volIdx]?.replace(/[^0-9]/g, ""), 10) : null;
+      const vol = volIdx >= 0 ? parseVolume(cells[volIdx]) : null;
       if (kw && kw.length > 1 && kw.length < 200) {
-        results.push({ keyword: kw.toLowerCase(), volume: isNaN(vol as number) ? null : vol });
+        results.push({ keyword: kw.toLowerCase(), volume: vol });
       }
     }
     return results;
