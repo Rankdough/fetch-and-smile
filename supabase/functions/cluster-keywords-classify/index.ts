@@ -10,7 +10,7 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { keywords, volumeMap } = await req.json();
+    const { keywords, volumeMap, suggestedTopics } = await req.json();
 
     if (!keywords || !Array.isArray(keywords) || keywords.length === 0) {
       return new Response(JSON.stringify({ error: "Please provide an array of keywords" }), {
@@ -54,7 +54,12 @@ RULES:
 JSON FORMAT:
 {"assignments":{"keyword1":"Topic Name","keyword2":"Topic Name",...},"topics":["Topic Name 1","Topic Name 2",...]}`;
 
-    const userPrompt = `Classify these ${uniqueKeywords.length} keywords into 10-20 topic silos (maximum 20):\n\n${kwLines}`;
+    const hasSuggested = suggestedTopics && Array.isArray(suggestedTopics) && suggestedTopics.length > 0;
+    const suggestedBlock = hasSuggested
+      ? `\n\nSUGGESTED SILOS (from the user — you MUST include these as silos, using the exact names provided. Assign relevant keywords to them. You may also create additional silos for keywords that don't fit any suggested silo):\n${suggestedTopics.map((t: string) => `- ${t}`).join("\n")}`
+      : "";
+
+    const userPrompt = `Classify these ${uniqueKeywords.length} keywords into 10-20 topic silos (maximum 20):${suggestedBlock}\n\n${kwLines}`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",

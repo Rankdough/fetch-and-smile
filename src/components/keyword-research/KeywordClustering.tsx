@@ -123,6 +123,7 @@ const KeywordClustering = () => {
   const [favoritedClusters, setFavoritedClusters] = useState<Set<string>>(() => getStoredSet(FAVORITED_CLUSTERS_KEY));
   const [rawInput, setRawInput] = useState("");
   const [projectName, setProjectName] = useState("");
+  const [suggestedSilos, setSuggestedSilos] = useState("");
   const [savedResults, setSavedResults] = useState<SavedClustering[]>([]);
   const [activeResultId, setActiveResultId] = useState<string | null>(null);
 
@@ -376,6 +377,7 @@ const KeywordClustering = () => {
           body: JSON.stringify({ 
             keywords,
             volumeMap: Object.keys(volumeMap).length > 0 ? volumeMap : undefined,
+            suggestedTopics: suggestedSilos.trim() ? suggestedSilos.split("\n").map(s => s.trim()).filter(Boolean) : undefined,
           }),
           signal: controller.signal,
         }
@@ -679,6 +681,26 @@ const KeywordClustering = () => {
             onChange={(e) => setRawInput(e.target.value)}
             className="min-h-[120px] text-sm font-mono"
           />
+          {/* Suggested silos */}
+          <Collapsible>
+            <CollapsibleTrigger className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
+              <Target className="h-3 w-3" />
+              Propose silos (optional)
+              <ChevronDown className="h-3 w-3" />
+            </CollapsibleTrigger>
+            <CollapsibleContent className="pt-2">
+              <Textarea
+                placeholder={"Suggest silo names the AI should include, one per line...\n\ne.g.:\nDental Tourism Destinations\nDental Costs & Pricing\nPost-Treatment Care"}
+                value={suggestedSilos}
+                onChange={(e) => setSuggestedSilos(e.target.value)}
+                className="min-h-[80px] text-sm font-mono"
+              />
+              <p className="text-[11px] text-muted-foreground mt-1">
+                The AI will include these as silos (plus its own). Keywords not matching any suggested silo will be grouped into AI-generated ones.
+              </p>
+            </CollapsibleContent>
+          </Collapsible>
+
           <div className="flex items-center gap-2">
             <Button
               onClick={analyzeKeywords}
