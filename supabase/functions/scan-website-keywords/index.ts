@@ -6,6 +6,19 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+// Known bot-protection / junk terms to filter out
+const botProtectionTerms = new Set([
+  "imperva", "incapsula", "cloudflare", "captcha", "recaptcha",
+  "what should i do", "why am i seeing this page", "why am i seeing this",
+  "access denied", "please verify", "are you a robot", "bot protection",
+  "checking your browser", "please wait", "ray id", "performance security by",
+  "enable javascript", "enable cookies", "just a moment", "ddos protection",
+  "security check", "human verification", "verify you are human",
+  "attention required", "pardon our interruption", "one more step",
+  "sitemap.xml", "en gb", "en us", "de de", "fr fr", "es es", "it it",
+  "www.smythstoys.com", "www.", ".com", ".co.uk",
+]);
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -45,7 +58,7 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         url: formattedUrl,
-        limit: 500,
+        limit: 1000,
         includeSubdomains: false,
       }),
     });
@@ -67,11 +80,10 @@ serve(async (req) => {
         const path = new URL(u).pathname;
         const segments = path.split("/").filter(Boolean);
         for (const seg of segments) {
-          // Clean URL segments into readable terms
           const cleaned = seg
             .replace(/[-_]/g, " ")
             .replace(/\.(html|htm|php|aspx|jsp)$/i, "")
-            .replace(/[0-9]{5,}/g, "") // remove long IDs
+            .replace(/[0-9]{5,}/g, "")
             .trim();
           if (cleaned.length >= 3 && cleaned.length <= 60 && !/^[0-9]+$/.test(cleaned)) {
             urlKeywords.add(cleaned.toLowerCase());
@@ -80,42 +92,71 @@ serve(async (req) => {
       } catch {}
     }
 
-    // Step 2: Scrape the homepage for navigation/category names
-    const scrapeResponse = await fetch("https://api.firecrawl.dev/v1/scrape", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${FIRECRAWL_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        url: formattedUrl,
-        formats: ["links", "markdown"],
-        onlyMainContent: false, // we want nav/menus too
-      }),
+    // Step 2: Scrape the homepage + up to 10 category-level pages
+    const scrapeUrl = async (targetUrl: string): Promise<string[]> => {
+      try {
+        const scrapeResponse = await fetch("https://api.firecrawl.dev/v1/scrape", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${FIRECRAWL_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            url: targetUrl,
+            formats: ["links", "markdown"],
+            onlyMainContent: false,
+            waitFor: 3000,
+          }),
+        });
+
+        if (!scrapeResponse.ok) return [];
+
+        const scrapeData = await scrapeResponse.json();
+        const markdown = scrapeData.data?.markdown || scrapeData.markdown || "";
+        const terms: string[] = [];
+
+        // Extract headings
+        const headingMatches = markdown.match(/^#{1,3}\s+(.+)$/gm) || [];
+        for (const h of headingMatches) {
+          const text = h.replace(/^#+\s+/, "").trim();
+          if (text.length >= 3 && text.length <= 60) {
+            terms.push(text.toLowerCase());
+          }
+        }
+
+        // Extract link texts
+        const linkMatches = markdown.match(/\[([^\]]+)\]\([^)]+\)/g) || [];
+        for (const link of linkMatches) {
+          const text = link.match(/\[([^\]]+)\]/)?.[1]?.trim();
+          if (text && text.length >= 3 && text.length <= 60 && !/^(http|mailto|#)/i.test(text)) {
+            terms.push(text.toLowerCase());
+          }
+        }
+
+        return terms;
+      } catch {
+        return [];
+      }
+    };
+
+    // Scrape homepage
+    const pageTerms: string[] = await scrapeUrl(formattedUrl);
+
+    // Find category-level URLs (1-2 path segments, likely navigation pages)
+    const categoryUrls = allUrls.filter(u => {
+      try {
+        const parsed = new URL(u);
+        const segments = parsed.pathname.split("/").filter(Boolean);
+        return segments.length >= 1 && segments.length <= 2 && !segments.some(s => /\.(jpg|png|gif|css|js|pdf|xml|json)$/i.test(s));
+      } catch { return false; }
     });
 
-    let pageTerms: string[] = [];
-    if (scrapeResponse.ok) {
-      const scrapeData = await scrapeResponse.json();
-      const markdown = scrapeData.data?.markdown || scrapeData.markdown || "";
-
-      // Extract headings and nav-like items from markdown
-      const headingMatches = markdown.match(/^#{1,3}\s+(.+)$/gm) || [];
-      for (const h of headingMatches) {
-        const text = h.replace(/^#+\s+/, "").trim();
-        if (text.length >= 3 && text.length <= 60) {
-          pageTerms.push(text.toLowerCase());
-        }
-      }
-
-      // Extract link texts (markdown links [text](url))
-      const linkMatches = markdown.match(/\[([^\]]+)\]\([^)]+\)/g) || [];
-      for (const link of linkMatches) {
-        const text = link.match(/\[([^\]]+)\]/)?.[1]?.trim();
-        if (text && text.length >= 3 && text.length <= 60 && !/^(http|mailto|#)/i.test(text)) {
-          pageTerms.push(text.toLowerCase());
-        }
-      }
+    // Scrape up to 10 category pages in parallel
+    const categoriesToScrape = categoryUrls.slice(0, 10);
+    console.log(`Scraping ${categoriesToScrape.length} category pages...`);
+    const categoryResults = await Promise.all(categoriesToScrape.map(u => scrapeUrl(u)));
+    for (const terms of categoryResults) {
+      pageTerms.push(...terms);
     }
 
     // Combine and deduplicate all extracted terms
@@ -133,9 +174,23 @@ serve(async (req) => {
       "view all", "see all", "show more", "load more",
     ]);
 
-    const filtered = [...allTerms].filter(t => !stopTerms.has(t));
+    // Filter out stop terms AND bot-protection junk
+    const filtered = [...allTerms].filter(t => {
+      if (stopTerms.has(t)) return false;
+      // Check against bot protection terms
+      for (const bot of botProtectionTerms) {
+        if (t === bot || t.includes(bot)) return false;
+      }
+      // Filter out terms that look like URLs or domains
+      if (/^(www\.|https?:)/.test(t)) return false;
+      if (/\.(com|co\.uk|org|net|io)$/i.test(t)) return false;
+      return true;
+    });
 
-    console.log(`Extracted ${filtered.length} keyword ideas from website (${urlKeywords.size} from URLs, ${pageTerms.length} from page content)`);
+    // Detect if the site is likely blocking us
+    const isBlocked = filtered.length < 5 && allUrls.length < 10;
+
+    console.log(`Extracted ${filtered.length} keyword ideas from website (${urlKeywords.size} from URLs, ${pageTerms.length} from page content). Blocked: ${isBlocked}`);
 
     return new Response(
       JSON.stringify({
@@ -143,6 +198,7 @@ serve(async (req) => {
         total_urls_found: allUrls.length,
         extracted_terms: filtered.sort(),
         sample_urls: allUrls.slice(0, 20),
+        likely_blocked: isBlocked,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

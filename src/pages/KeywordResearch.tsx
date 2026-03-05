@@ -67,6 +67,8 @@ const KeywordResearch = () => {
   const [isScanning, setIsScanning] = useState(false);
   const [scannedTerms, setScannedTerms] = useState<string[]>([]);
   const [scanStats, setScanStats] = useState<{ url: string; urlCount: number } | null>(null);
+  const [scanBlocked, setScanBlocked] = useState(false);
+  const [manualSeeds, setManualSeeds] = useState("");
 
   const [isGenerating, setIsGenerating] = useState(false);
   const [semanticMap, setSemanticMap] = useState<SemanticMap | null>(null);
@@ -104,6 +106,13 @@ const KeywordResearch = () => {
     setIsLoadingSaved(false);
   };
 
+  // Combine scanned terms + manual seeds
+  const getAllSeeds = (): string[] => {
+    const manual = manualSeeds.split(/[\n,]+/).map(s => s.trim().toLowerCase()).filter(s => s.length >= 2);
+    const combined = new Set([...scannedTerms, ...manual]);
+    return [...combined];
+  };
+
   // Website scan
   const scanWebsite = async () => {
     if (!websiteUrl.trim()) return;
@@ -127,10 +136,19 @@ const KeywordResearch = () => {
       const data = await response.json();
       setScannedTerms(data.extracted_terms || []);
       setScanStats({ url: data.url, urlCount: data.total_urls_found });
-      toast({
-        title: "Website scanned!",
-        description: `Found ${data.extracted_terms?.length || 0} keyword ideas from ${data.total_urls_found} pages`,
-      });
+      setScanBlocked(data.likely_blocked || false);
+      if (data.likely_blocked) {
+        toast({
+          title: "Site may be blocking crawlers",
+          description: "Very few terms found. Try adding keywords manually below.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Website scanned!",
+          description: `Found ${data.extracted_terms?.length || 0} keyword ideas from ${data.total_urls_found} pages`,
+        });
+      }
     } catch (err: any) {
       console.error(err);
       toast({ title: "Scan failed", description: err.message, variant: "destructive" });
@@ -160,7 +178,7 @@ const KeywordResearch = () => {
             topic: topic.trim(),
             audience: audience.trim() || undefined,
             country: country.trim() || undefined,
-            websiteTerms: scannedTerms.length > 0 ? scannedTerms : undefined,
+            websiteTerms: getAllSeeds().length > 0 ? getAllSeeds() : undefined,
           }),
           signal: controller.signal,
         }
@@ -370,17 +388,22 @@ const KeywordResearch = () => {
 
                 {/* Scanned terms preview */}
                 {scannedTerms.length > 0 && (
-                  <div className="p-3 rounded-md border bg-accent/20">
+                  <div className={`p-3 rounded-md border ${scanBlocked ? 'bg-destructive/10 border-destructive/30' : 'bg-accent/20'}`}>
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-sm font-medium flex items-center gap-1.5">
                         <Globe className="h-3.5 w-3.5 text-primary" />
                         {scannedTerms.length} terms from {scanStats?.url}
                         <span className="text-xs text-muted-foreground font-normal">({scanStats?.urlCount} pages found)</span>
                       </span>
-                      <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => { setScannedTerms([]); setScanStats(null); }}>
+                      <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => { setScannedTerms([]); setScanStats(null); setScanBlocked(false); }}>
                         <X className="h-3 w-3 mr-1" /> Clear
                       </Button>
                     </div>
+                    {scanBlocked && (
+                      <p className="text-xs text-destructive mb-2">
+                        ⚠️ This site appears to be blocking crawlers (bot protection detected). Very few useful terms were extracted. Use the manual input below to add category/brand names yourself.
+                      </p>
+                    )}
                     <div className="flex flex-wrap gap-1 max-h-32 overflow-y-auto">
                       {scannedTerms.slice(0, 80).map((t, i) => (
                         <Badge key={i} variant="outline" className="text-[10px] font-normal">{t}</Badge>
@@ -391,6 +414,21 @@ const KeywordResearch = () => {
                     </div>
                   </div>
                 )}
+
+                {/* Manual keyword seeds */}
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Additional Keyword Seeds (optional)</label>
+                  <Textarea
+                    placeholder="Paste category names, brand names, or product types — one per line or comma-separated. e.g.&#10;Lego&#10;Barbie&#10;outdoor toys, board games, action figures"
+                    value={manualSeeds}
+                    onChange={e => setManualSeeds(e.target.value)}
+                    rows={3}
+                    className="text-sm"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    These will be combined with any scanned terms and fed into the semantic generator.
+                  </p>
+                </div>
 
                 <div className="flex items-center gap-3">
                   <Button onClick={generate} disabled={!topic.trim() || isGenerating} className="gap-2">
