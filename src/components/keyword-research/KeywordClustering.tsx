@@ -166,6 +166,7 @@ const KeywordClustering = () => {
         setResult(latest.result);
         setRawInput(latest.input_keywords.join("\n"));
         setActiveResultId(latest.id);
+        setProjectName(latest.name || "");
         setExpandedClusters(new Set());
       }
     }
@@ -867,41 +868,63 @@ const KeywordClustering = () => {
                           ) : (
                             <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
                           )}
-                          <span className="font-medium text-sm truncate">{cluster.topic}</span>
-                          {(() => {
-                            const ideas = cluster.blog_ideas || [];
-                            const usedCount = ideas.filter(idea => usedIdeas.has(makeIdeaKey(cluster.topic, idea.title))).length;
-                            if (ideas.length === 0) return null;
-                            return (
-                              <Badge
-                                variant="outline"
-                                className={`text-xs gap-1 shrink-0 ${
-                                  usedCount === ideas.length
-                                    ? "border-green-500 text-green-600 bg-green-50 dark:bg-green-950/30"
-                                    : usedCount > 0
-                                    ? "border-yellow-500 text-yellow-600 bg-yellow-50 dark:bg-yellow-950/30"
-                                    : ""
-                                }`}
-                              >
-                                <FileText className="h-3 w-3" />
-                                {usedCount}/{ideas.length} articles
-                              </Badge>
-                            );
-                          })()}
-                          {(() => {
-                            const ideas = cluster.blog_ideas || [];
-                            const bmCount = ideas.filter(idea => bookmarkedIdeas.has(makeIdeaKey(cluster.topic, idea.title))).length;
-                            if (bmCount === 0) return null;
-                            return (
-                              <Badge
-                                variant="outline"
-                                className="text-xs gap-1 shrink-0 border-amber-500 text-amber-600 bg-amber-50 dark:bg-amber-950/30"
-                              >
-                                <Bookmark className="h-3 w-3 fill-current" />
-                                {bmCount} saved
-                              </Badge>
-                            );
-                          })()}
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-medium text-sm truncate">{cluster.topic}</span>
+                              {(() => {
+                                const ideas = cluster.blog_ideas || [];
+                                const usedCount = ideas.filter(idea => usedIdeas.has(makeIdeaKey(cluster.topic, idea.title))).length;
+                                if (ideas.length === 0) return null;
+                                return (
+                                  <Badge
+                                    variant="outline"
+                                    className={`text-xs gap-1 shrink-0 ${
+                                      usedCount === ideas.length
+                                        ? "border-green-500 text-green-600 bg-green-50 dark:bg-green-950/30"
+                                        : usedCount > 0
+                                        ? "border-yellow-500 text-yellow-600 bg-yellow-50 dark:bg-yellow-950/30"
+                                        : ""
+                                    }`}
+                                  >
+                                    <FileText className="h-3 w-3" />
+                                    {usedCount}/{ideas.length} articles
+                                  </Badge>
+                                );
+                              })()}
+                              {(() => {
+                                const ideas = cluster.blog_ideas || [];
+                                const bmCount = ideas.filter(idea => bookmarkedIdeas.has(makeIdeaKey(cluster.topic, idea.title))).length;
+                                if (bmCount === 0) return null;
+                                return (
+                                  <Badge
+                                    variant="outline"
+                                    className="text-xs gap-1 shrink-0 border-amber-500 text-amber-600 bg-amber-50 dark:bg-amber-950/30"
+                                  >
+                                    <Bookmark className="h-3 w-3 fill-current" />
+                                    {bmCount} saved
+                                  </Badge>
+                                );
+                              })()}
+                            </div>
+                            {/* Silo preview: description + top keywords */}
+                            {!expandedClusters.has(cluster.topic) && (
+                              <div className="mt-1 space-y-0.5">
+                                <p className="text-xs text-muted-foreground truncate">{cluster.description}</p>
+                                {cluster.keyword_volumes && (
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    {Object.entries(cluster.keyword_volumes)
+                                      .sort(([, a], [, b]) => (b ?? 0) - (a ?? 0))
+                                      .slice(0, 4)
+                                      .map(([kw, vol]) => (
+                                        <span key={kw} className="text-[11px] text-muted-foreground/70">
+                                          {kw} <span className="font-medium text-foreground/60">({formatVolume(vol)})</span>
+                                        </span>
+                                      ))}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
                         </div>
                         <div className="flex items-center gap-2 shrink-0 ml-2">
                           <Badge variant="outline" className="text-xs gap-1">
