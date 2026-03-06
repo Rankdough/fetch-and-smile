@@ -1565,7 +1565,7 @@ const KeywordClustering = () => {
                                                     disabled={generatingIdeaForKw !== null}
                                                     onClick={(e) => {
                                                       e.stopPropagation();
-                                                      createIdeaFromKeyword(cluster.topic, kw);
+                                                      createIdeaFromKeyword(cluster.topic, kw, filterMode === "questions" ? "questions" : filterMode === "generic" ? "generic" : undefined);
                                                     }}
                                                   >
                                                     {generatingIdeaForKw === kw ? <Loader2 className="h-3 w-3 animate-spin" /> : <Lightbulb className="h-3 w-3" />}
