@@ -687,19 +687,23 @@ const KeywordResearch = () => {
                                 </Button>
                               </div>
                               <div className="flex flex-wrap gap-1.5">
-                                {cluster.seed_keywords.map((kw, i) => (
-                                  <Badge
-                                    key={i}
-                                    variant="secondary"
-                                    className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors text-xs"
-                                    onClick={() => {
-                                      navigator.clipboard.writeText(kw);
-                                      toast({ title: "Copied", description: kw });
-                                    }}
-                                  >
-                                    {kw}
-                                  </Badge>
-                                ))}
+                                {cluster.seed_keywords.map((kw, i) => {
+                                  const isFromScan = scannedTermsSet.has(kw.toLowerCase().trim());
+                                  return (
+                                    <Badge
+                                      key={i}
+                                      variant="secondary"
+                                      className={`cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors text-xs ${isFromScan ? 'ring-1 ring-primary/50 bg-primary/10' : ''}`}
+                                      onClick={() => {
+                                        navigator.clipboard.writeText(kw);
+                                        toast({ title: "Copied", description: kw });
+                                      }}
+                                    >
+                                      {isFromScan && <Globe className="h-3 w-3 mr-1 text-primary" />}
+                                      {kw}
+                                    </Badge>
+                                  );
+                                })}
                               </div>
                             </TabsContent>
 
