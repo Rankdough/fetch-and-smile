@@ -1355,10 +1355,7 @@ const KeywordClustering = () => {
                             const vb = cluster.keyword_volumes?.[b] ?? 0;
                             return vb - va;
                           });
-                          const INITIAL_SHOW = 10;
-                          const hasMore = sortedKws.length > INITIAL_SHOW;
-                          const isExpanded = expandedKeywordSilos.has(cluster.topic);
-                          const displayKws = isExpanded ? sortedKws : sortedKws.slice(0, INITIAL_SHOW);
+                          const displayKws = sortedKws;
                           const setFilter = (mode: "all" | "generic" | "questions") => {
                             setKwFilterMode(prev => ({ ...prev, [cluster.topic]: mode }));
                             setExpandedKeywordSilos(prev => { const n = new Set(prev); n.delete(cluster.topic); return n; });
@@ -1394,7 +1391,7 @@ const KeywordClustering = () => {
                                   <span>Keyword</span>
                                   <span className="text-right flex items-center gap-4 justify-end"><span>Volume</span><span className="w-12"></span></span>
                                 </div>
-                                <div className={isExpanded ? "max-h-[400px] overflow-y-auto" : ""}>
+                                <div className="max-h-[350px] overflow-y-auto">
                                   {displayKws.map((kw, i) => {
                                     const vol = cluster.keyword_volumes?.[kw];
                                     const isAssigned = (() => {
@@ -1497,18 +1494,6 @@ const KeywordClustering = () => {
                                     );
                                   })}
                                 </div>
-                                {hasMore && (
-                                  <button
-                                    className="w-full px-3 py-2 text-xs text-primary hover:bg-muted/50 border-t transition-colors font-medium"
-                                    onClick={() => setExpandedKeywordSilos(prev => {
-                                      const next = new Set(prev);
-                                      if (next.has(cluster.topic)) next.delete(cluster.topic); else next.add(cluster.topic);
-                                      return next;
-                                    })}
-                                  >
-                                    {isExpanded ? "Show less" : `Show all ${sortedKws.length} keywords`}
-                                  </button>
-                                )}
                               </div>
                             </div>
                           );
