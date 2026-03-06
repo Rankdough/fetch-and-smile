@@ -76,6 +76,7 @@ interface KeywordCluster {
   priority: "high" | "medium" | "low";
   blog_ideas?: BlogIdea[];
   landing_page_ideas?: LandingPageIdea[];
+  question_overrides?: string[]; // keywords manually moved to "questions"
 }
 
 interface ClusteringResult {
@@ -493,7 +494,11 @@ const KeywordClustering = () => {
     }
   };
 
-  const isQuestionKeyword = (kw: string) => /^(who|what|where|when|why|how|is|are|can|do|does|did|will|would|should|could|which|shall)\b/i.test(kw.trim());
+  const isQuestionKeywordBase = (kw: string) => /^(who|what|where|when|why|how|is|are|can|do|does|did|will|would|should|could|which|shall)\b/i.test(kw.trim());
+  const isQuestionKeyword = (kw: string, cluster?: KeywordCluster) => {
+    if (cluster?.question_overrides?.includes(kw)) return true;
+    return isQuestionKeywordBase(kw);
+  };
 
   const reEnrichSingleCluster = async (clusterTopic: string, keywordFilter?: "generic" | "questions") => {
     if (!result) return;
@@ -502,9 +507,9 @@ const KeywordClustering = () => {
 
     const filteredCluster = keywordFilter ? {
       ...cluster,
-      keywords: cluster.keywords.filter(kw => keywordFilter === "questions" ? isQuestionKeyword(kw) : !isQuestionKeyword(kw)),
+      keywords: cluster.keywords.filter(kw => keywordFilter === "questions" ? isQuestionKeyword(kw, cluster) : !isQuestionKeyword(kw, cluster)),
       keyword_volumes: cluster.keyword_volumes ? Object.fromEntries(
-        Object.entries(cluster.keyword_volumes).filter(([kw]) => keywordFilter === "questions" ? isQuestionKeyword(kw) : !isQuestionKeyword(kw))
+        Object.entries(cluster.keyword_volumes).filter(([kw]) => keywordFilter === "questions" ? isQuestionKeyword(kw, cluster) : !isQuestionKeyword(kw, cluster))
       ) : undefined,
     } : cluster;
 
@@ -575,7 +580,7 @@ const KeywordClustering = () => {
     if (!cluster) return;
 
     // Filter to generic (non-question) keywords only
-    const genericKeywords = cluster.keywords.filter(kw => !isQuestionKeyword(kw));
+    const genericKeywords = cluster.keywords.filter(kw => !isQuestionKeyword(kw, cluster));
     if (genericKeywords.length === 0) {
       toast({ title: "No generic keywords", description: "This silo only contains question keywords.", variant: "destructive" });
       return;
@@ -585,7 +590,7 @@ const KeywordClustering = () => {
       ...cluster,
       keywords: genericKeywords,
       keyword_volumes: cluster.keyword_volumes ? Object.fromEntries(
-        Object.entries(cluster.keyword_volumes).filter(([kw]) => !isQuestionKeyword(kw))
+        Object.entries(cluster.keyword_volumes).filter(([kw]) => !isQuestionKeyword(kw, cluster))
       ) : undefined,
     };
 
@@ -653,6 +658,31 @@ const KeywordClustering = () => {
         };
       }).filter(c => c.keywords.length > 0),
       total_keywords_clustered: result.total_keywords_clustered - 1,
+    };
+    setResult(updatedResult);
+    if (activeResultId) {
+      await supabase
+        .from("keyword_clustering_results")
+        .update({ result: updatedResult as any })
+        .eq("id", activeResultId);
+    }
+  };
+
+  const toggleKeywordAsQuestion = async (clusterTopic: string, keyword: string) => {
+    if (!result) return;
+    const updatedResult: ClusteringResult = {
+      ...result,
+      clusters: result.clusters.map(c => {
+        if (c.topic !== clusterTopic) return c;
+        const overrides = c.question_overrides || [];
+        const isOverridden = overrides.includes(keyword);
+        return {
+          ...c,
+          question_overrides: isOverridden
+            ? overrides.filter(k => k !== keyword)
+            : [...overrides, keyword],
+        };
+      }),
     };
     setResult(updatedResult);
     if (activeResultId) {
@@ -1206,7 +1236,8 @@ const KeywordClustering = () => {
                         
                         {/* Keywords column with volume - shows top 10 by default */}
                         {(() => {
-                          const isQuestion = (kw: string) => /^(who|what|where|when|why|how|is|are|can|do|does|did|will|would|should|could|which|shall)\b/i.test(kw.trim());
+                          const overrides = new Set(cluster.question_overrides || []);
+                          const isQuestion = (kw: string) => overrides.has(kw) || isQuestionKeywordBase(kw);
                           const questionKws = cluster.keywords.filter(isQuestion);
                           const genericKws = cluster.keywords.filter(k => !isQuestion(k));
                           const filterMode = kwFilterMode[cluster.topic] || "all";
@@ -1251,9 +1282,9 @@ const KeywordClustering = () => {
                                 </Badge>
                               </div>
                               <div className="border rounded-md overflow-hidden">
-                                <div className="grid grid-cols-[1fr_auto] gap-x-4 px-3 py-1.5 bg-muted/50 text-xs font-medium text-muted-foreground border-b">
+                              <div className="grid grid-cols-[1fr_auto] gap-x-4 px-3 py-2 bg-muted/50 text-sm font-semibold text-foreground/70 border-b">
                                   <span>Keyword</span>
-                                  <span className="text-right flex items-center gap-4 justify-end"><span>Volume</span><span className="w-4"></span></span>
+                                  <span className="text-right flex items-center gap-4 justify-end"><span>Volume</span><span className="w-12"></span></span>
                                 </div>
                                 <div className={isExpanded ? "max-h-[400px] overflow-y-auto" : ""}>
                                   {displayKws.map((kw, i) => {
@@ -1261,17 +1292,41 @@ const KeywordClustering = () => {
                                     return (
                                       <div
                                         key={i}
-                                        className="grid grid-cols-[1fr_auto] gap-x-4 px-3 py-1.5 text-sm border-b last:border-b-0 hover:bg-muted/30 transition-colors group/kw"
+                                        className="grid grid-cols-[1fr_auto] gap-x-4 px-3 py-2 text-[15px] border-b last:border-b-0 hover:bg-muted/30 transition-colors group/kw"
                                       >
                                         <span
-                                          className="truncate cursor-pointer"
+                                          className="truncate cursor-pointer text-foreground font-medium"
                                           onClick={() => {
                                             navigator.clipboard.writeText(kw);
                                             toast({ title: "Copied", description: kw });
                                           }}
                                         >{kw}</span>
-                                        <span className="text-right text-muted-foreground tabular-nums flex items-center gap-2 justify-end">
+                                        <span className="text-right text-foreground/70 tabular-nums flex items-center gap-1.5 justify-end font-medium">
                                           <span>{vol != null ? formatVolume(vol) : "—"}</span>
+                                          {filterMode === "generic" && (
+                                            <button
+                                              className="opacity-0 group-hover/kw:opacity-100 transition-opacity text-primary hover:text-primary/80 p-0.5"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                toggleKeywordAsQuestion(cluster.topic, kw);
+                                              }}
+                                              title="Move to Questions"
+                                            >
+                                              <ArrowRight className="h-3.5 w-3.5" />
+                                            </button>
+                                          )}
+                                          {filterMode === "questions" && overrides.has(kw) && (
+                                            <button
+                                              className="opacity-0 group-hover/kw:opacity-100 transition-opacity text-primary hover:text-primary/80 p-0.5"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                toggleKeywordAsQuestion(cluster.topic, kw);
+                                              }}
+                                              title="Move back to Generic"
+                                            >
+                                              <ArrowRight className="h-3.5 w-3.5 rotate-180" />
+                                            </button>
+                                          )}
                                           <button
                                             className="opacity-0 group-hover/kw:opacity-100 transition-opacity text-destructive hover:text-destructive/80 p-0.5"
                                             onClick={(e) => {
@@ -1280,7 +1335,7 @@ const KeywordClustering = () => {
                                             }}
                                             title="Remove keyword"
                                           >
-                                            <Trash2 className="h-3 w-3" />
+                                            <Trash2 className="h-3.5 w-3.5" />
                                           </button>
                                         </span>
                                       </div>
