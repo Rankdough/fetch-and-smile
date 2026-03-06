@@ -300,6 +300,7 @@ const KeywordResearch = () => {
       // Persist scanned terms alongside the results
       map.scanned_terms = [...scannedTerms];
       map.url_extracted_terms = [...urlExtractedTerms];
+      map.scan_results = [...scanResults];
       setSemanticMap(map);
       setCurrentTopic(topic.trim());
       setOpenClusters(new Set(map.clusters.map(c => c.cluster_name)));
