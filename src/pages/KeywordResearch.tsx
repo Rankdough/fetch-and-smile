@@ -200,40 +200,58 @@ const KeywordResearch = () => {
     return [...combined];
   };
 
-  // Website scan
-  const scanWebsite = async () => {
-    if (!websiteUrl.trim()) return;
+  // Website scan — scan all sites with URLs
+  const scanWebsites = async () => {
+    const sitesToScan = scanSites.filter(s => s.url.trim());
+    if (sitesToScan.length === 0) return;
     setIsScanning(true);
     try {
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/scan-website-keywords`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-          },
-          body: JSON.stringify({ url: websiteUrl.trim(), urlFilters: urlFilterKeywords.trim() || undefined }),
+      const results: ScanResult[] = [];
+      const allTerms: string[] = [];
+
+      await Promise.all(sitesToScan.map(async (site) => {
+        const response = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/scan-website-keywords`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            },
+            body: JSON.stringify({ url: site.url.trim(), urlFilters: site.filter.trim() || undefined }),
+          }
+        );
+        if (!response.ok) {
+          const errData = await response.json().catch(() => ({}));
+          throw new Error(errData.error || `Scan failed for ${site.url}: ${response.status}`);
         }
-      );
-      if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.error || `Scan failed: ${response.status}`);
-      }
-      const data = await response.json();
-      setScannedTerms(data.extracted_terms || []);
-      setScanStats({ url: data.url, urlCount: data.total_urls_found, filteredCount: data.filtered_urls_count });
-      setScanBlocked(data.likely_blocked || false);
-      if (data.likely_blocked) {
+        const data = await response.json();
+        results.push({
+          url: data.url,
+          terms: data.extracted_terms || [],
+          urlCount: data.total_urls_found,
+          filteredCount: data.filtered_urls_count,
+          blocked: data.likely_blocked || false,
+        });
+        allTerms.push(...(data.extracted_terms || []));
+      }));
+
+      const uniqueTerms = [...new Set(allTerms)];
+      setScanResults(results);
+      setScannedTerms(uniqueTerms);
+      setScanBlocked(results.some(r => r.blocked));
+
+      const blockedSites = results.filter(r => r.blocked);
+      if (blockedSites.length > 0) {
         toast({
-          title: "Site may be blocking crawlers",
-          description: "Very few terms found. Try adding keywords manually below.",
+          title: "Some sites may be blocking crawlers",
+          description: `${blockedSites.length} site(s) returned very few terms.`,
           variant: "destructive",
         });
       } else {
         toast({
-          title: "Website scanned!",
-          description: `Found ${data.extracted_terms?.length || 0} keyword ideas from ${data.total_urls_found} pages`,
+          title: "Websites scanned!",
+          description: `Found ${uniqueTerms.length} keyword ideas from ${results.length} site(s)`,
         });
       }
     } catch (err: any) {
