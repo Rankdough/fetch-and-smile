@@ -72,10 +72,26 @@ RULES:
 
       const aiData = await response.json();
       let content = aiData.choices?.[0]?.message?.content || "";
+      console.log("Single idea raw response:", content.slice(0, 500));
       content = content.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
-      const parsed = JSON.parse(content);
       
-      return new Response(JSON.stringify(parsed.enrichments?.[0] || parsed), {
+      let parsed;
+      try {
+        parsed = JSON.parse(content);
+      } catch {
+        // Try to extract JSON from the response
+        const match = content.match(/\{[\s\S]*\}/);
+        if (!match) {
+          console.error("Failed to parse single idea response:", content.slice(0, 500));
+          throw new Error("Failed to parse AI response");
+        }
+        parsed = JSON.parse(match[0]);
+      }
+      
+      const result = parsed.enrichments?.[0] || parsed;
+      console.log("Single idea result:", JSON.stringify(result).slice(0, 300));
+      
+      return new Response(JSON.stringify(result), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
