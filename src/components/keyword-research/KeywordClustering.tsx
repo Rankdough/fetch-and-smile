@@ -532,11 +532,14 @@ const KeywordClustering = () => {
         ...result,
         clusters: result.clusters.map(c => {
           if (c.topic !== clusterTopic) return c;
-          if (keywordFilter && c.blog_ideas?.length) {
-            // Append new ideas to existing ones instead of replacing
-            return { ...c, blog_ideas: [...c.blog_ideas, ...(enrichedCluster.blog_ideas || [])] };
+          if (keywordFilter) {
+            // Only merge blog ideas, preserve original keywords/volumes/metadata
+            const newIdeas = enrichedCluster.blog_ideas || [];
+            return { ...c, blog_ideas: [...(c.blog_ideas || []), ...newIdeas] };
           }
-          return { ...c, ...enrichedCluster };
+          // No filter: merge everything but preserve keywords & volumes from original
+          const { keywords, keyword_volumes, estimated_monthly_volume, ...meta } = enrichedCluster;
+          return { ...c, ...meta };
         }),
       };
 
