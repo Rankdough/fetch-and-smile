@@ -59,6 +59,12 @@ interface BlogIdea {
   value_promises?: string[];
 }
 
+interface LandingPageIdea {
+  title: string;
+  description: string;
+  target_keywords?: string[];
+}
+
 interface KeywordCluster {
   topic: string;
   description: string;
@@ -69,6 +75,7 @@ interface KeywordCluster {
   difficulty: "low" | "medium" | "high";
   priority: "high" | "medium" | "low";
   blog_ideas?: BlogIdea[];
+  landing_page_ideas?: LandingPageIdea[];
 }
 
 interface ClusteringResult {
