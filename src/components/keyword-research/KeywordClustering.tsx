@@ -465,6 +465,20 @@ const KeywordClustering = () => {
     setAnalysisStage("enrich");
 
     try {
+      // Filter to question keywords only for blog idea generation
+      const questionFilteredClusters = result.clusters.map(c => ({
+        ...c,
+        keywords: c.keywords.filter(kw => isQuestionKeyword(kw, c)),
+        keyword_volumes: c.keyword_volumes ? Object.fromEntries(
+          Object.entries(c.keyword_volumes).filter(([kw]) => isQuestionKeyword(kw, c))
+        ) : undefined,
+      })).filter(c => c.keywords.length > 0);
+
+      if (questionFilteredClusters.length === 0) {
+        toast({ title: "No question keywords", description: "No silos have question keywords to generate blog ideas from.", variant: "destructive" });
+        return;
+      }
+
       const enrichResponse = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/cluster-keywords-enrich`,
         {
@@ -473,7 +487,7 @@ const KeywordClustering = () => {
             "Content-Type": "application/json",
             Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
           },
-          body: JSON.stringify({ clusters: result.clusters }),
+          body: JSON.stringify({ clusters: questionFilteredClusters }),
         }
       );
 
