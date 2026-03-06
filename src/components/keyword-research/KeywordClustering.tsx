@@ -120,6 +120,7 @@ const KeywordClustering = () => {
   const [usedIdeas, setUsedIdeas] = useState<Set<string>>(getUsedIdeas);
   const [bookmarkedIdeas, setBookmarkedIdeas] = useState<Set<string>>(getBookmarkedIdeas);
   const [expandedClusters, setExpandedClusters] = useState<Set<string>>(new Set());
+  const [expandedKeywordSilos, setExpandedKeywordSilos] = useState<Set<string>>(new Set());
   const [favoritedClusters, setFavoritedClusters] = useState<Set<string>>(() => getStoredSet(FAVORITED_CLUSTERS_KEY));
   const [rawInput, setRawInput] = useState("");
   const [projectName, setProjectName] = useState("");
