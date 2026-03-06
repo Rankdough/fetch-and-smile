@@ -714,7 +714,7 @@ const KeywordResearch = () => {
                                         toast({ title: "Copied", description: kw });
                                       }}
                                     >
-                                      {isFromScan && <Globe className="h-3 w-3 mr-1 text-primary" />}
+                                      {fromScan && <Globe className="h-3 w-3 mr-1 text-primary" />}
                                       {kw}
                                     </Badge>
                                   );
