@@ -1313,8 +1313,7 @@ Focus on providing actionable research that will help create a comprehensive, di
             </Card>
           </Collapsible>
         )}
-      </CardContent>
-    </Card>
+    </div>
   );
 };
 
