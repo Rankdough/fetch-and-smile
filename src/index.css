@@ -394,3 +394,30 @@ All colors MUST be HSL.
   background-color: hsl(var(--input));
   border-color: hsl(var(--input-border));
 }
+
+/* Keyword Research page - pronounced input styling */
+.keyword-research-page input[type="text"],
+.keyword-research-page input:not([type]),
+.keyword-research-page textarea,
+.keyword-research-page select,
+.keyword-research-page button[role="combobox"] {
+  border: 2px solid hsl(0 0% 0%) !important;
+  background-color: hsl(0 0% 100%) !important;
+}
+
+.keyword-research-page input[type="text"]:focus,
+.keyword-research-page input:not([type]):focus,
+.keyword-research-page textarea:focus,
+.keyword-research-page select:focus {
+  border-color: hsl(var(--primary)) !important;
+  box-shadow: 0 0 0 3px hsl(var(--primary) / 0.2);
+}
+
+.dark .keyword-research-page input[type="text"],
+.dark .keyword-research-page input:not([type]),
+.dark .keyword-research-page textarea,
+.dark .keyword-research-page select,
+.dark .keyword-research-page button[role="combobox"] {
+  border-color: hsl(0 0% 70%) !important;
+  background-color: hsl(var(--input)) !important;
+}
