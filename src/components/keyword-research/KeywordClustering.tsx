@@ -518,16 +518,23 @@ const KeywordClustering = () => {
     const cluster = result.clusters.find(c => c.topic === clusterTopic);
     if (!cluster) return;
 
-    const filteredCluster = keywordFilter ? {
+    // Generic keywords → generate landing pages instead
+    if (keywordFilter === "generic") {
+      return generateLandingPages(clusterTopic);
+    }
+
+    // For blog ideas: always use question keywords only
+    const questionKws = cluster.keywords.filter(kw => isQuestionKeyword(kw, cluster));
+    const filteredCluster = {
       ...cluster,
-      keywords: cluster.keywords.filter(kw => keywordFilter === "questions" ? isQuestionKeyword(kw, cluster) : !isQuestionKeyword(kw, cluster)),
+      keywords: questionKws,
       keyword_volumes: cluster.keyword_volumes ? Object.fromEntries(
-        Object.entries(cluster.keyword_volumes).filter(([kw]) => keywordFilter === "questions" ? isQuestionKeyword(kw, cluster) : !isQuestionKeyword(kw, cluster))
+        Object.entries(cluster.keyword_volumes).filter(([kw]) => isQuestionKeyword(kw, cluster))
       ) : undefined,
-    } : cluster;
+    };
 
     if (filteredCluster.keywords.length === 0) {
-      toast({ title: "No keywords", description: `No ${keywordFilter} keywords in this silo.`, variant: "destructive" });
+      toast({ title: "No question keywords", description: "This silo has no question keywords to generate blog ideas from.", variant: "destructive" });
       return;
     }
 
@@ -558,19 +565,19 @@ const KeywordClustering = () => {
         ...result,
         clusters: result.clusters.map(c => {
           if (c.topic !== clusterTopic) return c;
-          if (keywordFilter) {
-            // Only merge blog ideas, preserve original keywords/volumes/metadata
+          if (keywordFilter === "questions") {
+            // Append new blog ideas
             const newIdeas = enrichedCluster.blog_ideas || [];
             return { ...c, blog_ideas: [...(c.blog_ideas || []), ...newIdeas] };
           }
-          // No filter: merge everything but preserve keywords & volumes from original
-          const { keywords, keyword_volumes, estimated_monthly_volume, ...meta } = enrichedCluster;
-          return { ...c, ...meta };
+          // Regenerate: replace blog ideas but preserve keywords & volumes & landing pages
+          const { keywords, keyword_volumes, estimated_monthly_volume, landing_page_ideas, ...meta } = enrichedCluster;
+          return { ...c, ...meta, landing_page_ideas: c.landing_page_ideas };
         }),
       };
 
       setResult(updatedResult);
-      const label = keywordFilter ? `${keywordFilter} ideas for "${clusterTopic}"` : `"${clusterTopic}" ideas`;
+      const label = keywordFilter === "questions" ? `Question blog ideas for "${clusterTopic}"` : `"${clusterTopic}" blog ideas`;
       toast({ title: `${label} generated` });
 
       if (activeResultId) {
