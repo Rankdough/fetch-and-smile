@@ -987,10 +987,29 @@ const KeywordResearch = () => {
           )}
         </div>
 
-        {/* Keyword Clustering */}
-        <KeywordClustering />
+        {/* Keyword Clustering — collapsible */}
+        <Collapsible open={isClusteringOpen} onOpenChange={setIsClusteringOpen}>
+          <Card className="border-2">
+            <CollapsibleTrigger className="w-full">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Layers className="h-4 w-4 text-primary" />
+                    Keyword Clustering & Topic Silos
+                  </CardTitle>
+                  {isClusteringOpen ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+                </div>
+              </CardHeader>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent className="pt-0">
+                <KeywordClustering />
+              </CardContent>
+            </CollapsibleContent>
+          </Card>
+        </Collapsible>
 
-        {/* Saved Research */}
+        {/* Previous Research — standalone */}
         {savedResearch.length > 0 && (
           <Collapsible>
             <Card>
