@@ -1383,10 +1383,15 @@ const KeywordClustering = () => {
                         {cluster.blog_ideas && cluster.blog_ideas.length > 0 ? (
                           <div>
                             <div className="flex items-center justify-between mb-2">
-                              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                              <button
+                                className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5 hover:text-foreground transition-colors"
+                                onClick={(e) => { e.stopPropagation(); toggleCollapsedSet(setCollapsedBlogIdeas, cluster.topic); }}
+                              >
+                                {collapsedBlogIdeas.has(cluster.topic) ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
                                 <Lightbulb className="h-3.5 w-3.5" />
-                                Blog Ideas
-                              </h4>
+                                Blog Ideas ({cluster.blog_ideas!.length})
+                              </button>
+                              {!collapsedBlogIdeas.has(cluster.topic) && (
                               <div className="flex items-center gap-1">
                                 <Button
                                   variant="ghost"
@@ -1417,8 +1422,9 @@ const KeywordClustering = () => {
                                   + Questions
                                 </Button>
                               </div>
+                              )}
                             </div>
-                            <div className="space-y-2">
+                            {!collapsedBlogIdeas.has(cluster.topic) && <div className="space-y-2">
                               {cluster.blog_ideas.map((idea, i) => {
                                 const ideaKey = makeIdeaKey(cluster.topic, idea.title);
                                 const isUsed = usedIdeas.has(ideaKey);
