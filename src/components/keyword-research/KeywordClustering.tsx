@@ -535,6 +535,34 @@ const KeywordClustering = () => {
     }
   };
 
+  const removeKeywordFromCluster = async (clusterTopic: string, keyword: string) => {
+    if (!result) return;
+    const updatedResult: ClusteringResult = {
+      ...result,
+      clusters: result.clusters.map(c => {
+        if (c.topic !== clusterTopic) return c;
+        const newKeywords = c.keywords.filter(k => k !== keyword);
+        const newVolumes = c.keyword_volumes ? { ...c.keyword_volumes } : undefined;
+        if (newVolumes) delete newVolumes[keyword];
+        const removedVol = c.keyword_volumes?.[keyword] ?? 0;
+        return {
+          ...c,
+          keywords: newKeywords,
+          keyword_volumes: newVolumes,
+          estimated_monthly_volume: c.estimated_monthly_volume - removedVol,
+        };
+      }).filter(c => c.keywords.length > 0),
+      total_keywords_clustered: result.total_keywords_clustered - 1,
+    };
+    setResult(updatedResult);
+    if (activeResultId) {
+      await supabase
+        .from("keyword_clustering_results")
+        .update({ result: updatedResult as any })
+        .eq("id", activeResultId);
+    }
+  };
+
   const clearGeneratorState = () => {
     const keysToRemove = [
       "seo-generator-formData", "seo-generator-internalLinks", "seo-generator-competitorUrls",
@@ -1074,7 +1102,7 @@ const KeywordClustering = () => {
                               <div className="border rounded-md overflow-hidden">
                                 <div className="grid grid-cols-[1fr_auto] gap-x-4 px-3 py-1.5 bg-muted/50 text-xs font-medium text-muted-foreground border-b">
                                   <span>Keyword</span>
-                                  <span className="text-right">Volume</span>
+                                  <span className="text-right flex items-center gap-4 justify-end"><span>Volume</span><span className="w-4"></span></span>
                                 </div>
                                 <div className={isExpanded ? "max-h-[400px] overflow-y-auto" : ""}>
                                   {displayKws.map((kw, i) => {
@@ -1082,15 +1110,27 @@ const KeywordClustering = () => {
                                     return (
                                       <div
                                         key={i}
-                                        className="grid grid-cols-[1fr_auto] gap-x-4 px-3 py-1.5 text-sm border-b last:border-b-0 hover:bg-muted/30 cursor-pointer transition-colors"
-                                        onClick={() => {
-                                          navigator.clipboard.writeText(kw);
-                                          toast({ title: "Copied", description: kw });
-                                        }}
+                                        className="grid grid-cols-[1fr_auto] gap-x-4 px-3 py-1.5 text-sm border-b last:border-b-0 hover:bg-muted/30 transition-colors group/kw"
                                       >
-                                        <span className="truncate">{kw}</span>
-                                        <span className="text-right text-muted-foreground tabular-nums">
-                                          {vol != null ? formatVolume(vol) : "—"}
+                                        <span
+                                          className="truncate cursor-pointer"
+                                          onClick={() => {
+                                            navigator.clipboard.writeText(kw);
+                                            toast({ title: "Copied", description: kw });
+                                          }}
+                                        >{kw}</span>
+                                        <span className="text-right text-muted-foreground tabular-nums flex items-center gap-2 justify-end">
+                                          <span>{vol != null ? formatVolume(vol) : "—"}</span>
+                                          <button
+                                            className="opacity-0 group-hover/kw:opacity-100 transition-opacity text-destructive hover:text-destructive/80 p-0.5"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              removeKeywordFromCluster(cluster.topic, kw);
+                                            }}
+                                            title="Remove keyword"
+                                          >
+                                            <Trash2 className="h-3 w-3" />
+                                          </button>
                                         </span>
                                       </div>
                                     );
