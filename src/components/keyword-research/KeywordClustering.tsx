@@ -142,6 +142,7 @@ const KeywordClustering = () => {
   const [activeResultId, setActiveResultId] = useState<string | null>(null);
   const [userSuggestedSilos, setUserSuggestedSilos] = useState<string[]>([]);
   const [isResultsOpen, setIsResultsOpen] = useState(false);
+  const [generatingIdeaForKw, setGeneratingIdeaForKw] = useState<string | null>(null);
   const [collapsedBlogIdeas, setCollapsedBlogIdeas] = useState<Set<string>>(new Set());
   const [collapsedLandingPages, setCollapsedLandingPages] = useState<Set<string>>(new Set());
 
