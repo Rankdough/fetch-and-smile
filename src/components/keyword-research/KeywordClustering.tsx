@@ -1886,8 +1886,19 @@ Focus on providing actionable research that will help create a comprehensive, di
                                           </TooltipContent>
                                         </Tooltip>
                                       </TooltipProvider>
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="gap-1 text-xs h-7 px-2 text-destructive hover:text-destructive"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          deleteIdeaFromCluster(cluster.topic, i);
+                                        }}
+                                      >
+                                        <Trash2 className="h-3 w-3" />
+                                        Delete
+                                      </Button>
                                     </div>
-                                  </div>
                                 </div>
                                 );
                               })}
