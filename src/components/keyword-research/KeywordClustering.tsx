@@ -1424,6 +1424,37 @@ const KeywordClustering = () => {
                                         </span>
                                         <span className="text-right text-foreground/70 tabular-nums flex items-center gap-1.5 justify-end font-medium">
                                           <span>{vol != null ? formatVolume(vol) : "—"}</span>
+                                          {!isAssigned && blogIdeas.length > 0 && (
+                                            <Popover>
+                                              <PopoverTrigger asChild>
+                                                <button
+                                                  className="text-amber-600 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300 p-0.5 shrink-0"
+                                                  onClick={(e) => e.stopPropagation()}
+                                                  title="Assign to a blog idea"
+                                                >
+                                                  <Plus className="h-3.5 w-3.5" />
+                                                </button>
+                                              </PopoverTrigger>
+                                              <PopoverContent side="left" align="start" className="w-72 p-2">
+                                                <p className="text-xs font-semibold text-muted-foreground mb-2">Assign "{kw}" to:</p>
+                                                <div className="space-y-1 max-h-48 overflow-y-auto">
+                                                  {blogIdeas.map((idea, idx) => (
+                                                    <button
+                                                      key={idx}
+                                                      className="w-full text-left px-2 py-1.5 rounded text-xs hover:bg-muted transition-colors truncate"
+                                                      onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        assignKeywordToIdea(cluster.topic, kw, idx);
+                                                      }}
+                                                    >
+                                                      <span className="text-muted-foreground mr-1">{idx + 1}.</span>
+                                                      {idea.title}
+                                                    </button>
+                                                  ))}
+                                                </div>
+                                              </PopoverContent>
+                                            </Popover>
+                                          )}
                                           <button
                                             className="opacity-0 group-hover/kw:opacity-100 transition-opacity text-destructive hover:text-destructive/80 p-0.5"
                                             onClick={(e) => {
