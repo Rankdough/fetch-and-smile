@@ -752,6 +752,39 @@ const KeywordClustering = () => {
     }
   };
 
+  const reassignKeyword = async (clusterTopic: string, keyword: string, fromIdeaIndex: number, toIdeaIndex: number) => {
+    if (!result) return;
+    const updatedResult: ClusteringResult = {
+      ...result,
+      clusters: result.clusters.map(c => {
+        if (c.topic !== clusterTopic) return c;
+        const updatedIdeas = (c.blog_ideas || []).map((idea, idx) => {
+          if (idx === fromIdeaIndex) {
+            // Remove keyword from source idea
+            return { ...idea, target_keywords: (idea.target_keywords || []).filter(k => k.toLowerCase() !== keyword.toLowerCase()) };
+          }
+          if (idx === toIdeaIndex) {
+            // Add keyword to target idea
+            const existing = idea.target_keywords || [];
+            if (existing.some(k => k.toLowerCase() === keyword.toLowerCase())) return idea;
+            return { ...idea, target_keywords: [...existing, keyword] };
+          }
+          return idea;
+        });
+        return { ...c, blog_ideas: updatedIdeas };
+      }),
+    };
+    setResult(updatedResult);
+    const targetIdea = result.clusters.find(c => c.topic === clusterTopic)?.blog_ideas?.[toIdeaIndex];
+    toast({ title: "Keyword reassigned", description: `"${keyword}" moved to "${targetIdea?.title || `idea #${toIdeaIndex + 1}`}"` });
+    if (activeResultId) {
+      await supabase
+        .from("keyword_clustering_results")
+        .update({ result: updatedResult as any })
+        .eq("id", activeResultId);
+    }
+  };
+
   const createIdeaFromKeyword = async (clusterTopic: string, keyword: string, keywordFilter?: "generic" | "questions") => {
     if (!result) return;
     const cluster = result.clusters.find(c => c.topic === clusterTopic);
