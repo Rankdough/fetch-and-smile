@@ -704,6 +704,31 @@ const KeywordClustering = () => {
     }
   };
 
+  const assignKeywordToIdea = async (clusterTopic: string, keyword: string, ideaIndex: number) => {
+    if (!result) return;
+    const updatedResult: ClusteringResult = {
+      ...result,
+      clusters: result.clusters.map(c => {
+        if (c.topic !== clusterTopic) return c;
+        const updatedIdeas = (c.blog_ideas || []).map((idea, i) => {
+          if (i !== ideaIndex) return idea;
+          const existing = idea.target_keywords || [];
+          if (existing.some(k => k.toLowerCase() === keyword.toLowerCase())) return idea;
+          return { ...idea, target_keywords: [...existing, keyword] };
+        });
+        return { ...c, blog_ideas: updatedIdeas };
+      }),
+    };
+    setResult(updatedResult);
+    toast({ title: "Keyword assigned", description: `"${keyword}" added to blog idea #${ideaIndex + 1}` });
+    if (activeResultId) {
+      await supabase
+        .from("keyword_clustering_results")
+        .update({ result: updatedResult as any })
+        .eq("id", activeResultId);
+    }
+  };
+
   const clearGeneratorState = () => {
     const keysToRemove = [
       "seo-generator-formData", "seo-generator-internalLinks", "seo-generator-competitorUrls",
