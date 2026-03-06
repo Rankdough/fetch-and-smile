@@ -1091,17 +1091,17 @@ const KeywordClustering = () => {
 
             {/* Sort controls */}
             <div className="flex items-center gap-2 mb-1">
-              <span className="text-xs text-muted-foreground font-medium">Sort:</span>
+              <span className="text-sm text-foreground/70 font-medium">Sort:</span>
               <Badge
                 variant={siloSortMode === "favorites" ? "default" : "outline"}
-                className="text-[10px] px-2 py-0.5 cursor-pointer"
+                className="text-xs px-2.5 py-0.5 cursor-pointer"
                 onClick={() => setSiloSortMode("favorites")}
               >
                 ★ Favorites first
               </Badge>
               <Badge
                 variant={siloSortMode === "volume" ? "default" : "outline"}
-                className="text-[10px] px-2 py-0.5 cursor-pointer"
+                className="text-xs px-2.5 py-0.5 cursor-pointer"
                 onClick={() => setSiloSortMode("volume")}
               >
                 ↓ Volume
@@ -1139,9 +1139,9 @@ const KeywordClustering = () => {
                               setFavoritedClusters(toggleStoredSet(FAVORITED_CLUSTERS_KEY, cluster.topic));
                             }}
                           >
-                            <Star className={`h-3.5 w-3.5 transition-colors ${favoritedClusters.has(cluster.topic) ? "fill-amber-400 text-amber-400" : "text-muted-foreground/40 hover:text-amber-400"}`} />
+                            <Star className={`h-4 w-4 transition-colors ${favoritedClusters.has(cluster.topic) ? "fill-amber-400 text-amber-400" : "text-muted-foreground/40 hover:text-amber-400"}`} />
                           </button>
-                          <span className="text-xs font-bold text-muted-foreground w-6 shrink-0">#{idx + 1}</span>
+                          <span className="text-sm font-bold text-foreground/50 w-6 shrink-0">#{idx + 1}</span>
                           {expandedClusters.has(cluster.topic) ? (
                             <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
                           ) : (
@@ -1149,9 +1149,9 @@ const KeywordClustering = () => {
                           )}
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <span className="font-medium text-sm truncate">{cluster.topic}</span>
+                              <span className="font-semibold text-base text-foreground truncate">{cluster.topic}</span>
                               {userSuggestedSilos.length > 0 && userSuggestedSilos.some(s => cluster.topic.toLowerCase().includes(s) || s.includes(cluster.topic.toLowerCase())) && (
-                                <Badge variant="outline" className="text-[10px] shrink-0 border-primary/40 text-primary bg-primary/5">
+                                <Badge variant="outline" className="text-xs shrink-0 border-primary/40 text-primary bg-primary/5">
                                   Suggested
                                 </Badge>
                               )}
@@ -1170,7 +1170,7 @@ const KeywordClustering = () => {
                                         : ""
                                     }`}
                                   >
-                                    <FileText className="h-3 w-3" />
+                                    <FileText className="h-3.5 w-3.5" />
                                     {usedCount}/{ideas.length} articles
                                   </Badge>
                                 );
@@ -1184,7 +1184,7 @@ const KeywordClustering = () => {
                                     variant="outline"
                                     className="text-xs gap-1 shrink-0 border-amber-500 text-amber-600 bg-amber-50 dark:bg-amber-950/30"
                                   >
-                                    <Bookmark className="h-3 w-3 fill-current" />
+                                    <Bookmark className="h-3.5 w-3.5 fill-current" />
                                     {bmCount} saved
                                   </Badge>
                                 );
@@ -1192,16 +1192,16 @@ const KeywordClustering = () => {
                             </div>
                             {/* Silo preview: description + top keywords */}
                             {!expandedClusters.has(cluster.topic) && (
-                              <div className="mt-1 space-y-0.5">
-                                <p className="text-xs text-muted-foreground truncate">{cluster.description}</p>
+                              <div className="mt-1.5 space-y-1">
+                                <p className="text-sm text-foreground/60 truncate">{cluster.description}</p>
                                 {cluster.keyword_volumes && (
-                                  <div className="flex items-center gap-2 flex-wrap">
+                                  <div className="flex items-center gap-2.5 flex-wrap">
                                     {Object.entries(cluster.keyword_volumes)
                                       .sort(([, a], [, b]) => (b ?? 0) - (a ?? 0))
                                       .slice(0, 4)
                                       .map(([kw, vol]) => (
-                                        <span key={kw} className="text-[11px] text-muted-foreground/70">
-                                          {kw} <span className="font-medium text-foreground/60">({formatVolume(vol)})</span>
+                                        <span key={kw} className="text-sm text-foreground/50">
+                                          {kw} <span className="font-semibold text-foreground/70">({formatVolume(vol)})</span>
                                         </span>
                                       ))}
                                   </div>
@@ -1211,20 +1211,20 @@ const KeywordClustering = () => {
                           </div>
                         </div>
                         <div className="flex items-center gap-2 shrink-0 ml-2">
-                          <Badge variant="outline" className="text-xs gap-1">
-                            <TrendingUp className="h-3 w-3" />
+                          <Badge variant="outline" className="text-sm gap-1 font-semibold">
+                            <TrendingUp className="h-3.5 w-3.5" />
                             {formatVolume(cluster.estimated_monthly_volume)}
                           </Badge>
-                          <Badge variant="outline" className="text-xs">
+                          <Badge variant="outline" className="text-sm font-semibold">
                             {cluster.keywords.length} kw
                           </Badge>
-                          <Badge className={`text-xs border ${difficultyColors[cluster.difficulty]}`} variant="outline">
+                          <Badge className={`text-sm border font-medium ${difficultyColors[cluster.difficulty]}`} variant="outline">
                             {cluster.difficulty}
                           </Badge>
-                          <Badge className={`text-xs border ${priorityColors[cluster.priority]}`} variant="outline">
+                          <Badge className={`text-sm border font-medium ${priorityColors[cluster.priority]}`} variant="outline">
                             {cluster.priority}
                           </Badge>
-                          <Badge variant="secondary" className="text-xs">
+                          <Badge variant="secondary" className="text-sm font-medium">
                             {contentTypeLabels[cluster.content_type] || cluster.content_type}
                           </Badge>
                         </div>
@@ -1257,25 +1257,25 @@ const KeywordClustering = () => {
                           };
                           return (
                             <div>
-                              <div className="flex items-center gap-1.5 mb-2 flex-wrap">
-                                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Keywords</h4>
+                              <div className="flex items-center gap-2 mb-2 flex-wrap">
+                                <h4 className="text-sm font-semibold text-foreground/70 uppercase tracking-wide">Keywords</h4>
                                 <Badge
                                   variant={filterMode === "all" ? "default" : "outline"}
-                                  className="text-[10px] px-1.5 py-0 cursor-pointer"
+                                  className="text-xs px-2.5 py-0.5 cursor-pointer font-medium"
                                   onClick={() => setFilter("all")}
                                 >
                                   All {cluster.keywords.length}
                                 </Badge>
                                 <Badge
                                   variant={filterMode === "generic" ? "default" : "outline"}
-                                  className="text-[10px] px-1.5 py-0 cursor-pointer"
+                                  className="text-xs px-2.5 py-0.5 cursor-pointer font-medium"
                                   onClick={() => setFilter("generic")}
                                 >
                                   Generic {genericKws.length}
                                 </Badge>
                                 <Badge
                                   variant={filterMode === "questions" ? "default" : "outline"}
-                                  className="text-[10px] px-1.5 py-0 cursor-pointer"
+                                  className="text-xs px-2.5 py-0.5 cursor-pointer font-medium"
                                   onClick={() => setFilter("questions")}
                                 >
                                   Questions {questionKws.length}
