@@ -1497,7 +1497,6 @@ const KeywordClustering = () => {
                                                 {kw}
                                               </span>
                                             );
-                                          })
                                           })}
                                         </div>
                                         );
