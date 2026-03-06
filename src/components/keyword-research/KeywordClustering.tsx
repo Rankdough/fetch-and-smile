@@ -1463,18 +1463,24 @@ const KeywordClustering = () => {
                                 <div className="max-h-[350px] overflow-y-auto">
                                   {displayKws.map((kw, i) => {
                                     const vol = cluster.keyword_volumes?.[kw];
-                                    const isAssigned = (() => {
-                                      const kwLower = kw.toLowerCase().trim();
-                                      return (cluster.blog_ideas || []).some(idea => (idea.target_keywords || []).some(tk => tk.toLowerCase().trim() === kwLower))
-                                        || (cluster.landing_page_ideas || []).some(page => (page.target_keywords || []).some(tk => tk.toLowerCase().trim() === kwLower));
+                                    const kwLower = kw.toLowerCase().trim();
+                                    const assignedIdeaTitle = (() => {
+                                      for (const idea of (cluster.blog_ideas || [])) {
+                                        if ((idea.target_keywords || []).some(tk => tk.toLowerCase().trim() === kwLower)) return idea.title;
+                                      }
+                                      for (const page of (cluster.landing_page_ideas || [])) {
+                                        if ((page.target_keywords || []).some(tk => tk.toLowerCase().trim() === kwLower)) return page.title;
+                                      }
+                                      return null;
                                     })();
+                                    const isAssigned = !!assignedIdeaTitle;
                                     const blogIdeas = cluster.blog_ideas || [];
                                     return (
                                       <div
                                         key={i}
                                         className={`grid grid-cols-[1fr_auto] gap-x-4 px-3 py-2 text-[15px] border-b last:border-b-0 hover:bg-muted/30 transition-colors group/kw ${!isAssigned && blogIdeas.length > 0 ? "bg-amber-50/50 dark:bg-amber-950/10" : ""}`}
                                       >
-                                        <span className="flex items-center gap-1.5 truncate">
+                                        <span className="flex items-center gap-1.5 min-w-0">
                                           {(() => {
                                             const isQuestion = isQuestionKeyword(kw, cluster);
                                             if (filterMode === "generic" || (filterMode === "all" && !isQuestion)) {
@@ -1507,13 +1513,18 @@ const KeywordClustering = () => {
                                             }
                                             return null;
                                           })()}
-                                          <span
-                                            className="truncate cursor-pointer text-foreground font-medium"
-                                            onClick={() => {
-                                              navigator.clipboard.writeText(kw);
-                                              toast({ title: "Copied", description: kw });
-                                            }}
-                                          >{kw}</span>
+                                          <span className="min-w-0 flex items-baseline gap-2 truncate">
+                                            <span
+                                              className="shrink-0 cursor-pointer text-foreground font-medium"
+                                              onClick={() => {
+                                                navigator.clipboard.writeText(kw);
+                                                toast({ title: "Copied", description: kw });
+                                              }}
+                                            >{kw}</span>
+                                            {assignedIdeaTitle && (
+                                              <span className="truncate text-[11px] text-muted-foreground/60 font-normal italic">← {assignedIdeaTitle}</span>
+                                            )}
+                                          </span>
                                         </span>
                                         <span className="text-right text-foreground/70 tabular-nums flex items-center gap-1.5 justify-end font-medium">
                                           {!isAssigned && (
