@@ -1149,9 +1149,9 @@ const KeywordClustering = () => {
                           )}
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <span className="font-medium text-sm truncate">{cluster.topic}</span>
+                              <span className="font-semibold text-base text-foreground truncate">{cluster.topic}</span>
                               {userSuggestedSilos.length > 0 && userSuggestedSilos.some(s => cluster.topic.toLowerCase().includes(s) || s.includes(cluster.topic.toLowerCase())) && (
-                                <Badge variant="outline" className="text-[10px] shrink-0 border-primary/40 text-primary bg-primary/5">
+                                <Badge variant="outline" className="text-xs shrink-0 border-primary/40 text-primary bg-primary/5">
                                   Suggested
                                 </Badge>
                               )}
@@ -1170,7 +1170,7 @@ const KeywordClustering = () => {
                                         : ""
                                     }`}
                                   >
-                                    <FileText className="h-3 w-3" />
+                                    <FileText className="h-3.5 w-3.5" />
                                     {usedCount}/{ideas.length} articles
                                   </Badge>
                                 );
@@ -1184,7 +1184,7 @@ const KeywordClustering = () => {
                                     variant="outline"
                                     className="text-xs gap-1 shrink-0 border-amber-500 text-amber-600 bg-amber-50 dark:bg-amber-950/30"
                                   >
-                                    <Bookmark className="h-3 w-3 fill-current" />
+                                    <Bookmark className="h-3.5 w-3.5 fill-current" />
                                     {bmCount} saved
                                   </Badge>
                                 );
@@ -1192,16 +1192,16 @@ const KeywordClustering = () => {
                             </div>
                             {/* Silo preview: description + top keywords */}
                             {!expandedClusters.has(cluster.topic) && (
-                              <div className="mt-1 space-y-0.5">
-                                <p className="text-xs text-muted-foreground truncate">{cluster.description}</p>
+                              <div className="mt-1.5 space-y-1">
+                                <p className="text-sm text-foreground/60 truncate">{cluster.description}</p>
                                 {cluster.keyword_volumes && (
-                                  <div className="flex items-center gap-2 flex-wrap">
+                                  <div className="flex items-center gap-2.5 flex-wrap">
                                     {Object.entries(cluster.keyword_volumes)
                                       .sort(([, a], [, b]) => (b ?? 0) - (a ?? 0))
                                       .slice(0, 4)
                                       .map(([kw, vol]) => (
-                                        <span key={kw} className="text-[11px] text-muted-foreground/70">
-                                          {kw} <span className="font-medium text-foreground/60">({formatVolume(vol)})</span>
+                                        <span key={kw} className="text-sm text-foreground/50">
+                                          {kw} <span className="font-semibold text-foreground/70">({formatVolume(vol)})</span>
                                         </span>
                                       ))}
                                   </div>
