@@ -515,7 +515,7 @@ const KeywordClustering = () => {
             "Content-Type": "application/json",
             Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
           },
-          body: JSON.stringify({ clusters: [cluster] }),
+          body: JSON.stringify({ clusters: [filteredCluster] }),
         }
       );
 
