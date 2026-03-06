@@ -805,7 +805,7 @@ const KeywordClustering = () => {
                     </Badge>
                   )}
                   {kwMatch && (
-                    <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-green-500/50 text-green-600">
+                    <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-primary/50 text-primary">
                       <Check className="h-3 w-3 mr-0.5" /> All matched
                     </Badge>
                   )}
