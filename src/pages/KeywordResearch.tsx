@@ -387,6 +387,7 @@ const KeywordResearch = () => {
       // Restore scanned terms from saved data
       setScannedTerms(saved.results.scanned_terms || []);
       setUrlExtractedTerms(saved.results.url_extracted_terms || []);
+      setScanResults(saved.results.scan_results || []);
     } else if (isLegacy(saved.results)) {
       setLegacyResults(saved.results);
       setSemanticMap(null);
