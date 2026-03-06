@@ -86,13 +86,20 @@ const KeywordResearch = () => {
   const resultsRef = useRef<HTMLDivElement | null>(null);
   const [isGeneratorOpen, setIsGeneratorOpen] = useState(true);
 
-  // Set of normalised scanned+URL-extracted terms for tagging in results
-  const scannedTermsSet = useMemo(() => {
+  // Array of normalised scanned+URL-extracted terms for substring matching in results
+  const scannedTermsList = useMemo(() => {
     const set = new Set<string>();
     for (const t of scannedTerms) set.add(t.toLowerCase().trim());
     for (const t of urlExtractedTerms) set.add(t.toLowerCase().trim());
-    return set;
+    return [...set].filter(t => t.length >= 3); // only meaningful terms
   }, [scannedTerms, urlExtractedTerms]);
+
+  const isFromScan = useMemo(() => {
+    return (kw: string) => {
+      const lower = kw.toLowerCase().trim();
+      return scannedTermsList.some(term => lower.includes(term) || term.includes(lower));
+    };
+  }, [scannedTermsList]);
 
   useEffect(() => {
     loadSavedResearch();
