@@ -33,6 +33,8 @@ interface SemanticMap {
   cross_cutting_modifiers: string[];
   negative_keywords: string[];
   notes: string;
+  scanned_terms?: string[];
+  url_extracted_terms?: string[];
 }
 
 // Legacy format for backward compatibility with saved research
@@ -264,6 +266,9 @@ const KeywordResearch = () => {
 
       const data = await response.json();
       const map = data.results as SemanticMap;
+      // Persist scanned terms alongside the results
+      map.scanned_terms = [...scannedTerms];
+      map.url_extracted_terms = [...urlExtractedTerms];
       setSemanticMap(map);
       setCurrentTopic(topic.trim());
       setOpenClusters(new Set(map.clusters.map(c => c.cluster_name)));
@@ -347,10 +352,15 @@ const KeywordResearch = () => {
       setSemanticMap(saved.results);
       setLegacyResults(null);
       setOpenClusters(new Set(saved.results.clusters.map(c => c.cluster_name)));
+      // Restore scanned terms from saved data
+      setScannedTerms(saved.results.scanned_terms || []);
+      setUrlExtractedTerms(saved.results.url_extracted_terms || []);
     } else if (isLegacy(saved.results)) {
       setLegacyResults(saved.results);
       setSemanticMap(null);
       setOpenClusters(new Set(saved.results.categories.map(c => c.name)));
+      setScannedTerms([]);
+      setUrlExtractedTerms([]);
     }
   };
 
