@@ -1128,7 +1128,6 @@ const KeywordClustering = () => {
                                   Questions {questionKws.length}
                                 </Badge>
                               </div>
-                              </div>
                               <div className="border rounded-md overflow-hidden">
                                 <div className="grid grid-cols-[1fr_auto] gap-x-4 px-3 py-1.5 bg-muted/50 text-xs font-medium text-muted-foreground border-b">
                                   <span>Keyword</span>
