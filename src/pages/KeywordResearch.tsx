@@ -989,7 +989,7 @@ const KeywordResearch = () => {
 
         {/* Keyword Clustering — collapsible */}
         <Collapsible open={isClusteringOpen} onOpenChange={setIsClusteringOpen}>
-          <Card className="border-2">
+          <Card className="border-[3px] border-primary/30">
             <CollapsibleTrigger className="w-full">
               <CardHeader>
                 <div className="flex items-center justify-between">
