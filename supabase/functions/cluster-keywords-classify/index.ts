@@ -45,9 +45,9 @@ CRITICAL GROUPING LOGIC:
 - Think: "What is the COMMON THREAD across these keywords?" and name the silo after that thread.
 
 RULES:
-- Create 10-20 topic silos (never more than 20)
+- Create at most 12 topic silos (never more than 12)
 - Every keyword must be assigned to exactly one topic
-- Topic names should be clear, descriptive, and reflect the shared theme
+- Topic names MUST be based on the main/highest-volume keywords in that silo — use the actual keyword phrases as silo names (e.g. "dental implants cost" not "Dental Implant Pricing Information")
 - Numbers in brackets are search volumes — use them to inform grouping but don't output them
 - Output ONLY valid JSON, no markdown fences
 
