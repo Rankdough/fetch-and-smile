@@ -831,10 +831,14 @@ const KeywordClustering = () => {
     const a = document.createElement("a");
     a.href = url;
     a.download = filename;
+    a.style.display = "none";
     document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    setTimeout(() => URL.revokeObjectURL(url), 100);
+    // Use timeout to ensure the click fires in sandbox environments
+    setTimeout(() => {
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 500);
+    }, 0);
   };
 
   const exportSiloSummaryCSV = () => {
