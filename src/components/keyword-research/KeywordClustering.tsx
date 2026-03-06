@@ -122,6 +122,7 @@ const KeywordClustering = () => {
   const [expandedClusters, setExpandedClusters] = useState<Set<string>>(new Set());
   const [expandedKeywordSilos, setExpandedKeywordSilos] = useState<Set<string>>(new Set());
   const [kwFilterMode, setKwFilterMode] = useState<Record<string, "all" | "generic" | "questions">>({});
+  const [siloSortMode, setSiloSortMode] = useState<"favorites" | "volume">("favorites");
   const [favoritedClusters, setFavoritedClusters] = useState<Set<string>>(() => getStoredSet(FAVORITED_CLUSTERS_KEY));
   const [rawInput, setRawInput] = useState("");
   const [projectName, setProjectName] = useState("");
@@ -960,11 +961,34 @@ const KeywordClustering = () => {
               );
             })()}
 
+            {/* Sort controls */}
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-xs text-muted-foreground font-medium">Sort:</span>
+              <Badge
+                variant={siloSortMode === "favorites" ? "default" : "outline"}
+                className="text-[10px] px-2 py-0.5 cursor-pointer"
+                onClick={() => setSiloSortMode("favorites")}
+              >
+                ★ Favorites first
+              </Badge>
+              <Badge
+                variant={siloSortMode === "volume" ? "default" : "outline"}
+                className="text-[10px] px-2 py-0.5 cursor-pointer"
+                onClick={() => setSiloSortMode("volume")}
+              >
+                ↓ Volume
+              </Badge>
+            </div>
+
             {/* Cluster cards */}
             <div className="space-y-2">
               {[...result.clusters]
                 .map((cluster, originalIdx) => ({ cluster, originalIdx }))
                 .sort((a, b) => {
+                  if (siloSortMode === "volume") {
+                    return b.cluster.estimated_monthly_volume - a.cluster.estimated_monthly_volume;
+                  }
+                  // favorites first, then original order
                   const aFav = favoritedClusters.has(a.cluster.topic) ? 0 : 1;
                   const bFav = favoritedClusters.has(b.cluster.topic) ? 0 : 1;
                   return aFav - bFav || a.originalIdx - b.originalIdx;
