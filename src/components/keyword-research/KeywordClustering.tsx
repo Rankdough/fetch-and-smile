@@ -1812,25 +1812,7 @@ Focus on providing actionable research that will help create a comprehensive, di
                                 onClick={(e) => { e.stopPropagation(); reEnrichSingleCluster(cluster.topic); }}
                               >
                                 {enrichingSilo === cluster.topic ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Lightbulb className="h-3.5 w-3.5" />}
-                                All Keywords
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="gap-1.5 text-xs"
-                                disabled={enrichingSilo !== null || isAnalyzing}
-                                onClick={(e) => { e.stopPropagation(); reEnrichSingleCluster(cluster.topic, "generic"); }}
-                              >
-                                Generic
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="gap-1.5 text-xs"
-                                disabled={enrichingSilo !== null || isAnalyzing}
-                                onClick={(e) => { e.stopPropagation(); reEnrichSingleCluster(cluster.topic, "questions"); }}
-                              >
-                                Questions
+                                Generate from Questions
                               </Button>
                             </div>
                           </div>
