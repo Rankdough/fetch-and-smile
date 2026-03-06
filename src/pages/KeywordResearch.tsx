@@ -703,12 +703,12 @@ const KeywordResearch = () => {
                               </div>
                               <div className="flex flex-wrap gap-1.5">
                                 {cluster.seed_keywords.map((kw, i) => {
-                                  const isFromScan = scannedTermsSet.has(kw.toLowerCase().trim());
+                                  const fromScan = isFromScan(kw);
                                   return (
                                     <Badge
                                       key={i}
                                       variant="secondary"
-                                      className={`cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors text-xs ${isFromScan ? 'ring-1 ring-primary/50 bg-primary/10' : ''}`}
+                                      className={`cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors text-xs ${fromScan ? 'ring-1 ring-primary/50 bg-primary/10' : ''}`}
                                       onClick={() => {
                                         navigator.clipboard.writeText(kw);
                                         toast({ title: "Copied", description: kw });
