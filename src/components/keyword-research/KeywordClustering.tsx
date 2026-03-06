@@ -1463,21 +1463,41 @@ const KeywordClustering = () => {
                                         }
                                         const getVol = (kw: string) => volLookup[kw.toLowerCase().trim()] ?? null;
                                         const totalVol = idea.target_keywords!.reduce((sum, kw) => sum + (getVol(kw) || 0), 0);
+                                        const maxVol = Math.max(...idea.target_keywords!.map(kw => getVol(kw) || 0), 1);
+                                        const minVol = Math.min(...idea.target_keywords!.map(kw => getVol(kw) || 0).filter(v => v > 0), maxVol);
+                                        const getSize = (kw: string) => {
+                                          const vol = getVol(kw) || 0;
+                                          if (maxVol === minVol) return 13;
+                                          const ratio = (vol - minVol) / (maxVol - minVol);
+                                          return Math.round(11 + ratio * 9); // 11px to 20px
+                                        };
+                                        const getOpacity = (kw: string) => {
+                                          const vol = getVol(kw) || 0;
+                                          if (maxVol === minVol) return 0.8;
+                                          const ratio = (vol - minVol) / (maxVol - minVol);
+                                          return 0.4 + ratio * 0.6;
+                                        };
                                         return (
-                                        <div className="flex flex-wrap items-center gap-1 mt-1">
+                                        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 mt-1.5">
                                           <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-semibold mr-1">
                                             <TrendingUp className="h-2.5 w-2.5" />
                                             {totalVol > 0 ? `${totalVol.toLocaleString()} vol` : "— vol"}
                                           </span>
                                           {idea.target_keywords!.map((kw, ki) => {
                                             const vol = getVol(kw);
+                                            const fontSize = getSize(kw);
+                                            const opacity = getOpacity(kw);
                                             return (
-                                              <span key={ki} className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-medium">
+                                              <span
+                                                key={ki}
+                                                className="text-foreground font-medium leading-tight cursor-default"
+                                                style={{ fontSize: `${fontSize}px`, opacity }}
+                                                title={vol != null && vol > 0 ? `${kw}: ${vol.toLocaleString()} monthly searches` : kw}
+                                              >
                                                 {kw}
-                                                {vol != null && vol > 0 && (
-                                                  <span className="text-primary/70 font-semibold">{vol.toLocaleString()}</span>
-                                                )}
                                               </span>
+                                            );
+                                          })}
                                             );
                                           })}
                                         </div>
