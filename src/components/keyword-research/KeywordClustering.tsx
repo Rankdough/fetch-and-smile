@@ -954,18 +954,18 @@ const KeywordClustering = () => {
     const csv = rows.map(r => r.map(v => `"${(v || "").replace(/"/g, '""')}"`).join(",")).join("\n");
     const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
-    try {
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = filename;
-      a.style.display = "none";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-    } catch {
-      window.open(url, "_blank");
-    }
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.style.display = "none";
+    // Use top-level window to avoid iframe sandbox restrictions
+    const targetDoc = window.top?.document || document;
+    targetDoc.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+      targetDoc.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 500);
   };
 
   const exportSiloSummaryCSV = () => {
