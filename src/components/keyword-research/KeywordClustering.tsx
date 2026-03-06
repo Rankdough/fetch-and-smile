@@ -785,6 +785,26 @@ const KeywordClustering = () => {
     }
   };
 
+  const deleteIdeaFromCluster = async (clusterTopic: string, ideaIndex: number) => {
+    if (!result) return;
+    const updatedResult: ClusteringResult = {
+      ...result,
+      clusters: result.clusters.map(c => {
+        if (c.topic !== clusterTopic) return c;
+        const updatedIdeas = (c.blog_ideas || []).filter((_, idx) => idx !== ideaIndex);
+        return { ...c, blog_ideas: updatedIdeas };
+      }),
+    };
+    setResult(updatedResult);
+    toast({ title: "Blog idea deleted", description: "Keywords are now unassigned." });
+    if (activeResultId) {
+      await supabase
+        .from("keyword_clustering_results")
+        .update({ result: updatedResult as any })
+        .eq("id", activeResultId);
+    }
+  };
+
   const createIdeaFromKeyword = async (clusterTopic: string, keyword: string, keywordFilter?: "generic" | "questions") => {
     if (!result) return;
     const cluster = result.clusters.find(c => c.topic === clusterTopic);
@@ -1866,6 +1886,18 @@ Focus on providing actionable research that will help create a comprehensive, di
                                           </TooltipContent>
                                         </Tooltip>
                                       </TooltipProvider>
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="gap-1 text-xs h-7 px-2 text-destructive hover:text-destructive"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          deleteIdeaFromCluster(cluster.topic, i);
+                                        }}
+                                      >
+                                        <Trash2 className="h-3 w-3" />
+                                        Delete
+                                      </Button>
                                     </div>
                                   </div>
                                 </div>
