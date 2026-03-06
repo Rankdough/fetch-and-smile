@@ -819,8 +819,9 @@ const KeywordClustering = () => {
 
       if (error) throw error;
 
-      const enrichment = data?.enrichments?.[0] || data?.clusters?.[0];
+      const enrichment = data?.enrichments?.[0] || data?.clusters?.[0] || data;
       if (!enrichment?.blog_ideas?.length) {
+        console.error("No blog ideas in response:", JSON.stringify(data).slice(0, 500));
         toast({ title: "Failed to generate idea", variant: "destructive" });
         return;
       }
