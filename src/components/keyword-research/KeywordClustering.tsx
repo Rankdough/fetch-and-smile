@@ -1084,21 +1084,50 @@ const KeywordClustering = () => {
                         
                         {/* Keywords column with volume - shows top 10 by default */}
                         {(() => {
-                          const sortedKws = [...cluster.keywords].sort((a, b) => {
+                          const isQuestion = (kw: string) => /^(who|what|where|when|why|how|is|are|can|do|does|did|will|would|should|could|which|shall)\b/i.test(kw.trim());
+                          const questionKws = cluster.keywords.filter(isQuestion);
+                          const genericKws = cluster.keywords.filter(k => !isQuestion(k));
+                          const filterMode = kwFilterMode[cluster.topic] || "all";
+                          const baseKws = filterMode === "questions" ? questionKws : filterMode === "generic" ? genericKws : cluster.keywords;
+                          const sortedKws = [...baseKws].sort((a, b) => {
                             const va = cluster.keyword_volumes?.[a] ?? 0;
                             const vb = cluster.keyword_volumes?.[b] ?? 0;
                             return vb - va;
                           });
                           const INITIAL_SHOW = 10;
                           const hasMore = sortedKws.length > INITIAL_SHOW;
-                          const expandedKey = `kw-expanded-${cluster.topic}`;
                           const isExpanded = expandedKeywordSilos.has(cluster.topic);
                           const displayKws = isExpanded ? sortedKws : sortedKws.slice(0, INITIAL_SHOW);
+                          const setFilter = (mode: "all" | "generic" | "questions") => {
+                            setKwFilterMode(prev => ({ ...prev, [cluster.topic]: mode }));
+                            setExpandedKeywordSilos(prev => { const n = new Set(prev); n.delete(cluster.topic); return n; });
+                          };
                           return (
                             <div>
-                              <div className="flex items-center gap-1.5 mb-2">
+                              <div className="flex items-center gap-1.5 mb-2 flex-wrap">
                                 <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Keywords</h4>
-                                <Badge variant="outline" className="text-[10px] px-1.5 py-0">{cluster.keywords.length}</Badge>
+                                <Badge
+                                  variant={filterMode === "all" ? "default" : "outline"}
+                                  className="text-[10px] px-1.5 py-0 cursor-pointer"
+                                  onClick={() => setFilter("all")}
+                                >
+                                  All {cluster.keywords.length}
+                                </Badge>
+                                <Badge
+                                  variant={filterMode === "generic" ? "default" : "outline"}
+                                  className="text-[10px] px-1.5 py-0 cursor-pointer"
+                                  onClick={() => setFilter("generic")}
+                                >
+                                  Generic {genericKws.length}
+                                </Badge>
+                                <Badge
+                                  variant={filterMode === "questions" ? "default" : "outline"}
+                                  className="text-[10px] px-1.5 py-0 cursor-pointer"
+                                  onClick={() => setFilter("questions")}
+                                >
+                                  Questions {questionKws.length}
+                                </Badge>
+                              </div>
                               </div>
                               <div className="border rounded-md overflow-hidden">
                                 <div className="grid grid-cols-[1fr_auto] gap-x-4 px-3 py-1.5 bg-muted/50 text-xs font-medium text-muted-foreground border-b">
