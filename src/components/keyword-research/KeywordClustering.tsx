@@ -731,6 +731,74 @@ const KeywordClustering = () => {
     }
   };
 
+  const createIdeaFromKeyword = async (clusterTopic: string, keyword: string) => {
+    if (!result) return;
+    const cluster = result.clusters.find(c => c.topic === clusterTopic);
+    if (!cluster) return;
+
+    setGeneratingIdeaForKw(keyword);
+    try {
+      const vol = cluster.keyword_volumes?.[keyword] ?? cluster.keyword_volumes?.[keyword.toLowerCase()] ?? null;
+      // Find related keywords from the cluster
+      const relatedKws = cluster.keywords
+        .filter(kw => kw.toLowerCase() !== keyword.toLowerCase())
+        .filter(kw => {
+          const words = keyword.toLowerCase().split(/\s+/);
+          return words.some(w => w.length > 3 && kw.toLowerCase().includes(w));
+        })
+        .slice(0, 5);
+
+      const { data, error } = await supabase.functions.invoke("cluster-keywords-enrich", {
+        body: {
+          clusters: [{
+            topic: clusterTopic,
+            keywords: [keyword, ...relatedKws],
+            estimated_monthly_volume: (vol || 0) + relatedKws.reduce((s, kw) => s + (cluster.keyword_volumes?.[kw] ?? 0), 0),
+          }],
+          singleIdea: true,
+          focusKeyword: keyword,
+        },
+      });
+
+      if (error) throw error;
+
+      const enrichment = data?.enrichments?.[0] || data?.clusters?.[0];
+      if (!enrichment?.blog_ideas?.length) {
+        toast({ title: "Failed to generate idea", variant: "destructive" });
+        return;
+      }
+
+      // Take just the first idea and ensure the focus keyword is in target_keywords
+      const newIdea = enrichment.blog_ideas[0];
+      if (!newIdea.target_keywords) newIdea.target_keywords = [];
+      if (!newIdea.target_keywords.some((tk: string) => tk.toLowerCase() === keyword.toLowerCase())) {
+        newIdea.target_keywords.unshift(keyword);
+      }
+
+      const updatedResult: ClusteringResult = {
+        ...result,
+        clusters: result.clusters.map(c => {
+          if (c.topic !== clusterTopic) return c;
+          return { ...c, blog_ideas: [...(c.blog_ideas || []), newIdea] };
+        }),
+      };
+      setResult(updatedResult);
+      toast({ title: "Blog idea created", description: `"${newIdea.title}" for keyword "${keyword}"` });
+
+      if (activeResultId) {
+        await supabase
+          .from("keyword_clustering_results")
+          .update({ result: updatedResult as any })
+          .eq("id", activeResultId);
+      }
+    } catch (e) {
+      console.error("Error creating idea:", e);
+      toast({ title: "Failed to generate idea", variant: "destructive" });
+    } finally {
+      setGeneratingIdeaForKw(null);
+    }
+  };
+
   const clearGeneratorState = () => {
     const keysToRemove = [
       "seo-generator-formData", "seo-generator-internalLinks", "seo-generator-competitorUrls",
