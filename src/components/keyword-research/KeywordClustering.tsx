@@ -507,9 +507,9 @@ const KeywordClustering = () => {
 
     const filteredCluster = keywordFilter ? {
       ...cluster,
-      keywords: cluster.keywords.filter(kw => keywordFilter === "questions" ? isQuestionKeyword(kw) : !isQuestionKeyword(kw)),
+      keywords: cluster.keywords.filter(kw => keywordFilter === "questions" ? isQuestionKeyword(kw, cluster) : !isQuestionKeyword(kw, cluster)),
       keyword_volumes: cluster.keyword_volumes ? Object.fromEntries(
-        Object.entries(cluster.keyword_volumes).filter(([kw]) => keywordFilter === "questions" ? isQuestionKeyword(kw) : !isQuestionKeyword(kw))
+        Object.entries(cluster.keyword_volumes).filter(([kw]) => keywordFilter === "questions" ? isQuestionKeyword(kw, cluster) : !isQuestionKeyword(kw, cluster))
       ) : undefined,
     } : cluster;
 
