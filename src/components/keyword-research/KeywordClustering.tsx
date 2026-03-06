@@ -485,10 +485,25 @@ const KeywordClustering = () => {
     }
   };
 
-  const reEnrichSingleCluster = async (clusterTopic: string) => {
+  const isQuestionKeyword = (kw: string) => /^(who|what|where|when|why|how|is|are|can|do|does|did|will|would|should|could|which|shall)\b/i.test(kw.trim());
+
+  const reEnrichSingleCluster = async (clusterTopic: string, keywordFilter?: "generic" | "questions") => {
     if (!result) return;
     const cluster = result.clusters.find(c => c.topic === clusterTopic);
     if (!cluster) return;
+
+    const filteredCluster = keywordFilter ? {
+      ...cluster,
+      keywords: cluster.keywords.filter(kw => keywordFilter === "questions" ? isQuestionKeyword(kw) : !isQuestionKeyword(kw)),
+      keyword_volumes: cluster.keyword_volumes ? Object.fromEntries(
+        Object.entries(cluster.keyword_volumes).filter(([kw]) => keywordFilter === "questions" ? isQuestionKeyword(kw) : !isQuestionKeyword(kw))
+      ) : undefined,
+    } : cluster;
+
+    if (filteredCluster.keywords.length === 0) {
+      toast({ title: "No keywords", description: `No ${keywordFilter} keywords in this silo.`, variant: "destructive" });
+      return;
+    }
 
     setEnrichingSilo(clusterTopic);
     try {
@@ -500,7 +515,7 @@ const KeywordClustering = () => {
             "Content-Type": "application/json",
             Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
           },
-          body: JSON.stringify({ clusters: [cluster] }),
+          body: JSON.stringify({ clusters: [filteredCluster] }),
         }
       );
 
@@ -515,13 +530,19 @@ const KeywordClustering = () => {
 
       const updatedResult: ClusteringResult = {
         ...result,
-        clusters: result.clusters.map(c =>
-          c.topic === clusterTopic ? { ...c, ...enrichedCluster } : c
-        ),
+        clusters: result.clusters.map(c => {
+          if (c.topic !== clusterTopic) return c;
+          if (keywordFilter && c.blog_ideas?.length) {
+            // Append new ideas to existing ones instead of replacing
+            return { ...c, blog_ideas: [...c.blog_ideas, ...(enrichedCluster.blog_ideas || [])] };
+          }
+          return { ...c, ...enrichedCluster };
+        }),
       };
 
       setResult(updatedResult);
-      toast({ title: `"${clusterTopic}" ideas regenerated` });
+      const label = keywordFilter ? `${keywordFilter} ideas for "${clusterTopic}"` : `"${clusterTopic}" ideas`;
+      toast({ title: `${label} generated` });
 
       if (activeResultId) {
         await supabase
@@ -1214,23 +1235,36 @@ const KeywordClustering = () => {
                                 <Lightbulb className="h-3.5 w-3.5" />
                                 Blog Ideas
                               </h4>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="gap-1 text-xs h-6 px-2 text-muted-foreground"
-                                disabled={enrichingSilo !== null || isAnalyzing}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  reEnrichSingleCluster(cluster.topic);
-                                }}
-                              >
-                                {enrichingSilo === cluster.topic ? (
-                                  <Loader2 className="h-3 w-3 animate-spin" />
-                                ) : (
-                                  <RefreshCw className="h-3 w-3" />
-                                )}
-                                {enrichingSilo === cluster.topic ? "Regenerating..." : "Regenerate Ideas"}
-                              </Button>
+                              <div className="flex items-center gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="gap-1 text-xs h-6 px-2 text-muted-foreground"
+                                  disabled={enrichingSilo !== null || isAnalyzing}
+                                  onClick={(e) => { e.stopPropagation(); reEnrichSingleCluster(cluster.topic); }}
+                                >
+                                  {enrichingSilo === cluster.topic ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                                  Regenerate
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="gap-1 text-xs h-6 px-2 text-muted-foreground"
+                                  disabled={enrichingSilo !== null || isAnalyzing}
+                                  onClick={(e) => { e.stopPropagation(); reEnrichSingleCluster(cluster.topic, "generic"); }}
+                                >
+                                  + Generic
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="gap-1 text-xs h-6 px-2 text-muted-foreground"
+                                  disabled={enrichingSilo !== null || isAnalyzing}
+                                  onClick={(e) => { e.stopPropagation(); reEnrichSingleCluster(cluster.topic, "questions"); }}
+                                >
+                                  + Questions
+                                </Button>
+                              </div>
                             </div>
                             <div className="space-y-2">
                               {cluster.blog_ideas.map((idea, i) => {
@@ -1380,23 +1414,36 @@ Focus on providing actionable research that will help create a comprehensive, di
                         ) : (
                           <div className="border border-dashed rounded-md p-4 flex items-center justify-between">
                             <p className="text-sm text-muted-foreground">No blog ideas generated yet for this silo.</p>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="gap-1.5 text-xs"
-                              disabled={enrichingSilo !== null || isAnalyzing}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                reEnrichSingleCluster(cluster.topic);
-                              }}
-                            >
-                              {enrichingSilo === cluster.topic ? (
-                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                              ) : (
-                                <Lightbulb className="h-3.5 w-3.5" />
-                              )}
-                              Generate Blog Ideas
-                            </Button>
+                            <div className="flex items-center gap-1.5">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="gap-1.5 text-xs"
+                                disabled={enrichingSilo !== null || isAnalyzing}
+                                onClick={(e) => { e.stopPropagation(); reEnrichSingleCluster(cluster.topic); }}
+                              >
+                                {enrichingSilo === cluster.topic ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Lightbulb className="h-3.5 w-3.5" />}
+                                All Keywords
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="gap-1.5 text-xs"
+                                disabled={enrichingSilo !== null || isAnalyzing}
+                                onClick={(e) => { e.stopPropagation(); reEnrichSingleCluster(cluster.topic, "generic"); }}
+                              >
+                                Generic
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="gap-1.5 text-xs"
+                                disabled={enrichingSilo !== null || isAnalyzing}
+                                onClick={(e) => { e.stopPropagation(); reEnrichSingleCluster(cluster.topic, "questions"); }}
+                              >
+                                Questions
+                              </Button>
+                            </div>
                           </div>
                         )}
                       </CardContent>
