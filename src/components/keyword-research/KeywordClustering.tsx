@@ -1295,30 +1295,38 @@ const KeywordClustering = () => {
                                         className="grid grid-cols-[1fr_auto] gap-x-4 px-3 py-2 text-[15px] border-b last:border-b-0 hover:bg-muted/30 transition-colors group/kw"
                                       >
                                         <span className="flex items-center gap-1.5 truncate">
-                                          {filterMode === "generic" && (
-                                            <button
-                                              className="text-primary hover:text-primary/80 p-0.5 shrink-0"
-                                              onClick={(e) => {
-                                                e.stopPropagation();
-                                                toggleKeywordAsQuestion(cluster.topic, kw);
-                                              }}
-                                              title="Move to Questions"
-                                            >
-                                              <ArrowRight className="h-4 w-4" />
-                                            </button>
-                                          )}
-                                          {filterMode === "questions" && overrides.has(kw) && (
-                                            <button
-                                              className="text-primary hover:text-primary/80 p-0.5 shrink-0"
-                                              onClick={(e) => {
-                                                e.stopPropagation();
-                                                toggleKeywordAsQuestion(cluster.topic, kw);
-                                              }}
-                                              title="Move back to Generic"
-                                            >
-                                              <ArrowRight className="h-4 w-4 rotate-180" />
-                                            </button>
-                                          )}
+                                          {(() => {
+                                            const isQuestion = isQuestionKeyword(kw, cluster);
+                                            if (filterMode === "generic" || (filterMode === "all" && !isQuestion)) {
+                                              return (
+                                                <button
+                                                  className="text-primary hover:text-primary/80 p-0.5 shrink-0"
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    toggleKeywordAsQuestion(cluster.topic, kw);
+                                                  }}
+                                                  title="Move to Questions"
+                                                >
+                                                  <ArrowRight className="h-4 w-4" />
+                                                </button>
+                                              );
+                                            }
+                                            if (filterMode === "questions" || (filterMode === "all" && isQuestion)) {
+                                              return (
+                                                <button
+                                                  className="text-primary hover:text-primary/80 p-0.5 shrink-0"
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    toggleKeywordAsQuestion(cluster.topic, kw);
+                                                  }}
+                                                  title="Move back to Generic"
+                                                >
+                                                  <ArrowRight className="h-4 w-4 rotate-180" />
+                                                </button>
+                                              );
+                                            }
+                                            return null;
+                                          })()}
                                           <span
                                             className="truncate cursor-pointer text-foreground font-medium"
                                             onClick={() => {
