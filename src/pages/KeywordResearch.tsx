@@ -100,6 +100,7 @@ const KeywordResearch = () => {
   const abortControllerRef = useRef<AbortController | null>(null);
   const resultsRef = useRef<HTMLDivElement | null>(null);
   const [isGeneratorOpen, setIsGeneratorOpen] = useState(true);
+  const [isClusteringOpen, setIsClusteringOpen] = useState(false);
 
   // Array of normalised scanned+URL-extracted terms for substring matching in results
   const scannedTermsList = useMemo(() => {
