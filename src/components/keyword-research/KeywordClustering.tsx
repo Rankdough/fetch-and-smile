@@ -465,6 +465,20 @@ const KeywordClustering = () => {
     setAnalysisStage("enrich");
 
     try {
+      // Filter to question keywords only for blog idea generation
+      const questionFilteredClusters = result.clusters.map(c => ({
+        ...c,
+        keywords: c.keywords.filter(kw => isQuestionKeyword(kw, c)),
+        keyword_volumes: c.keyword_volumes ? Object.fromEntries(
+          Object.entries(c.keyword_volumes).filter(([kw]) => isQuestionKeyword(kw, c))
+        ) : undefined,
+      })).filter(c => c.keywords.length > 0);
+
+      if (questionFilteredClusters.length === 0) {
+        toast({ title: "No question keywords", description: "No silos have question keywords to generate blog ideas from.", variant: "destructive" });
+        return;
+      }
+
       const enrichResponse = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/cluster-keywords-enrich`,
         {
@@ -473,7 +487,7 @@ const KeywordClustering = () => {
             "Content-Type": "application/json",
             Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
           },
-          body: JSON.stringify({ clusters: result.clusters }),
+          body: JSON.stringify({ clusters: questionFilteredClusters }),
         }
       );
 
@@ -518,16 +532,23 @@ const KeywordClustering = () => {
     const cluster = result.clusters.find(c => c.topic === clusterTopic);
     if (!cluster) return;
 
-    const filteredCluster = keywordFilter ? {
+    // Generic keywords → generate landing pages instead
+    if (keywordFilter === "generic") {
+      return generateLandingPages(clusterTopic);
+    }
+
+    // For blog ideas: always use question keywords only
+    const questionKws = cluster.keywords.filter(kw => isQuestionKeyword(kw, cluster));
+    const filteredCluster = {
       ...cluster,
-      keywords: cluster.keywords.filter(kw => keywordFilter === "questions" ? isQuestionKeyword(kw, cluster) : !isQuestionKeyword(kw, cluster)),
+      keywords: questionKws,
       keyword_volumes: cluster.keyword_volumes ? Object.fromEntries(
-        Object.entries(cluster.keyword_volumes).filter(([kw]) => keywordFilter === "questions" ? isQuestionKeyword(kw, cluster) : !isQuestionKeyword(kw, cluster))
+        Object.entries(cluster.keyword_volumes).filter(([kw]) => isQuestionKeyword(kw, cluster))
       ) : undefined,
-    } : cluster;
+    };
 
     if (filteredCluster.keywords.length === 0) {
-      toast({ title: "No keywords", description: `No ${keywordFilter} keywords in this silo.`, variant: "destructive" });
+      toast({ title: "No question keywords", description: "This silo has no question keywords to generate blog ideas from.", variant: "destructive" });
       return;
     }
 
@@ -558,19 +579,19 @@ const KeywordClustering = () => {
         ...result,
         clusters: result.clusters.map(c => {
           if (c.topic !== clusterTopic) return c;
-          if (keywordFilter) {
-            // Only merge blog ideas, preserve original keywords/volumes/metadata
+          if (keywordFilter === "questions") {
+            // Append new blog ideas
             const newIdeas = enrichedCluster.blog_ideas || [];
             return { ...c, blog_ideas: [...(c.blog_ideas || []), ...newIdeas] };
           }
-          // No filter: merge everything but preserve keywords & volumes from original
-          const { keywords, keyword_volumes, estimated_monthly_volume, ...meta } = enrichedCluster;
-          return { ...c, ...meta };
+          // Regenerate: replace blog ideas but preserve keywords & volumes & landing pages
+          const { keywords, keyword_volumes, estimated_monthly_volume, landing_page_ideas, ...meta } = enrichedCluster;
+          return { ...c, ...meta, landing_page_ideas: c.landing_page_ideas };
         }),
       };
 
       setResult(updatedResult);
-      const label = keywordFilter ? `${keywordFilter} ideas for "${clusterTopic}"` : `"${clusterTopic}" ideas`;
+      const label = keywordFilter === "questions" ? `Question blog ideas for "${clusterTopic}"` : `"${clusterTopic}" blog ideas`;
       toast({ title: `${label} generated` });
 
       if (activeResultId) {
@@ -1625,18 +1646,9 @@ const KeywordClustering = () => {
                                   size="sm"
                                   className="gap-1 text-xs h-6 px-2 text-muted-foreground"
                                   disabled={enrichingSilo !== null || isAnalyzing}
-                                  onClick={(e) => { e.stopPropagation(); reEnrichSingleCluster(cluster.topic, "generic"); }}
-                                >
-                                  + Generic
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="gap-1 text-xs h-6 px-2 text-muted-foreground"
-                                  disabled={enrichingSilo !== null || isAnalyzing}
                                   onClick={(e) => { e.stopPropagation(); reEnrichSingleCluster(cluster.topic, "questions"); }}
                                 >
-                                  + Questions
+                                  + Blog Ideas
                                 </Button>
                               </div>
                               )}
@@ -1814,25 +1826,7 @@ Focus on providing actionable research that will help create a comprehensive, di
                                 onClick={(e) => { e.stopPropagation(); reEnrichSingleCluster(cluster.topic); }}
                               >
                                 {enrichingSilo === cluster.topic ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Lightbulb className="h-3.5 w-3.5" />}
-                                All Keywords
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="gap-1.5 text-xs"
-                                disabled={enrichingSilo !== null || isAnalyzing}
-                                onClick={(e) => { e.stopPropagation(); reEnrichSingleCluster(cluster.topic, "generic"); }}
-                              >
-                                Generic
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="gap-1.5 text-xs"
-                                disabled={enrichingSilo !== null || isAnalyzing}
-                                onClick={(e) => { e.stopPropagation(); reEnrichSingleCluster(cluster.topic, "questions"); }}
-                              >
-                                Questions
+                                Generate from Questions
                               </Button>
                             </div>
                           </div>
