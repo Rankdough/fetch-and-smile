@@ -86,6 +86,14 @@ const KeywordResearch = () => {
   const resultsRef = useRef<HTMLDivElement | null>(null);
   const [isGeneratorOpen, setIsGeneratorOpen] = useState(true);
 
+  // Set of normalised scanned+URL-extracted terms for tagging in results
+  const scannedTermsSet = useMemo(() => {
+    const set = new Set<string>();
+    for (const t of scannedTerms) set.add(t.toLowerCase().trim());
+    for (const t of urlExtractedTerms) set.add(t.toLowerCase().trim());
+    return set;
+  }, [scannedTerms, urlExtractedTerms]);
+
   useEffect(() => {
     loadSavedResearch();
   }, []);
