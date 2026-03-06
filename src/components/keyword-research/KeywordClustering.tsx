@@ -1211,20 +1211,20 @@ const KeywordClustering = () => {
                           </div>
                         </div>
                         <div className="flex items-center gap-2 shrink-0 ml-2">
-                          <Badge variant="outline" className="text-xs gap-1">
-                            <TrendingUp className="h-3 w-3" />
+                          <Badge variant="outline" className="text-sm gap-1 font-semibold">
+                            <TrendingUp className="h-3.5 w-3.5" />
                             {formatVolume(cluster.estimated_monthly_volume)}
                           </Badge>
-                          <Badge variant="outline" className="text-xs">
+                          <Badge variant="outline" className="text-sm font-semibold">
                             {cluster.keywords.length} kw
                           </Badge>
-                          <Badge className={`text-xs border ${difficultyColors[cluster.difficulty]}`} variant="outline">
+                          <Badge className={`text-sm border font-medium ${difficultyColors[cluster.difficulty]}`} variant="outline">
                             {cluster.difficulty}
                           </Badge>
-                          <Badge className={`text-xs border ${priorityColors[cluster.priority]}`} variant="outline">
+                          <Badge className={`text-sm border font-medium ${priorityColors[cluster.priority]}`} variant="outline">
                             {cluster.priority}
                           </Badge>
-                          <Badge variant="secondary" className="text-xs">
+                          <Badge variant="secondary" className="text-sm font-medium">
                             {contentTypeLabels[cluster.content_type] || cluster.content_type}
                           </Badge>
                         </div>
