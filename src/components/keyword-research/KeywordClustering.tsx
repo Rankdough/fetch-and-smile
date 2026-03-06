@@ -672,14 +672,7 @@ const KeywordClustering = () => {
   const keywordCount = parseKeywordsFromText(rawInput).length;
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base flex items-center gap-2">
-          <Layers className="h-4 w-4 text-primary" />
-          Keyword Clustering & Topic Silos
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
+    <div className="space-y-4">
         {/* Project name input */}
         <div className="space-y-1.5">
           <label className="text-xs font-medium text-muted-foreground">Project Name</label>
@@ -1320,8 +1313,7 @@ Focus on providing actionable research that will help create a comprehensive, di
             </Card>
           </Collapsible>
         )}
-      </CardContent>
-    </Card>
+    </div>
   );
 };
 

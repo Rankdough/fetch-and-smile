@@ -14,7 +14,7 @@ import {
   ArrowLeft, Search, Sparkles, Copy, Download, Trash2,
   ChevronDown, ChevronRight, Clock, Loader2, Square, ChevronUp,
   BrainCircuit, Tag, HelpCircle, SlidersHorizontal, Building2, Ban,
-  Globe, X, Link2, Plus
+  Globe, X, Link2, Plus, Layers
 } from "lucide-react";
 import KeywordClustering from "@/components/keyword-research/KeywordClustering";
 
@@ -100,6 +100,7 @@ const KeywordResearch = () => {
   const abortControllerRef = useRef<AbortController | null>(null);
   const resultsRef = useRef<HTMLDivElement | null>(null);
   const [isGeneratorOpen, setIsGeneratorOpen] = useState(true);
+  const [isClusteringOpen, setIsClusteringOpen] = useState(false);
 
   // Array of normalised scanned+URL-extracted terms for substring matching in results
   const scannedTermsList = useMemo(() => {
@@ -436,7 +437,7 @@ const KeywordResearch = () => {
       <main className="max-w-7xl mx-auto px-4 py-6 space-y-6 keyword-research-page">
         {/* Input */}
         <Collapsible open={isGeneratorOpen} onOpenChange={setIsGeneratorOpen}>
-          <Card>
+          <Card className="border-2">
             <CollapsibleTrigger className="w-full">
               <CardHeader>
                 <div className="flex items-center justify-between">
@@ -986,10 +987,29 @@ const KeywordResearch = () => {
           )}
         </div>
 
-        {/* Keyword Clustering */}
-        <KeywordClustering />
+        {/* Keyword Clustering — collapsible */}
+        <Collapsible open={isClusteringOpen} onOpenChange={setIsClusteringOpen}>
+          <Card className="border-2">
+            <CollapsibleTrigger className="w-full">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Layers className="h-4 w-4 text-primary" />
+                    Keyword Clustering & Topic Silos
+                  </CardTitle>
+                  {isClusteringOpen ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+                </div>
+              </CardHeader>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent className="pt-0">
+                <KeywordClustering />
+              </CardContent>
+            </CollapsibleContent>
+          </Card>
+        </Collapsible>
 
-        {/* Saved Research */}
+        {/* Previous Research — standalone */}
         {savedResearch.length > 0 && (
           <Collapsible>
             <Card>
