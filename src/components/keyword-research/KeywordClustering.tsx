@@ -127,6 +127,7 @@ const KeywordClustering = () => {
   const [savedResults, setSavedResults] = useState<SavedClustering[]>([]);
   const [activeResultId, setActiveResultId] = useState<string | null>(null);
   const [userSuggestedSilos, setUserSuggestedSilos] = useState<string[]>([]);
+  const [isResultsOpen, setIsResultsOpen] = useState(false);
 
   // Load saved results on mount
   useEffect(() => {
@@ -218,6 +219,7 @@ const KeywordClustering = () => {
     setRawInput(saved.input_keywords.join("\n"));
     setActiveResultId(saved.id);
     setExpandedClusters(new Set());
+    setIsResultsOpen(true);
   };
 
   const parseKeywordsFromText = (text: string): string[] => {
@@ -414,6 +416,7 @@ const KeywordClustering = () => {
 
       setResult(siloResult);
       setExpandedClusters(new Set());
+      setIsResultsOpen(true);
       toast({ title: "Clustering complete!", description: `${siloResult.clusters.length} topic silos from ${keywords.length} keywords. Generate blog ideas when ready.` });
       
       // Auto-save to database
@@ -764,8 +767,22 @@ const KeywordClustering = () => {
 
         {/* Results */}
         {result && !isAnalyzing && (
+          <Collapsible open={isResultsOpen} onOpenChange={setIsResultsOpen}>
+            <Card>
+              <CollapsibleTrigger className="w-full">
+                <CardHeader className="py-3">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <Layers className="h-4 w-4 text-primary" />
+                      {projectName || "Clustering Results"} — {result.clusters.length} silos · {result.total_keywords_clustered} keywords · ~{formatVolume(totalVolume)} vol
+                    </CardTitle>
+                    {isResultsOpen ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+                  </div>
+                </CardHeader>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <CardContent className="pt-0">
           <div className="space-y-4">
-            {/* Summary bar */}
             <div className="flex items-center justify-between flex-wrap gap-3">
               <div className="flex items-center gap-3">
                 <Badge variant="secondary" className="text-xs">
@@ -1241,8 +1258,12 @@ Focus on providing actionable research that will help create a comprehensive, di
                   </Card>
                 </Collapsible>
               ))}
-            </div>
           </div>
+          </div>
+                </CardContent>
+              </CollapsibleContent>
+            </Card>
+          </Collapsible>
         )}
 
 
