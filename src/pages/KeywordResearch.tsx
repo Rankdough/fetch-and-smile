@@ -18,6 +18,19 @@ import {
 } from "lucide-react";
 import KeywordClustering from "@/components/keyword-research/KeywordClustering";
 
+interface ScanSite {
+  url: string;
+  filter: string;
+}
+
+interface ScanResult {
+  url: string;
+  terms: string[];
+  urlCount: number;
+  filteredCount?: number;
+  blocked: boolean;
+}
+
 interface SemanticCluster {
   cluster_name: string;
   seed_keywords: string[];
