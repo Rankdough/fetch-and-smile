@@ -750,7 +750,7 @@ const KeywordClustering = () => {
       topic: cluster.topic,
       length: "medium",
       outline: "",
-      instructions: `Write a comprehensive article about ${cluster.topic}. ${cluster.description}`,
+      instructions: `Write a comprehensive article about ${cluster.topic}. ${cluster.description}${cluster.silo_instructions ? `\n\nSilo instructions: ${cluster.silo_instructions}` : ""}`,
     };
 
     localStorage.setItem("seo-generator-formData", JSON.stringify(formData));
