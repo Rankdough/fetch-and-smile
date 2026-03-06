@@ -1391,7 +1391,7 @@ const KeywordClustering = () => {
                                   <span>Keyword</span>
                                   <span className="text-right flex items-center gap-4 justify-end"><span>Volume</span><span className="w-12"></span></span>
                                 </div>
-                                <div className={isExpanded ? "max-h-[400px] overflow-y-auto" : ""}>
+                                <div className="max-h-[350px] overflow-y-auto">
                                   {displayKws.map((kw, i) => {
                                     const vol = cluster.keyword_volumes?.[kw];
                                     const isAssigned = (() => {
