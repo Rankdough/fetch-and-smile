@@ -87,6 +87,8 @@ const KeywordResearch = () => {
   const [manualSeeds, setManualSeeds] = useState("");
   const [urlListInput, setUrlListInput] = useState("");
   const [urlExtractedTerms, setUrlExtractedTerms] = useState<string[]>([]);
+  const [uploadedSeedFiles, setUploadedSeedFiles] = useState<{ name: string; keywords: string[] }[]>([]);
+  const seedFileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [isGenerating, setIsGenerating] = useState(false);
   const [semanticMap, setSemanticMap] = useState<SemanticMap | null>(null);
