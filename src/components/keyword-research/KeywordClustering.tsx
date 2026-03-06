@@ -580,7 +580,7 @@ const KeywordClustering = () => {
     if (!cluster) return;
 
     // Filter to generic (non-question) keywords only
-    const genericKeywords = cluster.keywords.filter(kw => !isQuestionKeyword(kw));
+    const genericKeywords = cluster.keywords.filter(kw => !isQuestionKeyword(kw, cluster));
     if (genericKeywords.length === 0) {
       toast({ title: "No generic keywords", description: "This silo only contains question keywords.", variant: "destructive" });
       return;
