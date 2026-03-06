@@ -1516,22 +1516,22 @@ const KeywordClustering = () => {
                                           >{kw}</span>
                                         </span>
                                         <span className="text-right text-foreground/70 tabular-nums flex items-center gap-1.5 justify-end font-medium">
-                                          <span>{vol != null ? formatVolume(vol) : "—"}</span>
-                                          {!isAssigned && blogIdeas.length > 0 && (
+                                          {!isAssigned && (
                                             <Popover>
                                               <PopoverTrigger asChild>
                                                 <button
                                                   className="text-amber-600 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300 p-0.5 shrink-0"
                                                   onClick={(e) => e.stopPropagation()}
-                                                  title="Assign to a blog idea"
+                                                  title="Assign or create blog idea"
+                                                  disabled={generatingIdeaForKw === kw}
                                                 >
-                                                  <Plus className="h-3.5 w-3.5" />
+                                                  {generatingIdeaForKw === kw ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
                                                 </button>
                                               </PopoverTrigger>
-                                              <PopoverContent side="left" align="start" className="w-72 p-2">
-                                                <p className="text-xs font-semibold text-muted-foreground mb-2">Assign "{kw}" to:</p>
+                                              <PopoverContent side="left" align="start" className="w-80 p-2">
+                                                <p className="text-xs font-semibold text-muted-foreground mb-2">"{kw}" →</p>
                                                 <div className="space-y-1 max-h-48 overflow-y-auto">
-                                                  {blogIdeas.map((idea, idx) => (
+                                                  {blogIdeas.length > 0 && blogIdeas.map((idea, idx) => (
                                                     <button
                                                       key={idx}
                                                       className="w-full text-left px-2 py-1.5 rounded text-xs hover:bg-muted transition-colors whitespace-normal break-words leading-snug"
@@ -1545,9 +1545,23 @@ const KeywordClustering = () => {
                                                     </button>
                                                   ))}
                                                 </div>
+                                                <div className="border-t mt-2 pt-2">
+                                                  <button
+                                                    className="w-full text-left px-2 py-1.5 rounded text-xs hover:bg-primary/10 transition-colors font-semibold text-primary flex items-center gap-1.5"
+                                                    disabled={generatingIdeaForKw !== null}
+                                                    onClick={(e) => {
+                                                      e.stopPropagation();
+                                                      createIdeaFromKeyword(cluster.topic, kw);
+                                                    }}
+                                                  >
+                                                    {generatingIdeaForKw === kw ? <Loader2 className="h-3 w-3 animate-spin" /> : <Lightbulb className="h-3 w-3" />}
+                                                    Create new blog idea for "{kw}"
+                                                  </button>
+                                                </div>
                                               </PopoverContent>
                                             </Popover>
                                           )}
+                                          <span>{vol != null ? formatVolume(vol) : "—"}</span>
                                           <button
                                             className="opacity-0 group-hover/kw:opacity-100 transition-opacity text-destructive hover:text-destructive/80 p-0.5"
                                             onClick={(e) => {
