@@ -1465,7 +1465,7 @@ const KeywordClustering = () => {
                                                   {blogIdeas.map((idea, idx) => (
                                                     <button
                                                       key={idx}
-                                                      className="w-full text-left px-2 py-1.5 rounded text-xs hover:bg-muted transition-colors truncate"
+                                                      className="w-full text-left px-2 py-1.5 rounded text-xs hover:bg-muted transition-colors whitespace-normal break-words leading-snug"
                                                       onClick={(e) => {
                                                         e.stopPropagation();
                                                         assignKeywordToIdea(cluster.topic, kw, idx);
