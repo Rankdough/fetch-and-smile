@@ -140,6 +140,16 @@ const KeywordClustering = () => {
   const [activeResultId, setActiveResultId] = useState<string | null>(null);
   const [userSuggestedSilos, setUserSuggestedSilos] = useState<string[]>([]);
   const [isResultsOpen, setIsResultsOpen] = useState(false);
+  const [collapsedBlogIdeas, setCollapsedBlogIdeas] = useState<Set<string>>(new Set());
+  const [collapsedLandingPages, setCollapsedLandingPages] = useState<Set<string>>(new Set());
+
+  const toggleCollapsedSet = (setter: React.Dispatch<React.SetStateAction<Set<string>>>, key: string) => {
+    setter(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  };
 
   // Load saved results on mount
   useEffect(() => {
@@ -1373,10 +1383,15 @@ const KeywordClustering = () => {
                         {cluster.blog_ideas && cluster.blog_ideas.length > 0 ? (
                           <div>
                             <div className="flex items-center justify-between mb-2">
-                              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                              <button
+                                className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5 hover:text-foreground transition-colors"
+                                onClick={(e) => { e.stopPropagation(); toggleCollapsedSet(setCollapsedBlogIdeas, cluster.topic); }}
+                              >
+                                {collapsedBlogIdeas.has(cluster.topic) ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
                                 <Lightbulb className="h-3.5 w-3.5" />
-                                Blog Ideas
-                              </h4>
+                                Blog Ideas ({cluster.blog_ideas!.length})
+                              </button>
+                              {!collapsedBlogIdeas.has(cluster.topic) && (
                               <div className="flex items-center gap-1">
                                 <Button
                                   variant="ghost"
@@ -1407,8 +1422,9 @@ const KeywordClustering = () => {
                                   + Questions
                                 </Button>
                               </div>
+                              )}
                             </div>
-                            <div className="space-y-2">
+                            {!collapsedBlogIdeas.has(cluster.topic) && <div className="space-y-2">
                               {cluster.blog_ideas.map((idea, i) => {
                                 const ideaKey = makeIdeaKey(cluster.topic, idea.title);
                                 const isUsed = usedIdeas.has(ideaKey);
@@ -1551,7 +1567,7 @@ Focus on providing actionable research that will help create a comprehensive, di
                                 </div>
                                 );
                               })}
-                            </div>
+                            </div>}
                           </div>
                         ) : (
                           <div className="border border-dashed rounded-md p-4 flex items-center justify-between">
@@ -1593,10 +1609,15 @@ Focus on providing actionable research that will help create a comprehensive, di
                         {cluster.landing_page_ideas && cluster.landing_page_ideas.length > 0 ? (
                           <div>
                             <div className="flex items-center justify-between mb-2">
-                              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                              <button
+                                className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5 hover:text-foreground transition-colors"
+                                onClick={(e) => { e.stopPropagation(); toggleCollapsedSet(setCollapsedLandingPages, cluster.topic); }}
+                              >
+                                {collapsedLandingPages.has(cluster.topic) ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
                                 <FileText className="h-3.5 w-3.5" />
-                                Landing Pages
-                              </h4>
+                                Landing Pages ({cluster.landing_page_ideas!.length})
+                              </button>
+                              {!collapsedLandingPages.has(cluster.topic) && (
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -1607,8 +1628,9 @@ Focus on providing actionable research that will help create a comprehensive, di
                                 {generatingLandingPages === cluster.topic ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
                                 Regenerate
                               </Button>
+                              )}
                             </div>
-                            <div className="space-y-2">
+                            {!collapsedLandingPages.has(cluster.topic) && <div className="space-y-2">
                               {cluster.landing_page_ideas.map((page, i) => (
                                 <div key={i} className="border rounded-md p-3 space-y-1.5 hover:bg-muted/30 transition-colors">
                                   <div className="flex items-start justify-between gap-2">
@@ -1633,7 +1655,7 @@ Focus on providing actionable research that will help create a comprehensive, di
                                   )}
                                 </div>
                               ))}
-                            </div>
+                            </div>}
                           </div>
                         ) : (
                           <div className="border border-dashed rounded-md p-3 flex items-center justify-between">
