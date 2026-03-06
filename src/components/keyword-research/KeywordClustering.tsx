@@ -78,6 +78,7 @@ interface KeywordCluster {
   blog_ideas?: BlogIdea[];
   landing_page_ideas?: LandingPageIdea[];
   question_overrides?: string[]; // keywords manually moved to "questions"
+  silo_instructions?: string; // quick instructions for blog generation in this silo
 }
 
 interface ClusteringResult {
@@ -749,7 +750,7 @@ const KeywordClustering = () => {
       topic: cluster.topic,
       length: "medium",
       outline: "",
-      instructions: `Write a comprehensive article about ${cluster.topic}. ${cluster.description}`,
+      instructions: `Write a comprehensive article about ${cluster.topic}. ${cluster.description}${cluster.silo_instructions ? `\n\nSilo instructions: ${cluster.silo_instructions}` : ""}`,
     };
 
     localStorage.setItem("seo-generator-formData", JSON.stringify(formData));
@@ -773,7 +774,7 @@ const KeywordClustering = () => {
       topic: idea.title,
       length: "medium",
       outline: "",
-      instructions: "",
+      instructions: cluster.silo_instructions || "",
     };
 
     localStorage.setItem("seo-generator-formData", JSON.stringify(formData));
@@ -1303,6 +1304,38 @@ const KeywordClustering = () => {
                     <CollapsibleContent>
                       <CardContent className="pt-0 pb-4 px-4 space-y-4">
                         <p className="text-sm text-muted-foreground">{cluster.description}</p>
+                        
+                        {/* Quick instructions for blog generation */}
+                        <div className="space-y-1">
+                          <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                            <FileText className="h-3 w-3" />
+                            Silo Instructions
+                          </label>
+                          <Textarea
+                            placeholder="Add quick instructions for all blog posts in this silo (e.g., tone, audience, angle, things to include/avoid)..."
+                            className="text-sm min-h-[60px] resize-none"
+                            value={cluster.silo_instructions || ""}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (!result) return;
+                              const updatedResult: ClusteringResult = {
+                                ...result,
+                                clusters: result.clusters.map(c =>
+                                  c.topic === cluster.topic ? { ...c, silo_instructions: val } : c
+                                ),
+                              };
+                              setResult(updatedResult);
+                            }}
+                            onBlur={async () => {
+                              if (activeResultId && result) {
+                                await supabase
+                                  .from("keyword_clustering_results")
+                                  .update({ result: result as any })
+                                  .eq("id", activeResultId);
+                              }
+                            }}
+                          />
+                        </div>
                         
                         {/* Keywords column with volume - shows top 10 by default */}
                         {(() => {
