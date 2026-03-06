@@ -48,6 +48,7 @@ interface SemanticMap {
   notes: string;
   scanned_terms?: string[];
   url_extracted_terms?: string[];
+  scan_results?: ScanResult[];
 }
 
 // Legacy format for backward compatibility with saved research
