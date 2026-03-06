@@ -569,7 +569,72 @@ const KeywordClustering = () => {
     }
   };
 
-  const removeKeywordFromCluster = async (clusterTopic: string, keyword: string) => {
+  const generateLandingPages = async (clusterTopic: string) => {
+    if (!result) return;
+    const cluster = result.clusters.find(c => c.topic === clusterTopic);
+    if (!cluster) return;
+
+    // Filter to generic (non-question) keywords only
+    const genericKeywords = cluster.keywords.filter(kw => !isQuestionKeyword(kw));
+    if (genericKeywords.length === 0) {
+      toast({ title: "No generic keywords", description: "This silo only contains question keywords.", variant: "destructive" });
+      return;
+    }
+
+    const filteredCluster = {
+      ...cluster,
+      keywords: genericKeywords,
+      keyword_volumes: cluster.keyword_volumes ? Object.fromEntries(
+        Object.entries(cluster.keyword_volumes).filter(([kw]) => !isQuestionKeyword(kw))
+      ) : undefined,
+    };
+
+    setGeneratingLandingPages(clusterTopic);
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-landing-pages`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({ cluster: filteredCluster }),
+        }
+      );
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || `Failed: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const landingPages = data.landing_pages || [];
+
+      const updatedResult: ClusteringResult = {
+        ...result,
+        clusters: result.clusters.map(c =>
+          c.topic === clusterTopic ? { ...c, landing_page_ideas: landingPages } : c
+        ),
+      };
+
+      setResult(updatedResult);
+      toast({ title: `${landingPages.length} landing pages generated for "${clusterTopic}"` });
+
+      if (activeResultId) {
+        await supabase
+          .from("keyword_clustering_results")
+          .update({ result: updatedResult as any })
+          .eq("id", activeResultId);
+        loadSavedResults();
+      }
+    } catch (err: any) {
+      toast({ title: "Landing page generation failed", description: err.message, variant: "destructive" });
+    } finally {
+      setGeneratingLandingPages(null);
+    }
+  };
+
     if (!result) return;
     const updatedResult: ClusteringResult = {
       ...result,
