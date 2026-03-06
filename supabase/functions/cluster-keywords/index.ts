@@ -71,16 +71,16 @@ CRITICAL GROUPING LOGIC:
 - Think: "What is the COMMON THREAD across these keywords?" and name the silo after that thread.
 
 RULES:
-- Create 10-20 topic silos (never more than 20)
+- Create at most 12 topic silos (never more than 12)
 - Every keyword must be assigned to exactly one topic
-- Topic names should be clear, descriptive, and reflect the shared theme
+- Topic names MUST be based on the main/highest-volume keywords in that silo — use the actual keyword phrases as silo names (e.g. "dental implants cost" not "Dental Implant Pricing Information")
 - Numbers in brackets are search volumes — use them to inform grouping but don't output them
 - Output ONLY valid JSON, no markdown fences
 
 JSON FORMAT:
 {"assignments":{"keyword1":"Topic Name","keyword2":"Topic Name",...},"topics":["Topic Name 1","Topic Name 2",...]}`;
 
-    const pass1User = `Classify these ${uniqueKeywords.length} keywords into 10-20 topic silos (maximum 20):\n\n${kwLines}`;
+    const pass1User = `Classify these ${uniqueKeywords.length} keywords into topic silos (maximum 12):\n\n${kwLines}`;
 
     console.log("Pass 1: Classifying all keywords into topics...");
     const pass1Data = await callAI(LOVABLE_API_KEY, "google/gemini-2.5-flash-lite", [
