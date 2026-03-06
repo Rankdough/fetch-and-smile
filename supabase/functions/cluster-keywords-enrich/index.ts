@@ -10,7 +10,8 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { clusters } = await req.json();
+    const body = await req.json();
+    const { clusters, singleIdea, focusKeyword } = body;
 
     if (!clusters || !Array.isArray(clusters) || clusters.length === 0) {
       return new Response(JSON.stringify({ error: "Please provide clusters to enrich" }), {
@@ -20,6 +21,64 @@ serve(async (req) => {
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
+
+    // Single idea generation mode
+    if (singleIdea && focusKeyword) {
+      console.log(`Generating single blog idea for keyword: "${focusKeyword}" in cluster "${clusters[0].topic}"`);
+      
+      const singlePrompt = `You are an expert SEO content strategist. Generate exactly ONE blog idea for the keyword "${focusKeyword}" within the topic cluster "${clusters[0].topic}".
+
+OUTPUT ONLY valid JSON, no markdown fences.
+
+JSON FORMAT:
+{"enrichments":[{"topic":"${clusters[0].topic}","blog_ideas":[{"title":"...","description":"...","reason":"...","target_keywords":["${focusKeyword}",...],"value_promises":["Promise 1","Promise 2","Promise 3"]}]}]}
+
+TITLE RULES:
+- SHORT, SIMPLE, FACTUAL — max 8-10 words
+- Include "${focusKeyword}" naturally in the title
+- Prefer "keyword + question" or simple descriptive format
+- NEVER use filler phrases like "The Ultimate Guide", "A Beginner's Handbook", "Mastering", etc.
+
+RULES:
+- Generate exactly 1 blog idea
+- target_keywords: include "${focusKeyword}" plus 1-3 related keywords from the provided list
+- value_promises: exactly 3 concise promises of what the reader will learn`;
+
+      const c = clusters[0];
+      const kwList = c.keywords.join(", ");
+      const userMsg = `Cluster: "${c.topic}" (~${c.estimated_monthly_volume} monthly volume)\nKeywords: ${kwList}\n\nFocus keyword: "${focusKeyword}"`;
+
+      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash",
+          messages: [
+            { role: "system", content: singlePrompt },
+            { role: "user", content: userMsg },
+          ],
+          temperature: 0.7,
+        }),
+      });
+
+      if (!response.ok) {
+        const t = await response.text();
+        console.error("AI error:", response.status, t);
+        throw new Error(`AI gateway error: ${response.status}`);
+      }
+
+      const aiData = await response.json();
+      let content = aiData.choices?.[0]?.message?.content || "";
+      content = content.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
+      const parsed = JSON.parse(content);
+      
+      return new Response(JSON.stringify(parsed.enrichments?.[0] || parsed), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     console.log(`Pass 2: Enriching ${clusters.length} clusters with metadata & blog ideas...`);
 
