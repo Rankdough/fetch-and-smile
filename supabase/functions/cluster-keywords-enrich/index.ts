@@ -34,10 +34,10 @@ JSON FORMAT:
 {"enrichments":[{"topic":"${clusters[0].topic}","blog_ideas":[{"title":"...","description":"...","reason":"...","target_keywords":["${focusKeyword}",...],"value_promises":["Promise 1","Promise 2","Promise 3"]}]}]}
 
 TITLE RULES:
-- SHORT, SIMPLE, FACTUAL — max 8-10 words
-- Include "${focusKeyword}" naturally in the title
-- Prefer "keyword + question" or simple descriptive format
-- NEVER use filler phrases like "The Ultimate Guide", "A Beginner's Handbook", "Mastering", etc.
+- Format: "[Main Keyword]: [Natural Question]?" — e.g. "Cross-Country Running: How Do You Train for a Race?"
+- MUST contain "${focusKeyword}" verbatim, followed by a natural question.
+- Simple, short (6-12 words), conversational.
+- BANNED: "Ultimate Guide", "Beginner's Guide", "Handbook", "Comprehensive", "Everything You Need to Know", "Deep Dive", "Mastering", "Unpacking", "Unlocking", "Navigate", "Essential", "Your", "Checklist".
 
 RULES:
 - Generate exactly 1 blog idea
@@ -90,11 +90,11 @@ JSON FORMAT:
 {"enrichments":[{"topic":"Exact Topic Name","description":"1-sentence description of this cluster","content_type":"blog_post|landing_page|guide|comparison|listicle|how_to","difficulty":"low|medium|high","priority":"high|medium|low","blog_ideas":[{"title":"...","description":"...","reason":"...","target_keywords":["keyword1","keyword2","keyword3"],"value_promises":["Promise 1: what the reader will learn/gain","Promise 2: what the reader will learn/gain","Promise 3: what the reader will learn/gain"]}]}]}
 
 BLOG IDEA TITLE RULES:
-- Titles must be SHORT, SIMPLE, and FACTUAL — max 8-10 words.
-- Include the main target keyword naturally in the title.
-- Prefer "keyword + question" format (e.g. "Track and Field Events: What Are They?") or simple descriptive format (e.g. "Track and Field Throwing Events Explained").
-- NEVER use filler phrases like "The Ultimate Guide", "A Beginner's Handbook", "Unlocking the Secrets", "Everything You Need to Know", "Comprehensive Overview", "Deep Dive", "Mastering", "Unpacking".
-- Just describe what the article covers using the target keywords. Be direct and factual.
+- Format: "[Main Keyword]: [Natural Question]?" — e.g. "Cross-Country Running: How Do You Train for a Race?", "Track Pants: What Are They Made Of?"
+- The title MUST contain the primary target keyword verbatim, followed by a natural question.
+- Keep it simple, short (6-12 words), and conversational — like how a real person would ask.
+- BANNED phrases (never use these in titles): "Ultimate Guide", "Beginner's Guide", "Beginner's Handbook", "Comprehensive", "Everything You Need to Know", "Deep Dive", "Mastering", "Unpacking", "Unlocking", "Navigate", "Essential", "Your", "Handbook", "Checklist".
+- NO sales language, no hype, no AI-sounding filler. Just keyword + question.
 
 RULES:
 - Exactly 5 blog ideas per cluster
