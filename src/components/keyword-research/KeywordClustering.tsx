@@ -1632,18 +1632,9 @@ const KeywordClustering = () => {
                                   size="sm"
                                   className="gap-1 text-xs h-6 px-2 text-muted-foreground"
                                   disabled={enrichingSilo !== null || isAnalyzing}
-                                  onClick={(e) => { e.stopPropagation(); reEnrichSingleCluster(cluster.topic, "generic"); }}
-                                >
-                                  + Generic
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="gap-1 text-xs h-6 px-2 text-muted-foreground"
-                                  disabled={enrichingSilo !== null || isAnalyzing}
                                   onClick={(e) => { e.stopPropagation(); reEnrichSingleCluster(cluster.topic, "questions"); }}
                                 >
-                                  + Questions
+                                  + Blog Ideas
                                 </Button>
                               </div>
                               )}
