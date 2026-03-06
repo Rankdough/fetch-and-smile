@@ -1523,6 +1523,68 @@ Focus on providing actionable research that will help create a comprehensive, di
                             </div>
                           </div>
                         )}
+
+                        {/* Landing Page Ideas */}
+                        {cluster.landing_page_ideas && cluster.landing_page_ideas.length > 0 ? (
+                          <div>
+                            <div className="flex items-center justify-between mb-2">
+                              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                                <FileText className="h-3.5 w-3.5" />
+                                Landing Pages
+                              </h4>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="gap-1 text-xs h-6 px-2 text-muted-foreground"
+                                disabled={generatingLandingPages !== null || isAnalyzing}
+                                onClick={(e) => { e.stopPropagation(); generateLandingPages(cluster.topic); }}
+                              >
+                                {generatingLandingPages === cluster.topic ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                                Regenerate
+                              </Button>
+                            </div>
+                            <div className="space-y-2">
+                              {cluster.landing_page_ideas.map((page, i) => (
+                                <div key={i} className="border rounded-md p-3 space-y-1.5 hover:bg-muted/30 transition-colors">
+                                  <div className="flex items-start justify-between gap-2">
+                                    <p className="text-sm font-medium flex items-center gap-1.5">
+                                      <span className="text-muted-foreground text-xs">{i + 1}</span>
+                                      {page.title}
+                                    </p>
+                                  </div>
+                                  <p className="text-xs text-muted-foreground">{page.description}</p>
+                                  {page.target_keywords && page.target_keywords.length > 0 && (
+                                    <div className="flex flex-wrap gap-1 mt-1">
+                                      {page.target_keywords.map((kw, ki) => {
+                                        const vol = cluster.keyword_volumes?.[kw] ?? cluster.keyword_volumes?.[kw.toLowerCase()];
+                                        return (
+                                          <Badge key={ki} variant="secondary" className="text-[10px] px-1.5 py-0 gap-1">
+                                            {kw}
+                                            {vol != null && <span className="text-primary font-semibold">{formatVolume(vol)}</span>}
+                                          </Badge>
+                                        );
+                                      })}
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="border border-dashed rounded-md p-3 flex items-center justify-between">
+                            <p className="text-sm text-muted-foreground">No landing pages generated yet.</p>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="gap-1.5 text-xs"
+                              disabled={generatingLandingPages !== null || isAnalyzing}
+                              onClick={(e) => { e.stopPropagation(); generateLandingPages(cluster.topic); }}
+                            >
+                              {generatingLandingPages === cluster.topic ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Target className="h-3.5 w-3.5" />}
+                              Generate Landing Pages
+                            </Button>
+                          </div>
+                        )}
                       </CardContent>
                     </CollapsibleContent>
                   </Card>
