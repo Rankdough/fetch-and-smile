@@ -352,10 +352,15 @@ const KeywordResearch = () => {
       setSemanticMap(saved.results);
       setLegacyResults(null);
       setOpenClusters(new Set(saved.results.clusters.map(c => c.cluster_name)));
+      // Restore scanned terms from saved data
+      setScannedTerms(saved.results.scanned_terms || []);
+      setUrlExtractedTerms(saved.results.url_extracted_terms || []);
     } else if (isLegacy(saved.results)) {
       setLegacyResults(saved.results);
       setSemanticMap(null);
       setOpenClusters(new Set(saved.results.categories.map(c => c.name)));
+      setScannedTerms([]);
+      setUrlExtractedTerms([]);
     }
   };
 
