@@ -1288,17 +1288,41 @@ const KeywordClustering = () => {
                                     return (
                                       <div
                                         key={i}
-                                        className="grid grid-cols-[1fr_auto] gap-x-4 px-3 py-1.5 text-sm border-b last:border-b-0 hover:bg-muted/30 transition-colors group/kw"
+                                        className="grid grid-cols-[1fr_auto] gap-x-4 px-3 py-2 text-[15px] border-b last:border-b-0 hover:bg-muted/30 transition-colors group/kw"
                                       >
                                         <span
-                                          className="truncate cursor-pointer"
+                                          className="truncate cursor-pointer text-foreground font-medium"
                                           onClick={() => {
                                             navigator.clipboard.writeText(kw);
                                             toast({ title: "Copied", description: kw });
                                           }}
                                         >{kw}</span>
-                                        <span className="text-right text-muted-foreground tabular-nums flex items-center gap-2 justify-end">
+                                        <span className="text-right text-foreground/70 tabular-nums flex items-center gap-1.5 justify-end font-medium">
                                           <span>{vol != null ? formatVolume(vol) : "—"}</span>
+                                          {filterMode === "generic" && (
+                                            <button
+                                              className="opacity-0 group-hover/kw:opacity-100 transition-opacity text-primary hover:text-primary/80 p-0.5"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                toggleKeywordAsQuestion(cluster.topic, kw);
+                                              }}
+                                              title="Move to Questions"
+                                            >
+                                              <ArrowRight className="h-3.5 w-3.5" />
+                                            </button>
+                                          )}
+                                          {filterMode === "questions" && overrides.has(kw) && (
+                                            <button
+                                              className="opacity-0 group-hover/kw:opacity-100 transition-opacity text-primary hover:text-primary/80 p-0.5"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                toggleKeywordAsQuestion(cluster.topic, kw);
+                                              }}
+                                              title="Move back to Generic"
+                                            >
+                                              <ArrowRight className="h-3.5 w-3.5 rotate-180" />
+                                            </button>
+                                          )}
                                           <button
                                             className="opacity-0 group-hover/kw:opacity-100 transition-opacity text-destructive hover:text-destructive/80 p-0.5"
                                             onClick={(e) => {
@@ -1307,7 +1331,7 @@ const KeywordClustering = () => {
                                             }}
                                             title="Remove keyword"
                                           >
-                                            <Trash2 className="h-3 w-3" />
+                                            <Trash2 className="h-3.5 w-3.5" />
                                           </button>
                                         </span>
                                       </div>
