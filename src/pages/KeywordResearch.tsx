@@ -33,6 +33,8 @@ interface SemanticMap {
   cross_cutting_modifiers: string[];
   negative_keywords: string[];
   notes: string;
+  scanned_terms?: string[];
+  url_extracted_terms?: string[];
 }
 
 // Legacy format for backward compatibility with saved research
