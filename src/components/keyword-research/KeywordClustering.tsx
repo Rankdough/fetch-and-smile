@@ -785,7 +785,27 @@ const KeywordClustering = () => {
     }
   };
 
-  const createIdeaFromKeyword = async (clusterTopic: string, keyword: string, keywordFilter?: "generic" | "questions") => {
+  const deleteIdeaFromCluster = async (clusterTopic: string, ideaIndex: number) => {
+    if (!result) return;
+    const updatedResult: ClusteringResult = {
+      ...result,
+      clusters: result.clusters.map(c => {
+        if (c.topic !== clusterTopic) return c;
+        const updatedIdeas = (c.blog_ideas || []).filter((_, idx) => idx !== ideaIndex);
+        return { ...c, blog_ideas: updatedIdeas };
+      }),
+    };
+    setResult(updatedResult);
+    toast({ title: "Blog idea deleted", description: "Keywords are now unassigned." });
+    if (activeResultId) {
+      await supabase
+        .from("keyword_clustering_results")
+        .update({ result: updatedResult as any })
+        .eq("id", activeResultId);
+    }
+  };
+
+
     if (!result) return;
     const cluster = result.clusters.find(c => c.topic === clusterTopic);
     if (!cluster) return;
