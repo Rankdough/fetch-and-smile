@@ -122,6 +122,7 @@ const KeywordClustering = () => {
   const [keywordsWithVolume, setKeywordsWithVolume] = useState<KeywordWithVolume[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [enrichingSilo, setEnrichingSilo] = useState<string | null>(null);
+  const [generatingLandingPages, setGeneratingLandingPages] = useState<string | null>(null);
   const [analysisStage, setAnalysisStage] = useState<"classify" | "enrich" | null>(null);
   const [result, setResult] = useState<ClusteringResult | null>(null);
   const [usedIdeas, setUsedIdeas] = useState<Set<string>>(getUsedIdeas);
