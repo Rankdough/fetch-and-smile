@@ -1746,15 +1746,40 @@ const KeywordClustering = () => {
                                           </div>
                                           {/* Full keyword list with volumes */}
                                           <div className="flex flex-wrap items-center gap-1">
-                                            {idea.target_keywords!.map((kw, ki) => {
+                                             {idea.target_keywords!.map((kw, ki) => {
                                               const vol = getVol(kw);
+                                              const otherIdeas = (cluster.blog_ideas || []).filter((_, idx) => idx !== i);
                                               return (
-                                                <span key={ki} className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-medium">
-                                                  {kw}
-                                                  {vol != null && vol > 0 && (
-                                                    <span className="text-primary/70 font-semibold">{vol.toLocaleString()}</span>
+                                                <Popover key={ki}>
+                                                  <PopoverTrigger asChild>
+                                                    <button className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-medium hover:bg-muted/70 hover:ring-1 hover:ring-primary/30 transition-all cursor-pointer">
+                                                      {kw}
+                                                      {vol != null && vol > 0 && (
+                                                        <span className="text-primary/70 font-semibold">{vol.toLocaleString()}</span>
+                                                      )}
+                                                    </button>
+                                                  </PopoverTrigger>
+                                                  {otherIdeas.length > 0 && (
+                                                    <PopoverContent side="bottom" align="start" className="w-72 p-2">
+                                                      <p className="text-[10px] font-semibold text-muted-foreground mb-1.5">Reassign "{kw}" to:</p>
+                                                      <div className="space-y-0.5 max-h-40 overflow-y-auto">
+                                                        {(cluster.blog_ideas || []).map((targetIdea, targetIdx) => {
+                                                          if (targetIdx === i) return null;
+                                                          return (
+                                                            <button
+                                                              key={targetIdx}
+                                                              className="w-full text-left px-2 py-1.5 rounded text-xs hover:bg-muted transition-colors whitespace-normal break-words leading-snug"
+                                                              onClick={() => reassignKeyword(cluster.topic, kw, i, targetIdx)}
+                                                            >
+                                                              <span className="text-muted-foreground mr-1">{targetIdx + 1}.</span>
+                                                              {targetIdea.title}
+                                                            </button>
+                                                          );
+                                                        })}
+                                                      </div>
+                                                    </PopoverContent>
                                                   )}
-                                                </span>
+                                                </Popover>
                                               );
                                             })}
                                           </div>
