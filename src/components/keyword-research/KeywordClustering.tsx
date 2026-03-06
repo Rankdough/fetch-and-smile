@@ -635,6 +635,7 @@ const KeywordClustering = () => {
     }
   };
 
+  const removeKeywordFromCluster = async (clusterTopic: string, keyword: string) => {
     if (!result) return;
     const updatedResult: ClusteringResult = {
       ...result,
