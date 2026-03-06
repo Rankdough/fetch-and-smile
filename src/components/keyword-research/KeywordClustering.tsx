@@ -1257,25 +1257,25 @@ const KeywordClustering = () => {
                           };
                           return (
                             <div>
-                              <div className="flex items-center gap-1.5 mb-2 flex-wrap">
-                                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Keywords</h4>
+                              <div className="flex items-center gap-2 mb-2 flex-wrap">
+                                <h4 className="text-sm font-semibold text-foreground/70 uppercase tracking-wide">Keywords</h4>
                                 <Badge
                                   variant={filterMode === "all" ? "default" : "outline"}
-                                  className="text-[10px] px-1.5 py-0 cursor-pointer"
+                                  className="text-xs px-2.5 py-0.5 cursor-pointer font-medium"
                                   onClick={() => setFilter("all")}
                                 >
                                   All {cluster.keywords.length}
                                 </Badge>
                                 <Badge
                                   variant={filterMode === "generic" ? "default" : "outline"}
-                                  className="text-[10px] px-1.5 py-0 cursor-pointer"
+                                  className="text-xs px-2.5 py-0.5 cursor-pointer font-medium"
                                   onClick={() => setFilter("generic")}
                                 >
                                   Generic {genericKws.length}
                                 </Badge>
                                 <Badge
                                   variant={filterMode === "questions" ? "default" : "outline"}
-                                  className="text-[10px] px-1.5 py-0 cursor-pointer"
+                                  className="text-xs px-2.5 py-0.5 cursor-pointer font-medium"
                                   onClick={() => setFilter("questions")}
                                 >
                                   Questions {questionKws.length}
