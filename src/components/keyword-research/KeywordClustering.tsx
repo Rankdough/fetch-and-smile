@@ -535,6 +535,34 @@ const KeywordClustering = () => {
     }
   };
 
+  const removeKeywordFromCluster = async (clusterTopic: string, keyword: string) => {
+    if (!result) return;
+    const updatedResult: ClusteringResult = {
+      ...result,
+      clusters: result.clusters.map(c => {
+        if (c.topic !== clusterTopic) return c;
+        const newKeywords = c.keywords.filter(k => k !== keyword);
+        const newVolumes = c.keyword_volumes ? { ...c.keyword_volumes } : undefined;
+        if (newVolumes) delete newVolumes[keyword];
+        const removedVol = c.keyword_volumes?.[keyword] ?? 0;
+        return {
+          ...c,
+          keywords: newKeywords,
+          keyword_volumes: newVolumes,
+          estimated_monthly_volume: c.estimated_monthly_volume - removedVol,
+        };
+      }).filter(c => c.keywords.length > 0),
+      total_keywords_clustered: result.total_keywords_clustered - 1,
+    };
+    setResult(updatedResult);
+    if (activeResultId) {
+      await supabase
+        .from("keyword_clustering_results")
+        .update({ result: updatedResult as any })
+        .eq("id", activeResultId);
+    }
+  };
+
   const clearGeneratorState = () => {
     const keysToRemove = [
       "seo-generator-formData", "seo-generator-internalLinks", "seo-generator-competitorUrls",
