@@ -205,6 +205,56 @@ const KeywordResearch = () => {
     return [...combined];
   };
 
+  // Parse Ahrefs CSV and extract keywords
+  const handleSeedFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+    const maxFiles = 3 - uploadedSeedFiles.length;
+    const filesToProcess = Array.from(files).slice(0, maxFiles);
+
+    filesToProcess.forEach(file => {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const text = ev.target?.result as string;
+        if (!text) return;
+        const lines = text.split("\n");
+        if (lines.length < 2) return;
+
+        // Find the "Keyword" column index from header
+        const header = lines[0];
+        // Handle quoted CSV fields
+        const headerCols = header.split(",").map(h => h.trim().replace(/^"|"$/g, ""));
+        let kwIndex = headerCols.findIndex(h => h.toLowerCase() === "keyword");
+        if (kwIndex === -1) kwIndex = 1; // Ahrefs default: column 2
+
+        const keywords: string[] = [];
+        for (let i = 1; i < lines.length; i++) {
+          const line = lines[i].trim();
+          if (!line) continue;
+          // Simple CSV split (handles quoted fields with commas)
+          const cols: string[] = [];
+          let current = "";
+          let inQuotes = false;
+          for (const ch of line) {
+            if (ch === '"') { inQuotes = !inQuotes; continue; }
+            if (ch === ',' && !inQuotes) { cols.push(current.trim()); current = ""; continue; }
+            current += ch;
+          }
+          cols.push(current.trim());
+
+          const kw = cols[kwIndex]?.toLowerCase().trim();
+          if (kw && kw.length >= 2) keywords.push(kw);
+        }
+
+        setUploadedSeedFiles(prev => [...prev, { name: file.name, keywords }]);
+        toast({ title: `Loaded ${keywords.length} keywords`, description: file.name });
+      };
+      reader.readAsText(file);
+    });
+    // Reset input so same file can be re-uploaded
+    e.target.value = "";
+  };
+
   // Website scan — scan all sites with URLs
   const scanWebsites = async () => {
     const sitesToScan = scanSites.filter(s => s.url.trim());
