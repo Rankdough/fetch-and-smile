@@ -805,7 +805,7 @@ const KeywordClustering = () => {
     }
   };
 
-
+  const createIdeaFromKeyword = async (clusterTopic: string, keyword: string, keywordFilter?: "generic" | "questions") => {
     if (!result) return;
     const cluster = result.clusters.find(c => c.topic === clusterTopic);
     if (!cluster) return;
