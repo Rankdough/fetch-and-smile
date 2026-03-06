@@ -1355,10 +1355,7 @@ const KeywordClustering = () => {
                             const vb = cluster.keyword_volumes?.[b] ?? 0;
                             return vb - va;
                           });
-                          const INITIAL_SHOW = 10;
-                          const hasMore = sortedKws.length > INITIAL_SHOW;
-                          const isExpanded = expandedKeywordSilos.has(cluster.topic);
-                          const displayKws = isExpanded ? sortedKws : sortedKws.slice(0, INITIAL_SHOW);
+                          const displayKws = sortedKws;
                           const setFilter = (mode: "all" | "generic" | "questions") => {
                             setKwFilterMode(prev => ({ ...prev, [cluster.topic]: mode }));
                             setExpandedKeywordSilos(prev => { const n = new Set(prev); n.delete(cluster.topic); return n; });
