@@ -11,9 +11,10 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { supabase } from "@/integrations/supabase/client";
 import {
   Upload, Layers, ChevronDown, ChevronRight, Loader2, Square,
-  TrendingUp, FileText, Copy, Download, BarChart3, Target, Info, Lightbulb, Trash2, RefreshCw, ArrowRight, Search, Bookmark, Clock, Star
+  TrendingUp, FileText, Copy, Download, BarChart3, Target, Info, Lightbulb, Trash2, RefreshCw, ArrowRight, Search, Bookmark, Clock, Star, Plus
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Check } from "lucide-react";
 
 const USED_IDEAS_KEY = "kw-used-blog-ideas";
@@ -703,6 +704,31 @@ const KeywordClustering = () => {
     }
   };
 
+  const assignKeywordToIdea = async (clusterTopic: string, keyword: string, ideaIndex: number) => {
+    if (!result) return;
+    const updatedResult: ClusteringResult = {
+      ...result,
+      clusters: result.clusters.map(c => {
+        if (c.topic !== clusterTopic) return c;
+        const updatedIdeas = (c.blog_ideas || []).map((idea, i) => {
+          if (i !== ideaIndex) return idea;
+          const existing = idea.target_keywords || [];
+          if (existing.some(k => k.toLowerCase() === keyword.toLowerCase())) return idea;
+          return { ...idea, target_keywords: [...existing, keyword] };
+        });
+        return { ...c, blog_ideas: updatedIdeas };
+      }),
+    };
+    setResult(updatedResult);
+    toast({ title: "Keyword assigned", description: `"${keyword}" added to blog idea #${ideaIndex + 1}` });
+    if (activeResultId) {
+      await supabase
+        .from("keyword_clustering_results")
+        .update({ result: updatedResult as any })
+        .eq("id", activeResultId);
+    }
+  };
+
   const clearGeneratorState = () => {
     const keysToRemove = [
       "seo-generator-formData", "seo-generator-internalLinks", "seo-generator-competitorUrls",
@@ -1333,10 +1359,16 @@ const KeywordClustering = () => {
                                 <div className={isExpanded ? "max-h-[400px] overflow-y-auto" : ""}>
                                   {displayKws.map((kw, i) => {
                                     const vol = cluster.keyword_volumes?.[kw];
+                                    const isAssigned = (() => {
+                                      const kwLower = kw.toLowerCase().trim();
+                                      return (cluster.blog_ideas || []).some(idea => (idea.target_keywords || []).some(tk => tk.toLowerCase().trim() === kwLower))
+                                        || (cluster.landing_page_ideas || []).some(page => (page.target_keywords || []).some(tk => tk.toLowerCase().trim() === kwLower));
+                                    })();
+                                    const blogIdeas = cluster.blog_ideas || [];
                                     return (
                                       <div
                                         key={i}
-                                        className="grid grid-cols-[1fr_auto] gap-x-4 px-3 py-2 text-[15px] border-b last:border-b-0 hover:bg-muted/30 transition-colors group/kw"
+                                        className={`grid grid-cols-[1fr_auto] gap-x-4 px-3 py-2 text-[15px] border-b last:border-b-0 hover:bg-muted/30 transition-colors group/kw ${!isAssigned && blogIdeas.length > 0 ? "bg-amber-50/50 dark:bg-amber-950/10" : ""}`}
                                       >
                                         <span className="flex items-center gap-1.5 truncate">
                                           {(() => {
@@ -1381,6 +1413,37 @@ const KeywordClustering = () => {
                                         </span>
                                         <span className="text-right text-foreground/70 tabular-nums flex items-center gap-1.5 justify-end font-medium">
                                           <span>{vol != null ? formatVolume(vol) : "—"}</span>
+                                          {!isAssigned && blogIdeas.length > 0 && (
+                                            <Popover>
+                                              <PopoverTrigger asChild>
+                                                <button
+                                                  className="text-amber-600 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300 p-0.5 shrink-0"
+                                                  onClick={(e) => e.stopPropagation()}
+                                                  title="Assign to a blog idea"
+                                                >
+                                                  <Plus className="h-3.5 w-3.5" />
+                                                </button>
+                                              </PopoverTrigger>
+                                              <PopoverContent side="left" align="start" className="w-72 p-2">
+                                                <p className="text-xs font-semibold text-muted-foreground mb-2">Assign "{kw}" to:</p>
+                                                <div className="space-y-1 max-h-48 overflow-y-auto">
+                                                  {blogIdeas.map((idea, idx) => (
+                                                    <button
+                                                      key={idx}
+                                                      className="w-full text-left px-2 py-1.5 rounded text-xs hover:bg-muted transition-colors truncate"
+                                                      onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        assignKeywordToIdea(cluster.topic, kw, idx);
+                                                      }}
+                                                    >
+                                                      <span className="text-muted-foreground mr-1">{idx + 1}.</span>
+                                                      {idea.title}
+                                                    </button>
+                                                  ))}
+                                                </div>
+                                              </PopoverContent>
+                                            </Popover>
+                                          )}
                                           <button
                                             className="opacity-0 group-hover/kw:opacity-100 transition-opacity text-destructive hover:text-destructive/80 p-0.5"
                                             onClick={(e) => {
