@@ -76,6 +76,7 @@ interface KeywordCluster {
   priority: "high" | "medium" | "low";
   blog_ideas?: BlogIdea[];
   landing_page_ideas?: LandingPageIdea[];
+  question_overrides?: string[]; // keywords manually moved to "questions"
 }
 
 interface ClusteringResult {
