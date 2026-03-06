@@ -78,11 +78,10 @@ const KeywordResearch = () => {
   const [topic, setTopic] = useState("");
   const [audience, setAudience] = useState("");
   const [country, setCountry] = useState("");
-  const [websiteUrl, setWebsiteUrl] = useState("");
-  const [urlFilterKeywords, setUrlFilterKeywords] = useState("");
+  const [scanSites, setScanSites] = useState<ScanSite[]>([{ url: "", filter: "" }]);
   const [isScanning, setIsScanning] = useState(false);
+  const [scanResults, setScanResults] = useState<ScanResult[]>([]);
   const [scannedTerms, setScannedTerms] = useState<string[]>([]);
-  const [scanStats, setScanStats] = useState<{ url: string; urlCount: number; filteredCount?: number } | null>(null);
   const [scanBlocked, setScanBlocked] = useState(false);
   const [manualSeeds, setManualSeeds] = useState("");
   const [urlListInput, setUrlListInput] = useState("");
