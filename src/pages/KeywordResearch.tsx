@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -85,6 +85,14 @@ const KeywordResearch = () => {
   const abortControllerRef = useRef<AbortController | null>(null);
   const resultsRef = useRef<HTMLDivElement | null>(null);
   const [isGeneratorOpen, setIsGeneratorOpen] = useState(true);
+
+  // Set of normalised scanned+URL-extracted terms for tagging in results
+  const scannedTermsSet = useMemo(() => {
+    const set = new Set<string>();
+    for (const t of scannedTerms) set.add(t.toLowerCase().trim());
+    for (const t of urlExtractedTerms) set.add(t.toLowerCase().trim());
+    return set;
+  }, [scannedTerms, urlExtractedTerms]);
 
   useEffect(() => {
     loadSavedResearch();
@@ -687,19 +695,23 @@ const KeywordResearch = () => {
                                 </Button>
                               </div>
                               <div className="flex flex-wrap gap-1.5">
-                                {cluster.seed_keywords.map((kw, i) => (
-                                  <Badge
-                                    key={i}
-                                    variant="secondary"
-                                    className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors text-xs"
-                                    onClick={() => {
-                                      navigator.clipboard.writeText(kw);
-                                      toast({ title: "Copied", description: kw });
-                                    }}
-                                  >
-                                    {kw}
-                                  </Badge>
-                                ))}
+                                {cluster.seed_keywords.map((kw, i) => {
+                                  const isFromScan = scannedTermsSet.has(kw.toLowerCase().trim());
+                                  return (
+                                    <Badge
+                                      key={i}
+                                      variant="secondary"
+                                      className={`cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors text-xs ${isFromScan ? 'ring-1 ring-primary/50 bg-primary/10' : ''}`}
+                                      onClick={() => {
+                                        navigator.clipboard.writeText(kw);
+                                        toast({ title: "Copied", description: kw });
+                                      }}
+                                    >
+                                      {isFromScan && <Globe className="h-3 w-3 mr-1 text-primary" />}
+                                      {kw}
+                                    </Badge>
+                                  );
+                                })}
                               </div>
                             </TabsContent>
 
