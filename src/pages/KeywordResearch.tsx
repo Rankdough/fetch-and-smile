@@ -200,7 +200,8 @@ const KeywordResearch = () => {
   // Combine scanned terms + manual seeds + URL-extracted terms
   const getAllSeeds = (): string[] => {
     const manual = manualSeeds.split(/[\n,]+/).map(s => s.trim().toLowerCase()).filter(s => s.length >= 2);
-    const combined = new Set([...scannedTerms, ...manual, ...urlExtractedTerms]);
+    const fileKeywords = uploadedSeedFiles.flatMap(f => f.keywords);
+    const combined = new Set([...scannedTerms, ...manual, ...urlExtractedTerms, ...fileKeywords]);
     return [...combined];
   };
 
