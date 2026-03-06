@@ -1235,23 +1235,36 @@ const KeywordClustering = () => {
                                 <Lightbulb className="h-3.5 w-3.5" />
                                 Blog Ideas
                               </h4>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="gap-1 text-xs h-6 px-2 text-muted-foreground"
-                                disabled={enrichingSilo !== null || isAnalyzing}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  reEnrichSingleCluster(cluster.topic);
-                                }}
-                              >
-                                {enrichingSilo === cluster.topic ? (
-                                  <Loader2 className="h-3 w-3 animate-spin" />
-                                ) : (
-                                  <RefreshCw className="h-3 w-3" />
-                                )}
-                                {enrichingSilo === cluster.topic ? "Regenerating..." : "Regenerate Ideas"}
-                              </Button>
+                              <div className="flex items-center gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="gap-1 text-xs h-6 px-2 text-muted-foreground"
+                                  disabled={enrichingSilo !== null || isAnalyzing}
+                                  onClick={(e) => { e.stopPropagation(); reEnrichSingleCluster(cluster.topic); }}
+                                >
+                                  {enrichingSilo === cluster.topic ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                                  Regenerate
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="gap-1 text-xs h-6 px-2 text-muted-foreground"
+                                  disabled={enrichingSilo !== null || isAnalyzing}
+                                  onClick={(e) => { e.stopPropagation(); reEnrichSingleCluster(cluster.topic, "generic"); }}
+                                >
+                                  + Generic
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="gap-1 text-xs h-6 px-2 text-muted-foreground"
+                                  disabled={enrichingSilo !== null || isAnalyzing}
+                                  onClick={(e) => { e.stopPropagation(); reEnrichSingleCluster(cluster.topic, "questions"); }}
+                                >
+                                  + Questions
+                                </Button>
+                              </div>
                             </div>
                             <div className="space-y-2">
                               {cluster.blog_ideas.map((idea, i) => {
