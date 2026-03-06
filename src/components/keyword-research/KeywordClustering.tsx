@@ -1052,42 +1052,65 @@ const KeywordClustering = () => {
                       <CardContent className="pt-0 pb-4 px-4 space-y-4">
                         <p className="text-sm text-muted-foreground">{cluster.description}</p>
                         
-                        {/* Keywords column with volume - collapsible, collapsed by default */}
-                        <Collapsible>
-                          <CollapsibleTrigger className="flex items-center gap-1.5 group">
-                            <ChevronRight className="h-3.5 w-3.5 text-muted-foreground transition-transform group-data-[state=open]:rotate-90" />
-                            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Keywords</h4>
-                            <Badge variant="outline" className="text-[10px] px-1.5 py-0">{cluster.keywords.length}</Badge>
-                          </CollapsibleTrigger>
-                          <CollapsibleContent>
-                            <div className="border rounded-md overflow-hidden mt-2">
-                              <div className="grid grid-cols-[1fr_auto] gap-x-4 px-3 py-1.5 bg-muted/50 text-xs font-medium text-muted-foreground border-b">
-                                <span>Keyword</span>
-                                <span className="text-right">Volume</span>
+                        {/* Keywords column with volume - shows top 10 by default */}
+                        {(() => {
+                          const sortedKws = [...cluster.keywords].sort((a, b) => {
+                            const va = cluster.keyword_volumes?.[a] ?? 0;
+                            const vb = cluster.keyword_volumes?.[b] ?? 0;
+                            return vb - va;
+                          });
+                          const INITIAL_SHOW = 10;
+                          const hasMore = sortedKws.length > INITIAL_SHOW;
+                          const expandedKey = `kw-expanded-${cluster.topic}`;
+                          const isExpanded = expandedKeywordSilos.has(cluster.topic);
+                          const displayKws = isExpanded ? sortedKws : sortedKws.slice(0, INITIAL_SHOW);
+                          return (
+                            <div>
+                              <div className="flex items-center gap-1.5 mb-2">
+                                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Keywords</h4>
+                                <Badge variant="outline" className="text-[10px] px-1.5 py-0">{cluster.keywords.length}</Badge>
                               </div>
-                              <div className="max-h-[300px] overflow-y-auto">
-                                {cluster.keywords.map((kw, i) => {
-                                  const vol = cluster.keyword_volumes?.[kw];
-                                  return (
-                                    <div
-                                      key={i}
-                                      className="grid grid-cols-[1fr_auto] gap-x-4 px-3 py-1.5 text-sm border-b last:border-b-0 hover:bg-muted/30 cursor-pointer transition-colors"
-                                      onClick={() => {
-                                        navigator.clipboard.writeText(kw);
-                                        toast({ title: "Copied", description: kw });
-                                      }}
-                                    >
-                                      <span className="truncate">{kw}</span>
-                                      <span className="text-right text-muted-foreground tabular-nums">
-                                        {vol != null ? formatVolume(vol) : "—"}
-                                      </span>
-                                    </div>
-                                  );
-                                })}
+                              <div className="border rounded-md overflow-hidden">
+                                <div className="grid grid-cols-[1fr_auto] gap-x-4 px-3 py-1.5 bg-muted/50 text-xs font-medium text-muted-foreground border-b">
+                                  <span>Keyword</span>
+                                  <span className="text-right">Volume</span>
+                                </div>
+                                <div className={isExpanded ? "max-h-[400px] overflow-y-auto" : ""}>
+                                  {displayKws.map((kw, i) => {
+                                    const vol = cluster.keyword_volumes?.[kw];
+                                    return (
+                                      <div
+                                        key={i}
+                                        className="grid grid-cols-[1fr_auto] gap-x-4 px-3 py-1.5 text-sm border-b last:border-b-0 hover:bg-muted/30 cursor-pointer transition-colors"
+                                        onClick={() => {
+                                          navigator.clipboard.writeText(kw);
+                                          toast({ title: "Copied", description: kw });
+                                        }}
+                                      >
+                                        <span className="truncate">{kw}</span>
+                                        <span className="text-right text-muted-foreground tabular-nums">
+                                          {vol != null ? formatVolume(vol) : "—"}
+                                        </span>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                                {hasMore && (
+                                  <button
+                                    className="w-full px-3 py-2 text-xs text-primary hover:bg-muted/50 border-t transition-colors font-medium"
+                                    onClick={() => setExpandedKeywordSilos(prev => {
+                                      const next = new Set(prev);
+                                      if (next.has(cluster.topic)) next.delete(cluster.topic); else next.add(cluster.topic);
+                                      return next;
+                                    })}
+                                  >
+                                    {isExpanded ? "Show less" : `Show all ${sortedKws.length} keywords`}
+                                  </button>
+                                )}
                               </div>
                             </div>
-                          </CollapsibleContent>
-                        </Collapsible>
+                          );
+                        })()}
 
                         {/* Blog Ideas */}
                         {cluster.blog_ideas && cluster.blog_ideas.length > 0 ? (
