@@ -78,6 +78,7 @@ interface KeywordCluster {
   blog_ideas?: BlogIdea[];
   landing_page_ideas?: LandingPageIdea[];
   question_overrides?: string[]; // keywords manually moved to "questions"
+  silo_instructions?: string; // quick instructions for blog generation in this silo
 }
 
 interface ClusteringResult {
