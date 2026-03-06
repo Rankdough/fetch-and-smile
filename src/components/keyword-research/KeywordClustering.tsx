@@ -1232,7 +1232,8 @@ const KeywordClustering = () => {
                         
                         {/* Keywords column with volume - shows top 10 by default */}
                         {(() => {
-                          const isQuestion = (kw: string) => /^(who|what|where|when|why|how|is|are|can|do|does|did|will|would|should|could|which|shall)\b/i.test(kw.trim());
+                          const overrides = new Set(cluster.question_overrides || []);
+                          const isQuestion = (kw: string) => overrides.has(kw) || /^(who|what|where|when|why|how|is|are|can|do|does|did|will|would|should|could|which|shall)\b/i.test(kw.trim());
                           const questionKws = cluster.keywords.filter(isQuestion);
                           const genericKws = cluster.keywords.filter(k => !isQuestion(k));
                           const filterMode = kwFilterMode[cluster.topic] || "all";
