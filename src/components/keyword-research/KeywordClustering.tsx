@@ -664,6 +664,31 @@ const KeywordClustering = () => {
     }
   };
 
+  const toggleKeywordAsQuestion = async (clusterTopic: string, keyword: string) => {
+    if (!result) return;
+    const updatedResult: ClusteringResult = {
+      ...result,
+      clusters: result.clusters.map(c => {
+        if (c.topic !== clusterTopic) return c;
+        const overrides = c.question_overrides || [];
+        const isOverridden = overrides.includes(keyword);
+        return {
+          ...c,
+          question_overrides: isOverridden
+            ? overrides.filter(k => k !== keyword)
+            : [...overrides, keyword],
+        };
+      }),
+    };
+    setResult(updatedResult);
+    if (activeResultId) {
+      await supabase
+        .from("keyword_clustering_results")
+        .update({ result: updatedResult as any })
+        .eq("id", activeResultId);
+    }
+  };
+
   const clearGeneratorState = () => {
     const keysToRemove = [
       "seo-generator-formData", "seo-generator-internalLinks", "seo-generator-competitorUrls",
