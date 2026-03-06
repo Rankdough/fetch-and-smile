@@ -59,6 +59,12 @@ interface BlogIdea {
   value_promises?: string[];
 }
 
+interface LandingPageIdea {
+  title: string;
+  description: string;
+  target_keywords?: string[];
+}
+
 interface KeywordCluster {
   topic: string;
   description: string;
@@ -69,6 +75,7 @@ interface KeywordCluster {
   difficulty: "low" | "medium" | "high";
   priority: "high" | "medium" | "low";
   blog_ideas?: BlogIdea[];
+  landing_page_ideas?: LandingPageIdea[];
 }
 
 interface ClusteringResult {
@@ -115,6 +122,7 @@ const KeywordClustering = () => {
   const [keywordsWithVolume, setKeywordsWithVolume] = useState<KeywordWithVolume[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [enrichingSilo, setEnrichingSilo] = useState<string | null>(null);
+  const [generatingLandingPages, setGeneratingLandingPages] = useState<string | null>(null);
   const [analysisStage, setAnalysisStage] = useState<"classify" | "enrich" | null>(null);
   const [result, setResult] = useState<ClusteringResult | null>(null);
   const [usedIdeas, setUsedIdeas] = useState<Set<string>>(getUsedIdeas);
@@ -558,6 +566,72 @@ const KeywordClustering = () => {
       toast({ title: "Re-enrichment failed", description: err.message, variant: "destructive" });
     } finally {
       setEnrichingSilo(null);
+    }
+  };
+
+  const generateLandingPages = async (clusterTopic: string) => {
+    if (!result) return;
+    const cluster = result.clusters.find(c => c.topic === clusterTopic);
+    if (!cluster) return;
+
+    // Filter to generic (non-question) keywords only
+    const genericKeywords = cluster.keywords.filter(kw => !isQuestionKeyword(kw));
+    if (genericKeywords.length === 0) {
+      toast({ title: "No generic keywords", description: "This silo only contains question keywords.", variant: "destructive" });
+      return;
+    }
+
+    const filteredCluster = {
+      ...cluster,
+      keywords: genericKeywords,
+      keyword_volumes: cluster.keyword_volumes ? Object.fromEntries(
+        Object.entries(cluster.keyword_volumes).filter(([kw]) => !isQuestionKeyword(kw))
+      ) : undefined,
+    };
+
+    setGeneratingLandingPages(clusterTopic);
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-landing-pages`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({ cluster: filteredCluster }),
+        }
+      );
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || `Failed: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const landingPages = data.landing_pages || [];
+
+      const updatedResult: ClusteringResult = {
+        ...result,
+        clusters: result.clusters.map(c =>
+          c.topic === clusterTopic ? { ...c, landing_page_ideas: landingPages } : c
+        ),
+      };
+
+      setResult(updatedResult);
+      toast({ title: `${landingPages.length} landing pages generated for "${clusterTopic}"` });
+
+      if (activeResultId) {
+        await supabase
+          .from("keyword_clustering_results")
+          .update({ result: updatedResult as any })
+          .eq("id", activeResultId);
+        loadSavedResults();
+      }
+    } catch (err: any) {
+      toast({ title: "Landing page generation failed", description: err.message, variant: "destructive" });
+    } finally {
+      setGeneratingLandingPages(null);
     }
   };
 
@@ -1447,6 +1521,68 @@ Focus on providing actionable research that will help create a comprehensive, di
                                 Questions
                               </Button>
                             </div>
+                          </div>
+                        )}
+
+                        {/* Landing Page Ideas */}
+                        {cluster.landing_page_ideas && cluster.landing_page_ideas.length > 0 ? (
+                          <div>
+                            <div className="flex items-center justify-between mb-2">
+                              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                                <FileText className="h-3.5 w-3.5" />
+                                Landing Pages
+                              </h4>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="gap-1 text-xs h-6 px-2 text-muted-foreground"
+                                disabled={generatingLandingPages !== null || isAnalyzing}
+                                onClick={(e) => { e.stopPropagation(); generateLandingPages(cluster.topic); }}
+                              >
+                                {generatingLandingPages === cluster.topic ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                                Regenerate
+                              </Button>
+                            </div>
+                            <div className="space-y-2">
+                              {cluster.landing_page_ideas.map((page, i) => (
+                                <div key={i} className="border rounded-md p-3 space-y-1.5 hover:bg-muted/30 transition-colors">
+                                  <div className="flex items-start justify-between gap-2">
+                                    <p className="text-sm font-medium flex items-center gap-1.5">
+                                      <span className="text-muted-foreground text-xs">{i + 1}</span>
+                                      {page.title}
+                                    </p>
+                                  </div>
+                                  <p className="text-xs text-muted-foreground">{page.description}</p>
+                                  {page.target_keywords && page.target_keywords.length > 0 && (
+                                    <div className="flex flex-wrap gap-1 mt-1">
+                                      {page.target_keywords.map((kw, ki) => {
+                                        const vol = cluster.keyword_volumes?.[kw] ?? cluster.keyword_volumes?.[kw.toLowerCase()];
+                                        return (
+                                          <Badge key={ki} variant="secondary" className="text-[10px] px-1.5 py-0 gap-1">
+                                            {kw}
+                                            {vol != null && <span className="text-primary font-semibold">{formatVolume(vol)}</span>}
+                                          </Badge>
+                                        );
+                                      })}
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="border border-dashed rounded-md p-3 flex items-center justify-between">
+                            <p className="text-sm text-muted-foreground">No landing pages generated yet.</p>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="gap-1.5 text-xs"
+                              disabled={generatingLandingPages !== null || isAnalyzing}
+                              onClick={(e) => { e.stopPropagation(); generateLandingPages(cluster.topic); }}
+                            >
+                              {generatingLandingPages === cluster.topic ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Target className="h-3.5 w-3.5" />}
+                              Generate Landing Pages
+                            </Button>
                           </div>
                         )}
                       </CardContent>
