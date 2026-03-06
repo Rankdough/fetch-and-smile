@@ -1605,6 +1605,42 @@ const KeywordClustering = () => {
                                           </span>
                                         </span>
                                         <span className="text-right text-foreground/70 tabular-nums flex items-center gap-1.5 justify-end font-medium">
+                                          {isAssigned && blogIdeas.length > 1 && (
+                                            <Popover>
+                                              <PopoverTrigger asChild>
+                                                <button
+                                                  className="text-muted-foreground/50 hover:text-primary p-0.5 shrink-0 opacity-0 group-hover/kw:opacity-100 transition-opacity"
+                                                  onClick={(e) => e.stopPropagation()}
+                                                  title="Reassign to another blog idea"
+                                                >
+                                                  <ArrowRight className="h-3 w-3" />
+                                                </button>
+                                              </PopoverTrigger>
+                                              <PopoverContent side="left" align="start" className="w-80 p-2">
+                                                <p className="text-xs font-semibold text-muted-foreground mb-2">Reassign "{kw}" to:</p>
+                                                <div className="space-y-1 max-h-48 overflow-y-auto">
+                                                  {blogIdeas.map((idea, idx) => {
+                                                    const isCurrentIdea = (idea.target_keywords || []).some(tk => tk.toLowerCase().trim() === kw.toLowerCase().trim());
+                                                    if (isCurrentIdea) return null;
+                                                    const fromIdx = blogIdeas.findIndex(bi => (bi.target_keywords || []).some(tk => tk.toLowerCase().trim() === kw.toLowerCase().trim()));
+                                                    return (
+                                                      <button
+                                                        key={idx}
+                                                        className="w-full text-left px-2 py-1.5 rounded text-xs hover:bg-muted transition-colors whitespace-normal break-words leading-snug"
+                                                        onClick={(e) => {
+                                                          e.stopPropagation();
+                                                          reassignKeyword(cluster.topic, kw, fromIdx, idx);
+                                                        }}
+                                                      >
+                                                        <span className="text-muted-foreground mr-1">{idx + 1}.</span>
+                                                        {idea.title}
+                                                      </button>
+                                                    );
+                                                  })}
+                                                </div>
+                                              </PopoverContent>
+                                            </Popover>
+                                          )}
                                           {!isAssigned && (
                                             <Popover>
                                               <PopoverTrigger asChild>
