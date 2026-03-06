@@ -437,7 +437,7 @@ const KeywordResearch = () => {
       <main className="max-w-7xl mx-auto px-4 py-6 space-y-6 keyword-research-page">
         {/* Input */}
         <Collapsible open={isGeneratorOpen} onOpenChange={setIsGeneratorOpen}>
-          <Card>
+          <Card className="border-2">
             <CollapsibleTrigger className="w-full">
               <CardHeader>
                 <div className="flex items-center justify-between">
