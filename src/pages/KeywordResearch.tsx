@@ -474,37 +474,70 @@ const KeywordResearch = () => {
                   </div>
                 </div>
 
-                {/* Website Scanner */}
+                {/* Website Scanner — up to 3 sites */}
                 <div>
-                  <label className="text-sm font-medium mb-1 block">Scan Website (optional)</label>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      placeholder="e.g. https://example.com"
-                      value={websiteUrl}
-                      onChange={e => setWebsiteUrl(e.target.value)}
-                      onKeyDown={e => e.key === "Enter" && !isScanning && scanWebsite()}
-                    />
+                  <label className="text-sm font-medium mb-1 block">Scan Websites (optional — up to 3)</label>
+                  <div className="space-y-2">
+                    {scanSites.map((site, idx) => (
+                      <div key={idx} className="flex items-start gap-2">
+                        <div className="flex-1 space-y-1">
+                          <Input
+                            placeholder="e.g. https://example.com"
+                            value={site.url}
+                            onChange={e => {
+                              const updated = [...scanSites];
+                              updated[idx] = { ...updated[idx], url: e.target.value };
+                              setScanSites(updated);
+                            }}
+                          />
+                          <Input
+                            placeholder="URL must contain (optional) — e.g. track, field"
+                            value={site.filter}
+                            onChange={e => {
+                              const updated = [...scanSites];
+                              updated[idx] = { ...updated[idx], filter: e.target.value };
+                              setScanSites(updated);
+                            }}
+                            className="text-sm"
+                          />
+                        </div>
+                        {scanSites.length > 1 && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 shrink-0 mt-1"
+                            onClick={() => setScanSites(scanSites.filter((_, i) => i !== idx))}
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex items-center gap-2 mt-2">
+                    {scanSites.length < 3 && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-xs gap-1"
+                        onClick={() => setScanSites([...scanSites, { url: "", filter: "" }])}
+                      >
+                        <Plus className="h-3.5 w-3.5" /> Add site
+                      </Button>
+                    )}
                     <Button
                       variant="outline"
-                      onClick={scanWebsite}
-                      disabled={!websiteUrl.trim() || isScanning}
-                      className="gap-2 shrink-0"
+                      onClick={scanWebsites}
+                      disabled={!scanSites.some(s => s.url.trim()) || isScanning}
+                      className="gap-2 shrink-0 ml-auto"
                     >
                       {isScanning ? <Loader2 className="h-4 w-4 animate-spin" /> : <Globe className="h-4 w-4" />}
                       {isScanning ? "Scanning..." : "Scan"}
                     </Button>
                   </div>
-                  <div className="mt-2">
-                    <Input
-                      placeholder="URL must contain (optional) — e.g. track, field, athletics"
-                      value={urlFilterKeywords}
-                      onChange={e => setUrlFilterKeywords(e.target.value)}
-                      className="text-sm"
-                    />
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Only scan URLs containing these keywords (comma-separated). Leave blank to scan all pages. Great for large sites with many categories.
-                    </p>
-                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Filter field: only scan URLs containing these keywords (comma-separated). Leave blank to scan all pages.
+                  </p>
                 </div>
 
                 {/* Scanned terms preview */}
@@ -513,23 +546,22 @@ const KeywordResearch = () => {
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-sm font-medium flex items-center gap-1.5">
                         <Globe className="h-3.5 w-3.5 text-primary" />
-                        {scannedTerms.length} terms from {scanStats?.url}
-                        <span className="text-xs text-muted-foreground font-normal">
-                          ({scanStats?.filteredCount != null && scanStats.filteredCount !== scanStats.urlCount
-                            ? `${scanStats.filteredCount} of ${scanStats.urlCount} URLs matched filter`
-                            : `${scanStats?.urlCount} pages found`})
-                        </span>
+                        {scannedTerms.length} terms from {scanResults.length} site(s)
                       </span>
-                      <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => { setScannedTerms([]); setScanStats(null); setScanBlocked(false); }}>
+                      <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => { setScannedTerms([]); setScanResults([]); setScanBlocked(false); }}>
                         <X className="h-3 w-3 mr-1" /> Clear
                       </Button>
                     </div>
-                    {scanBlocked && (
-                      <p className="text-xs text-destructive mb-2">
-                        ⚠️ This site appears to be blocking crawlers (bot protection detected). Very few useful terms were extracted. Use the manual input below to add category/brand names yourself.
-                      </p>
-                    )}
-                    <div className="flex flex-wrap gap-1 max-h-32 overflow-y-auto">
+                    {scanResults.map((r, i) => (
+                      <div key={i} className="text-xs text-muted-foreground mb-1">
+                        {r.url}: {r.terms.length} terms
+                        ({r.filteredCount != null && r.filteredCount !== r.urlCount
+                          ? `${r.filteredCount} of ${r.urlCount} URLs matched filter`
+                          : `${r.urlCount} pages found`})
+                        {r.blocked && <span className="text-destructive ml-1">⚠️ may be blocked</span>}
+                      </div>
+                    ))}
+                    <div className="flex flex-wrap gap-1 max-h-32 overflow-y-auto mt-2">
                       {scannedTerms.slice(0, 80).map((t, i) => (
                         <Badge key={i} variant="outline" className="text-[10px] font-normal">{t}</Badge>
                       ))}
