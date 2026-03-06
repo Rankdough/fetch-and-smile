@@ -30,6 +30,13 @@ OUTPUT ONLY valid JSON, no markdown fences.
 JSON FORMAT:
 {"enrichments":[{"topic":"Exact Topic Name","description":"1-sentence description of this cluster","content_type":"blog_post|landing_page|guide|comparison|listicle|how_to","difficulty":"low|medium|high","priority":"high|medium|low","blog_ideas":[{"title":"...","description":"...","reason":"...","target_keywords":["keyword1","keyword2","keyword3"],"value_promises":["Promise 1: what the reader will learn/gain","Promise 2: what the reader will learn/gain","Promise 3: what the reader will learn/gain"]}]}]}
 
+BLOG IDEA TITLE RULES:
+- Titles must be SHORT, SIMPLE, and FACTUAL — max 8-10 words.
+- Include the main target keyword naturally in the title.
+- Prefer "keyword + question" format (e.g. "Track and Field Events: What Are They?") or simple descriptive format (e.g. "Track and Field Throwing Events Explained").
+- NEVER use filler phrases like "The Ultimate Guide", "A Beginner's Handbook", "Unlocking the Secrets", "Everything You Need to Know", "Comprehensive Overview", "Deep Dive", "Mastering", "Unpacking".
+- Just describe what the article covers using the target keywords. Be direct and factual.
+
 RULES:
 - Exactly 5 blog ideas per cluster
 - Each blog idea MUST include "target_keywords": an array of 2-5 keywords from the cluster's keyword list that this article should target
