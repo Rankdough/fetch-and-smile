@@ -485,10 +485,25 @@ const KeywordClustering = () => {
     }
   };
 
-  const reEnrichSingleCluster = async (clusterTopic: string) => {
+  const isQuestionKeyword = (kw: string) => /^(who|what|where|when|why|how|is|are|can|do|does|did|will|would|should|could|which|shall)\b/i.test(kw.trim());
+
+  const reEnrichSingleCluster = async (clusterTopic: string, keywordFilter?: "generic" | "questions") => {
     if (!result) return;
     const cluster = result.clusters.find(c => c.topic === clusterTopic);
     if (!cluster) return;
+
+    const filteredCluster = keywordFilter ? {
+      ...cluster,
+      keywords: cluster.keywords.filter(kw => keywordFilter === "questions" ? isQuestionKeyword(kw) : !isQuestionKeyword(kw)),
+      keyword_volumes: cluster.keyword_volumes ? Object.fromEntries(
+        Object.entries(cluster.keyword_volumes).filter(([kw]) => keywordFilter === "questions" ? isQuestionKeyword(kw) : !isQuestionKeyword(kw))
+      ) : undefined,
+    } : cluster;
+
+    if (filteredCluster.keywords.length === 0) {
+      toast({ title: "No keywords", description: `No ${keywordFilter} keywords in this silo.`, variant: "destructive" });
+      return;
+    }
 
     setEnrichingSilo(clusterTopic);
     try {
