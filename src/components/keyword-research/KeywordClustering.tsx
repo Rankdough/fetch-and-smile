@@ -1351,6 +1351,17 @@ const KeywordClustering = () => {
                                   Questions {questionKws.length}
                                 </Badge>
                               </div>
+                              {(() => {
+                                const assignedKws = new Set<string>();
+                                (cluster.blog_ideas || []).forEach(idea => {
+                                  (idea.target_keywords || []).forEach(tk => assignedKws.add(tk.toLowerCase().trim()));
+                                });
+                                (cluster.landing_page_ideas || []).forEach(page => {
+                                  (page.target_keywords || []).forEach(tk => assignedKws.add(tk.toLowerCase().trim()));
+                                });
+                                const blogIdeas = cluster.blog_ideas || [];
+                                return null;
+                              })()}
                               <div className="border rounded-md overflow-hidden">
                               <div className="grid grid-cols-[1fr_auto] gap-x-4 px-3 py-2 bg-muted/50 text-sm font-semibold text-foreground/70 border-b">
                                   <span>Keyword</span>
@@ -1359,10 +1370,16 @@ const KeywordClustering = () => {
                                 <div className={isExpanded ? "max-h-[400px] overflow-y-auto" : ""}>
                                   {displayKws.map((kw, i) => {
                                     const vol = cluster.keyword_volumes?.[kw];
+                                    const isAssigned = (() => {
+                                      const kwLower = kw.toLowerCase().trim();
+                                      return (cluster.blog_ideas || []).some(idea => (idea.target_keywords || []).some(tk => tk.toLowerCase().trim() === kwLower))
+                                        || (cluster.landing_page_ideas || []).some(page => (page.target_keywords || []).some(tk => tk.toLowerCase().trim() === kwLower));
+                                    })();
+                                    const blogIdeas = cluster.blog_ideas || [];
                                     return (
                                       <div
                                         key={i}
-                                        className="grid grid-cols-[1fr_auto] gap-x-4 px-3 py-2 text-[15px] border-b last:border-b-0 hover:bg-muted/30 transition-colors group/kw"
+                                        className={`grid grid-cols-[1fr_auto] gap-x-4 px-3 py-2 text-[15px] border-b last:border-b-0 hover:bg-muted/30 transition-colors group/kw ${!isAssigned && blogIdeas.length > 0 ? "bg-amber-50/50 dark:bg-amber-950/10" : ""}`}
                                       >
                                         <span className="flex items-center gap-1.5 truncate">
                                           {(() => {
