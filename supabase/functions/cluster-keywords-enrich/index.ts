@@ -93,26 +93,41 @@ BLOG IDEA TITLE RULES:
 - Format: "[Main Keyword]: [Natural Question]?" — e.g. "Cross-Country Running: How Do You Train for a Race?", "Track Pants: What Are They Made Of?"
 - The title MUST contain the primary target keyword verbatim, followed by a natural question.
 - Keep it simple, short (6-12 words), and conversational — like how a real person would ask.
-- BANNED phrases (never use these in titles): "Ultimate Guide", "Beginner's Guide", "Beginner's Handbook", "Comprehensive", "Everything You Need to Know", "Deep Dive", "Mastering", "Unpacking", "Unlocking", "Navigate", "Essential", "Your", "Handbook", "Checklist".
+- BANNED phrases (never use these in titles): "Ultimate Guide", "Beginner's Guide", "Beginner's Handbook", "Comprehensive", "Everything You Need to Know", "Deep Dive", "Mastering", "Unpacking", "Unlocking", "Navigate", "Essential", "Your", "Handbook", "Checklist", "Beyond the Basics".
 - NO sales language, no hype, no AI-sounding filler. Just keyword + question.
 
+CRITICAL — STEP-BY-STEP PROCESS (follow this order):
+
+STEP 1: GROUP KEYWORDS BY SUB-TOPIC FIRST
+- Before creating any blog ideas, read ALL keywords and group them into logical sub-topics.
+- Keywords that ask about the same thing belong together: "what are track pants", "what are track pants made of", "what material are track pants made of" → all belong to ONE article about "what are track pants".
+- Keywords about different activities/entities MUST be in separate groups: "cross-country skiing" keywords vs "cross-country running" keywords vs "cross-country moving" keywords are THREE separate topics — never mix them.
+- Look at the CORE SUBJECT of each keyword, not just shared words. "how to move cross country" is about RELOCATION, not about the sport "cross country".
+
+STEP 2: CREATE ONE BLOG IDEA PER LOGICAL GROUP
+- Each blog idea should cover one coherent sub-topic.
+- Merge closely related questions into a single article (e.g. "what are track pants" + "what are track pants made of" + "what material are track pants made of" = one article).
+- Generate FEWER but more comprehensive blog ideas rather than many thin ones. Aim for 3-7 ideas depending on keyword diversity.
+- Do NOT create separate articles for questions that would naturally be answered in the same article.
+
+STEP 3: ASSIGN KEYWORDS — EACH KEYWORD TO EXACTLY ONE IDEA
+- Every keyword must be assigned to exactly ONE blog idea. No duplicates across ideas.
+- A keyword belongs to the idea where it would NATURALLY appear as a section or be answered.
+- After assigning, verify: scan every keyword in every idea and confirm zero duplicates.
+
 RULES:
-- Exactly 5 blog ideas per cluster
-- Each blog idea MUST include "target_keywords": an array of 2-5 keywords from the cluster's keyword list that this article should target
-- Each blog idea MUST include "value_promises": an array of exactly 3 concise value promises describing what the reader will gain or learn from this article.
+- Generate 3-7 blog ideas per cluster (NOT always 5 — fewer is better if keywords are closely related)
+- Each blog idea MUST include "target_keywords": an array of keywords from the cluster that this article should target
+- Each blog idea MUST include "value_promises": an array of exactly 3 concise value promises
 
 CRITICAL TOPICAL COHERENCE RULES:
 - Every target_keyword assigned to a blog idea MUST be directly relevant to that idea's specific title and angle.
-- If a silo groups keywords across multiple entities (e.g. countries, cities, brands), design blog ideas that match logically:
-  - A comparison/roundup article (e.g. "Best Countries for Dental Tourism in Europe") can target keywords across entities: "dental tourism italy", "dental tourism germany", etc.
-  - A single-entity article (e.g. "Dental Tourism in Albania") must ONLY target keywords about that specific entity. Never assign "dental tourism germany" to an article about Albania.
-- Ask yourself: "Would this keyword naturally appear in this article?" If not, don't assign it.
-- Each blog idea is a standalone article — its target_keywords must match what that article would actually rank for.
+- Keywords sharing surface words but different intents MUST go to different ideas (e.g. "cross country skiing" vs "cross country moving" vs "cross country running").
+- Ask yourself: "Would a reader searching this keyword expect to land on THIS article?" If not, don't assign it.
 
 CRITICAL KEYWORD DEDUPLICATION RULES:
-- Each keyword in the cluster should be assigned to AT MOST ONE blog idea. Do NOT repeat the same keyword across multiple ideas.
-- The 5 blog ideas form a content silo: each owns a distinct subset of keywords with no overlap.
-- Before finalizing, review all 5 ideas and redistribute any duplicated keywords.
+- ZERO tolerance for duplicate keywords across blog ideas. Each keyword appears in exactly ONE idea.
+- After generating all ideas, do a final deduplication pass: list every keyword used, check for repeats, remove duplicates.
 
 - Match topic names exactly as provided
 - Priority based on volume and business value
@@ -127,9 +142,9 @@ CRITICAL KEYWORD DEDUPLICATION RULES:
       console.log(`Enriching batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(clusters.length / BATCH_SIZE)} (${batch.length} clusters)...`);
 
       const clusterDescriptions = batch.map((c: any) => {
-        const sample = c.keywords.slice(0, 15).join(", ");
-        const more = c.keywords.length > 15 ? ` (+${c.keywords.length - 15} more)` : "";
-        return `Topic: "${c.topic}" (${c.keywords.length} keywords, ~${c.estimated_monthly_volume} monthly volume)\nSample: ${sample}${more}`;
+        // Send ALL keywords so the model can properly group and deduplicate
+        const allKws = c.keywords.join(", ");
+        return `Topic: "${c.topic}" (${c.keywords.length} keywords, ~${c.estimated_monthly_volume} monthly volume)\nALL Keywords: ${allKws}`;
       }).join("\n\n");
 
       const userPrompt = `Enrich these ${batch.length} topic clusters:\n\n${clusterDescriptions}`;
