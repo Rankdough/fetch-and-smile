@@ -1899,6 +1899,7 @@ Focus on providing actionable research that will help create a comprehensive, di
                                         Delete
                                       </Button>
                                     </div>
+                                  </div>
                                 </div>
                                 );
                               })}
