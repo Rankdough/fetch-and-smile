@@ -1139,7 +1139,7 @@ const KeywordClustering = () => {
                               setFavoritedClusters(toggleStoredSet(FAVORITED_CLUSTERS_KEY, cluster.topic));
                             }}
                           >
-                            <Star className={`h-3.5 w-3.5 transition-colors ${favoritedClusters.has(cluster.topic) ? "fill-amber-400 text-amber-400" : "text-muted-foreground/40 hover:text-amber-400"}`} />
+                            <Star className={`h-4 w-4 transition-colors ${favoritedClusters.has(cluster.topic) ? "fill-amber-400 text-amber-400" : "text-muted-foreground/40 hover:text-amber-400"}`} />
                           </button>
                           <span className="text-xs font-bold text-muted-foreground w-6 shrink-0">#{idx + 1}</span>
                           {expandedClusters.has(cluster.topic) ? (
