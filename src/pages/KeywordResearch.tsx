@@ -394,6 +394,7 @@ const KeywordResearch = () => {
       setOpenClusters(new Set(saved.results.categories.map(c => c.name)));
       setScannedTerms([]);
       setUrlExtractedTerms([]);
+      setScanResults([]);
     }
   };
 
