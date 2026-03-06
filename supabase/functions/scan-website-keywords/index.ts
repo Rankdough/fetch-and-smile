@@ -25,7 +25,7 @@ serve(async (req) => {
   }
 
   try {
-    const { url } = await req.json();
+    const { url, urlFilters } = await req.json();
 
     if (!url) {
       return new Response(
@@ -47,7 +47,13 @@ serve(async (req) => {
       formattedUrl = `https://${formattedUrl}`;
     }
 
-    console.log("Scanning website:", formattedUrl);
+    // Parse URL filters (comma/newline separated keywords that URLs must contain)
+    const filters: string[] = (urlFilters || "")
+      .split(/[,\n]+/)
+      .map((f: string) => f.trim().toLowerCase())
+      .filter((f: string) => f.length > 0);
+
+    console.log("Scanning website:", formattedUrl, filters.length > 0 ? `with URL filters: ${filters.join(", ")}` : "no URL filters");
 
     // Step 1: Map the site to get all URLs
     const mapResponse = await fetch("https://api.firecrawl.dev/v1/map", {
@@ -58,7 +64,7 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         url: formattedUrl,
-        limit: 1000,
+        limit: 2000,
         includeSubdomains: false,
       }),
     });
@@ -70,12 +76,22 @@ serve(async (req) => {
     }
 
     const mapData = await mapResponse.json();
-    const allUrls: string[] = mapData.links || [];
-    console.log(`Found ${allUrls.length} URLs on site`);
+    let allUrls: string[] = mapData.links || [];
+    console.log(`Found ${allUrls.length} total URLs on site`);
+
+    // Apply URL filters — only keep URLs containing at least one filter keyword
+    let filteredUrls = allUrls;
+    if (filters.length > 0) {
+      filteredUrls = allUrls.filter(u => {
+        const lower = u.toLowerCase();
+        return filters.some(f => lower.includes(f));
+      });
+      console.log(`After URL filter: ${filteredUrls.length} of ${allUrls.length} URLs match`);
+    }
 
     // Extract keyword ideas from URL paths
     const urlKeywords = new Set<string>();
-    for (const u of allUrls) {
+    for (const u of filteredUrls) {
       try {
         const path = new URL(u).pathname;
         const segments = path.split("/").filter(Boolean);
@@ -142,8 +158,8 @@ serve(async (req) => {
     // Scrape homepage
     const pageTerms: string[] = await scrapeUrl(formattedUrl);
 
-    // Find category-level URLs (1-2 path segments, likely navigation pages)
-    const categoryUrls = allUrls.filter(u => {
+    // Find category-level URLs from the filtered set
+    const categoryUrls = filteredUrls.filter(u => {
       try {
         const parsed = new URL(u);
         const segments = parsed.pathname.split("/").filter(Boolean);
@@ -177,27 +193,27 @@ serve(async (req) => {
     // Filter out stop terms AND bot-protection junk
     const filtered = [...allTerms].filter(t => {
       if (stopTerms.has(t)) return false;
-      // Check against bot protection terms
       for (const bot of botProtectionTerms) {
         if (t === bot || t.includes(bot)) return false;
       }
-      // Filter out terms that look like URLs or domains
       if (/^(www\.|https?:)/.test(t)) return false;
       if (/\.(com|co\.uk|org|net|io)$/i.test(t)) return false;
       return true;
     });
 
     // Detect if the site is likely blocking us
-    const isBlocked = filtered.length < 5 && allUrls.length < 10;
+    const isBlocked = filtered.length < 5 && filteredUrls.length < 10;
 
-    console.log(`Extracted ${filtered.length} keyword ideas from website (${urlKeywords.size} from URLs, ${pageTerms.length} from page content). Blocked: ${isBlocked}`);
+    console.log(`Extracted ${filtered.length} keyword ideas (${urlKeywords.size} from URLs, ${pageTerms.length} from content). Filtered URLs: ${filteredUrls.length}/${allUrls.length}. Blocked: ${isBlocked}`);
 
     return new Response(
       JSON.stringify({
         url: formattedUrl,
         total_urls_found: allUrls.length,
+        filtered_urls_count: filteredUrls.length,
+        url_filters_applied: filters,
         extracted_terms: filtered.sort(),
-        sample_urls: allUrls.slice(0, 20),
+        sample_urls: filteredUrls.slice(0, 20),
         likely_blocked: isBlocked,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }

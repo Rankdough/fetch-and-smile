@@ -64,9 +64,10 @@ const KeywordResearch = () => {
   const [audience, setAudience] = useState("");
   const [country, setCountry] = useState("");
   const [websiteUrl, setWebsiteUrl] = useState("");
+  const [urlFilterKeywords, setUrlFilterKeywords] = useState("");
   const [isScanning, setIsScanning] = useState(false);
   const [scannedTerms, setScannedTerms] = useState<string[]>([]);
-  const [scanStats, setScanStats] = useState<{ url: string; urlCount: number } | null>(null);
+  const [scanStats, setScanStats] = useState<{ url: string; urlCount: number; filteredCount?: number } | null>(null);
   const [scanBlocked, setScanBlocked] = useState(false);
   const [manualSeeds, setManualSeeds] = useState("");
   const [urlListInput, setUrlListInput] = useState("");
@@ -183,7 +184,7 @@ const KeywordResearch = () => {
             "Content-Type": "application/json",
             Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
           },
-          body: JSON.stringify({ url: websiteUrl.trim() }),
+          body: JSON.stringify({ url: websiteUrl.trim(), urlFilters: urlFilterKeywords.trim() || undefined }),
         }
       );
       if (!response.ok) {
@@ -192,7 +193,7 @@ const KeywordResearch = () => {
       }
       const data = await response.json();
       setScannedTerms(data.extracted_terms || []);
-      setScanStats({ url: data.url, urlCount: data.total_urls_found });
+      setScanStats({ url: data.url, urlCount: data.total_urls_found, filteredCount: data.filtered_urls_count });
       setScanBlocked(data.likely_blocked || false);
       if (data.likely_blocked) {
         toast({
@@ -438,9 +439,17 @@ const KeywordResearch = () => {
                       {isScanning ? "Scanning..." : "Scan"}
                     </Button>
                   </div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Crawls the site's pages and menus to extract category/product names as additional keyword seeds.
-                  </p>
+                  <div className="mt-2">
+                    <Input
+                      placeholder="URL must contain (optional) — e.g. track, field, athletics"
+                      value={urlFilterKeywords}
+                      onChange={e => setUrlFilterKeywords(e.target.value)}
+                      className="text-sm"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Only scan URLs containing these keywords (comma-separated). Leave blank to scan all pages. Great for large sites with many categories.
+                    </p>
+                  </div>
                 </div>
 
                 {/* Scanned terms preview */}
@@ -450,7 +459,11 @@ const KeywordResearch = () => {
                       <span className="text-sm font-medium flex items-center gap-1.5">
                         <Globe className="h-3.5 w-3.5 text-primary" />
                         {scannedTerms.length} terms from {scanStats?.url}
-                        <span className="text-xs text-muted-foreground font-normal">({scanStats?.urlCount} pages found)</span>
+                        <span className="text-xs text-muted-foreground font-normal">
+                          ({scanStats?.filteredCount != null && scanStats.filteredCount !== scanStats.urlCount
+                            ? `${scanStats.filteredCount} of ${scanStats.urlCount} URLs matched filter`
+                            : `${scanStats?.urlCount} pages found`})
+                        </span>
                       </span>
                       <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => { setScannedTerms([]); setScanStats(null); setScanBlocked(false); }}>
                         <X className="h-3 w-3 mr-1" /> Clear
