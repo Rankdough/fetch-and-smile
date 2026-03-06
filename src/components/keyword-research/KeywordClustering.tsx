@@ -1102,7 +1102,7 @@ const KeywordClustering = () => {
                               <div className="border rounded-md overflow-hidden">
                                 <div className="grid grid-cols-[1fr_auto] gap-x-4 px-3 py-1.5 bg-muted/50 text-xs font-medium text-muted-foreground border-b">
                                   <span>Keyword</span>
-                                  <span className="text-right">Volume</span>
+                                  <span className="text-right flex items-center gap-4 justify-end"><span>Volume</span><span className="w-4"></span></span>
                                 </div>
                                 <div className={isExpanded ? "max-h-[400px] overflow-y-auto" : ""}>
                                   {displayKws.map((kw, i) => {
