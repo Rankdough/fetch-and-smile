@@ -1110,15 +1110,27 @@ const KeywordClustering = () => {
                                     return (
                                       <div
                                         key={i}
-                                        className="grid grid-cols-[1fr_auto] gap-x-4 px-3 py-1.5 text-sm border-b last:border-b-0 hover:bg-muted/30 cursor-pointer transition-colors"
-                                        onClick={() => {
-                                          navigator.clipboard.writeText(kw);
-                                          toast({ title: "Copied", description: kw });
-                                        }}
+                                        className="grid grid-cols-[1fr_auto] gap-x-4 px-3 py-1.5 text-sm border-b last:border-b-0 hover:bg-muted/30 transition-colors group/kw"
                                       >
-                                        <span className="truncate">{kw}</span>
-                                        <span className="text-right text-muted-foreground tabular-nums">
-                                          {vol != null ? formatVolume(vol) : "—"}
+                                        <span
+                                          className="truncate cursor-pointer"
+                                          onClick={() => {
+                                            navigator.clipboard.writeText(kw);
+                                            toast({ title: "Copied", description: kw });
+                                          }}
+                                        >{kw}</span>
+                                        <span className="text-right text-muted-foreground tabular-nums flex items-center gap-2 justify-end">
+                                          <span>{vol != null ? formatVolume(vol) : "—"}</span>
+                                          <button
+                                            className="opacity-0 group-hover/kw:opacity-100 transition-opacity text-destructive hover:text-destructive/80 p-0.5"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              removeKeywordFromCluster(cluster.topic, kw);
+                                            }}
+                                            title="Remove keyword"
+                                          >
+                                            <Trash2 className="h-3 w-3" />
+                                          </button>
                                         </span>
                                       </div>
                                     );
