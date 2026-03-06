@@ -266,6 +266,9 @@ const KeywordResearch = () => {
 
       const data = await response.json();
       const map = data.results as SemanticMap;
+      // Persist scanned terms alongside the results
+      map.scanned_terms = [...scannedTerms];
+      map.url_extracted_terms = [...urlExtractedTerms];
       setSemanticMap(map);
       setCurrentTopic(topic.trim());
       setOpenClusters(new Set(map.clusters.map(c => c.cluster_name)));
