@@ -776,6 +776,42 @@ const KeywordClustering = () => {
               <CollapsibleContent>
                 <CardContent className="pt-0">
           <div className="space-y-4">
+            {/* Input vs Output validation summary */}
+            {(() => {
+              const inputTotal = keywordsWithVolume.length || keywordCount;
+              const inputVolume = keywordsWithVolume.reduce((s, k) => s + ((k.volume !== null && k.volume > 0) ? k.volume : 10), 0);
+              const clusteredTotal = result.total_keywords_clustered;
+              const clusteredVolume = totalVolume;
+              const kwMatch = clusteredTotal === inputTotal;
+              const kwDiff = inputTotal - clusteredTotal;
+              return (
+                <div className="rounded-md border border-border bg-muted/30 px-4 py-3 text-xs flex flex-wrap items-center gap-x-6 gap-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-muted-foreground font-medium">Input:</span>
+                    <span className="font-semibold">{inputTotal} keywords</span>
+                    <span className="text-muted-foreground">·</span>
+                    <span className="font-semibold">~{formatVolume(inputVolume)} vol</span>
+                  </div>
+                  <span className="text-muted-foreground">→</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-muted-foreground font-medium">Clustered:</span>
+                    <span className="font-semibold">{clusteredTotal} keywords</span>
+                    <span className="text-muted-foreground">·</span>
+                    <span className="font-semibold">~{formatVolume(clusteredVolume)} vol</span>
+                  </div>
+                  {!kwMatch && (
+                    <Badge variant="destructive" className="text-[10px] px-1.5 py-0">
+                      {kwDiff > 0 ? `${kwDiff} missing` : `${Math.abs(kwDiff)} extra`}
+                    </Badge>
+                  )}
+                  {kwMatch && (
+                    <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-green-500/50 text-green-600">
+                      <Check className="h-3 w-3 mr-0.5" /> All matched
+                    </Badge>
+                  )}
+                </div>
+              );
+            })()}
             <div className="flex items-center justify-between flex-wrap gap-3">
               <div className="flex items-center gap-3">
                 <Badge variant="secondary" className="text-xs">
