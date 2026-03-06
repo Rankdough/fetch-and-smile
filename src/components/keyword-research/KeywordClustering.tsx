@@ -1494,18 +1494,6 @@ const KeywordClustering = () => {
                                     );
                                   })}
                                 </div>
-                                {hasMore && (
-                                  <button
-                                    className="w-full px-3 py-2 text-xs text-primary hover:bg-muted/50 border-t transition-colors font-medium"
-                                    onClick={() => setExpandedKeywordSilos(prev => {
-                                      const next = new Set(prev);
-                                      if (next.has(cluster.topic)) next.delete(cluster.topic); else next.add(cluster.topic);
-                                      return next;
-                                    })}
-                                  >
-                                    {isExpanded ? "Show less" : `Show all ${sortedKws.length} keywords`}
-                                  </button>
-                                )}
                               </div>
                             </div>
                           );
