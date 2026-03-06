@@ -494,7 +494,11 @@ const KeywordClustering = () => {
     }
   };
 
-  const isQuestionKeyword = (kw: string) => /^(who|what|where|when|why|how|is|are|can|do|does|did|will|would|should|could|which|shall)\b/i.test(kw.trim());
+  const isQuestionKeywordBase = (kw: string) => /^(who|what|where|when|why|how|is|are|can|do|does|did|will|would|should|could|which|shall)\b/i.test(kw.trim());
+  const isQuestionKeyword = (kw: string, cluster?: KeywordCluster) => {
+    if (cluster?.question_overrides?.includes(kw)) return true;
+    return isQuestionKeywordBase(kw);
+  };
 
   const reEnrichSingleCluster = async (clusterTopic: string, keywordFilter?: "generic" | "questions") => {
     if (!result) return;
