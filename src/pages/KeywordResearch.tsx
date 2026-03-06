@@ -86,13 +86,20 @@ const KeywordResearch = () => {
   const resultsRef = useRef<HTMLDivElement | null>(null);
   const [isGeneratorOpen, setIsGeneratorOpen] = useState(true);
 
-  // Set of normalised scanned+URL-extracted terms for tagging in results
-  const scannedTermsSet = useMemo(() => {
+  // Array of normalised scanned+URL-extracted terms for substring matching in results
+  const scannedTermsList = useMemo(() => {
     const set = new Set<string>();
     for (const t of scannedTerms) set.add(t.toLowerCase().trim());
     for (const t of urlExtractedTerms) set.add(t.toLowerCase().trim());
-    return set;
+    return [...set].filter(t => t.length >= 3); // only meaningful terms
   }, [scannedTerms, urlExtractedTerms]);
+
+  const isFromScan = useMemo(() => {
+    return (kw: string) => {
+      const lower = kw.toLowerCase().trim();
+      return scannedTermsList.some(term => lower.includes(term) || term.includes(lower));
+    };
+  }, [scannedTermsList]);
 
   useEffect(() => {
     loadSavedResearch();
@@ -696,18 +703,18 @@ const KeywordResearch = () => {
                               </div>
                               <div className="flex flex-wrap gap-1.5">
                                 {cluster.seed_keywords.map((kw, i) => {
-                                  const isFromScan = scannedTermsSet.has(kw.toLowerCase().trim());
+                                  const fromScan = isFromScan(kw);
                                   return (
                                     <Badge
                                       key={i}
                                       variant="secondary"
-                                      className={`cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors text-xs ${isFromScan ? 'ring-1 ring-primary/50 bg-primary/10' : ''}`}
+                                      className={`cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors text-xs ${fromScan ? 'ring-1 ring-primary/50 bg-primary/10' : ''}`}
                                       onClick={() => {
                                         navigator.clipboard.writeText(kw);
                                         toast({ title: "Copied", description: kw });
                                       }}
                                     >
-                                      {isFromScan && <Globe className="h-3 w-3 mr-1 text-primary" />}
+                                      {fromScan && <Globe className="h-3 w-3 mr-1 text-primary" />}
                                       {kw}
                                     </Badge>
                                   );
