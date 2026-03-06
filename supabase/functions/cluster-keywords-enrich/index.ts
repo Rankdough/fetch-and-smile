@@ -34,10 +34,10 @@ JSON FORMAT:
 {"enrichments":[{"topic":"${clusters[0].topic}","blog_ideas":[{"title":"...","description":"...","reason":"...","target_keywords":["${focusKeyword}",...],"value_promises":["Promise 1","Promise 2","Promise 3"]}]}]}
 
 TITLE RULES:
-- SHORT, SIMPLE, FACTUAL — max 8-10 words
-- Include "${focusKeyword}" naturally in the title
-- Prefer "keyword + question" or simple descriptive format
-- NEVER use filler phrases like "The Ultimate Guide", "A Beginner's Handbook", "Mastering", etc.
+- Format: "[Main Keyword]: [Natural Question]?" — e.g. "Cross-Country Running: How Do You Train for a Race?"
+- MUST contain "${focusKeyword}" verbatim, followed by a natural question.
+- Simple, short (6-12 words), conversational.
+- BANNED: "Ultimate Guide", "Beginner's Guide", "Handbook", "Comprehensive", "Everything You Need to Know", "Deep Dive", "Mastering", "Unpacking", "Unlocking", "Navigate", "Essential", "Your", "Checklist".
 
 RULES:
 - Generate exactly 1 blog idea
