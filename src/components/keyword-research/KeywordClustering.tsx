@@ -1141,7 +1141,7 @@ const KeywordClustering = () => {
                           >
                             <Star className={`h-4 w-4 transition-colors ${favoritedClusters.has(cluster.topic) ? "fill-amber-400 text-amber-400" : "text-muted-foreground/40 hover:text-amber-400"}`} />
                           </button>
-                          <span className="text-xs font-bold text-muted-foreground w-6 shrink-0">#{idx + 1}</span>
+                          <span className="text-sm font-bold text-foreground/50 w-6 shrink-0">#{idx + 1}</span>
                           {expandedClusters.has(cluster.topic) ? (
                             <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
                           ) : (
