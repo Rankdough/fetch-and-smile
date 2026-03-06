@@ -590,7 +590,7 @@ const KeywordClustering = () => {
       ...cluster,
       keywords: genericKeywords,
       keyword_volumes: cluster.keyword_volumes ? Object.fromEntries(
-        Object.entries(cluster.keyword_volumes).filter(([kw]) => !isQuestionKeyword(kw))
+        Object.entries(cluster.keyword_volumes).filter(([kw]) => !isQuestionKeyword(kw, cluster))
       ) : undefined,
     };
 
