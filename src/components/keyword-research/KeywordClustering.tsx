@@ -1655,7 +1655,7 @@ Focus on providing actionable research that will help create a comprehensive, di
                                   )}
                                 </div>
                               ))}
-                            </div>
+                            </div>}
                           </div>
                         ) : (
                           <div className="border border-dashed rounded-md p-3 flex items-center justify-between">
