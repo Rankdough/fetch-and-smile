@@ -14,7 +14,7 @@ import {
   ArrowLeft, Search, Sparkles, Copy, Download, Trash2,
   ChevronDown, ChevronRight, Clock, Loader2, Square, ChevronUp,
   BrainCircuit, Tag, HelpCircle, SlidersHorizontal, Building2, Ban,
-  Globe, X, Link2, Plus, Layers
+  Globe, X, Link2, Plus, Layers, Upload
 } from "lucide-react";
 import KeywordClustering from "@/components/keyword-research/KeywordClustering";
 
@@ -87,6 +87,8 @@ const KeywordResearch = () => {
   const [manualSeeds, setManualSeeds] = useState("");
   const [urlListInput, setUrlListInput] = useState("");
   const [urlExtractedTerms, setUrlExtractedTerms] = useState<string[]>([]);
+  const [uploadedSeedFiles, setUploadedSeedFiles] = useState<{ name: string; keywords: string[] }[]>([]);
+  const seedFileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [isGenerating, setIsGenerating] = useState(false);
   const [semanticMap, setSemanticMap] = useState<SemanticMap | null>(null);
@@ -198,8 +200,59 @@ const KeywordResearch = () => {
   // Combine scanned terms + manual seeds + URL-extracted terms
   const getAllSeeds = (): string[] => {
     const manual = manualSeeds.split(/[\n,]+/).map(s => s.trim().toLowerCase()).filter(s => s.length >= 2);
-    const combined = new Set([...scannedTerms, ...manual, ...urlExtractedTerms]);
+    const fileKeywords = uploadedSeedFiles.flatMap(f => f.keywords);
+    const combined = new Set([...scannedTerms, ...manual, ...urlExtractedTerms, ...fileKeywords]);
     return [...combined];
+  };
+
+  // Parse Ahrefs CSV and extract keywords
+  const handleSeedFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+    const maxFiles = 3 - uploadedSeedFiles.length;
+    const filesToProcess = Array.from(files).slice(0, maxFiles);
+
+    filesToProcess.forEach(file => {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const text = ev.target?.result as string;
+        if (!text) return;
+        const lines = text.split("\n");
+        if (lines.length < 2) return;
+
+        // Find the "Keyword" column index from header
+        const header = lines[0];
+        // Handle quoted CSV fields
+        const headerCols = header.split(",").map(h => h.trim().replace(/^"|"$/g, ""));
+        let kwIndex = headerCols.findIndex(h => h.toLowerCase() === "keyword");
+        if (kwIndex === -1) kwIndex = 1; // Ahrefs default: column 2
+
+        const keywords: string[] = [];
+        for (let i = 1; i < lines.length; i++) {
+          const line = lines[i].trim();
+          if (!line) continue;
+          // Simple CSV split (handles quoted fields with commas)
+          const cols: string[] = [];
+          let current = "";
+          let inQuotes = false;
+          for (const ch of line) {
+            if (ch === '"') { inQuotes = !inQuotes; continue; }
+            if (ch === ',' && !inQuotes) { cols.push(current.trim()); current = ""; continue; }
+            current += ch;
+          }
+          cols.push(current.trim());
+
+          const kw = cols[kwIndex]?.toLowerCase().trim();
+          if (kw && kw.length >= 2) keywords.push(kw);
+        }
+
+        setUploadedSeedFiles(prev => [...prev, { name: file.name, keywords }]);
+        toast({ title: `Loaded ${keywords.length} keywords`, description: file.name });
+      };
+      reader.readAsText(file);
+    });
+    // Reset input so same file can be re-uploaded
+    e.target.value = "";
   };
 
   // Website scan — scan all sites with URLs
@@ -629,6 +682,51 @@ const KeywordResearch = () => {
                   </div>
                 )}
 
+                {/* Upload CSV seed files */}
+                <div>
+                  <label className="text-sm font-medium mb-1 block flex items-center gap-1.5">
+                    <Upload className="h-3.5 w-3.5" />
+                    Upload Keyword CSV (up to 3)
+                    {uploadedSeedFiles.length > 0 && (
+                      <Badge variant="secondary" className="text-xs ml-1">
+                        {uploadedSeedFiles.reduce((s, f) => s + f.keywords.length, 0)} keywords ready
+                      </Badge>
+                    )}
+                  </label>
+                  <input
+                    ref={seedFileInputRef}
+                    type="file"
+                    accept=".csv,.txt"
+                    multiple
+                    className="hidden"
+                    onChange={handleSeedFileUpload}
+                  />
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {uploadedSeedFiles.map((f, i) => (
+                      <Badge key={i} variant="outline" className="text-xs gap-1 py-1">
+                        {f.name} ({f.keywords.length})
+                        <button onClick={() => setUploadedSeedFiles(prev => prev.filter((_, idx) => idx !== i))} className="ml-1 hover:text-destructive">
+                          <X className="h-3 w-3" />
+                        </button>
+                      </Badge>
+                    ))}
+                    {uploadedSeedFiles.length < 3 && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-xs gap-1"
+                        onClick={() => seedFileInputRef.current?.click()}
+                      >
+                        <Upload className="h-3.5 w-3.5" />
+                        {uploadedSeedFiles.length === 0 ? "Upload CSV" : "Add file"}
+                      </Button>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Ahrefs CSV format supported. Keywords are extracted from the "Keyword" column.
+                  </p>
+                </div>
+
                 {/* Manual keyword seeds */}
                 <div>
                   <label className="text-sm font-medium mb-1 block">Additional Keyword Seeds (optional)</label>
@@ -640,7 +738,7 @@ const KeywordResearch = () => {
                     className="text-sm"
                   />
                   <p className="text-xs text-muted-foreground mt-1">
-                    These will be combined with any scanned/extracted terms and fed into the semantic generator.
+                    These will be combined with any scanned/extracted/uploaded terms and fed into the semantic generator.
                   </p>
                 </div>
 
