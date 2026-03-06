@@ -530,13 +530,19 @@ const KeywordClustering = () => {
 
       const updatedResult: ClusteringResult = {
         ...result,
-        clusters: result.clusters.map(c =>
-          c.topic === clusterTopic ? { ...c, ...enrichedCluster } : c
-        ),
+        clusters: result.clusters.map(c => {
+          if (c.topic !== clusterTopic) return c;
+          if (keywordFilter && c.blog_ideas?.length) {
+            // Append new ideas to existing ones instead of replacing
+            return { ...c, blog_ideas: [...c.blog_ideas, ...(enrichedCluster.blog_ideas || [])] };
+          }
+          return { ...c, ...enrichedCluster };
+        }),
       };
 
       setResult(updatedResult);
-      toast({ title: `"${clusterTopic}" ideas regenerated` });
+      const label = keywordFilter ? `${keywordFilter} ideas for "${clusterTopic}"` : `"${clusterTopic}" ideas`;
+      toast({ title: `${label} generated` });
 
       if (activeResultId) {
         await supabase
