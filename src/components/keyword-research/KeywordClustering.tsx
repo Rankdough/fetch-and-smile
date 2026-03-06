@@ -837,6 +837,34 @@ const KeywordClustering = () => {
     downloadCSV(rows, "silo-summary.csv");
   };
 
+  const exportContentCalendar = () => {
+    if (!result) return;
+    const rows: string[][] = [["Month", "Silo", "Blog Post Title", "Description", "Total Volume", "Target Keywords", "Status"]];
+    result.clusters.forEach(c => {
+      const ideas = c.blog_ideas || [];
+      ideas.forEach(idea => {
+        const ideaKey = makeIdeaKey(c.topic, idea.title);
+        if (!bookmarkedIdeas.has(ideaKey)) return;
+        // Calculate total volume for this idea
+        const volLookup: Record<string, number> = {};
+        if (c.keyword_volumes) {
+          for (const [k, v] of Object.entries(c.keyword_volumes)) {
+            volLookup[k.toLowerCase().trim()] = v;
+          }
+        }
+        const totalVol = (idea.target_keywords || []).reduce((sum, kw) => sum + (volLookup[kw.toLowerCase().trim()] || 0), 0);
+        const status = usedIdeas.has(ideaKey) ? "Done" : "";
+        rows.push(["", c.topic, idea.title, idea.description, totalVol.toString(), (idea.target_keywords || []).join("; "), status]);
+      });
+    });
+    if (rows.length <= 1) {
+      toast({ title: "No saved ideas", description: "Save blog ideas using the bookmark button first.", variant: "destructive" });
+      return;
+    }
+    downloadCSV(rows, "content-calendar.csv");
+    toast({ title: `Content calendar exported`, description: `${rows.length - 1} saved blog ideas ready for scheduling.` });
+  };
+
   const totalVolume = result?.clusters.reduce((s, c) => s + c.estimated_monthly_volume, 0) || 0;
   const keywordCount = parseKeywordsFromText(rawInput).length;
 
