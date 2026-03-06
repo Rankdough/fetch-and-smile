@@ -1414,23 +1414,36 @@ Focus on providing actionable research that will help create a comprehensive, di
                         ) : (
                           <div className="border border-dashed rounded-md p-4 flex items-center justify-between">
                             <p className="text-sm text-muted-foreground">No blog ideas generated yet for this silo.</p>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="gap-1.5 text-xs"
-                              disabled={enrichingSilo !== null || isAnalyzing}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                reEnrichSingleCluster(cluster.topic);
-                              }}
-                            >
-                              {enrichingSilo === cluster.topic ? (
-                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                              ) : (
-                                <Lightbulb className="h-3.5 w-3.5" />
-                              )}
-                              Generate Blog Ideas
-                            </Button>
+                            <div className="flex items-center gap-1.5">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="gap-1.5 text-xs"
+                                disabled={enrichingSilo !== null || isAnalyzing}
+                                onClick={(e) => { e.stopPropagation(); reEnrichSingleCluster(cluster.topic); }}
+                              >
+                                {enrichingSilo === cluster.topic ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Lightbulb className="h-3.5 w-3.5" />}
+                                All Keywords
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="gap-1.5 text-xs"
+                                disabled={enrichingSilo !== null || isAnalyzing}
+                                onClick={(e) => { e.stopPropagation(); reEnrichSingleCluster(cluster.topic, "generic"); }}
+                              >
+                                Generic
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="gap-1.5 text-xs"
+                                disabled={enrichingSilo !== null || isAnalyzing}
+                                onClick={(e) => { e.stopPropagation(); reEnrichSingleCluster(cluster.topic, "questions"); }}
+                              >
+                                Questions
+                              </Button>
+                            </div>
                           </div>
                         )}
                       </CardContent>
