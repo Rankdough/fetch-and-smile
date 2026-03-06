@@ -1627,6 +1627,19 @@ const KeywordClustering = () => {
                                                       );
                                                     })}
                                                   </div>
+                                                  <div className="border-t mt-2 pt-2">
+                                                    <button
+                                                      className="w-full text-left px-2 py-1.5 rounded text-xs hover:bg-primary/10 transition-colors font-semibold text-primary flex items-center gap-1.5"
+                                                      disabled={generatingIdeaForKw !== null}
+                                                      onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        createIdeaFromKeyword(cluster.topic, kw, filterMode === "questions" ? "questions" : filterMode === "generic" ? "generic" : undefined);
+                                                      }}
+                                                    >
+                                                      {generatingIdeaForKw === kw ? <Loader2 className="h-3 w-3 animate-spin" /> : <Lightbulb className="h-3 w-3" />}
+                                                      Create new blog idea for "{kw}"
+                                                    </button>
+                                                  </div>
                                                 </PopoverContent>
                                               </Popover>
                                             ) : assignedIdeaTitle ? (
