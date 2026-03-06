@@ -731,7 +731,7 @@ const KeywordClustering = () => {
     }
   };
 
-  const createIdeaFromKeyword = async (clusterTopic: string, keyword: string) => {
+  const createIdeaFromKeyword = async (clusterTopic: string, keyword: string, keywordFilter?: "generic" | "questions") => {
     if (!result) return;
     const cluster = result.clusters.find(c => c.topic === clusterTopic);
     if (!cluster) return;
@@ -739,8 +739,11 @@ const KeywordClustering = () => {
     setGeneratingIdeaForKw(keyword);
     try {
       const vol = cluster.keyword_volumes?.[keyword] ?? cluster.keyword_volumes?.[keyword.toLowerCase()] ?? null;
-      // Find related keywords from the cluster
-      const relatedKws = cluster.keywords
+      // Find related keywords from the same category only
+      const poolKws = keywordFilter
+        ? cluster.keywords.filter(kw => keywordFilter === "questions" ? isQuestionKeyword(kw, cluster) : !isQuestionKeyword(kw, cluster))
+        : cluster.keywords;
+      const relatedKws = poolKws
         .filter(kw => kw.toLowerCase() !== keyword.toLowerCase())
         .filter(kw => {
           const words = keyword.toLowerCase().split(/\s+/);
