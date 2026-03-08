@@ -2194,7 +2194,7 @@ const Index = () => {
                 const tableRowOdd = isDarkSitePaletteForExport ? "rgba(255,255,255,0.04)" : "#f9fafb";
                 const tableRowEven = isDarkSitePaletteForExport ? "rgba(255,255,255,0.08)" : "#ffffff";
                 const tableBorder = isDarkSitePaletteForExport ? "rgba(255,255,255,0.2)" : "#e5e7eb";
-                const tableHeaderText = "#ffffff";
+                const tableHeaderText = isDarkSitePaletteForExport ? "#000000" : "#ffffff";
                 
                 // Extract navigation and FAQ items from markdown
                 let navItems = extractInThisArticleItems(generatedContent);
