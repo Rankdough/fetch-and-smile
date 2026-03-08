@@ -4,8 +4,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import {
-  ChevronDown, TrendingUp, ArrowRight, Search, Bookmark, FileText,
+  ChevronDown, TrendingUp, ArrowRight, Search, Bookmark, FileText, Download,
 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 interface BlogIdea {
   title: string;
@@ -39,9 +40,12 @@ interface ContentQueueProps {
   onUseForArticle: (cluster: KeywordCluster, idea: BlogIdea) => void;
   onRemoveFromQueue: (ideaKey: string) => void;
   formatVolume: (v: number) => string;
+  projectName?: string;
 }
 
-const ContentQueue = ({ queuedIdeas, onUseForArticle, onRemoveFromQueue, formatVolume }: ContentQueueProps) => {
+const ContentQueue = ({ queuedIdeas, onUseForArticle, onRemoveFromQueue, formatVolume, projectName }: ContentQueueProps) => {
+  const { toast } = useToast();
+
   if (queuedIdeas.length === 0) return null;
 
   const copyDeepResearch = (cluster: KeywordCluster, idea: BlogIdea) => {
@@ -70,6 +74,64 @@ Please conduct deep research on this topic and provide:
 
 Focus on providing actionable research that will help create a comprehensive, differentiated article.`;
     navigator.clipboard.writeText(prompt);
+    toast({ title: "Copied!", description: "Deep research prompt copied to clipboard." });
+  };
+
+  const exportContentQueueCSV = () => {
+    const rows: string[][] = [[
+      "Silo", "Silo Description", "Silo Volume", "Silo Difficulty", "Silo Priority",
+      "Article Title", "Article Description", "Strategic Angle",
+      "Target Keywords", "Keyword Volumes", "Total Keyword Volume",
+      "Value Promises", "Status"
+    ]];
+
+    for (const { cluster, idea } of queuedIdeas) {
+      const volLookup: Record<string, number> = {};
+      if (cluster.keyword_volumes) {
+        for (const [k, v] of Object.entries(cluster.keyword_volumes)) {
+          volLookup[k.toLowerCase().trim()] = v;
+        }
+      }
+      const kws = idea.target_keywords || [];
+      const kwVolPairs = kws.map(kw => {
+        const vol = volLookup[kw.toLowerCase().trim()];
+        return vol != null && vol > 0 ? `${kw} (${vol.toLocaleString()})` : kw;
+      });
+      const totalVol = kws.reduce((sum, kw) => sum + (volLookup[kw.toLowerCase().trim()] || 0), 0);
+
+      rows.push([
+        cluster.topic,
+        cluster.description,
+        cluster.estimated_monthly_volume.toString(),
+        cluster.difficulty,
+        cluster.priority,
+        idea.title,
+        idea.description,
+        idea.reason || "",
+        kws.join("; "),
+        kwVolPairs.join("; "),
+        totalVol.toString(),
+        (idea.value_promises || []).join("; "),
+        ""
+      ]);
+    }
+
+    const csv = rows.map(r => r.map(v => `"${(v || "").replace(/"/g, '""')}"`).join(",")).join("\n");
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    const safeName = (projectName || "content-queue").replace(/[^a-zA-Z0-9-_ ]/g, "").replace(/\s+/g, "-").toLowerCase();
+    a.download = `${safeName}-content-queue.csv`;
+    a.style.display = "none";
+    const targetDoc = window.top?.document || document;
+    targetDoc.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+      targetDoc.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 500);
+    toast({ title: "Exported!", description: `${queuedIdeas.length} articles exported to spreadsheet.` });
   };
 
   // Group by silo
@@ -87,10 +149,21 @@ Focus on providing actionable research that will help create a comprehensive, di
           <CollapsibleTrigger className="w-full flex items-center justify-between">
             <CardTitle className="text-sm flex items-center gap-2">
               <FileText className="h-4 w-4 text-primary" />
-              Content Queue
+              Content Queue {projectName && <span className="text-muted-foreground font-normal">— {projectName}</span>}
               <Badge variant="default" className="text-[10px]">{queuedIdeas.length}</Badge>
             </CardTitle>
-            <ChevronDown className="h-4 w-4 text-muted-foreground" />
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5 text-xs h-7 px-2"
+                onClick={(e) => { e.stopPropagation(); exportContentQueueCSV(); }}
+              >
+                <Download className="h-3 w-3" />
+                Export Spreadsheet
+              </Button>
+              <ChevronDown className="h-4 w-4 text-muted-foreground" />
+            </div>
           </CollapsibleTrigger>
         </CardHeader>
         <CollapsibleContent>
@@ -154,7 +227,7 @@ Focus on providing actionable research that will help create a comprehensive, di
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="gap-1 text-xs h-7 px-2 text-amber-600"
+                            className="gap-1 text-xs h-7 px-2 text-destructive"
                             onClick={() => onRemoveFromQueue(ideaKey)}
                           >
                             <Bookmark className="h-3 w-3 fill-current" />

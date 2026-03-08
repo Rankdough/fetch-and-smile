@@ -2072,6 +2072,7 @@ Focus on providing actionable research that will help create a comprehensive, di
               onUseForArticle={sendToGenerator}
               onRemoveFromQueue={(ideaKey) => setBookmarkedIdeas(toggleStoredSet(getBookmarkedKey(activeResultId), ideaKey))}
               formatVolume={formatVolume}
+              projectName={projectName}
             />
           );
         })()}
