@@ -1873,7 +1873,7 @@ const KeywordClustering = () => {
                                         className={`gap-1 text-xs h-7 px-2 ${bookmarkedIdeas.has(ideaKey) ? "text-amber-600" : "text-muted-foreground"}`}
                                         onClick={(e) => {
                                           e.stopPropagation();
-                                          setBookmarkedIdeas(toggleStoredSet(BOOKMARKED_IDEAS_KEY, ideaKey));
+                                          setBookmarkedIdeas(toggleStoredSet(getBookmarkedKey(activeResultId), ideaKey));
                                         }}
                                       >
                                         <Bookmark className={`h-3 w-3 ${bookmarkedIdeas.has(ideaKey) ? "fill-current" : ""}`} />
