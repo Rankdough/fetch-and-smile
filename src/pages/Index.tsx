@@ -4584,7 +4584,7 @@ const Index = () => {
                                                     return (
                                                       <>
                                                         {faqItems.length > 0 && (
-                                                          <FAQAccordion items={faqItems} brandColors={selectedColorPalette} />
+                                                          <FAQAccordion items={faqItems} brandColors={selectedColorPalette} isDarkSite={isDarkSitePalette} />
                                                         )}
                                                         <h2 id={text} {...props}>{children}</h2>
                                                       </>
