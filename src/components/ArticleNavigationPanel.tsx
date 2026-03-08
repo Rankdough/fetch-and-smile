@@ -18,13 +18,15 @@ interface ArticleNavigationPanelProps {
   onJumpToSection?: (slug: string) => void;
   skipNavigation?: boolean;
   onSkipNavigationChange?: (skip: boolean) => void;
+  isDarkSite?: boolean;
 }
 
 export const ArticleNavigationPanel = ({ 
   items, 
   onJumpToSection,
   skipNavigation = false,
-  onSkipNavigationChange
+  onSkipNavigationChange,
+  isDarkSite = false
 }: ArticleNavigationPanelProps) => {
   const [expandedItem, setExpandedItem] = useState<number | null>(null);
 
@@ -69,7 +71,10 @@ export const ArticleNavigationPanel = ({
   };
 
   return (
-    <div className="rounded-lg border bg-muted/30 p-3 sm:p-4 space-y-2 sm:space-y-3">
+    <div 
+      className="rounded-lg border p-3 sm:p-4 space-y-2 sm:space-y-3"
+      style={isDarkSite ? { backgroundColor: 'rgba(255,255,255,0.06)', borderColor: 'rgba(255,255,255,0.15)', color: '#e5e7eb' } : undefined}
+    >
       <div className="flex items-center justify-between flex-wrap gap-2">
         <h4 className="text-xs sm:text-sm font-medium flex items-center gap-2">
           <span className="flex items-center justify-center w-5 h-5 rounded-full bg-primary text-primary-foreground text-xs font-bold">
@@ -78,7 +83,7 @@ export const ArticleNavigationPanel = ({
           In This Article
         </h4>
         <div className="flex items-center gap-3">
-          <span className="text-xs text-muted-foreground">
+          <span className="text-xs" style={isDarkSite ? { color: 'rgba(255,255,255,0.5)' } : undefined}>
             {items.length} sections
           </span>
           {onSkipNavigationChange && (
@@ -93,7 +98,7 @@ export const ArticleNavigationPanel = ({
         </div>
       </div>
 
-      <p className="text-xs text-muted-foreground">
+      <p className="text-xs" style={isDarkSite ? { color: 'rgba(255,255,255,0.5)' } : undefined}>
         Quick navigation to each section of this article:
       </p>
 
@@ -102,11 +107,12 @@ export const ArticleNavigationPanel = ({
           <div
             key={index}
             className={cn(
-              "rounded-md border bg-background transition-all overflow-hidden",
+              "rounded-md border transition-all overflow-hidden",
               item.isHighlighted 
                 ? "border-primary bg-primary text-primary-foreground" 
                 : "border-border hover:border-primary/30"
             )}
+            style={isDarkSite && !item.isHighlighted ? { backgroundColor: 'rgba(255,255,255,0.04)', borderColor: 'rgba(255,255,255,0.12)' } : undefined}
           >
             {/* Clickable header row */}
             <button 
@@ -129,8 +135,10 @@ export const ArticleNavigationPanel = ({
               </div>
               <span className={cn(
                 "flex-1 text-xs sm:text-sm font-semibold leading-tight",
-                item.isHighlighted ? "text-primary-foreground" : "text-foreground"
-              )}>
+                item.isHighlighted ? "text-primary-foreground" : ""
+              )}
+              style={isDarkSite && !item.isHighlighted ? { color: '#e5e7eb' } : undefined}
+              >
                 {item.title}
                 {item.isHighlighted && (
                   <Star className="inline-block ml-1.5 h-3 w-3 fill-current" />

@@ -14,9 +14,10 @@ interface FAQAccordionProps {
     secondary: string;
     accent: string;
   } | null;
+  isDarkSite?: boolean;
 }
 
-export const FAQAccordion = ({ items, brandColors }: FAQAccordionProps) => {
+export const FAQAccordion = ({ items, brandColors, isDarkSite = false }: FAQAccordionProps) => {
   const [expandedItem, setExpandedItem] = useState<number | null>(null);
 
   if (!items || items.length === 0) return null;
@@ -26,7 +27,10 @@ export const FAQAccordion = ({ items, brandColors }: FAQAccordionProps) => {
   const primaryColor = brandColors?.primary || "hsl(300 52% 36%)";
 
   return (
-    <div className="rounded-lg border bg-muted/30 p-4 space-y-3 my-6">
+    <div 
+      className="rounded-lg border p-4 space-y-3 my-6"
+      style={isDarkSite ? { backgroundColor: 'rgba(255,255,255,0.06)', borderColor: 'rgba(255,255,255,0.15)', color: '#e5e7eb' } : undefined}
+    >
       <div className="flex items-center justify-between">
         <h4 className="text-sm font-medium flex items-center gap-2">
           <span 
@@ -37,7 +41,7 @@ export const FAQAccordion = ({ items, brandColors }: FAQAccordionProps) => {
           </span>
           Frequently Asked Questions
         </h4>
-        <span className="text-xs text-muted-foreground">
+        <span className="text-xs" style={isDarkSite ? { color: 'rgba(255,255,255,0.5)' } : undefined}>
           {items.length} questions
         </span>
       </div>
@@ -46,8 +50,8 @@ export const FAQAccordion = ({ items, brandColors }: FAQAccordionProps) => {
         {items.map((item, index) => (
           <div
             key={index}
-            className="rounded-md border bg-background transition-all overflow-hidden"
-            style={{ borderColor: expandedItem === index ? accentColor : undefined }}
+            className="rounded-md border transition-all overflow-hidden"
+            style={isDarkSite ? { backgroundColor: 'rgba(255,255,255,0.04)', borderColor: expandedItem === index ? accentColor : 'rgba(255,255,255,0.12)' } : { borderColor: expandedItem === index ? accentColor : undefined }}
           >
             {/* Question row - clickable */}
             <button 
@@ -67,7 +71,7 @@ export const FAQAccordion = ({ items, brandColors }: FAQAccordionProps) => {
               >
                 {index + 1}
               </div>
-              <span className="flex-1 text-sm font-semibold text-foreground">
+              <span className="flex-1 text-sm font-semibold" style={isDarkSite ? { color: '#e5e7eb' } : undefined}>
                 {item.question}
               </span>
               <ChevronDown 
@@ -85,7 +89,7 @@ export const FAQAccordion = ({ items, brandColors }: FAQAccordionProps) => {
               expandedItem === index ? "max-h-96 opacity-100" : "max-h-0 opacity-0"
             )}>
               <div className="px-3 pb-3 pl-12">
-                <p className="text-sm text-muted-foreground leading-relaxed">
+                <p className="text-sm leading-relaxed" style={isDarkSite ? { color: 'rgba(255,255,255,0.6)' } : undefined}>
                   {item.answer}
                 </p>
               </div>
