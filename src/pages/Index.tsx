@@ -2434,7 +2434,7 @@ const Index = () => {
                       });
                     }
                     if (nextSibling && nextSibling.tagName === 'P') {
-                      nextSibling.setAttribute('style', `background: #f8f4ff; border-left: 4px solid ${primaryColor}; padding: 16px 24px; margin: 0 0 24px 0; border-radius: 0 0 8px 0; line-height: 1.7;`);
+                      nextSibling.setAttribute('style', `background: ${panelBg}; color: ${panelText}; border-left: 4px solid ${primaryColor}; padding: 16px 24px; margin: 0 0 24px 0; border-radius: 0 0 8px 0; line-height: 1.7;`);
                     }
                   } else {
                     // Regular H3 - only margins, inherit everything else
