@@ -1355,10 +1355,18 @@ const Index = () => {
           setGeneratedCTAs(null);
         }
         
-        toast({
-          title: "Content generated!",
-          description: "Your article has been created successfully.",
-        });
+        // Show completeness guard results
+        if (data.completenessGuard?.fixed?.length > 0) {
+          toast({
+            title: "Article auto-completed ✓",
+            description: `Missing sections were auto-generated: ${data.completenessGuard.fixed.join(", ")}`,
+          });
+        } else {
+          toast({
+            title: "Content generated!",
+            description: "Your article has been created successfully — all sections verified ✓",
+          });
+        }
       }
 
       setGeneratedContent(content, true);
