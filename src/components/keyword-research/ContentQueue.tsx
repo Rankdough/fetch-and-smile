@@ -46,7 +46,15 @@ interface ContentQueueProps {
 const ContentQueue = ({ queuedIdeas, onUseForArticle, onRemoveFromQueue, formatVolume, projectName }: ContentQueueProps) => {
   const { toast } = useToast();
 
-  if (queuedIdeas.length === 0) return null;
+  if (queuedIdeas.length === 0) return (
+    <Card className="border-dashed border-muted-foreground/30">
+      <CardContent className="py-8 text-center">
+        <FileText className="h-8 w-8 text-muted-foreground/40 mx-auto mb-2" />
+        <p className="text-sm text-muted-foreground">Content Queue is empty</p>
+        <p className="text-xs text-muted-foreground/60 mt-1">Bookmark blog ideas using the <Bookmark className="h-3 w-3 inline" /> icon to add them here</p>
+      </CardContent>
+    </Card>
+  );
 
   const copyDeepResearch = (cluster: KeywordCluster, idea: BlogIdea) => {
     const prompt = `Act as an expert SEO content researcher. I'm planning to write an article titled "${idea.title}".

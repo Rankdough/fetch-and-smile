@@ -1248,6 +1248,15 @@ const KeywordClustering = () => {
                   <Download className="h-3.5 w-3.5" />
                   Full Export
                 </Button>
+                <Button
+                  variant={bookmarkedIdeas.size > 0 ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => document.getElementById('content-queue-section')?.scrollIntoView({ behavior: 'smooth' })}
+                  className="gap-1.5"
+                >
+                  <FileText className="h-3.5 w-3.5" />
+                  Content Queue {bookmarkedIdeas.size > 0 && `(${bookmarkedIdeas.size})`}
+                </Button>
                 {bookmarkedIdeas.size > 0 && (
                   <Button variant="outline" size="sm" onClick={exportContentCalendar} className="gap-1.5 border-amber-500/50 text-amber-700 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950/30">
                     <Bookmark className="h-3.5 w-3.5 fill-current" />
@@ -2071,6 +2080,7 @@ Focus on providing actionable research that will help create a comprehensive, di
         )}
 
         {/* Content Queue - saved/bookmarked ideas */}
+        <div id="content-queue-section">
         {result && (() => {
           const queuedIdeas = result.clusters.flatMap(cluster =>
             (cluster.blog_ideas || [])
@@ -2091,6 +2101,7 @@ Focus on providing actionable research that will help create a comprehensive, di
             />
           );
         })()}
+        </div>
 
         {/* Saved results - Previous Research */}
         {savedResults.length > 0 && (
