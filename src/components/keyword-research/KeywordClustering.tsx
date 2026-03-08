@@ -158,6 +158,11 @@ const KeywordClustering = () => {
     });
   };
 
+  // Reload bookmarks when active project changes
+  useEffect(() => {
+    setBookmarkedIdeas(getBookmarkedIdeas(activeResultId));
+  }, [activeResultId]);
+
   // Load saved results on mount
   useEffect(() => {
     loadSavedResults();
