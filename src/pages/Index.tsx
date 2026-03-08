@@ -2551,7 +2551,7 @@ const Index = () => {
                     bq.appendChild(circleSpan);
                     const textSpan = document.createElement('span');
                     textSpan.innerHTML = content.replace(/^[\s]*/, '');
-                    textSpan.setAttribute('style', 'flex: 1;');
+                    textSpan.setAttribute('style', `flex: 1; color: ${bodyText};`);
                     bq.appendChild(textSpan);
                   } else {
                     // Regular blockquote (like TL;DR content)
