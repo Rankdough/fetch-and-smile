@@ -261,14 +261,29 @@ Focus on providing actionable research that will help create a comprehensive, di
         <CollapsibleContent>
           <CardContent className="pt-0 space-y-4">
             {/* Done items at the very top */}
-            {doneItems.length > 0 && (
+            {doneItems.length > 0 && (() => {
+              const grandTotalVol = doneItems.reduce((sum, { cluster, idea }) => {
+                const vl = cluster.keyword_volumes || {};
+                return sum + (idea.target_keywords || []).reduce((s, kw) => s + (vl[kw] ?? vl[kw.toLowerCase()] ?? 0), 0);
+              }, 0);
+              return (
               <div className="space-y-2">
-                <div className="flex items-center gap-2">
+                <div
+                  className="flex items-center gap-2 cursor-pointer select-none"
+                  onClick={() => setCompletedSectionOpen(prev => !prev)}
+                >
+                  <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", !completedSectionOpen && "-rotate-90")} />
                   <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                     ✅ Completed ({doneItems.length})
                   </span>
+                  {grandTotalVol > 0 && (
+                    <Badge variant="outline" className="text-[10px]">
+                      <TrendingUp className="h-2.5 w-2.5 mr-0.5" />
+                      {formatVolume(grandTotalVol)} total vol
+                    </Badge>
+                  )}
                 </div>
-                {doneItems.map(({ cluster, idea, ideaKey }) => {
+                {completedSectionOpen && doneItems.map(({ cluster, idea, ideaKey }) => {
                   const volLookup = cluster.keyword_volumes || {};
                   const sortedKws = [...(idea.target_keywords || [])].sort(
                     (a, b) => (volLookup[b] ?? volLookup[b.toLowerCase()] ?? 0) - (volLookup[a] ?? volLookup[a.toLowerCase()] ?? 0)
