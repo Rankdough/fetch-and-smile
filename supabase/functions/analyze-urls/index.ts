@@ -86,12 +86,21 @@ serve(async (req) => {
 
 ${articlesContext}
 
-Provide a concise gap analysis:
-1. List 3-5 key topics these articles DON'T cover well or miss entirely
-2. Identify any unique angles or perspectives that are missing
-3. Note any outdated information or claims that could be improved
+Provide a detailed gap analysis using EXACTLY this format:
 
-Format your response as a brief bullet-point list. Be specific and actionable.`;
+## 1. Key Topics Missing or Under-Covered
+- **Topic Name:** Brief description of what's missing and why it matters
+- **Another Topic:** Description...
+
+## 2. Unique Angles and Perspectives Missing
+- **Angle Name:** Brief description of the missing perspective
+- **Another Angle:** Description...
+
+## 3. Outdated or Improvable Information
+- **Claim or Fact:** What's outdated and how it could be improved
+- **Another Claim:** Description...
+
+IMPORTANT: You MUST use the exact format above with numbered section headers (## 1. Title) and bullet points with bold titles (- **Title:** Description). Include 3-5 specific, actionable bullet points per section.`;
 
     console.log("Running gap analysis...");
 
