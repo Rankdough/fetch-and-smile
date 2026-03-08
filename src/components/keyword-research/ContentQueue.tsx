@@ -46,6 +46,13 @@ interface ContentQueueProps {
 
 const ContentQueue = ({ queuedIdeas, onUseForArticle, onRemoveFromQueue, formatVolume, projectName }: ContentQueueProps) => {
   const { toast } = useToast();
+  const [fallbackDownload, setFallbackDownload] = useState<{ url: string; filename: string } | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (fallbackDownload?.url) URL.revokeObjectURL(fallbackDownload.url);
+    };
+  }, [fallbackDownload]);
 
   if (queuedIdeas.length === 0) return (
     <Card className="border-dashed border-muted-foreground/30">
