@@ -777,7 +777,7 @@ STRICT RULES — follow this exact pattern from a proven high-performing example
     console.log("Applied rules:", appliedRules);
 
     return new Response(
-      JSON.stringify({ content, appliedRules, ctas }),
+      JSON.stringify({ content, appliedRules, ctas, completenessGuard: missingSections.length > 0 ? { fixed: missingSections, status: "auto-completed" } : { fixed: [], status: "complete" } }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
