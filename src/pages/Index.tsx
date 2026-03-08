@@ -2545,7 +2545,7 @@ const Index = () => {
                     circleSpan.textContent = String(tipIndex);
                     
                     // Style the blockquote for tips
-                    bq.setAttribute('style', `display: flex; align-items: center; background: linear-gradient(135deg, ${primaryColor}10 0%, ${primaryColor}20 100%); border: 1px solid ${primaryColor}33; border-radius: 12px; padding: 16px 20px; margin: 12px 0; font-style: normal;`);
+                    bq.setAttribute('style', `display: flex; align-items: center; background: ${isDarkSitePaletteForExport ? 'rgba(255,255,255,0.06)' : `linear-gradient(135deg, ${primaryColor}10 0%, ${primaryColor}20 100%)`}; border: 1px solid ${isDarkSitePaletteForExport ? 'rgba(255,255,255,0.12)' : `${primaryColor}33`}; border-radius: 12px; padding: 16px 20px; margin: 12px 0; font-style: normal;`);
                     
                     // Wrap content and prepend circle
                     const content = bq.innerHTML;
