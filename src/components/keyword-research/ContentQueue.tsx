@@ -55,6 +55,7 @@ const ContentQueue = ({ queuedIdeas, onUseForArticle, onRemoveFromQueue, formatV
     } catch { return new Set(); }
   });
   const [expandedDone, setExpandedDone] = useState<Set<string>>(new Set());
+  const [completedSectionOpen, setCompletedSectionOpen] = useState(true);
 
   const toggleExpanded = useCallback((ideaKey: string) => {
     setExpandedDone(prev => {
