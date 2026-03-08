@@ -585,9 +585,9 @@ ${current}`;
     // COMPLETENESS GUARD: Deterministic check for all required sections.
     // If any are missing, auto-generate them and append/insert.
     // ═══════════════════════════════════════════════════════════════════════
+    let missingSections: string[] = [];
     if (!expandExistingContent) {
       const contentLower = content.toLowerCase();
-      const missingSections: string[] = [];
 
       // Check each required structural element
       const hasTLDR = /^#{1,3}\s.*tl;?\s?dr/im.test(content);
