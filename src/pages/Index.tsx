@@ -2439,8 +2439,8 @@ const Index = () => {
                       nextSibling.setAttribute('style', `background: ${panelBg}; color: ${panelText}; border-left: 4px solid ${primaryColor}; padding: 16px 24px; margin: 0 0 24px 0; border-radius: 0 0 8px 0; line-height: 1.7;`);
                     }
                   } else {
-                    // Regular H3 - only margins, inherit everything else
-                    h.setAttribute('style', 'margin: 24px 0 12px 0;');
+                    // Regular H3 - only margins, inherit everything else (+ dark color if needed)
+                    h.setAttribute('style', `margin: 24px 0 12px 0; ${headingColor}`);
                   }
                   h.removeAttribute('class');
                 });
