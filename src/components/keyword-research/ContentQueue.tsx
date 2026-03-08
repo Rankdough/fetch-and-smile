@@ -399,6 +399,8 @@ Focus on providing actionable research that will help create a comprehensive, di
                           ))}
                         </div>
                       )}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
