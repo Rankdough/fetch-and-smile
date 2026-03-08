@@ -194,7 +194,7 @@ Focus on providing actionable research that will help create a comprehensive, di
     <Collapsible defaultOpen>
       <Card className="border-primary/30 bg-primary/[0.02]">
         <CardHeader className="py-3">
-          <CollapsibleTrigger className="w-full flex items-center justify-between">
+          <div className="w-full flex items-center justify-between gap-2">
             <CardTitle className="text-sm flex items-center gap-2">
               <FileText className="h-4 w-4 text-primary" />
               Content Queue {projectName && <span className="text-muted-foreground font-normal">— {projectName}</span>}
@@ -205,26 +205,26 @@ Focus on providing actionable research that will help create a comprehensive, di
                 variant="outline"
                 size="sm"
                 className="gap-1.5 text-xs h-7 px-2"
-                onClick={(e) => { e.stopPropagation(); exportContentQueueCSV(); }}
+                onClick={exportContentQueueCSV}
               >
                 <Download className="h-3 w-3" />
                 Export Spreadsheet
               </Button>
               {fallbackDownload && (
                 <Button variant="secondary" size="sm" className="gap-1.5 text-xs h-7 px-2" asChild>
-                  <a
-                    href={fallbackDownload.url}
-                    download={fallbackDownload.filename}
-                    onClick={(e) => e.stopPropagation()}
-                  >
+                  <a href={fallbackDownload.url} download={fallbackDownload.filename}>
                     <Download className="h-3 w-3" />
                     Download File
                   </a>
                 </Button>
               )}
-              <ChevronDown className="h-4 w-4 text-muted-foreground" />
+              <CollapsibleTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-7 w-7">
+                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                </Button>
+              </CollapsibleTrigger>
             </div>
-          </CollapsibleTrigger>
+          </div>
         </CardHeader>
         <CollapsibleContent>
           <CardContent className="pt-0 space-y-4">
