@@ -50,7 +50,7 @@ const ContentQueue = ({ queuedIdeas, onUseForArticle, onRemoveFromQueue, formatV
 
   useEffect(() => {
     return () => {
-      if (fallbackDownload?.url) URL.revokeObjectURL(fallbackDownload.url);
+      if (fallbackDownload?.url?.startsWith("blob:")) URL.revokeObjectURL(fallbackDownload.url);
     };
   }, [fallbackDownload]);
 
