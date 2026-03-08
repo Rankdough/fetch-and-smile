@@ -40,7 +40,22 @@ const toggleStoredSet = (key: string, value: string): Set<string> => {
 };
 
 const getUsedIdeas = (): Set<string> => getStoredSet(USED_IDEAS_KEY);
-const getBookmarkedIdeas = (projectId: string | null): Set<string> => getStoredSet(getBookmarkedKey(projectId));
+const getBookmarkedIdeas = (projectId: string | null): Set<string> => {
+  const key = getBookmarkedKey(projectId);
+  const current = getStoredSet(key);
+  // Migrate old non-namespaced bookmarks to the current project if they exist
+  if (projectId) {
+    const oldKey = BOOKMARKED_IDEAS_KEY_PREFIX;
+    const old = getStoredSet(oldKey);
+    if (old.size > 0) {
+      const merged = new Set([...current, ...old]);
+      localStorage.setItem(key, JSON.stringify([...merged]));
+      localStorage.removeItem(oldKey);
+      return merged;
+    }
+  }
+  return current;
+};
 
 const markIdeaUsed = (ideaKey: string) => {
   const used = getUsedIdeas();
