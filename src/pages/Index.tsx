@@ -676,6 +676,10 @@ const Index = () => {
   }, [ctaUrlHistory]);
   
   useEffect(() => {
+    localStorage.setItem("seo-generator-internalLinkHistory", JSON.stringify(internalLinkHistory));
+  }, [internalLinkHistory]);
+  
+  useEffect(() => {
     localStorage.setItem("seo-generator-useKnowledgeBase", JSON.stringify(useKnowledgeBase));
   }, [useKnowledgeBase]);
 
