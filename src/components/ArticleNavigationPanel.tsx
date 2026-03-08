@@ -25,7 +25,8 @@ export const ArticleNavigationPanel = ({
   items, 
   onJumpToSection,
   skipNavigation = false,
-  onSkipNavigationChange
+  onSkipNavigationChange,
+  isDarkSite = false
 }: ArticleNavigationPanelProps) => {
   const [expandedItem, setExpandedItem] = useState<number | null>(null);
 
