@@ -1336,6 +1336,21 @@ const Index = () => {
               return [ctaUrl.trim(), ...filtered].slice(0, 10);
             });
           }
+          
+          // Save internal links to history
+          const validInternalUrls = internalLinks.filter(u => u.trim());
+          if (validInternalUrls.length > 0) {
+            setInternalLinkHistory(prev => {
+              const newHistory = [...prev];
+              validInternalUrls.forEach(url => {
+                const trimmed = url.trim();
+                const idx = newHistory.indexOf(trimmed);
+                if (idx !== -1) newHistory.splice(idx, 1);
+                newHistory.unshift(trimmed);
+              });
+              return newHistory.slice(0, 15);
+            });
+          }
         } else {
           setGeneratedCTAs(null);
         }
