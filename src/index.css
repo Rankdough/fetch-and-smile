@@ -190,7 +190,9 @@ All colors MUST be HSL.
 }
 
 .prose td {
-  @apply p-4 border-b border-border;
+  @apply p-4 border-b;
+  border-color: var(--brand-table-border, hsl(var(--border)));
+  color: var(--brand-text, hsl(var(--foreground)));
 }
 
 .prose blockquote {
