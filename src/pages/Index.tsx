@@ -1309,6 +1309,7 @@ const Index = () => {
             useFirstPerson,
             skipFaqs,
             skipQuickTips,
+            skipSources,
           },
         });
 
