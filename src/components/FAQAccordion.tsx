@@ -41,7 +41,7 @@ export const FAQAccordion = ({ items, brandColors, isDarkSite = false }: FAQAcco
           </span>
           Frequently Asked Questions
         </h4>
-        <span className="text-xs text-muted-foreground">
+        <span className="text-xs" style={isDarkSite ? { color: 'rgba(255,255,255,0.5)' } : undefined}>
           {items.length} questions
         </span>
       </div>
