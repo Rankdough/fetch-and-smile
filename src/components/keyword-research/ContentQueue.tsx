@@ -272,7 +272,7 @@ Focus on providing actionable research that will help create a comprehensive, di
                     )}>
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex-1 space-y-1.5">
-                          <h4 className="text-sm font-semibold">{idea.title}</h4>
+                          <h4 className="text-lg font-semibold">{idea.title}</h4>
                           <p className="text-xs text-muted-foreground">{idea.description}</p>
                           {idea.reason && (
                             <p className="text-xs italic text-primary/70">⚡ {idea.reason}</p>
