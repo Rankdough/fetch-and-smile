@@ -2445,7 +2445,7 @@ const Index = () => {
                 
                 // Style paragraphs
                 clone.querySelectorAll('p').forEach((p) => {
-                  p.setAttribute('style', 'margin: 0 0 16px 0; line-height: 1.7; color: #374151;');
+                  p.setAttribute('style', `margin: 0 0 16px 0; line-height: 1.7; color: ${bodyText};`);
                   p.removeAttribute('class');
                 });
                 
