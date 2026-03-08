@@ -98,7 +98,7 @@ export const ArticleNavigationPanel = ({
         </div>
       </div>
 
-      <p className="text-xs text-muted-foreground">
+      <p className="text-xs" style={isDarkSite ? { color: 'rgba(255,255,255,0.5)' } : undefined}>
         Quick navigation to each section of this article:
       </p>
 
