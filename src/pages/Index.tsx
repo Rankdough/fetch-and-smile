@@ -2194,7 +2194,7 @@ const Index = () => {
                 const tableRowOdd = isDarkSitePaletteForExport ? "rgba(255,255,255,0.04)" : "#f9fafb";
                 const tableRowEven = isDarkSitePaletteForExport ? "rgba(255,255,255,0.08)" : "#ffffff";
                 const tableBorder = isDarkSitePaletteForExport ? "rgba(255,255,255,0.2)" : "#e5e7eb";
-                const tableHeaderText = "#ffffff";
+                const tableHeaderText = isDarkSitePaletteForExport ? "#000000" : "#ffffff";
                 
                 // Extract navigation and FAQ items from markdown
                 let navItems = extractInThisArticleItems(generatedContent);
@@ -4255,7 +4255,7 @@ const Index = () => {
                     )}
                     {(
                     <article 
-                      className="prose prose-sm max-w-none dark:prose-invert"
+                      className={`prose prose-sm max-w-none dark:prose-invert ${isDarkSitePalette ? 'rounded-lg p-4 sm:p-6' : ''}`}
                       contentEditable={isEditMode}
                       suppressContentEditableWarning
                       onClick={(e) => {
@@ -4355,7 +4355,8 @@ const Index = () => {
                         outline: 'none',
                         cursor: isEditMode ? 'text' : 'default',
                         // Apply colors via CSS custom properties
-                        ...(articlePaletteStyles || {})
+                        ...(articlePaletteStyles || {}),
+                        ...(isDarkSitePalette ? { backgroundColor: '#111111' } : {})
                       }}
                     >
                       {(() => {
