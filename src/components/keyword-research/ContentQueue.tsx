@@ -48,6 +48,22 @@ interface ContentQueueProps {
 const ContentQueue = ({ queuedIdeas, onUseForArticle, onRemoveFromQueue, formatVolume, projectName }: ContentQueueProps) => {
   const { toast } = useToast();
   const [fallbackDownload, setFallbackDownload] = useState<{ url: string; filename: string } | null>(null);
+  const [doneIdeas, setDoneIdeas] = useState<Set<string>>(() => {
+    try {
+      const saved = localStorage.getItem("content-queue-done");
+      return saved ? new Set(JSON.parse(saved)) : new Set();
+    } catch { return new Set(); }
+  });
+
+  const toggleDone = useCallback((ideaKey: string) => {
+    setDoneIdeas(prev => {
+      const next = new Set(prev);
+      if (next.has(ideaKey)) next.delete(ideaKey);
+      else next.add(ideaKey);
+      localStorage.setItem("content-queue-done", JSON.stringify([...next]));
+      return next;
+    });
+  }, []);
 
   useEffect(() => {
     return () => {
