@@ -2462,7 +2462,7 @@ const Index = () => {
                 });
                 clone.querySelectorAll('li').forEach((li) => {
                   if (!li.getAttribute('style')) {
-                    li.setAttribute('style', 'margin: 8px 0; line-height: 1.6; color: #374151;');
+                    li.setAttribute('style', `margin: 8px 0; line-height: 1.6; color: ${bodyText};`);
                   }
                   li.removeAttribute('class');
                   // Clean any remaining double bullets
