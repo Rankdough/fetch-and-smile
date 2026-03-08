@@ -2338,8 +2338,8 @@ const Index = () => {
                   tbody.removeAttribute('class');
                   const rows = tbody.querySelectorAll('tr');
                   rows.forEach((tr, idx) => {
-                    const bgColor = idx % 2 === 0 ? '#f9fafb' : '#ffffff';
-                    tr.setAttribute('style', `background: ${bgColor};`);
+                    const bgColor = idx % 2 === 0 ? tableRowOdd : tableRowEven;
+                    tr.setAttribute('style', `background: ${bgColor}; color: ${bodyText};`);
                     tr.removeAttribute('class');
                   });
                 });
