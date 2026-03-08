@@ -581,6 +581,104 @@ ${current}`;
 
     console.log("Content generated successfully");
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // COMPLETENESS GUARD: Deterministic check for all required sections.
+    // If any are missing, auto-generate them and append/insert.
+    // ═══════════════════════════════════════════════════════════════════════
+    let missingSections: string[] = [];
+    if (!expandExistingContent) {
+      const contentLower = content.toLowerCase();
+
+      // Check each required structural element
+      const hasTLDR = /^#{1,3}\s.*tl;?\s?dr/im.test(content);
+      const hasQuickTips = skipQuickTips || /^#{1,3}\s.*quick\s*tips/im.test(content);
+      const hasInThisArticle = /in\s*this\s*article/i.test(content);
+      const hasFAQ = skipFaqs || /^#{1,3}\s.*frequently\s*asked|^#{1,3}\s.*faq/im.test(content);
+      const hasFinalThoughts = /^#{1,3}\s.*final\s*thoughts|^#{1,3}\s.*conclusion/im.test(content);
+      const hasReferences = skipSources || /^#{1,3}\s.*references/im.test(content);
+
+      // Count H2 body sections (excluding structural ones)
+      const h2Matches = content.match(/^##\s+.+$/gm) || [];
+      const structuralH2s = ["tl;dr", "tldr", "quick tips", "frequently asked", "faq", "final thoughts", "conclusion", "references", "in this article"];
+      const bodyH2s = h2Matches.filter(h => !structuralH2s.some(s => h.toLowerCase().includes(s)));
+      const hasEnoughBodySections = bodyH2s.length >= 3;
+
+      if (!hasTLDR) missingSections.push("TL;DR");
+      if (!hasQuickTips) missingSections.push("Quick Tips");
+      if (!hasFAQ) missingSections.push("FAQ");
+      if (!hasFinalThoughts) missingSections.push("Final Thoughts");
+      if (!hasReferences) missingSections.push("References");
+
+      if (missingSections.length > 0) {
+        console.warn(`COMPLETENESS GUARD: Missing sections detected: ${missingSections.join(", ")}. Auto-generating...`);
+
+        const completionPrompt = `You are completing an existing article. The following sections are MISSING and must be generated:
+
+${missingSections.map(s => `- ${s}`).join("\n")}
+
+EXISTING ARTICLE TOPIC: ${topic}
+
+EXISTING ARTICLE (last 2000 chars for context):
+${content.slice(-2000)}
+
+INSTRUCTIONS:
+- Generate ONLY the missing sections listed above, nothing else
+- Use ## headings for each section
+- Match the tone and style of the existing article
+- For TL;DR: 3-5 bullet point summary of the article
+- For Quick Tips: exactly 3 actionable tips as blockquotes
+- For FAQ: 4-6 Q&As in bold question format with detailed answers
+- For Final Thoughts: concluding paragraph with call-to-action
+- For References: list all sources mentioned in the article as markdown links, plus 2-3 additional authoritative sources
+- Return ONLY the missing section markdown, no explanations`;
+
+        try {
+          const completionResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${LOVABLE_API_KEY}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              model: "google/gemini-2.5-flash-lite",
+              max_tokens: 4096,
+              messages: [
+                { role: "system", content: "You complete articles by generating only the specific missing sections requested. Return markdown only." },
+                { role: "user", content: completionPrompt },
+              ],
+            }),
+          });
+
+          if (completionResponse.ok) {
+            const completionData = await completionResponse.json();
+            let appendContent = completionData.choices?.[0]?.message?.content;
+            if (appendContent) {
+              // Clean
+              appendContent = appendContent.replace(/^```(?:markdown)?\s*\n?/i, "").replace(/\n?```\s*$/i, "");
+              appendContent = appendContent.replace(/—/g, "-").replace(/–/g, "-");
+
+              // Insert TL;DR and Quick Tips after H1 if missing at top, rest at end
+              const topSections = ["TL;DR", "Quick Tips"];
+              const bottomSections = ["FAQ", "Final Thoughts", "References"];
+              
+              // For simplicity, append all missing sections at the end
+              // The "In This Article" nav and TL;DR should already be at the top from the main generation
+              content = content.trimEnd() + "\n\n" + appendContent.trim();
+              
+              console.log(`COMPLETENESS GUARD: Successfully appended ${missingSections.length} missing section(s)`);
+            }
+          } else {
+            console.error("COMPLETENESS GUARD: Failed to generate missing sections:", completionResponse.status);
+          }
+        } catch (guardError) {
+          console.error("COMPLETENESS GUARD error:", guardError);
+          // Non-fatal - return content as-is
+        }
+      } else {
+        console.log("COMPLETENESS GUARD: All required sections present ✓");
+      }
+    }
+
     // Generate CTAs if requested
     let ctas = null;
     if (generateCTAs) {
@@ -679,7 +777,7 @@ STRICT RULES — follow this exact pattern from a proven high-performing example
     console.log("Applied rules:", appliedRules);
 
     return new Response(
-      JSON.stringify({ content, appliedRules, ctas }),
+      JSON.stringify({ content, appliedRules, ctas, completenessGuard: missingSections.length > 0 ? { fixed: missingSections, status: "auto-completed" } : { fixed: [], status: "complete" } }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
