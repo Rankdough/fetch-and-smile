@@ -510,12 +510,12 @@ const Index = () => {
         "--brand-primary": selectedColorPalette.primary,
         "--brand-secondary": selectedColorPalette.secondary,
         "--brand-accent": selectedColorPalette.accent,
-        "--brand-text": isDarkSitePalette ? "#e5e7eb" : "#374151",
-        "--brand-panel-bg": isDarkSitePalette ? "rgba(255,255,255,0.06)" : "#f8f4ff",
-        "--brand-panel-text": isDarkSitePalette ? "#ffffff" : "#1f2937",
-        "--brand-table-row-odd": isDarkSitePalette ? "rgba(255,255,255,0.04)" : "#f9fafb",
-        "--brand-table-row-even": isDarkSitePalette ? "rgba(255,255,255,0.08)" : "#ffffff",
-        "--brand-table-border": isDarkSitePalette ? "rgba(255,255,255,0.2)" : "#e5e7eb",
+        "--brand-text": isDarkSitePalette ? "#e5e7eb" : "hsl(var(--foreground))",
+        "--brand-panel-bg": isDarkSitePalette ? "rgba(255,255,255,0.06)" : "hsl(var(--tldr-bg))",
+        "--brand-panel-text": isDarkSitePalette ? "#ffffff" : "hsl(var(--foreground))",
+        "--brand-table-row-odd": isDarkSitePalette ? "rgba(255,255,255,0.04)" : "hsl(var(--table-row-odd))",
+        "--brand-table-row-even": isDarkSitePalette ? "rgba(255,255,255,0.08)" : "hsl(var(--table-row-even))",
+        "--brand-table-border": isDarkSitePalette ? "rgba(255,255,255,0.2)" : "hsl(var(--border))",
         "--brand-table-header-text": "#ffffff",
       } as React.CSSProperties)
     : undefined;
