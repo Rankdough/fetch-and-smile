@@ -4995,6 +4995,7 @@ CRITICAL EXPANSION RULES:
                         content={generatedContent}
                         claims={valuePromiseClaims.filter(c => c.trim())}
                         valuePromise={valuePromise}
+                        onContentUpdate={setGeneratedContent}
                       />
                     )}
                     
