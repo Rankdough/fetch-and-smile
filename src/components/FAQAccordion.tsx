@@ -27,7 +27,10 @@ export const FAQAccordion = ({ items, brandColors, isDarkSite = false }: FAQAcco
   const primaryColor = brandColors?.primary || "hsl(300 52% 36%)";
 
   return (
-    <div className="rounded-lg border bg-muted/30 p-4 space-y-3 my-6">
+    <div 
+      className="rounded-lg border p-4 space-y-3 my-6"
+      style={isDarkSite ? { backgroundColor: 'rgba(255,255,255,0.06)', borderColor: 'rgba(255,255,255,0.15)', color: '#e5e7eb' } : undefined}
+    >
       <div className="flex items-center justify-between">
         <h4 className="text-sm font-medium flex items-center gap-2">
           <span 
