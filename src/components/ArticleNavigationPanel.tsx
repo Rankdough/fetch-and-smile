@@ -18,6 +18,7 @@ interface ArticleNavigationPanelProps {
   onJumpToSection?: (slug: string) => void;
   skipNavigation?: boolean;
   onSkipNavigationChange?: (skip: boolean) => void;
+  isDarkSite?: boolean;
 }
 
 export const ArticleNavigationPanel = ({ 
