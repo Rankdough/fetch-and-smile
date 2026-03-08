@@ -309,6 +309,18 @@ Focus on providing actionable research that will help create a comprehensive, di
                           <Button
                             variant="ghost"
                             size="sm"
+                            className={cn(
+                              "gap-1 text-xs h-7 px-2",
+                              isDone ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"
+                            )}
+                            onClick={() => toggleDone(ideaKey)}
+                          >
+                            <CheckCircle2 className={cn("h-3 w-3", isDone && "fill-current")} />
+                            {isDone ? "Done" : "Mark Done"}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
                             className="gap-1 text-xs h-7 px-2 text-destructive"
                             onClick={() => onRemoveFromQueue(ideaKey)}
                           >
