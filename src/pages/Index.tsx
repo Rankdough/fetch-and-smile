@@ -4460,6 +4460,7 @@ const Index = () => {
                                       items={navItems}
                                       skipNavigation={skipNavigation}
                                       onSkipNavigationChange={setSkipNavigation}
+                                      isDarkSite={isDarkSitePalette}
                                     />
                                   </div>
                                 ) : part.navPanel && navItems.length > 0 && skipNavigation ? (
