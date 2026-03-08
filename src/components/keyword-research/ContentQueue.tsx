@@ -290,31 +290,87 @@ Focus on providing actionable research that will help create a comprehensive, di
                     )}>
                       {/* Collapsed done state: just title + toggle */}
                       {isDone ? (
-                        <div className="flex items-center justify-between gap-3 px-4 py-3">
-                          <div className="flex items-center gap-2 flex-1 min-w-0">
-                            <CheckCircle2 className="h-5 w-5 text-green-700 dark:text-green-400 fill-current shrink-0" />
-                            <h4 className="text-lg font-semibold text-green-800 dark:text-green-300 truncate">{idea.title}</h4>
-                          </div>
-                          <div className="flex items-center gap-1 shrink-0">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="gap-1 text-xs h-7 px-2 text-green-700 dark:text-green-400"
-                              onClick={() => toggleDone(ideaKey)}
+                        <div className="space-y-0">
+                          {/* Collapsed header row */}
+                          <div className="flex items-center justify-between gap-3 px-4 py-3">
+                            <div
+                              className="flex items-center gap-2 flex-1 min-w-0 cursor-pointer"
+                              onClick={() => toggleExpanded(ideaKey)}
                             >
-                              <CheckCircle2 className="h-3 w-3 fill-current" />
-                              Undo
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="gap-1 text-xs h-7 px-2 text-destructive"
-                              onClick={() => onRemoveFromQueue(ideaKey)}
-                            >
-                              <Bookmark className="h-3 w-3 fill-current" />
-                              Remove
-                            </Button>
+                              <CheckCircle2 className="h-5 w-5 text-green-700 dark:text-green-400 fill-current shrink-0" />
+                              <h4 className="text-lg font-semibold text-green-800 dark:text-green-300 truncate">{idea.title}</h4>
+                              <ChevronDown className={cn(
+                                "h-4 w-4 text-green-600 dark:text-green-400 transition-transform shrink-0",
+                                isExpanded && "rotate-180"
+                              )} />
+                            </div>
+                            <div className="flex items-center gap-1 shrink-0">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="gap-1 text-xs h-7 px-2 text-green-700 dark:text-green-400"
+                                onClick={() => toggleDone(ideaKey)}
+                              >
+                                <CheckCircle2 className="h-3 w-3 fill-current" />
+                                Undo
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="gap-1 text-xs h-7 px-2 text-destructive"
+                                onClick={() => onRemoveFromQueue(ideaKey)}
+                              >
+                                <Bookmark className="h-3 w-3 fill-current" />
+                                Remove
+                              </Button>
+                            </div>
                           </div>
+                          {/* Expandable stats */}
+                          {isExpanded && (
+                            <div className="px-4 pb-3 space-y-2 border-t border-green-300 dark:border-green-700 pt-2">
+                              <p className="text-xs text-muted-foreground">{idea.description}</p>
+                              {idea.reason && (
+                                <p className="text-xs italic text-primary/70">⚡ {idea.reason}</p>
+                              )}
+                              {sortedKws.length > 0 && (
+                                <div className="space-y-1">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-semibold">
+                                      <TrendingUp className="h-2.5 w-2.5" />
+                                      {totalVol > 0 ? `${totalVol.toLocaleString()} vol` : "— vol"}
+                                    </span>
+                                    {sortedKws.slice(0, 3).map((kw, i) => (
+                                      <span key={i} className="text-sm font-semibold text-foreground">{kw}</span>
+                                    ))}
+                                  </div>
+                                  <div className="flex flex-wrap items-center gap-1">
+                                    {sortedKws.map((kw, ki) => {
+                                      const vol = volLookup[kw] ?? volLookup[kw.toLowerCase()];
+                                      return (
+                                        <Badge key={ki} variant="secondary" className="text-[10px] px-1.5 py-0 gap-1 font-medium">
+                                          {kw}
+                                          {vol != null && vol > 0 && (
+                                            <span className="text-primary/70 font-semibold">{vol.toLocaleString()}</span>
+                                          )}
+                                        </Badge>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              )}
+                              {idea.value_promises && idea.value_promises.length > 0 && (
+                                <div className="space-y-0.5">
+                                  <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Value Promises</span>
+                                  {idea.value_promises.map((vp, vi) => (
+                                    <div key={vi} className="flex items-start gap-1.5">
+                                      <span className="text-[10px] text-primary mt-0.5">✓</span>
+                                      <span className="text-[11px] text-muted-foreground leading-tight">{vp}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
                       ) : (
                         <div className="p-4 space-y-2">
