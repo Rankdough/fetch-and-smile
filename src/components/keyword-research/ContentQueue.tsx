@@ -259,6 +259,99 @@ Focus on providing actionable research that will help create a comprehensive, di
         </CardHeader>
         <CollapsibleContent>
           <CardContent className="pt-0 space-y-4">
+            {/* Done items at the very top */}
+            {doneItems.length > 0 && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                    ✅ Completed ({doneItems.length})
+                  </span>
+                </div>
+                {doneItems.map(({ cluster, idea, ideaKey }) => {
+                  const volLookup = cluster.keyword_volumes || {};
+                  const sortedKws = [...(idea.target_keywords || [])].sort(
+                    (a, b) => (volLookup[b] ?? volLookup[b.toLowerCase()] ?? 0) - (volLookup[a] ?? volLookup[a.toLowerCase()] ?? 0)
+                  );
+                  const totalVol = sortedKws.reduce((s, kw) => s + (volLookup[kw] ?? volLookup[kw.toLowerCase()] ?? 0), 0);
+                  const isExpanded = expandedDone.has(ideaKey);
+
+                  return (
+                    <div key={ideaKey} className={cn(
+                      "border rounded-md transition-colors",
+                      "bg-green-100 border-green-400 dark:bg-green-900/50 dark:border-green-600"
+                    )}>
+                      <div className="space-y-0">
+                        <div className="flex items-center justify-between gap-3 px-4 py-3">
+                          <div
+                            className="flex items-center gap-2 flex-1 min-w-0 cursor-pointer"
+                            onClick={() => toggleExpanded(ideaKey)}
+                          >
+                            <CheckCircle2 className="h-5 w-5 text-green-700 dark:text-green-400 fill-current shrink-0" />
+                            <h4 className="text-lg font-semibold text-green-800 dark:text-green-300 truncate">{idea.title}</h4>
+                            <Badge variant="outline" className="text-[10px] shrink-0">{cluster.topic}</Badge>
+                            <ChevronDown className={cn(
+                              "h-4 w-4 text-green-600 dark:text-green-400 transition-transform shrink-0",
+                              isExpanded && "rotate-180"
+                            )} />
+                          </div>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <Button variant="ghost" size="sm" className="gap-1 text-xs h-7 px-2 text-green-700 dark:text-green-400" onClick={() => toggleDone(ideaKey)}>
+                              <CheckCircle2 className="h-3 w-3 fill-current" /> Undo
+                            </Button>
+                            <Button variant="ghost" size="sm" className="gap-1 text-xs h-7 px-2 text-destructive" onClick={() => onRemoveFromQueue(ideaKey)}>
+                              <Bookmark className="h-3 w-3 fill-current" /> Remove
+                            </Button>
+                          </div>
+                        </div>
+                        {isExpanded && (
+                          <div className="px-4 pb-3 space-y-2 border-t border-green-300 dark:border-green-700 pt-2">
+                            <p className="text-xs text-muted-foreground">{idea.description}</p>
+                            {idea.reason && <p className="text-xs italic text-primary/70">⚡ {idea.reason}</p>}
+                            {sortedKws.length > 0 && (
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-semibold">
+                                    <TrendingUp className="h-2.5 w-2.5" />
+                                    {totalVol > 0 ? `${totalVol.toLocaleString()} vol` : "— vol"}
+                                  </span>
+                                  {sortedKws.slice(0, 3).map((kw, i) => (
+                                    <span key={i} className="text-sm font-semibold text-foreground">{kw}</span>
+                                  ))}
+                                </div>
+                                <div className="flex flex-wrap items-center gap-1">
+                                  {sortedKws.map((kw, ki) => {
+                                    const vol = volLookup[kw] ?? volLookup[kw.toLowerCase()];
+                                    return (
+                                      <Badge key={ki} variant="secondary" className="text-[10px] px-1.5 py-0 gap-1 font-medium">
+                                        {kw}
+                                        {vol != null && vol > 0 && <span className="text-primary/70 font-semibold">{vol.toLocaleString()}</span>}
+                                      </Badge>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )}
+                            {idea.value_promises && idea.value_promises.length > 0 && (
+                              <div className="space-y-0.5">
+                                <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Value Promises</span>
+                                {idea.value_promises.map((vp, vi) => (
+                                  <div key={vi} className="flex items-start gap-1.5">
+                                    <span className="text-[10px] text-primary mt-0.5">✓</span>
+                                    <span className="text-[11px] text-muted-foreground leading-tight">{vp}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Pending items grouped by silo */}
             {[...bySilo.entries()].map(([siloTopic, ideas]) => (
               <div key={siloTopic} className="space-y-2">
                 <div className="flex items-center gap-2">
@@ -270,213 +363,82 @@ Focus on providing actionable research that will help create a comprehensive, di
                     {formatVolume(ideas[0].cluster.estimated_monthly_volume)}
                   </Badge>
                 </div>
-                {/* Sort done items to top */}
-                {[...ideas].sort((a, b) => {
-                  const aDone = doneIdeas.has(a.ideaKey) ? 0 : 1;
-                  const bDone = doneIdeas.has(b.ideaKey) ? 0 : 1;
-                  return aDone - bDone;
-                }).map(({ cluster, idea, ideaKey }) => {
+                {ideas.map(({ cluster, idea, ideaKey }) => {
                   const volLookup = cluster.keyword_volumes || {};
                   const sortedKws = [...(idea.target_keywords || [])].sort(
                     (a, b) => (volLookup[b] ?? volLookup[b.toLowerCase()] ?? 0) - (volLookup[a] ?? volLookup[a.toLowerCase()] ?? 0)
                   );
                   const totalVol = sortedKws.reduce((s, kw) => s + (volLookup[kw] ?? volLookup[kw.toLowerCase()] ?? 0), 0);
 
-                    const isDone = doneIdeas.has(ideaKey);
-                    const isExpanded = expandedDone.has(ideaKey);
-
                   return (
-                    <div key={ideaKey} className={cn(
-                      "border rounded-md transition-colors",
-                      isDone
-                        ? "bg-green-100 border-green-400 dark:bg-green-900/50 dark:border-green-600"
-                        : "bg-background"
-                    )}>
-                      {/* Collapsed done state: just title + toggle */}
-                      {isDone ? (
-                        <div className="space-y-0">
-                          {/* Collapsed header row */}
-                          <div className="flex items-center justify-between gap-3 px-4 py-3">
-                            <div
-                              className="flex items-center gap-2 flex-1 min-w-0 cursor-pointer"
-                              onClick={() => toggleExpanded(ideaKey)}
-                            >
-                              <CheckCircle2 className="h-5 w-5 text-green-700 dark:text-green-400 fill-current shrink-0" />
-                              <h4 className="text-lg font-semibold text-green-800 dark:text-green-300 truncate">{idea.title}</h4>
-                              <ChevronDown className={cn(
-                                "h-4 w-4 text-green-600 dark:text-green-400 transition-transform shrink-0",
-                                isExpanded && "rotate-180"
-                              )} />
+                    <div key={ideaKey} className="border rounded-md bg-background">
+                      <div className="p-4 space-y-2">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex-1 space-y-1.5">
+                            <h4 className="text-lg font-semibold">{idea.title}</h4>
+                            <p className="text-xs text-muted-foreground">{idea.description}</p>
+                            {idea.reason && <p className="text-xs italic text-primary/70">⚡ {idea.reason}</p>}
+                          </div>
+                          <div className="flex flex-col gap-1 shrink-0">
+                            <Button variant="ghost" size="sm" className="gap-1 text-xs h-7 px-2" onClick={() => onUseForArticle(cluster, idea)}>
+                              Use for Article <ArrowRight className="h-3 w-3" />
+                            </Button>
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button variant="ghost" size="sm" className="gap-1 text-xs h-7 px-2 text-muted-foreground" onClick={() => copyDeepResearch(cluster, idea)}>
+                                    <Search className="h-3 w-3" /> Deep Research
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent side="left">
+                                  <p className="text-xs">Copy a deep research prompt for this blog idea</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                            <Button variant="ghost" size="sm" className="gap-1 text-xs h-7 px-2 text-muted-foreground" onClick={() => toggleDone(ideaKey)}>
+                              <CheckCircle2 className="h-3 w-3" /> Mark Done
+                            </Button>
+                            <Button variant="ghost" size="sm" className="gap-1 text-xs h-7 px-2 text-destructive" onClick={() => onRemoveFromQueue(ideaKey)}>
+                              <Bookmark className="h-3 w-3 fill-current" /> Remove
+                            </Button>
+                          </div>
+                        </div>
+                        {sortedKws.length > 0 && (
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-semibold">
+                                <TrendingUp className="h-2.5 w-2.5" />
+                                {totalVol > 0 ? `${totalVol.toLocaleString()} vol` : "— vol"}
+                              </span>
+                              {sortedKws.slice(0, 3).map((kw, i) => (
+                                <span key={i} className="text-sm font-semibold text-foreground">{kw}</span>
+                              ))}
                             </div>
-                            <div className="flex items-center gap-1 shrink-0">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="gap-1 text-xs h-7 px-2 text-green-700 dark:text-green-400"
-                                onClick={() => toggleDone(ideaKey)}
-                              >
-                                <CheckCircle2 className="h-3 w-3 fill-current" />
-                                Undo
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="gap-1 text-xs h-7 px-2 text-destructive"
-                                onClick={() => onRemoveFromQueue(ideaKey)}
-                              >
-                                <Bookmark className="h-3 w-3 fill-current" />
-                                Remove
-                              </Button>
+                            <div className="flex flex-wrap items-center gap-1">
+                              {sortedKws.map((kw, ki) => {
+                                const vol = volLookup[kw] ?? volLookup[kw.toLowerCase()];
+                                return (
+                                  <Badge key={ki} variant="secondary" className="text-[10px] px-1.5 py-0 gap-1 font-medium">
+                                    {kw}
+                                    {vol != null && vol > 0 && <span className="text-primary/70 font-semibold">{vol.toLocaleString()}</span>}
+                                  </Badge>
+                                );
+                              })}
                             </div>
                           </div>
-                          {/* Expandable stats */}
-                          {isExpanded && (
-                            <div className="px-4 pb-3 space-y-2 border-t border-green-300 dark:border-green-700 pt-2">
-                              <p className="text-xs text-muted-foreground">{idea.description}</p>
-                              {idea.reason && (
-                                <p className="text-xs italic text-primary/70">⚡ {idea.reason}</p>
-                              )}
-                              {sortedKws.length > 0 && (
-                                <div className="space-y-1">
-                                  <div className="flex items-center gap-1.5 flex-wrap">
-                                    <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-semibold">
-                                      <TrendingUp className="h-2.5 w-2.5" />
-                                      {totalVol > 0 ? `${totalVol.toLocaleString()} vol` : "— vol"}
-                                    </span>
-                                    {sortedKws.slice(0, 3).map((kw, i) => (
-                                      <span key={i} className="text-sm font-semibold text-foreground">{kw}</span>
-                                    ))}
-                                  </div>
-                                  <div className="flex flex-wrap items-center gap-1">
-                                    {sortedKws.map((kw, ki) => {
-                                      const vol = volLookup[kw] ?? volLookup[kw.toLowerCase()];
-                                      return (
-                                        <Badge key={ki} variant="secondary" className="text-[10px] px-1.5 py-0 gap-1 font-medium">
-                                          {kw}
-                                          {vol != null && vol > 0 && (
-                                            <span className="text-primary/70 font-semibold">{vol.toLocaleString()}</span>
-                                          )}
-                                        </Badge>
-                                      );
-                                    })}
-                                  </div>
-                                </div>
-                              )}
-                              {idea.value_promises && idea.value_promises.length > 0 && (
-                                <div className="space-y-0.5">
-                                  <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Value Promises</span>
-                                  {idea.value_promises.map((vp, vi) => (
-                                    <div key={vi} className="flex items-start gap-1.5">
-                                      <span className="text-[10px] text-primary mt-0.5">✓</span>
-                                      <span className="text-[11px] text-muted-foreground leading-tight">{vp}</span>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      ) : (
-                        <div className="p-4 space-y-2">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex-1 space-y-1.5">
-                          <h4 className="text-lg font-semibold">{idea.title}</h4>
-                          <p className="text-xs text-muted-foreground">{idea.description}</p>
-                          {idea.reason && (
-                            <p className="text-xs italic text-primary/70">⚡ {idea.reason}</p>
-                          )}
-                        </div>
-                        <div className="flex flex-col gap-1 shrink-0">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="gap-1 text-xs h-7 px-2"
-                            onClick={() => onUseForArticle(cluster, idea)}
-                          >
-                            Use for Article
-                            <ArrowRight className="h-3 w-3" />
-                          </Button>
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="gap-1 text-xs h-7 px-2 text-muted-foreground"
-                                  onClick={() => copyDeepResearch(cluster, idea)}
-                                >
-                                  <Search className="h-3 w-3" />
-                                  Deep Research
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent side="left">
-                                <p className="text-xs">Copy a deep research prompt for this blog idea</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="gap-1 text-xs h-7 px-2 text-muted-foreground"
-                            onClick={() => toggleDone(ideaKey)}
-                          >
-                            <CheckCircle2 className="h-3 w-3" />
-                            Mark Done
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="gap-1 text-xs h-7 px-2 text-destructive"
-                            onClick={() => onRemoveFromQueue(ideaKey)}
-                          >
-                            <Bookmark className="h-3 w-3 fill-current" />
-                            Remove
-                          </Button>
-                        </div>
-                      </div>
-
-                      {/* Keywords with volumes */}
-                      {sortedKws.length > 0 && (
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-semibold">
-                              <TrendingUp className="h-2.5 w-2.5" />
-                              {totalVol > 0 ? `${totalVol.toLocaleString()} vol` : "— vol"}
-                            </span>
-                            {sortedKws.slice(0, 3).map((kw, i) => (
-                              <span key={i} className="text-sm font-semibold text-foreground">{kw}</span>
+                        )}
+                        {idea.value_promises && idea.value_promises.length > 0 && (
+                          <div className="space-y-0.5">
+                            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Value Promises</span>
+                            {idea.value_promises.map((vp, vi) => (
+                              <div key={vi} className="flex items-start gap-1.5">
+                                <span className="text-[10px] text-primary mt-0.5">✓</span>
+                                <span className="text-[11px] text-muted-foreground leading-tight">{vp}</span>
+                              </div>
                             ))}
                           </div>
-                          <div className="flex flex-wrap items-center gap-1">
-                            {sortedKws.map((kw, ki) => {
-                              const vol = volLookup[kw] ?? volLookup[kw.toLowerCase()];
-                              return (
-                                <Badge key={ki} variant="secondary" className="text-[10px] px-1.5 py-0 gap-1 font-medium">
-                                  {kw}
-                                  {vol != null && vol > 0 && (
-                                    <span className="text-primary/70 font-semibold">{vol.toLocaleString()}</span>
-                                  )}
-                                </Badge>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Value promises */}
-                      {idea.value_promises && idea.value_promises.length > 0 && (
-                        <div className="space-y-0.5">
-                          <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Value Promises</span>
-                          {idea.value_promises.map((vp, vi) => (
-                            <div key={vi} className="flex items-start gap-1.5">
-                              <span className="text-[10px] text-primary mt-0.5">✓</span>
-                              <span className="text-[11px] text-muted-foreground leading-tight">{vp}</span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                        </div>
-                      )}
+                        )}
+                      </div>
                     </div>
                   );
                 })}
