@@ -19,8 +19,11 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Check } from "lucide-react";
 
 const USED_IDEAS_KEY = "kw-used-blog-ideas";
-const BOOKMARKED_IDEAS_KEY = "kw-bookmarked-blog-ideas";
+const BOOKMARKED_IDEAS_KEY_PREFIX = "kw-bookmarked-blog-ideas";
 const FAVORITED_CLUSTERS_KEY = "kw-favorited-clusters";
+
+const getBookmarkedKey = (projectId: string | null) =>
+  projectId ? `${BOOKMARKED_IDEAS_KEY_PREFIX}::${projectId}` : BOOKMARKED_IDEAS_KEY_PREFIX;
 
 const getStoredSet = (key: string): Set<string> => {
   try {
@@ -37,7 +40,7 @@ const toggleStoredSet = (key: string, value: string): Set<string> => {
 };
 
 const getUsedIdeas = (): Set<string> => getStoredSet(USED_IDEAS_KEY);
-const getBookmarkedIdeas = (): Set<string> => getStoredSet(BOOKMARKED_IDEAS_KEY);
+const getBookmarkedIdeas = (projectId: string | null): Set<string> => getStoredSet(getBookmarkedKey(projectId));
 
 const markIdeaUsed = (ideaKey: string) => {
   const used = getUsedIdeas();
