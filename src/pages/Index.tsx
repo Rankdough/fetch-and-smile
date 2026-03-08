@@ -2311,7 +2311,7 @@ const Index = () => {
                   wrapper.setAttribute('style', 'width: 100%; overflow-x: auto; margin: 24px 0; -webkit-overflow-scrolling: touch;');
                   
                   // Style the table itself
-                  table.setAttribute('style', 'min-width: 100%; border-collapse: collapse; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border: 1px solid #e5e7eb; table-layout: auto;');
+                  table.setAttribute('style', `min-width: 100%; border-collapse: collapse; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border: 1px solid ${tableBorder}; table-layout: auto;`);
                   table.removeAttribute('class');
                   
                   // Insert wrapper before table and move table inside
