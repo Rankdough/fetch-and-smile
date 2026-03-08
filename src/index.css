@@ -129,8 +129,9 @@ All colors MUST be HSL.
 .prose h2[id*="tldr"],
 .prose h3#tldr,
 .prose h3[id*="tldr"] {
-  background-color: hsl(var(--tldr-bg));
+  background-color: var(--brand-panel-bg, hsl(var(--tldr-bg)));
   border-left: 4px solid hsl(var(--tldr-border));
+  color: var(--brand-panel-text, hsl(var(--foreground)));
   border-bottom: none;
   @apply pl-4 pr-4 py-3 rounded-r-lg mt-6 mb-0;
 }
@@ -139,8 +140,9 @@ All colors MUST be HSL.
 .prose h2[id*="tldr"] + ul,
 .prose h3#tldr + ul,
 .prose h3[id*="tldr"] + ul {
-  background-color: hsl(var(--tldr-bg));
+  background-color: var(--brand-panel-bg, hsl(var(--tldr-bg)));
   border-left: 4px solid hsl(var(--tldr-border));
+  color: var(--brand-panel-text, hsl(var(--foreground)));
   @apply pl-10 pr-4 py-4 rounded-br-lg mt-0 mb-6;
 }
 
@@ -149,8 +151,9 @@ All colors MUST be HSL.
 .prose h2[id*="tldr"] + p,
 .prose h3#tldr + p,
 .prose h3[id*="tldr"] + p {
-  background-color: hsl(var(--tldr-bg));
+  background-color: var(--brand-panel-bg, hsl(var(--tldr-bg)));
   border-left: 4px solid hsl(var(--tldr-border));
+  color: var(--brand-panel-text, hsl(var(--foreground)));
   @apply pl-4 pr-4 py-4 rounded-br-lg mt-0 mb-6;
 }
 
@@ -160,6 +163,7 @@ All colors MUST be HSL.
 
 .prose p {
   @apply mb-4 leading-relaxed;
+  color: var(--brand-text, hsl(var(--foreground)));
 }
 
 .prose table {
@@ -169,31 +173,35 @@ All colors MUST be HSL.
 .prose thead {
   background: var(--brand-primary, hsl(var(--table-header)));
   background: linear-gradient(135deg, var(--brand-primary, hsl(var(--table-header))) 0%, var(--brand-secondary, hsl(var(--table-header))) 100%);
-  color: hsl(var(--table-header-foreground));
+  color: var(--brand-table-header-text, hsl(var(--table-header-foreground)));
 }
 
 .prose th {
   @apply text-left p-4 font-semibold;
-  color: hsl(var(--table-header-foreground));
+  color: var(--brand-table-header-text, hsl(var(--table-header-foreground)));
+  border-color: var(--brand-table-border, hsl(var(--border)));
 }
 
 .prose tbody tr:nth-child(odd) {
-  background-color: hsl(var(--table-row-odd));
+  background-color: var(--brand-table-row-odd, hsl(var(--table-row-odd)));
 }
 
 .prose tbody tr:nth-child(even) {
-  background-color: hsl(var(--table-row-even));
+  background-color: var(--brand-table-row-even, hsl(var(--table-row-even)));
 }
 
 .prose td {
-  @apply p-4 border-b border-border;
+  @apply p-4 border-b;
+  border-color: var(--brand-table-border, hsl(var(--border)));
+  color: var(--brand-text, hsl(var(--foreground)));
 }
 
 .prose blockquote {
-  background-color: hsl(var(--tldr-bg));
+  background-color: var(--brand-panel-bg, hsl(var(--tldr-bg)));
   border-left-color: var(--brand-primary, hsl(var(--tldr-border)));
   border-left-width: 4px;
   border-left-style: solid;
+  color: var(--brand-panel-text, hsl(var(--foreground)));
   @apply pl-6 pr-4 py-4 my-6 rounded-r-lg not-italic;
 }
 

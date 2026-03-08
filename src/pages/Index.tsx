@@ -503,6 +503,22 @@ const Index = () => {
     }
     return COLOR_PALETTES[0]; // Default to purple
   });
+
+  const isDarkSitePalette = selectedColorPalette?.id === "dark-transparent";
+  const articlePaletteStyles = selectedColorPalette
+    ? ({
+        "--brand-primary": selectedColorPalette.primary,
+        "--brand-secondary": selectedColorPalette.secondary,
+        "--brand-accent": selectedColorPalette.accent,
+        "--brand-text": isDarkSitePalette ? "#e5e7eb" : "hsl(var(--foreground))",
+        "--brand-panel-bg": isDarkSitePalette ? "rgba(255,255,255,0.06)" : "hsl(var(--tldr-bg))",
+        "--brand-panel-text": isDarkSitePalette ? "#ffffff" : "hsl(var(--foreground))",
+        "--brand-table-row-odd": isDarkSitePalette ? "rgba(255,255,255,0.04)" : "hsl(var(--table-row-odd))",
+        "--brand-table-row-even": isDarkSitePalette ? "rgba(255,255,255,0.08)" : "hsl(var(--table-row-even))",
+        "--brand-table-border": isDarkSitePalette ? "rgba(255,255,255,0.2)" : "hsl(var(--border))",
+        "--brand-table-header-text": "#ffffff",
+      } as React.CSSProperties)
+    : undefined;
   const [useKnowledgeBase, setUseKnowledgeBase] = useState(() => {
     const saved = localStorage.getItem("seo-generator-useKnowledgeBase");
     return saved !== null ? JSON.parse(saved) : true;
@@ -2171,6 +2187,14 @@ const Index = () => {
                 const primaryColor = selectedColorPalette?.primary || "#7c3aed";
                 const secondaryColor = selectedColorPalette?.secondary || "#9333ea";
                 const accentColor = selectedColorPalette?.accent || primaryColor;
+                const isDarkSitePaletteForExport = selectedColorPalette?.id === "dark-transparent";
+                const panelBg = isDarkSitePaletteForExport ? "rgba(255,255,255,0.06)" : "#f8f4ff";
+                const panelText = isDarkSitePaletteForExport ? "#ffffff" : "#1f2937";
+                const bodyText = isDarkSitePaletteForExport ? "#e5e7eb" : "#374151";
+                const tableRowOdd = isDarkSitePaletteForExport ? "rgba(255,255,255,0.04)" : "#f9fafb";
+                const tableRowEven = isDarkSitePaletteForExport ? "rgba(255,255,255,0.08)" : "#ffffff";
+                const tableBorder = isDarkSitePaletteForExport ? "rgba(255,255,255,0.2)" : "#e5e7eb";
+                const tableHeaderText = "#ffffff";
                 
                 // Extract navigation and FAQ items from markdown
                 let navItems = extractInThisArticleItems(generatedContent);
@@ -2287,7 +2311,7 @@ const Index = () => {
                   wrapper.setAttribute('style', 'width: 100%; overflow-x: auto; margin: 24px 0; -webkit-overflow-scrolling: touch;');
                   
                   // Style the table itself
-                  table.setAttribute('style', 'min-width: 100%; border-collapse: collapse; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border: 1px solid #e5e7eb; table-layout: auto;');
+                  table.setAttribute('style', `min-width: 100%; border-collapse: collapse; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border: 1px solid ${tableBorder}; table-layout: auto;`);
                   table.removeAttribute('class');
                   
                   // Insert wrapper before table and move table inside
@@ -2305,7 +2329,7 @@ const Index = () => {
                 
                 // Style th cells
                 clone.querySelectorAll('th').forEach((th) => {
-                  th.setAttribute('style', 'padding: 12px 16px; text-align: left; color: white; font-weight: 600; font-size: 14px; border: 1px solid rgba(255,255,255,0.2); white-space: nowrap;');
+                  th.setAttribute('style', `padding: 12px 16px; text-align: left; color: ${tableHeaderText}; font-weight: 600; font-size: 14px; border: 1px solid ${tableBorder}; white-space: nowrap;`);
                   th.removeAttribute('class');
                 });
                 
@@ -2314,15 +2338,15 @@ const Index = () => {
                   tbody.removeAttribute('class');
                   const rows = tbody.querySelectorAll('tr');
                   rows.forEach((tr, idx) => {
-                    const bgColor = idx % 2 === 0 ? '#f9fafb' : '#ffffff';
-                    tr.setAttribute('style', `background: ${bgColor};`);
+                    const bgColor = idx % 2 === 0 ? tableRowOdd : tableRowEven;
+                    tr.setAttribute('style', `background: ${bgColor}; color: ${bodyText};`);
                     tr.removeAttribute('class');
                   });
                 });
                 
                 // Style td cells - allow text wrapping for proper column sizing
                 clone.querySelectorAll('td').forEach((td) => {
-                  td.setAttribute('style', 'padding: 12px 16px; font-size: 14px; border: 1px solid #e5e7eb; word-wrap: break-word;');
+                  td.setAttribute('style', `padding: 12px 16px; font-size: 14px; border: 1px solid ${tableBorder}; word-wrap: break-word; color: ${bodyText};`);
                   td.removeAttribute('class');
                 });
                 
@@ -2367,11 +2391,11 @@ const Index = () => {
                   
                   if (isTldr) {
                     // TL;DR gets special background styling but no font overrides
-                    h.setAttribute('style', `background: #f8f4ff; border-left: 4px solid ${primaryColor}; padding: 12px 16px; margin: 24px 0 0 0; border-radius: 0 8px 0 0;`);
+                    h.setAttribute('style', `background: ${panelBg}; color: ${panelText}; border-left: 4px solid ${primaryColor}; padding: 12px 16px; margin: 24px 0 0 0; border-radius: 0 8px 0 0;`);
                     // Style the UL that immediately follows the TL;DR heading
                     const nextSibling = h.nextElementSibling;
                     if (nextSibling && nextSibling.tagName === 'UL') {
-                      nextSibling.setAttribute('style', `background: #f8f4ff; border-left: 4px solid ${primaryColor}; padding: 16px 24px 16px 40px; margin: 0 0 24px 0; border-radius: 0 0 8px 0; list-style-type: disc;`);
+                      nextSibling.setAttribute('style', `background: ${panelBg}; color: ${panelText}; border-left: 4px solid ${primaryColor}; padding: 16px 24px 16px 40px; margin: 0 0 24px 0; border-radius: 0 0 8px 0; list-style-type: disc;`);
                       // Also clean up LI items inside TL;DR to remove double bullets
                       nextSibling.querySelectorAll('li').forEach((li) => {
                         li.setAttribute('style', 'margin: 8px 0; line-height: 1.6;');
@@ -2383,7 +2407,7 @@ const Index = () => {
                     }
                     // Also handle if next sibling is a paragraph (some TL;DR use paragraph instead of list)
                     if (nextSibling && nextSibling.tagName === 'P') {
-                      nextSibling.setAttribute('style', `background: #f8f4ff; border-left: 4px solid ${primaryColor}; padding: 16px 24px; margin: 0 0 24px 0; border-radius: 0 0 8px 0; line-height: 1.7;`);
+                      nextSibling.setAttribute('style', `background: ${panelBg}; color: ${panelText}; border-left: 4px solid ${primaryColor}; padding: 16px 24px; margin: 0 0 24px 0; border-radius: 0 0 8px 0; line-height: 1.7;`);
                     }
                   } else {
                     // Regular H2 - only margins, inherit everything else
@@ -2398,10 +2422,10 @@ const Index = () => {
                   
                   if (isTldr) {
                     // TL;DR H3 gets same styling as H2 TL;DR
-                    h.setAttribute('style', `background: #f8f4ff; border-left: 4px solid ${primaryColor}; padding: 12px 16px; margin: 24px 0 0 0; border-radius: 0 8px 0 0;`);
+                    h.setAttribute('style', `background: ${panelBg}; color: ${panelText}; border-left: 4px solid ${primaryColor}; padding: 12px 16px; margin: 24px 0 0 0; border-radius: 0 8px 0 0;`);
                     const nextSibling = h.nextElementSibling;
                     if (nextSibling && nextSibling.tagName === 'UL') {
-                      nextSibling.setAttribute('style', `background: #f8f4ff; border-left: 4px solid ${primaryColor}; padding: 16px 24px 16px 40px; margin: 0 0 24px 0; border-radius: 0 0 8px 0; list-style-type: disc;`);
+                      nextSibling.setAttribute('style', `background: ${panelBg}; color: ${panelText}; border-left: 4px solid ${primaryColor}; padding: 16px 24px 16px 40px; margin: 0 0 24px 0; border-radius: 0 0 8px 0; list-style-type: disc;`);
                       nextSibling.querySelectorAll('li').forEach((li) => {
                         li.setAttribute('style', 'margin: 8px 0; line-height: 1.6;');
                         if (li.innerHTML) {
@@ -2410,7 +2434,7 @@ const Index = () => {
                       });
                     }
                     if (nextSibling && nextSibling.tagName === 'P') {
-                      nextSibling.setAttribute('style', `background: #f8f4ff; border-left: 4px solid ${primaryColor}; padding: 16px 24px; margin: 0 0 24px 0; border-radius: 0 0 8px 0; line-height: 1.7;`);
+                      nextSibling.setAttribute('style', `background: ${panelBg}; color: ${panelText}; border-left: 4px solid ${primaryColor}; padding: 16px 24px; margin: 0 0 24px 0; border-radius: 0 0 8px 0; line-height: 1.7;`);
                     }
                   } else {
                     // Regular H3 - only margins, inherit everything else
@@ -2421,7 +2445,7 @@ const Index = () => {
                 
                 // Style paragraphs
                 clone.querySelectorAll('p').forEach((p) => {
-                  p.setAttribute('style', 'margin: 0 0 16px 0; line-height: 1.7; color: #374151;');
+                  p.setAttribute('style', `margin: 0 0 16px 0; line-height: 1.7; color: ${bodyText};`);
                   p.removeAttribute('class');
                 });
                 
@@ -2438,7 +2462,7 @@ const Index = () => {
                 });
                 clone.querySelectorAll('li').forEach((li) => {
                   if (!li.getAttribute('style')) {
-                    li.setAttribute('style', 'margin: 8px 0; line-height: 1.6; color: #374151;');
+                    li.setAttribute('style', `margin: 8px 0; line-height: 1.6; color: ${bodyText};`);
                   }
                   li.removeAttribute('class');
                   // Clean any remaining double bullets
@@ -2527,11 +2551,11 @@ const Index = () => {
                     bq.appendChild(circleSpan);
                     const textSpan = document.createElement('span');
                     textSpan.innerHTML = content.replace(/^[\s]*/, '');
-                    textSpan.setAttribute('style', 'flex: 1;');
+                    textSpan.setAttribute('style', `flex: 1; color: ${bodyText};`);
                     bq.appendChild(textSpan);
                   } else {
                     // Regular blockquote (like TL;DR content)
-                    bq.setAttribute('style', `background: #f8f4ff; border-left: 4px solid ${primaryColor}; padding: 16px 24px; margin: 24px 0; border-radius: 0 8px 8px 0; font-style: normal;`);
+                    bq.setAttribute('style', `background: ${panelBg}; color: ${panelText}; border-left: 4px solid ${primaryColor}; padding: 16px 24px; margin: 24px 0; border-radius: 0 8px 8px 0; font-style: normal;`);
                   }
                   bq.removeAttribute('class');
                 });
@@ -4331,11 +4355,7 @@ const Index = () => {
                         outline: 'none',
                         cursor: isEditMode ? 'text' : 'default',
                         // Apply colors via CSS custom properties
-                        ...(selectedColorPalette ? {
-                          '--brand-primary': selectedColorPalette.primary,
-                          '--brand-secondary': selectedColorPalette.secondary,
-                          '--brand-accent': selectedColorPalette.accent,
-                        } as React.CSSProperties : {})
+                        ...(articlePaletteStyles || {})
                       }}
                     >
                       {(() => {
