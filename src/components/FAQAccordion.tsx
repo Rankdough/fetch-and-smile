@@ -89,7 +89,7 @@ export const FAQAccordion = ({ items, brandColors, isDarkSite = false }: FAQAcco
               expandedItem === index ? "max-h-96 opacity-100" : "max-h-0 opacity-0"
             )}>
               <div className="px-3 pb-3 pl-12">
-                <p className="text-sm text-muted-foreground leading-relaxed">
+                <p className="text-sm leading-relaxed" style={isDarkSite ? { color: 'rgba(255,255,255,0.6)' } : undefined}>
                   {item.answer}
                 </p>
               </div>
