@@ -2380,8 +2380,10 @@ const Index = () => {
                 });
                 
                 // Style headings - only set margins, let website inherit font-size/weight/color
+                // For dark sites, explicitly set light text color
+                const headingColor = isDarkSitePaletteForExport ? `color: #ffffff;` : '';
                 clone.querySelectorAll('h1').forEach((h) => {
-                  h.setAttribute('style', 'margin: 0 0 16px 0;');
+                  h.setAttribute('style', `margin: 0 0 16px 0; ${headingColor}`);
                   h.removeAttribute('class');
                 });
                 clone.querySelectorAll('h2').forEach((h) => {
@@ -2398,7 +2400,7 @@ const Index = () => {
                       nextSibling.setAttribute('style', `background: ${panelBg}; color: ${panelText}; border-left: 4px solid ${primaryColor}; padding: 16px 24px 16px 40px; margin: 0 0 24px 0; border-radius: 0 0 8px 0; list-style-type: disc;`);
                       // Also clean up LI items inside TL;DR to remove double bullets
                       nextSibling.querySelectorAll('li').forEach((li) => {
-                        li.setAttribute('style', 'margin: 8px 0; line-height: 1.6;');
+                        li.setAttribute('style', `margin: 8px 0; line-height: 1.6; color: ${panelText};`);
                         // Clean text content of double dashes/bullets
                         if (li.innerHTML) {
                           li.innerHTML = li.innerHTML.replace(/^[\s]*[-–—•]\s*[-–—]?\s*/i, '');
@@ -2410,8 +2412,8 @@ const Index = () => {
                       nextSibling.setAttribute('style', `background: ${panelBg}; color: ${panelText}; border-left: 4px solid ${primaryColor}; padding: 16px 24px; margin: 0 0 24px 0; border-radius: 0 0 8px 0; line-height: 1.7;`);
                     }
                   } else {
-                    // Regular H2 - only margins, inherit everything else
-                    h.setAttribute('style', 'margin: 32px 0 16px 0;');
+                    // Regular H2 - only margins, inherit everything else (+ dark color if needed)
+                    h.setAttribute('style', `margin: 32px 0 16px 0; ${headingColor}`);
                   }
                   h.removeAttribute('class');
                 });
@@ -2427,7 +2429,7 @@ const Index = () => {
                     if (nextSibling && nextSibling.tagName === 'UL') {
                       nextSibling.setAttribute('style', `background: ${panelBg}; color: ${panelText}; border-left: 4px solid ${primaryColor}; padding: 16px 24px 16px 40px; margin: 0 0 24px 0; border-radius: 0 0 8px 0; list-style-type: disc;`);
                       nextSibling.querySelectorAll('li').forEach((li) => {
-                        li.setAttribute('style', 'margin: 8px 0; line-height: 1.6;');
+                        li.setAttribute('style', `margin: 8px 0; line-height: 1.6; color: ${panelText};`);
                         if (li.innerHTML) {
                           li.innerHTML = li.innerHTML.replace(/^[\s]*[-–—•]\s*[-–—]?\s*/i, '');
                         }
@@ -2437,8 +2439,8 @@ const Index = () => {
                       nextSibling.setAttribute('style', `background: ${panelBg}; color: ${panelText}; border-left: 4px solid ${primaryColor}; padding: 16px 24px; margin: 0 0 24px 0; border-radius: 0 0 8px 0; line-height: 1.7;`);
                     }
                   } else {
-                    // Regular H3 - only margins, inherit everything else
-                    h.setAttribute('style', 'margin: 24px 0 12px 0;');
+                    // Regular H3 - only margins, inherit everything else (+ dark color if needed)
+                    h.setAttribute('style', `margin: 24px 0 12px 0; ${headingColor}`);
                   }
                   h.removeAttribute('class');
                 });
@@ -2451,8 +2453,9 @@ const Index = () => {
                 
                 // Style lists (but not TL;DR list which was already styled)
                 clone.querySelectorAll('ul').forEach((ul) => {
-                  if (!ul.getAttribute('style')?.includes('f8f4ff')) {
-                    ul.setAttribute('style', 'margin: 0 0 16px 0; padding-left: 24px; list-style-type: disc;');
+                  const existingStyle = ul.getAttribute('style') || '';
+                  if (!existingStyle.includes('f8f4ff') && !existingStyle.includes('border-left')) {
+                    ul.setAttribute('style', `margin: 0 0 16px 0; padding-left: 24px; list-style-type: disc; ${isDarkSitePaletteForExport ? `color: ${bodyText};` : ''}`);
                   }
                   ul.removeAttribute('class');
                 });
@@ -2543,7 +2546,7 @@ const Index = () => {
                     circleSpan.textContent = String(tipIndex);
                     
                     // Style the blockquote for tips
-                    bq.setAttribute('style', `display: flex; align-items: center; background: linear-gradient(135deg, ${primaryColor}10 0%, ${primaryColor}20 100%); border: 1px solid ${primaryColor}33; border-radius: 12px; padding: 16px 20px; margin: 12px 0; font-style: normal;`);
+                    bq.setAttribute('style', `display: flex; align-items: center; background: ${isDarkSitePaletteForExport ? 'rgba(255,255,255,0.06)' : `linear-gradient(135deg, ${primaryColor}10 0%, ${primaryColor}20 100%)`}; border: 1px solid ${isDarkSitePaletteForExport ? 'rgba(255,255,255,0.12)' : `${primaryColor}33`}; border-radius: 12px; padding: 16px 20px; margin: 12px 0; font-style: normal;`);
                     
                     // Wrap content and prepend circle
                     const content = bq.innerHTML;
