@@ -83,7 +83,7 @@ export const ArticleNavigationPanel = ({
           In This Article
         </h4>
         <div className="flex items-center gap-3">
-          <span className="text-xs text-muted-foreground">
+          <span className="text-xs" style={isDarkSite ? { color: 'rgba(255,255,255,0.5)' } : undefined}>
             {items.length} sections
           </span>
           {onSkipNavigationChange && (
