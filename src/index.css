@@ -178,7 +178,8 @@ All colors MUST be HSL.
 
 .prose th {
   @apply text-left p-4 font-semibold;
-  color: hsl(var(--table-header-foreground));
+  color: var(--brand-table-header-text, hsl(var(--table-header-foreground)));
+  border-color: var(--brand-table-border, hsl(var(--border)));
 }
 
 .prose tbody tr:nth-child(odd) {
