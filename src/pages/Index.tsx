@@ -535,6 +535,10 @@ const Index = () => {
     const saved = localStorage.getItem("seo-generator-skipQuickTips");
     return saved !== null ? JSON.parse(saved) : false;
   });
+  const [skipSources, setSkipSources] = useState(() => {
+    const saved = localStorage.getItem("seo-generator-skipSources");
+    return saved !== null ? JSON.parse(saved) : false;
+  });
   const [isEditMode, setIsEditMode] = useState(false);
   const [useFirstPerson, setUseFirstPerson] = useState<boolean>(() => {
     return localStorage.getItem("seo-generator-useFirstPerson") === "true";
@@ -682,6 +686,10 @@ const Index = () => {
   useEffect(() => {
     localStorage.setItem("seo-generator-skipQuickTips", JSON.stringify(skipQuickTips));
   }, [skipQuickTips]);
+
+  useEffect(() => {
+    localStorage.setItem("seo-generator-skipSources", JSON.stringify(skipSources));
+  }, [skipSources]);
   
   useEffect(() => {
     if (selectedToneProfileId) {
@@ -1301,6 +1309,7 @@ const Index = () => {
             useFirstPerson,
             skipFaqs,
             skipQuickTips,
+            skipSources,
           },
         });
 
@@ -3838,7 +3847,7 @@ const Index = () => {
                 number={15}
                 title="Output Options"
                 isComplete={true}
-                summary={[skipNavigation && "Navigation skipped", skipFaqs && "FAQs skipped", skipQuickTips && "Tips skipped"].filter(Boolean).join(", ") || "All sections included"}
+                summary={[skipNavigation && "Navigation skipped", skipFaqs && "FAQs skipped", skipQuickTips && "Tips skipped", skipSources && "Sources skipped"].filter(Boolean).join(", ") || "All sections included"}
                 icon={<Settings className="h-4 w-4" />}
               >
                 <div className="space-y-3">
@@ -3885,6 +3894,21 @@ const Index = () => {
                       id="skip-quick-tips"
                       checked={skipQuickTips}
                       onCheckedChange={setSkipQuickTips}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <label htmlFor="skip-sources" className="text-sm font-medium">
+                        Skip Sources / References
+                      </label>
+                      <p className="text-xs text-muted-foreground">
+                        Exclude per-section sources and the References section from generated articles
+                      </p>
+                    </div>
+                    <Switch
+                      id="skip-sources"
+                      checked={skipSources}
+                      onCheckedChange={setSkipSources}
                     />
                   </div>
                 </div>
