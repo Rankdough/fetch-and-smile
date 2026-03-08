@@ -71,7 +71,7 @@ export const FAQAccordion = ({ items, brandColors, isDarkSite = false }: FAQAcco
               >
                 {index + 1}
               </div>
-              <span className="flex-1 text-sm font-semibold text-foreground">
+              <span className="flex-1 text-sm font-semibold" style={isDarkSite ? { color: '#e5e7eb' } : undefined}>
                 {item.question}
               </span>
               <ChevronDown 
