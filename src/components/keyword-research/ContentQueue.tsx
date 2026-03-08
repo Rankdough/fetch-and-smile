@@ -109,7 +109,7 @@ Focus on providing actionable research that will help create a comprehensive, di
         }
       }
       const kws = idea.target_keywords || [];
-      const kwVolPairs = kws.map(kw => {
+      const kwVolPairs = kws.map((kw) => {
         const vol = volLookup[kw.toLowerCase().trim()];
         return vol != null && vol > 0 ? `${kw} (${vol.toLocaleString()})` : kw;
       });
@@ -132,59 +132,53 @@ Focus on providing actionable research that will help create a comprehensive, di
       ]);
     }
 
-    const csv = rows.map(r => r.map(v => `"${(v || "").replace(/"/g, '""')}"`).join(",")).join("\n");
-    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
+    const csv = rows.map((r) => r.map((v) => `"${(v || "").replace(/"/g, '""')}"`).join(",")).join("\n");
     const safeName = (projectName || "content-queue").replace(/[^a-zA-Z0-9-_ ]/g, "").replace(/\s+/g, "-").toLowerCase();
     const filename = `${safeName}-content-queue.csv`;
 
-    if (fallbackDownload?.url) URL.revokeObjectURL(fallbackDownload.url);
-    setFallbackDownload({ url, filename });
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+    const blobUrl = URL.createObjectURL(blob);
+    const dataUrl = `data:text/csv;charset=utf-8,${encodeURIComponent("\uFEFF" + csv)}`;
 
-    const triggerDownload = (targetDoc: Document) => {
+    if (fallbackDownload?.url?.startsWith("blob:")) URL.revokeObjectURL(fallbackDownload.url);
+    // Always show a manual, explicit download link that users can click directly
+    setFallbackDownload({ url: blobUrl, filename });
+
+    const triggerDownload = (href: string, targetDoc: Document) => {
       const a = targetDoc.createElement("a");
-      a.href = url;
+      a.href = href;
       a.download = filename;
-      a.target = "_blank";
       a.rel = "noopener";
       a.style.display = "none";
       targetDoc.body.appendChild(a);
       a.click();
-      setTimeout(() => {
-        if (a.parentNode) a.parentNode.removeChild(a);
-      }, 0);
+      setTimeout(() => a.remove(), 0);
     };
 
-    let attempted = false;
+    // Try current document first (most reliable user-gesture context)
     try {
-      if (window.top?.document?.body) {
-        triggerDownload(window.top.document);
-        attempted = true;
-      }
+      triggerDownload(blobUrl, document);
     } catch {
-      // ignore and try local document fallback
+      // no-op
     }
 
-    if (!attempted) {
-      try {
-        triggerDownload(document);
-        attempted = true;
-      } catch {
-        // ignore and try window fallback
-      }
+    // Try top document too when accessible
+    try {
+      if (window.top?.document?.body) triggerDownload(blobUrl, window.top.document);
+    } catch {
+      // no-op
     }
 
-    if (!attempted) {
-      try {
-        window.open(url, "_blank", "noopener,noreferrer");
-      } catch {
-        // fallback link below remains available
-      }
+    // Final fallback: data URL in new tab (works in stricter sandbox setups)
+    try {
+      window.open(dataUrl, "_blank", "noopener,noreferrer");
+    } catch {
+      // manual button remains available
     }
 
     toast({
       title: "Spreadsheet ready",
-      description: "If download did not start automatically, click 'Download File' next to Export Spreadsheet."
+      description: "If it didn't auto-download, click 'Download File' next to Export Spreadsheet."
     });
   };
 
