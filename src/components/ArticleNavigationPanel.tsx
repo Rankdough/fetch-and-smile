@@ -135,8 +135,10 @@ export const ArticleNavigationPanel = ({
               </div>
               <span className={cn(
                 "flex-1 text-xs sm:text-sm font-semibold leading-tight",
-                item.isHighlighted ? "text-primary-foreground" : "text-foreground"
-              )}>
+                item.isHighlighted ? "text-primary-foreground" : ""
+              )}
+              style={isDarkSite && !item.isHighlighted ? { color: '#e5e7eb' } : undefined}
+              >
                 {item.title}
                 {item.isHighlighted && (
                   <Star className="inline-block ml-1.5 h-3 w-3 fill-current" />
