@@ -2329,7 +2329,7 @@ const Index = () => {
                 
                 // Style th cells
                 clone.querySelectorAll('th').forEach((th) => {
-                  th.setAttribute('style', 'padding: 12px 16px; text-align: left; color: white; font-weight: 600; font-size: 14px; border: 1px solid rgba(255,255,255,0.2); white-space: nowrap;');
+                  th.setAttribute('style', `padding: 12px 16px; text-align: left; color: ${tableHeaderText}; font-weight: 600; font-size: 14px; border: 1px solid ${tableBorder}; white-space: nowrap;`);
                   th.removeAttribute('class');
                 });
                 
