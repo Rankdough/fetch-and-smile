@@ -50,8 +50,8 @@ export const FAQAccordion = ({ items, brandColors, isDarkSite = false }: FAQAcco
         {items.map((item, index) => (
           <div
             key={index}
-            className="rounded-md border bg-background transition-all overflow-hidden"
-            style={{ borderColor: expandedItem === index ? accentColor : undefined }}
+            className="rounded-md border transition-all overflow-hidden"
+            style={isDarkSite ? { backgroundColor: 'rgba(255,255,255,0.04)', borderColor: expandedItem === index ? accentColor : 'rgba(255,255,255,0.12)' } : { borderColor: expandedItem === index ? accentColor : undefined }}
           >
             {/* Question row - clickable */}
             <button 
