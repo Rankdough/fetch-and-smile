@@ -495,7 +495,7 @@ ${current}`;
           },
           body: JSON.stringify({
             model,
-            max_tokens: Math.min(Math.max(2048, Math.ceil(wordCeiling * 2.1)), 16384),
+            max_tokens: Math.min(Math.max(4096, Math.ceil(wordCeiling * 3.5)), 16384),
             messages: [
               { role: "system", content: systemPrompt },
               { role: "user", content: rebalancePrompt },
