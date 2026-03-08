@@ -71,7 +71,10 @@ export const ArticleNavigationPanel = ({
   };
 
   return (
-    <div className="rounded-lg border bg-muted/30 p-3 sm:p-4 space-y-2 sm:space-y-3">
+    <div 
+      className="rounded-lg border p-3 sm:p-4 space-y-2 sm:space-y-3"
+      style={isDarkSite ? { backgroundColor: 'rgba(255,255,255,0.06)', borderColor: 'rgba(255,255,255,0.15)', color: '#e5e7eb' } : undefined}
+    >
       <div className="flex items-center justify-between flex-wrap gap-2">
         <h4 className="text-xs sm:text-sm font-medium flex items-center gap-2">
           <span className="flex items-center justify-center w-5 h-5 rounded-full bg-primary text-primary-foreground text-xs font-bold">
