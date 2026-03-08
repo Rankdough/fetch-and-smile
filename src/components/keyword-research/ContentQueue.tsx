@@ -1,0 +1,218 @@
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
+import {
+  ChevronDown, TrendingUp, ArrowRight, Search, Bookmark, FileText,
+} from "lucide-react";
+
+interface BlogIdea {
+  title: string;
+  description: string;
+  reason: string;
+  target_keywords?: string[];
+  value_promises?: string[];
+}
+
+interface KeywordCluster {
+  topic: string;
+  description: string;
+  estimated_monthly_volume: number;
+  keywords: string[];
+  keyword_volumes?: Record<string, number>;
+  content_type: string;
+  difficulty: "low" | "medium" | "high";
+  priority: "high" | "medium" | "low";
+  blog_ideas?: BlogIdea[];
+  silo_instructions?: string;
+}
+
+interface QueuedIdea {
+  cluster: KeywordCluster;
+  idea: BlogIdea;
+  ideaKey: string;
+}
+
+interface ContentQueueProps {
+  queuedIdeas: QueuedIdea[];
+  onUseForArticle: (cluster: KeywordCluster, idea: BlogIdea) => void;
+  onRemoveFromQueue: (ideaKey: string) => void;
+  formatVolume: (v: number) => string;
+}
+
+const ContentQueue = ({ queuedIdeas, onUseForArticle, onRemoveFromQueue, formatVolume }: ContentQueueProps) => {
+  if (queuedIdeas.length === 0) return null;
+
+  const copyDeepResearch = (cluster: KeywordCluster, idea: BlogIdea) => {
+    const prompt = `Act as an expert SEO content researcher. I'm planning to write an article titled "${idea.title}".
+
+Topic cluster: ${cluster.topic} — ${cluster.description}
+
+Article concept: ${idea.description}
+Strategic angle: ${idea.reason}
+
+Target keywords: ${idea.target_keywords?.join(", ") || "N/A"}
+
+Value promises this article must deliver:
+${idea.value_promises?.map((vp, i) => `${i + 1}. ${vp}`).join("\n") || "N/A"}
+
+Please conduct deep research on this topic and provide:
+
+1. **Key facts & statistics** — Recent, citable data points relevant to this article
+2. **Expert perspectives** — Notable opinions or frameworks from authorities in this space
+3. **Common misconceptions** — What do people get wrong about this topic?
+4. **Unique angles** — Underexplored subtopics or fresh perspectives not covered by top-ranking content
+5. **Competitor content gaps** — What are the top-ranking articles missing?
+6. **Real-world examples & case studies** — Specific examples that would strengthen the article
+7. **Questions people ask** — Related questions from forums, PAA boxes, and communities
+8. **Recommended structure** — Suggested H2/H3 outline based on search intent and content depth
+
+Focus on providing actionable research that will help create a comprehensive, differentiated article.`;
+    navigator.clipboard.writeText(prompt);
+  };
+
+  // Group by silo
+  const bySilo = new Map<string, QueuedIdea[]>();
+  for (const item of queuedIdeas) {
+    const key = item.cluster.topic;
+    if (!bySilo.has(key)) bySilo.set(key, []);
+    bySilo.get(key)!.push(item);
+  }
+
+  return (
+    <Collapsible defaultOpen>
+      <Card className="border-primary/30 bg-primary/[0.02]">
+        <CardHeader className="py-3">
+          <CollapsibleTrigger className="w-full flex items-center justify-between">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <FileText className="h-4 w-4 text-primary" />
+              Content Queue
+              <Badge variant="default" className="text-[10px]">{queuedIdeas.length}</Badge>
+            </CardTitle>
+            <ChevronDown className="h-4 w-4 text-muted-foreground" />
+          </CollapsibleTrigger>
+        </CardHeader>
+        <CollapsibleContent>
+          <CardContent className="pt-0 space-y-4">
+            {[...bySilo.entries()].map(([siloTopic, ideas]) => (
+              <div key={siloTopic} className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                    Silo: {siloTopic}
+                  </span>
+                  <Badge variant="outline" className="text-[10px]">
+                    <TrendingUp className="h-2.5 w-2.5 mr-0.5" />
+                    {formatVolume(ideas[0].cluster.estimated_monthly_volume)}
+                  </Badge>
+                </div>
+                {ideas.map(({ cluster, idea, ideaKey }) => {
+                  const volLookup = cluster.keyword_volumes || {};
+                  const sortedKws = [...(idea.target_keywords || [])].sort(
+                    (a, b) => (volLookup[b] ?? volLookup[b.toLowerCase()] ?? 0) - (volLookup[a] ?? volLookup[a.toLowerCase()] ?? 0)
+                  );
+                  const totalVol = sortedKws.reduce((s, kw) => s + (volLookup[kw] ?? volLookup[kw.toLowerCase()] ?? 0), 0);
+
+                  return (
+                    <div key={ideaKey} className="border rounded-md p-4 bg-background space-y-2">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1 space-y-1.5">
+                          <h4 className="text-sm font-semibold">{idea.title}</h4>
+                          <p className="text-xs text-muted-foreground">{idea.description}</p>
+                          {idea.reason && (
+                            <p className="text-xs italic text-primary/70">⚡ {idea.reason}</p>
+                          )}
+                        </div>
+                        <div className="flex flex-col gap-1 shrink-0">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="gap-1 text-xs h-7 px-2"
+                            onClick={() => onUseForArticle(cluster, idea)}
+                          >
+                            Use for Article
+                            <ArrowRight className="h-3 w-3" />
+                          </Button>
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="gap-1 text-xs h-7 px-2 text-muted-foreground"
+                                  onClick={() => copyDeepResearch(cluster, idea)}
+                                >
+                                  <Search className="h-3 w-3" />
+                                  Deep Research
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent side="left">
+                                <p className="text-xs">Copy a deep research prompt for this blog idea</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="gap-1 text-xs h-7 px-2 text-amber-600"
+                            onClick={() => onRemoveFromQueue(ideaKey)}
+                          >
+                            <Bookmark className="h-3 w-3 fill-current" />
+                            Remove
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* Keywords with volumes */}
+                      {sortedKws.length > 0 && (
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-semibold">
+                              <TrendingUp className="h-2.5 w-2.5" />
+                              {totalVol > 0 ? `${totalVol.toLocaleString()} vol` : "— vol"}
+                            </span>
+                            {sortedKws.slice(0, 3).map((kw, i) => (
+                              <span key={i} className="text-sm font-semibold text-foreground">{kw}</span>
+                            ))}
+                          </div>
+                          <div className="flex flex-wrap items-center gap-1">
+                            {sortedKws.map((kw, ki) => {
+                              const vol = volLookup[kw] ?? volLookup[kw.toLowerCase()];
+                              return (
+                                <Badge key={ki} variant="secondary" className="text-[10px] px-1.5 py-0 gap-1 font-medium">
+                                  {kw}
+                                  {vol != null && vol > 0 && (
+                                    <span className="text-primary/70 font-semibold">{vol.toLocaleString()}</span>
+                                  )}
+                                </Badge>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Value promises */}
+                      {idea.value_promises && idea.value_promises.length > 0 && (
+                        <div className="space-y-0.5">
+                          <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Value Promises</span>
+                          {idea.value_promises.map((vp, vi) => (
+                            <div key={vi} className="flex items-start gap-1.5">
+                              <span className="text-[10px] text-primary mt-0.5">✓</span>
+                              <span className="text-[11px] text-muted-foreground leading-tight">{vp}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+          </CardContent>
+        </CollapsibleContent>
+      </Card>
+    </Collapsible>
+  );
+};
+
+export default ContentQueue;
