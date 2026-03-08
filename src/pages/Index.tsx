@@ -2429,7 +2429,7 @@ const Index = () => {
                     if (nextSibling && nextSibling.tagName === 'UL') {
                       nextSibling.setAttribute('style', `background: ${panelBg}; color: ${panelText}; border-left: 4px solid ${primaryColor}; padding: 16px 24px 16px 40px; margin: 0 0 24px 0; border-radius: 0 0 8px 0; list-style-type: disc;`);
                       nextSibling.querySelectorAll('li').forEach((li) => {
-                        li.setAttribute('style', 'margin: 8px 0; line-height: 1.6;');
+                        li.setAttribute('style', `margin: 8px 0; line-height: 1.6; color: ${panelText};`);
                         if (li.innerHTML) {
                           li.innerHTML = li.innerHTML.replace(/^[\s]*[-–—•]\s*[-–—]?\s*/i, '');
                         }
