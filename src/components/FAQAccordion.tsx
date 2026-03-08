@@ -14,6 +14,7 @@ interface FAQAccordionProps {
     secondary: string;
     accent: string;
   } | null;
+  isDarkSite?: boolean;
 }
 
 export const FAQAccordion = ({ items, brandColors }: FAQAccordionProps) => {
