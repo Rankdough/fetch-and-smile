@@ -686,6 +686,10 @@ const Index = () => {
   useEffect(() => {
     localStorage.setItem("seo-generator-skipQuickTips", JSON.stringify(skipQuickTips));
   }, [skipQuickTips]);
+
+  useEffect(() => {
+    localStorage.setItem("seo-generator-skipSources", JSON.stringify(skipSources));
+  }, [skipSources]);
   
   useEffect(() => {
     if (selectedToneProfileId) {
