@@ -163,6 +163,7 @@ All colors MUST be HSL.
 
 .prose p {
   @apply mb-4 leading-relaxed;
+  color: var(--brand-text, hsl(var(--foreground)));
 }
 
 .prose table {
