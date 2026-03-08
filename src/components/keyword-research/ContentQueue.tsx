@@ -365,7 +365,8 @@ Focus on providing actionable research that will help create a comprehensive, di
                   );
                 })}
               </div>
-            )}
+              );
+            })()}
 
             {/* Pending items grouped by silo */}
             {[...bySilo.entries()].map(([siloTopic, ideas]) => (
