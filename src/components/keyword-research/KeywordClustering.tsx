@@ -2065,7 +2065,7 @@ Focus on providing actionable research that will help create a comprehensive, di
             <ContentQueue
               queuedIdeas={queuedIdeas}
               onUseForArticle={sendToGenerator}
-              onRemoveFromQueue={(ideaKey) => setBookmarkedIdeas(toggleStoredSet(BOOKMARKED_IDEAS_KEY, ideaKey))}
+              onRemoveFromQueue={(ideaKey) => setBookmarkedIdeas(toggleStoredSet(getBookmarkedKey(activeResultId), ideaKey))}
               formatVolume={formatVolume}
             />
           );
