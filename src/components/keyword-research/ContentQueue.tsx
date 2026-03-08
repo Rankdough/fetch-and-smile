@@ -267,9 +267,41 @@ Focus on providing actionable research that will help create a comprehensive, di
 
                   return (
                     <div key={ideaKey} className={cn(
-                      "border rounded-md p-4 bg-background space-y-2 transition-colors",
-                      isDone && "bg-emerald-50/60 border-emerald-300 dark:bg-emerald-950/30 dark:border-emerald-700"
+                      "border rounded-md transition-colors",
+                      isDone
+                        ? "bg-green-100 border-green-400 dark:bg-green-900/50 dark:border-green-600"
+                        : "bg-background"
                     )}>
+                      {/* Collapsed done state: just title + toggle */}
+                      {isDone ? (
+                        <div className="flex items-center justify-between gap-3 px-4 py-3">
+                          <div className="flex items-center gap-2 flex-1 min-w-0">
+                            <CheckCircle2 className="h-5 w-5 text-green-700 dark:text-green-400 fill-current shrink-0" />
+                            <h4 className="text-lg font-semibold text-green-800 dark:text-green-300 truncate">{idea.title}</h4>
+                          </div>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="gap-1 text-xs h-7 px-2 text-green-700 dark:text-green-400"
+                              onClick={() => toggleDone(ideaKey)}
+                            >
+                              <CheckCircle2 className="h-3 w-3 fill-current" />
+                              Undo
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="gap-1 text-xs h-7 px-2 text-destructive"
+                              onClick={() => onRemoveFromQueue(ideaKey)}
+                            >
+                              <Bookmark className="h-3 w-3 fill-current" />
+                              Remove
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="p-4 space-y-2">
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex-1 space-y-1.5">
                           <h4 className="text-lg font-semibold">{idea.title}</h4>
@@ -309,14 +341,11 @@ Focus on providing actionable research that will help create a comprehensive, di
                           <Button
                             variant="ghost"
                             size="sm"
-                            className={cn(
-                              "gap-1 text-xs h-7 px-2",
-                              isDone ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"
-                            )}
+                            className="gap-1 text-xs h-7 px-2 text-muted-foreground"
                             onClick={() => toggleDone(ideaKey)}
                           >
-                            <CheckCircle2 className={cn("h-3 w-3", isDone && "fill-current")} />
-                            {isDone ? "Done" : "Mark Done"}
+                            <CheckCircle2 className="h-3 w-3" />
+                            Mark Done
                           </Button>
                           <Button
                             variant="ghost"
