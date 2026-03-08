@@ -14,7 +14,6 @@ import {
   TrendingUp, FileText, Copy, Download, BarChart3, Target, Info, Lightbulb, Trash2, RefreshCw, ArrowRight, Search, Bookmark, Clock, Star, Plus
 } from "lucide-react";
 import ContentQueue from "./ContentQueue";
-} from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Check } from "lucide-react";
