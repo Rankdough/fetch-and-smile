@@ -3896,6 +3896,21 @@ const Index = () => {
                       onCheckedChange={setSkipQuickTips}
                     />
                   </div>
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <label htmlFor="skip-sources" className="text-sm font-medium">
+                        Skip Sources / References
+                      </label>
+                      <p className="text-xs text-muted-foreground">
+                        Exclude per-section sources and the References section from generated articles
+                      </p>
+                    </div>
+                    <Switch
+                      id="skip-sources"
+                      checked={skipSources}
+                      onCheckedChange={setSkipSources}
+                    />
+                  </div>
                 </div>
               </CollapsibleSection>
 

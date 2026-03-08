@@ -188,12 +188,12 @@ ${skipQuickTips ? '' : `3. ## Quick Tips - MANDATORY section immediately after T
    - List ALL main H2 sections from the article (not TL;DR or References)
    - DO NOT SKIP THIS SECTION - it must be present in every article
    - IMPORTANT: Short one-line descriptions are NOT acceptable - each must be detailed and informative
-5. Main content sections with ## QUESTION headings (each answered with text + bullets + tables + **Sources:** at the end)
+5. Main content sections with ## QUESTION headings (each answered with text + bullets + tables${skipSources ? '' : ' + **Sources:** at the end'})
 6. Comparison table section (question-based, e.g., "## How Do They Compare Side by Side?")
 7. "## Which Option Should You Choose?" section
 ${skipFaqs ? '' : '8. "## Frequently Asked Questions" section - include 4-6 common Q&As in bold question format'}
 9. "## Final Thoughts" section with call-to-action
-10. "## References:" section - list ALL sources used throughout the article as simple markdown links
+${skipSources ? '' : '10. "## References:" section - list ALL sources used throughout the article as simple markdown links'}
 
 Content Guidelines:
 - Start with a compelling hook that addresses the reader's pain point
