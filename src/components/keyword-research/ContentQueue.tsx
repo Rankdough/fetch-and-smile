@@ -145,7 +145,7 @@ Focus on providing actionable research that will help create a comprehensive, di
         kwVolPairs.join("; "),
         totalVol.toString(),
         (idea.value_promises || []).join("; "),
-        ""
+        doneIdeas.has(`${cluster.topic}::${idea.title}`) ? "Done" : ""
       ]);
     }
 
