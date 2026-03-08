@@ -2187,6 +2187,14 @@ const Index = () => {
                 const primaryColor = selectedColorPalette?.primary || "#7c3aed";
                 const secondaryColor = selectedColorPalette?.secondary || "#9333ea";
                 const accentColor = selectedColorPalette?.accent || primaryColor;
+                const isDarkSitePaletteForExport = selectedColorPalette?.id === "dark-transparent";
+                const panelBg = isDarkSitePaletteForExport ? "rgba(255,255,255,0.06)" : "#f8f4ff";
+                const panelText = isDarkSitePaletteForExport ? "#ffffff" : "#1f2937";
+                const bodyText = isDarkSitePaletteForExport ? "#e5e7eb" : "#374151";
+                const tableRowOdd = isDarkSitePaletteForExport ? "rgba(255,255,255,0.04)" : "#f9fafb";
+                const tableRowEven = isDarkSitePaletteForExport ? "rgba(255,255,255,0.08)" : "#ffffff";
+                const tableBorder = isDarkSitePaletteForExport ? "rgba(255,255,255,0.2)" : "#e5e7eb";
+                const tableHeaderText = "#ffffff";
                 
                 // Extract navigation and FAQ items from markdown
                 let navItems = extractInThisArticleItems(generatedContent);
