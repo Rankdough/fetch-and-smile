@@ -494,6 +494,10 @@ const Index = () => {
     const saved = localStorage.getItem("seo-generator-ctaUrlHistory");
     return saved ? JSON.parse(saved) : [];
   });
+  const [internalLinkHistory, setInternalLinkHistory] = useState<string[]>(() => {
+    const saved = localStorage.getItem("seo-generator-internalLinkHistory");
+    return saved ? JSON.parse(saved) : [];
+  });
   
   const [selectedColorPalette, setSelectedColorPalette] = useState<ColorPalette | null>(() => {
     const saved = localStorage.getItem("seo-generator-colorPalette");
