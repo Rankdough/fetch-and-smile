@@ -132,11 +132,11 @@ Focus on providing actionable research that will help create a comprehensive, di
     const safeName = (projectName || "content-queue").replace(/[^a-zA-Z0-9-_ ]/g, "").replace(/\s+/g, "-").toLowerCase();
     a.download = `${safeName}-content-queue.csv`;
     a.style.display = "none";
-    const targetDoc = window.top?.document || document;
-    targetDoc.body.appendChild(a);
+    a.rel = "noopener";
+    document.body.appendChild(a);
     a.click();
     setTimeout(() => {
-      targetDoc.body.removeChild(a);
+      document.body.removeChild(a);
       URL.revokeObjectURL(url);
     }, 500);
     toast({ title: "Exported!", description: `${queuedIdeas.length} articles exported to spreadsheet.` });
