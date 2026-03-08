@@ -54,6 +54,16 @@ const ContentQueue = ({ queuedIdeas, onUseForArticle, onRemoveFromQueue, formatV
       return saved ? new Set(JSON.parse(saved)) : new Set();
     } catch { return new Set(); }
   });
+  const [expandedDone, setExpandedDone] = useState<Set<string>>(new Set());
+
+  const toggleExpanded = useCallback((ideaKey: string) => {
+    setExpandedDone(prev => {
+      const next = new Set(prev);
+      if (next.has(ideaKey)) next.delete(ideaKey);
+      else next.add(ideaKey);
+      return next;
+    });
+  }, []);
 
   const toggleDone = useCallback((ideaKey: string) => {
     setDoneIdeas(prev => {
