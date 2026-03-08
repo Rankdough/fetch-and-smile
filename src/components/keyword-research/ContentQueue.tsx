@@ -1,13 +1,14 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import {
-  ChevronDown, TrendingUp, ArrowRight, Search, Bookmark, FileText, Download,
+  ChevronDown, TrendingUp, ArrowRight, Search, Bookmark, FileText, Download, CheckCircle2,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 
 interface BlogIdea {
   title: string;
@@ -47,6 +48,22 @@ interface ContentQueueProps {
 const ContentQueue = ({ queuedIdeas, onUseForArticle, onRemoveFromQueue, formatVolume, projectName }: ContentQueueProps) => {
   const { toast } = useToast();
   const [fallbackDownload, setFallbackDownload] = useState<{ url: string; filename: string } | null>(null);
+  const [doneIdeas, setDoneIdeas] = useState<Set<string>>(() => {
+    try {
+      const saved = localStorage.getItem("content-queue-done");
+      return saved ? new Set(JSON.parse(saved)) : new Set();
+    } catch { return new Set(); }
+  });
+
+  const toggleDone = useCallback((ideaKey: string) => {
+    setDoneIdeas(prev => {
+      const next = new Set(prev);
+      if (next.has(ideaKey)) next.delete(ideaKey);
+      else next.add(ideaKey);
+      localStorage.setItem("content-queue-done", JSON.stringify([...next]));
+      return next;
+    });
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -128,7 +145,7 @@ Focus on providing actionable research that will help create a comprehensive, di
         kwVolPairs.join("; "),
         totalVol.toString(),
         (idea.value_promises || []).join("; "),
-        ""
+        doneIdeas.has(`${cluster.topic}::${idea.title}`) ? "Done" : ""
       ]);
     }
 
@@ -246,8 +263,13 @@ Focus on providing actionable research that will help create a comprehensive, di
                   );
                   const totalVol = sortedKws.reduce((s, kw) => s + (volLookup[kw] ?? volLookup[kw.toLowerCase()] ?? 0), 0);
 
+                    const isDone = doneIdeas.has(ideaKey);
+
                   return (
-                    <div key={ideaKey} className="border rounded-md p-4 bg-background space-y-2">
+                    <div key={ideaKey} className={cn(
+                      "border rounded-md p-4 bg-background space-y-2 transition-colors",
+                      isDone && "bg-emerald-50/60 border-emerald-300 dark:bg-emerald-950/30 dark:border-emerald-700"
+                    )}>
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex-1 space-y-1.5">
                           <h4 className="text-sm font-semibold">{idea.title}</h4>
@@ -284,6 +306,18 @@ Focus on providing actionable research that will help create a comprehensive, di
                               </TooltipContent>
                             </Tooltip>
                           </TooltipProvider>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className={cn(
+                              "gap-1 text-xs h-7 px-2",
+                              isDone ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"
+                            )}
+                            onClick={() => toggleDone(ideaKey)}
+                          >
+                            <CheckCircle2 className={cn("h-3 w-3", isDone && "fill-current")} />
+                            {isDone ? "Done" : "Mark Done"}
+                          </Button>
                           <Button
                             variant="ghost"
                             size="sm"
