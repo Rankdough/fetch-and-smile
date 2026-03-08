@@ -535,6 +535,10 @@ const Index = () => {
     const saved = localStorage.getItem("seo-generator-skipQuickTips");
     return saved !== null ? JSON.parse(saved) : false;
   });
+  const [skipSources, setSkipSources] = useState(() => {
+    const saved = localStorage.getItem("seo-generator-skipSources");
+    return saved !== null ? JSON.parse(saved) : false;
+  });
   const [isEditMode, setIsEditMode] = useState(false);
   const [useFirstPerson, setUseFirstPerson] = useState<boolean>(() => {
     return localStorage.getItem("seo-generator-useFirstPerson") === "true";
