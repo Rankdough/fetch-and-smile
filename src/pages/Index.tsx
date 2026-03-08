@@ -4355,7 +4355,8 @@ const Index = () => {
                         outline: 'none',
                         cursor: isEditMode ? 'text' : 'default',
                         // Apply colors via CSS custom properties
-                        ...(articlePaletteStyles || {})
+                        ...(articlePaletteStyles || {}),
+                        ...(isDarkSitePalette ? { backgroundColor: '#111111' } : {})
                       }}
                     >
                       {(() => {
