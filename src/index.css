@@ -140,8 +140,9 @@ All colors MUST be HSL.
 .prose h2[id*="tldr"] + ul,
 .prose h3#tldr + ul,
 .prose h3[id*="tldr"] + ul {
-  background-color: hsl(var(--tldr-bg));
+  background-color: var(--brand-panel-bg, hsl(var(--tldr-bg)));
   border-left: 4px solid hsl(var(--tldr-border));
+  color: var(--brand-panel-text, hsl(var(--foreground)));
   @apply pl-10 pr-4 py-4 rounded-br-lg mt-0 mb-6;
 }
 
