@@ -19,8 +19,11 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Check } from "lucide-react";
 
 const USED_IDEAS_KEY = "kw-used-blog-ideas";
-const BOOKMARKED_IDEAS_KEY = "kw-bookmarked-blog-ideas";
+const BOOKMARKED_IDEAS_KEY_PREFIX = "kw-bookmarked-blog-ideas";
 const FAVORITED_CLUSTERS_KEY = "kw-favorited-clusters";
+
+const getBookmarkedKey = (projectId: string | null) =>
+  projectId ? `${BOOKMARKED_IDEAS_KEY_PREFIX}::${projectId}` : BOOKMARKED_IDEAS_KEY_PREFIX;
 
 const getStoredSet = (key: string): Set<string> => {
   try {
@@ -37,7 +40,7 @@ const toggleStoredSet = (key: string, value: string): Set<string> => {
 };
 
 const getUsedIdeas = (): Set<string> => getStoredSet(USED_IDEAS_KEY);
-const getBookmarkedIdeas = (): Set<string> => getStoredSet(BOOKMARKED_IDEAS_KEY);
+const getBookmarkedIdeas = (projectId: string | null): Set<string> => getStoredSet(getBookmarkedKey(projectId));
 
 const markIdeaUsed = (ideaKey: string) => {
   const used = getUsedIdeas();
@@ -130,7 +133,7 @@ const KeywordClustering = () => {
   const [analysisStage, setAnalysisStage] = useState<"classify" | "enrich" | null>(null);
   const [result, setResult] = useState<ClusteringResult | null>(null);
   const [usedIdeas, setUsedIdeas] = useState<Set<string>>(getUsedIdeas);
-  const [bookmarkedIdeas, setBookmarkedIdeas] = useState<Set<string>>(getBookmarkedIdeas);
+  const [bookmarkedIdeas, setBookmarkedIdeas] = useState<Set<string>>(() => getBookmarkedIdeas(null));
   const [expandedClusters, setExpandedClusters] = useState<Set<string>>(new Set());
   const [expandedKeywordSilos, setExpandedKeywordSilos] = useState<Set<string>>(new Set());
   const [kwFilterMode, setKwFilterMode] = useState<Record<string, "all" | "generic" | "questions">>({});
@@ -154,6 +157,11 @@ const KeywordClustering = () => {
       return next;
     });
   };
+
+  // Reload bookmarks when active project changes
+  useEffect(() => {
+    setBookmarkedIdeas(getBookmarkedIdeas(activeResultId));
+  }, [activeResultId]);
 
   // Load saved results on mount
   useEffect(() => {
@@ -1870,7 +1878,7 @@ const KeywordClustering = () => {
                                         className={`gap-1 text-xs h-7 px-2 ${bookmarkedIdeas.has(ideaKey) ? "text-amber-600" : "text-muted-foreground"}`}
                                         onClick={(e) => {
                                           e.stopPropagation();
-                                          setBookmarkedIdeas(toggleStoredSet(BOOKMARKED_IDEAS_KEY, ideaKey));
+                                          setBookmarkedIdeas(toggleStoredSet(getBookmarkedKey(activeResultId), ideaKey));
                                         }}
                                       >
                                         <Bookmark className={`h-3 w-3 ${bookmarkedIdeas.has(ideaKey) ? "fill-current" : ""}`} />
@@ -2062,8 +2070,9 @@ Focus on providing actionable research that will help create a comprehensive, di
             <ContentQueue
               queuedIdeas={queuedIdeas}
               onUseForArticle={sendToGenerator}
-              onRemoveFromQueue={(ideaKey) => setBookmarkedIdeas(toggleStoredSet(BOOKMARKED_IDEAS_KEY, ideaKey))}
+              onRemoveFromQueue={(ideaKey) => setBookmarkedIdeas(toggleStoredSet(getBookmarkedKey(activeResultId), ideaKey))}
               formatVolume={formatVolume}
+              projectName={projectName}
             />
           );
         })()}
