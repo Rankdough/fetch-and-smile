@@ -186,7 +186,7 @@ All colors MUST be HSL.
 }
 
 .prose tbody tr:nth-child(even) {
-  background-color: hsl(var(--table-row-even));
+  background-color: var(--brand-table-row-even, hsl(var(--table-row-even)));
 }
 
 .prose td {
