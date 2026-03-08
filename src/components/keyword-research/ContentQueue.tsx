@@ -305,6 +305,12 @@ Focus on providing actionable research that will help create a comprehensive, di
                             <CheckCircle2 className="h-5 w-5 text-green-700 dark:text-green-400 fill-current shrink-0" />
                             <h4 className="text-lg font-semibold text-green-800 dark:text-green-300 truncate">{idea.title}</h4>
                             <Badge variant="outline" className="text-[10px] shrink-0">{cluster.topic}</Badge>
+                            {totalVol > 0 && (
+                              <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-semibold shrink-0">
+                                <TrendingUp className="h-2.5 w-2.5" />
+                                {totalVol.toLocaleString()} vol
+                              </span>
+                            )}
                             <ChevronDown className={cn(
                               "h-4 w-4 text-green-600 dark:text-green-400 transition-transform shrink-0",
                               isExpanded && "rotate-180"
