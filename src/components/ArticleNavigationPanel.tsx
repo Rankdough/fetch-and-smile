@@ -107,11 +107,12 @@ export const ArticleNavigationPanel = ({
           <div
             key={index}
             className={cn(
-              "rounded-md border bg-background transition-all overflow-hidden",
+              "rounded-md border transition-all overflow-hidden",
               item.isHighlighted 
                 ? "border-primary bg-primary text-primary-foreground" 
                 : "border-border hover:border-primary/30"
             )}
+            style={isDarkSite && !item.isHighlighted ? { backgroundColor: 'rgba(255,255,255,0.04)', borderColor: 'rgba(255,255,255,0.12)' } : undefined}
           >
             {/* Clickable header row */}
             <button 
