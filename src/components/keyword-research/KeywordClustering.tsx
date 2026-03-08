@@ -2048,6 +2048,26 @@ Focus on providing actionable research that will help create a comprehensive, di
           </Collapsible>
         )}
 
+        {/* Content Queue - saved/bookmarked ideas */}
+        {result && (() => {
+          const queuedIdeas = result.clusters.flatMap(cluster =>
+            (cluster.blog_ideas || [])
+              .filter(idea => bookmarkedIdeas.has(makeIdeaKey(cluster.topic, idea.title)))
+              .map(idea => ({
+                cluster,
+                idea,
+                ideaKey: makeIdeaKey(cluster.topic, idea.title),
+              }))
+          );
+          return (
+            <ContentQueue
+              queuedIdeas={queuedIdeas}
+              onUseForArticle={sendToGenerator}
+              onRemoveFromQueue={(ideaKey) => setBookmarkedIdeas(toggleStoredSet(BOOKMARKED_IDEAS_KEY, ideaKey))}
+              formatVolume={formatVolume}
+            />
+          );
+        })()}
 
         {/* Saved results - Previous Research */}
         {savedResults.length > 0 && (
