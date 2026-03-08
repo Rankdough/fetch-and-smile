@@ -503,6 +503,22 @@ const Index = () => {
     }
     return COLOR_PALETTES[0]; // Default to purple
   });
+
+  const isDarkSitePalette = selectedColorPalette?.id === "dark-transparent";
+  const articlePaletteStyles = selectedColorPalette
+    ? ({
+        "--brand-primary": selectedColorPalette.primary,
+        "--brand-secondary": selectedColorPalette.secondary,
+        "--brand-accent": selectedColorPalette.accent,
+        "--brand-text": isDarkSitePalette ? "#e5e7eb" : "#374151",
+        "--brand-panel-bg": isDarkSitePalette ? "rgba(255,255,255,0.06)" : "#f8f4ff",
+        "--brand-panel-text": isDarkSitePalette ? "#ffffff" : "#1f2937",
+        "--brand-table-row-odd": isDarkSitePalette ? "rgba(255,255,255,0.04)" : "#f9fafb",
+        "--brand-table-row-even": isDarkSitePalette ? "rgba(255,255,255,0.08)" : "#ffffff",
+        "--brand-table-border": isDarkSitePalette ? "rgba(255,255,255,0.2)" : "#e5e7eb",
+        "--brand-table-header-text": "#ffffff",
+      } as React.CSSProperties)
+    : undefined;
   const [useKnowledgeBase, setUseKnowledgeBase] = useState(() => {
     const saved = localStorage.getItem("seo-generator-useKnowledgeBase");
     return saved !== null ? JSON.parse(saved) : true;
