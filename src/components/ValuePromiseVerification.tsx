@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { CheckCircle2, XCircle, Target, ChevronDown, ChevronUp, Loader2 } from "lucide-react";
+import { CheckCircle2, XCircle, Target, ChevronDown, ChevronUp, Loader2, Wrench } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
@@ -29,15 +29,18 @@ interface ValuePromiseVerificationProps {
   claims: string[];
   valuePromise: string;
   onVerificationComplete?: (result: VerificationResult) => void;
+  onContentUpdate?: (newContent: string) => void;
 }
 
 export const ValuePromiseVerification = ({ 
   content, 
   claims,
   valuePromise,
-  onVerificationComplete
+  onVerificationComplete,
+  onContentUpdate,
 }: ValuePromiseVerificationProps) => {
   const [isVerifying, setIsVerifying] = useState(false);
+  const [isFixing, setIsFixing] = useState(false);
   const [result, setResult] = useState<VerificationResult | null>(null);
   const [isOpen, setIsOpen] = useState(true);
 
@@ -71,11 +74,46 @@ export const ValuePromiseVerification = ({
     }
   };
 
+  const handleFixFailed = async () => {
+    if (!result || !onContentUpdate) return;
+
+    const failedClaims = result.claims.filter(c => !c.fulfilled);
+    if (failedClaims.length === 0) return;
+
+    setIsFixing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("fix-failed-claims", {
+        body: {
+          content,
+          failedClaims: failedClaims.map(c => ({
+            claim: c.claim,
+            explanation: c.explanation,
+          })),
+        }
+      });
+
+      if (error) throw error;
+      if (!data?.content) throw new Error("No content returned");
+
+      onContentUpdate(data.content);
+      toast.success(`Fixed ${failedClaims.length} failed claim(s). Re-verify to confirm.`);
+      
+      // Reset verification so user can re-verify
+      setResult(null);
+    } catch (error) {
+      console.error("Fix error:", error);
+      toast.error("Failed to fix claims");
+    } finally {
+      setIsFixing(false);
+    }
+  };
+
   if (claims.length === 0) {
     return null;
   }
 
   const score = result ? Math.round((result.fulfilledCount / result.totalClaims) * 100) : null;
+  const failedCount = result ? result.totalClaims - result.fulfilledCount : 0;
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen} className="rounded-lg border bg-card">
@@ -146,6 +184,28 @@ export const ValuePromiseVerification = ({
               <p className="text-xs text-muted-foreground">{result.summary}</p>
             </div>
 
+            {/* Fix Failed Claims Button */}
+            {failedCount > 0 && onContentUpdate && (
+              <Button
+                onClick={handleFixFailed}
+                disabled={isFixing}
+                className="w-full"
+                variant="default"
+              >
+                {isFixing ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Fixing {failedCount} failed claim{failedCount > 1 ? "s" : ""}...
+                  </>
+                ) : (
+                  <>
+                    <Wrench className="h-4 w-4 mr-2" />
+                    Fix {failedCount} Failed Claim{failedCount > 1 ? "s" : ""}
+                  </>
+                )}
+              </Button>
+            )}
+
             {/* Per-claim results */}
             <div className="space-y-2">
               {result.claims.map((claimResult, index) => (
@@ -181,7 +241,7 @@ export const ValuePromiseVerification = ({
             {/* Re-verify Button */}
             <Button 
               onClick={handleVerify} 
-              disabled={isVerifying}
+              disabled={isVerifying || isFixing}
               variant="outline"
               size="sm"
               className="w-full"
