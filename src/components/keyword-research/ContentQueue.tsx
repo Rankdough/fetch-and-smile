@@ -209,9 +209,13 @@ Focus on providing actionable research that will help create a comprehensive, di
     });
   };
 
-  // Group by silo
+  // Separate done vs pending items
+  const doneItems = queuedIdeas.filter(item => doneIdeas.has(item.ideaKey));
+  const pendingItems = queuedIdeas.filter(item => !doneIdeas.has(item.ideaKey));
+
+  // Group pending by silo
   const bySilo = new Map<string, QueuedIdea[]>();
-  for (const item of queuedIdeas) {
+  for (const item of pendingItems) {
     const key = item.cluster.topic;
     if (!bySilo.has(key)) bySilo.set(key, []);
     bySilo.get(key)!.push(item);
