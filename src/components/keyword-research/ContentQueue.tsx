@@ -216,6 +216,18 @@ Focus on providing actionable research that will help create a comprehensive, di
                 <Download className="h-3 w-3" />
                 Export Spreadsheet
               </Button>
+              {fallbackDownload && (
+                <Button variant="secondary" size="sm" className="gap-1.5 text-xs h-7 px-2" asChild>
+                  <a
+                    href={fallbackDownload.url}
+                    download={fallbackDownload.filename}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <Download className="h-3 w-3" />
+                    Download File
+                  </a>
+                </Button>
+              )}
               <ChevronDown className="h-4 w-4 text-muted-foreground" />
             </div>
           </CollapsibleTrigger>
