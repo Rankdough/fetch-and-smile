@@ -2080,6 +2080,7 @@ Focus on providing actionable research that will help create a comprehensive, di
         )}
 
         {/* Content Queue - saved/bookmarked ideas */}
+        <div id="content-queue-section">
         {result && (() => {
           const queuedIdeas = result.clusters.flatMap(cluster =>
             (cluster.blog_ideas || [])
@@ -2100,6 +2101,7 @@ Focus on providing actionable research that will help create a comprehensive, di
             />
           );
         })()}
+        </div>
 
         {/* Saved results - Previous Research */}
         {savedResults.length > 0 && (
