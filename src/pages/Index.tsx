@@ -4355,11 +4355,7 @@ const Index = () => {
                         outline: 'none',
                         cursor: isEditMode ? 'text' : 'default',
                         // Apply colors via CSS custom properties
-                        ...(selectedColorPalette ? {
-                          '--brand-primary': selectedColorPalette.primary,
-                          '--brand-secondary': selectedColorPalette.secondary,
-                          '--brand-accent': selectedColorPalette.accent,
-                        } as React.CSSProperties : {})
+                        ...(articlePaletteStyles || {})
                       }}
                     >
                       {(() => {
