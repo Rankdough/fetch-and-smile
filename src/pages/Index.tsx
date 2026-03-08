@@ -2453,8 +2453,9 @@ const Index = () => {
                 
                 // Style lists (but not TL;DR list which was already styled)
                 clone.querySelectorAll('ul').forEach((ul) => {
-                  if (!ul.getAttribute('style')?.includes('f8f4ff')) {
-                    ul.setAttribute('style', 'margin: 0 0 16px 0; padding-left: 24px; list-style-type: disc;');
+                  const existingStyle = ul.getAttribute('style') || '';
+                  if (!existingStyle.includes('f8f4ff') && !existingStyle.includes('border-left')) {
+                    ul.setAttribute('style', `margin: 0 0 16px 0; padding-left: 24px; list-style-type: disc; ${isDarkSitePaletteForExport ? `color: ${bodyText};` : ''}`);
                   }
                   ul.removeAttribute('class');
                 });
