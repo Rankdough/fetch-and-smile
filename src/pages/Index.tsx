@@ -3830,6 +3830,48 @@ const Index = () => {
                     </Button>
                   )}
                 </div>
+                
+                {/* Recent Internal Link URLs history */}
+                <div className="space-y-1.5">
+                  <p className="text-xs text-muted-foreground font-medium">Recent URLs:</p>
+                  {internalLinkHistory.length > 0 ? (
+                    <div className="flex flex-wrap gap-1.5">
+                      {internalLinkHistory.slice(0, 6).map((url, idx) => {
+                        let displayUrl = url;
+                        try {
+                          const urlObj = new URL(url);
+                          displayUrl = urlObj.hostname.replace('www.', '') + urlObj.pathname.slice(0, 20);
+                          if (urlObj.pathname.length > 20) displayUrl += '...';
+                        } catch {
+                          displayUrl = url.slice(0, 35) + (url.length > 35 ? '...' : '');
+                        }
+                        return (
+                          <button
+                            key={idx}
+                            type="button"
+                            onClick={() => {
+                              // Add to first empty slot or append
+                              const emptyIdx = internalLinks.findIndex(u => !u.trim());
+                              if (emptyIdx !== -1) {
+                                const updated = [...internalLinks];
+                                updated[emptyIdx] = url;
+                                setInternalLinks(updated);
+                              } else if (internalLinks.length < 6) {
+                                setInternalLinks([...internalLinks, url]);
+                              }
+                            }}
+                            className="text-xs px-2 py-1 rounded-md bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors truncate max-w-[180px]"
+                            title={url}
+                          >
+                            {displayUrl}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted-foreground/60 italic">No recent URLs yet - links used in generated articles will appear here</p>
+                  )}
+                </div>
                 {internalLinks.some(u => u.trim()) && generatedContent.trim() && (
                   <Button
                     type="button"
