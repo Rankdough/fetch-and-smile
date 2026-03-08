@@ -263,9 +263,13 @@ Focus on providing actionable research that will help create a comprehensive, di
                   );
                   const totalVol = sortedKws.reduce((s, kw) => s + (volLookup[kw] ?? volLookup[kw.toLowerCase()] ?? 0), 0);
 
+                    const isDone = doneIdeas.has(ideaKey);
+
                   return (
-                    <div key={ideaKey} className="border rounded-md p-4 bg-background space-y-2">
-                      <div className="flex items-start justify-between gap-3">
+                    <div key={ideaKey} className={cn(
+                      "border rounded-md p-4 bg-background space-y-2 transition-colors",
+                      isDone && "bg-emerald-50/60 border-emerald-300 dark:bg-emerald-950/30 dark:border-emerald-700"
+                    )}>
                         <div className="flex-1 space-y-1.5">
                           <h4 className="text-sm font-semibold">{idea.title}</h4>
                           <p className="text-xs text-muted-foreground">{idea.description}</p>
