@@ -17,7 +17,7 @@ interface FAQAccordionProps {
   isDarkSite?: boolean;
 }
 
-export const FAQAccordion = ({ items, brandColors }: FAQAccordionProps) => {
+export const FAQAccordion = ({ items, brandColors, isDarkSite = false }: FAQAccordionProps) => {
   const [expandedItem, setExpandedItem] = useState<number | null>(null);
 
   if (!items || items.length === 0) return null;
