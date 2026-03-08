@@ -2555,7 +2555,7 @@ const Index = () => {
                     bq.appendChild(textSpan);
                   } else {
                     // Regular blockquote (like TL;DR content)
-                    bq.setAttribute('style', `background: #f8f4ff; border-left: 4px solid ${primaryColor}; padding: 16px 24px; margin: 24px 0; border-radius: 0 8px 8px 0; font-style: normal;`);
+                    bq.setAttribute('style', `background: ${panelBg}; color: ${panelText}; border-left: 4px solid ${primaryColor}; padding: 16px 24px; margin: 24px 0; border-radius: 0 8px 8px 0; font-style: normal;`);
                   }
                   bq.removeAttribute('class');
                 });
