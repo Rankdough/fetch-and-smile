@@ -130,6 +130,15 @@ export const COLOR_PALETTES: ColorPalette[] = [
     background: "#1A1A1A",
     text: "#FFFFFF",
   },
+  {
+    id: "dark-transparent",
+    name: "Dark Site",
+    primary: "#E2E8F0",
+    secondary: "#94A3B8",
+    accent: "#60A5FA",
+    background: "#000000",
+    text: "#FFFFFF",
+  },
 ];
 
 interface ColorPaletteSelectorProps {
