@@ -4255,7 +4255,7 @@ const Index = () => {
                     )}
                     {(
                     <article 
-                      className="prose prose-sm max-w-none dark:prose-invert"
+                      className={`prose prose-sm max-w-none dark:prose-invert ${isDarkSitePalette ? 'rounded-lg p-4 sm:p-6' : ''}`}
                       contentEditable={isEditMode}
                       suppressContentEditableWarning
                       onClick={(e) => {
