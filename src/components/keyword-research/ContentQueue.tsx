@@ -55,6 +55,7 @@ const ContentQueue = ({ queuedIdeas, onUseForArticle, onRemoveFromQueue, formatV
     } catch { return new Set(); }
   });
   const [expandedDone, setExpandedDone] = useState<Set<string>>(new Set());
+  const [completedSectionOpen, setCompletedSectionOpen] = useState(true);
 
   const toggleExpanded = useCallback((ideaKey: string) => {
     setExpandedDone(prev => {
@@ -260,14 +261,29 @@ Focus on providing actionable research that will help create a comprehensive, di
         <CollapsibleContent>
           <CardContent className="pt-0 space-y-4">
             {/* Done items at the very top */}
-            {doneItems.length > 0 && (
+            {doneItems.length > 0 && (() => {
+              const grandTotalVol = doneItems.reduce((sum, { cluster, idea }) => {
+                const vl = cluster.keyword_volumes || {};
+                return sum + (idea.target_keywords || []).reduce((s, kw) => s + (vl[kw] ?? vl[kw.toLowerCase()] ?? 0), 0);
+              }, 0);
+              return (
               <div className="space-y-2">
-                <div className="flex items-center gap-2">
+                <div
+                  className="flex items-center gap-2 cursor-pointer select-none"
+                  onClick={() => setCompletedSectionOpen(prev => !prev)}
+                >
+                  <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", !completedSectionOpen && "-rotate-90")} />
                   <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                     ✅ Completed ({doneItems.length})
                   </span>
+                  {grandTotalVol > 0 && (
+                    <Badge variant="outline" className="text-[10px]">
+                      <TrendingUp className="h-2.5 w-2.5 mr-0.5" />
+                      {formatVolume(grandTotalVol)} total vol
+                    </Badge>
+                  )}
                 </div>
-                {doneItems.map(({ cluster, idea, ideaKey }) => {
+                {completedSectionOpen && doneItems.map(({ cluster, idea, ideaKey }) => {
                   const volLookup = cluster.keyword_volumes || {};
                   const sortedKws = [...(idea.target_keywords || [])].sort(
                     (a, b) => (volLookup[b] ?? volLookup[b.toLowerCase()] ?? 0) - (volLookup[a] ?? volLookup[a.toLowerCase()] ?? 0)
@@ -289,6 +305,12 @@ Focus on providing actionable research that will help create a comprehensive, di
                             <CheckCircle2 className="h-5 w-5 text-green-700 dark:text-green-400 fill-current shrink-0" />
                             <h4 className="text-lg font-semibold text-green-800 dark:text-green-300 truncate">{idea.title}</h4>
                             <Badge variant="outline" className="text-[10px] shrink-0">{cluster.topic}</Badge>
+                            {totalVol > 0 && (
+                              <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-semibold shrink-0">
+                                <TrendingUp className="h-2.5 w-2.5" />
+                                {totalVol.toLocaleString()} vol
+                              </span>
+                            )}
                             <ChevronDown className={cn(
                               "h-4 w-4 text-green-600 dark:text-green-400 transition-transform shrink-0",
                               isExpanded && "rotate-180"
@@ -349,7 +371,8 @@ Focus on providing actionable research that will help create a comprehensive, di
                   );
                 })}
               </div>
-            )}
+              );
+            })()}
 
             {/* Pending items grouped by silo */}
             {[...bySilo.entries()].map(([siloTopic, ideas]) => (
