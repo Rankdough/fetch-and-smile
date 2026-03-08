@@ -182,7 +182,7 @@ All colors MUST be HSL.
 }
 
 .prose tbody tr:nth-child(odd) {
-  background-color: hsl(var(--table-row-odd));
+  background-color: var(--brand-table-row-odd, hsl(var(--table-row-odd)));
 }
 
 .prose tbody tr:nth-child(even) {
