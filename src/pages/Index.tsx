@@ -2425,7 +2425,7 @@ const Index = () => {
                     h.setAttribute('style', `background: ${panelBg}; color: ${panelText}; border-left: 4px solid ${primaryColor}; padding: 12px 16px; margin: 24px 0 0 0; border-radius: 0 8px 0 0;`);
                     const nextSibling = h.nextElementSibling;
                     if (nextSibling && nextSibling.tagName === 'UL') {
-                      nextSibling.setAttribute('style', `background: #f8f4ff; border-left: 4px solid ${primaryColor}; padding: 16px 24px 16px 40px; margin: 0 0 24px 0; border-radius: 0 0 8px 0; list-style-type: disc;`);
+                      nextSibling.setAttribute('style', `background: ${panelBg}; color: ${panelText}; border-left: 4px solid ${primaryColor}; padding: 16px 24px 16px 40px; margin: 0 0 24px 0; border-radius: 0 0 8px 0; list-style-type: disc;`);
                       nextSibling.querySelectorAll('li').forEach((li) => {
                         li.setAttribute('style', 'margin: 8px 0; line-height: 1.6;');
                         if (li.innerHTML) {
