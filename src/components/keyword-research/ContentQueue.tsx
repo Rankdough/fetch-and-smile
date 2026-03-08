@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -45,6 +46,13 @@ interface ContentQueueProps {
 
 const ContentQueue = ({ queuedIdeas, onUseForArticle, onRemoveFromQueue, formatVolume, projectName }: ContentQueueProps) => {
   const { toast } = useToast();
+  const [fallbackDownload, setFallbackDownload] = useState<{ url: string; filename: string } | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (fallbackDownload?.url) URL.revokeObjectURL(fallbackDownload.url);
+    };
+  }, [fallbackDownload]);
 
   if (queuedIdeas.length === 0) return (
     <Card className="border-dashed border-muted-foreground/30">
@@ -127,19 +135,57 @@ Focus on providing actionable research that will help create a comprehensive, di
     const csv = rows.map(r => r.map(v => `"${(v || "").replace(/"/g, '""')}"`).join(",")).join("\n");
     const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
     const safeName = (projectName || "content-queue").replace(/[^a-zA-Z0-9-_ ]/g, "").replace(/\s+/g, "-").toLowerCase();
-    a.download = `${safeName}-content-queue.csv`;
-    a.style.display = "none";
-    a.rel = "noopener";
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(() => {
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    }, 500);
-    toast({ title: "Exported!", description: `${queuedIdeas.length} articles exported to spreadsheet.` });
+    const filename = `${safeName}-content-queue.csv`;
+
+    if (fallbackDownload?.url) URL.revokeObjectURL(fallbackDownload.url);
+    setFallbackDownload({ url, filename });
+
+    const triggerDownload = (targetDoc: Document) => {
+      const a = targetDoc.createElement("a");
+      a.href = url;
+      a.download = filename;
+      a.target = "_blank";
+      a.rel = "noopener";
+      a.style.display = "none";
+      targetDoc.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        if (a.parentNode) a.parentNode.removeChild(a);
+      }, 0);
+    };
+
+    let attempted = false;
+    try {
+      if (window.top?.document?.body) {
+        triggerDownload(window.top.document);
+        attempted = true;
+      }
+    } catch {
+      // ignore and try local document fallback
+    }
+
+    if (!attempted) {
+      try {
+        triggerDownload(document);
+        attempted = true;
+      } catch {
+        // ignore and try window fallback
+      }
+    }
+
+    if (!attempted) {
+      try {
+        window.open(url, "_blank", "noopener,noreferrer");
+      } catch {
+        // fallback link below remains available
+      }
+    }
+
+    toast({
+      title: "Spreadsheet ready",
+      description: "If download did not start automatically, click 'Download File' next to Export Spreadsheet."
+    });
   };
 
   // Group by silo
@@ -170,6 +216,18 @@ Focus on providing actionable research that will help create a comprehensive, di
                 <Download className="h-3 w-3" />
                 Export Spreadsheet
               </Button>
+              {fallbackDownload && (
+                <Button variant="secondary" size="sm" className="gap-1.5 text-xs h-7 px-2" asChild>
+                  <a
+                    href={fallbackDownload.url}
+                    download={fallbackDownload.filename}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <Download className="h-3 w-3" />
+                    Download File
+                  </a>
+                </Button>
+              )}
               <ChevronDown className="h-4 w-4 text-muted-foreground" />
             </div>
           </CollapsibleTrigger>
