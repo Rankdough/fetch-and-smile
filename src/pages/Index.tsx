@@ -516,7 +516,7 @@ const Index = () => {
         "--brand-table-row-odd": isDarkSitePalette ? "rgba(255,255,255,0.04)" : "hsl(var(--table-row-odd))",
         "--brand-table-row-even": isDarkSitePalette ? "rgba(255,255,255,0.08)" : "hsl(var(--table-row-even))",
         "--brand-table-border": isDarkSitePalette ? "rgba(255,255,255,0.2)" : "hsl(var(--border))",
-        "--brand-table-header-text": "#ffffff",
+        "--brand-table-header-text": isDarkSitePalette ? "#000000" : "#ffffff",
       } as React.CSSProperties)
     : undefined;
   const [useKnowledgeBase, setUseKnowledgeBase] = useState(() => {
