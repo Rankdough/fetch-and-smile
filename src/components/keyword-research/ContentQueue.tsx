@@ -266,7 +266,12 @@ Focus on providing actionable research that will help create a comprehensive, di
                     {formatVolume(ideas[0].cluster.estimated_monthly_volume)}
                   </Badge>
                 </div>
-                {ideas.map(({ cluster, idea, ideaKey }) => {
+                {/* Sort done items to top */}
+                {[...ideas].sort((a, b) => {
+                  const aDone = doneIdeas.has(a.ideaKey) ? 0 : 1;
+                  const bDone = doneIdeas.has(b.ideaKey) ? 0 : 1;
+                  return aDone - bDone;
+                }).map(({ cluster, idea, ideaKey }) => {
                   const volLookup = cluster.keyword_volumes || {};
                   const sortedKws = [...(idea.target_keywords || [])].sort(
                     (a, b) => (volLookup[b] ?? volLookup[b.toLowerCase()] ?? 0) - (volLookup[a] ?? volLookup[a.toLowerCase()] ?? 0)
@@ -274,6 +279,7 @@ Focus on providing actionable research that will help create a comprehensive, di
                   const totalVol = sortedKws.reduce((s, kw) => s + (volLookup[kw] ?? volLookup[kw.toLowerCase()] ?? 0), 0);
 
                     const isDone = doneIdeas.has(ideaKey);
+                    const isExpanded = expandedDone.has(ideaKey);
 
                   return (
                     <div key={ideaKey} className={cn(
