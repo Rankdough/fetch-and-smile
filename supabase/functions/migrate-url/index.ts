@@ -401,7 +401,7 @@ async function translateContent(
   language: string
 ): Promise<{ title: string; subtitle: string; seoTitle: string; seoDescription: string; content: string }> {
   const prompt = `Translate ALL of the following fields into ${language}. 
-CRITICAL: For the CONTENT field, translate ONLY the visible text inside HTML tags. Keep ALL HTML tags, attributes, inline styles, IDs, and structure EXACTLY as they are. Only the human-readable text should be translated.
+CRITICAL: For the CONTENT field, translate ONLY the visible text inside HTML tags. Keep ALL HTML tags, attributes, CSS class names, IDs, <style> blocks, and structure EXACTLY as they are. Only the human-readable text should be translated. Do NOT modify any class="..." attributes or <style> content.
 
 Return your response using these EXACT delimiters:
 
