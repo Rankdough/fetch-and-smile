@@ -145,98 +145,42 @@ export default function ContentMigration() {
 
   const processUrl = useCallback(async (entry: UrlEntry): Promise<UrlEntry> => {
     try {
-      // === STEP 1: Scrape URL (same function as SEO Generator's Import URL) ===
-      console.log("[Migration] Step 1: Scraping", entry.url);
-      const { data: scrapeData, error: scrapeError } = await supabase.functions.invoke("scrape-format", {
-        body: { url: entry.url },
-      });
-      if (scrapeError) throw new Error(`Scrape failed: ${scrapeError.message}`);
-      
-      const sourceMarkdown = scrapeData.markdown || "";
-      const sourceHtml = scrapeData.html || "";
-      const pageTitle = scrapeData.title || "";
-      
-      if (!sourceMarkdown.trim()) {
-        throw new Error("No content could be extracted from the URL");
-      }
-      console.log("[Migration] Scraped", sourceMarkdown.length, "chars, title:", pageTitle);
-
-      // === STEP 2: Generate article content (same function as SEO Generator) ===
-      console.log("[Migration] Step 2: Generating article content");
-      
-      const instructions = `REFORMAT ONLY: The following content has been scraped from a web page. Restructure it into the standard article format (TL;DR, Quick Tips, In This Article navigation, question-based H2 headings, FAQ, References) but preserve the original text, facts, and voice as closely as possible. Do not invent new information. Only reorganise and add the required structural elements.
-
-CRITICAL - PRESERVE ALL HYPERLINKS: The source content contains hyperlinks. You MUST preserve ALL of them in your output using markdown link syntax [text](url). Cross-reference the HTML source below to find any links that might be missing from the markdown.
-
-CRITICAL - PRESERVE ORIGINAL TITLES: Keep the original H1 title and all H2/H3 section headings from the source content EXACTLY as they are. Do NOT rename, rephrase, or convert them into questions. The heading text must remain unchanged.
-
-HTML SOURCE FOR LINK REFERENCE:
-${sourceHtml.substring(0, 8000)}`;
-      
-      const topicMatch = sourceMarkdown.match(/^#\s+(.+)$/m) || sourceMarkdown.match(/^(.{10,80})/);
-      const topic = topicMatch ? topicMatch[1].trim() : "Article";
-      
-      const { data: contentData, error: contentError } = await supabase.functions.invoke("generate-content", {
+      console.log("[Migration] Processing", entry.url, "via migrate-url");
+      const { data: migrateData, error: migrateError } = await supabase.functions.invoke("migrate-url", {
         body: {
-          topic,
-          length: "long",
-          wordCount: 2000,
-          instructions,
-          contextFiles: [{ name: "source-content", content: sourceMarkdown.substring(0, 12000) }],
-          skipFaqs,
+          url: entry.url,
+          type: entry.type,
+          colorPalette: selectedColorPalette?.id || undefined,
+          skipNavigation,
           skipQuickTips,
+          skipFaqs,
           skipSources,
         },
       });
-      if (contentError) throw new Error(`Content generation failed: ${contentError.message}`);
-      
-      const generatedMarkdown = contentData.content || contentData.generatedContent || "";
-      if (!generatedMarkdown.trim()) throw new Error("No content returned from generation");
-      console.log("[Migration] Generated", generatedMarkdown.length, "chars markdown");
+      if (migrateError) throw new Error(`Migration failed: ${migrateError.message}`);
 
-      // Extract SEO metadata from the generated content
-      const h1Match = generatedMarkdown.match(/^#\s+(.+)$/m);
-      const title = h1Match ? h1Match[1].trim() : pageTitle;
-      const firstParagraph = generatedMarkdown.match(/^(?!#)(?!>)(?!\|)(?!-)(.{20,200})/m);
-      const subtitle = firstParagraph ? firstParagraph[1].trim() : "";
-      const seoTitle = title.length > 60 ? title.substring(0, 57) + "..." : title;
-      const seoDescription = subtitle.length > 160 ? subtitle.substring(0, 157) + "..." : subtitle;
-
-      // === STEP 3: Translate to NL and DE ===
-      console.log("[Migration] Step 3: Translating to NL + DE");
-      const { data: translationData, error: translationError } = await supabase.functions.invoke("translate-content", {
-        body: { title, subtitle, seoTitle, seoDescription, content: generatedMarkdown },
-      });
-      if (translationError) {
-        console.error("[Migration] Translation failed, continuing with EN only:", translationError);
-      }
-      
-      const nl = translationData?.nl || { title: "", subtitle: "", seoTitle: "", seoDescription: "", content: "" };
-      const de = translationData?.de || { title: "", subtitle: "", seoTitle: "", seoDescription: "", content: "" };
-
-      // === STEP 4: Convert Markdown → styled HTML (client-side, same as Copy HTML) ===
-      console.log("[Migration] Step 4: Converting markdown to styled HTML");
+      // migrate-url returns Markdown content — convert to styled HTML client-side
       const palette = selectedColorPalette || undefined;
       const convertOpts = { skipNavigation, skipQuickTips, skipFaqs, skipSources };
-      
+
       const data: MigrationResult = {
-        url: entry.url,
-        type: entry.type,
-        title,
-        subtitle,
-        seoTitle,
-        seoDescription,
-        content: markdownToStyledHtml(generatedMarkdown, palette, convertOpts),
-        titleNL: nl.title,
-        subtitleNL: nl.subtitle,
-        seoTitleNL: nl.seoTitle,
-        seoDescriptionNL: nl.seoDescription,
-        contentNL: markdownToStyledHtml(nl.content || "", palette, convertOpts),
-        titleDE: de.title,
-        subtitleDE: de.subtitle,
-        seoTitleDE: de.seoTitle,
-        seoDescriptionDE: de.seoDescription,
-        contentDE: markdownToStyledHtml(de.content || "", palette, convertOpts),
+        url: migrateData.url || entry.url,
+        type: migrateData.type || entry.type,
+        title: migrateData.title || "",
+        subtitle: migrateData.subtitle || "",
+        seoTitle: migrateData.seoTitle || "",
+        seoDescription: migrateData.seoDescription || "",
+        content: markdownToStyledHtml(migrateData.content || "", palette, convertOpts),
+        titleNL: migrateData.titleNL || "",
+        subtitleNL: migrateData.subtitleNL || "",
+        seoTitleNL: migrateData.seoTitleNL || "",
+        seoDescriptionNL: migrateData.seoDescriptionNL || "",
+        contentNL: markdownToStyledHtml(migrateData.contentNL || "", palette, convertOpts),
+        titleDE: migrateData.titleDE || "",
+        subtitleDE: migrateData.subtitleDE || "",
+        seoTitleDE: migrateData.seoTitleDE || "",
+        seoDescriptionDE: migrateData.seoDescriptionDE || "",
+        contentDE: markdownToStyledHtml(migrateData.contentDE || "", palette, convertOpts),
       };
 
       console.log("[Migration] Complete. HTML starts with '<':", data.content.startsWith("<"));
