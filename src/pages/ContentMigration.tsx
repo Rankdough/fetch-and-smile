@@ -7,8 +7,9 @@ import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, Download, CheckCircle2, XCircle, ArrowLeft, Play, Eye, Trash2, Copy, Check } from "lucide-react";
+import { Loader2, Download, CheckCircle2, XCircle, ArrowLeft, Play, Eye, Trash2, Copy, Check, Settings2 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
+import { ColorPaletteSelector, COLOR_PALETTES, type ColorPalette } from "@/components/ColorPaletteSelector";
 import {
   Dialog,
   DialogContent,
@@ -54,6 +55,16 @@ export default function ContentMigration() {
   const [previewResult, setPreviewResult] = useState<MigrationResult | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedColorPalette, setSelectedColorPalette] = useState<ColorPalette | null>(() => {
+    const saved = localStorage.getItem("migration-color-palette");
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch { return COLOR_PALETTES.find(p => p.id === "big-league") || null; }
+    }
+    return COLOR_PALETTES.find(p => p.id === "big-league") || null;
+  });
+  const [showSettings, setShowSettings] = useState(false);
 
   // Load saved jobs on mount
   useEffect(() => {
@@ -109,7 +120,7 @@ export default function ContentMigration() {
   const processUrl = useCallback(async (entry: UrlEntry): Promise<UrlEntry> => {
     try {
       const { data, error } = await supabase.functions.invoke("migrate-url", {
-        body: { url: entry.url, type: entry.type },
+        body: { url: entry.url, type: entry.type, colorPalette: selectedColorPalette },
       });
 
       if (error) throw error;
@@ -136,7 +147,7 @@ export default function ContentMigration() {
 
       return { ...entry, status: "error", error: msg };
     }
-  }, []);
+  }, [selectedColorPalette]);
 
   const startProcessing = async () => {
     setIsProcessing(true);
@@ -247,6 +258,33 @@ export default function ContentMigration() {
       </header>
 
       <main className="container mx-auto px-4 py-8 max-w-4xl space-y-6">
+        {/* Settings */}
+        <Card>
+          <CardHeader className="cursor-pointer" onClick={() => setShowSettings(!showSettings)}>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Settings2 className="h-4 w-4" />
+              Settings
+              <Badge variant="outline" className="ml-auto font-normal">
+                {selectedColorPalette ? selectedColorPalette.name : "Default"}
+              </Badge>
+            </CardTitle>
+          </CardHeader>
+          {showSettings && (
+            <CardContent className="space-y-4 pt-0">
+              <div>
+                <label className="text-sm font-medium mb-2 block">Color Palette</label>
+                <ColorPaletteSelector
+                  selectedPalette={selectedColorPalette}
+                  onSelectPalette={(p) => {
+                    setSelectedColorPalette(p);
+                    localStorage.setItem("migration-color-palette", JSON.stringify(p));
+                  }}
+                />
+              </div>
+            </CardContent>
+          )}
+        </Card>
+
         {/* Input */}
         <Card>
           <CardHeader>
