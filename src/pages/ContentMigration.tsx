@@ -487,11 +487,12 @@ ${sourceHtml.substring(0, 8000)}`;
 
     const rows = entries.filter(e => e.status === "done" && e.result).map(e => {
       const r = e.result!;
+      const maybeStripH1 = (html: string) => skipTitleInHtml ? stripH1FromHtml(html) : html;
       return [
         r.type ?? "", "", r.url ?? "", "",
         r.title ?? "", r.title ?? "", r.titleNL ?? "", r.titleDE ?? "",
         r.subtitle ?? "", r.subtitleNL ?? "", r.subtitleDE ?? "",
-        r.content ?? "", r.content ?? "", r.contentNL ?? "", r.contentDE ?? "",
+        maybeStripH1(r.content ?? ""), maybeStripH1(r.content ?? ""), maybeStripH1(r.contentNL ?? ""), maybeStripH1(r.contentDE ?? ""),
         r.seoTitle ?? "", r.seoTitle ?? "", r.seoTitleNL ?? "", r.seoTitleDE ?? "",
         r.seoDescription ?? "", r.seoDescription ?? "", r.seoDescriptionNL ?? "", r.seoDescriptionDE ?? "",
       ];
