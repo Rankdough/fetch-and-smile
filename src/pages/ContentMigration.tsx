@@ -446,8 +446,13 @@ ${sourceHtml.substring(0, 8000)}`;
   // Fix doubled quotes that come from AI output or JSON double-serialization
   const fixDoubledQuotes = (s: string): string => {
     if (!s) return s;
-    // Replace "" with " but not at string boundaries
     return s.replace(/""/g, '"');
+  };
+
+  // Strip the first H1 tag (and its content) from HTML string
+  const stripH1FromHtml = (html: string): string => {
+    if (!html) return html;
+    return html.replace(/<h1[^>]*>[\s\S]*?<\/h1>\s*/i, "");
   };
 
   // Sanitize all string fields in a migration result
