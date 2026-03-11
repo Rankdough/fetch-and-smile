@@ -101,8 +101,8 @@ CRITICAL RULES:
 - Every H2 must be phrased as a question
 - Preserve ALL factual content from the source - do not invent information
 - Preserve ALL hyperlinks from the source content using markdown link syntax [text](url)
-- Include at least one blockquote with an expert quote if available
-- CRITICAL TABLE RULE: When listing products, brands, options, or items with descriptions/details, ALWAYS use a markdown table (| Name | Details |) instead of nested bullet lists. Any list of items that have a name + description/attribute pair MUST be formatted as a table. Minimum 3 columns and 4+ rows where possible.
+- Do NOT include expert quotes or blockquote citations - no fabricated or real quotes from named individuals
+- CRITICAL TABLE RULE: When listing products, brands, options, or items with descriptions/details, ALWAYS use a markdown table (| Name | Details |) instead of nested bullet lists. Any list of items that have a name + description/attribute pair MUST be formatted as a table. Minimum 2 columns and 4+ rows where possible. Do NOT add a "Link" or "Product Link" column - only include columns with actual content data.
 - Use markdown tables for ALL comparison data, product lists, feature lists, and pros/cons
 - Quick Tips MUST use the format: > **Tip N:** text (each tip as a SEPARATE blockquote with blank lines between)
 - FAQ answers MUST be a single paragraph (no bullets)
