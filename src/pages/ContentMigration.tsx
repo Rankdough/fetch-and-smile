@@ -409,6 +409,7 @@ ${sourceHtml.substring(0, 8000)}`;
         seoTitleDE: de.seoTitle,
         seoDescriptionDE: de.seoDescription,
         contentDE: appendCta(markdownToStyledHtml(de.content || "", palette, convertOpts)),
+        imageUrls,
       };
 
       console.log("[Migration] Complete. HTML starts with '<':", data.content.startsWith("<"));
