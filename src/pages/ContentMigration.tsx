@@ -51,8 +51,8 @@ export default function ContentMigration() {
   const [urlInput, setUrlInput] = useState("");
   const [entries, setEntries] = useState<UrlEntry[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [previewHtml, setPreviewHtml] = useState<string | null>(null);
-  const [previewTitle, setPreviewTitle] = useState("");
+  const [previewResult, setPreviewResult] = useState<MigrationResult | null>(null);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   // Load saved jobs on mount
