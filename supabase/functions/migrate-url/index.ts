@@ -256,7 +256,7 @@ serve(async (req) => {
   }
 
   try {
-    const { url, type, colorPalette } = await req.json();
+    const { url, type, colorPalette, skipNavigation, skipQuickTips, skipFaqs, skipSources } = await req.json();
 
     if (!url) {
       return new Response(
