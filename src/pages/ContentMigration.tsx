@@ -290,6 +290,8 @@ CRITICAL - USE TABLES FOR LISTS: When the source lists products, brands, options
 
 CRITICAL - DO NOT INCLUDE "In This Article" SECTION: Do NOT generate any "In This Article" navigation section, bullet list, or table of contents. This is handled automatically by the system. If you include one, it will create duplicates. Skip it entirely - go straight from Quick Tips to the first content section.
 
+CRITICAL - H2 SUBTITLES MUST ANSWER THE HEADING: Every H2 heading that is phrased as a question MUST be immediately followed by a short paragraph (roughly 30 words) that directly answers that question. This answer paragraph comes before any supporting points, lists, or tables under that section.
+
 ADDITIONAL RULES:
 - Add comparison sections where relevant: "Which Option Should You Choose?", "How Do They Compare Side by Side?" with comparison tables
 - Do NOT include expert quotes or blockquote citations from named individuals

@@ -128,8 +128,9 @@ CRITICAL: QUESTION-BASED HEADINGS RULE:
   - ## The Benefits of Bonding ❌
   - ## Cost Breakdown ❌
   - ## Longevity and Care ❌
-- Each section MUST directly answer its question with a mix of:
-  1. Clear text paragraphs (direct answer first, then elaboration)
+- Each H2 question heading MUST be immediately followed by a short paragraph (roughly 30 words) that directly answers that question before any supporting details
+- Each section MUST then continue with a mix of:
+  1. Clear text paragraphs (elaboration after the answer)
   2. Bullet points or numbered lists for scannable takeaways
   3. A comparison table where relevant (at least ${requiredTables} tables total across the article)
   4. Source references at the end of the section
