@@ -414,7 +414,7 @@ Place these images throughout the article at logical locations, typically after 
     // Use stronger model for long articles, default flash for shorter ones
     const model = targetWords >= 2000 ? "google/gemini-2.5-flash" : "google/gemini-3-flash-preview";
     // Token budget: structural sections (FAQ, References, tables, CTAs) need significant overhead beyond raw word count
-    const maxTokens = Math.min(Math.max(4096, Math.ceil(wordCeiling * 3.5)), 16384);
+    const maxTokens = Math.min(Math.max(8192, Math.ceil(wordCeiling * 5)), 32768);
 
     console.log(`Using model: ${model}, max_tokens: ${maxTokens}, target words: ${targetWords}`);
 
@@ -495,7 +495,7 @@ ${current}`;
           },
           body: JSON.stringify({
             model,
-            max_tokens: Math.min(Math.max(4096, Math.ceil(wordCeiling * 3.5)), 16384),
+            max_tokens: Math.min(Math.max(8192, Math.ceil(wordCeiling * 5)), 32768),
             messages: [
               { role: "system", content: systemPrompt },
               { role: "user", content: rebalancePrompt },
