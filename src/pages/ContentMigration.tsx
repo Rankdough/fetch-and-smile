@@ -309,18 +309,23 @@ STRICT WORD COUNT LIMIT: The final article MUST NOT exceed ${targetWordCount} wo
 HTML SOURCE FOR LINK REFERENCE:
 ${sourceHtml.substring(0, 8000)}`;
 
+      const hasCtaUrl = ctaUrl.trim().length > 0;
+      const ctaInstructions = hasCtaUrl && ctaInstruction.trim() ? `\n\nCTA INSTRUCTIONS: ${ctaInstruction.trim()}` : "";
+
       const { data: contentData, error: contentError } = await supabase.functions.invoke("generate-content", {
         body: {
           topic,
           length: "long",
           wordCount: targetWordCount,
-          instructions,
+          instructions: instructions + ctaInstructions,
           contextFiles: [{ name: "source-content", content: sourceMarkdown.substring(0, 12000) }],
           toneProfileId: selectedToneProfileId || undefined,
           skipFaqs,
           skipQuickTips,
           skipSources,
           migrationMode: true,
+          generateCTAs: hasCtaUrl,
+          ctaUrl: hasCtaUrl ? ctaUrl.trim() : undefined,
         },
       });
       if (contentError) throw new Error(`Content generation failed: ${contentError.message}`);
