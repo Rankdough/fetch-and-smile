@@ -561,17 +561,73 @@ export default function ContentMigration() {
       </main>
 
       {/* Preview Dialog */}
-      <Dialog open={!!previewResult} onOpenChange={() => setPreviewResult(null)}>
+      <Dialog open={!!previewResult} onOpenChange={(open) => {
+        if (!open) {
+          setPreviewResult(null);
+          setPreviewEntryIndex(null);
+          setIsEditing(false);
+          setEditedResult(null);
+        }
+      }}>
         <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{previewResult?.title}</DialogTitle>
+            <div className="flex items-center justify-between gap-4">
+              <DialogTitle>{(isEditing && editedResult ? editedResult : previewResult)?.title}</DialogTitle>
+              <div className="flex items-center gap-2 shrink-0">
+                {isEditing ? (
+                  <>
+                    <Button variant="outline" size="sm" onClick={() => { setIsEditing(false); setEditedResult(null); }}>
+                      Cancel
+                    </Button>
+                    <Button size="sm" className="gap-1" onClick={async () => {
+                      if (!editedResult || previewEntryIndex === null) return;
+                      const updated = [...entries];
+                      updated[previewEntryIndex] = { ...updated[previewEntryIndex], result: editedResult };
+                      setEntries(updated);
+                      setPreviewResult(editedResult);
+
+                      // Persist to DB
+                      const entryId = updated[previewEntryIndex].id;
+                      if (entryId) {
+                        await supabase
+                          .from("migration_jobs")
+                          .update({ result: editedResult as any })
+                          .eq("id", entryId);
+                      }
+
+                      setIsEditing(false);
+                      setEditedResult(null);
+                      toast({ title: "Changes saved" });
+                    }}>
+                      <Save className="h-4 w-4" /> Save
+                    </Button>
+                  </>
+                ) : (
+                  <Button variant="outline" size="sm" className="gap-1" onClick={() => {
+                    setIsEditing(true);
+                    setEditedResult({ ...previewResult! });
+                  }}>
+                    <Pencil className="h-4 w-4" /> Edit
+                  </Button>
+                )}
+              </div>
+            </div>
           </DialogHeader>
           {previewResult && (
-            <PreviewContent result={previewResult} copiedField={copiedField} onCopy={(field, value) => {
-              navigator.clipboard.writeText(value);
-              setCopiedField(field);
-              setTimeout(() => setCopiedField(null), 2000);
-            }} />
+            <PreviewContent
+              result={isEditing && editedResult ? editedResult : previewResult}
+              copiedField={copiedField}
+              isEditing={isEditing}
+              onCopy={(field, value) => {
+                navigator.clipboard.writeText(value);
+                setCopiedField(field);
+                setTimeout(() => setCopiedField(null), 2000);
+              }}
+              onFieldChange={(field, value) => {
+                if (!editedResult) return;
+                setEditedResult({ ...editedResult, [field]: value });
+              }}
+            />
           )}
         </DialogContent>
       </Dialog>
