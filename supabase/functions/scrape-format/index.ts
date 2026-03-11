@@ -41,7 +41,7 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         url: formattedUrl,
-        formats: ["markdown"],
+        formats: ["markdown", "html"],
         onlyMainContent: true,
       }),
     });
@@ -57,6 +57,7 @@ serve(async (req) => {
     }
 
     const markdown = data.data?.markdown || data.markdown || "";
+    const html = data.data?.html || data.html || "";
     const title = data.data?.metadata?.title || data.metadata?.title || formattedUrl;
 
     console.log("Format reference scraped successfully");
@@ -66,6 +67,7 @@ serve(async (req) => {
         url: formattedUrl,
         title,
         markdown,
+        html,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
