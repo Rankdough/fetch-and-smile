@@ -544,7 +544,12 @@ export default function ContentMigration() {
                     variant="ghost"
                     size="sm"
                     className="gap-1"
-                    onClick={() => setPreviewResult(entry.result!)}
+                    onClick={() => {
+                      setPreviewResult(entry.result!);
+                      setPreviewEntryIndex(i);
+                      setEditedResult(null);
+                      setIsEditing(false);
+                    }}
                   >
                     <Eye className="h-4 w-4" /> Preview
                   </Button>
