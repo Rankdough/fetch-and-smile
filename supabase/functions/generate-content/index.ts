@@ -588,7 +588,7 @@ ${current}`;
     // If any are missing, auto-generate them and append/insert.
     // ═══════════════════════════════════════════════════════════════════════
     let missingSections: string[] = [];
-    if (!expandExistingContent) {
+    if (!expandExistingContent && !migrationMode) {
       const contentLower = content.toLowerCase();
 
       // Check each required structural element
