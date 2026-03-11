@@ -154,7 +154,7 @@ export default function ContentMigration() {
 
       return { ...entry, status: "error", error: msg };
     }
-  }, [selectedColorPalette]);
+  }, [selectedColorPalette, skipNavigation, skipQuickTips, skipFaqs, skipSources]);
 
   const startProcessing = async () => {
     setIsProcessing(true);
