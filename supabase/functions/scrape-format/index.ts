@@ -67,6 +67,7 @@ serve(async (req) => {
         url: formattedUrl,
         title,
         markdown,
+        html,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
