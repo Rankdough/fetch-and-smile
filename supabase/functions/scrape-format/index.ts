@@ -57,6 +57,7 @@ serve(async (req) => {
     }
 
     const markdown = data.data?.markdown || data.markdown || "";
+    const html = data.data?.html || data.html || "";
     const title = data.data?.metadata?.title || data.metadata?.title || formattedUrl;
 
     console.log("Format reference scraped successfully");
