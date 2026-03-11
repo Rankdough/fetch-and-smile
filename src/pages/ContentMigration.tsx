@@ -4,9 +4,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, Download, CheckCircle2, XCircle, ArrowLeft, Play, Eye, Trash2 } from "lucide-react";
+import { Loader2, Download, CheckCircle2, XCircle, ArrowLeft, Play, Eye, Trash2, Copy, Check } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import {
   Dialog,
@@ -50,8 +51,8 @@ export default function ContentMigration() {
   const [urlInput, setUrlInput] = useState("");
   const [entries, setEntries] = useState<UrlEntry[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [previewHtml, setPreviewHtml] = useState<string | null>(null);
-  const [previewTitle, setPreviewTitle] = useState("");
+  const [previewResult, setPreviewResult] = useState<MigrationResult | null>(null);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   // Load saved jobs on mount
@@ -329,10 +330,7 @@ export default function ContentMigration() {
                     variant="ghost"
                     size="sm"
                     className="gap-1"
-                    onClick={() => {
-                      setPreviewHtml(entry.result!.content);
-                      setPreviewTitle(entry.result!.title);
-                    }}
+                    onClick={() => setPreviewResult(entry.result!)}
                   >
                     <Eye className="h-4 w-4" /> Preview
                   </Button>
@@ -344,14 +342,101 @@ export default function ContentMigration() {
       </main>
 
       {/* Preview Dialog */}
-      <Dialog open={!!previewHtml} onOpenChange={() => setPreviewHtml(null)}>
-        <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
+      <Dialog open={!!previewResult} onOpenChange={() => setPreviewResult(null)}>
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{previewTitle}</DialogTitle>
+            <DialogTitle>{previewResult?.title}</DialogTitle>
           </DialogHeader>
-          <div dangerouslySetInnerHTML={{ __html: previewHtml || "" }} />
+          {previewResult && (
+            <PreviewContent result={previewResult} copiedField={copiedField} onCopy={(field, value) => {
+              navigator.clipboard.writeText(value);
+              setCopiedField(field);
+              setTimeout(() => setCopiedField(null), 2000);
+            }} />
+          )}
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+function CopyButton({ field, value, copiedField, onCopy }: { field: string; value: string; copiedField: string | null; onCopy: (f: string, v: string) => void }) {
+  return (
+    <Button variant="ghost" size="sm" className="h-6 w-6 p-0 shrink-0" onClick={() => onCopy(field, value)}>
+      {copiedField === field ? <Check className="h-3 w-3 text-green-600" /> : <Copy className="h-3 w-3" />}
+    </Button>
+  );
+}
+
+function MetadataField({ label, value, field, copiedField, onCopy }: { label: string; value: string; field: string; copiedField: string | null; onCopy: (f: string, v: string) => void }) {
+  if (!value) return null;
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center gap-2">
+        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{label}</span>
+        <CopyButton field={field} value={value} copiedField={copiedField} onCopy={onCopy} />
+      </div>
+      <p className="text-sm border rounded-md p-2 bg-muted/50">{value}</p>
+    </div>
+  );
+}
+
+function PreviewContent({ result, copiedField, onCopy }: { result: MigrationResult; copiedField: string | null; onCopy: (f: string, v: string) => void }) {
+  return (
+    <Tabs defaultValue="en" className="w-full">
+      <TabsList className="mb-4">
+        <TabsTrigger value="en">English</TabsTrigger>
+        <TabsTrigger value="nl">Dutch (NL)</TabsTrigger>
+        <TabsTrigger value="de">German (DE)</TabsTrigger>
+      </TabsList>
+
+      <TabsContent value="en" className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <MetadataField label="Title" value={result.title} field="title-en" copiedField={copiedField} onCopy={onCopy} />
+          <MetadataField label="SEO Title" value={result.seoTitle} field="seoTitle-en" copiedField={copiedField} onCopy={onCopy} />
+          <MetadataField label="Subtitle" value={result.subtitle} field="subtitle-en" copiedField={copiedField} onCopy={onCopy} />
+          <MetadataField label="SEO Description" value={result.seoDescription} field="seoDesc-en" copiedField={copiedField} onCopy={onCopy} />
+        </div>
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Content</span>
+            <CopyButton field="content-en" value={result.content} copiedField={copiedField} onCopy={onCopy} />
+          </div>
+          <div className="border rounded-md p-4 bg-white" dangerouslySetInnerHTML={{ __html: result.content }} />
+        </div>
+      </TabsContent>
+
+      <TabsContent value="nl" className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <MetadataField label="Title (NL)" value={result.titleNL} field="title-nl" copiedField={copiedField} onCopy={onCopy} />
+          <MetadataField label="SEO Title (NL)" value={result.seoTitleNL} field="seoTitle-nl" copiedField={copiedField} onCopy={onCopy} />
+          <MetadataField label="Subtitle (NL)" value={result.subtitleNL} field="subtitle-nl" copiedField={copiedField} onCopy={onCopy} />
+          <MetadataField label="SEO Description (NL)" value={result.seoDescriptionNL} field="seoDesc-nl" copiedField={copiedField} onCopy={onCopy} />
+        </div>
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Content (NL)</span>
+            <CopyButton field="content-nl" value={result.contentNL} copiedField={copiedField} onCopy={onCopy} />
+          </div>
+          <div className="border rounded-md p-4 bg-white" dangerouslySetInnerHTML={{ __html: result.contentNL }} />
+        </div>
+      </TabsContent>
+
+      <TabsContent value="de" className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <MetadataField label="Title (DE)" value={result.titleDE} field="title-de" copiedField={copiedField} onCopy={onCopy} />
+          <MetadataField label="SEO Title (DE)" value={result.seoTitleDE} field="seoTitle-de" copiedField={copiedField} onCopy={onCopy} />
+          <MetadataField label="Subtitle (DE)" value={result.subtitleDE} field="subtitle-de" copiedField={copiedField} onCopy={onCopy} />
+          <MetadataField label="SEO Description (DE)" value={result.seoDescriptionDE} field="seoDesc-de" copiedField={copiedField} onCopy={onCopy} />
+        </div>
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Content (DE)</span>
+            <CopyButton field="content-de" value={result.contentDE} copiedField={copiedField} onCopy={onCopy} />
+          </div>
+          <div className="border rounded-md p-4 bg-white" dangerouslySetInnerHTML={{ __html: result.contentDE }} />
+        </div>
+      </TabsContent>
+    </Tabs>
   );
 }
