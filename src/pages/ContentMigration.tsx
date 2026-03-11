@@ -151,11 +151,18 @@ export default function ContentMigration() {
         throw new Error(errBody || `HTTP ${response.status}`);
       }
       
-      const data = await response.json();
-      const error = null;
+      const rawData = await response.json();
+      if (rawData?.error) throw new Error(rawData.error);
 
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
+      // Convert Markdown → styled HTML on client side (same logic as SEO Generator)
+      const palette = selectedColorPalette || undefined;
+      const convertOpts = { skipNavigation, skipQuickTips, skipFaqs, skipSources };
+      const data = {
+        ...rawData,
+        content: markdownToStyledHtml(rawData.content || "", palette, convertOpts),
+        contentNL: markdownToStyledHtml(rawData.contentNL || "", palette, convertOpts),
+        contentDE: markdownToStyledHtml(rawData.contentDE || "", palette, convertOpts),
+      };
 
       // Save result to DB
       if (entry.id) {
