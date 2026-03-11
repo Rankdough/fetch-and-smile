@@ -335,15 +335,14 @@ ${sourceHtml.substring(0, 8000)}`;
 
   // TSV escaping: tabs and newlines are the only characters that break TSV structure.
   // HTML never contains tab characters, so replacing tabs is just a safety net.
-  // Newlines are collapsed — HTML renders identically without them.
-  // Double quotes, single quotes, angle brackets all stay untouched.
-  const escapeTSV = (val: string): string => {
+  const escapeCSV = (val: string): string => {
     if (!val) return '';
-    return val
-      .replace(/\t/g, '    ')      // replace tabs with 4 spaces
-      .replace(/\r?\n/g, ' ')      // collapse newlines to spaces
-      .replace(/\s{2,}/g, ' ')     // normalize multiple spaces
+    const cleaned = val
+      .replace(/\r?\n/g, ' ')
+      .replace(/\s{2,}/g, ' ')
       .trim();
+    // Wrap in quotes and escape any internal quotes
+    return `"${cleaned.replace(/"/g, '""')}"`;
   };
 
   const downloadCSV = () => {
@@ -365,16 +364,16 @@ ${sourceHtml.substring(0, 8000)}`;
         r.content, r.content, r.contentNL, r.contentDE,
         r.seoTitle, r.seoTitle, r.seoTitleNL, r.seoTitleDE,
         r.seoDescription, r.seoDescription, r.seoDescriptionNL, r.seoDescriptionDE,
-      ].map(escapeTSV).join("\t");
+      ].map(escapeCSV).join(",");
     });
 
     const bom = "\uFEFF";
-    const tsv = bom + headers.join("\t") + "\n" + rows.join("\n");
-    const blob = new Blob([tsv], { type: "text/tab-separated-values;charset=utf-8;" });
+    const csv = bom + headers.map(h => escapeCSV(h)).join(",") + "\n" + rows.join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `content_migration_${new Date().toISOString().slice(0, 10)}.tsv`;
+    a.download = `content_migration_${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
