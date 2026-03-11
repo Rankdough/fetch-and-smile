@@ -345,9 +345,13 @@ ${sourceHtml.substring(0, 15000)}`;
     // Strip markdown code fences if present
     content = content.replace(/^```html?\s*\n?/i, "").replace(/\n?```\s*$/i, "").trim();
 
+    // CRITICAL: Convert inline styles to CSS classes for Shopify compatibility
+    // Shopify strips inline style="" attributes, so we must use a <style> block
+    content = convertInlineStylesToClasses(content);
+
     console.log("Generated content length:", content.length, "title:", title);
 
-    // Step 3: Translate to NL
+    // Step 3: Translate to NL (translate AFTER style conversion so classes are preserved)
     console.log("Step 3: Translating to NL");
     const nlResult = await translateContent(LOVABLE_API_KEY, {
       title, subtitle, seoTitle, seoDescription, content
