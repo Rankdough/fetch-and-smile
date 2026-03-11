@@ -148,7 +148,7 @@ export default function ContentMigration() {
 
       return { ...entry, status: "error", error: msg };
     }
-  }, []);
+  }, [selectedColorPalette]);
 
   const startProcessing = async () => {
     setIsProcessing(true);
