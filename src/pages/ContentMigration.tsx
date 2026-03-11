@@ -334,22 +334,7 @@ ${sourceHtml.substring(0, 8000)}`;
     seoDescriptionDE: fixDoubledQuotes(r.seoDescriptionDE || ""),
   });
 
-  // CSV escaping: strip quotes from HTML (use single quotes instead) to avoid
-  // Excel parser confusion with thousands of doubled-quote patterns in inline styles.
-  const escapeCSV = (val: string): string => {
-    const s = val ?? '';
-    // Replace double quotes with single quotes (works fine in HTML attributes)
-    // Then strip newlines and collapse whitespace
-    const cleaned = s
-      .replace(/"/g, "'")
-      .replace(/\r?\n/g, ' ')
-      .replace(/\s{2,}/g, ' ')
-      .trim();
-    // Wrap in double quotes — field is now quote-free internally
-    return '"' + cleaned + '"';
-  };
-
-  const downloadCSV = () => {
+  const downloadXLSX = () => {
     const headers = [
       "Type", "image", "Old url", "New url",
       "Title", "Title (EN)", "Title (NL)", "Title (DE)",
@@ -359,7 +344,7 @@ ${sourceHtml.substring(0, 8000)}`;
       "SEO Description", "SEO Description (EN)", "SEO Description (NL)", "SEO Description (DE)",
     ];
 
-    const rows = entries.filter(e => e.status === "done" && e.result).map(e => {
+    const data = entries.filter(e => e.status === "done" && e.result).map(e => {
       const r = e.result!;
       return [
         r.type ?? "", "", r.url ?? "", "",
@@ -368,18 +353,13 @@ ${sourceHtml.substring(0, 8000)}`;
         r.content ?? "", r.content ?? "", r.contentNL ?? "", r.contentDE ?? "",
         r.seoTitle ?? "", r.seoTitle ?? "", r.seoTitleNL ?? "", r.seoTitleDE ?? "",
         r.seoDescription ?? "", r.seoDescription ?? "", r.seoDescriptionNL ?? "", r.seoDescriptionDE ?? "",
-      ].map(escapeCSV).join(",");
+      ];
     });
 
-    const bom = "\uFEFF";
-    const csv = bom + headers.map(h => escapeCSV(h)).join(",") + "\n" + rows.join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `content_migration_${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...data]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Migration");
+    XLSX.writeFile(wb, `content_migration_${new Date().toISOString().slice(0, 10)}.xlsx`);
   };
 
   const doneCount = entries.filter(e => e.status === "done").length;
