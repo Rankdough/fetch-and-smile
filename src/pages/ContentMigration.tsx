@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo } from "react"; // v2 - 3-step pipeline
+import { useState, useCallback, useEffect, useMemo, useRef } from "react"; // v2 - 3-step pipeline
 
 import { markdownToStyledHtml } from "@/utils/markdownToStyledHtml";
 import { Button } from "@/components/ui/button";
