@@ -89,3 +89,6 @@ verify_jwt = false
 
 [functions.scan-website-keywords]
 verify_jwt = false
+
+[functions.migrate-url]
+verify_jwt = false
