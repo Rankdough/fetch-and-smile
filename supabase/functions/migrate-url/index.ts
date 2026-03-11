@@ -48,8 +48,8 @@ function buildMarkdownPrompt(skip: SkipOptions = {}) {
   }
 
   sections.push(`${sectionNum}. MAIN CONTENT SECTIONS
-   Each H2 must be phrased as a question:
-   ## What Does This Topic Mean?
+   Each H2 must be phrased as a question SPECIFIC TO THE ARTICLE TOPIC. Do NOT use generic placeholders like "What Does This Topic Mean?" — instead use the actual subject, e.g. "What Are Gluten-Free Advent Calendars?" or "How Much Does Composite Bonding Cost?"
+   ## [Topic-specific question heading]
    Paragraph with direct answer...
    - Supporting point 1
    - Supporting point 2
