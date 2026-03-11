@@ -23,59 +23,9 @@ interface SkipOptions {
 }
 
 /**
- * Post-process HTML: extract all inline style="" attributes into a <style> block with CSS classes.
- * This is needed because Shopify strips inline styles from blog post HTML.
+ * No longer converting inline styles to CSS classes.
+ * CMS editors (Shopify, WordPress, etc.) work best with inline styles on every element.
  */
-function convertInlineStylesToClasses(html: string): string {
-  const styleMap = new Map<string, string>(); // style value -> class name
-  let classCounter = 0;
-
-  // Replace all style="..." with class="sN" and collect unique styles
-  // Also handles cases where element already has other attributes
-  const converted = html.replace(/\sstyle="([^"]*)"/g, (_match, styleValue: string) => {
-    const trimmed = styleValue.trim();
-    if (!trimmed) return '';
-    
-    let className = styleMap.get(trimmed);
-    if (!className) {
-      className = `s${classCounter++}`;
-      styleMap.set(trimmed, className);
-    }
-    return ` class="${className}"`;
-  });
-  
-  // Handle single-quoted style attributes too: style='...'
-  const converted2 = converted.replace(/\sstyle='([^']*)'/g, (_match, styleValue: string) => {
-    const trimmed = styleValue.trim();
-    if (!trimmed) return '';
-    
-    let className = styleMap.get(trimmed);
-    if (!className) {
-      className = `s${classCounter++}`;
-      styleMap.set(trimmed, className);
-    }
-    return ` class="${className}"`;
-  });
-
-  if (styleMap.size === 0) return html;
-
-  // Build the <style> block
-  const rules: string[] = [];
-  for (const [styleValue, className] of styleMap) {
-    rules.push(`.${className}{${styleValue}}`);
-  }
-  
-  // Add details marker hiding
-  rules.push('details summary::-webkit-details-marker{display:none}');
-  rules.push('details[open] summary svg{transform:rotate(180deg)}');
-
-  const styleBlock = `<style>\n${rules.join('\n')}\n</style>\n\n`;
-  
-  // Remove any existing <style> tags from the content
-  const cleanedContent = converted2.replace(/<style>[\s\S]*?<\/style>/gi, '').trim();
-  
-  return styleBlock + cleanedContent;
-}
 
 function buildArticlePrompt(palette: ColorPalette | null, skip: SkipOptions = {}) {
   const p = palette?.primary || "#E31837";
@@ -359,9 +309,7 @@ ${sourceHtml.substring(0, 15000)}`;
     // Strip markdown code fences if present
     content = content.replace(/^```html?\s*\n?/i, "").replace(/\n?```\s*$/i, "").trim();
 
-    // CRITICAL: Convert inline styles to CSS classes for Shopify compatibility
-    // Shopify strips inline style="" attributes, so we must use a <style> block
-    content = convertInlineStylesToClasses(content);
+    // Keep inline styles as-is — CMS editors need them directly on elements
 
     console.log("Generated content length:", content.length, "title:", title);
 
