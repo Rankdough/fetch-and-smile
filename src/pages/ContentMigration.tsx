@@ -334,9 +334,7 @@ ${sourceHtml.substring(0, 8000)}`;
     seoDescriptionDE: fixDoubledQuotes(r.seoDescriptionDE || ""),
   });
 
-  const [isDownloading, setIsDownloading] = useState(false);
-
-  const downloadXLSX = async () => {
+  const downloadXLSX = () => {
     const headers = [
       "Type", "image", "Old url", "New url",
       "Title", "Title (EN)", "Title (NL)", "Title (DE)",
@@ -358,33 +356,36 @@ ${sourceHtml.substring(0, 8000)}`;
       ];
     });
 
-    setIsDownloading(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('generate-xlsx', {
-        body: { headers, rows },
-      });
+    // Build an HTML table that Excel opens natively — no character limits, no escaping issues
+    const escapeHtmlForCell = (val: string) => {
+      // Excel HTML table cells: encode < > & but preserve the actual HTML content as text
+      return val
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+    };
 
-      if (error) throw error;
+    const headerRow = headers.map(h => `<th>${escapeHtmlForCell(h)}</th>`).join('');
+    const dataRows = rows.map(row =>
+      '<tr>' + row.map(cell => `<td>${escapeHtmlForCell(cell)}</td>`).join('') + '</tr>'
+    ).join('\n');
 
-      // data is already an ArrayBuffer from the edge function
-      const blob = new Blob([data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `content_migration_${new Date().toISOString().slice(0, 10)}.xlsx`;
-      document.body.appendChild(a);
-      a.click();
-      setTimeout(() => {
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-      }, 500);
-      toast({ title: "XLSX downloaded successfully" });
-    } catch (err: any) {
-      console.error("XLSX download error:", err);
-      toast({ title: "Download failed", description: err.message, variant: "destructive" });
-    } finally {
-      setIsDownloading(false);
-    }
+    const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+<head><meta charset="utf-8"><!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>Migration</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]--></head>
+<body><table border="1"><thead><tr>${headerRow}</tr></thead><tbody>${dataRows}</tbody></table></body></html>`;
+
+    const blob = new Blob(['\uFEFF' + html], { type: 'application/vnd.ms-excel;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `content_migration_${new Date().toISOString().slice(0, 10)}.xls`;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 500);
+    toast({ title: "Excel file downloaded" });
   };
 
   const doneCount = entries.filter(e => e.status === "done").length;
