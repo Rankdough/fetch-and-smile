@@ -87,7 +87,7 @@ export default function ContentMigration() {
           url: row.url,
           type: row.type || "",
           status: row.status as UrlEntry["status"],
-          result: row.result as MigrationResult | undefined,
+          result: row.result ? sanitizeResult(row.result as MigrationResult) : undefined,
           error: row.error || undefined,
         }));
         setEntries(loaded);
@@ -141,7 +141,7 @@ export default function ContentMigration() {
           .eq("id", entry.id);
       }
 
-      return { ...entry, status: "done", result: data };
+      return { ...entry, status: "done", result: sanitizeResult(data) };
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Unknown error";
 
@@ -198,15 +198,43 @@ export default function ContentMigration() {
     toast({ title: "Cleared all migration jobs" });
   };
 
-  // Convert HTML attribute double quotes to single quotes so spreadsheet tools don't mangle them
-  const htmlToSingleQuotes = (html: string): string => {
+  // Fix doubled quotes that come from AI output or JSON double-serialization
+  const fixDoubledQuotes = (s: string): string => {
+    if (!s) return s;
+    // Replace "" with " but not at string boundaries
+    return s.replace(/""/g, '"');
+  };
+
+  // Sanitize all string fields in a migration result
+  const sanitizeResult = (r: any): MigrationResult => ({
+    ...r,
+    content: fixDoubledQuotes(r.content || ""),
+    contentNL: fixDoubledQuotes(r.contentNL || ""),
+    contentDE: fixDoubledQuotes(r.contentDE || ""),
+    title: fixDoubledQuotes(r.title || ""),
+    titleNL: fixDoubledQuotes(r.titleNL || ""),
+    titleDE: fixDoubledQuotes(r.titleDE || ""),
+    subtitle: fixDoubledQuotes(r.subtitle || ""),
+    subtitleNL: fixDoubledQuotes(r.subtitleNL || ""),
+    subtitleDE: fixDoubledQuotes(r.subtitleDE || ""),
+    seoTitle: fixDoubledQuotes(r.seoTitle || ""),
+    seoTitleNL: fixDoubledQuotes(r.seoTitleNL || ""),
+    seoTitleDE: fixDoubledQuotes(r.seoTitleDE || ""),
+    seoDescription: fixDoubledQuotes(r.seoDescription || ""),
+    seoDescriptionNL: fixDoubledQuotes(r.seoDescriptionNL || ""),
+    seoDescriptionDE: fixDoubledQuotes(r.seoDescriptionDE || ""),
+  });
+
+  // Convert HTML attribute double quotes to single quotes for spreadsheet compatibility
+  const htmlAttrToSingleQuotes = (html: string): string => {
     return html.replace(/(\w[-\w]*)="([^"]*)"/g, "$1='$2'");
   };
 
   const escapeTSV = (val: string): string => {
     if (!val) return '';
-    // Convert HTML attribute quotes from " to ' for spreadsheet compatibility
-    let safe = htmlToSingleQuotes(val);
+    // First fix any remaining doubled quotes, then convert to single quotes for spreadsheet safety
+    let safe = fixDoubledQuotes(val);
+    safe = htmlAttrToSingleQuotes(safe);
     // Replace tabs and newlines with spaces to keep single-cell integrity
     return safe.replace(/\t/g, ' ').replace(/\r?\n/g, ' ');
   };
