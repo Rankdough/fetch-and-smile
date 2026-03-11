@@ -309,7 +309,7 @@ serve(async (req) => {
     // Step 2: Generate HTML content + metadata
     console.log("Step 2: Generating content + metadata");
 
-    const articlePrompt = buildArticlePrompt(colorPalette || null);
+    const articlePrompt = buildArticlePrompt(colorPalette || null, { skipNavigation, skipQuickTips, skipFaqs, skipSources });
 
     const contentPrompt = `${articlePrompt}
 
