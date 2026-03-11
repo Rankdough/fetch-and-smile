@@ -141,7 +141,7 @@ export default function ContentMigration() {
           .eq("id", entry.id);
       }
 
-      return { ...entry, status: "done", result: data };
+      return { ...entry, status: "done", result: sanitizeResult(data) };
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Unknown error";
 
