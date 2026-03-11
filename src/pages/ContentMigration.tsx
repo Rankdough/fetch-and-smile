@@ -219,6 +219,7 @@ ${sourceHtml.substring(0, 8000)}`;
           skipFaqs,
           skipQuickTips,
           skipSources,
+          migrationMode: true,
         },
       });
       if (contentError) throw new Error(`Content generation failed: ${contentError.message}`);
