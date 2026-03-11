@@ -285,6 +285,8 @@ export default function ContentMigration() {
 
 CRITICAL - PRESERVE ORIGINAL TITLES: Keep the original H1 title and all H2/H3 section headings from the source content EXACTLY as they are. Do NOT rename, rephrase, or convert them into questions. The heading text must remain unchanged - only add the required structural sections (TL;DR, Quick Tips, FAQ, References) around the existing content.
 
+CRITICAL - H1 INTRO PARAGRAPH MUST ANSWER THE TITLE: The very first paragraph immediately after the H1 title MUST directly answer the question posed by the title in roughly 30-50 words. It should include: (1) a brief factual definition relevant to the topic, (2) mention 2-3 specific brand or product names as examples. For example, if the title is "What advent calendars are gluten free?" the intro should say something like "Gluten-free advent calendars contain less than 20 ppm of gluten and are produced by allergy-conscious brands such as Moo Free, No Whey Foods, and Baci Perugina, offering safe chocolate options for people with coeliac disease." Do NOT write a vague, generic introduction — answer the title question directly with concrete facts and names.
+
 CRITICAL - PRESERVE ALL HYPERLINKS: Cross-reference the HTML source below and include EVERY hyperlink found in the source content. Embed them naturally in the text where they originally appeared.
 
 CRITICAL - USE TABLES FOR LISTS: When the source lists products, brands, options, or items (e.g. "safe calendars", "unsafe calendars"), ALWAYS present them as markdown tables with relevant columns (Name, Key Feature, Status, etc.) instead of numbered or bullet lists. Do NOT add a "Link" or "Product Link" column to tables.

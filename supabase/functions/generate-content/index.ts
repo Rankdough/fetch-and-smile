@@ -128,6 +128,7 @@ CRITICAL: QUESTION-BASED HEADINGS RULE:
   - ## The Benefits of Bonding ❌
   - ## Cost Breakdown ❌
   - ## Longevity and Care ❌
+- The very first paragraph after the H1 title MUST directly answer the title question in 30-50 words, including a brief definition and 2-3 specific brand/product names as examples. Do NOT write a vague introduction — answer with concrete facts and names immediately.
 - Each H2 question heading MUST be immediately followed by a short paragraph (roughly 30 words) that directly answers that question before any supporting details
 - Each section MUST then continue with a mix of:
   1. Clear text paragraphs (elaboration after the answer)
