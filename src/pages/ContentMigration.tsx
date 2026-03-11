@@ -13,6 +13,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Loader2, Download, CheckCircle2, XCircle, ArrowLeft, Play, Eye, Trash2, Copy, Check, Palette, Settings2, ChevronDown, ChevronUp, Pencil, Save } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { ColorPaletteSelector, COLOR_PALETTES, type ColorPalette } from "@/components/ColorPaletteSelector";
+import { generateCTAHtml } from "@/components/CTABanner";
+import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import {
@@ -84,6 +86,8 @@ export default function ContentMigration() {
   const [skipFaqs, setSkipFaqs] = useState(() => localStorage.getItem("migration-skip-faqs") === "true");
   const [skipSources, setSkipSources] = useState(() => localStorage.getItem("migration-skip-sources") === "true");
   const [skipTitleInHtml, setSkipTitleInHtml] = useState(() => localStorage.getItem("migration-skip-title-html") === "true");
+  const [ctaUrl, setCtaUrl] = useState(() => localStorage.getItem("migration-cta-url") || "");
+  const [ctaInstruction, setCtaInstruction] = useState(() => localStorage.getItem("migration-cta-instruction") || "");
   const [colorOpen, setColorOpen] = useState(false);
   const [outputOpen, setOutputOpen] = useState(false);
   const [targetWordCount, setTargetWordCount] = useState<number>(() => {
@@ -305,18 +309,23 @@ STRICT WORD COUNT LIMIT: The final article MUST NOT exceed ${targetWordCount} wo
 HTML SOURCE FOR LINK REFERENCE:
 ${sourceHtml.substring(0, 8000)}`;
 
+      const hasCtaUrl = ctaUrl.trim().length > 0;
+      const ctaInstructions = hasCtaUrl && ctaInstruction.trim() ? `\n\nCTA INSTRUCTIONS: ${ctaInstruction.trim()}` : "";
+
       const { data: contentData, error: contentError } = await supabase.functions.invoke("generate-content", {
         body: {
           topic,
           length: "long",
           wordCount: targetWordCount,
-          instructions,
+          instructions: instructions + ctaInstructions,
           contextFiles: [{ name: "source-content", content: sourceMarkdown.substring(0, 12000) }],
           toneProfileId: selectedToneProfileId || undefined,
           skipFaqs,
           skipQuickTips,
           skipSources,
           migrationMode: true,
+          generateCTAs: hasCtaUrl,
+          ctaUrl: hasCtaUrl ? ctaUrl.trim() : undefined,
         },
       });
       if (contentError) throw new Error(`Content generation failed: ${contentError.message}`);
@@ -352,6 +361,23 @@ ${sourceHtml.substring(0, 8000)}`;
       const palette = selectedColorPalette || undefined;
       const convertOpts = { skipNavigation, skipQuickTips, skipFaqs, skipSources };
 
+      // Generate CTA HTML if CTAs were returned
+      const ctas = contentData.ctas;
+      let endCtaHtml = "";
+      if (ctas?.end && hasCtaUrl) {
+        endCtaHtml = generateCTAHtml(
+          ctas.end.headline,
+          ctas.end.description,
+          ctas.end.buttonText,
+          ctaUrl.trim(),
+          selectedColorPalette,
+          (ctas.end as any).tagline
+        );
+        console.log("[Migration] CTA generated for end of article");
+      }
+
+      const appendCta = (html: string) => endCtaHtml ? html + endCtaHtml : html;
+
       const data: MigrationResult = {
         url: entry.url,
         type: entry.type,
@@ -359,17 +385,17 @@ ${sourceHtml.substring(0, 8000)}`;
         subtitle,
         seoTitle,
         seoDescription,
-        content: markdownToStyledHtml(generatedMarkdown, palette, convertOpts),
+        content: appendCta(markdownToStyledHtml(generatedMarkdown, palette, convertOpts)),
         titleNL: nl.title,
         subtitleNL: nl.subtitle,
         seoTitleNL: nl.seoTitle,
         seoDescriptionNL: nl.seoDescription,
-        contentNL: markdownToStyledHtml(nl.content || "", palette, convertOpts),
+        contentNL: appendCta(markdownToStyledHtml(nl.content || "", palette, convertOpts)),
         titleDE: de.title,
         subtitleDE: de.subtitle,
         seoTitleDE: de.seoTitle,
         seoDescriptionDE: de.seoDescription,
-        contentDE: markdownToStyledHtml(de.content || "", palette, convertOpts),
+        contentDE: appendCta(markdownToStyledHtml(de.content || "", palette, convertOpts)),
       };
 
       console.log("[Migration] Complete. HTML starts with '<':", data.content.startsWith("<"));
@@ -401,7 +427,7 @@ ${sourceHtml.substring(0, 8000)}`;
 
       return { ...entry, status: "error", error: msg };
     }
-  }, [selectedColorPalette, skipNavigation, skipQuickTips, skipFaqs, skipSources, targetWordCount, selectedToneProfileId, runQualityChecks]);
+  }, [selectedColorPalette, skipNavigation, skipQuickTips, skipFaqs, skipSources, targetWordCount, selectedToneProfileId, runQualityChecks, ctaUrl, ctaInstruction]);
 
   const startProcessing = async () => {
     setIsProcessing(true);
@@ -667,7 +693,28 @@ ${xmlRows}
           )}
         </div>
 
-        {/* Word Count & Tone of Voice */}
+        {/* CTA Banner */}
+        <div className="rounded-lg border bg-card px-4 py-3 space-y-3">
+          <Label className="text-sm font-semibold">CTA Banner</Label>
+          <p className="text-xs text-muted-foreground">
+            {ctaUrl.trim() ? `CTA → ${ctaUrl.trim().substring(0, 40)}...` : "No CTA — leave empty to skip"}
+          </p>
+          <div className="space-y-2">
+            <Input
+              placeholder="CTA destination URL (e.g. https://shop.example.com/product)"
+              value={ctaUrl}
+              onChange={(e) => { setCtaUrl(e.target.value); localStorage.setItem("migration-cta-url", e.target.value); }}
+            />
+            <Textarea
+              placeholder="CTA instructions (e.g. Promote our gluten-free advent calendar range, highlight free shipping)"
+              value={ctaInstruction}
+              onChange={(e) => { setCtaInstruction(e.target.value); localStorage.setItem("migration-cta-instruction", e.target.value); }}
+              rows={2}
+              className="text-sm"
+            />
+          </div>
+        </div>
+
         <div className="rounded-lg border bg-card px-4 py-3 space-y-4">
           <div className="space-y-2">
             <Label className="text-sm font-semibold">Target Word Count</Label>
