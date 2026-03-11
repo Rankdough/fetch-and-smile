@@ -396,7 +396,7 @@ ${sourceHtml.substring(0, 8000)}`;
 
       return { ...entry, status: "error", error: msg };
     }
-  }, [selectedColorPalette, skipNavigation, skipQuickTips, skipFaqs, skipSources, targetWordCount, selectedToneProfileId]);
+  }, [selectedColorPalette, skipNavigation, skipQuickTips, skipFaqs, skipSources, targetWordCount, selectedToneProfileId, runQualityChecks]);
 
   const startProcessing = async () => {
     setIsProcessing(true);
