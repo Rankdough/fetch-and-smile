@@ -197,7 +197,7 @@ export const extractNavigationFromContent = (content: string): NavigationItem[] 
   let number = 1;
   
   // Skip TL;DR and In This Article sections
-  const skipSections = ["tl;dr", "tldr", "in this article", "references"];
+  const skipSections = ["tl;dr", "tldr", "in this article", "references", "quick tips", "frequently asked questions", "faq", "final thoughts"];
   
   while ((match = h2Regex.exec(content)) !== null) {
     const title = match[1].trim();

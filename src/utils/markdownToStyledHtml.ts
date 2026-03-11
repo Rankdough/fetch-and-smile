@@ -46,15 +46,25 @@ export function markdownToStyledHtml(
   let cleanMarkdown = faqItems.length > 0 ? removeFAQSection(markdown) : markdown;
 
   // Remove any raw "In This Article" section the AI may have generated (the styled one is injected later)
-  cleanMarkdown = cleanMarkdown.replace(/^#{1,4}\s*In This Article\s*\n([\s\S]*?)(?=^#{1,2}\s|\Z)/gm, (match) => {
-    // Only remove if it looks like a nav list (contains numbered items or bullet points)
-    if (/^\s*[-*•]\s*\*?\*?\d?\.*\s/m.test(match) || /^\d+\.\s/m.test(match)) {
-      return '';
+  // Split by lines, find "In This Article" heading, remove everything until next H1/H2
+  const lines = cleanMarkdown.split('\n');
+  const filteredLines: string[] = [];
+  let skippingInThisArticle = false;
+  for (const line of lines) {
+    // Detect "In This Article" as any heading or standalone text
+    if (/^#{1,4}\s*In This Article/i.test(line) || /^In This Article\s*$/i.test(line)) {
+      skippingInThisArticle = true;
+      continue;
     }
-    return match;
-  });
-  // Also remove plain "In This Article" with bullet list pattern
-  cleanMarkdown = cleanMarkdown.replace(/\n*In This Article\s*\n+((?:\s*[-*•]\s+.+\n?)+)/gi, '\n');
+    // Stop skipping when we hit the next H1 or H2
+    if (skippingInThisArticle && /^#{1,2}\s+/.test(line)) {
+      skippingInThisArticle = false;
+    }
+    if (!skippingInThisArticle) {
+      filteredLines.push(line);
+    }
+  }
+  cleanMarkdown = filteredLines.join('\n');
 
   // 2. Convert Markdown → basic HTML
   const basicHtml = marked.parse(cleanMarkdown, { async: false }) as string;
