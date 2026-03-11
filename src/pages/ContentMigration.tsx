@@ -184,27 +184,27 @@ export default function ContentMigration() {
     const hasFinalThoughts = /##\s.*final\s*thoughts|##\s.*conclusion/i.test(markdown);
     const hasReferences = skipSources || /##\s.*references/i.test(markdown);
     const hasTable = /\|.+\|/.test(markdown);
-    const structureParts = [
-      hasTldr && "TL;DR",
-      hasQuickTips && "Quick Tips",
-      hasTable && "Tables",
-      hasFaq && "FAQ",
-      hasFinalThoughts && "Final Thoughts",
-      hasReferences && "References",
+    const missingParts = [
+      !hasTldr && "TL;DR",
+      !hasQuickTips && !skipQuickTips && "Quick Tips",
+      !hasTable && "Tables",
+      !hasFaq && !skipFaqs && "FAQ",
+      !hasFinalThoughts && "Final Thoughts",
+      !hasReferences && !skipSources && "References",
     ].filter(Boolean) as string[];
-    const requiredCount = [true, !skipQuickTips, true, !skipFaqs, true, !skipSources].filter(Boolean).length;
-    const allPresent = structureParts.length === requiredCount;
+    const allPresent = missingParts.length === 0;
+    const presentParts = [
+      hasTldr && "TL;DR",
+      (hasQuickTips && !skipQuickTips) && "Quick Tips",
+      hasTable && "Tables",
+      (hasFaq && !skipFaqs) && "FAQ",
+      hasFinalThoughts && "Final Thoughts",
+      (hasReferences && !skipSources) && "References",
+    ].filter(Boolean) as string[];
     checks.push({
       label: "Article Structure",
       passed: allPresent,
-      detail: allPresent ? `All sections present: ${structureParts.join(", ")}` : `Missing: ${[
-        !hasTldr && "TL;DR",
-        !hasQuickTips && !skipQuickTips && "Quick Tips",
-        !hasTable && "Tables",
-        !hasFaq && !skipFaqs && "FAQ",
-        !hasFinalThoughts && "Final Thoughts",
-        !hasReferences && !skipSources && "References",
-      ].filter(Boolean).join(", ")}`,
+      detail: allPresent ? `All sections present: ${presentParts.join(", ")}` : `Missing: ${missingParts.join(", ")}`,
     });
 
     // 2. Word count check (±20% tolerance)
