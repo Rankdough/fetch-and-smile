@@ -330,7 +330,7 @@ ${sourceHtml.substring(0, 8000)}`;
       // Extract SEO metadata from generated content
       const h1Match = generatedMarkdown.match(/^#\s+(.+)$/m);
       const title = h1Match ? h1Match[1].trim() : pageTitle;
-      const firstParagraph = generatedMarkdown.match(/^(?!#)(?!>)(?!\|)(?!-)(.{20,200})/m);
+      const firstParagraph = generatedMarkdown.match(/^(?!#)(?!>)(?!\|)(?!-)(.{20,})/m);
       const subtitle = firstParagraph ? firstParagraph[1].trim() : "";
       const seoTitle = title.length > 60 ? title.substring(0, 57) + "..." : title;
       const seoDescription = subtitle.length > 160 ? subtitle.substring(0, 157) + "..." : subtitle;
