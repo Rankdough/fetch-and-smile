@@ -359,7 +359,19 @@ ${sourceHtml.substring(0, 8000)}`;
     const ws = XLSX.utils.aoa_to_sheet([headers, ...data]);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Migration");
-    XLSX.writeFile(wb, `content_migration_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    // Use xlsb (binary) format to bypass the 32767 char per cell limit in xlsx XML format
+    const wbout = XLSX.write(wb, { bookType: "xlsb", type: "array" });
+    const blob = new Blob([wbout], { type: "application/octet-stream" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `content_migration_${new Date().toISOString().slice(0, 10)}.xlsb`;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 500);
   };
 
   const doneCount = entries.filter(e => e.status === "done").length;
