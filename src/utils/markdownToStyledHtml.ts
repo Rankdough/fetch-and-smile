@@ -233,6 +233,9 @@ export function markdownToStyledHtml(
   // 4. Get the cleaned HTML content
   let finalHtml = container.innerHTML;
 
+  // 4b. Strip any residual "In This Article" H2 + following UL that survived markdown cleanup
+  finalHtml = finalHtml.replace(/<h2[^>]*>[\s\S]*?In This Article[\s\S]*?<\/h2>\s*(<ul[\s\S]*?<\/ul>)?/gi, '');
+
   // 5. Insert Navigation after Quick Tips (or TL;DR)
   if (navItems.length > 0 && !options.skipNavigation) {
     const navigationHtml = generateNavigationHtml(navItems, colorPalette as any);
