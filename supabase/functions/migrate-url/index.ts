@@ -425,7 +425,7 @@ ${fields.content}`;
     body: JSON.stringify({
       model: "google/gemini-2.5-flash",
       messages: [
-        { role: "system", content: `You are a professional translator. Translate to ${language}. For HTML content, translate ONLY visible text, preserving all HTML markup and inline styles exactly.` },
+        { role: "system", content: `You are a professional translator. Translate to ${language}. For HTML content, translate ONLY visible text, preserving all HTML markup, CSS classes, <style> blocks, and structure exactly.` },
         { role: "user", content: prompt },
       ],
     }),
