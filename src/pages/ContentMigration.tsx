@@ -648,6 +648,10 @@ ${xmlRows}
                 <Label htmlFor="skip-sources" className="text-sm cursor-pointer">Skip Sources & References</Label>
                 <Switch id="skip-sources" checked={skipSources} onCheckedChange={(v) => { setSkipSources(v); localStorage.setItem("migration-skip-sources", String(v)); }} />
               </div>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="skip-title-html" className="text-sm cursor-pointer">Skip Title (H1) in HTML Content</Label>
+                <Switch id="skip-title-html" checked={skipTitleInHtml} onCheckedChange={(v) => { setSkipTitleInHtml(v); localStorage.setItem("migration-skip-title-html", String(v)); }} />
+              </div>
             </div>
           )}
         </div>
