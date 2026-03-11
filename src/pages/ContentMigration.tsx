@@ -191,10 +191,10 @@ export default function ContentMigration() {
     toast({ title: "Cleared all migration jobs" });
   };
 
-  const escapeCSV = (val: string): string => {
-    if (!val) return '""';
-    const escaped = val.replace(/"/g, '""');
-    return `"${escaped}"`;
+  const escapeTSV = (val: string): string => {
+    if (!val) return '';
+    // For TSV: replace tabs and newlines with spaces to keep single-cell integrity
+    return val.replace(/\t/g, ' ').replace(/\r?\n/g, ' ');
   };
 
   const downloadCSV = () => {
@@ -216,16 +216,16 @@ export default function ContentMigration() {
         r.content, r.content, r.contentNL, r.contentDE,
         r.seoTitle, r.seoTitle, r.seoTitleNL, r.seoTitleDE,
         r.seoDescription, r.seoDescription, r.seoDescriptionNL, r.seoDescriptionDE,
-      ].map(escapeCSV).join(",");
+      ].map(escapeTSV).join("\t");
     });
 
     const bom = "\uFEFF";
-    const csv = bom + headers.map(escapeCSV).join(",") + "\n" + rows.join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const tsv = bom + headers.join("\t") + "\n" + rows.join("\n");
+    const blob = new Blob([tsv], { type: "text/tab-separated-values;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `content_migration_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = `content_migration_${new Date().toISOString().slice(0, 10)}.tsv`;
     a.click();
     URL.revokeObjectURL(url);
   };
