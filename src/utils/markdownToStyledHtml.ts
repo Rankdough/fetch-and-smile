@@ -129,10 +129,24 @@ export function markdownToStyledHtml(
   });
 
   // Style blockquotes - detect Quick Tips vs regular
+  // First, identify blockquotes that follow a Quick Tips H2
+  const quickTipsH2 = container.querySelector('h2');
+  let quickTipsSection = false;
+  const quickTipBlockquotes = new Set<Element>();
+  container.querySelectorAll('h2').forEach((h2) => {
+    if (/Quick\s*Tips/i.test(h2.textContent || '')) {
+      let sibling = h2.nextElementSibling;
+      while (sibling && sibling.tagName === 'BLOCKQUOTE') {
+        quickTipBlockquotes.add(sibling);
+        sibling = sibling.nextElementSibling;
+      }
+    }
+  });
+
   let tipIndex = 0;
   container.querySelectorAll("blockquote").forEach((bq) => {
     const firstStrong = bq.querySelector("strong");
-    const isQuickTip = firstStrong && /^Tip \d+:?/i.test(firstStrong.textContent || "");
+    const isQuickTip = (firstStrong && /^Tip \d+:?/i.test(firstStrong.textContent || "")) || quickTipBlockquotes.has(bq);
 
     if (isQuickTip) {
       tipIndex++;
