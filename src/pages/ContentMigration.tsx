@@ -333,14 +333,13 @@ ${sourceHtml.substring(0, 8000)}`;
     seoDescriptionDE: fixDoubledQuotes(r.seoDescriptionDE || ""),
   });
 
-  // Use tab-delimited format to avoid conflicts with commas and quotes in HTML content
-  const escapeTSV = (val: string): string => {
-    if (!val) return '';
-    return val
-      .replace(/\t/g, ' ')
-      .replace(/\r?\n/g, ' ')
-      .replace(/\s{2,}/g, ' ')
-      .trim();
+  // RFC 4180 CSV: every field quoted, internal quotes doubled, newlines stripped
+  const escapeCSV = (val: string): string => {
+    const s = val ?? '';
+    // Strip newlines and collapse whitespace so each record stays on one line
+    const cleaned = s.replace(/\r?\n/g, ' ').replace(/\s{2,}/g, ' ').trim();
+    // Double any internal quotes, then wrap entire field in quotes
+    return '"' + cleaned.replace(/"/g, '""') + '"';
   };
 
   const downloadCSV = () => {
@@ -356,18 +355,18 @@ ${sourceHtml.substring(0, 8000)}`;
     const rows = entries.filter(e => e.status === "done" && e.result).map(e => {
       const r = e.result!;
       return [
-        r.type, "", r.url, "",
-        r.title, r.title, r.titleNL, r.titleDE,
-        r.subtitle, r.subtitleNL, r.subtitleDE,
-        r.content, r.content, r.contentNL, r.contentDE,
-        r.seoTitle, r.seoTitle, r.seoTitleNL, r.seoTitleDE,
-        r.seoDescription, r.seoDescription, r.seoDescriptionNL, r.seoDescriptionDE,
-      ].map(escapeTSV).join("\t");
+        r.type ?? "", "", r.url ?? "", "",
+        r.title ?? "", r.title ?? "", r.titleNL ?? "", r.titleDE ?? "",
+        r.subtitle ?? "", r.subtitleNL ?? "", r.subtitleDE ?? "",
+        r.content ?? "", r.content ?? "", r.contentNL ?? "", r.contentDE ?? "",
+        r.seoTitle ?? "", r.seoTitle ?? "", r.seoTitleNL ?? "", r.seoTitleDE ?? "",
+        r.seoDescription ?? "", r.seoDescription ?? "", r.seoDescriptionNL ?? "", r.seoDescriptionDE ?? "",
+      ].map(escapeCSV).join(",");
     });
 
     const bom = "\uFEFF";
-    const tsv = bom + headers.join("\t") + "\n" + rows.join("\n");
-    const blob = new Blob([tsv], { type: "text/tab-separated-values;charset=utf-8;" });
+    const csv = bom + headers.map(h => escapeCSV(h)).join(",") + "\n" + rows.join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
