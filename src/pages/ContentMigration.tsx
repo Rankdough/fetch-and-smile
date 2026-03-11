@@ -83,6 +83,7 @@ export default function ContentMigration() {
   const [skipQuickTips, setSkipQuickTips] = useState(() => localStorage.getItem("migration-skip-tips") === "true");
   const [skipFaqs, setSkipFaqs] = useState(() => localStorage.getItem("migration-skip-faqs") === "true");
   const [skipSources, setSkipSources] = useState(() => localStorage.getItem("migration-skip-sources") === "true");
+  const [skipTitleInHtml, setSkipTitleInHtml] = useState(() => localStorage.getItem("migration-skip-title-html") === "true");
   const [colorOpen, setColorOpen] = useState(false);
   const [outputOpen, setOutputOpen] = useState(false);
   const [targetWordCount, setTargetWordCount] = useState<number>(() => {
@@ -445,8 +446,13 @@ ${sourceHtml.substring(0, 8000)}`;
   // Fix doubled quotes that come from AI output or JSON double-serialization
   const fixDoubledQuotes = (s: string): string => {
     if (!s) return s;
-    // Replace "" with " but not at string boundaries
     return s.replace(/""/g, '"');
+  };
+
+  // Strip the first H1 tag (and its content) from HTML string
+  const stripH1FromHtml = (html: string): string => {
+    if (!html) return html;
+    return html.replace(/<h1[^>]*>[\s\S]*?<\/h1>\s*/i, "");
   };
 
   // Sanitize all string fields in a migration result
@@ -481,11 +487,12 @@ ${sourceHtml.substring(0, 8000)}`;
 
     const rows = entries.filter(e => e.status === "done" && e.result).map(e => {
       const r = e.result!;
+      const maybeStripH1 = (html: string) => skipTitleInHtml ? stripH1FromHtml(html) : html;
       return [
         r.type ?? "", "", r.url ?? "", "",
         r.title ?? "", r.title ?? "", r.titleNL ?? "", r.titleDE ?? "",
         r.subtitle ?? "", r.subtitleNL ?? "", r.subtitleDE ?? "",
-        r.content ?? "", r.content ?? "", r.contentNL ?? "", r.contentDE ?? "",
+        maybeStripH1(r.content ?? ""), maybeStripH1(r.content ?? ""), maybeStripH1(r.contentNL ?? ""), maybeStripH1(r.contentDE ?? ""),
         r.seoTitle ?? "", r.seoTitle ?? "", r.seoTitleNL ?? "", r.seoTitleDE ?? "",
         r.seoDescription ?? "", r.seoDescription ?? "", r.seoDescriptionNL ?? "", r.seoDescriptionDE ?? "",
       ];
@@ -623,8 +630,8 @@ ${xmlRows}
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold">Output Options</p>
               <p className="text-xs text-muted-foreground">
-                {[skipNavigation && "Navigation", skipQuickTips && "Quick Tips", skipFaqs && "FAQs", skipSources && "Sources"].filter(Boolean).join(", ") || "All sections included"}
-                {[skipNavigation, skipQuickTips, skipFaqs, skipSources].some(Boolean) ? " skipped" : ""}
+                {[skipNavigation && "Navigation", skipQuickTips && "Quick Tips", skipFaqs && "FAQs", skipSources && "Sources", skipTitleInHtml && "Title in HTML"].filter(Boolean).join(", ") || "All sections included"}
+                {[skipNavigation, skipQuickTips, skipFaqs, skipSources, skipTitleInHtml].some(Boolean) ? " skipped" : ""}
               </p>
             </div>
             {outputOpen ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
@@ -646,6 +653,10 @@ ${xmlRows}
               <div className="flex items-center justify-between">
                 <Label htmlFor="skip-sources" className="text-sm cursor-pointer">Skip Sources & References</Label>
                 <Switch id="skip-sources" checked={skipSources} onCheckedChange={(v) => { setSkipSources(v); localStorage.setItem("migration-skip-sources", String(v)); }} />
+              </div>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="skip-title-html" className="text-sm cursor-pointer">Skip Title (H1) in HTML Content</Label>
+                <Switch id="skip-title-html" checked={skipTitleInHtml} onCheckedChange={(v) => { setSkipTitleInHtml(v); localStorage.setItem("migration-skip-title-html", String(v)); }} />
               </div>
             </div>
           )}
