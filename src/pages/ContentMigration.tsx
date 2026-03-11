@@ -361,6 +361,23 @@ ${sourceHtml.substring(0, 8000)}`;
       const palette = selectedColorPalette || undefined;
       const convertOpts = { skipNavigation, skipQuickTips, skipFaqs, skipSources };
 
+      // Generate CTA HTML if CTAs were returned
+      const ctas = contentData.ctas;
+      let endCtaHtml = "";
+      if (ctas?.end && hasCtaUrl) {
+        endCtaHtml = generateCTAHtml(
+          ctas.end.headline,
+          ctas.end.description,
+          ctas.end.buttonText,
+          ctaUrl.trim(),
+          selectedColorPalette,
+          (ctas.end as any).tagline
+        );
+        console.log("[Migration] CTA generated for end of article");
+      }
+
+      const appendCta = (html: string) => endCtaHtml ? html + endCtaHtml : html;
+
       const data: MigrationResult = {
         url: entry.url,
         type: entry.type,
@@ -368,17 +385,17 @@ ${sourceHtml.substring(0, 8000)}`;
         subtitle,
         seoTitle,
         seoDescription,
-        content: markdownToStyledHtml(generatedMarkdown, palette, convertOpts),
+        content: appendCta(markdownToStyledHtml(generatedMarkdown, palette, convertOpts)),
         titleNL: nl.title,
         subtitleNL: nl.subtitle,
         seoTitleNL: nl.seoTitle,
         seoDescriptionNL: nl.seoDescription,
-        contentNL: markdownToStyledHtml(nl.content || "", palette, convertOpts),
+        contentNL: appendCta(markdownToStyledHtml(nl.content || "", palette, convertOpts)),
         titleDE: de.title,
         subtitleDE: de.subtitle,
         seoTitleDE: de.seoTitle,
         seoDescriptionDE: de.seoDescription,
-        contentDE: markdownToStyledHtml(de.content || "", palette, convertOpts),
+        contentDE: appendCta(markdownToStyledHtml(de.content || "", palette, convertOpts)),
       };
 
       console.log("[Migration] Complete. HTML starts with '<':", data.content.startsWith("<"));
