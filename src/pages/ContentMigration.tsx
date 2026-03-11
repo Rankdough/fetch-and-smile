@@ -794,6 +794,25 @@ ${xmlRows}
                     <Eye className="h-4 w-4" /> Preview
                   </Button>
                 )}
+              {/* Quality Checklist */}
+              {entry.status === "done" && entry.qualityChecks && entry.qualityChecks.length > 0 && (
+                <div className="mt-3 pt-3 border-t space-y-1.5">
+                  <p className="text-xs font-semibold text-muted-foreground mb-1">Quality Checks</p>
+                  {entry.qualityChecks.map((check, ci) => (
+                    <div key={ci} className="flex items-start gap-2 text-xs">
+                      {check.passed ? (
+                        <CheckCircle2 className="h-3.5 w-3.5 mt-0.5 text-emerald-600 shrink-0" />
+                      ) : (
+                        <XCircle className="h-3.5 w-3.5 mt-0.5 text-destructive shrink-0" />
+                      )}
+                      <span>
+                        <span className="font-medium">{check.label}:</span>{" "}
+                        <span className="text-muted-foreground">{check.detail}</span>
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
               </div>
             </CardContent>
           </Card>
