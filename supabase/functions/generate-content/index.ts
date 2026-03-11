@@ -85,8 +85,8 @@ serve(async (req) => {
       }
     }
 
-    // Calculate required tables based on word count
-    const requiredTables = targetWords >= 3000 ? 4 : targetWords >= 2000 ? 3 : 1;
+    // Calculate required tables based on word count (relaxed for migration)
+    const requiredTables = migrationMode ? 1 : (targetWords >= 3000 ? 4 : targetWords >= 2000 ? 3 : 1);
     
     // Build the prompt
     let systemPrompt = `You are an expert SEO content writer. Write high-quality, engaging blog posts optimized for search engines while remaining valuable and readable.
