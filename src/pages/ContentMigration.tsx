@@ -7,7 +7,7 @@ import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, Download, CheckCircle2, XCircle, ArrowLeft, Play, Eye, Trash2, Copy, Check, Settings2 } from "lucide-react";
+import { Loader2, Download, CheckCircle2, XCircle, ArrowLeft, Play, Eye, Trash2, Copy, Check } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { ColorPaletteSelector, COLOR_PALETTES, type ColorPalette } from "@/components/ColorPaletteSelector";
 import {
@@ -64,7 +64,7 @@ export default function ContentMigration() {
     }
     return COLOR_PALETTES.find(p => p.id === "big-league") || null;
   });
-  const [showSettings, setShowSettings] = useState(false);
+  
 
   // Load saved jobs on mount
   useEffect(() => {
@@ -258,39 +258,22 @@ export default function ContentMigration() {
       </header>
 
       <main className="container mx-auto px-4 py-8 max-w-4xl space-y-6">
-        {/* Settings */}
-        <Card>
-          <CardHeader className="cursor-pointer" onClick={() => setShowSettings(!showSettings)}>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Settings2 className="h-4 w-4" />
-              Settings
-              <Badge variant="outline" className="ml-auto font-normal">
-                {selectedColorPalette ? selectedColorPalette.name : "Default"}
-              </Badge>
-            </CardTitle>
-          </CardHeader>
-          {showSettings && (
-            <CardContent className="space-y-4 pt-0">
-              <div>
-                <label className="text-sm font-medium mb-2 block">Color Palette</label>
-                <ColorPaletteSelector
-                  selectedPalette={selectedColorPalette}
-                  onSelectPalette={(p) => {
-                    setSelectedColorPalette(p);
-                    localStorage.setItem("migration-color-palette", JSON.stringify(p));
-                  }}
-                />
-              </div>
-            </CardContent>
-          )}
-        </Card>
-
         {/* Input */}
         <Card>
           <CardHeader>
             <CardTitle>URLs to Process</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            <div>
+              <label className="text-sm font-medium mb-2 block">Color Palette</label>
+              <ColorPaletteSelector
+                selectedPalette={selectedColorPalette}
+                onSelectPalette={(p) => {
+                  setSelectedColorPalette(p);
+                  localStorage.setItem("migration-color-palette", JSON.stringify(p));
+                }}
+              />
+            </div>
             <Textarea
               placeholder="Paste URLs, one per line..."
               value={urlInput}
