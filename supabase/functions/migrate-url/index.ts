@@ -53,13 +53,14 @@ serve(async (req) => {
     }
 
     const markdown = scrapeData.data?.markdown || scrapeData.markdown || "";
+    const sourceHtml = scrapeData.data?.html || scrapeData.html || "";
     const pageTitle = scrapeData.data?.metadata?.title || scrapeData.metadata?.title || "";
 
-    if (!markdown.trim()) {
+    if (!markdown.trim() && !sourceHtml.trim()) {
       throw new Error("No content could be extracted from the URL");
     }
 
-    console.log("Scraped", markdown.length, "chars, title:", pageTitle);
+    console.log("Scraped", markdown.length, "chars markdown,", sourceHtml.length, "chars HTML, title:", pageTitle);
 
     // Step 2: Generate HTML content + metadata in English
     console.log("Step 2: Generating content + metadata");
