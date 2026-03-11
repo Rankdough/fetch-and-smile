@@ -171,6 +171,91 @@ export default function ContentMigration() {
     setUrlInput("");
   };
 
+  const runQualityChecks = useCallback((result: MigrationResult, markdown: string, targetWc: number): QualityCheck[] => {
+    const checks: QualityCheck[] = [];
+    const htmlContent = result.content || "";
+    const mdLower = markdown.toLowerCase();
+
+    // 1. Structure check - same sections as Import URL / SEO Generator
+    const hasTldr = /##\s.*tl;?\s?dr/i.test(markdown);
+    const hasQuickTips = skipQuickTips || /##\s.*quick\s*tips/i.test(markdown);
+    const hasFaq = skipFaqs || /##\s.*frequently\s*asked|##\s.*faq/i.test(markdown);
+    const hasFinalThoughts = /##\s.*final\s*thoughts|##\s.*conclusion/i.test(markdown);
+    const hasReferences = skipSources || /##\s.*references/i.test(markdown);
+    const hasTable = /\|.+\|/.test(markdown);
+    const structureParts = [
+      hasTldr && "TL;DR",
+      hasQuickTips && "Quick Tips",
+      hasTable && "Tables",
+      hasFaq && "FAQ",
+      hasFinalThoughts && "Final Thoughts",
+      hasReferences && "References",
+    ].filter(Boolean) as string[];
+    const requiredCount = [true, !skipQuickTips, true, !skipFaqs, true, !skipSources].filter(Boolean).length;
+    const allPresent = structureParts.length === requiredCount;
+    checks.push({
+      label: "Article Structure",
+      passed: allPresent,
+      detail: allPresent ? `All sections present: ${structureParts.join(", ")}` : `Missing: ${[
+        !hasTldr && "TL;DR",
+        !hasQuickTips && !skipQuickTips && "Quick Tips",
+        !hasTable && "Tables",
+        !hasFaq && !skipFaqs && "FAQ",
+        !hasFinalThoughts && "Final Thoughts",
+        !hasReferences && !skipSources && "References",
+      ].filter(Boolean).join(", ")}`,
+    });
+
+    // 2. Word count check (±20% tolerance)
+    const wordCount = markdown.split(/\s+/).filter(Boolean).length;
+    const floor = Math.round(targetWc * 0.8);
+    const ceiling = Math.round(targetWc * 1.2);
+    const wcPassed = wordCount >= floor && wordCount <= ceiling;
+    checks.push({
+      label: "Word Count",
+      passed: wcPassed,
+      detail: `${wordCount} words (target: ${targetWc}, range: ${floor}-${ceiling})`,
+    });
+
+    // 3. HTML formatting check
+    const hasStyledHtml = htmlContent.startsWith("<");
+    const hasInlineStyles = htmlContent.includes("style=");
+    const hasH2Tags = /<h2/i.test(htmlContent);
+    const htmlPassed = hasStyledHtml && hasInlineStyles && hasH2Tags;
+    checks.push({
+      label: "HTML Formatting",
+      passed: htmlPassed,
+      detail: htmlPassed ? "Styled HTML with inline CSS, headings intact" : `Issues: ${[
+        !hasStyledHtml && "Not HTML",
+        !hasInlineStyles && "No inline styles",
+        !hasH2Tags && "No H2 tags",
+      ].filter(Boolean).join(", ")}`,
+    });
+
+    // 4. Export readiness check
+    const hasTitle = !!result.title?.trim();
+    const hasSeoTitle = !!result.seoTitle?.trim();
+    const hasSeoDesc = !!result.seoDescription?.trim();
+    const hasContent = htmlContent.length > 100;
+    const hasNL = !!result.contentNL?.trim();
+    const hasDE = !!result.contentDE?.trim();
+    const exportPassed = hasTitle && hasSeoTitle && hasSeoDesc && hasContent && hasNL && hasDE;
+    checks.push({
+      label: "Excel Export Ready",
+      passed: exportPassed,
+      detail: exportPassed ? "All fields populated (EN, NL, DE)" : `Missing: ${[
+        !hasTitle && "Title",
+        !hasSeoTitle && "SEO Title",
+        !hasSeoDesc && "SEO Description",
+        !hasContent && "Content",
+        !hasNL && "NL Translation",
+        !hasDE && "DE Translation",
+      ].filter(Boolean).join(", ")}`,
+    });
+
+    return checks;
+  }, [skipQuickTips, skipFaqs, skipSources]);
+
   const processUrl = useCallback(async (entry: UrlEntry): Promise<UrlEntry> => {
     try {
       // === STEP 1: Scrape URL ===
