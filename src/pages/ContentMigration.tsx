@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useMemo, useRef } from "react"; // v2
 
 import { markdownToStyledHtml } from "@/utils/markdownToStyledHtml";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
