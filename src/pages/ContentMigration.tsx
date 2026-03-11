@@ -275,17 +275,40 @@ export default function ContentMigration() {
       const sourceHtml = scrapeData.html || "";
       const pageTitle = scrapeData.title || "";
 
-      // Extract image URLs from scraped HTML
+      // Extract the first real content image URL from scraped HTML
+      // Filter out icons, avatars, plugins, tracking pixels, logos, and other non-content images
       const imgRegex = /<img[^>]+src=["']([^"']+)["']/gi;
       const imageUrls: string[] = [];
+      const excludePatterns = [
+        /data:/i, /svg\+xml/i, /\.svg/i,
+        /avatar/i, /icon/i, /logo/i, /favicon/i, /badge/i, /emoji/i,
+        /gravatar/i, /placeholder/i, /spinner/i, /loading/i,
+        /wp-content\/plugins/i, /wp-content\/themes/i, /wp-includes/i,
+        /intercom/i, /hotjar/i, /analytics/i, /tracking/i, /pixel/i,
+        /assets\/vc/i, /js_composer/i,
+        /-min-\d+x\d+/i, // thumbnails like -min-148x42
+        /1x1/i, /spacer/i, /blank\./i, /transparent\./i,
+      ];
+      const contentImagePattern = /\.(jpg|jpeg|png|webp|gif)(\?|$)/i;
       let imgMatch;
       while ((imgMatch = imgRegex.exec(sourceHtml)) !== null) {
         const src = imgMatch[1];
-        if (src && !src.includes('data:') && !src.includes('svg+xml') && !imageUrls.includes(src)) {
+        if (!src) continue;
+        // Must be an actual image file
+        if (!contentImagePattern.test(src)) continue;
+        // Must not match any exclude pattern
+        if (excludePatterns.some(p => p.test(src))) continue;
+        // Skip tiny images (width/height attributes < 100)
+        const fullTag = imgMatch[0];
+        const widthMatch = fullTag.match(/width=["']?(\d+)/i);
+        const heightMatch = fullTag.match(/height=["']?(\d+)/i);
+        if (widthMatch && parseInt(widthMatch[1]) < 100) continue;
+        if (heightMatch && parseInt(heightMatch[1]) < 100) continue;
+        if (!imageUrls.includes(src)) {
           imageUrls.push(src);
         }
       }
-      console.log("[Migration] Extracted", imageUrls.length, "image URLs from source");
+      console.log("[Migration] Extracted", imageUrls.length, "content image URLs from source");
 
       if (!sourceMarkdown.trim()) {
         throw new Error("No content could be extracted from the URL");
