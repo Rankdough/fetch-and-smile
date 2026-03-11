@@ -2075,6 +2075,15 @@ const Index = () => {
               <Search className="h-4 w-4" />
               Keyword Research
             </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => navigate("/content-migration")}
+              className="gap-2"
+            >
+              <ArrowRightLeft className="h-4 w-4" />
+              Content Migration
+            </Button>
           </nav>
         </div>
       </header>
