@@ -66,7 +66,12 @@ export default function ContentMigration() {
     }
     return COLOR_PALETTES.find(p => p.id === "big-league") || null;
   });
-  
+  const [skipNavigation, setSkipNavigation] = useState(() => localStorage.getItem("migration-skip-nav") === "true");
+  const [skipQuickTips, setSkipQuickTips] = useState(() => localStorage.getItem("migration-skip-tips") === "true");
+  const [skipFaqs, setSkipFaqs] = useState(() => localStorage.getItem("migration-skip-faqs") === "true");
+  const [skipSources, setSkipSources] = useState(() => localStorage.getItem("migration-skip-sources") === "true");
+  const [colorOpen, setColorOpen] = useState(false);
+  const [outputOpen, setOutputOpen] = useState(false);
 
   // Load saved jobs on mount
   useEffect(() => {
