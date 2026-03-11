@@ -333,13 +333,19 @@ ${sourceHtml.substring(0, 8000)}`;
     seoDescriptionDE: fixDoubledQuotes(r.seoDescriptionDE || ""),
   });
 
-  // RFC 4180 CSV: every field quoted, internal quotes doubled, newlines stripped
+  // CSV escaping: strip quotes from HTML (use single quotes instead) to avoid
+  // Excel parser confusion with thousands of doubled-quote patterns in inline styles.
   const escapeCSV = (val: string): string => {
     const s = val ?? '';
-    // Strip newlines and collapse whitespace so each record stays on one line
-    const cleaned = s.replace(/\r?\n/g, ' ').replace(/\s{2,}/g, ' ').trim();
-    // Double any internal quotes, then wrap entire field in quotes
-    return '"' + cleaned.replace(/"/g, '""') + '"';
+    // Replace double quotes with single quotes (works fine in HTML attributes)
+    // Then strip newlines and collapse whitespace
+    const cleaned = s
+      .replace(/"/g, "'")
+      .replace(/\r?\n/g, ' ')
+      .replace(/\s{2,}/g, ' ')
+      .trim();
+    // Wrap in double quotes — field is now quote-free internally
+    return '"' + cleaned + '"';
   };
 
   const downloadCSV = () => {
