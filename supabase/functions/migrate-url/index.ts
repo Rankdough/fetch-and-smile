@@ -35,10 +35,15 @@ function buildMarkdownPrompt(skip: SkipOptions = {}) {
   sectionNum++;
 
   if (!skip.skipQuickTips) {
-    sections.push(`${sectionNum}. QUICK TIPS (exactly 3 tips as blockquotes)
+    sections.push(`${sectionNum}. QUICK TIPS (exactly 3 tips, each as its OWN SEPARATE blockquote with a blank line between them)
+   
    > **Tip 1:** Actionable tip text (max 15 words)
+   
    > **Tip 2:** Actionable tip text (max 15 words)
-   > **Tip 3:** Actionable tip text (max 15 words)`);
+   
+   > **Tip 3:** Actionable tip text (max 15 words)
+   
+   CRITICAL: Each tip MUST be a separate blockquote paragraph. Put a BLANK LINE between each > line so they render as 3 individual blocks, NOT one merged block.`);
     sectionNum++;
   }
 
