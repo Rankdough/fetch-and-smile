@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, Download, CheckCircle2, XCircle, ArrowLeft, Play, Eye } from "lucide-react";
+import { Loader2, Download, CheckCircle2, XCircle, ArrowLeft, Play, Eye, Trash2 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import {
   Dialog,
@@ -37,6 +37,7 @@ interface MigrationResult {
 }
 
 interface UrlEntry {
+  id?: string; // DB id
   url: string;
   type: string;
   status: "pending" | "processing" | "done" | "error";
@@ -51,15 +52,57 @@ export default function ContentMigration() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [previewHtml, setPreviewHtml] = useState<string | null>(null);
   const [previewTitle, setPreviewTitle] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
 
-  const parseUrls = () => {
+  // Load saved jobs on mount
+  useEffect(() => {
+    const loadJobs = async () => {
+      const { data, error } = await supabase
+        .from("migration_jobs")
+        .select("*")
+        .order("created_at", { ascending: true });
+
+      if (!error && data && data.length > 0) {
+        const loaded: UrlEntry[] = data.map((row: any) => ({
+          id: row.id,
+          url: row.url,
+          type: row.type || "",
+          status: row.status as UrlEntry["status"],
+          result: row.result as MigrationResult | undefined,
+          error: row.error || undefined,
+        }));
+        setEntries(loaded);
+      }
+      setIsLoading(false);
+    };
+    loadJobs();
+  }, []);
+
+  const parseUrls = async () => {
     const lines = urlInput.trim().split("\n").filter(l => l.trim());
-    const parsed: UrlEntry[] = lines.map(line => ({
-      url: line.trim(),
-      type: "",
-      status: "pending",
-    }));
-    setEntries(parsed);
+    const newEntries: UrlEntry[] = [];
+
+    for (const line of lines) {
+      const url = line.trim();
+      // Insert into DB
+      const { data, error } = await supabase
+        .from("migration_jobs")
+        .insert({ url, type: "", status: "pending" })
+        .select()
+        .single();
+
+      if (!error && data) {
+        newEntries.push({
+          id: data.id,
+          url: data.url,
+          type: data.type || "",
+          status: "pending",
+        });
+      }
+    }
+
+    setEntries(prev => [...prev, ...newEntries]);
+    setUrlInput("");
   };
 
   const processUrl = useCallback(async (entry: UrlEntry): Promise<UrlEntry> => {
@@ -71,9 +114,25 @@ export default function ContentMigration() {
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
 
+      // Save result to DB
+      if (entry.id) {
+        await supabase
+          .from("migration_jobs")
+          .update({ status: "done", result: data as any })
+          .eq("id", entry.id);
+      }
+
       return { ...entry, status: "done", result: data };
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Unknown error";
+
+      if (entry.id) {
+        await supabase
+          .from("migration_jobs")
+          .update({ status: "error", error: msg })
+          .eq("id", entry.id);
+      }
+
       return { ...entry, status: "error", error: msg };
     }
   }, []);
@@ -88,11 +147,18 @@ export default function ContentMigration() {
       updated[i] = { ...updated[i], status: "processing" };
       setEntries([...updated]);
 
+      // Update status in DB
+      if (updated[i].id) {
+        await supabase
+          .from("migration_jobs")
+          .update({ status: "processing" })
+          .eq("id", updated[i].id);
+      }
+
       const result = await processUrl(updated[i]);
       updated[i] = result;
       setEntries([...updated]);
 
-      // Small delay between URLs to avoid rate limits
       if (i < updated.length - 1) {
         await new Promise(r => setTimeout(r, 2000));
       }
@@ -105,6 +171,12 @@ export default function ContentMigration() {
       title: "Processing complete",
       description: `${done} succeeded, ${failed} failed out of ${updated.length} URLs.`,
     });
+  };
+
+  const clearAll = async () => {
+    await supabase.from("migration_jobs").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+    setEntries([]);
+    toast({ title: "Cleared all migration jobs" });
   };
 
   const escapeCSV = (val: string): string => {
@@ -126,29 +198,12 @@ export default function ContentMigration() {
     const rows = entries.filter(e => e.status === "done" && e.result).map(e => {
       const r = e.result!;
       return [
-        r.type,           // Type
-        "",               // image (keep empty)
-        r.url,            // Old url
-        "",               // New url (keep empty)
-        r.title,          // Title
-        r.title,          // Title (EN) - same as main
-        r.titleNL,        // Title (NL)
-        r.titleDE,        // Title (DE)
-        r.subtitle,       // subtitle
-        r.subtitleNL,     // subtitle (NL)
-        r.subtitleDE,     // subtitle (DE)
-        r.content,        // Content
-        r.content,        // Content (EN) - same as main
-        r.contentNL,      // Content (NL)
-        r.contentDE,      // Content (DE)
-        r.seoTitle,       // SEO Title
-        r.seoTitle,       // SEO Title (EN) - same as main
-        r.seoTitleNL,     // SEO Title (NL)
-        r.seoTitleDE,     // SEO Title (DE)
-        r.seoDescription, // SEO Description
-        r.seoDescription, // SEO Description (EN)
-        r.seoDescriptionNL, // SEO Description (NL)
-        r.seoDescriptionDE, // SEO Description (DE)
+        r.type, "", r.url, "",
+        r.title, r.title, r.titleNL, r.titleDE,
+        r.subtitle, r.subtitleNL, r.subtitleDE,
+        r.content, r.content, r.contentNL, r.contentDE,
+        r.seoTitle, r.seoTitle, r.seoTitleNL, r.seoTitleDE,
+        r.seoDescription, r.seoDescription, r.seoDescriptionNL, r.seoDescriptionDE,
       ].map(escapeCSV).join(",");
     });
 
@@ -166,6 +221,14 @@ export default function ContentMigration() {
   const doneCount = entries.filter(e => e.status === "done").length;
   const errorCount = entries.filter(e => e.status === "error").length;
   const progress = entries.length > 0 ? ((doneCount + errorCount) / entries.length) * 100 : 0;
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -196,9 +259,9 @@ export default function ContentMigration() {
               rows={6}
               disabled={isProcessing}
             />
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
               <Button onClick={parseUrls} disabled={isProcessing || !urlInput.trim()}>
-                Load URLs
+                Add URLs
               </Button>
               {entries.length > 0 && (
                 <>
@@ -214,6 +277,9 @@ export default function ContentMigration() {
                       <Download className="h-4 w-4" /> Download CSV ({doneCount})
                     </Button>
                   )}
+                  <Button variant="ghost" onClick={clearAll} disabled={isProcessing} className="gap-2 text-destructive">
+                    <Trash2 className="h-4 w-4" /> Clear All
+                  </Button>
                 </>
               )}
             </div>
@@ -238,7 +304,7 @@ export default function ContentMigration() {
 
         {/* Results */}
         {entries.map((entry, idx) => (
-          <Card key={idx} className="overflow-hidden">
+          <Card key={entry.id || idx} className="overflow-hidden">
             <CardContent className="pt-4 pb-4">
               <div className="flex items-center gap-3">
                 {entry.status === "pending" && <div className="h-5 w-5 rounded-full border-2 border-muted" />}
