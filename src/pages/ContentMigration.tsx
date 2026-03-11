@@ -42,6 +42,7 @@ interface MigrationResult {
   seoTitleDE: string;
   seoDescriptionDE: string;
   contentDE: string;
+  imageUrls?: string[];
   error?: string;
 }
 
@@ -274,6 +275,18 @@ export default function ContentMigration() {
       const sourceHtml = scrapeData.html || "";
       const pageTitle = scrapeData.title || "";
 
+      // Extract image URLs from scraped HTML
+      const imgRegex = /<img[^>]+src=["']([^"']+)["']/gi;
+      const imageUrls: string[] = [];
+      let imgMatch;
+      while ((imgMatch = imgRegex.exec(sourceHtml)) !== null) {
+        const src = imgMatch[1];
+        if (src && !src.includes('data:') && !src.includes('svg+xml') && !imageUrls.includes(src)) {
+          imageUrls.push(src);
+        }
+      }
+      console.log("[Migration] Extracted", imageUrls.length, "image URLs from source");
+
       if (!sourceMarkdown.trim()) {
         throw new Error("No content could be extracted from the URL");
       }
@@ -396,6 +409,7 @@ ${sourceHtml.substring(0, 8000)}`;
         seoTitleDE: de.seoTitle,
         seoDescriptionDE: de.seoDescription,
         contentDE: appendCta(markdownToStyledHtml(de.content || "", palette, convertOpts)),
+        imageUrls,
       };
 
       console.log("[Migration] Complete. HTML starts with '<':", data.content.startsWith("<"));
@@ -520,7 +534,7 @@ ${sourceHtml.substring(0, 8000)}`;
       const r = e.result!;
       const maybeStripH1 = (html: string) => skipTitleInHtml ? stripH1FromHtml(html) : html;
       return [
-        r.type ?? "", "", r.url ?? "", "",
+        r.type ?? "", (r.imageUrls || []).join("\n"), r.url ?? "", "",
         r.title ?? "", r.title ?? "", r.titleNL ?? "", r.titleDE ?? "",
         r.subtitle ?? "", r.subtitleNL ?? "", r.subtitleDE ?? "",
         maybeStripH1(r.content ?? ""), maybeStripH1(r.content ?? ""), maybeStripH1(r.contentNL ?? ""), maybeStripH1(r.contentDE ?? ""),
