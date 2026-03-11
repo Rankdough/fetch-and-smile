@@ -275,6 +275,18 @@ export default function ContentMigration() {
       const sourceHtml = scrapeData.html || "";
       const pageTitle = scrapeData.title || "";
 
+      // Extract image URLs from scraped HTML
+      const imgRegex = /<img[^>]+src=["']([^"']+)["']/gi;
+      const imageUrls: string[] = [];
+      let imgMatch;
+      while ((imgMatch = imgRegex.exec(sourceHtml)) !== null) {
+        const src = imgMatch[1];
+        if (src && !src.includes('data:') && !src.includes('svg+xml') && !imageUrls.includes(src)) {
+          imageUrls.push(src);
+        }
+      }
+      console.log("[Migration] Extracted", imageUrls.length, "image URLs from source");
+
       if (!sourceMarkdown.trim()) {
         throw new Error("No content could be extracted from the URL");
       }
