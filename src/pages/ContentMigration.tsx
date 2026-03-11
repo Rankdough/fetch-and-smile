@@ -198,10 +198,17 @@ export default function ContentMigration() {
     toast({ title: "Cleared all migration jobs" });
   };
 
+  // Convert HTML attribute double quotes to single quotes so spreadsheet tools don't mangle them
+  const htmlToSingleQuotes = (html: string): string => {
+    return html.replace(/(\w[-\w]*)="([^"]*)"/g, "$1='$2'");
+  };
+
   const escapeTSV = (val: string): string => {
     if (!val) return '';
-    // For TSV: replace tabs and newlines with spaces to keep single-cell integrity
-    return val.replace(/\t/g, ' ').replace(/\r?\n/g, ' ');
+    // Convert HTML attribute quotes from " to ' for spreadsheet compatibility
+    let safe = htmlToSingleQuotes(val);
+    // Replace tabs and newlines with spaces to keep single-cell integrity
+    return safe.replace(/\t/g, ' ').replace(/\r?\n/g, ' ');
   };
 
   const downloadCSV = () => {
