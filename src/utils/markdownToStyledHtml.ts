@@ -46,23 +46,26 @@ export function markdownToStyledHtml(
   let cleanMarkdown = faqItems.length > 0 ? removeFAQSection(markdown) : markdown;
 
   // Remove any raw "In This Article" section the AI may have generated (the styled one is injected later)
-  // Split by lines, find "In This Article" heading, remove everything until next H1/H2
+  // This is aggressive: removes the heading + all subsequent lines until the next H1/H2 that is NOT part of the nav
   const lines = cleanMarkdown.split('\n');
   const filteredLines: string[] = [];
   let skippingInThisArticle = false;
   for (const line of lines) {
     // Detect "In This Article" as any heading or standalone text
-    if (/^#{1,4}\s*In This Article/i.test(line) || /^In This Article\s*$/i.test(line)) {
+    if (/^#{1,4}\s*In This Article/i.test(line) || /^\*{0,2}In This Article\*{0,2}\s*$/i.test(line)) {
       skippingInThisArticle = true;
       continue;
     }
-    // Stop skipping when we hit the next H1 or H2
-    if (skippingInThisArticle && /^#{1,2}\s+/.test(line)) {
-      skippingInThisArticle = false;
+    // Stop skipping when we hit the next H1 or H2 (but NOT if it's a numbered nav item like "**1. Title**")
+    if (skippingInThisArticle) {
+      if (/^#{1,2}\s+/.test(line)) {
+        skippingInThisArticle = false;
+      } else {
+        // Skip bullet items, numbered items, blank lines while in nav section
+        continue;
+      }
     }
-    if (!skippingInThisArticle) {
-      filteredLines.push(line);
-    }
+    filteredLines.push(line);
   }
   cleanMarkdown = filteredLines.join('\n');
 
