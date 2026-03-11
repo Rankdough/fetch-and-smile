@@ -22,6 +22,61 @@ interface SkipOptions {
   skipSources?: boolean;
 }
 
+/**
+ * Post-process HTML: extract all inline style="" attributes into a <style> block with CSS classes.
+ * This is needed because Shopify strips inline styles from blog post HTML.
+ */
+function convertInlineStylesToClasses(html: string): string {
+  const styleMap = new Map<string, string>(); // style value -> class name
+  let classCounter = 0;
+
+  // Replace all style="..." with class="sN" and collect unique styles
+  // Also handles cases where element already has other attributes
+  const converted = html.replace(/\sstyle="([^"]*)"/g, (_match, styleValue: string) => {
+    const trimmed = styleValue.trim();
+    if (!trimmed) return '';
+    
+    let className = styleMap.get(trimmed);
+    if (!className) {
+      className = `s${classCounter++}`;
+      styleMap.set(trimmed, className);
+    }
+    return ` class="${className}"`;
+  });
+  
+  // Handle single-quoted style attributes too: style='...'
+  const converted2 = converted.replace(/\sstyle='([^']*)'/g, (_match, styleValue: string) => {
+    const trimmed = styleValue.trim();
+    if (!trimmed) return '';
+    
+    let className = styleMap.get(trimmed);
+    if (!className) {
+      className = `s${classCounter++}`;
+      styleMap.set(trimmed, className);
+    }
+    return ` class="${className}"`;
+  });
+
+  if (styleMap.size === 0) return html;
+
+  // Build the <style> block
+  const rules: string[] = [];
+  for (const [styleValue, className] of styleMap) {
+    rules.push(`.${className}{${styleValue}}`);
+  }
+  
+  // Add details marker hiding
+  rules.push('details summary::-webkit-details-marker{display:none}');
+  rules.push('details[open] summary svg{transform:rotate(180deg)}');
+
+  const styleBlock = `<style>\n${rules.join('\n')}\n</style>\n\n`;
+  
+  // Remove any existing <style> tags from the content
+  const cleanedContent = converted2.replace(/<style>[\s\S]*?<\/style>/gi, '').trim();
+  
+  return styleBlock + cleanedContent;
+}
+
 function buildArticlePrompt(palette: ColorPalette | null, skip: SkipOptions = {}) {
   const p = palette?.primary || "#E31837";
   const isDark = palette?.id === "dark-transparent";
@@ -40,62 +95,23 @@ function buildArticlePrompt(palette: ColorPalette | null, skip: SkipOptions = {}
   const tableHeaderText = isDark ? "#000000" : "#ffffff";
   const sec = palette?.secondary || p;
 
-  // Build the <style> block with all CSS classes
-  const styleBlock = `<style>
-.art-body{line-height:1.7;color:${bodyText};margin:0 0 16px 0}
-.art-h2{margin:32px 0 16px 0}
-.art-tldr-h{background:${panelBg};color:${panelText};border-left:4px solid ${p};padding:12px 16px;margin:24px 0 0 0;border-radius:0 8px 0 0}
-.art-tldr-ul{background:${panelBg};color:${panelText};border-left:4px solid ${p};padding:16px 24px 16px 40px;margin:0 0 24px 0;border-radius:0 0 8px 0;list-style-type:disc}
-.art-tldr-li{margin:8px 0;line-height:1.6;color:${panelText}}
-.art-tip{display:flex;align-items:center;background:${isDark ? 'rgba(255,255,255,0.06)' : `linear-gradient(135deg,${p}10 0%,${p}20 100%)`};border:1px solid ${isDark ? 'rgba(255,255,255,0.12)' : `${p}33`};border-radius:12px;padding:16px 20px;margin:12px 0;font-style:normal}
-.art-tip-num{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;background:${p};border-radius:50%;color:white;font-weight:700;font-size:14px;margin-right:12px;flex-shrink:0}
-.art-tip-text{flex:1;color:${bodyText}}
-.art-nav{border-radius:8px;border:1px solid ${containerBorder};background:${containerBg};padding:16px;margin:24px 0;color:${panelText}}
-.art-nav-title{margin:0 0 8px 0;font-size:14px;font-weight:500}
-.art-nav-sub{font-size:12px;color:${mutedText};margin:0 0 12px 0}
-.art-nav-first{margin:8px 0;border:1px solid ${p};border-radius:8px;background:${p};color:white}
-.art-nav-first summary{display:flex;align-items:center;gap:12px;padding:12px 16px;cursor:pointer;list-style:none;font-weight:600;font-size:14px;color:white}
-.art-nav-first .art-nav-num{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:rgba(255,255,255,0.2);color:white;font-size:12px;font-weight:700}
-.art-nav-item{margin:8px 0;border:1px solid ${itemBorder};border-radius:8px;background:${itemBg}}
-.art-nav-item summary{display:flex;align-items:center;gap:12px;padding:12px 16px;cursor:pointer;list-style:none;font-weight:600;font-size:14px;color:${panelText}}
-.art-nav-num{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:${p}15;color:${p};font-size:12px;font-weight:700;border:1px solid ${p}30}
-.art-nav-label{flex:1}
-.art-link{color:#2563eb;text-decoration:underline}
-.art-li{margin:8px 0;line-height:1.6;color:${bodyText}}
-.art-table-wrap{width:100%;overflow-x:auto;margin:24px 0}
-.art-table{min-width:100%;border-collapse:collapse;border-radius:8px;overflow:hidden;border:1px solid ${tableBorder};table-layout:auto}
-.art-table thead{background:linear-gradient(135deg,${p} 0%,${sec} 100%)}
-.art-table th{padding:12px 16px;text-align:left;color:${tableHeaderText};font-weight:600;font-size:14px;border:1px solid ${tableBorder}}
-.art-table td{padding:12px 16px;font-size:14px;border:1px solid ${tableBorder};color:${bodyText}}
-.art-table tr:nth-child(odd){background:${tableRowOdd}}
-.art-table tr:nth-child(even){background:${tableRowEven}}
-.art-faq{border-radius:8px;border:1px solid ${containerBorder};background:${containerBg};padding:16px;margin:24px 0}
-.art-faq-title{margin:0 0 12px 0;font-size:14px;font-weight:500;display:flex;align-items:center;gap:8px;color:${panelText}}
-.art-faq-icon{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:${p};color:white;font-size:12px;font-weight:700}
-.art-faq-item{margin:8px 0;border:1px solid ${itemBorder};border-radius:8px;background:${itemBg}}
-.art-faq-item summary{padding:12px 16px;cursor:pointer;list-style:none;font-weight:600;font-size:14px;color:${panelText}}
-.art-faq-answer{padding:0 16px 12px 16px;color:${descText};font-size:13px;line-height:1.6}
-details[open] summary svg{transform:rotate(180deg)}
-details summary::-webkit-details-marker{display:none}
-</style>`;
-
   // Build sections list dynamically based on skip options
   let sectionNum = 1;
   const sections: string[] = [];
 
   // 1. Always include H1 + intro
   sections.push(`${sectionNum}. H1 TITLE
-   <h1>[Title from content]</h1>
-   <p class="art-body">[Intro paragraph summarizing the article]</p>`);
+   <h1 style="margin: 0 0 16px 0;">[Title from content]</h1>
+   <p style="margin: 0 0 16px 0; line-height: 1.7; color: ${bodyText};">[Intro paragraph summarizing the article]</p>`);
   sectionNum++;
 
   // 2. Always include TL;DR
   sections.push(`${sectionNum}. TL;DR SECTION
-   <h2 class="art-tldr-h">TL;DR</h2>
-   <ul class="art-tldr-ul">
-     <li class="art-tldr-li">Key takeaway 1</li>
-     <li class="art-tldr-li">Key takeaway 2</li>
-     <li class="art-tldr-li">Key takeaway 3</li>
+   <h2 style="background: ${panelBg}; color: ${panelText}; border-left: 4px solid ${p}; padding: 12px 16px; margin: 24px 0 0 0; border-radius: 0 8px 0 0;">TL;DR</h2>
+   <ul style="background: ${panelBg}; color: ${panelText}; border-left: 4px solid ${p}; padding: 16px 24px 16px 40px; margin: 0 0 24px 0; border-radius: 0 0 8px 0; list-style-type: disc;">
+     <li style="margin: 8px 0; line-height: 1.6; color: ${panelText};">Key takeaway 1</li>
+     <li style="margin: 8px 0; line-height: 1.6; color: ${panelText};">Key takeaway 2</li>
+     <li style="margin: 8px 0; line-height: 1.6; color: ${panelText};">Key takeaway 3</li>
    </ul>`);
   sectionNum++;
 
@@ -103,9 +119,9 @@ details summary::-webkit-details-marker{display:none}
   if (!skip.skipQuickTips) {
     sections.push(`${sectionNum}. QUICK TIPS (3 tips with numbered circular icons)
    For each tip:
-   <blockquote class="art-tip">
-     <span class="art-tip-num">1</span>
-     <span class="art-tip-text">Tip text here</span>
+   <blockquote style="display: flex; align-items: center; background: ${isDark ? 'rgba(255,255,255,0.06)' : `linear-gradient(135deg, ${p}10 0%, ${p}20 100%)`}; border: 1px solid ${isDark ? 'rgba(255,255,255,0.12)' : `${p}33`}; border-radius: 12px; padding: 16px 20px; margin: 12px 0; font-style: normal;">
+     <span style="display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; background: ${p}; border-radius: 50%; color: white; font-weight: 700; font-size: 14px; margin-right: 12px; flex-shrink: 0;">1</span>
+     <span style="flex: 1; color: ${bodyText};">Tip text here</span>
    </blockquote>`);
     sectionNum++;
   }
@@ -114,21 +130,21 @@ details summary::-webkit-details-marker{display:none}
   if (!skip.skipNavigation) {
     sections.push(`${sectionNum}. "IN THIS ARTICLE" NAVIGATION
    Use <details> elements inside a container:
-   <div class="art-nav">
-     <h4 class="art-nav-title">In This Article</h4>
-     <p class="art-nav-sub">Quick navigation to each section:</p>
+   <div style="border-radius: 8px; border: 1px solid ${containerBorder}; background: ${containerBg}; padding: 16px; margin: 24px 0; color: ${panelText};">
+     <h4 style="margin: 0 0 8px 0; font-size: 14px; font-weight: 500;">In This Article</h4>
+     <p style="font-size: 12px; color: ${mutedText}; margin: 0 0 12px 0;">Quick navigation to each section:</p>
      For FIRST item (highlighted):
-     <details class="art-nav-first">
-       <summary>
-         <span class="art-nav-num">1</span>
-         <span class="art-nav-label">Section Title ⭐</span>
+     <details style="margin: 8px 0; border: 1px solid ${p}; border-radius: 8px; background: ${p}; color: white;">
+       <summary style="display: flex; align-items: center; gap: 12px; padding: 12px 16px; cursor: pointer; list-style: none; font-weight: 600; font-size: 14px; color: white;">
+         <span style="display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: rgba(255,255,255,0.2); color: white; font-size: 12px; font-weight: 700;">1</span>
+         <span style="flex: 1;">Section Title ⭐</span>
        </summary>
      </details>
      For OTHER items:
-     <details class="art-nav-item">
-       <summary>
-         <span class="art-nav-num">2</span>
-         <span class="art-nav-label">Section Title</span>
+     <details style="margin: 8px 0; border: 1px solid ${itemBorder}; border-radius: 8px; background: ${itemBg};">
+       <summary style="display: flex; align-items: center; gap: 12px; padding: 12px 16px; cursor: pointer; list-style: none; font-weight: 600; font-size: 14px; color: ${panelText};">
+         <span style="display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: ${p}15; color: ${p}; font-size: 12px; font-weight: 700; border: 1px solid ${p}30;">2</span>
+         <span style="flex: 1;">Section Title</span>
        </summary>
      </details>
    </div>`);
@@ -137,20 +153,21 @@ details summary::-webkit-details-marker{display:none}
 
   // Main content sections (always)
   sections.push(`${sectionNum}. MAIN CONTENT SECTIONS
-   Each H2 should be a question with an id attribute:
-   <h2 id="section-slug" class="art-h2">Question-based heading?</h2>
-   <p class="art-body">Paragraph text...</p>
-   For lists: <ul><li class="art-li">Item</li></ul>
-   For links: <a href="..." class="art-link" target="_blank" rel="noopener noreferrer">Link text</a>`);
+   Each H2 should be a question with an id attribute for navigation:
+   <h2 id="section-slug" style="margin: 32px 0 16px 0;">Question-based heading?</h2>
+   <p style="margin: 0 0 16px 0; line-height: 1.7; color: ${bodyText};">Paragraph text...</p>`);
   sectionNum++;
 
   // Tables (always)
   sections.push(`${sectionNum}. TABLES (if content has comparisons)
-   <div class="art-table-wrap">
-     <table class="art-table">
-       <thead><tr><th>Header</th></tr></thead>
+   <div style="width: 100%; overflow-x: auto; margin: 24px 0;">
+     <table style="min-width: 100%; border-collapse: collapse; border-radius: 8px; overflow: hidden; border: 1px solid ${tableBorder}; table-layout: auto;">
+       <thead style="background: linear-gradient(135deg, ${p} 0%, ${sec} 100%);">
+         <th style="padding: 12px 16px; text-align: left; color: ${tableHeaderText}; font-weight: 600; font-size: 14px; border: 1px solid ${tableBorder};">Header</th>
+       </thead>
        <tbody>
-         <tr><td>Cell</td></tr>
+         <tr style="background: ${tableRowOdd}; color: ${bodyText};"><td style="padding: 12px 16px; font-size: 14px; border: 1px solid ${tableBorder}; color: ${bodyText};">Cell</td></tr>
+         <tr style="background: ${tableRowEven}; color: ${bodyText};"><td style="padding: 12px 16px; font-size: 14px; border: 1px solid ${tableBorder}; color: ${bodyText};">Cell</td></tr>
        </tbody>
      </table>
    </div>`);
@@ -159,14 +176,14 @@ details summary::-webkit-details-marker{display:none}
   // FAQ
   if (!skip.skipFaqs) {
     sections.push(`${sectionNum}. FAQ SECTION (4-5 Q&A pairs using <details>)
-   <div class="art-faq">
-     <h4 class="art-faq-title">
-       <span class="art-faq-icon">?</span>
+   <div style="border-radius: 8px; border: 1px solid ${containerBorder}; background: ${containerBg}; padding: 16px; margin: 24px 0;">
+     <h4 style="margin: 0 0 12px 0; font-size: 14px; font-weight: 500; display: flex; align-items: center; gap: 8px; color: ${panelText};">
+       <span style="display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 50%; background: ${p}; color: white; font-size: 12px; font-weight: 700;">?</span>
        Frequently Asked Questions
      </h4>
-     <details class="art-faq-item">
-       <summary>Question?</summary>
-       <div class="art-faq-answer">Answer text.</div>
+     <details style="margin: 8px 0; border: 1px solid ${itemBorder}; border-radius: 8px; background: ${itemBg};">
+       <summary style="padding: 12px 16px; cursor: pointer; list-style: none; font-weight: 600; font-size: 14px; color: ${panelText};">Question?</summary>
+       <div style="padding: 0 16px 12px 16px; color: ${descText}; font-size: 13px; line-height: 1.6;">Answer text.</div>
      </details>
    </div>`);
     sectionNum++;
@@ -175,8 +192,8 @@ details summary::-webkit-details-marker{display:none}
   // References
   if (!skip.skipSources) {
     sections.push(`${sectionNum}. REFERENCES SECTION
-   <h2 class="art-h2">References</h2>
-   <ul><li class="art-li"><a href="..." class="art-link" target="_blank" rel="noopener noreferrer">Source name</a></li></ul>`);
+   <h2 style="margin: 32px 0 16px 0;">References</h2>
+   <ul><li style="margin: 8px 0; line-height: 1.6; color: ${bodyText};"><a href="..." style="color: #2563eb; text-decoration: underline;" target="_blank" rel="noopener noreferrer">Source name</a></li></ul>`);
   }
 
   const skipInstructions: string[] = [];
@@ -185,12 +202,7 @@ details summary::-webkit-details-marker{display:none}
   if (skip.skipFaqs) skipInstructions.push("- Do NOT include a FAQ / Frequently Asked Questions section");
   if (skip.skipSources) skipInstructions.push("- Do NOT include a References / Sources section");
 
-  return `You are an expert SEO content formatter. Convert scraped content into CMS-ready HTML using CSS CLASSES (not inline styles). Shopify strips inline styles, so you MUST use the class names provided.
-
-START your output with this exact <style> block (copy it verbatim):
-${styleBlock}
-
-Then write the article HTML using ONLY the CSS classes defined above. Do NOT use any inline style="" attributes.
+  return `You are an expert SEO content formatter. Convert scraped content into CMS-ready styled HTML matching this EXACT article structure. ALL styles MUST be inline CSS on every element.
 
 ARTICLE STRUCTURE (in this exact order):
 
@@ -198,13 +210,13 @@ ${sections.join("\n\n")}
 
 ${skipInstructions.length > 0 ? `\nSECTIONS TO SKIP (do NOT generate these):\n${skipInstructions.join("\n")}\n` : ""}
 CRITICAL RULES:
-- Use ONLY the CSS classes defined in the <style> block above - NO inline style="" attributes anywhere
-- The <style> block must be included at the very start of your output
+- ALL styles must be inline CSS on every element - no classes, no <style> tags (except for details marker)
 - Do NOT add font-size or font-weight to H1/H2/H3 tags (let CMS inherit)
 - Preserve ALL factual content from the source - do not invent information
 - CRITICAL: Preserve ALL hyperlinks from the source content with original href URLs
-- Links must use class="art-link" with target="_blank" rel="noopener noreferrer"
-- Do NOT include <html>, <head>, <body> wrapper tags`;
+- Links: style="color: #2563eb; text-decoration: underline;" with target="_blank"
+- Do NOT include <html>, <head>, <body> wrapper tags
+- Add this CSS at the very end: <style>details[open] summary svg{transform:rotate(180deg)}details summary::-webkit-details-marker{display:none}</style>`;
 }
 
 serve(async (req) => {
@@ -347,9 +359,13 @@ ${sourceHtml.substring(0, 15000)}`;
     // Strip markdown code fences if present
     content = content.replace(/^```html?\s*\n?/i, "").replace(/\n?```\s*$/i, "").trim();
 
+    // CRITICAL: Convert inline styles to CSS classes for Shopify compatibility
+    // Shopify strips inline style="" attributes, so we must use a <style> block
+    content = convertInlineStylesToClasses(content);
+
     console.log("Generated content length:", content.length, "title:", title);
 
-    // Step 3: Translate to NL
+    // Step 3: Translate to NL (translate AFTER style conversion so classes are preserved)
     console.log("Step 3: Translating to NL");
     const nlResult = await translateContent(LOVABLE_API_KEY, {
       title, subtitle, seoTitle, seoDescription, content
