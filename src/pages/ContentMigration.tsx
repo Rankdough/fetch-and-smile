@@ -83,14 +83,31 @@ export default function ContentMigration() {
         .order("created_at", { ascending: true });
 
       if (!error && data && data.length > 0) {
-        const loaded: UrlEntry[] = data.map((row: any) => ({
-          id: row.id,
-          url: row.url,
-          type: row.type || "",
-          status: row.status as UrlEntry["status"],
-          result: row.result ? sanitizeResult(row.result as MigrationResult) : undefined,
-          error: row.error || undefined,
-        }));
+        const palette = selectedColorPalette || undefined;
+        const convertOpts = { skipNavigation, skipQuickTips, skipFaqs, skipSources };
+        
+        const loaded: UrlEntry[] = data.map((row: any) => {
+          let result = row.result ? sanitizeResult(row.result as MigrationResult) : undefined;
+          
+          // Convert any stale markdown content to styled HTML
+          if (result && result.content && !result.content.trim().startsWith("<")) {
+            result = {
+              ...result,
+              content: markdownToStyledHtml(result.content, palette, convertOpts),
+              contentNL: result.contentNL ? markdownToStyledHtml(result.contentNL, palette, convertOpts) : "",
+              contentDE: result.contentDE ? markdownToStyledHtml(result.contentDE, palette, convertOpts) : "",
+            };
+          }
+          
+          return {
+            id: row.id,
+            url: row.url,
+            type: row.type || "",
+            status: row.status as UrlEntry["status"],
+            result,
+            error: row.error || undefined,
+          };
+        });
         setEntries(loaded);
       }
       setIsLoading(false);
