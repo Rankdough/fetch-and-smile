@@ -87,6 +87,7 @@ CRITICAL STYLING RULES:
 - Links styled with color:#E31837
 - Do NOT add font-size or font-weight to H tags
 - Preserve ALL factual content from the source - do not invent new information
+- CRITICAL: Preserve ALL hyperlinks from the source content. Every <a href="..."> link in the original HTML must appear in your output with the same href URL. Do NOT strip or remove any links. Wrap relevant anchor text in <a> tags with the original URLs.
 - max-width container not needed, content will be placed inside a CMS
 
 TASK 2 - GENERATE METADATA:
@@ -105,9 +106,13 @@ Return your response in this EXACT format (use these exact delimiters):
 ===CONTENT===
 [The full styled HTML content]
 
-Here is the scraped content:
+Here is the scraped content in markdown:
 
-${markdown.substring(0, 12000)}`;
+${markdown.substring(0, 8000)}
+
+Here is the original HTML (use this to extract all hyperlinks and preserve them):
+
+${sourceHtml.substring(0, 15000)}`;
 
     const contentResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
