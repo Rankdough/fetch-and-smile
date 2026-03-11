@@ -535,6 +535,53 @@ ${sourceHtml.substring(0, 8000)}`;
           )}
         </div>
 
+        {/* Word Count & Tone of Voice */}
+        <div className="rounded-lg border bg-card px-4 py-3 space-y-4">
+          <div className="space-y-2">
+            <Label className="text-sm font-semibold">Target Word Count</Label>
+            <Select
+              value={String(targetWordCount)}
+              onValueChange={(v) => {
+                const wc = parseInt(v, 10);
+                setTargetWordCount(wc);
+                localStorage.setItem("migration-word-count", String(wc));
+              }}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="500">Short (~500 words)</SelectItem>
+                <SelectItem value="1000">Medium (~1,000 words)</SelectItem>
+                <SelectItem value="1500">Medium-Long (~1,500 words)</SelectItem>
+                <SelectItem value="2000">Long (~2,000 words)</SelectItem>
+                <SelectItem value="3000">Extended (~3,000 words)</SelectItem>
+                <SelectItem value="3500">Comprehensive (~3,500 words)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label className="text-sm font-semibold">Tone of Voice</Label>
+            <Select
+              value={selectedToneProfileId || "none"}
+              onValueChange={(v) => {
+                const val = v === "none" ? null : v;
+                setSelectedToneProfileId(val);
+                localStorage.setItem("migration-tone-profile", val || "");
+              }}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="No tone profile" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">No tone profile</SelectItem>
+                {toneProfiles.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
         {/* Input */}
         <Card>
           <CardHeader>
