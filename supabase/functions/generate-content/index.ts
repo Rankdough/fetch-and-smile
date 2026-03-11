@@ -17,7 +17,7 @@ serve(async (req) => {
   }
 
   try {
-    const { topic, length, outline, instructions, gapAnalysis, valuePromiseClaims, formatReference, contextFiles, keywords, generateCTAs, ctaUrl, useKnowledgeBase, toneProfileId, articleImages, expandExistingContent, existingContent, wordsToAdd, wordCount, useFirstPerson, skipFaqs, skipQuickTips, skipSources } = await req.json();
+    const { topic, length, outline, instructions, gapAnalysis, valuePromiseClaims, formatReference, contextFiles, keywords, generateCTAs, ctaUrl, useKnowledgeBase, toneProfileId, articleImages, expandExistingContent, existingContent, wordsToAdd, wordCount, useFirstPerson, skipFaqs, skipQuickTips, skipSources, migrationMode } = await req.json();
 
     // Handle expand mode - different validation
     if (expandExistingContent) {
@@ -85,8 +85,8 @@ serve(async (req) => {
       }
     }
 
-    // Calculate required tables based on word count
-    const requiredTables = targetWords >= 3000 ? 4 : targetWords >= 2000 ? 3 : 1;
+    // Calculate required tables based on word count (relaxed for migration)
+    const requiredTables = migrationMode ? 1 : (targetWords >= 3000 ? 4 : targetWords >= 2000 ? 3 : 1);
     
     // Build the prompt
     let systemPrompt = `You are an expert SEO content writer. Write high-quality, engaging blog posts optimized for search engines while remaining valuable and readable.
@@ -134,11 +134,13 @@ CRITICAL: QUESTION-BASED HEADINGS RULE:
   3. A comparison table where relevant (at least ${requiredTables} tables total across the article)
   4. Source references at the end of the section
 
-CRITICAL TABLE REQUIREMENT:
+${migrationMode ? `TABLE RULE:
+- Use markdown tables where the source content contains list-style comparisons or product listings
+- Do NOT force tables where the source does not warrant them` : `CRITICAL TABLE REQUIREMENT:
 - You MUST include a MINIMUM of ${requiredTables} markdown comparison tables in the article
 - Tables should compare features, options, costs, benefits, or other relevant aspects
 - Each table must have at least 3 columns and 4+ rows
-- Spread tables throughout the article, not all at the end
+- Spread tables throughout the article, not all at the end`}
 
 ${skipSources ? `SOURCE REFERENCE RULES:
 - DO NOT include any **Sources:** lines after sections
@@ -172,7 +174,7 @@ ${skipQuickTips ? '' : `3. ## Quick Tips - MANDATORY section immediately after T
    - Be specific and actionable - no filler words
    - Tips should fit on a single line when displayed
 `}
-4. ## In This Article - THIS SECTION IS MANDATORY AND MUST APPEAR IMMEDIATELY AFTER Quick Tips
+${migrationMode ? `4. DO NOT include an "In This Article" section - this is generated automatically by the client.` : `4. ## In This Article - THIS SECTION IS MANDATORY AND MUST APPEAR IMMEDIATELY AFTER Quick Tips
    - This is a navigation guide showing what the reader will learn
    - Format as a BULLETED LIST with each item on its own line
    - Each line format: - **1. Section Title** - DETAILED description (MINIMUM 150 characters, aim for 200+ characters) explaining what the reader will learn in this section
@@ -187,7 +189,7 @@ ${skipQuickTips ? '' : `3. ## Quick Tips - MANDATORY section immediately after T
    
    - List ALL main H2 sections from the article (not TL;DR or References)
    - DO NOT SKIP THIS SECTION - it must be present in every article
-   - IMPORTANT: Short one-line descriptions are NOT acceptable - each must be detailed and informative
+   - IMPORTANT: Short one-line descriptions are NOT acceptable - each must be detailed and informative`}
 5. Main content sections with ## QUESTION headings (each answered with text + bullets + tables${skipSources ? '' : ' + **Sources:** at the end'})
 6. Comparison table section (question-based, e.g., "## How Do They Compare Side by Side?")
 7. "## Which Option Should You Choose?" section
@@ -243,11 +245,11 @@ HUMAN WRITING STYLE (apply to ALL content):
    - Use: optimise, colour, organisation, behaviour, centre, programme
    - Not: optimize, color, organization, behavior, center, program
 
-7. EXPERT QUOTE:
+${migrationMode ? '' : `7. EXPERT QUOTE:
    - Include at least one quote from a real, named expert or professional relevant to the topic
    - Format as a blockquote with attribution: > "Quote text" - Name, Title/Role
    - The person and quote should be real and verifiable, not fabricated
-   - Place the quote where it adds credibility or a human perspective to the discussion`;
+   - Place the quote where it adds credibility or a human perspective to the discussion`}`;
 
     // Add knowledge base rules to the prompt
     if (knowledgeRules.length > 0) {
@@ -586,7 +588,7 @@ ${current}`;
     // If any are missing, auto-generate them and append/insert.
     // ═══════════════════════════════════════════════════════════════════════
     let missingSections: string[] = [];
-    if (!expandExistingContent) {
+    if (!expandExistingContent && !migrationMode) {
       const contentLower = content.toLowerCase();
 
       // Check each required structural element
