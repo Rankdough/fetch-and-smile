@@ -64,7 +64,7 @@ export default function ContentMigration() {
     }
     return COLOR_PALETTES.find(p => p.id === "big-league") || null;
   });
-  const [showSettings, setShowSettings] = useState(false);
+  
 
   // Load saved jobs on mount
   useEffect(() => {
