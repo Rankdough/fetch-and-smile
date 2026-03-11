@@ -511,8 +511,9 @@ ${sourceHtml.substring(0, 8000)}`;
                     )}
                   </Button>
                   {doneCount > 0 && (
-                    <Button variant="outline" onClick={downloadXLSX} className="gap-2">
-                      <Download className="h-4 w-4" /> Download XLSX ({doneCount})
+                    <Button variant="outline" onClick={downloadXLSX} disabled={isDownloading} className="gap-2">
+                      {isDownloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                      {isDownloading ? "Generating..." : `Download XLSX (${doneCount})`}
                     </Button>
                   )}
                   <Button variant="ghost" onClick={clearAll} disabled={isProcessing} className="gap-2 text-destructive">
