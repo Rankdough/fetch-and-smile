@@ -624,8 +624,8 @@ ${xmlRows}
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold">Output Options</p>
               <p className="text-xs text-muted-foreground">
-                {[skipNavigation && "Navigation", skipQuickTips && "Quick Tips", skipFaqs && "FAQs", skipSources && "Sources"].filter(Boolean).join(", ") || "All sections included"}
-                {[skipNavigation, skipQuickTips, skipFaqs, skipSources].some(Boolean) ? " skipped" : ""}
+                {[skipNavigation && "Navigation", skipQuickTips && "Quick Tips", skipFaqs && "FAQs", skipSources && "Sources", skipTitleInHtml && "Title in HTML"].filter(Boolean).join(", ") || "All sections included"}
+                {[skipNavigation, skipQuickTips, skipFaqs, skipSources, skipTitleInHtml].some(Boolean) ? " skipped" : ""}
               </p>
             </div>
             {outputOpen ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
