@@ -10,7 +10,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { Loader2, Download, CheckCircle2, XCircle, ArrowLeft, Play, Eye, Trash2, Copy, Check, Settings2 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { ColorPaletteSelector, COLOR_PALETTES, type ColorPalette } from "@/components/ColorPaletteSelector";
-import { CollapsibleSection } from "@/components/CollapsibleSection";
 import {
   Dialog,
   DialogContent,
