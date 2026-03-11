@@ -6,13 +6,128 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+interface ColorPalette {
+  id: string;
+  primary: string;
+  secondary: string;
+  accent: string;
+  background: string;
+  text: string;
+}
+
+function buildArticlePrompt(palette: ColorPalette | null) {
+  const p = palette?.primary || "#E31837";
+  const isDark = palette?.id === "dark-transparent";
+  const panelBg = isDark ? "rgba(255,255,255,0.06)" : "#f8f4ff";
+  const panelText = isDark ? "#ffffff" : "#1f2937";
+  const bodyText = isDark ? "#e5e7eb" : "#374151";
+  const containerBg = isDark ? "rgba(255,255,255,0.06)" : "#f9fafb";
+  const containerBorder = isDark ? "rgba(255,255,255,0.15)" : "#e5e7eb";
+  const itemBg = isDark ? "rgba(255,255,255,0.04)" : "#ffffff";
+  const itemBorder = isDark ? "rgba(255,255,255,0.12)" : "#e5e7eb";
+  const mutedText = isDark ? "rgba(255,255,255,0.5)" : "#9ca3af";
+  const descText = isDark ? "rgba(255,255,255,0.6)" : "#6b7280";
+  const tableBorder = isDark ? "rgba(255,255,255,0.2)" : "#e5e7eb";
+  const tableRowOdd = isDark ? "rgba(255,255,255,0.04)" : "#f9fafb";
+  const tableRowEven = isDark ? "rgba(255,255,255,0.08)" : "#ffffff";
+  const tableHeaderText = isDark ? "#000000" : "#ffffff";
+  const sec = palette?.secondary || p;
+
+  return `You are an expert SEO content formatter. Convert scraped content into CMS-ready styled HTML matching this EXACT article structure. ALL styles MUST be inline CSS on every element.
+
+ARTICLE STRUCTURE (in this exact order):
+
+1. H1 TITLE
+   <h1 style="margin: 0 0 16px 0;">[Title from content]</h1>
+   <p style="margin: 0 0 16px 0; line-height: 1.7; color: ${bodyText};">[Intro paragraph summarizing the article]</p>
+
+2. TL;DR SECTION
+   <h2 style="background: ${panelBg}; color: ${panelText}; border-left: 4px solid ${p}; padding: 12px 16px; margin: 24px 0 0 0; border-radius: 0 8px 0 0;">TL;DR</h2>
+   <ul style="background: ${panelBg}; color: ${panelText}; border-left: 4px solid ${p}; padding: 16px 24px 16px 40px; margin: 0 0 24px 0; border-radius: 0 0 8px 0; list-style-type: disc;">
+     <li style="margin: 8px 0; line-height: 1.6; color: ${panelText};">Key takeaway 1</li>
+     <li style="margin: 8px 0; line-height: 1.6; color: ${panelText};">Key takeaway 2</li>
+     <li style="margin: 8px 0; line-height: 1.6; color: ${panelText};">Key takeaway 3</li>
+   </ul>
+
+3. QUICK TIPS (3 tips with numbered circular icons)
+   For each tip:
+   <blockquote style="display: flex; align-items: center; background: ${isDark ? 'rgba(255,255,255,0.06)' : `linear-gradient(135deg, ${p}10 0%, ${p}20 100%)`}; border: 1px solid ${isDark ? 'rgba(255,255,255,0.12)' : `${p}33`}; border-radius: 12px; padding: 16px 20px; margin: 12px 0; font-style: normal;">
+     <span style="display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; background: ${p}; border-radius: 50%; color: white; font-weight: 700; font-size: 14px; margin-right: 12px; flex-shrink: 0;">1</span>
+     <span style="flex: 1; color: ${bodyText};">Tip text here</span>
+   </blockquote>
+
+4. "IN THIS ARTICLE" NAVIGATION
+   Use <details> elements inside a container:
+   <div style="border-radius: 8px; border: 1px solid ${containerBorder}; background: ${containerBg}; padding: 16px; margin: 24px 0; color: ${panelText};">
+     <h4 style="margin: 0 0 8px 0; font-size: 14px; font-weight: 500;">In This Article</h4>
+     <p style="font-size: 12px; color: ${mutedText}; margin: 0 0 12px 0;">Quick navigation to each section:</p>
+     For FIRST item (highlighted):
+     <details style="margin: 8px 0; border: 1px solid ${p}; border-radius: 8px; background: ${p}; color: white;">
+       <summary style="display: flex; align-items: center; gap: 12px; padding: 12px 16px; cursor: pointer; list-style: none; font-weight: 600; font-size: 14px; color: white;">
+         <span style="display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: rgba(255,255,255,0.2); color: white; font-size: 12px; font-weight: 700;">1</span>
+         <span style="flex: 1;">Section Title ⭐</span>
+       </summary>
+     </details>
+     For OTHER items:
+     <details style="margin: 8px 0; border: 1px solid ${itemBorder}; border-radius: 8px; background: ${itemBg};">
+       <summary style="display: flex; align-items: center; gap: 12px; padding: 12px 16px; cursor: pointer; list-style: none; font-weight: 600; font-size: 14px; color: ${panelText};">
+         <span style="display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: ${p}15; color: ${p}; font-size: 12px; font-weight: 700; border: 1px solid ${p}30;">2</span>
+         <span style="flex: 1;">Section Title</span>
+       </summary>
+     </details>
+   </div>
+
+5. MAIN CONTENT SECTIONS
+   Each H2 should be a question with an id attribute for navigation:
+   <h2 id="section-slug" style="margin: 32px 0 16px 0;">Question-based heading?</h2>
+   <p style="margin: 0 0 16px 0; line-height: 1.7; color: ${bodyText};">Paragraph text...</p>
+
+6. TABLES (if content has comparisons)
+   <div style="width: 100%; overflow-x: auto; margin: 24px 0;">
+     <table style="min-width: 100%; border-collapse: collapse; border-radius: 8px; overflow: hidden; border: 1px solid ${tableBorder}; table-layout: auto;">
+       <thead style="background: linear-gradient(135deg, ${p} 0%, ${sec} 100%);">
+         <th style="padding: 12px 16px; text-align: left; color: ${tableHeaderText}; font-weight: 600; font-size: 14px; border: 1px solid ${tableBorder};">Header</th>
+       </thead>
+       <tbody>
+         <tr style="background: ${tableRowOdd}; color: ${bodyText};"><td style="padding: 12px 16px; font-size: 14px; border: 1px solid ${tableBorder}; color: ${bodyText};">Cell</td></tr>
+         <tr style="background: ${tableRowEven}; color: ${bodyText};"><td style="padding: 12px 16px; font-size: 14px; border: 1px solid ${tableBorder}; color: ${bodyText};">Cell</td></tr>
+       </tbody>
+     </table>
+   </div>
+
+7. FAQ SECTION (4-5 Q&A pairs using <details>)
+   <div style="border-radius: 8px; border: 1px solid ${containerBorder}; background: ${containerBg}; padding: 16px; margin: 24px 0;">
+     <h4 style="margin: 0 0 12px 0; font-size: 14px; font-weight: 500; display: flex; align-items: center; gap: 8px; color: ${panelText};">
+       <span style="display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 50%; background: ${p}; color: white; font-size: 12px; font-weight: 700;">?</span>
+       Frequently Asked Questions
+     </h4>
+     <details style="margin: 8px 0; border: 1px solid ${itemBorder}; border-radius: 8px; background: ${itemBg};">
+       <summary style="padding: 12px 16px; cursor: pointer; list-style: none; font-weight: 600; font-size: 14px; color: ${panelText};">Question?</summary>
+       <div style="padding: 0 16px 12px 16px; color: ${descText}; font-size: 13px; line-height: 1.6;">Answer text.</div>
+     </details>
+   </div>
+
+8. REFERENCES SECTION
+   <h2 style="margin: 32px 0 16px 0;">References</h2>
+   <ul><li style="margin: 8px 0; line-height: 1.6; color: ${bodyText};"><a href="..." style="color: #2563eb; text-decoration: underline;" target="_blank" rel="noopener noreferrer">Source name</a></li></ul>
+
+CRITICAL RULES:
+- ALL styles must be inline CSS on every element - no classes, no <style> tags (except for details marker)
+- Do NOT add font-size or font-weight to H1/H2/H3 tags (let CMS inherit)
+- Preserve ALL factual content from the source - do not invent information
+- CRITICAL: Preserve ALL hyperlinks from the source content with original href URLs
+- Links: style="color: #2563eb; text-decoration: underline;" with target="_blank"
+- Do NOT include <html>, <head>, <body> wrapper tags
+- Add this CSS at the very end: <style>details[open] summary svg{transform:rotate(180deg)}details summary::-webkit-details-marker{display:none}</style>`;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { url, type } = await req.json();
+    const { url, type, colorPalette } = await req.json();
 
     if (!url) {
       return new Response(
@@ -62,36 +177,14 @@ serve(async (req) => {
 
     console.log("Scraped", markdown.length, "chars markdown,", sourceHtml.length, "chars HTML, title:", pageTitle);
 
-    // Step 2: Generate HTML content + metadata in English
+    // Step 2: Generate HTML content + metadata
     console.log("Step 2: Generating content + metadata");
 
-    const contentPrompt = `You are given scraped content from a webpage. You must do TWO things:
+    const articlePrompt = buildArticlePrompt(colorPalette || null);
 
-TASK 1 - GENERATE STYLED HTML CONTENT:
-Convert the scraped content into styled HTML using this EXACT article format structure:
-1. H1 title
-2. Intro paragraph
-3. TL;DR section (purple background #f8f4ff, red left border #E31837)
-4. Quick Tips section (3 tips with numbered circular icons)
-5. "In This Article" navigation box with anchor links
-6. Main content with question-based H2 headings, each with id attributes for navigation
-7. FAQ section (4-5 Q&A pairs)
-8. References section
+    const contentPrompt = `${articlePrompt}
 
-CRITICAL STYLING RULES:
-- ALL styles must be inline CSS on every element
-- Use the exact TL;DR styling: background: #f8f4ff; border-left: 4px solid #E31837
-- H2 headings: background: #f8f4ff; border-left: 4px solid #E31837; padding: 12px 16px
-- Quick Tips icons: display:inline-flex; width:28px; height:28px; background:#E31837; color:white; border-radius:50%; align-items:center; justify-content:center
-- Tables: border-collapse, alternating row colors, full width
-- Links styled with color:#E31837
-- Do NOT add font-size or font-weight to H tags
-- Preserve ALL factual content from the source - do not invent new information
-- CRITICAL: Preserve ALL hyperlinks from the source content. Every <a href="..."> link in the original HTML must appear in your output with the same href URL. Do NOT strip or remove any links. Wrap relevant anchor text in <a> tags with the original URLs.
-- max-width container not needed, content will be placed inside a CMS
-
-TASK 2 - GENERATE METADATA:
-Also generate these fields based on the content.
+Now convert this scraped content into the article format described above.
 
 Return your response in this EXACT format (use these exact delimiters):
 
@@ -104,7 +197,7 @@ Return your response in this EXACT format (use these exact delimiters):
 ===SEO_DESCRIPTION===
 [SEO meta description under 160 characters, compelling and keyword-rich]
 ===CONTENT===
-[The full styled HTML content]
+[The full styled HTML content following the structure above]
 
 Here is the scraped content in markdown:
 
@@ -123,7 +216,7 @@ ${sourceHtml.substring(0, 15000)}`;
       body: JSON.stringify({
         model: "google/gemini-2.5-flash",
         messages: [
-          { role: "system", content: "You are an expert SEO content formatter. You produce CMS-ready styled HTML." },
+          { role: "system", content: "You produce CMS-ready styled HTML with inline CSS. Follow the structure exactly." },
           { role: "user", content: contentPrompt },
         ],
       }),
