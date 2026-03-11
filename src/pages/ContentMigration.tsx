@@ -546,7 +546,7 @@ export default function ContentMigration() {
                     className="gap-1"
                     onClick={() => {
                       setPreviewResult(entry.result!);
-                      setPreviewEntryIndex(i);
+                      setPreviewEntryIndex(idx);
                       setEditedResult(null);
                       setIsEditing(false);
                     }}
