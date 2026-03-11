@@ -6,15 +6,6 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-interface ColorPalette {
-  id: string;
-  primary: string;
-  secondary: string;
-  accent: string;
-  background: string;
-  text: string;
-}
-
 interface SkipOptions {
   skipNavigation?: boolean;
   skipQuickTips?: boolean;
@@ -23,150 +14,93 @@ interface SkipOptions {
 }
 
 /**
- * No longer converting inline styles to CSS classes.
- * CMS editors (Shopify, WordPress, etc.) work best with inline styles on every element.
+ * Build a prompt that tells the AI to generate MARKDOWN (not HTML).
+ * The client-side will convert Markdown → styled HTML deterministically.
  */
-
-function buildArticlePrompt(palette: ColorPalette | null, skip: SkipOptions = {}) {
-  const p = palette?.primary || "#E31837";
-  const isDark = palette?.id === "dark-transparent";
-  const panelBg = isDark ? "rgba(255,255,255,0.06)" : "#f8f4ff";
-  const panelText = isDark ? "#ffffff" : "#1f2937";
-  const bodyText = isDark ? "#e5e7eb" : "#374151";
-  const containerBg = isDark ? "rgba(255,255,255,0.06)" : "#f9fafb";
-  const containerBorder = isDark ? "rgba(255,255,255,0.15)" : "#e5e7eb";
-  const itemBg = isDark ? "rgba(255,255,255,0.04)" : "#ffffff";
-  const itemBorder = isDark ? "rgba(255,255,255,0.12)" : "#e5e7eb";
-  const mutedText = isDark ? "rgba(255,255,255,0.5)" : "#9ca3af";
-  const descText = isDark ? "rgba(255,255,255,0.6)" : "#6b7280";
-  const tableBorder = isDark ? "rgba(255,255,255,0.2)" : "#e5e7eb";
-  const tableRowOdd = isDark ? "rgba(255,255,255,0.04)" : "#f9fafb";
-  const tableRowEven = isDark ? "rgba(255,255,255,0.08)" : "#ffffff";
-  const tableHeaderText = isDark ? "#000000" : "#ffffff";
-  const sec = palette?.secondary || p;
-
-  // Build sections list dynamically based on skip options
-  let sectionNum = 1;
+function buildMarkdownPrompt(skip: SkipOptions = {}) {
   const sections: string[] = [];
+  let sectionNum = 1;
 
-  // 1. Always include H1 + intro
   sections.push(`${sectionNum}. H1 TITLE
-   <h1 style="margin: 0 0 16px 0;">[Title from content]</h1>
-   <p style="margin: 0 0 16px 0; line-height: 1.7; color: ${bodyText};">[Intro paragraph summarizing the article]</p>`);
+   # [Title from content]
+   [Intro paragraph summarizing the article]`);
   sectionNum++;
 
-  // 2. Always include TL;DR
   sections.push(`${sectionNum}. TL;DR SECTION
-   <h2 style="background: ${panelBg}; color: ${panelText}; border-left: 4px solid ${p}; padding: 12px 16px; margin: 24px 0 0 0; border-radius: 0 8px 0 0;">TL;DR</h2>
-   <ul style="background: ${panelBg}; color: ${panelText}; border-left: 4px solid ${p}; padding: 16px 24px 16px 40px; margin: 0 0 24px 0; border-radius: 0 0 8px 0; list-style-type: disc;">
-     <li style="margin: 8px 0; line-height: 1.6; color: ${panelText};">Key takeaway 1</li>
-     <li style="margin: 8px 0; line-height: 1.6; color: ${panelText};">Key takeaway 2</li>
-     <li style="margin: 8px 0; line-height: 1.6; color: ${panelText};">Key takeaway 3</li>
-   </ul>`);
+   ## TL;DR
+   - Key takeaway 1
+   - Key takeaway 2
+   - Key takeaway 3
+   - Key takeaway 4 (optional)`);
   sectionNum++;
 
-  // Quick Tips
   if (!skip.skipQuickTips) {
-    sections.push(`${sectionNum}. QUICK TIPS (3 tips with numbered circular icons)
-   For each tip:
-   <blockquote style="display: flex; align-items: center; background: ${isDark ? 'rgba(255,255,255,0.06)' : `linear-gradient(135deg, ${p}10 0%, ${p}20 100%)`}; border: 1px solid ${isDark ? 'rgba(255,255,255,0.12)' : `${p}33`}; border-radius: 12px; padding: 16px 20px; margin: 12px 0; font-style: normal;">
-     <span style="display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; background: ${p}; border-radius: 50%; color: white; font-weight: 700; font-size: 14px; margin-right: 12px; flex-shrink: 0;">1</span>
-     <span style="flex: 1; color: ${bodyText};">Tip text here</span>
-   </blockquote>`);
+    sections.push(`${sectionNum}. QUICK TIPS (exactly 3 tips as blockquotes)
+   > **Tip 1:** Actionable tip text (max 15 words)
+   > **Tip 2:** Actionable tip text (max 15 words)
+   > **Tip 3:** Actionable tip text (max 15 words)`);
     sectionNum++;
   }
 
-  // Navigation
-  if (!skip.skipNavigation) {
-    sections.push(`${sectionNum}. "IN THIS ARTICLE" NAVIGATION
-   Use <details> elements inside a container:
-   <div style="border-radius: 8px; border: 1px solid ${containerBorder}; background: ${containerBg}; padding: 16px; margin: 24px 0; color: ${panelText};">
-     <h4 style="margin: 0 0 8px 0; font-size: 14px; font-weight: 500;">In This Article</h4>
-     <p style="font-size: 12px; color: ${mutedText}; margin: 0 0 12px 0;">Quick navigation to each section:</p>
-     For FIRST item (highlighted):
-     <details style="margin: 8px 0; border: 1px solid ${p}; border-radius: 8px; background: ${p}; color: white;">
-       <summary style="display: flex; align-items: center; gap: 12px; padding: 12px 16px; cursor: pointer; list-style: none; font-weight: 600; font-size: 14px; color: white;">
-         <span style="display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: rgba(255,255,255,0.2); color: white; font-size: 12px; font-weight: 700;">1</span>
-         <span style="flex: 1;">Section Title ⭐</span>
-       </summary>
-     </details>
-     For OTHER items:
-     <details style="margin: 8px 0; border: 1px solid ${itemBorder}; border-radius: 8px; background: ${itemBg};">
-       <summary style="display: flex; align-items: center; gap: 12px; padding: 12px 16px; cursor: pointer; list-style: none; font-weight: 600; font-size: 14px; color: ${panelText};">
-         <span style="display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: ${p}15; color: ${p}; font-size: 12px; font-weight: 700; border: 1px solid ${p}30;">2</span>
-         <span style="flex: 1;">Section Title</span>
-       </summary>
-     </details>
-   </div>`);
-    sectionNum++;
-  }
-
-  // Main content sections (always)
   sections.push(`${sectionNum}. MAIN CONTENT SECTIONS
-   Each H2 should be a question with an id attribute for navigation:
-   <h2 id="section-slug" style="margin: 32px 0 16px 0;">Question-based heading?</h2>
-   <p style="margin: 0 0 16px 0; line-height: 1.7; color: ${bodyText};">Paragraph text...</p>`);
+   Each H2 must be phrased as a question:
+   ## What Does This Topic Mean?
+   Paragraph with direct answer...
+   - Supporting point 1
+   - Supporting point 2
+   
+   Include comparison tables where relevant using markdown table syntax:
+   | Column 1 | Column 2 | Column 3 |
+   |----------|----------|----------|
+   | Data     | Data     | Data     |`);
   sectionNum++;
 
-  // Tables (always)
-  sections.push(`${sectionNum}. TABLES (if content has comparisons)
-   <div style="width: 100%; overflow-x: auto; margin: 24px 0;">
-     <table style="min-width: 100%; border-collapse: collapse; border-radius: 8px; overflow: hidden; border: 1px solid ${tableBorder}; table-layout: auto;">
-       <thead style="background: linear-gradient(135deg, ${p} 0%, ${sec} 100%);">
-         <th style="padding: 12px 16px; text-align: left; color: ${tableHeaderText}; font-weight: 600; font-size: 14px; border: 1px solid ${tableBorder};">Header</th>
-       </thead>
-       <tbody>
-         <tr style="background: ${tableRowOdd}; color: ${bodyText};"><td style="padding: 12px 16px; font-size: 14px; border: 1px solid ${tableBorder}; color: ${bodyText};">Cell</td></tr>
-         <tr style="background: ${tableRowEven}; color: ${bodyText};"><td style="padding: 12px 16px; font-size: 14px; border: 1px solid ${tableBorder}; color: ${bodyText};">Cell</td></tr>
-       </tbody>
-     </table>
-   </div>`);
-  sectionNum++;
-
-  // FAQ
   if (!skip.skipFaqs) {
-    sections.push(`${sectionNum}. FAQ SECTION (4-5 Q&A pairs using <details>)
-   <div style="border-radius: 8px; border: 1px solid ${containerBorder}; background: ${containerBg}; padding: 16px; margin: 24px 0;">
-     <h4 style="margin: 0 0 12px 0; font-size: 14px; font-weight: 500; display: flex; align-items: center; gap: 8px; color: ${panelText};">
-       <span style="display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 50%; background: ${p}; color: white; font-size: 12px; font-weight: 700;">?</span>
-       Frequently Asked Questions
-     </h4>
-     <details style="margin: 8px 0; border: 1px solid ${itemBorder}; border-radius: 8px; background: ${itemBg};">
-       <summary style="padding: 12px 16px; cursor: pointer; list-style: none; font-weight: 600; font-size: 14px; color: ${panelText};">Question?</summary>
-       <div style="padding: 0 16px 12px 16px; color: ${descText}; font-size: 13px; line-height: 1.6;">Answer text.</div>
-     </details>
-   </div>`);
+    sections.push(`${sectionNum}. FAQ SECTION (4-5 Q&A pairs)
+   ## Frequently Asked Questions
+   **Where can I find more information?**
+   Answer text here in one paragraph.
+   
+   **What should I watch out for?**
+   Answer text here in one paragraph.`);
     sectionNum++;
   }
 
-  // References
+  sections.push(`${sectionNum}. FINAL THOUGHTS
+   ## Final Thoughts
+   Concluding paragraph summarizing key advice.`);
+  sectionNum++;
+
   if (!skip.skipSources) {
-    sections.push(`${sectionNum}. REFERENCES SECTION
-   <h2 style="margin: 32px 0 16px 0;">References</h2>
-   <ul><li style="margin: 8px 0; line-height: 1.6; color: ${bodyText};"><a href="..." style="color: #2563eb; text-decoration: underline;" target="_blank" rel="noopener noreferrer">Source name</a></li></ul>`);
+    sections.push(`${sectionNum}. REFERENCES
+   ## References
+   - [Source Name](https://url)
+   - [Source Name](https://url)`);
   }
 
   const skipInstructions: string[] = [];
-  if (skip.skipQuickTips) skipInstructions.push("- Do NOT include a Quick Tips section");
-  if (skip.skipNavigation) skipInstructions.push('- Do NOT include an "In This Article" navigation section');
-  if (skip.skipFaqs) skipInstructions.push("- Do NOT include a FAQ / Frequently Asked Questions section");
-  if (skip.skipSources) skipInstructions.push("- Do NOT include a References / Sources section");
+  if (skip.skipQuickTips) skipInstructions.push("- Do NOT include Quick Tips");
+  if (skip.skipNavigation) skipInstructions.push('- Do NOT include "In This Article" navigation (the client will add it)');
+  if (skip.skipFaqs) skipInstructions.push("- Do NOT include FAQ section");
+  if (skip.skipSources) skipInstructions.push("- Do NOT include References section");
 
-  return `You are an expert SEO content formatter. Convert scraped content into CMS-ready styled HTML matching this EXACT article structure. ALL styles MUST be inline CSS on every element.
+  return `You are an expert SEO content writer. Convert scraped content into well-structured MARKDOWN following this exact article structure.
 
 ARTICLE STRUCTURE (in this exact order):
 
 ${sections.join("\n\n")}
 
-${skipInstructions.length > 0 ? `\nSECTIONS TO SKIP (do NOT generate these):\n${skipInstructions.join("\n")}\n` : ""}
+${skipInstructions.length > 0 ? `\nSECTIONS TO SKIP:\n${skipInstructions.join("\n")}\n` : ""}
 CRITICAL RULES:
-- ALL styles must be inline CSS on every element - no classes, no <style> tags (except for details marker)
-- Do NOT add font-size or font-weight to H1/H2/H3 tags (let CMS inherit)
+- Output ONLY Markdown - no HTML tags, no inline styles, no CSS
+- Every H2 must be phrased as a question
 - Preserve ALL factual content from the source - do not invent information
-- CRITICAL: Preserve ALL hyperlinks from the source content with original href URLs
-- Links: style="color: #2563eb; text-decoration: underline;" with target="_blank"
-- Do NOT include <html>, <head>, <body> wrapper tags
-- Add this CSS at the very end: <style>details[open] summary svg{transform:rotate(180deg)}details summary::-webkit-details-marker{display:none}</style>`;
+- Preserve ALL hyperlinks from the source content using markdown link syntax [text](url)
+- Include at least one blockquote with an expert quote if available
+- Use markdown tables for any comparison data
+- Quick Tips MUST use the format: > **Tip N:** text
+- FAQ answers MUST be a single paragraph (no bullets)
+- Do NOT add "In This Article" navigation - it will be generated automatically`;
 }
 
 serve(async (req) => {
@@ -223,16 +157,16 @@ serve(async (req) => {
       throw new Error("No content could be extracted from the URL");
     }
 
-    console.log("Scraped", markdown.length, "chars markdown,", sourceHtml.length, "chars HTML, title:", pageTitle);
+    console.log("Scraped", markdown.length, "chars markdown, title:", pageTitle);
 
-    // Step 2: Generate HTML content + metadata
-    console.log("Step 2: Generating content + metadata");
+    // Step 2: Generate MARKDOWN content + metadata (NOT HTML)
+    console.log("Step 2: Generating Markdown content + metadata");
 
-    const articlePrompt = buildArticlePrompt(colorPalette || null, { skipNavigation, skipQuickTips, skipFaqs, skipSources });
+    const articlePrompt = buildMarkdownPrompt({ skipNavigation, skipQuickTips, skipFaqs, skipSources });
 
     const contentPrompt = `${articlePrompt}
 
-Now convert this scraped content into the article format described above.
+Now convert this scraped content into the Markdown article format described above.
 
 Return your response in this EXACT format (use these exact delimiters):
 
@@ -245,15 +179,15 @@ Return your response in this EXACT format (use these exact delimiters):
 ===SEO_DESCRIPTION===
 [SEO meta description under 160 characters, compelling and keyword-rich]
 ===CONTENT===
-[The full styled HTML content following the structure above]
+[The full Markdown content following the structure above]
 
-Here is the scraped content in markdown:
+Here is the scraped content:
 
-${markdown.substring(0, 8000)}
+${markdown.substring(0, 12000)}
 
-Here is the original HTML (use this to extract all hyperlinks and preserve them):
+Here is the original HTML (use to extract hyperlinks):
 
-${sourceHtml.substring(0, 15000)}`;
+${sourceHtml.substring(0, 8000)}`;
 
     const contentResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -264,7 +198,7 @@ ${sourceHtml.substring(0, 15000)}`;
       body: JSON.stringify({
         model: "google/gemini-2.5-flash",
         messages: [
-          { role: "system", content: "You produce CMS-ready styled HTML with inline CSS. Follow the structure exactly." },
+          { role: "system", content: "You produce well-structured Markdown articles. Follow the structure exactly. Output ONLY Markdown, never HTML." },
           { role: "user", content: contentPrompt },
         ],
       }),
@@ -307,14 +241,13 @@ ${sourceHtml.substring(0, 15000)}`;
     let content = parseField(fullResponse, "CONTENT");
 
     // Strip markdown code fences if present
-    content = content.replace(/^```html?\s*\n?/i, "").replace(/\n?```\s*$/i, "").trim();
+    content = content.replace(/^```(?:markdown|md)?\s*\n?/i, "").replace(/\n?```\s*$/i, "").trim();
 
-    // Keep inline styles as-is — CMS editors need them directly on elements
+    console.log("Generated markdown length:", content.length, "title:", title);
 
-    console.log("Generated content length:", content.length, "title:", title);
-
-    // Step 3+4: Translate to NL and DE in parallel
-    console.log("Step 3+4: Translating to NL and DE in parallel");
+    // Step 3+4: Translate Markdown to NL and DE in parallel
+    // Translating Markdown is simpler and more reliable than translating HTML
+    console.log("Step 3+4: Translating Markdown to NL and DE in parallel");
     const [nlResult, deResult] = await Promise.all([
       translateContent(LOVABLE_API_KEY, { title, subtitle, seoTitle, seoDescription, content }, "Dutch (NL)"),
       translateContent(LOVABLE_API_KEY, { title, subtitle, seoTitle, seoDescription, content }, "German (DE)"),
@@ -360,7 +293,7 @@ async function translateContent(
   language: string
 ): Promise<{ title: string; subtitle: string; seoTitle: string; seoDescription: string; content: string }> {
   const prompt = `Translate ALL of the following fields into ${language}. 
-CRITICAL: For the CONTENT field, translate ONLY the visible text inside HTML tags. Keep ALL HTML tags, attributes, CSS class names, IDs, <style> blocks, and structure EXACTLY as they are. Only the human-readable text should be translated. Do NOT modify any class="..." attributes or <style> content.
+For the CONTENT field, this is Markdown. Translate ONLY the visible text. Keep all Markdown formatting (##, **, >, -, |, [text](url)) exactly as is. Do NOT change URLs.
 
 Return your response using these EXACT delimiters:
 
@@ -384,7 +317,7 @@ ${fields.content}`;
     body: JSON.stringify({
       model: "google/gemini-2.5-flash",
       messages: [
-        { role: "system", content: `You are a professional translator. Translate to ${language}. For HTML content, translate ONLY visible text, preserving all HTML markup, CSS classes, <style> blocks, and structure exactly.` },
+        { role: "system", content: `You are a professional translator. Translate to ${language}. For Markdown content, translate ONLY visible text while preserving all Markdown formatting, links, and structure exactly.` },
         { role: "user", content: prompt },
       ],
     }),
@@ -413,7 +346,7 @@ ${fields.content}`;
   };
 
   let translatedContent = parseField(text, "CONTENT");
-  translatedContent = translatedContent.replace(/^```html?\s*\n?/i, "").replace(/\n?```\s*$/i, "").trim();
+  translatedContent = translatedContent.replace(/^```(?:markdown|md)?\s*\n?/i, "").replace(/\n?```\s*$/i, "").trim();
 
   return {
     title: parseField(text, "TITLE", "SUBTITLE"),
