@@ -192,11 +192,12 @@ export default function ContentMigration() {
 
 IMPORTANT GUIDELINES:
 - Preserve ALL factual content and data from the source - do not invent new facts
-- Preserve ALL hyperlinks from the source content - cross-reference the HTML source below
+- Preserve ALL hyperlinks from the source content - cross-reference the HTML source below and include every link you find
 - Keep the original topic and key sections from the source, but expand with additional SEO sections (comparison tables, "Which Option Should You Choose?", "How Do They Compare Side by Side?", etc.)
-- Add comparison tables where relevant - any lists of items/products/options should be in table format
+- CRITICAL: When listing products, brands, options, or items, ALWAYS use markdown tables (not numbered lists or bullet lists). For example, if the source lists "safe" products and "unsafe" products, present each group as a table with relevant columns (Name, Key Feature, Certification, etc.)
 - Do NOT add a "Link" or "Product Link" column to tables
 - Do NOT include expert quotes or blockquote citations from named individuals
+- Do NOT include an "In This Article" navigation section - this is added automatically during HTML conversion
 
 HTML SOURCE FOR LINK REFERENCE:
 ${sourceHtml.substring(0, 8000)}`;
