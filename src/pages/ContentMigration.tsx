@@ -388,6 +388,30 @@ ${sourceHtml.substring(0, 8000)}`;
     toast({ title: "Excel file downloaded" });
   };
 
+  const downloadJSON = () => {
+    const data = entries.filter(e => e.status === "done" && e.result).map(e => {
+      const r = e.result!;
+      return {
+        type: r.type ?? "",
+        oldUrl: r.url ?? "",
+        title: { en: r.title ?? "", nl: r.titleNL ?? "", de: r.titleDE ?? "" },
+        subtitle: { en: r.subtitle ?? "", nl: r.subtitleNL ?? "", de: r.subtitleDE ?? "" },
+        content: { en: r.content ?? "", nl: r.contentNL ?? "", de: r.contentDE ?? "" },
+        seoTitle: { en: r.seoTitle ?? "", nl: r.seoTitleNL ?? "", de: r.seoTitleDE ?? "" },
+        seoDescription: { en: r.seoDescription ?? "", nl: r.seoDescriptionNL ?? "", de: r.seoDescriptionDE ?? "" },
+      };
+    });
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `content_migration_${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 500);
+    toast({ title: "JSON file downloaded" });
+  };
+
   const doneCount = entries.filter(e => e.status === "done").length;
   const errorCount = entries.filter(e => e.status === "error").length;
   const progress = entries.length > 0 ? ((doneCount + errorCount) / entries.length) * 100 : 0;
@@ -512,9 +536,14 @@ ${sourceHtml.substring(0, 8000)}`;
                     )}
                   </Button>
                   {doneCount > 0 && (
-                    <Button variant="outline" onClick={downloadXLSX} className="gap-2">
-                      <Download className="h-4 w-4" /> Download Excel ({doneCount})
-                    </Button>
+                    <>
+                      <Button variant="outline" onClick={downloadXLSX} className="gap-2">
+                        <Download className="h-4 w-4" /> Download Excel ({doneCount})
+                      </Button>
+                      <Button variant="outline" onClick={downloadJSON} className="gap-2">
+                        <Download className="h-4 w-4" /> Download JSON ({doneCount})
+                      </Button>
+                    </>
                   )}
                   <Button variant="ghost" onClick={clearAll} disabled={isProcessing} className="gap-2 text-destructive">
                     <Trash2 className="h-4 w-4" /> Clear All
