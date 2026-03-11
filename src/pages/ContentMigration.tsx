@@ -391,25 +391,43 @@ ${sourceHtml.substring(0, 8000)}`;
       ];
     });
 
-    // Export as Excel-compatible CSV to avoid HTML-entity expansion (&lt; &gt;) that can push long HTML over cell limits.
-    const escapeCsv = (val: string) => `"${String(val ?? "").replace(/"/g, '""')}"`;
-    const csv = [
-      headers.map(escapeCsv).join(","),
-      ...rows.map(row => row.map(escapeCsv).join(",")),
-    ].join("\r\n");
+    // Build Excel XML (SpreadsheetML) to keep raw HTML in single cells without row-splitting
+    const escapeXml = (val: string): string =>
+      String(val ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, ""); // strip control chars
 
-    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
+    const buildRow = (cells: string[]) =>
+      "<Row>" + cells.map(c => `<Cell><Data ss:Type="String">${escapeXml(c)}</Data></Cell>`).join("") + "</Row>";
+
+    const xmlRows = [buildRow(headers), ...rows.map(buildRow)].join("\n");
+
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
+<Worksheet ss:Name="Migration">
+<Table>
+${xmlRows}
+</Table>
+</Worksheet>
+</Workbook>`;
+
+    const blob = new Blob([xml], { type: "application/vnd.ms-excel;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `content_migration_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = `content_migration_${new Date().toISOString().slice(0, 10)}.xls`;
     document.body.appendChild(a);
     a.click();
     setTimeout(() => {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     }, 500);
-    toast({ title: "Excel-compatible CSV downloaded" });
+    toast({ title: "Excel file downloaded" });
   };
 
   const downloadJSON = () => {
