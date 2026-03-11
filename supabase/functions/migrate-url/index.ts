@@ -31,7 +31,21 @@ function convertInlineStylesToClasses(html: string): string {
   let classCounter = 0;
 
   // Replace all style="..." with class="sN" and collect unique styles
+  // Also handles cases where element already has other attributes
   const converted = html.replace(/\sstyle="([^"]*)"/g, (_match, styleValue: string) => {
+    const trimmed = styleValue.trim();
+    if (!trimmed) return '';
+    
+    let className = styleMap.get(trimmed);
+    if (!className) {
+      className = `s${classCounter++}`;
+      styleMap.set(trimmed, className);
+    }
+    return ` class="${className}"`;
+  });
+  
+  // Handle single-quoted style attributes too: style='...'
+  const converted2 = converted.replace(/\sstyle='([^']*)'/g, (_match, styleValue: string) => {
     const trimmed = styleValue.trim();
     if (!trimmed) return '';
     
