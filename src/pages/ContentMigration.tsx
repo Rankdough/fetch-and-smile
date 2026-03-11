@@ -222,9 +222,38 @@ ${sourceHtml.substring(0, 8000)}`;
       });
       if (contentError) throw new Error(`Content generation failed: ${contentError.message}`);
 
-      const generatedMarkdown = contentData.content || contentData.generatedContent || "";
+      let generatedMarkdown = contentData.content || contentData.generatedContent || "";
       if (!generatedMarkdown.trim()) throw new Error("No content returned from generation");
       console.log("[Migration] Generated", generatedMarkdown.length, "chars markdown");
+
+      // Check if content appears truncated (no Final Thoughts or References at the end)
+      const hasEnding = /^#{1,3}\s*(Final Thoughts|References|Conclusion)/im.test(generatedMarkdown);
+      if (!hasEnding) {
+        console.warn("[Migration] Content appears truncated - requesting continuation");
+        try {
+          const { data: contData } = await supabase.functions.invoke("generate-content", {
+            body: {
+              topic,
+              length: "long",
+              wordCount: 800,
+              instructions: `CONTINUE AND COMPLETE this truncated article. The article was cut off mid-way. Write ONLY the remaining sections to complete it. Include: any unfinished section, "Which Option Should You Choose?" (if missing), "How Do They Compare Side by Side?" comparison table (if missing), FAQ (4-5 Q&As), Final Thoughts, and References. Do NOT repeat any content already written. Do NOT include an "In This Article" navigation section.\n\nARTICLE SO FAR (last 3000 chars):\n${generatedMarkdown.slice(-3000)}`,
+              contextFiles: [{ name: "source-content", content: sourceMarkdown.substring(0, 6000) }],
+              skipFaqs: false,
+              skipQuickTips: true,
+              skipSources: false,
+            },
+          });
+          const continuation = contData?.content || contData?.generatedContent || "";
+          if (continuation.trim()) {
+            // Remove any duplicate H1 from continuation
+            const cleanContinuation = continuation.replace(/^#\s+.+\n/m, '').replace(/^#{1,3}\s*TL;?DR[\s\S]*?(?=\n#{1,2}\s)/im, '');
+            generatedMarkdown = generatedMarkdown.trimEnd() + "\n\n" + cleanContinuation.trim();
+            console.log("[Migration] Continuation added,", cleanContinuation.length, "chars");
+          }
+        } catch (contErr) {
+          console.error("[Migration] Continuation failed:", contErr);
+        }
+      }
 
       // Extract SEO metadata from generated content
       const h1Match = generatedMarkdown.match(/^#\s+(.+)$/m);
