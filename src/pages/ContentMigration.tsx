@@ -83,6 +83,7 @@ export default function ContentMigration() {
   const [skipQuickTips, setSkipQuickTips] = useState(() => localStorage.getItem("migration-skip-tips") === "true");
   const [skipFaqs, setSkipFaqs] = useState(() => localStorage.getItem("migration-skip-faqs") === "true");
   const [skipSources, setSkipSources] = useState(() => localStorage.getItem("migration-skip-sources") === "true");
+  const [skipTitleInHtml, setSkipTitleInHtml] = useState(() => localStorage.getItem("migration-skip-title-html") === "true");
   const [colorOpen, setColorOpen] = useState(false);
   const [outputOpen, setOutputOpen] = useState(false);
   const [targetWordCount, setTargetWordCount] = useState<number>(() => {
