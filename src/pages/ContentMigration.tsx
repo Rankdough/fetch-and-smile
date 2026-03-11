@@ -333,23 +333,21 @@ ${sourceHtml.substring(0, 8000)}`;
     seoDescriptionDE: fixDoubledQuotes(r.seoDescriptionDE || ""),
   });
 
-  // TSV escaping: tabs and newlines are the only characters that break TSV structure.
-  // HTML never contains tab characters, so replacing tabs is just a safety net.
-  const escapeCSV = (val: string): string => {
+  // Use tab-delimited format to avoid conflicts with commas and quotes in HTML content
+  const escapeTSV = (val: string): string => {
     if (!val) return '';
-    const cleaned = val
+    return val
+      .replace(/\t/g, ' ')
       .replace(/\r?\n/g, ' ')
       .replace(/\s{2,}/g, ' ')
       .trim();
-    // Wrap in quotes and escape any internal quotes
-    return `"${cleaned.replace(/"/g, '""')}"`;
   };
 
   const downloadCSV = () => {
     const headers = [
       "Type", "image", "Old url", "New url",
       "Title", "Title (EN)", "Title (NL)", "Title (DE)",
-      "subtitle ", "subtitle (NL)", "subtitle (DE)",
+      "subtitle", "subtitle (NL)", "subtitle (DE)",
       "Content", "Content (EN)", "Content (NL)", "Content (DE)",
       "SEO Title", "SEO Title (EN)", "SEO Title (NL)", "SEO Title (DE)",
       "SEO Description", "SEO Description (EN)", "SEO Description (NL)", "SEO Description (DE)",
@@ -364,12 +362,12 @@ ${sourceHtml.substring(0, 8000)}`;
         r.content, r.content, r.contentNL, r.contentDE,
         r.seoTitle, r.seoTitle, r.seoTitleNL, r.seoTitleDE,
         r.seoDescription, r.seoDescription, r.seoDescriptionNL, r.seoDescriptionDE,
-      ].map(escapeCSV).join(",");
+      ].map(escapeTSV).join("\t");
     });
 
     const bom = "\uFEFF";
-    const csv = bom + headers.map(h => escapeCSV(h)).join(",") + "\n" + rows.join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const tsv = bom + headers.join("\t") + "\n" + rows.join("\n");
+    const blob = new Blob([tsv], { type: "text/tab-separated-values;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
