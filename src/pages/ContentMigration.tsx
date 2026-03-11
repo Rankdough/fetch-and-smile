@@ -121,7 +121,7 @@ export default function ContentMigration() {
   const processUrl = useCallback(async (entry: UrlEntry): Promise<UrlEntry> => {
     try {
       const { data, error } = await supabase.functions.invoke("migrate-url", {
-        body: { url: entry.url, type: entry.type },
+        body: { url: entry.url, type: entry.type, colorPalette: selectedColorPalette },
       });
 
       if (error) throw error;
