@@ -454,7 +454,10 @@ ${sourceHtml.substring(0, 8000)}`;
   // Strip the first H1 tag (and its content) from HTML string
   const stripH1FromHtml = (html: string): string => {
     if (!html) return html;
-    return html.replace(/<h1[^>]*>[\s\S]*?<\/h1>\s*/i, "");
+    // Remove the first <h1>...</h1> tag including any surrounding whitespace/newlines
+    const stripped = html.replace(/\s*<h1[\s\S]*?<\/h1>\s*/i, "");
+    console.log("[Migration] stripH1: removed H1, before length:", html.length, "after length:", stripped.length);
+    return stripped;
   };
 
   // Sanitize all string fields in a migration result
