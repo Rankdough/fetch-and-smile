@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo } from "react"; // v2 - 3-step pipeline
+import { useState, useCallback, useEffect, useMemo, useRef } from "react"; // v2 - 3-step pipeline
 
 import { markdownToStyledHtml } from "@/utils/markdownToStyledHtml";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,7 @@ import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, Download, CheckCircle2, XCircle, ArrowLeft, Play, Eye, Trash2, Copy, Check, Palette, Settings2, ChevronDown, ChevronUp } from "lucide-react";
+import { Loader2, Download, CheckCircle2, XCircle, ArrowLeft, Play, Eye, Trash2, Copy, Check, Palette, Settings2, ChevronDown, ChevronUp, Pencil, Save } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { ColorPaletteSelector, COLOR_PALETTES, type ColorPalette } from "@/components/ColorPaletteSelector";
 import { Switch } from "@/components/ui/switch";
@@ -57,6 +57,9 @@ export default function ContentMigration() {
   const [entries, setEntries] = useState<UrlEntry[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [previewResult, setPreviewResult] = useState<MigrationResult | null>(null);
+  const [previewEntryIndex, setPreviewEntryIndex] = useState<number | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedResult, setEditedResult] = useState<MigrationResult | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedColorPalette, setSelectedColorPalette] = useState<ColorPalette | null>(() => {
@@ -541,7 +544,12 @@ export default function ContentMigration() {
                     variant="ghost"
                     size="sm"
                     className="gap-1"
-                    onClick={() => setPreviewResult(entry.result!)}
+                    onClick={() => {
+                      setPreviewResult(entry.result!);
+                      setPreviewEntryIndex(idx);
+                      setEditedResult(null);
+                      setIsEditing(false);
+                    }}
                   >
                     <Eye className="h-4 w-4" /> Preview
                   </Button>
@@ -553,17 +561,73 @@ export default function ContentMigration() {
       </main>
 
       {/* Preview Dialog */}
-      <Dialog open={!!previewResult} onOpenChange={() => setPreviewResult(null)}>
+      <Dialog open={!!previewResult} onOpenChange={(open) => {
+        if (!open) {
+          setPreviewResult(null);
+          setPreviewEntryIndex(null);
+          setIsEditing(false);
+          setEditedResult(null);
+        }
+      }}>
         <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{previewResult?.title}</DialogTitle>
+            <div className="flex items-center justify-between gap-4">
+              <DialogTitle>{(isEditing && editedResult ? editedResult : previewResult)?.title}</DialogTitle>
+              <div className="flex items-center gap-2 shrink-0">
+                {isEditing ? (
+                  <>
+                    <Button variant="outline" size="sm" onClick={() => { setIsEditing(false); setEditedResult(null); }}>
+                      Cancel
+                    </Button>
+                    <Button size="sm" className="gap-1" onClick={async () => {
+                      if (!editedResult || previewEntryIndex === null) return;
+                      const updated = [...entries];
+                      updated[previewEntryIndex] = { ...updated[previewEntryIndex], result: editedResult };
+                      setEntries(updated);
+                      setPreviewResult(editedResult);
+
+                      // Persist to DB
+                      const entryId = updated[previewEntryIndex].id;
+                      if (entryId) {
+                        await supabase
+                          .from("migration_jobs")
+                          .update({ result: editedResult as any })
+                          .eq("id", entryId);
+                      }
+
+                      setIsEditing(false);
+                      setEditedResult(null);
+                      toast({ title: "Changes saved" });
+                    }}>
+                      <Save className="h-4 w-4" /> Save
+                    </Button>
+                  </>
+                ) : (
+                  <Button variant="outline" size="sm" className="gap-1" onClick={() => {
+                    setIsEditing(true);
+                    setEditedResult({ ...previewResult! });
+                  }}>
+                    <Pencil className="h-4 w-4" /> Edit
+                  </Button>
+                )}
+              </div>
+            </div>
           </DialogHeader>
           {previewResult && (
-            <PreviewContent result={previewResult} copiedField={copiedField} onCopy={(field, value) => {
-              navigator.clipboard.writeText(value);
-              setCopiedField(field);
-              setTimeout(() => setCopiedField(null), 2000);
-            }} />
+            <PreviewContent
+              result={isEditing && editedResult ? editedResult : previewResult}
+              copiedField={copiedField}
+              isEditing={isEditing}
+              onCopy={(field, value) => {
+                navigator.clipboard.writeText(value);
+                setCopiedField(field);
+                setTimeout(() => setCopiedField(null), 2000);
+              }}
+              onFieldChange={(field, value) => {
+                if (!editedResult) return;
+                setEditedResult({ ...editedResult, [field]: value });
+              }}
+            />
           )}
         </DialogContent>
       </Dialog>
@@ -579,20 +643,64 @@ function CopyButton({ field, value, copiedField, onCopy }: { field: string; valu
   );
 }
 
-function MetadataField({ label, value, field, copiedField, onCopy }: { label: string; value: string; field: string; copiedField: string | null; onCopy: (f: string, v: string) => void }) {
-  if (!value) return null;
+function EditableMetadataField({ label, value, field, copiedField, isEditing, onCopy, onChange }: {
+  label: string; value: string; field: string; copiedField: string | null; isEditing: boolean;
+  onCopy: (f: string, v: string) => void; onChange?: (value: string) => void;
+}) {
+  if (!value && !isEditing) return null;
   return (
     <div className="space-y-1">
       <div className="flex items-center gap-2">
         <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{label}</span>
         <CopyButton field={field} value={value} copiedField={copiedField} onCopy={onCopy} />
       </div>
-      <p className="text-sm border rounded-md p-2 bg-muted/50">{value}</p>
+      {isEditing ? (
+        <input
+          className="text-sm border rounded-md p-2 bg-background w-full"
+          value={value}
+          onChange={(e) => onChange?.(e.target.value)}
+        />
+      ) : (
+        <p className="text-sm border rounded-md p-2 bg-muted/50">{value}</p>
+      )}
     </div>
   );
 }
 
-function PreviewContent({ result, copiedField, onCopy }: { result: MigrationResult; copiedField: string | null; onCopy: (f: string, v: string) => void }) {
+function ContentBlock({ content, field, copiedField, isEditing, onCopy, onChange, label }: {
+  content: string; field: string; copiedField: string | null; isEditing: boolean; label: string;
+  onCopy: (f: string, v: string) => void; onChange?: (value: string) => void;
+}) {
+  const contentRef = useRef<HTMLDivElement>(null);
+
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center gap-2">
+        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{label}</span>
+        <CopyButton field={field} value={isEditing && contentRef.current ? contentRef.current.innerHTML : content} copiedField={copiedField} onCopy={onCopy} />
+        {isEditing && <span className="text-xs text-muted-foreground italic">Click content below to edit directly</span>}
+      </div>
+      <div
+        ref={contentRef}
+        className={`border rounded-md p-4 bg-white ${isEditing ? "ring-2 ring-primary/20 focus-within:ring-primary/40 cursor-text" : ""}`}
+        contentEditable={isEditing}
+        suppressContentEditableWarning
+        dangerouslySetInnerHTML={{ __html: content }}
+        onBlur={() => {
+          if (isEditing && contentRef.current && onChange) {
+            onChange(contentRef.current.innerHTML);
+          }
+        }}
+      />
+    </div>
+  );
+}
+
+function PreviewContent({ result, copiedField, isEditing, onCopy, onFieldChange }: {
+  result: MigrationResult; copiedField: string | null; isEditing: boolean;
+  onCopy: (f: string, v: string) => void;
+  onFieldChange?: (field: string, value: string) => void;
+}) {
   return (
     <Tabs defaultValue="en" className="w-full">
       <TabsList className="mb-4">
@@ -603,50 +711,32 @@ function PreviewContent({ result, copiedField, onCopy }: { result: MigrationResu
 
       <TabsContent value="en" className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <MetadataField label="Title" value={result.title} field="title-en" copiedField={copiedField} onCopy={onCopy} />
-          <MetadataField label="SEO Title" value={result.seoTitle} field="seoTitle-en" copiedField={copiedField} onCopy={onCopy} />
-          <MetadataField label="Subtitle" value={result.subtitle} field="subtitle-en" copiedField={copiedField} onCopy={onCopy} />
-          <MetadataField label="SEO Description" value={result.seoDescription} field="seoDesc-en" copiedField={copiedField} onCopy={onCopy} />
+          <EditableMetadataField label="Title" value={result.title} field="title-en" copiedField={copiedField} isEditing={isEditing} onCopy={onCopy} onChange={(v) => onFieldChange?.("title", v)} />
+          <EditableMetadataField label="SEO Title" value={result.seoTitle} field="seoTitle-en" copiedField={copiedField} isEditing={isEditing} onCopy={onCopy} onChange={(v) => onFieldChange?.("seoTitle", v)} />
+          <EditableMetadataField label="Subtitle" value={result.subtitle} field="subtitle-en" copiedField={copiedField} isEditing={isEditing} onCopy={onCopy} onChange={(v) => onFieldChange?.("subtitle", v)} />
+          <EditableMetadataField label="SEO Description" value={result.seoDescription} field="seoDesc-en" copiedField={copiedField} isEditing={isEditing} onCopy={onCopy} onChange={(v) => onFieldChange?.("seoDescription", v)} />
         </div>
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Content</span>
-            <CopyButton field="content-en" value={result.content} copiedField={copiedField} onCopy={onCopy} />
-          </div>
-          <div className="border rounded-md p-4 bg-white" dangerouslySetInnerHTML={{ __html: result.content }} />
-        </div>
+        <ContentBlock label="Content" content={result.content} field="content-en" copiedField={copiedField} isEditing={isEditing} onCopy={onCopy} onChange={(v) => onFieldChange?.("content", v)} />
       </TabsContent>
 
       <TabsContent value="nl" className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <MetadataField label="Title (NL)" value={result.titleNL} field="title-nl" copiedField={copiedField} onCopy={onCopy} />
-          <MetadataField label="SEO Title (NL)" value={result.seoTitleNL} field="seoTitle-nl" copiedField={copiedField} onCopy={onCopy} />
-          <MetadataField label="Subtitle (NL)" value={result.subtitleNL} field="subtitle-nl" copiedField={copiedField} onCopy={onCopy} />
-          <MetadataField label="SEO Description (NL)" value={result.seoDescriptionNL} field="seoDesc-nl" copiedField={copiedField} onCopy={onCopy} />
+          <EditableMetadataField label="Title (NL)" value={result.titleNL} field="title-nl" copiedField={copiedField} isEditing={isEditing} onCopy={onCopy} onChange={(v) => onFieldChange?.("titleNL", v)} />
+          <EditableMetadataField label="SEO Title (NL)" value={result.seoTitleNL} field="seoTitle-nl" copiedField={copiedField} isEditing={isEditing} onCopy={onCopy} onChange={(v) => onFieldChange?.("seoTitleNL", v)} />
+          <EditableMetadataField label="Subtitle (NL)" value={result.subtitleNL} field="subtitle-nl" copiedField={copiedField} isEditing={isEditing} onCopy={onCopy} onChange={(v) => onFieldChange?.("subtitleNL", v)} />
+          <EditableMetadataField label="SEO Description (NL)" value={result.seoDescriptionNL} field="seoDesc-nl" copiedField={copiedField} isEditing={isEditing} onCopy={onCopy} onChange={(v) => onFieldChange?.("seoDescriptionNL", v)} />
         </div>
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Content (NL)</span>
-            <CopyButton field="content-nl" value={result.contentNL} copiedField={copiedField} onCopy={onCopy} />
-          </div>
-          <div className="border rounded-md p-4 bg-white" dangerouslySetInnerHTML={{ __html: result.contentNL }} />
-        </div>
+        <ContentBlock label="Content (NL)" content={result.contentNL} field="content-nl" copiedField={copiedField} isEditing={isEditing} onCopy={onCopy} onChange={(v) => onFieldChange?.("contentNL", v)} />
       </TabsContent>
 
       <TabsContent value="de" className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <MetadataField label="Title (DE)" value={result.titleDE} field="title-de" copiedField={copiedField} onCopy={onCopy} />
-          <MetadataField label="SEO Title (DE)" value={result.seoTitleDE} field="seoTitle-de" copiedField={copiedField} onCopy={onCopy} />
-          <MetadataField label="Subtitle (DE)" value={result.subtitleDE} field="subtitle-de" copiedField={copiedField} onCopy={onCopy} />
-          <MetadataField label="SEO Description (DE)" value={result.seoDescriptionDE} field="seoDesc-de" copiedField={copiedField} onCopy={onCopy} />
+          <EditableMetadataField label="Title (DE)" value={result.titleDE} field="title-de" copiedField={copiedField} isEditing={isEditing} onCopy={onCopy} onChange={(v) => onFieldChange?.("titleDE", v)} />
+          <EditableMetadataField label="SEO Title (DE)" value={result.seoTitleDE} field="seoTitle-de" copiedField={copiedField} isEditing={isEditing} onCopy={onCopy} onChange={(v) => onFieldChange?.("seoTitleDE", v)} />
+          <EditableMetadataField label="Subtitle (DE)" value={result.subtitleDE} field="subtitle-de" copiedField={copiedField} isEditing={isEditing} onCopy={onCopy} onChange={(v) => onFieldChange?.("subtitleDE", v)} />
+          <EditableMetadataField label="SEO Description (DE)" value={result.seoDescriptionDE} field="seoDesc-de" copiedField={copiedField} isEditing={isEditing} onCopy={onCopy} onChange={(v) => onFieldChange?.("seoDescriptionDE", v)} />
         </div>
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Content (DE)</span>
-            <CopyButton field="content-de" value={result.contentDE} copiedField={copiedField} onCopy={onCopy} />
-          </div>
-          <div className="border rounded-md p-4 bg-white" dangerouslySetInnerHTML={{ __html: result.contentDE }} />
-        </div>
+        <ContentBlock label="Content (DE)" content={result.contentDE} field="content-de" copiedField={copiedField} isEditing={isEditing} onCopy={onCopy} onChange={(v) => onFieldChange?.("contentDE", v)} />
       </TabsContent>
     </Tabs>
   );
