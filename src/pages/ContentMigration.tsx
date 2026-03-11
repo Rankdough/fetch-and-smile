@@ -42,6 +42,7 @@ interface MigrationResult {
   seoTitleDE: string;
   seoDescriptionDE: string;
   contentDE: string;
+  imageUrls?: string[];
   error?: string;
 }
 
