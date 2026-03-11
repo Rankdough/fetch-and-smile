@@ -391,36 +391,25 @@ ${sourceHtml.substring(0, 8000)}`;
       ];
     });
 
-    // Build an HTML table that Excel opens natively — no character limits, no escaping issues
-    const escapeHtmlForCell = (val: string) => {
-      // Excel HTML table cells: encode < > & but preserve the actual HTML content as text
-      return val
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;');
-    };
+    // Export as Excel-compatible CSV to avoid HTML-entity expansion (&lt; &gt;) that can push long HTML over cell limits.
+    const escapeCsv = (val: string) => `"${String(val ?? "").replace(/"/g, '""')}"`;
+    const csv = [
+      headers.map(escapeCsv).join(","),
+      ...rows.map(row => row.map(escapeCsv).join(",")),
+    ].join("\r\n");
 
-    const headerRow = headers.map(h => `<th>${escapeHtmlForCell(h)}</th>`).join('');
-    const dataRows = rows.map(row =>
-      '<tr>' + row.map(cell => `<td>${escapeHtmlForCell(cell)}</td>`).join('') + '</tr>'
-    ).join('\n');
-
-    const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
-<head><meta charset="utf-8"><!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>Migration</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]--></head>
-<body><table border="1"><thead><tr>${headerRow}</tr></thead><tbody>${dataRows}</tbody></table></body></html>`;
-
-    const blob = new Blob(['\uFEFF' + html], { type: 'application/vnd.ms-excel;charset=utf-8' });
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `content_migration_${new Date().toISOString().slice(0, 10)}.xls`;
+    a.download = `content_migration_${new Date().toISOString().slice(0, 10)}.csv`;
     document.body.appendChild(a);
     a.click();
     setTimeout(() => {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     }, 500);
-    toast({ title: "Excel file downloaded" });
+    toast({ title: "Excel-compatible CSV downloaded" });
   };
 
   const downloadJSON = () => {
