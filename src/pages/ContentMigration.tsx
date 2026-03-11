@@ -536,9 +536,14 @@ ${sourceHtml.substring(0, 8000)}`;
                     )}
                   </Button>
                   {doneCount > 0 && (
-                    <Button variant="outline" onClick={downloadXLSX} className="gap-2">
-                      <Download className="h-4 w-4" /> Download Excel ({doneCount})
-                    </Button>
+                    <>
+                      <Button variant="outline" onClick={downloadXLSX} className="gap-2">
+                        <Download className="h-4 w-4" /> Download Excel ({doneCount})
+                      </Button>
+                      <Button variant="outline" onClick={downloadJSON} className="gap-2">
+                        <Download className="h-4 w-4" /> Download JSON ({doneCount})
+                      </Button>
+                    </>
                   )}
                   <Button variant="ghost" onClick={clearAll} disabled={isProcessing} className="gap-2 text-destructive">
                     <Trash2 className="h-4 w-4" /> Clear All
