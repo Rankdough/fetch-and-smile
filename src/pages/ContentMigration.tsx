@@ -693,7 +693,28 @@ ${xmlRows}
           )}
         </div>
 
-        {/* Word Count & Tone of Voice */}
+        {/* CTA Banner */}
+        <div className="rounded-lg border bg-card px-4 py-3 space-y-3">
+          <Label className="text-sm font-semibold">CTA Banner</Label>
+          <p className="text-xs text-muted-foreground">
+            {ctaUrl.trim() ? `CTA → ${ctaUrl.trim().substring(0, 40)}...` : "No CTA — leave empty to skip"}
+          </p>
+          <div className="space-y-2">
+            <Input
+              placeholder="CTA destination URL (e.g. https://shop.example.com/product)"
+              value={ctaUrl}
+              onChange={(e) => { setCtaUrl(e.target.value); localStorage.setItem("migration-cta-url", e.target.value); }}
+            />
+            <Textarea
+              placeholder="CTA instructions (e.g. Promote our gluten-free advent calendar range, highlight free shipping)"
+              value={ctaInstruction}
+              onChange={(e) => { setCtaInstruction(e.target.value); localStorage.setItem("migration-cta-instruction", e.target.value); }}
+              rows={2}
+              className="text-sm"
+            />
+          </div>
+        </div>
+
         <div className="rounded-lg border bg-card px-4 py-3 space-y-4">
           <div className="space-y-2">
             <Label className="text-sm font-semibold">Target Word Count</Label>
