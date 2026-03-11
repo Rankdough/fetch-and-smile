@@ -534,7 +534,7 @@ ${sourceHtml.substring(0, 8000)}`;
       const r = e.result!;
       const maybeStripH1 = (html: string) => skipTitleInHtml ? stripH1FromHtml(html) : html;
       return [
-        r.type ?? "", "", r.url ?? "", "",
+        r.type ?? "", (r.imageUrls || []).join("\n"), r.url ?? "", "",
         r.title ?? "", r.title ?? "", r.titleNL ?? "", r.titleDE ?? "",
         r.subtitle ?? "", r.subtitleNL ?? "", r.subtitleDE ?? "",
         maybeStripH1(r.content ?? ""), maybeStripH1(r.content ?? ""), maybeStripH1(r.contentNL ?? ""), maybeStripH1(r.contentDE ?? ""),
