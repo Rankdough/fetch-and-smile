@@ -188,16 +188,21 @@ export default function ContentMigration() {
       const topicMatch = sourceMarkdown.match(/^#\s+(.+)$/m) || sourceMarkdown.match(/^(.{10,80})/);
       const topic = topicMatch ? topicMatch[1].trim() : "Article";
 
-      const instructions = `CONTENT MIGRATION: The following content has been scraped from a web page. Use it as the source material to create a full SEO-optimised article following all standard article rules.
+      const instructions = `REFORMAT ONLY: The following content has been scraped from a web page. Restructure it into the standard article format (TL;DR, Quick Tips, In This Article navigation, question-based H2 headings, FAQ, References) but preserve the original text, facts, and voice as closely as possible. Do not invent new information. Only reorganise and add the required structural elements.
 
-IMPORTANT GUIDELINES:
-- Preserve ALL factual content and data from the source - do not invent new facts
-- Preserve ALL hyperlinks from the source content - cross-reference the HTML source below and include every link you find
-- Keep the original topic and key sections from the source, but expand with additional SEO sections (comparison tables, "Which Option Should You Choose?", "How Do They Compare Side by Side?", etc.)
-- CRITICAL: When listing products, brands, options, or items, ALWAYS use markdown tables (not numbered lists or bullet lists). For example, if the source lists "safe" products and "unsafe" products, present each group as a table with relevant columns (Name, Key Feature, Certification, etc.)
-- Do NOT add a "Link" or "Product Link" column to tables
+CRITICAL - PRESERVE ORIGINAL TITLES: Keep the original H1 title and all H2/H3 section headings from the source content EXACTLY as they are. Do NOT rename, rephrase, or convert them into questions. The heading text must remain unchanged - only add the required structural sections (TL;DR, Quick Tips, In This Article, FAQ, References) around the existing content.
+
+CRITICAL - PRESERVE ALL HYPERLINKS: Cross-reference the HTML source below and include EVERY hyperlink found in the source content. Embed them naturally in the text where they originally appeared.
+
+CRITICAL - USE TABLES FOR LISTS: When the source lists products, brands, options, or items (e.g. "safe calendars", "unsafe calendars"), ALWAYS present them as markdown tables with relevant columns (Name, Key Feature, Status, etc.) instead of numbered or bullet lists. Do NOT add a "Link" or "Product Link" column to tables.
+
+ADDITIONAL RULES:
+- Add comparison sections where relevant: "Which Option Should You Choose?", "How Do They Compare Side by Side?" with comparison tables
 - Do NOT include expert quotes or blockquote citations from named individuals
 - Do NOT include an "In This Article" navigation section - this is added automatically during HTML conversion
+- Do NOT duplicate any section - each structural element should appear exactly once
+
+STRICT WORD COUNT LIMIT: The final article MUST NOT exceed ${targetWordCount} words. If the source content is longer, condense and summarise less important details to fit. Aim for exactly ${targetWordCount} words.
 
 HTML SOURCE FOR LINK REFERENCE:
 ${sourceHtml.substring(0, 8000)}`;
