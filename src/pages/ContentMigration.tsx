@@ -227,10 +227,10 @@ export default function ContentMigration() {
 
   const escapeTSV = (val: string): string => {
     if (!val) return '';
-    // Standard CSV/TSV quoting: wrap in double quotes, escape internal " as ""
-    // This preserves the full HTML (quotes, newlines, tabs) inside the cell
-    const escaped = val.replace(/"/g, '""');
-    return `"${escaped}"`;
+    // TSV uses tabs as delimiters (not commas/quotes), so double quotes are safe as-is.
+    // Only replace tabs and newlines to maintain single-cell integrity.
+    // HTML doesn't need newlines to render, so this keeps the markup fully valid.
+    return val.replace(/\t/g, ' ').replace(/\r?\n/g, ' ');
   };
 
   const downloadCSV = () => {
