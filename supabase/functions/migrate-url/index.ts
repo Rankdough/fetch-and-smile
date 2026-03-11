@@ -309,9 +309,7 @@ ${sourceHtml.substring(0, 15000)}`;
     // Strip markdown code fences if present
     content = content.replace(/^```html?\s*\n?/i, "").replace(/\n?```\s*$/i, "").trim();
 
-    // CRITICAL: Convert inline styles to CSS classes for Shopify compatibility
-    // Shopify strips inline style="" attributes, so we must use a <style> block
-    content = convertInlineStylesToClasses(content);
+    // Keep inline styles as-is — CMS editors need them directly on elements
 
     console.log("Generated content length:", content.length, "title:", title);
 
