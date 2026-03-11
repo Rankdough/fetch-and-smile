@@ -86,6 +86,8 @@ export default function ContentMigration() {
   const [skipFaqs, setSkipFaqs] = useState(() => localStorage.getItem("migration-skip-faqs") === "true");
   const [skipSources, setSkipSources] = useState(() => localStorage.getItem("migration-skip-sources") === "true");
   const [skipTitleInHtml, setSkipTitleInHtml] = useState(() => localStorage.getItem("migration-skip-title-html") === "true");
+  const [ctaUrl, setCtaUrl] = useState(() => localStorage.getItem("migration-cta-url") || "");
+  const [ctaInstruction, setCtaInstruction] = useState(() => localStorage.getItem("migration-cta-instruction") || "");
   const [colorOpen, setColorOpen] = useState(false);
   const [outputOpen, setOutputOpen] = useState(false);
   const [targetWordCount, setTargetWordCount] = useState<number>(() => {
