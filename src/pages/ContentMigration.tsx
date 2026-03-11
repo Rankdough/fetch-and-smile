@@ -503,7 +503,7 @@ ${sourceHtml.substring(0, 8000)}`;
                   </Button>
                   {doneCount > 0 && (
                     <Button variant="outline" onClick={downloadCSV} className="gap-2">
-                      <Download className="h-4 w-4" /> Download TSV ({doneCount})
+                      <Download className="h-4 w-4" /> Download CSV ({doneCount})
                     </Button>
                   )}
                   <Button variant="ghost" onClick={clearAll} disabled={isProcessing} className="gap-2 text-destructive">
