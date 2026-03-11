@@ -150,7 +150,10 @@ export function markdownToStyledHtml(
 
     if (isQuickTip) {
       tipIndex++;
-      if (firstStrong) firstStrong.remove();
+      // Remove "Tip N:" prefix OR any leading bold label (e.g. "**Always check:**")
+      if (firstStrong && /^Tip \d+:?/i.test(firstStrong.textContent || "")) {
+        firstStrong.remove();
+      }
 
       const circleSpan = doc.createElement("span");
       circleSpan.setAttribute("style", `display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; background: ${primaryColor}; border-radius: 50%; color: white; font-weight: 700; font-size: 14px; margin-right: 12px; flex-shrink: 0; vertical-align: middle;`);
