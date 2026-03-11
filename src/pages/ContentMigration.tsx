@@ -671,7 +671,7 @@ function ContentBlock({ content, field, copiedField, isEditing, onCopy, onChange
   content: string; field: string; copiedField: string | null; isEditing: boolean; label: string;
   onCopy: (f: string, v: string) => void; onChange?: (value: string) => void;
 }) {
-  const contentRef = React.useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
 
   return (
     <div className="space-y-1">
