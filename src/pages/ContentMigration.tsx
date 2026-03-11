@@ -157,11 +157,21 @@ export default function ContentMigration() {
       // Convert Markdown → styled HTML on client side (same logic as SEO Generator)
       const palette = selectedColorPalette || undefined;
       const convertOpts = { skipNavigation, skipQuickTips, skipFaqs, skipSources };
+      
+      console.log("[Migration] Raw content preview (first 200 chars):", (rawData.content || "").substring(0, 200));
+      
+      const convertedContent = markdownToStyledHtml(rawData.content || "", palette, convertOpts);
+      const convertedContentNL = markdownToStyledHtml(rawData.contentNL || "", palette, convertOpts);
+      const convertedContentDE = markdownToStyledHtml(rawData.contentDE || "", palette, convertOpts);
+      
+      console.log("[Migration] Converted content preview (first 200 chars):", convertedContent.substring(0, 200));
+      console.log("[Migration] Content starts with '<'?", convertedContent.startsWith("<"));
+      
       const data = {
         ...rawData,
-        content: markdownToStyledHtml(rawData.content || "", palette, convertOpts),
-        contentNL: markdownToStyledHtml(rawData.contentNL || "", palette, convertOpts),
-        contentDE: markdownToStyledHtml(rawData.contentDE || "", palette, convertOpts),
+        content: convertedContent,
+        contentNL: convertedContentNL,
+        contentDE: convertedContentDE,
       };
 
       // Save result to DB
