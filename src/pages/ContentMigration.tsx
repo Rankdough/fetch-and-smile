@@ -127,52 +127,101 @@ export default function ContentMigration() {
 
   const processUrl = useCallback(async (entry: UrlEntry): Promise<UrlEntry> => {
     try {
-      // Use raw fetch with extended timeout (3 min) since this function does scraping + AI + translations
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 180000);
+      // === STEP 1: Scrape URL (same function as SEO Generator's Import URL) ===
+      console.log("[Migration] Step 1: Scraping", entry.url);
+      const { data: scrapeData, error: scrapeError } = await supabase.functions.invoke("scrape-format", {
+        body: { url: entry.url },
+      });
+      if (scrapeError) throw new Error(`Scrape failed: ${scrapeError.message}`);
       
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/migrate-url`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-            "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-          },
-          body: JSON.stringify({ url: entry.url, type: entry.type, colorPalette: selectedColorPalette, skipNavigation, skipQuickTips, skipFaqs, skipSources }),
-          signal: controller.signal,
-        }
-      );
-      clearTimeout(timeoutId);
+      const sourceMarkdown = scrapeData.markdown || "";
+      const sourceHtml = scrapeData.html || "";
+      const pageTitle = scrapeData.title || "";
       
-      if (!response.ok) {
-        const errBody = await response.text();
-        throw new Error(errBody || `HTTP ${response.status}`);
+      if (!sourceMarkdown.trim()) {
+        throw new Error("No content could be extracted from the URL");
+      }
+      console.log("[Migration] Scraped", sourceMarkdown.length, "chars, title:", pageTitle);
+
+      // === STEP 2: Generate article content (same function as SEO Generator) ===
+      console.log("[Migration] Step 2: Generating article content");
+      
+      const instructions = `REFORMAT ONLY: The following content has been scraped from a web page. Restructure it into the standard article format (TL;DR, Quick Tips, In This Article navigation, question-based H2 headings, FAQ, References) but preserve the original text, facts, and voice as closely as possible. Do not invent new information. Only reorganise and add the required structural elements.
+
+CRITICAL - PRESERVE ALL HYPERLINKS: The source content contains hyperlinks. You MUST preserve ALL of them in your output using markdown link syntax [text](url). Cross-reference the HTML source below to find any links that might be missing from the markdown.
+
+CRITICAL - PRESERVE ORIGINAL TITLES: Keep the original H1 title and all H2/H3 section headings from the source content EXACTLY as they are. Do NOT rename, rephrase, or convert them into questions. The heading text must remain unchanged.
+
+HTML SOURCE FOR LINK REFERENCE:
+${sourceHtml.substring(0, 8000)}`;
+      
+      const topicMatch = sourceMarkdown.match(/^#\s+(.+)$/m) || sourceMarkdown.match(/^(.{10,80})/);
+      const topic = topicMatch ? topicMatch[1].trim() : "Article";
+      
+      const { data: contentData, error: contentError } = await supabase.functions.invoke("generate-content", {
+        body: {
+          topic,
+          length: "long",
+          wordCount: 2000,
+          instructions,
+          contextFiles: [{ name: "source-content", content: sourceMarkdown.substring(0, 12000) }],
+          skipFaqs,
+          skipQuickTips,
+          skipSources,
+        },
+      });
+      if (contentError) throw new Error(`Content generation failed: ${contentError.message}`);
+      
+      const generatedMarkdown = contentData.content || contentData.generatedContent || "";
+      if (!generatedMarkdown.trim()) throw new Error("No content returned from generation");
+      console.log("[Migration] Generated", generatedMarkdown.length, "chars markdown");
+
+      // Extract SEO metadata from the generated content
+      const h1Match = generatedMarkdown.match(/^#\s+(.+)$/m);
+      const title = h1Match ? h1Match[1].trim() : pageTitle;
+      const firstParagraph = generatedMarkdown.match(/^(?!#)(?!>)(?!\|)(?!-)(.{20,200})/m);
+      const subtitle = firstParagraph ? firstParagraph[1].trim() : "";
+      const seoTitle = title.length > 60 ? title.substring(0, 57) + "..." : title;
+      const seoDescription = subtitle.length > 160 ? subtitle.substring(0, 157) + "..." : subtitle;
+
+      // === STEP 3: Translate to NL and DE ===
+      console.log("[Migration] Step 3: Translating to NL + DE");
+      const { data: translationData, error: translationError } = await supabase.functions.invoke("translate-content", {
+        body: { title, subtitle, seoTitle, seoDescription, content: generatedMarkdown },
+      });
+      if (translationError) {
+        console.error("[Migration] Translation failed, continuing with EN only:", translationError);
       }
       
-      const rawData = await response.json();
-      if (rawData?.error) throw new Error(rawData.error);
+      const nl = translationData?.nl || { title: "", subtitle: "", seoTitle: "", seoDescription: "", content: "" };
+      const de = translationData?.de || { title: "", subtitle: "", seoTitle: "", seoDescription: "", content: "" };
 
-      // Convert Markdown → styled HTML on client side (same logic as SEO Generator)
+      // === STEP 4: Convert Markdown → styled HTML (client-side, same as Copy HTML) ===
+      console.log("[Migration] Step 4: Converting markdown to styled HTML");
       const palette = selectedColorPalette || undefined;
       const convertOpts = { skipNavigation, skipQuickTips, skipFaqs, skipSources };
       
-      console.log("[Migration] Raw content preview (first 200 chars):", (rawData.content || "").substring(0, 200));
-      
-      const convertedContent = markdownToStyledHtml(rawData.content || "", palette, convertOpts);
-      const convertedContentNL = markdownToStyledHtml(rawData.contentNL || "", palette, convertOpts);
-      const convertedContentDE = markdownToStyledHtml(rawData.contentDE || "", palette, convertOpts);
-      
-      console.log("[Migration] Converted content preview (first 200 chars):", convertedContent.substring(0, 200));
-      console.log("[Migration] Content starts with '<'?", convertedContent.startsWith("<"));
-      
-      const data = {
-        ...rawData,
-        content: convertedContent,
-        contentNL: convertedContentNL,
-        contentDE: convertedContentDE,
+      const data: MigrationResult = {
+        url: entry.url,
+        type: entry.type,
+        title,
+        subtitle,
+        seoTitle,
+        seoDescription,
+        content: markdownToStyledHtml(generatedMarkdown, palette, convertOpts),
+        titleNL: nl.title,
+        subtitleNL: nl.subtitle,
+        seoTitleNL: nl.seoTitle,
+        seoDescriptionNL: nl.seoDescription,
+        contentNL: markdownToStyledHtml(nl.content || "", palette, convertOpts),
+        titleDE: de.title,
+        subtitleDE: de.subtitle,
+        seoTitleDE: de.seoTitle,
+        seoDescriptionDE: de.seoDescription,
+        contentDE: markdownToStyledHtml(de.content || "", palette, convertOpts),
       };
+
+      console.log("[Migration] Complete. HTML starts with '<':", data.content.startsWith("<"));
 
       // Save result to DB
       if (entry.id) {
@@ -185,6 +234,7 @@ export default function ContentMigration() {
       return { ...entry, status: "done", result: sanitizeResult(data) };
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Unknown error";
+      console.error("[Migration] Error processing", entry.url, msg);
 
       if (entry.id) {
         await supabase
