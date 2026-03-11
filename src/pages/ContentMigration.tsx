@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useMemo, useRef } from "react"; // v2
 
 import { markdownToStyledHtml } from "@/utils/markdownToStyledHtml";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -77,6 +78,23 @@ export default function ContentMigration() {
   const [skipSources, setSkipSources] = useState(() => localStorage.getItem("migration-skip-sources") === "true");
   const [colorOpen, setColorOpen] = useState(false);
   const [outputOpen, setOutputOpen] = useState(false);
+  const [targetWordCount, setTargetWordCount] = useState<number>(() => {
+    const saved = localStorage.getItem("migration-word-count");
+    return saved ? parseInt(saved, 10) : 2000;
+  });
+  const [selectedToneProfileId, setSelectedToneProfileId] = useState<string | null>(() => {
+    return localStorage.getItem("migration-tone-profile") || null;
+  });
+  const [toneProfiles, setToneProfiles] = useState<Array<{ id: string; name: string }>>([]);
+
+  // Load tone profiles
+  useEffect(() => {
+    const loadProfiles = async () => {
+      const { data } = await supabase.from("tone_profiles").select("id, name").order("name");
+      if (data) setToneProfiles(data);
+    };
+    loadProfiles();
+  }, []);
 
   // Load saved jobs on mount
   useEffect(() => {
@@ -148,42 +166,103 @@ export default function ContentMigration() {
 
   const processUrl = useCallback(async (entry: UrlEntry): Promise<UrlEntry> => {
     try {
-      console.log("[Migration] Processing", entry.url, "via migrate-url");
-      const { data: migrateData, error: migrateError } = await supabase.functions.invoke("migrate-url", {
+      // === STEP 1: Scrape URL ===
+      console.log("[Migration] Step 1: Scraping", entry.url);
+      const { data: scrapeData, error: scrapeError } = await supabase.functions.invoke("scrape-format", {
+        body: { url: entry.url },
+      });
+      if (scrapeError) throw new Error(`Scrape failed: ${scrapeError.message}`);
+
+      const sourceMarkdown = scrapeData.markdown || "";
+      const sourceHtml = scrapeData.html || "";
+      const pageTitle = scrapeData.title || "";
+
+      if (!sourceMarkdown.trim()) {
+        throw new Error("No content could be extracted from the URL");
+      }
+      console.log("[Migration] Scraped", sourceMarkdown.length, "chars, title:", pageTitle);
+
+      // === STEP 2: Generate article via SEO Content Generator ===
+      console.log("[Migration] Step 2: Generating article via generate-content");
+
+      const topicMatch = sourceMarkdown.match(/^#\s+(.+)$/m) || sourceMarkdown.match(/^(.{10,80})/);
+      const topic = topicMatch ? topicMatch[1].trim() : "Article";
+
+      const instructions = `CONTENT MIGRATION: The following content has been scraped from a web page. Use it as the source material to create a full SEO-optimised article following all standard article rules.
+
+IMPORTANT GUIDELINES:
+- Preserve ALL factual content and data from the source - do not invent new facts
+- Preserve ALL hyperlinks from the source content - cross-reference the HTML source below
+- Keep the original topic and key sections from the source, but expand with additional SEO sections (comparison tables, "Which Option Should You Choose?", "How Do They Compare Side by Side?", etc.)
+- Add comparison tables where relevant - any lists of items/products/options should be in table format
+- Do NOT add a "Link" or "Product Link" column to tables
+- Do NOT include expert quotes or blockquote citations from named individuals
+
+HTML SOURCE FOR LINK REFERENCE:
+${sourceHtml.substring(0, 8000)}`;
+
+      const { data: contentData, error: contentError } = await supabase.functions.invoke("generate-content", {
         body: {
-          url: entry.url,
-          type: entry.type,
-          colorPalette: selectedColorPalette?.id || undefined,
-          skipNavigation,
-          skipQuickTips,
+          topic,
+          length: "long",
+          wordCount: targetWordCount,
+          instructions,
+          contextFiles: [{ name: "source-content", content: sourceMarkdown.substring(0, 12000) }],
+          toneProfileId: selectedToneProfileId || undefined,
           skipFaqs,
+          skipQuickTips,
           skipSources,
         },
       });
-      if (migrateError) throw new Error(`Migration failed: ${migrateError.message}`);
+      if (contentError) throw new Error(`Content generation failed: ${contentError.message}`);
 
-      // migrate-url returns Markdown content — convert to styled HTML client-side
+      const generatedMarkdown = contentData.content || contentData.generatedContent || "";
+      if (!generatedMarkdown.trim()) throw new Error("No content returned from generation");
+      console.log("[Migration] Generated", generatedMarkdown.length, "chars markdown");
+
+      // Extract SEO metadata from generated content
+      const h1Match = generatedMarkdown.match(/^#\s+(.+)$/m);
+      const title = h1Match ? h1Match[1].trim() : pageTitle;
+      const firstParagraph = generatedMarkdown.match(/^(?!#)(?!>)(?!\|)(?!-)(.{20,200})/m);
+      const subtitle = firstParagraph ? firstParagraph[1].trim() : "";
+      const seoTitle = title.length > 60 ? title.substring(0, 57) + "..." : title;
+      const seoDescription = subtitle.length > 160 ? subtitle.substring(0, 157) + "..." : subtitle;
+
+      // === STEP 3: Translate to NL and DE ===
+      console.log("[Migration] Step 3: Translating to NL + DE");
+      const { data: translationData, error: translationError } = await supabase.functions.invoke("translate-content", {
+        body: { title, subtitle, seoTitle, seoDescription, content: generatedMarkdown },
+      });
+      if (translationError) {
+        console.error("[Migration] Translation failed, continuing with EN only:", translationError);
+      }
+
+      const nl = translationData?.nl || { title: "", subtitle: "", seoTitle: "", seoDescription: "", content: "" };
+      const de = translationData?.de || { title: "", subtitle: "", seoTitle: "", seoDescription: "", content: "" };
+
+      // === STEP 4: Convert Markdown → styled HTML ===
+      console.log("[Migration] Step 4: Converting markdown to styled HTML");
       const palette = selectedColorPalette || undefined;
       const convertOpts = { skipNavigation, skipQuickTips, skipFaqs, skipSources };
 
       const data: MigrationResult = {
-        url: migrateData.url || entry.url,
-        type: migrateData.type || entry.type,
-        title: migrateData.title || "",
-        subtitle: migrateData.subtitle || "",
-        seoTitle: migrateData.seoTitle || "",
-        seoDescription: migrateData.seoDescription || "",
-        content: markdownToStyledHtml(migrateData.content || "", palette, convertOpts),
-        titleNL: migrateData.titleNL || "",
-        subtitleNL: migrateData.subtitleNL || "",
-        seoTitleNL: migrateData.seoTitleNL || "",
-        seoDescriptionNL: migrateData.seoDescriptionNL || "",
-        contentNL: markdownToStyledHtml(migrateData.contentNL || "", palette, convertOpts),
-        titleDE: migrateData.titleDE || "",
-        subtitleDE: migrateData.subtitleDE || "",
-        seoTitleDE: migrateData.seoTitleDE || "",
-        seoDescriptionDE: migrateData.seoDescriptionDE || "",
-        contentDE: markdownToStyledHtml(migrateData.contentDE || "", palette, convertOpts),
+        url: entry.url,
+        type: entry.type,
+        title,
+        subtitle,
+        seoTitle,
+        seoDescription,
+        content: markdownToStyledHtml(generatedMarkdown, palette, convertOpts),
+        titleNL: nl.title,
+        subtitleNL: nl.subtitle,
+        seoTitleNL: nl.seoTitle,
+        seoDescriptionNL: nl.seoDescription,
+        contentNL: markdownToStyledHtml(nl.content || "", palette, convertOpts),
+        titleDE: de.title,
+        subtitleDE: de.subtitle,
+        seoTitleDE: de.seoTitle,
+        seoDescriptionDE: de.seoDescription,
+        contentDE: markdownToStyledHtml(de.content || "", palette, convertOpts),
       };
 
       console.log("[Migration] Complete. HTML starts with '<':", data.content.startsWith("<"));
@@ -210,7 +289,7 @@ export default function ContentMigration() {
 
       return { ...entry, status: "error", error: msg };
     }
-  }, [selectedColorPalette, skipNavigation, skipQuickTips, skipFaqs, skipSources]);
+  }, [selectedColorPalette, skipNavigation, skipQuickTips, skipFaqs, skipSources, targetWordCount, selectedToneProfileId]);
 
   const startProcessing = async () => {
     setIsProcessing(true);
@@ -456,6 +535,53 @@ export default function ContentMigration() {
           )}
         </div>
 
+        {/* Word Count & Tone of Voice */}
+        <div className="rounded-lg border bg-card px-4 py-3 space-y-4">
+          <div className="space-y-2">
+            <Label className="text-sm font-semibold">Target Word Count</Label>
+            <Select
+              value={String(targetWordCount)}
+              onValueChange={(v) => {
+                const wc = parseInt(v, 10);
+                setTargetWordCount(wc);
+                localStorage.setItem("migration-word-count", String(wc));
+              }}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="500">Short (~500 words)</SelectItem>
+                <SelectItem value="1000">Medium (~1,000 words)</SelectItem>
+                <SelectItem value="1500">Medium-Long (~1,500 words)</SelectItem>
+                <SelectItem value="2000">Long (~2,000 words)</SelectItem>
+                <SelectItem value="3000">Extended (~3,000 words)</SelectItem>
+                <SelectItem value="3500">Comprehensive (~3,500 words)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label className="text-sm font-semibold">Tone of Voice</Label>
+            <Select
+              value={selectedToneProfileId || "none"}
+              onValueChange={(v) => {
+                const val = v === "none" ? null : v;
+                setSelectedToneProfileId(val);
+                localStorage.setItem("migration-tone-profile", val || "");
+              }}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="No tone profile" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">No tone profile</SelectItem>
+                {toneProfiles.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
         {/* Input */}
         <Card>
           <CardHeader>
