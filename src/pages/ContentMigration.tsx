@@ -7,9 +7,11 @@ import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, Download, CheckCircle2, XCircle, ArrowLeft, Play, Eye, Trash2, Copy, Check } from "lucide-react";
+import { Loader2, Download, CheckCircle2, XCircle, ArrowLeft, Play, Eye, Trash2, Copy, Check, Palette, Settings2, ChevronDown, ChevronUp } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { ColorPaletteSelector, COLOR_PALETTES, type ColorPalette } from "@/components/ColorPaletteSelector";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
@@ -64,7 +66,12 @@ export default function ContentMigration() {
     }
     return COLOR_PALETTES.find(p => p.id === "big-league") || null;
   });
-  
+  const [skipNavigation, setSkipNavigation] = useState(() => localStorage.getItem("migration-skip-nav") === "true");
+  const [skipQuickTips, setSkipQuickTips] = useState(() => localStorage.getItem("migration-skip-tips") === "true");
+  const [skipFaqs, setSkipFaqs] = useState(() => localStorage.getItem("migration-skip-faqs") === "true");
+  const [skipSources, setSkipSources] = useState(() => localStorage.getItem("migration-skip-sources") === "true");
+  const [colorOpen, setColorOpen] = useState(false);
+  const [outputOpen, setOutputOpen] = useState(false);
 
   // Load saved jobs on mount
   useEffect(() => {
@@ -120,7 +127,7 @@ export default function ContentMigration() {
   const processUrl = useCallback(async (entry: UrlEntry): Promise<UrlEntry> => {
     try {
       const { data, error } = await supabase.functions.invoke("migrate-url", {
-        body: { url: entry.url, type: entry.type, colorPalette: selectedColorPalette },
+        body: { url: entry.url, type: entry.type, colorPalette: selectedColorPalette, skipNavigation, skipQuickTips, skipFaqs, skipSources },
       });
 
       if (error) throw error;
@@ -147,7 +154,7 @@ export default function ContentMigration() {
 
       return { ...entry, status: "error", error: msg };
     }
-  }, [selectedColorPalette]);
+  }, [selectedColorPalette, skipNavigation, skipQuickTips, skipFaqs, skipSources]);
 
   const startProcessing = async () => {
     setIsProcessing(true);
@@ -258,14 +265,26 @@ export default function ContentMigration() {
       </header>
 
       <main className="container mx-auto px-4 py-8 max-w-4xl space-y-6">
-        {/* Input */}
-        <Card>
-          <CardHeader>
-            <CardTitle>URLs to Process</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <label className="text-sm font-medium mb-2 block">Color Palette</label>
+        {/* Color Scheme */}
+        <div
+          className="rounded-lg border bg-card cursor-pointer"
+          onClick={() => setColorOpen(!colorOpen)}
+        >
+          <div className="flex items-center gap-3 px-4 py-3">
+            {selectedColorPalette && (
+              <div
+                className="h-6 w-6 rounded-full border-2 border-background shadow-sm flex-shrink-0"
+                style={{ background: selectedColorPalette.primary }}
+              />
+            )}
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold">Color Scheme</p>
+              <p className="text-xs text-muted-foreground">{selectedColorPalette?.name || "Default"}</p>
+            </div>
+            {colorOpen ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+          </div>
+          {colorOpen && (
+            <div className="px-4 pb-4" onClick={(e) => e.stopPropagation()}>
               <ColorPaletteSelector
                 selectedPalette={selectedColorPalette}
                 onSelectPalette={(p) => {
@@ -274,6 +293,53 @@ export default function ContentMigration() {
                 }}
               />
             </div>
+          )}
+        </div>
+
+        {/* Output Options */}
+        <div
+          className="rounded-lg border bg-card cursor-pointer"
+          onClick={() => setOutputOpen(!outputOpen)}
+        >
+          <div className="flex items-center gap-3 px-4 py-3">
+            <Settings2 className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold">Output Options</p>
+              <p className="text-xs text-muted-foreground">
+                {[skipNavigation && "Navigation", skipQuickTips && "Quick Tips", skipFaqs && "FAQs", skipSources && "Sources"].filter(Boolean).join(", ") || "All sections included"}
+                {[skipNavigation, skipQuickTips, skipFaqs, skipSources].some(Boolean) ? " skipped" : ""}
+              </p>
+            </div>
+            {outputOpen ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+          </div>
+          {outputOpen && (
+            <div className="px-4 pb-4 space-y-3" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="skip-nav" className="text-sm cursor-pointer">Skip "In This Article" Navigation</Label>
+                <Switch id="skip-nav" checked={skipNavigation} onCheckedChange={(v) => { setSkipNavigation(v); localStorage.setItem("migration-skip-nav", String(v)); }} />
+              </div>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="skip-tips" className="text-sm cursor-pointer">Skip Quick Tips</Label>
+                <Switch id="skip-tips" checked={skipQuickTips} onCheckedChange={(v) => { setSkipQuickTips(v); localStorage.setItem("migration-skip-tips", String(v)); }} />
+              </div>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="skip-faqs" className="text-sm cursor-pointer">Skip FAQs</Label>
+                <Switch id="skip-faqs" checked={skipFaqs} onCheckedChange={(v) => { setSkipFaqs(v); localStorage.setItem("migration-skip-faqs", String(v)); }} />
+              </div>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="skip-sources" className="text-sm cursor-pointer">Skip Sources & References</Label>
+                <Switch id="skip-sources" checked={skipSources} onCheckedChange={(v) => { setSkipSources(v); localStorage.setItem("migration-skip-sources", String(v)); }} />
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Input */}
+        <Card>
+          <CardHeader>
+            <CardTitle>URLs to Process</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
             <Textarea
               placeholder="Paste URLs, one per line..."
               value={urlInput}
