@@ -369,6 +369,11 @@ ${sourceHtml.substring(0, 8000)}`;
 
       console.log("[Migration] Complete. HTML starts with '<':", data.content.startsWith("<"));
 
+      // === STEP 5: Quality checks ===
+      const qualityChecks = runQualityChecks(data, generatedMarkdown, targetWordCount);
+      const passCount = qualityChecks.filter(c => c.passed).length;
+      console.log(`[Migration] Quality: ${passCount}/${qualityChecks.length} checks passed`);
+
       // Save result to DB
       if (entry.id) {
         await supabase
@@ -377,7 +382,7 @@ ${sourceHtml.substring(0, 8000)}`;
           .eq("id", entry.id);
       }
 
-      return { ...entry, status: "done", result: sanitizeResult(data) };
+      return { ...entry, status: "done", result: sanitizeResult(data), qualityChecks };
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Unknown error";
       console.error("[Migration] Error processing", entry.url, msg);
