@@ -313,17 +313,12 @@ ${sourceHtml.substring(0, 15000)}`;
 
     console.log("Generated content length:", content.length, "title:", title);
 
-    // Step 3: Translate to NL (translate AFTER style conversion so classes are preserved)
-    console.log("Step 3: Translating to NL");
-    const nlResult = await translateContent(LOVABLE_API_KEY, {
-      title, subtitle, seoTitle, seoDescription, content
-    }, "Dutch (NL)");
-
-    // Step 4: Translate to DE
-    console.log("Step 4: Translating to DE");
-    const deResult = await translateContent(LOVABLE_API_KEY, {
-      title, subtitle, seoTitle, seoDescription, content
-    }, "German (DE)");
+    // Step 3+4: Translate to NL and DE in parallel
+    console.log("Step 3+4: Translating to NL and DE in parallel");
+    const [nlResult, deResult] = await Promise.all([
+      translateContent(LOVABLE_API_KEY, { title, subtitle, seoTitle, seoDescription, content }, "Dutch (NL)"),
+      translateContent(LOVABLE_API_KEY, { title, subtitle, seoTitle, seoDescription, content }, "German (DE)"),
+    ]);
 
     console.log("All steps complete for", url);
 
