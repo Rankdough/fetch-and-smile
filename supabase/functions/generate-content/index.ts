@@ -134,11 +134,13 @@ CRITICAL: QUESTION-BASED HEADINGS RULE:
   3. A comparison table where relevant (at least ${requiredTables} tables total across the article)
   4. Source references at the end of the section
 
-CRITICAL TABLE REQUIREMENT:
+${migrationMode ? `TABLE RULE:
+- Use markdown tables where the source content contains list-style comparisons or product listings
+- Do NOT force tables where the source does not warrant them` : `CRITICAL TABLE REQUIREMENT:
 - You MUST include a MINIMUM of ${requiredTables} markdown comparison tables in the article
 - Tables should compare features, options, costs, benefits, or other relevant aspects
 - Each table must have at least 3 columns and 4+ rows
-- Spread tables throughout the article, not all at the end
+- Spread tables throughout the article, not all at the end`}
 
 ${skipSources ? `SOURCE REFERENCE RULES:
 - DO NOT include any **Sources:** lines after sections
