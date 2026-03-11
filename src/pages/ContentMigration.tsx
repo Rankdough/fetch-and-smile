@@ -78,6 +78,23 @@ export default function ContentMigration() {
   const [skipSources, setSkipSources] = useState(() => localStorage.getItem("migration-skip-sources") === "true");
   const [colorOpen, setColorOpen] = useState(false);
   const [outputOpen, setOutputOpen] = useState(false);
+  const [targetWordCount, setTargetWordCount] = useState<number>(() => {
+    const saved = localStorage.getItem("migration-word-count");
+    return saved ? parseInt(saved, 10) : 2000;
+  });
+  const [selectedToneProfileId, setSelectedToneProfileId] = useState<string | null>(() => {
+    return localStorage.getItem("migration-tone-profile") || null;
+  });
+  const [toneProfiles, setToneProfiles] = useState<Array<{ id: string; name: string }>>([]);
+
+  // Load tone profiles
+  useEffect(() => {
+    const loadProfiles = async () => {
+      const { data } = await supabase.from("tone_profiles").select("id, name").order("name");
+      if (data) setToneProfiles(data);
+    };
+    loadProfiles();
+  }, []);
 
   // Load saved jobs on mount
   useEffect(() => {
