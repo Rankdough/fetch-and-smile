@@ -126,9 +126,32 @@ export default function ContentMigration() {
 
   const processUrl = useCallback(async (entry: UrlEntry): Promise<UrlEntry> => {
     try {
-      const { data, error } = await supabase.functions.invoke("migrate-url", {
-        body: { url: entry.url, type: entry.type, colorPalette: selectedColorPalette, skipNavigation, skipQuickTips, skipFaqs, skipSources },
-      });
+      // Use raw fetch with extended timeout (3 min) since this function does scraping + AI + translations
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 180000);
+      
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/migrate-url`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
+          body: JSON.stringify({ url: entry.url, type: entry.type, colorPalette: selectedColorPalette, skipNavigation, skipQuickTips, skipFaqs, skipSources }),
+          signal: controller.signal,
+        }
+      );
+      clearTimeout(timeoutId);
+      
+      if (!response.ok) {
+        const errBody = await response.text();
+        throw new Error(errBody || `HTTP ${response.status}`);
+      }
+      
+      const data = await response.json();
+      const error = null;
 
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
