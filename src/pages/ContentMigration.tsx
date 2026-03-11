@@ -57,6 +57,9 @@ export default function ContentMigration() {
   const [entries, setEntries] = useState<UrlEntry[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [previewResult, setPreviewResult] = useState<MigrationResult | null>(null);
+  const [previewEntryIndex, setPreviewEntryIndex] = useState<number | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedResult, setEditedResult] = useState<MigrationResult | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedColorPalette, setSelectedColorPalette] = useState<ColorPalette | null>(() => {
