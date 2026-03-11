@@ -43,6 +43,12 @@ interface MigrationResult {
   error?: string;
 }
 
+interface QualityCheck {
+  label: string;
+  passed: boolean;
+  detail: string;
+}
+
 interface UrlEntry {
   id?: string; // DB id
   url: string;
@@ -50,6 +56,7 @@ interface UrlEntry {
   status: "pending" | "processing" | "done" | "error";
   result?: MigrationResult;
   error?: string;
+  qualityChecks?: QualityCheck[];
 }
 
 export default function ContentMigration() {
@@ -164,6 +171,91 @@ export default function ContentMigration() {
     setUrlInput("");
   };
 
+  const runQualityChecks = useCallback((result: MigrationResult, markdown: string, targetWc: number): QualityCheck[] => {
+    const checks: QualityCheck[] = [];
+    const htmlContent = result.content || "";
+    const mdLower = markdown.toLowerCase();
+
+    // 1. Structure check - same sections as Import URL / SEO Generator
+    const hasTldr = /##\s.*tl;?\s?dr/i.test(markdown);
+    const hasQuickTips = skipQuickTips || /##\s.*quick\s*tips/i.test(markdown);
+    const hasFaq = skipFaqs || /##\s.*frequently\s*asked|##\s.*faq/i.test(markdown);
+    const hasFinalThoughts = /##\s.*final\s*thoughts|##\s.*conclusion/i.test(markdown);
+    const hasReferences = skipSources || /##\s.*references/i.test(markdown);
+    const hasTable = /\|.+\|/.test(markdown);
+    const structureParts = [
+      hasTldr && "TL;DR",
+      hasQuickTips && "Quick Tips",
+      hasTable && "Tables",
+      hasFaq && "FAQ",
+      hasFinalThoughts && "Final Thoughts",
+      hasReferences && "References",
+    ].filter(Boolean) as string[];
+    const requiredCount = [true, !skipQuickTips, true, !skipFaqs, true, !skipSources].filter(Boolean).length;
+    const allPresent = structureParts.length === requiredCount;
+    checks.push({
+      label: "Article Structure",
+      passed: allPresent,
+      detail: allPresent ? `All sections present: ${structureParts.join(", ")}` : `Missing: ${[
+        !hasTldr && "TL;DR",
+        !hasQuickTips && !skipQuickTips && "Quick Tips",
+        !hasTable && "Tables",
+        !hasFaq && !skipFaqs && "FAQ",
+        !hasFinalThoughts && "Final Thoughts",
+        !hasReferences && !skipSources && "References",
+      ].filter(Boolean).join(", ")}`,
+    });
+
+    // 2. Word count check (±20% tolerance)
+    const wordCount = markdown.split(/\s+/).filter(Boolean).length;
+    const floor = Math.round(targetWc * 0.8);
+    const ceiling = Math.round(targetWc * 1.2);
+    const wcPassed = wordCount >= floor && wordCount <= ceiling;
+    checks.push({
+      label: "Word Count",
+      passed: wcPassed,
+      detail: `${wordCount} words (target: ${targetWc}, range: ${floor}-${ceiling})`,
+    });
+
+    // 3. HTML formatting check
+    const hasStyledHtml = htmlContent.startsWith("<");
+    const hasInlineStyles = htmlContent.includes("style=");
+    const hasH2Tags = /<h2/i.test(htmlContent);
+    const htmlPassed = hasStyledHtml && hasInlineStyles && hasH2Tags;
+    checks.push({
+      label: "HTML Formatting",
+      passed: htmlPassed,
+      detail: htmlPassed ? "Styled HTML with inline CSS, headings intact" : `Issues: ${[
+        !hasStyledHtml && "Not HTML",
+        !hasInlineStyles && "No inline styles",
+        !hasH2Tags && "No H2 tags",
+      ].filter(Boolean).join(", ")}`,
+    });
+
+    // 4. Export readiness check
+    const hasTitle = !!result.title?.trim();
+    const hasSeoTitle = !!result.seoTitle?.trim();
+    const hasSeoDesc = !!result.seoDescription?.trim();
+    const hasContent = htmlContent.length > 100;
+    const hasNL = !!result.contentNL?.trim();
+    const hasDE = !!result.contentDE?.trim();
+    const exportPassed = hasTitle && hasSeoTitle && hasSeoDesc && hasContent && hasNL && hasDE;
+    checks.push({
+      label: "Excel Export Ready",
+      passed: exportPassed,
+      detail: exportPassed ? "All fields populated (EN, NL, DE)" : `Missing: ${[
+        !hasTitle && "Title",
+        !hasSeoTitle && "SEO Title",
+        !hasSeoDesc && "SEO Description",
+        !hasContent && "Content",
+        !hasNL && "NL Translation",
+        !hasDE && "DE Translation",
+      ].filter(Boolean).join(", ")}`,
+    });
+
+    return checks;
+  }, [skipQuickTips, skipFaqs, skipSources]);
+
   const processUrl = useCallback(async (entry: UrlEntry): Promise<UrlEntry> => {
     try {
       // === STEP 1: Scrape URL ===
@@ -277,6 +369,11 @@ ${sourceHtml.substring(0, 8000)}`;
 
       console.log("[Migration] Complete. HTML starts with '<':", data.content.startsWith("<"));
 
+      // === STEP 5: Quality checks ===
+      const qualityChecks = runQualityChecks(data, generatedMarkdown, targetWordCount);
+      const passCount = qualityChecks.filter(c => c.passed).length;
+      console.log(`[Migration] Quality: ${passCount}/${qualityChecks.length} checks passed`);
+
       // Save result to DB
       if (entry.id) {
         await supabase
@@ -285,7 +382,7 @@ ${sourceHtml.substring(0, 8000)}`;
           .eq("id", entry.id);
       }
 
-      return { ...entry, status: "done", result: sanitizeResult(data) };
+      return { ...entry, status: "done", result: sanitizeResult(data), qualityChecks };
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Unknown error";
       console.error("[Migration] Error processing", entry.url, msg);
@@ -299,7 +396,7 @@ ${sourceHtml.substring(0, 8000)}`;
 
       return { ...entry, status: "error", error: msg };
     }
-  }, [selectedColorPalette, skipNavigation, skipQuickTips, skipFaqs, skipSources, targetWordCount, selectedToneProfileId]);
+  }, [selectedColorPalette, skipNavigation, skipQuickTips, skipFaqs, skipSources, targetWordCount, selectedToneProfileId, runQualityChecks]);
 
   const startProcessing = async () => {
     setIsProcessing(true);
@@ -697,6 +794,25 @@ ${xmlRows}
                     <Eye className="h-4 w-4" /> Preview
                   </Button>
                 )}
+              {/* Quality Checklist */}
+              {entry.status === "done" && entry.qualityChecks && entry.qualityChecks.length > 0 && (
+                <div className="mt-3 pt-3 border-t space-y-1.5">
+                  <p className="text-xs font-semibold text-muted-foreground mb-1">Quality Checks</p>
+                  {entry.qualityChecks.map((check, ci) => (
+                    <div key={ci} className="flex items-start gap-2 text-xs">
+                      {check.passed ? (
+                        <CheckCircle2 className="h-3.5 w-3.5 mt-0.5 text-emerald-600 shrink-0" />
+                      ) : (
+                        <XCircle className="h-3.5 w-3.5 mt-0.5 text-destructive shrink-0" />
+                      )}
+                      <span>
+                        <span className="font-medium">{check.label}:</span>{" "}
+                        <span className="text-muted-foreground">{check.detail}</span>
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
               </div>
             </CardContent>
           </Card>
