@@ -45,6 +45,17 @@ export function markdownToStyledHtml(
   // Remove FAQ section from markdown so it doesn't appear twice
   let cleanMarkdown = faqItems.length > 0 ? removeFAQSection(markdown) : markdown;
 
+  // Remove any raw "In This Article" section the AI may have generated (the styled one is injected later)
+  cleanMarkdown = cleanMarkdown.replace(/^#{1,4}\s*In This Article\s*\n([\s\S]*?)(?=^#{1,2}\s|\Z)/gm, (match) => {
+    // Only remove if it looks like a nav list (contains numbered items or bullet points)
+    if (/^\s*[-*•]\s*\*?\*?\d?\.*\s/m.test(match) || /^\d+\.\s/m.test(match)) {
+      return '';
+    }
+    return match;
+  });
+  // Also remove plain "In This Article" with bullet list pattern
+  cleanMarkdown = cleanMarkdown.replace(/\n*In This Article\s*\n+((?:\s*[-*•]\s+.+\n?)+)/gi, '\n');
+
   // 2. Convert Markdown → basic HTML
   const basicHtml = marked.parse(cleanMarkdown, { async: false }) as string;
 
