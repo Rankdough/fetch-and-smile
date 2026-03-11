@@ -265,14 +265,26 @@ export default function ContentMigration() {
       </header>
 
       <main className="container mx-auto px-4 py-8 max-w-4xl space-y-6">
-        {/* Input */}
-        <Card>
-          <CardHeader>
-            <CardTitle>URLs to Process</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <label className="text-sm font-medium mb-2 block">Color Palette</label>
+        {/* Color Scheme */}
+        <div
+          className="rounded-lg border bg-card cursor-pointer"
+          onClick={() => setColorOpen(!colorOpen)}
+        >
+          <div className="flex items-center gap-3 px-4 py-3">
+            {selectedColorPalette && (
+              <div
+                className="h-6 w-6 rounded-full border-2 border-background shadow-sm flex-shrink-0"
+                style={{ background: selectedColorPalette.primary }}
+              />
+            )}
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold">Color Scheme</p>
+              <p className="text-xs text-muted-foreground">{selectedColorPalette?.name || "Default"}</p>
+            </div>
+            {colorOpen ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+          </div>
+          {colorOpen && (
+            <div className="px-4 pb-4" onClick={(e) => e.stopPropagation()}>
               <ColorPaletteSelector
                 selectedPalette={selectedColorPalette}
                 onSelectPalette={(p) => {
@@ -281,6 +293,53 @@ export default function ContentMigration() {
                 }}
               />
             </div>
+          )}
+        </div>
+
+        {/* Output Options */}
+        <div
+          className="rounded-lg border bg-card cursor-pointer"
+          onClick={() => setOutputOpen(!outputOpen)}
+        >
+          <div className="flex items-center gap-3 px-4 py-3">
+            <Settings2 className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold">Output Options</p>
+              <p className="text-xs text-muted-foreground">
+                {[skipNavigation && "Navigation", skipQuickTips && "Quick Tips", skipFaqs && "FAQs", skipSources && "Sources"].filter(Boolean).join(", ") || "All sections included"}
+                {[skipNavigation, skipQuickTips, skipFaqs, skipSources].some(Boolean) ? " skipped" : ""}
+              </p>
+            </div>
+            {outputOpen ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+          </div>
+          {outputOpen && (
+            <div className="px-4 pb-4 space-y-3" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="skip-nav" className="text-sm cursor-pointer">Skip "In This Article" Navigation</Label>
+                <Switch id="skip-nav" checked={skipNavigation} onCheckedChange={(v) => { setSkipNavigation(v); localStorage.setItem("migration-skip-nav", String(v)); }} />
+              </div>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="skip-tips" className="text-sm cursor-pointer">Skip Quick Tips</Label>
+                <Switch id="skip-tips" checked={skipQuickTips} onCheckedChange={(v) => { setSkipQuickTips(v); localStorage.setItem("migration-skip-tips", String(v)); }} />
+              </div>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="skip-faqs" className="text-sm cursor-pointer">Skip FAQs</Label>
+                <Switch id="skip-faqs" checked={skipFaqs} onCheckedChange={(v) => { setSkipFaqs(v); localStorage.setItem("migration-skip-faqs", String(v)); }} />
+              </div>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="skip-sources" className="text-sm cursor-pointer">Skip Sources & References</Label>
+                <Switch id="skip-sources" checked={skipSources} onCheckedChange={(v) => { setSkipSources(v); localStorage.setItem("migration-skip-sources", String(v)); }} />
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Input */}
+        <Card>
+          <CardHeader>
+            <CardTitle>URLs to Process</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
             <Textarea
               placeholder="Paste URLs, one per line..."
               value={urlInput}
