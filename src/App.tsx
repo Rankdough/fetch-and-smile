@@ -8,6 +8,7 @@ import Articles from "./pages/Articles";
 import ProductDescriptions from "./pages/ProductDescriptions";
 import KeywordResearch from "./pages/KeywordResearch";
 import OutlineGenerator from "./pages/OutlineGenerator";
+import ContentMigration from "./pages/ContentMigration";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
