@@ -225,12 +225,12 @@ export default function ContentMigration() {
     seoDescriptionDE: fixDoubledQuotes(r.seoDescriptionDE || ""),
   });
 
-  const escapeTSV = (val: string): string => {
-    if (!val) return '';
-    // TSV uses tabs as delimiters (not commas/quotes), so double quotes are safe as-is.
-    // Only replace tabs and newlines to maintain single-cell integrity.
-    // HTML doesn't need newlines to render, so this keeps the markup fully valid.
-    return val.replace(/\t/g, ' ').replace(/\r?\n/g, ' ');
+  // RFC 4180 CSV quoting: wrap in double quotes, escape internal " as ""
+  // This preserves HTML intact (with newlines, quotes, commas — everything)
+  const escapeCSV = (val: string): string => {
+    if (!val) return '""';
+    const escaped = val.replace(/"/g, '""');
+    return `"${escaped}"`;
   };
 
   const downloadCSV = () => {
@@ -252,16 +252,16 @@ export default function ContentMigration() {
         r.content, r.content, r.contentNL, r.contentDE,
         r.seoTitle, r.seoTitle, r.seoTitleNL, r.seoTitleDE,
         r.seoDescription, r.seoDescription, r.seoDescriptionNL, r.seoDescriptionDE,
-      ].map(escapeTSV).join("\t");
+      ].map(escapeCSV).join(",");
     });
 
     const bom = "\uFEFF";
-    const tsv = bom + headers.join("\t") + "\n" + rows.join("\n");
-    const blob = new Blob([tsv], { type: "text/tab-separated-values;charset=utf-8;" });
+    const csv = bom + headers.map(escapeCSV).join(",") + "\n" + rows.join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `content_migration_${new Date().toISOString().slice(0, 10)}.tsv`;
+    a.download = `content_migration_${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
