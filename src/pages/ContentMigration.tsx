@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useMemo } from "react"; // v2 - 3-step pipeline
-import * as XLSX from "xlsx";
+
 import { markdownToStyledHtml } from "@/utils/markdownToStyledHtml";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -334,7 +334,9 @@ ${sourceHtml.substring(0, 8000)}`;
     seoDescriptionDE: fixDoubledQuotes(r.seoDescriptionDE || ""),
   });
 
-  const downloadXLSX = () => {
+  const [isDownloading, setIsDownloading] = useState(false);
+
+  const downloadXLSX = async () => {
     const headers = [
       "Type", "image", "Old url", "New url",
       "Title", "Title (EN)", "Title (NL)", "Title (DE)",
@@ -344,7 +346,7 @@ ${sourceHtml.substring(0, 8000)}`;
       "SEO Description", "SEO Description (EN)", "SEO Description (NL)", "SEO Description (DE)",
     ];
 
-    const data = entries.filter(e => e.status === "done" && e.result).map(e => {
+    const rows = entries.filter(e => e.status === "done" && e.result).map(e => {
       const r = e.result!;
       return [
         r.type ?? "", "", r.url ?? "", "",
@@ -356,22 +358,33 @@ ${sourceHtml.substring(0, 8000)}`;
       ];
     });
 
-    const ws = XLSX.utils.aoa_to_sheet([headers, ...data]);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Migration");
-    // Use xlsb (binary) format to bypass the 32767 char per cell limit in xlsx XML format
-    const wbout = XLSX.write(wb, { bookType: "xlsb", type: "array" });
-    const blob = new Blob([wbout], { type: "application/octet-stream" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `content_migration_${new Date().toISOString().slice(0, 10)}.xlsb`;
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(() => {
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    }, 500);
+    setIsDownloading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-xlsx', {
+        body: { headers, rows },
+      });
+
+      if (error) throw error;
+
+      // data is already an ArrayBuffer from the edge function
+      const blob = new Blob([data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `content_migration_${new Date().toISOString().slice(0, 10)}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 500);
+      toast({ title: "XLSX downloaded successfully" });
+    } catch (err: any) {
+      console.error("XLSX download error:", err);
+      toast({ title: "Download failed", description: err.message, variant: "destructive" });
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
   const doneCount = entries.filter(e => e.status === "done").length;
@@ -498,8 +511,9 @@ ${sourceHtml.substring(0, 8000)}`;
                     )}
                   </Button>
                   {doneCount > 0 && (
-                    <Button variant="outline" onClick={downloadXLSX} className="gap-2">
-                      <Download className="h-4 w-4" /> Download XLSX ({doneCount})
+                    <Button variant="outline" onClick={downloadXLSX} disabled={isDownloading} className="gap-2">
+                      {isDownloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                      {isDownloading ? "Generating..." : `Download XLSX (${doneCount})`}
                     </Button>
                   )}
                   <Button variant="ghost" onClick={clearAll} disabled={isProcessing} className="gap-2 text-destructive">
