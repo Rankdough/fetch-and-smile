@@ -43,6 +43,12 @@ interface MigrationResult {
   error?: string;
 }
 
+interface QualityCheck {
+  label: string;
+  passed: boolean;
+  detail: string;
+}
+
 interface UrlEntry {
   id?: string; // DB id
   url: string;
@@ -50,6 +56,7 @@ interface UrlEntry {
   status: "pending" | "processing" | "done" | "error";
   result?: MigrationResult;
   error?: string;
+  qualityChecks?: QualityCheck[];
 }
 
 export default function ContentMigration() {
