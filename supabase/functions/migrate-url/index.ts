@@ -72,7 +72,7 @@ function convertInlineStylesToClasses(html: string): string {
   const styleBlock = `<style>\n${rules.join('\n')}\n</style>\n\n`;
   
   // Remove any existing <style> tags from the content
-  const cleanedContent = converted.replace(/<style>[\s\S]*?<\/style>/gi, '').trim();
+  const cleanedContent = converted2.replace(/<style>[\s\S]*?<\/style>/gi, '').trim();
   
   return styleBlock + cleanedContent;
 }
