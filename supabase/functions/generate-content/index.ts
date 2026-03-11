@@ -174,7 +174,7 @@ ${skipQuickTips ? '' : `3. ## Quick Tips - MANDATORY section immediately after T
    - Be specific and actionable - no filler words
    - Tips should fit on a single line when displayed
 `}
-4. ## In This Article - THIS SECTION IS MANDATORY AND MUST APPEAR IMMEDIATELY AFTER Quick Tips
+${migrationMode ? `4. DO NOT include an "In This Article" section - this is generated automatically by the client.` : `4. ## In This Article - THIS SECTION IS MANDATORY AND MUST APPEAR IMMEDIATELY AFTER Quick Tips
    - This is a navigation guide showing what the reader will learn
    - Format as a BULLETED LIST with each item on its own line
    - Each line format: - **1. Section Title** - DETAILED description (MINIMUM 150 characters, aim for 200+ characters) explaining what the reader will learn in this section
@@ -189,7 +189,7 @@ ${skipQuickTips ? '' : `3. ## Quick Tips - MANDATORY section immediately after T
    
    - List ALL main H2 sections from the article (not TL;DR or References)
    - DO NOT SKIP THIS SECTION - it must be present in every article
-   - IMPORTANT: Short one-line descriptions are NOT acceptable - each must be detailed and informative
+   - IMPORTANT: Short one-line descriptions are NOT acceptable - each must be detailed and informative`}
 5. Main content sections with ## QUESTION headings (each answered with text + bullets + tables${skipSources ? '' : ' + **Sources:** at the end'})
 6. Comparison table section (question-based, e.g., "## How Do They Compare Side by Side?")
 7. "## Which Option Should You Choose?" section
