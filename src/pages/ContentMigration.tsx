@@ -87,7 +87,7 @@ export default function ContentMigration() {
           url: row.url,
           type: row.type || "",
           status: row.status as UrlEntry["status"],
-          result: row.result as MigrationResult | undefined,
+          result: row.result ? sanitizeResult(row.result as MigrationResult) : undefined,
           error: row.error || undefined,
         }));
         setEntries(loaded);
