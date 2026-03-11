@@ -225,16 +225,12 @@ export default function ContentMigration() {
     seoDescriptionDE: fixDoubledQuotes(r.seoDescriptionDE || ""),
   });
 
-  // Convert HTML attribute double quotes to single quotes for spreadsheet compatibility
-  const htmlAttrToSingleQuotes = (html: string): string => {
-    return html.replace(/(\w[-\w]*)="([^"]*)"/g, "$1='$2'");
-  };
-
   const escapeTSV = (val: string): string => {
     if (!val) return '';
-    // First fix any remaining doubled quotes, then convert to single quotes for spreadsheet safety
-    let safe = fixDoubledQuotes(val);
-    safe = htmlAttrToSingleQuotes(safe);
+    // Replace ALL double quotes with single quotes — this is valid HTML and
+    // prevents spreadsheet tools (Excel, Google Sheets) from corrupting the content
+    // by interpreting " as CSV/TSV field delimiters
+    let safe = val.replace(/"/g, "'");
     // Replace tabs and newlines with spaces to keep single-cell integrity
     return safe.replace(/\t/g, ' ').replace(/\r?\n/g, ' ');
   };
