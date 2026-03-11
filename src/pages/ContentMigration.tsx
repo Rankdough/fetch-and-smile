@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useMemo } from "react"; // v2 - 3-step pipeline
-import * as XLSX from "xlsx";
+
 import { markdownToStyledHtml } from "@/utils/markdownToStyledHtml";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
