@@ -56,6 +56,16 @@ export default function ContentMigration() {
   const [previewResult, setPreviewResult] = useState<MigrationResult | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedColorPalette, setSelectedColorPalette] = useState<ColorPalette | null>(() => {
+    const saved = localStorage.getItem("migration-color-palette");
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch { return COLOR_PALETTES.find(p => p.id === "big-league") || null; }
+    }
+    return COLOR_PALETTES.find(p => p.id === "big-league") || null;
+  });
+  const [showSettings, setShowSettings] = useState(false);
 
   // Load saved jobs on mount
   useEffect(() => {
