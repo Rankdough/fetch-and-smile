@@ -45,6 +45,17 @@ export function markdownToStyledHtml(
   // Remove FAQ section from markdown so it doesn't appear twice
   let cleanMarkdown = faqItems.length > 0 ? removeFAQSection(markdown) : markdown;
 
+  // Remove any raw "In This Article" section the AI may have generated (the styled one is injected later)
+  cleanMarkdown = cleanMarkdown.replace(/^#{1,4}\s*In This Article\s*\n([\s\S]*?)(?=^#{1,2}\s|\Z)/gm, (match) => {
+    // Only remove if it looks like a nav list (contains numbered items or bullet points)
+    if (/^\s*[-*•]\s*\*?\*?\d?\.*\s/m.test(match) || /^\d+\.\s/m.test(match)) {
+      return '';
+    }
+    return match;
+  });
+  // Also remove plain "In This Article" with bullet list pattern
+  cleanMarkdown = cleanMarkdown.replace(/\n*In This Article\s*\n+((?:\s*[-*•]\s+.+\n?)+)/gi, '\n');
+
   // 2. Convert Markdown → basic HTML
   const basicHtml = marked.parse(cleanMarkdown, { async: false }) as string;
 
@@ -118,14 +129,31 @@ export function markdownToStyledHtml(
   });
 
   // Style blockquotes - detect Quick Tips vs regular
+  // First, identify blockquotes that follow a Quick Tips H2
+  const quickTipsH2 = container.querySelector('h2');
+  let quickTipsSection = false;
+  const quickTipBlockquotes = new Set<Element>();
+  container.querySelectorAll('h2').forEach((h2) => {
+    if (/Quick\s*Tips/i.test(h2.textContent || '')) {
+      let sibling = h2.nextElementSibling;
+      while (sibling && sibling.tagName === 'BLOCKQUOTE') {
+        quickTipBlockquotes.add(sibling);
+        sibling = sibling.nextElementSibling;
+      }
+    }
+  });
+
   let tipIndex = 0;
   container.querySelectorAll("blockquote").forEach((bq) => {
     const firstStrong = bq.querySelector("strong");
-    const isQuickTip = firstStrong && /^Tip \d+:?/i.test(firstStrong.textContent || "");
+    const isQuickTip = (firstStrong && /^Tip \d+:?/i.test(firstStrong.textContent || "")) || quickTipBlockquotes.has(bq);
 
     if (isQuickTip) {
       tipIndex++;
-      if (firstStrong) firstStrong.remove();
+      // Remove "Tip N:" prefix OR any leading bold label (e.g. "**Always check:**")
+      if (firstStrong && /^Tip \d+:?/i.test(firstStrong.textContent || "")) {
+        firstStrong.remove();
+      }
 
       const circleSpan = doc.createElement("span");
       circleSpan.setAttribute("style", `display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; background: ${primaryColor}; border-radius: 50%; color: white; font-weight: 700; font-size: 14px; margin-right: 12px; flex-shrink: 0; vertical-align: middle;`);
