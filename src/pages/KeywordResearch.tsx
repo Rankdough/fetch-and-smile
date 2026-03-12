@@ -107,7 +107,7 @@ const KeywordResearch = () => {
   // Refine state
   const [isRefineOpen, setIsRefineOpen] = useState(false);
   const [isSuggestingModifiers, setIsSuggestingModifiers] = useState(false);
-  const [suggestedDimensions, setSuggestedDimensions] = useState<{ dimension_name: string; modifiers: string[] }[]>([]);
+  const [suggestedDimensions, setSuggestedDimensions] = useState<{ dimension_name: string; modifiers: string[]; covered?: string[] }[]>([]);
   const [selectedSuggestedModifiers, setSelectedSuggestedModifiers] = useState<Set<string>>(new Set());
   const [manualRefineInput, setManualRefineInput] = useState("");
   const [isExpanding, setIsExpanding] = useState(false);
