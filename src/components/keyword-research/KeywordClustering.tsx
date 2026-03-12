@@ -11,7 +11,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { supabase } from "@/integrations/supabase/client";
 import {
   Upload, Layers, ChevronDown, ChevronRight, Loader2, Square,
-  TrendingUp, FileText, Copy, Download, BarChart3, Target, Info, Lightbulb, Trash2, RefreshCw, ArrowRight, Search, Bookmark, Clock, Star, Plus
+  TrendingUp, FileText, Copy, Download, BarChart3, Target, Info, Lightbulb, Trash2, RefreshCw, ArrowRight, Search, Bookmark, Clock, Star, Plus, ArrowDownToLine
 } from "lucide-react";
 import ContentQueue from "./ContentQueue";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
@@ -21,6 +21,7 @@ import { Check } from "lucide-react";
 const USED_IDEAS_KEY = "kw-used-blog-ideas";
 const BOOKMARKED_IDEAS_KEY_PREFIX = "kw-bookmarked-blog-ideas";
 const FAVORITED_CLUSTERS_KEY = "kw-favorited-clusters";
+const DEMOTED_CLUSTERS_KEY = "kw-demoted-clusters";
 
 const getBookmarkedKey = (projectId: string | null) =>
   projectId ? `${BOOKMARKED_IDEAS_KEY_PREFIX}::${projectId}` : BOOKMARKED_IDEAS_KEY_PREFIX;
@@ -154,6 +155,7 @@ const KeywordClustering = () => {
   const [kwFilterMode, setKwFilterMode] = useState<Record<string, "all" | "generic" | "questions">>({});
   const [siloSortMode, setSiloSortMode] = useState<"favorites" | "volume">("favorites");
   const [favoritedClusters, setFavoritedClusters] = useState<Set<string>>(() => getStoredSet(FAVORITED_CLUSTERS_KEY));
+  const [demotedClusters, setDemotedClusters] = useState<Set<string>>(() => getStoredSet(DEMOTED_CLUSTERS_KEY));
   const [rawInput, setRawInput] = useState("");
   const [projectName, setProjectName] = useState("");
   const [suggestedSilos, setSuggestedSilos] = useState("");
@@ -1372,10 +1374,10 @@ const KeywordClustering = () => {
                   if (siloSortMode === "volume") {
                     return b.cluster.estimated_monthly_volume - a.cluster.estimated_monthly_volume;
                   }
-                  // favorites first, then original order
-                  const aFav = favoritedClusters.has(a.cluster.topic) ? 0 : 1;
-                  const bFav = favoritedClusters.has(b.cluster.topic) ? 0 : 1;
-                  return aFav - bFav || a.originalIdx - b.originalIdx;
+                  // favorites first, demoted last, then original order
+                  const aRank = favoritedClusters.has(a.cluster.topic) ? 0 : demotedClusters.has(a.cluster.topic) ? 2 : 1;
+                  const bRank = favoritedClusters.has(b.cluster.topic) ? 0 : demotedClusters.has(b.cluster.topic) ? 2 : 1;
+                  return aRank - bRank || a.originalIdx - b.originalIdx;
                 })
                 .map(({ cluster, originalIdx: idx }) => (
                 <Collapsible
@@ -1392,10 +1394,36 @@ const KeywordClustering = () => {
                             title={favoritedClusters.has(cluster.topic) ? "Remove from favorites" : "Add to favorites"}
                             onClick={(e) => {
                               e.stopPropagation();
-                              setFavoritedClusters(toggleStoredSet(FAVORITED_CLUSTERS_KEY, cluster.topic));
+                              const newFavs = toggleStoredSet(FAVORITED_CLUSTERS_KEY, cluster.topic);
+                              setFavoritedClusters(newFavs);
+                              // If favoriting, remove from demoted
+                              if (newFavs.has(cluster.topic)) {
+                                const newDemoted = new Set(demotedClusters);
+                                newDemoted.delete(cluster.topic);
+                                localStorage.setItem(DEMOTED_CLUSTERS_KEY, JSON.stringify([...newDemoted]));
+                                setDemotedClusters(newDemoted);
+                              }
                             }}
                           >
                             <Star className={`h-4 w-4 transition-colors ${favoritedClusters.has(cluster.topic) ? "fill-amber-400 text-amber-400" : "text-muted-foreground/40 hover:text-amber-400"}`} />
+                          </button>
+                          <button
+                            className="shrink-0 mr-0.5"
+                            title={demotedClusters.has(cluster.topic) ? "Remove from demoted" : "Demote to bottom"}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const newDemoted = toggleStoredSet(DEMOTED_CLUSTERS_KEY, cluster.topic);
+                              setDemotedClusters(newDemoted);
+                              // If demoting, remove from favorites
+                              if (newDemoted.has(cluster.topic)) {
+                                const newFavs = new Set(favoritedClusters);
+                                newFavs.delete(cluster.topic);
+                                localStorage.setItem(FAVORITED_CLUSTERS_KEY, JSON.stringify([...newFavs]));
+                                setFavoritedClusters(newFavs);
+                              }
+                            }}
+                          >
+                            <ArrowDownToLine className={`h-3.5 w-3.5 transition-colors ${demotedClusters.has(cluster.topic) ? "text-muted-foreground" : "text-muted-foreground/30 hover:text-muted-foreground"}`} />
                           </button>
                           <span className="text-sm font-bold text-foreground/50 w-6 shrink-0">#{idx + 1}</span>
                           {expandedClusters.has(cluster.topic) ? (
