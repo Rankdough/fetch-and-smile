@@ -48,9 +48,45 @@ interface ContentQueueProps {
   onReassignKeyword?: (clusterTopic: string, keyword: string, fromIdeaTitle: string, toIdeaTitle: string) => void;
   onCreateIdeaFromKeyword?: (clusterTopic: string, keyword: string) => void;
   generatingIdeaForKw?: string | null;
+  onEditIdeaTitle?: (clusterTopic: string, oldTitle: string, newTitle: string) => void;
 }
 
-const ContentQueue = ({ queuedIdeas, onUseForArticle, onRemoveFromQueue, formatVolume, projectName, allClusters, onReassignKeyword, onCreateIdeaFromKeyword, generatingIdeaForKw }: ContentQueueProps) => {
+const EditableTitleCQ = ({ title, onSave, className = "" }: { title: string; onSave: (newTitle: string) => void; className?: string }) => {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(title);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => { setValue(title); }, [title]);
+  useEffect(() => { if (editing) inputRef.current?.focus(); }, [editing]);
+
+  const commit = () => {
+    setEditing(false);
+    if (value.trim() && value.trim() !== title) onSave(value.trim());
+    else setValue(title);
+  };
+
+  if (editing) {
+    return (
+      <input
+        ref={inputRef}
+        value={value}
+        onChange={e => setValue(e.target.value)}
+        onBlur={commit}
+        onKeyDown={e => { if (e.key === "Enter") commit(); if (e.key === "Escape") { setValue(title); setEditing(false); } }}
+        className={`text-lg font-semibold bg-transparent border-b border-primary outline-none w-full ${className}`}
+      />
+    );
+  }
+
+  return (
+    <div className="group flex items-center gap-1 min-w-0">
+      <h4 className={`text-lg font-semibold truncate cursor-pointer hover:underline decoration-dashed underline-offset-2 ${className}`} onClick={() => setEditing(true)}>{title}</h4>
+      <Pencil className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0 cursor-pointer" onClick={() => setEditing(true)} />
+    </div>
+  );
+};
+
+const ContentQueue = ({ queuedIdeas, onUseForArticle, onRemoveFromQueue, formatVolume, projectName, allClusters, onReassignKeyword, onCreateIdeaFromKeyword, generatingIdeaForKw, onEditIdeaTitle }: ContentQueueProps) => {
   const { toast } = useToast();
   const [fallbackDownload, setFallbackDownload] = useState<{ url: string; filename: string } | null>(null);
   const [doneIdeas, setDoneIdeas] = useState<Set<string>>(() => {
