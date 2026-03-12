@@ -1726,6 +1726,15 @@ const KeywordClustering = () => {
                           <Badge variant="secondary" className="text-sm font-medium">
                             {contentTypeLabels[cluster.content_type] || cluster.content_type}
                           </Badge>
+                          {!mergingFromSilo && (
+                            <button
+                              className="shrink-0 ml-1"
+                              title="Merge with another silo"
+                              onClick={(e) => { e.stopPropagation(); setMergingFromSilo(cluster.topic); }}
+                            >
+                              <Merge className="h-3.5 w-3.5 text-muted-foreground/40 hover:text-primary transition-colors" />
+                            </button>
+                          )}
                         </div>
                       </div>
                     </CollapsibleTrigger>
