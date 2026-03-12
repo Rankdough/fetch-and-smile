@@ -2037,7 +2037,7 @@ const KeywordClustering = () => {
                             </div>
                             {!collapsedBlogIdeas.has(cluster.topic) && <div className="space-y-2">
                               {[...cluster.blog_ideas]
-                                .map((idea, origIdx) => ({ idea, origIdx, totalVol: (idea.target_keywords || []).reduce((sum, kw) => sum + (cluster.keyword_volumes?.[kw] ?? cluster.keyword_volumes?.[kw.toLowerCase()] ?? 0), 0) }))
+                                .map((idea, origIdx) => ({ idea, origIdx, totalVol: (idea.target_keywords || []).reduce((sum, kw) => { const clean = kw.replace(/\s*\(\d+\)\s*$/, "").trim(); return sum + (cluster.keyword_volumes?.[kw] ?? cluster.keyword_volumes?.[kw.toLowerCase()] ?? cluster.keyword_volumes?.[clean] ?? cluster.keyword_volumes?.[clean.toLowerCase()] ?? 0); }, 0) }))
                                 .sort((a, b) => b.totalVol - a.totalVol)
                                 .map(({ idea, origIdx: i }) => {
                                 const ideaKey = makeIdeaKey(cluster.topic, idea.title);
@@ -2079,7 +2079,8 @@ const KeywordClustering = () => {
                                             volLookup[k.toLowerCase().trim()] = v;
                                           }
                                         }
-                                        const getVol = (kw: string) => volLookup[kw.toLowerCase().trim()] ?? null;
+                                        const stripVol = (kw: string) => kw.replace(/\s*\(\d+\)\s*$/, "").replace(/\s*\(\?\)\s*$/, "").trim();
+                                        const getVol = (kw: string) => volLookup[kw.toLowerCase().trim()] ?? volLookup[stripVol(kw).toLowerCase().trim()] ?? null;
                                         const totalVol = idea.target_keywords!.reduce((sum, kw) => sum + (getVol(kw) || 0), 0);
                                         // Top 3 keywords by volume for quick highlight
                                         const sortedByVol = [...idea.target_keywords!]
