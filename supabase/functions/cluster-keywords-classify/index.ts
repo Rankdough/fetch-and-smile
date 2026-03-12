@@ -125,21 +125,120 @@ JSON FORMAT:
       topicKeywords[t].push(kw.toLowerCase());
     }
 
-    // Find unassigned keywords
+    // Find unassigned keywords (case-insensitive match)
     const assignedSet = new Set(Object.keys(assignments).map(k => k.toLowerCase()));
     const unassigned = uniqueKeywords.filter(kw => !assignedSet.has(kw));
-    if (unassigned.length > 0) {
+
+    // Also pull out keywords the AI explicitly put into "Other" or similar catch-all names
+    const otherAliases = ["other", "others", "miscellaneous", "uncategorized", "general"];
+    const aiOtherKeys = Object.keys(topicKeywords).filter(t => otherAliases.includes(t.toLowerCase().trim()));
+    let otherKeywords = [...unassigned];
+    for (const key of aiOtherKeys) {
+      otherKeywords.push(...topicKeywords[key]);
+      delete topicKeywords[key];
+    }
+    // Deduplicate
+    otherKeywords = [...new Set(otherKeywords.map(k => k.toLowerCase().trim()))];
+
+    const existingTopics = Object.keys(topicKeywords);
+
+    // ═══════════════════════════════════════════════
+    // RE-CLASSIFICATION PASS: Give "Other" keywords a second chance
+    // Uses the already-identified topics as targets + allows new silos
+    // ═══════════════════════════════════════════════
+    if (otherKeywords.length > 3 && existingTopics.length > 0) {
+      console.log(`Re-classifying ${otherKeywords.length} "Other" keywords against ${existingTopics.length} existing silos...`);
+
+      const otherKwLines = otherKeywords.map(kw => {
+        if (hasVolume && volumeMap[kw] > 0) return `${kw} [${volumeMap[kw]}]`;
+        return kw;
+      }).join("\n");
+
+      const reclassifySystem = `You are an expert SEO strategist. These keywords were not properly classified in a first pass. Classify each one into the MOST RELEVANT existing silo, or into a new silo if none fit.
+
+EXISTING SILOS:
+${existingTopics.map((t, i) => `${i + 1}. ${t}`).join("\n")}
+
+RULES:
+- Assign EVERY keyword to one of the existing silos above, OR create at most 3 new silos for genuinely distinct topics
+- Only create a new silo if a keyword truly doesn't fit any existing silo
+- Only use "Other" as an absolute last resort for keywords that genuinely have no thematic connection to anything else
+- Look at the CORE SUBJECT of each keyword — e.g. "how soon after tooth extraction can i eat" is about tooth extraction recovery, not generic "other"
+- Numbers in brackets are search volumes — don't output them
+- Output ONLY valid JSON, no markdown fences
+
+JSON FORMAT:
+{"assignments":{"keyword1":"Existing or New Silo Name","keyword2":"Existing or New Silo Name",...}}`;
+
+      const reclassifyUser = `Classify these ${otherKeywords.length} keywords:\n\n${otherKwLines}`;
+
+      try {
+        const reclassifyResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${LOVABLE_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "google/gemini-2.5-flash",
+            messages: [
+              { role: "system", content: reclassifySystem },
+              { role: "user", content: reclassifyUser },
+            ],
+          }),
+        });
+
+        if (reclassifyResponse.ok) {
+          const reclassifyData = await reclassifyResponse.json();
+          const reclassifyContent = reclassifyData.choices?.[0]?.message?.content || "";
+          let reclassified: { assignments: Record<string, string> };
+          try {
+            reclassified = JSON.parse(cleanJson(reclassifyContent));
+          } catch {
+            console.error("Re-classify parse failed:", reclassifyContent.slice(0, 300));
+            reclassified = { assignments: {} };
+          }
+
+          const reAssignments = reclassified.assignments || {};
+          let reAssignedCount = 0;
+          const stillOther: string[] = [];
+
+          for (const kw of otherKeywords) {
+            const topic = reAssignments[kw]?.trim() || reAssignments[kw.toLowerCase()]?.trim();
+            if (topic && !otherAliases.includes(topic.toLowerCase().trim())) {
+              if (!topicKeywords[topic]) topicKeywords[topic] = [];
+              topicKeywords[topic].push(kw);
+              reAssignedCount++;
+            } else {
+              stillOther.push(kw);
+            }
+          }
+
+          otherKeywords = stillOther;
+          console.log(`Re-classification: ${reAssignedCount} keywords rescued from "Other", ${otherKeywords.length} remain`);
+        } else {
+          console.error("Re-classify call failed:", reclassifyResponse.status);
+        }
+      } catch (reclassifyErr) {
+        console.error("Re-classify error (non-fatal):", reclassifyErr);
+      }
+    }
+
+    // Put any remaining truly unclassifiable keywords into "Other"
+    if (otherKeywords.length > 0) {
       if (!topicKeywords["Other"]) topicKeywords["Other"] = [];
-      topicKeywords["Other"].push(...unassigned);
+      topicKeywords["Other"].push(...otherKeywords);
     }
 
     // Calculate volumes and build cluster summaries
     const clusters = Object.entries(topicKeywords)
       .map(([topic, kws]) => {
+        // Deduplicate keywords within each silo
+        const dedupedKws = [...new Set(kws.map(k => k.toLowerCase().trim()))];
         let vol = 0;
         const kwVols: Record<string, number> = {};
         if (hasVolume) {
-          for (const kw of kws) {
+          for (const kw of dedupedKws) {
             if (volumeMap[kw] !== undefined) {
               kwVols[kw] = volumeMap[kw];
               vol += volumeMap[kw];
@@ -148,7 +247,7 @@ JSON FORMAT:
         }
         return {
           topic,
-          keywords: kws,
+          keywords: dedupedKws,
           estimated_monthly_volume: vol,
           keyword_volumes: hasVolume ? kwVols : undefined,
         };
@@ -157,9 +256,9 @@ JSON FORMAT:
 
     const totalClustered = clusters.reduce((s, c) => s + c.keywords.length, 0);
 
-    console.log(`Pass 1 complete: ${clusters.length} topics, ${totalClustered} assigned, ${unassigned.length} unassigned`);
+    console.log(`Pass 1 complete: ${clusters.length} topics, ${totalClustered} assigned, ${otherKeywords.length} in Other`);
 
-    return new Response(JSON.stringify({ clusters, total_keywords_clustered: totalClustered, unclustered: unassigned }), {
+    return new Response(JSON.stringify({ clusters, total_keywords_clustered: totalClustered, unclustered: otherKeywords }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e: any) {
