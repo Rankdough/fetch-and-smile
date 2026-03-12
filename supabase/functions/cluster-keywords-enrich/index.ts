@@ -231,15 +231,22 @@ CRITICAL KEYWORD DEDUPLICATION RULES:
       }
     }
 
+    // Helper to strip "(volume)" suffixes the AI may have included in target_keywords
+    const stripVolSuffix = (kw: string) => kw.replace(/\s*\(\d+\)\s*$/, "").replace(/\s*\(\?\)\s*$/, "").trim();
+
     const enrichedClusters = clusters.map((c: any) => {
       const e = allEnrichments[c.topic] || {};
+      const cleanedIdeas = (e.blog_ideas || []).map((idea: any) => ({
+        ...idea,
+        target_keywords: (idea.target_keywords || []).map(stripVolSuffix),
+      }));
       return {
         ...c,
         description: e.description || `Keywords related to ${c.topic}`,
         content_type: e.content_type || "blog_post",
         difficulty: e.difficulty || "medium",
         priority: e.priority || "medium",
-        blog_ideas: e.blog_ideas || [],
+        blog_ideas: cleanedIdeas,
       };
     });
 
