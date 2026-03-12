@@ -17,44 +17,61 @@ serve(async (req) => {
 
     // MODE 1: Suggest modifiers the AI missed
     if (mode === "suggest_modifiers") {
-      console.log(`Suggesting modifiers for: "${topic}"`);
+      console.log(`Running gap analysis for modifiers on: "${topic}"`);
 
-      const clusterSummary = existingClusters?.map((c: any) =>
-        `${c.cluster_name}: ${c.seed_keywords?.slice(0, 10).join(", ")}`
-      ).join("\n") || "";
+      // Send ALL keywords so the AI can see exactly what's covered and what's not
+      const allKeywordsByCluster = existingClusters?.map((c: any) =>
+        `## ${c.cluster_name}\nKeywords: ${c.seed_keywords?.join(", ")}\nModifiers: ${c.modifiers?.join(", ") || "none"}\nQuestions: ${c.questions?.join(", ")}`
+      ).join("\n\n") || "";
 
       const existingMods = existingModifiers?.join(", ") || "none";
 
-      const system = `You are an expert SEO modifier analyst. Given a topic and its existing keyword clusters, identify ALL missing modifiers and dimensions that should have been included but weren't.
+      const system = `You are a senior SEO strategist performing a GAP ANALYSIS on a keyword universe.
 
-Think systematically about EVERY possible dimension:
-- Age ranges (newborn, 0-3 months, 6 months, 1 year old, 2 year old, 3-6 years, 6-12 years, teens, etc.)
-- Price/budget (under £10, under £20, under £50, luxury, budget, affordable, premium)
-- Materials (wooden, plastic, fabric, silicone, organic, BPA-free, eco-friendly)
-- Occasions (birthday, Christmas, Easter, back to school, baby shower)
-- Locations/settings (indoor, outdoor, garden, travel, car, bath)
-- Sizes (small, large, mini, portable, full-size)
-- Qualities (best, top-rated, safest, most popular, award-winning)
-- Time periods (2024, 2025, new, vintage, classic)
-- Gender (boys, girls, unisex, gender-neutral)
-- Skills/development (fine motor, gross motor, sensory, STEM, creative, language)
-- Purchase intent (buy, cheap, sale, deals, where to buy, subscription)
-- Comparison (vs, alternative, similar to, like)
-- Any other dimension relevant to this specific topic
+Your task: You will receive the COMPLETE list of every keyword, modifier, and question generated for a topic. You must ANALYSE what is already covered and identify what is MISSING.
 
-Group your suggestions by dimension so the user can review them easily.`;
+ANALYSIS METHOD:
+1. First, scan ALL provided keywords and extract every modifier/dimension already present (e.g., if you see "wooden toys" then "wooden" is covered under Materials).
+2. For each dimension, list what IS covered vs what is NOT covered.
+3. Only suggest modifiers that are ACTUALLY MISSING — do not re-suggest things already in the keywords.
+4. Think about what a real person searching for this topic would type. Every modifier you suggest must create a viable search query when combined with the topic.
+
+DIMENSIONS TO ANALYSE (adapt to the specific topic):
+- Age/life stage (be EXHAUSTIVE — every specific age, age range, developmental stage)
+- Price/budget tiers (specific price points, not just "cheap/expensive")
+- Materials/composition
+- Occasions/gifting moments
+- Settings/locations of use
+- Brands (major brands in this space)
+- Features/attributes
+- Certifications/standards (safety, eco, organic)
+- Purchase modifiers (buy, deals, sale, subscription, rental)
+- Comparison modifiers (vs, alternative, similar to)
+- Quality/ranking (best, top, safest, award-winning)
+- Time/recency (2024, 2025, new releases)
+- Size/quantity
+- Gender/demographic
+- Any other dimension specific to THIS topic
+
+CRITICAL: For dimensions like age, be granular. Don't just say "toddler" — list "1 year old", "2 year old", "3 year old", "4 year old", "5 year old", "6-8 years", "8-10 years", "10-12 years" etc. if they're missing.
+
+For each dimension, provide:
+- dimension_name: clear label
+- covered: what's already in the keywords (so user can see the analysis)
+- missing: what should be added (the actual gap)`;
 
       const user = `Topic: ${topic}
 Definition: ${definition || ""}
 ${audience ? `Audience: ${audience}` : ""}
 ${country ? `Country: ${country}` : ""}
 
-Existing clusters:
-${clusterSummary}
+Cross-cutting modifiers already set: ${existingMods}
 
-Existing cross-cutting modifiers: ${existingMods}
+=== COMPLETE KEYWORD DATA ===
+${allKeywordsByCluster}
+=== END KEYWORD DATA ===
 
-What modifiers and dimensions are MISSING? Be comprehensive — suggest everything that could generate valid search queries when combined with the topic keywords.`;
+Perform a thorough gap analysis. For each relevant dimension, show what's COVERED (already in the keywords above) and what's MISSING (gaps to fill). Be exhaustive and granular.`;
 
       const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
@@ -63,16 +80,17 @@ What modifiers and dimensions are MISSING? Be comprehensive — suggest everythi
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "google/gemini-2.5-flash",
+          model: "google/gemini-2.5-pro",
           messages: [
             { role: "system", content: system },
             { role: "user", content: user },
           ],
+          max_tokens: 8000,
           tools: [{
             type: "function",
             function: {
-              name: "return_modifier_suggestions",
-              description: "Return grouped modifier suggestions",
+              name: "return_gap_analysis",
+              description: "Return the gap analysis with covered and missing modifiers per dimension",
               parameters: {
                 type: "object",
                 properties: {
@@ -82,9 +100,10 @@ What modifiers and dimensions are MISSING? Be comprehensive — suggest everythi
                       type: "object",
                       properties: {
                         dimension_name: { type: "string" },
-                        modifiers: { type: "array", items: { type: "string" } },
+                        covered: { type: "array", items: { type: "string" } },
+                        missing: { type: "array", items: { type: "string" } },
                       },
-                      required: ["dimension_name", "modifiers"],
+                      required: ["dimension_name", "covered", "missing"],
                       additionalProperties: false,
                     },
                   },
@@ -94,7 +113,7 @@ What modifiers and dimensions are MISSING? Be comprehensive — suggest everythi
               },
             },
           }],
-          tool_choice: { type: "function", function: { name: "return_modifier_suggestions" } },
+          tool_choice: { type: "function", function: { name: "return_gap_analysis" } },
         }),
       });
 
@@ -111,10 +130,20 @@ What modifiers and dimensions are MISSING? Be comprehensive — suggest everythi
       if (!toolCall) throw new Error("No structured output returned");
       const results = JSON.parse(toolCall.function.arguments);
 
-      const totalSuggested = results.dimensions.reduce((s: number, d: any) => s + d.modifiers.length, 0);
-      console.log(`Suggested ${totalSuggested} modifiers across ${results.dimensions.length} dimensions`);
+      // Filter out dimensions with no gaps and map to frontend format
+      const dimensionsWithGaps = results.dimensions
+        .filter((d: any) => d.missing && d.missing.length > 0)
+        .map((d: any) => ({
+          dimension_name: d.dimension_name,
+          modifiers: d.missing, // frontend expects "modifiers" key
+          covered: d.covered || [],
+        }));
 
-      return new Response(JSON.stringify({ suggestions: results }), {
+      const totalMissing = dimensionsWithGaps.reduce((s: number, d: any) => s + d.modifiers.length, 0);
+      const totalCovered = results.dimensions.reduce((s: number, d: any) => s + (d.covered?.length || 0), 0);
+      console.log(`Gap analysis: ${totalCovered} covered, ${totalMissing} missing across ${dimensionsWithGaps.length} dimensions`);
+
+      return new Response(JSON.stringify({ suggestions: { dimensions: dimensionsWithGaps } }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }

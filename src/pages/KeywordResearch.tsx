@@ -107,7 +107,7 @@ const KeywordResearch = () => {
   // Refine state
   const [isRefineOpen, setIsRefineOpen] = useState(false);
   const [isSuggestingModifiers, setIsSuggestingModifiers] = useState(false);
-  const [suggestedDimensions, setSuggestedDimensions] = useState<{ dimension_name: string; modifiers: string[] }[]>([]);
+  const [suggestedDimensions, setSuggestedDimensions] = useState<{ dimension_name: string; modifiers: string[]; covered?: string[] }[]>([]);
   const [selectedSuggestedModifiers, setSelectedSuggestedModifiers] = useState<Set<string>>(new Set());
   const [manualRefineInput, setManualRefineInput] = useState("");
   const [isExpanding, setIsExpanding] = useState(false);
@@ -1004,12 +1004,12 @@ const KeywordResearch = () => {
                             disabled={isSuggestingModifiers}
                           >
                             {isSuggestingModifiers ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-                            {isSuggestingModifiers ? "Analysing..." : "Suggest Missing Modifiers"}
-                          </Button>
-                        </div>
-                        <p className="text-xs text-muted-foreground mb-3">
-                          AI will analyse your clusters and suggest modifier dimensions you may have missed (e.g. age ranges, materials, occasions).
-                        </p>
+                             {isSuggestingModifiers ? "Analysing gaps..." : "Analyse Modifier Gaps"}
+                           </Button>
+                         </div>
+                         <p className="text-xs text-muted-foreground mb-3">
+                           AI will review ALL your generated keywords, identify which modifier dimensions are already covered, and show you exactly what's missing.
+                         </p>
 
                         {isSuggestingModifiers && (
                           <div className="space-y-2">
@@ -1036,17 +1036,30 @@ const KeywordResearch = () => {
                                       {allSelected ? "Deselect all" : "Select all"}
                                     </Button>
                                   </div>
-                                  <div className="flex flex-wrap gap-1.5">
-                                    {dim.modifiers.map((mod, mi) => (
-                                      <Badge
-                                        key={mi}
-                                        variant={selectedSuggestedModifiers.has(mod) ? "default" : "outline"}
-                                        className="cursor-pointer text-xs transition-colors"
-                                        onClick={() => toggleSuggestedModifier(mod)}
-                                      >
-                                        {mod}
-                                      </Badge>
-                                    ))}
+                                  {dim.covered && dim.covered.length > 0 && (
+                                    <div className="mb-2">
+                                      <span className="text-xs text-muted-foreground font-medium">✓ Already covered:</span>
+                                      <div className="flex flex-wrap gap-1 mt-1">
+                                        {dim.covered.map((c, ci) => (
+                                          <Badge key={ci} variant="secondary" className="text-xs opacity-60">{c}</Badge>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+                                  <div>
+                                    <span className="text-xs text-destructive font-medium">✗ Missing — click to select:</span>
+                                    <div className="flex flex-wrap gap-1.5 mt-1">
+                                      {dim.modifiers.map((mod, mi) => (
+                                        <Badge
+                                          key={mi}
+                                          variant={selectedSuggestedModifiers.has(mod) ? "default" : "outline"}
+                                          className="cursor-pointer text-xs transition-colors"
+                                          onClick={() => toggleSuggestedModifier(mod)}
+                                        >
+                                          {mod}
+                                        </Badge>
+                                      ))}
+                                    </div>
                                   </div>
                                 </div>
                               );
