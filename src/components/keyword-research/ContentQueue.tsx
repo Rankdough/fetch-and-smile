@@ -638,10 +638,7 @@ Focus on providing actionable research that will help create a comprehensive, di
                   const isExpanded = expandedDone.has(ideaKey);
 
                   return (
-                    <div key={ideaKey} className={cn(
-                      "border rounded-md bg-background",
-                      favoriteIdeas.has(ideaKey) && "border-amber-400 bg-amber-50/30 dark:bg-amber-900/10 dark:border-amber-600"
-                    )}>
+                    <div key={ideaKey} className="border rounded-md bg-background">
                       {/* Collapsed header */}
                       <div className="flex items-center justify-between gap-3 px-4 py-3 cursor-pointer" onClick={() => toggleExpanded(ideaKey)}>
                         <div className="flex items-center gap-2 flex-1 min-w-0">
