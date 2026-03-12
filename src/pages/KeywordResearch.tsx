@@ -1004,12 +1004,12 @@ const KeywordResearch = () => {
                             disabled={isSuggestingModifiers}
                           >
                             {isSuggestingModifiers ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-                            {isSuggestingModifiers ? "Analysing..." : "Suggest Missing Modifiers"}
-                          </Button>
-                        </div>
-                        <p className="text-xs text-muted-foreground mb-3">
-                          AI will analyse your clusters and suggest modifier dimensions you may have missed (e.g. age ranges, materials, occasions).
-                        </p>
+                             {isSuggestingModifiers ? "Analysing gaps..." : "Analyse Modifier Gaps"}
+                           </Button>
+                         </div>
+                         <p className="text-xs text-muted-foreground mb-3">
+                           AI will review ALL your generated keywords, identify which modifier dimensions are already covered, and show you exactly what's missing.
+                         </p>
 
                         {isSuggestingModifiers && (
                           <div className="space-y-2">
