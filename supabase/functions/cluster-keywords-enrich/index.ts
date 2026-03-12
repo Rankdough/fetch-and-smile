@@ -114,21 +114,30 @@ BLOG IDEA TITLE RULES:
 
 CRITICAL — STEP-BY-STEP PROCESS (follow this order):
 
-STEP 1: GROUP KEYWORDS BY SUB-TOPIC FIRST
-- Before creating any blog ideas, read ALL keywords and group them into logical sub-topics.
-- Keywords that ask about the same thing belong together: "what are track pants", "what are track pants made of", "what material are track pants made of" → all belong to ONE article about "what are track pants".
-- Keywords about different activities/entities MUST be in separate groups: "cross-country skiing" keywords vs "cross-country running" keywords vs "cross-country moving" keywords are THREE separate topics — never mix them.
-- Look at the CORE SUBJECT of each keyword, not just shared words. "how to move cross country" is about RELOCATION, not about the sport "cross country".
+STEP 1: IDENTIFY HIGH-VOLUME KEYWORDS FIRST
+- Before grouping, sort ALL keywords by their search volume (provided in parentheses).
+- The highest-volume keywords are the ANCHORS — each blog idea should be built around one or more high-volume keywords.
+- A blog idea's title and angle MUST be driven by its highest-volume keyword, NOT by low-volume ones.
+- Example: if "make new friends but keep the old" has 1,000 volume and other keywords have 10-20 each, the article title must be about "make new friends but keep the old", not about a minor keyword.
 
-STEP 2: CREATE ONE BLOG IDEA PER LOGICAL GROUP
+STEP 2: GROUP KEYWORDS BY SUB-TOPIC AROUND VOLUME ANCHORS
+- Group keywords into logical sub-topics, anchoring each group around its highest-volume keyword(s).
+- Keywords that ask about the same thing belong together: "what are track pants", "what are track pants made of", "what material are track pants made of" → all belong to ONE article.
+- Keywords about different activities/entities MUST be in separate groups: "cross-country skiing" vs "cross-country running" vs "cross-country moving" are THREE separate topics.
+- Look at the CORE SUBJECT of each keyword, not just shared words.
+- Only assign low-volume keywords to a group if they are DIRECTLY relevant to that group's high-volume anchor keyword.
+
+STEP 3: CREATE ONE BLOG IDEA PER LOGICAL GROUP
 - Each blog idea should cover one coherent sub-topic.
-- Merge closely related questions into a single article (e.g. "what are track pants" + "what are track pants made of" + "what material are track pants made of" = one article).
+- The title MUST be based on the highest-volume keyword in the group — never on a minor keyword.
+- Merge closely related questions into a single article.
 - Generate FEWER but more comprehensive blog ideas rather than many thin ones. Aim for 3-7 ideas depending on keyword diversity.
 - Do NOT create separate articles for questions that would naturally be answered in the same article.
 
-STEP 3: ASSIGN KEYWORDS — EACH KEYWORD TO EXACTLY ONE IDEA
+STEP 4: ASSIGN KEYWORDS — EACH KEYWORD TO EXACTLY ONE IDEA
 - Every keyword must be assigned to exactly ONE blog idea. No duplicates across ideas.
 - A keyword belongs to the idea where it would NATURALLY appear as a section or be answered.
+- Do NOT assign a keyword to an idea just because they share surface words — the intent must match.
 - After assigning, verify: scan every keyword in every idea and confirm zero duplicates.
 
 RULES:
@@ -158,9 +167,12 @@ CRITICAL KEYWORD DEDUPLICATION RULES:
       console.log(`Enriching batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(clusters.length / BATCH_SIZE)} (${batch.length} clusters)...`);
 
       const clusterDescriptions = batch.map((c: any) => {
-        // Send ALL keywords so the model can properly group and deduplicate
-        const allKws = c.keywords.join(", ");
-        return `Topic: "${c.topic}" (${c.keywords.length} keywords, ~${c.estimated_monthly_volume} monthly volume)\nALL Keywords: ${allKws}`;
+        // Send keywords WITH volumes so the model can prioritize by search volume
+        const kwWithVols = c.keyword_volumes
+          ? c.keywords.map((kw: string) => `${kw} (${c.keyword_volumes[kw] ?? c.keyword_volumes[kw.toLowerCase()] ?? "?"})`)
+          : c.keywords;
+        const allKws = kwWithVols.join(", ");
+        return `Topic: "${c.topic}" (${c.keywords.length} keywords, ~${c.estimated_monthly_volume} monthly volume)\nALL Keywords (with search volume): ${allKws}`;
       }).join("\n\n");
 
       const userPrompt = `Enrich these ${batch.length} topic clusters:\n\n${clusterDescriptions}`;
