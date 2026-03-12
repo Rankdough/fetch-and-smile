@@ -976,6 +976,116 @@ const KeywordResearch = () => {
                 </Badge>
               </div>
 
+              {/* Refine Results Panel */}
+              <Collapsible open={isRefineOpen} onOpenChange={setIsRefineOpen}>
+                <Card className="border-dashed border-primary/40">
+                  <CollapsibleTrigger className="w-full">
+                    <CardHeader className="py-3 px-4">
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-sm flex items-center gap-2">
+                          <SlidersHorizontal className="h-4 w-4 text-primary" />
+                          Refine Results
+                        </CardTitle>
+                        {isRefineOpen ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+                      </div>
+                    </CardHeader>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <CardContent className="pt-0 pb-4 px-4 space-y-4">
+                      {/* Suggest Modifiers */}
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <label className="text-sm font-medium">AI Modifier Suggestions</label>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="gap-1.5 text-xs"
+                            onClick={suggestModifiers}
+                            disabled={isSuggestingModifiers}
+                          >
+                            {isSuggestingModifiers ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                            {isSuggestingModifiers ? "Analysing..." : "Suggest Missing Modifiers"}
+                          </Button>
+                        </div>
+                        <p className="text-xs text-muted-foreground mb-3">
+                          AI will analyse your clusters and suggest modifier dimensions you may have missed (e.g. age ranges, materials, occasions).
+                        </p>
+
+                        {isSuggestingModifiers && (
+                          <div className="space-y-2">
+                            {Array.from({ length: 4 }).map((_, i) => (
+                              <Skeleton key={i} className="h-8 w-full" />
+                            ))}
+                          </div>
+                        )}
+
+                        {suggestedDimensions.length > 0 && (
+                          <div className="space-y-3 max-h-[400px] overflow-y-auto pr-1">
+                            {suggestedDimensions.map((dim, di) => {
+                              const allSelected = dim.modifiers.every(m => selectedSuggestedModifiers.has(m));
+                              return (
+                                <div key={di} className="border rounded-md p-3">
+                                  <div className="flex items-center justify-between mb-2">
+                                    <span className="text-sm font-medium">{dim.dimension_name}</span>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-6 text-xs"
+                                      onClick={() => selectAllInDimension(dim.modifiers)}
+                                    >
+                                      {allSelected ? "Deselect all" : "Select all"}
+                                    </Button>
+                                  </div>
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {dim.modifiers.map((mod, mi) => (
+                                      <Badge
+                                        key={mi}
+                                        variant={selectedSuggestedModifiers.has(mod) ? "default" : "outline"}
+                                        className="cursor-pointer text-xs transition-colors"
+                                        onClick={() => toggleSuggestedModifier(mod)}
+                                      >
+                                        {mod}
+                                      </Badge>
+                                    ))}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                            {selectedSuggestedModifiers.size > 0 && (
+                              <p className="text-xs text-primary font-medium">
+                                {selectedSuggestedModifiers.size} modifier{selectedSuggestedModifiers.size !== 1 ? 's' : ''} selected
+                              </p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Manual seeds/modifiers */}
+                      <div>
+                        <label className="text-sm font-medium mb-1 block">Add Your Own Seeds / Modifiers</label>
+                        <Textarea
+                          placeholder="Type additional keywords or modifiers — one per line or comma-separated.&#10;e.g. 1 year old, 2 year old, 3-6 years, wooden, Montessori-certified"
+                          value={manualRefineInput}
+                          onChange={e => setManualRefineInput(e.target.value)}
+                          rows={3}
+                          className="text-sm"
+                        />
+                      </div>
+
+                      {/* Expand button */}
+                      <Button
+                        onClick={expandWithModifiers}
+                        disabled={isExpanding || (selectedSuggestedModifiers.size === 0 && !manualRefineInput.trim())}
+                        className="gap-2"
+                      >
+                        {isExpanding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                        {isExpanding ? "Expanding keywords..." : "Expand Keywords with Selected Modifiers"}
+                      </Button>
+                    </CardContent>
+                  </CollapsibleContent>
+                </Card>
+              </Collapsible>
+
               {/* Clusters */}
               <div className="space-y-2">
                 {semanticMap.clusters.map(cluster => (
