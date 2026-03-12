@@ -1036,17 +1036,30 @@ const KeywordResearch = () => {
                                       {allSelected ? "Deselect all" : "Select all"}
                                     </Button>
                                   </div>
-                                  <div className="flex flex-wrap gap-1.5">
-                                    {dim.modifiers.map((mod, mi) => (
-                                      <Badge
-                                        key={mi}
-                                        variant={selectedSuggestedModifiers.has(mod) ? "default" : "outline"}
-                                        className="cursor-pointer text-xs transition-colors"
-                                        onClick={() => toggleSuggestedModifier(mod)}
-                                      >
-                                        {mod}
-                                      </Badge>
-                                    ))}
+                                  {dim.covered && dim.covered.length > 0 && (
+                                    <div className="mb-2">
+                                      <span className="text-xs text-muted-foreground font-medium">✓ Already covered:</span>
+                                      <div className="flex flex-wrap gap-1 mt-1">
+                                        {dim.covered.map((c, ci) => (
+                                          <Badge key={ci} variant="secondary" className="text-xs opacity-60">{c}</Badge>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+                                  <div>
+                                    <span className="text-xs text-destructive font-medium">✗ Missing — click to select:</span>
+                                    <div className="flex flex-wrap gap-1.5 mt-1">
+                                      {dim.modifiers.map((mod, mi) => (
+                                        <Badge
+                                          key={mi}
+                                          variant={selectedSuggestedModifiers.has(mod) ? "default" : "outline"}
+                                          className="cursor-pointer text-xs transition-colors"
+                                          onClick={() => toggleSuggestedModifier(mod)}
+                                        >
+                                          {mod}
+                                        </Badge>
+                                      ))}
+                                    </div>
                                   </div>
                                 </div>
                               );
