@@ -2155,6 +2155,7 @@ Focus on providing actionable research that will help create a comprehensive, di
               onReassignKeyword={reassignKeywordByTitle}
               onCreateIdeaFromKeyword={(clusterTopic, kw) => createIdeaFromKeyword(clusterTopic, kw, "questions")}
               generatingIdeaForKw={generatingIdeaForKw}
+              onEditIdeaTitle={editIdeaTitle}
             />
           );
         })()}
