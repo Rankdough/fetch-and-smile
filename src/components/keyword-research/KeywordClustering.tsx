@@ -115,6 +115,41 @@ interface SavedClustering {
   result: ClusteringResult;
 }
 
+const EditableTitle = ({ title, onSave, className = "" }: { title: string; onSave: (newTitle: string) => void; className?: string }) => {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(title);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => { setValue(title); }, [title]);
+  useEffect(() => { if (editing) inputRef.current?.focus(); }, [editing]);
+
+  const commit = () => {
+    setEditing(false);
+    if (value.trim() && value.trim() !== title) onSave(value.trim());
+    else setValue(title);
+  };
+
+  if (editing) {
+    return (
+      <input
+        ref={inputRef}
+        value={value}
+        onChange={e => setValue(e.target.value)}
+        onBlur={commit}
+        onKeyDown={e => { if (e.key === "Enter") commit(); if (e.key === "Escape") { setValue(title); setEditing(false); } }}
+        className={`text-base font-semibold leading-snug bg-transparent border-b border-primary outline-none w-full ${className}`}
+      />
+    );
+  }
+
+  return (
+    <div className="group flex items-center gap-1 min-w-0">
+      <p className={`text-base font-semibold leading-snug cursor-pointer hover:underline decoration-dashed underline-offset-2 ${className}`} onClick={() => setEditing(true)}>{title}</p>
+      <Pencil className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0 cursor-pointer" onClick={() => setEditing(true)} />
+    </div>
+  );
+};
+
 const difficultyColors: Record<string, string> = {
   low: "text-green-600 bg-green-500/10 border-green-500/20",
   medium: "text-yellow-600 bg-yellow-500/10 border-yellow-500/20",
