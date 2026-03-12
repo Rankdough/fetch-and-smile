@@ -398,6 +398,168 @@ const KeywordResearch = () => {
 
   const stopOperation = () => abortControllerRef.current?.abort();
 
+  const suggestModifiers = async () => {
+    if (!semanticMap) return;
+    setIsSuggestingModifiers(true);
+    setSuggestedDimensions([]);
+    setSelectedSuggestedModifiers(new Set());
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/refine-keyword-universe`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({
+            mode: "suggest_modifiers",
+            topic: semanticMap.topic,
+            definition: semanticMap.definition,
+            existingClusters: semanticMap.clusters,
+            existingModifiers: semanticMap.cross_cutting_modifiers,
+            audience: audience.trim() || undefined,
+            country: country.trim() || undefined,
+          }),
+        }
+      );
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || `Request failed: ${response.status}`);
+      }
+      const data = await response.json();
+      setSuggestedDimensions(data.suggestions?.dimensions || []);
+      toast({ title: "Modifier suggestions ready!", description: "Select the ones you want to add" });
+    } catch (err: any) {
+      console.error(err);
+      toast({ title: "Failed to suggest modifiers", description: err.message, variant: "destructive" });
+    } finally {
+      setIsSuggestingModifiers(false);
+    }
+  };
+
+  const toggleSuggestedModifier = (mod: string) => {
+    setSelectedSuggestedModifiers(prev => {
+      const next = new Set(prev);
+      next.has(mod) ? next.delete(mod) : next.add(mod);
+      return next;
+    });
+  };
+
+  const selectAllInDimension = (mods: string[]) => {
+    setSelectedSuggestedModifiers(prev => {
+      const next = new Set(prev);
+      const allSelected = mods.every(m => next.has(m));
+      if (allSelected) { mods.forEach(m => next.delete(m)); }
+      else { mods.forEach(m => next.add(m)); }
+      return next;
+    });
+  };
+
+  const expandWithModifiers = async () => {
+    if (!semanticMap) return;
+    const manualItems = manualRefineInput.split(/[\n,]+/).map(s => s.trim()).filter(s => s.length >= 2);
+    const selectedMods = [...selectedSuggestedModifiers];
+    if (manualItems.length === 0 && selectedMods.length === 0) {
+      toast({ title: "Nothing to add", description: "Select suggested modifiers or type your own", variant: "destructive" });
+      return;
+    }
+    setIsExpanding(true);
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/refine-keyword-universe`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({
+            mode: "expand",
+            topic: semanticMap.topic,
+            definition: semanticMap.definition,
+            existingClusters: semanticMap.clusters,
+            newModifiers: selectedMods,
+            newSeeds: manualItems,
+            audience: audience.trim() || undefined,
+            country: country.trim() || undefined,
+          }),
+        }
+      );
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || `Request failed: ${response.status}`);
+      }
+      const data = await response.json();
+      const expansion = data.expansion;
+      if (!expansion) throw new Error("No expansion data returned");
+
+      // Merge expansion into existing semanticMap
+      const updatedMap = { ...semanticMap };
+      const clusterMap = new Map(updatedMap.clusters.map(c => [c.cluster_name, { ...c }]));
+
+      let totalAdded = 0;
+      for (const exp of expansion.expansions || []) {
+        const existing = clusterMap.get(exp.cluster_name);
+        if (existing) {
+          const existingSet = new Set(existing.seed_keywords.map((k: string) => k.toLowerCase()));
+          const newKws = (exp.new_seed_keywords || []).filter((k: string) => !existingSet.has(k.toLowerCase()));
+          existing.seed_keywords = [...existing.seed_keywords, ...newKws];
+          totalAdded += newKws.length;
+
+          const existingQs = new Set(existing.questions.map((q: string) => q.toLowerCase()));
+          const newQs = (exp.new_questions || []).filter((q: string) => !existingQs.has(q.toLowerCase()));
+          existing.questions = [...existing.questions, ...newQs];
+
+          const existingMods = new Set(existing.modifiers.map((m: string) => m.toLowerCase()));
+          const newMods = (exp.new_modifiers || []).filter((m: string) => !existingMods.has(m.toLowerCase()));
+          existing.modifiers = [...existing.modifiers, ...newMods];
+
+          clusterMap.set(exp.cluster_name, existing);
+        } else {
+          // New cluster
+          clusterMap.set(exp.cluster_name, {
+            cluster_name: exp.cluster_name,
+            seed_keywords: exp.new_seed_keywords || [],
+            questions: exp.new_questions || [],
+            modifiers: exp.new_modifiers || [],
+            example_entities: [],
+          });
+          totalAdded += (exp.new_seed_keywords || []).length;
+        }
+      }
+
+      // Add new cross-cutting modifiers
+      if (expansion.new_cross_cutting_modifiers?.length) {
+        const existingCCM = new Set(updatedMap.cross_cutting_modifiers.map(m => m.toLowerCase()));
+        const newCCM = expansion.new_cross_cutting_modifiers.filter((m: string) => !existingCCM.has(m.toLowerCase()));
+        updatedMap.cross_cutting_modifiers = [...updatedMap.cross_cutting_modifiers, ...newCCM];
+      }
+
+      updatedMap.clusters = [...clusterMap.values()];
+      setSemanticMap(updatedMap);
+      setOpenClusters(new Set(updatedMap.clusters.map(c => c.cluster_name)));
+
+      // Clear refine inputs
+      setManualRefineInput("");
+      setSelectedSuggestedModifiers(new Set());
+      setSuggestedDimensions([]);
+
+      toast({ title: "Keywords expanded!", description: `Added ${totalAdded} new seed keywords` });
+
+      // Update saved research
+      await supabase
+        .from("keyword_research" as any)
+        .update({ results: updatedMap as any })
+        .eq("topic", updatedMap.topic);
+    } catch (err: any) {
+      console.error(err);
+      toast({ title: "Expansion failed", description: err.message, variant: "destructive" });
+    } finally {
+      setIsExpanding(false);
+    }
+  };
+
   const toggleCluster = (name: string) => {
     setOpenClusters(prev => {
       const next = new Set(prev);
