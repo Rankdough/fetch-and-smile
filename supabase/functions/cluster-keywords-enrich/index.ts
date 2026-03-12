@@ -89,6 +89,14 @@ RULES:
       }
       
       const result = parsed.enrichments?.[0] || parsed;
+      // Clean volume suffixes from target_keywords
+      if (result.blog_ideas) {
+        for (const idea of result.blog_ideas) {
+          if (idea.target_keywords) {
+            idea.target_keywords = idea.target_keywords.map((kw: string) => kw.replace(/\s*\(\d+\)\s*$/, "").replace(/\s*\(\?\)\s*$/, "").trim());
+          }
+        }
+      }
       console.log("Single idea result:", JSON.stringify(result).slice(0, 300));
       
       return new Response(JSON.stringify(result), {
