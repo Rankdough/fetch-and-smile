@@ -1589,7 +1589,17 @@ const KeywordClustering = () => {
                   open={expandedClusters.has(cluster.topic)}
                   onOpenChange={() => toggleCluster(cluster.topic)}
                 >
-                  <Card className="border">
+                  <Card className={cn("border", mergingFromSilo === cluster.topic && "border-primary ring-2 ring-primary/20", mergingFromSilo && mergingFromSilo !== cluster.topic && "border-dashed border-primary/50 cursor-pointer hover:border-primary hover:bg-primary/5 transition-colors")}>
+                    {/* Merge target overlay */}
+                    {mergingFromSilo && mergingFromSilo !== cluster.topic && (
+                      <button
+                        className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-primary bg-primary/5 border-b border-primary/20 hover:bg-primary/10 transition-colors"
+                        onClick={(e) => { e.stopPropagation(); mergeSilos(mergingFromSilo, cluster.topic); }}
+                      >
+                        <Merge className="h-3.5 w-3.5" />
+                        Merge "{mergingFromSilo}" into this silo
+                      </button>
+                    )}
                     <CollapsibleTrigger className="w-full">
                       <div className="flex items-center justify-between px-4 py-3">
                         <div className="flex items-center gap-3 flex-1 min-w-0">
