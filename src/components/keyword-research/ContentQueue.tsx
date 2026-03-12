@@ -506,12 +506,7 @@ Focus on providing actionable research that will help create a comprehensive, di
                               <div className="flex flex-wrap items-center gap-1">
                                 {sortedKws.map((kw, ki) => {
                                   const vol = volLookup[kw] ?? volLookup[kw.toLowerCase()];
-                                  return (
-                                    <Badge key={ki} variant="secondary" className="text-[10px] px-1.5 py-0 gap-1 font-medium">
-                                      {kw}
-                                      {vol != null && vol > 0 && <span className="text-primary/70 font-semibold">{vol.toLocaleString()}</span>}
-                                    </Badge>
-                                  );
+                                  return renderKeywordBadge(kw, ki, vol, cluster, idea);
                                 })}
                               </div>
                             </div>
