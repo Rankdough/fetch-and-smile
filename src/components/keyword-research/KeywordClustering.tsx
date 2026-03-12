@@ -937,6 +937,93 @@ const KeywordClustering = () => {
     }
   };
 
+  const mergeSilos = async (sourceClusterTopic: string, targetClusterTopic: string) => {
+    if (!result) return;
+    const source = result.clusters.find(c => c.topic === sourceClusterTopic);
+    const target = result.clusters.find(c => c.topic === targetClusterTopic);
+    if (!source || !target) return;
+
+    // Merge keywords (dedup case-insensitive)
+    const existingKwsLower = new Set(target.keywords.map(k => k.toLowerCase()));
+    const newKeywords = source.keywords.filter(k => !existingKwsLower.has(k.toLowerCase()));
+    const mergedKeywords = [...target.keywords, ...newKeywords];
+
+    // Merge keyword_volumes
+    const mergedVolumes = { ...(target.keyword_volumes || {}), ...(source.keyword_volumes || {}) };
+
+    // Merge blog ideas
+    const mergedBlogIdeas = [...(target.blog_ideas || []), ...(source.blog_ideas || [])];
+
+    // Merge landing page ideas
+    const mergedLandingPages = [...(target.landing_page_ideas || []), ...(source.landing_page_ideas || [])];
+
+    // Merge question overrides
+    const mergedQOverrides = [...new Set([...(target.question_overrides || []), ...(source.question_overrides || [])])];
+
+    // Update volumes
+    const mergedVolume = (target.estimated_monthly_volume || 0) + (source.estimated_monthly_volume || 0);
+
+    const mergedCluster: KeywordCluster = {
+      ...target,
+      keywords: mergedKeywords,
+      keyword_volumes: mergedVolumes,
+      blog_ideas: mergedBlogIdeas,
+      landing_page_ideas: mergedLandingPages,
+      question_overrides: mergedQOverrides,
+      estimated_monthly_volume: mergedVolume,
+    };
+
+    // Update bookmarks/used keys: remap source cluster keys to target cluster
+    const bmKey = getBookmarkedKey(activeResultId);
+    const bm = getStoredSet(bmKey);
+    const used = getStoredSet(USED_IDEAS_KEY);
+    let bmChanged = false, usedChanged = false;
+
+    (source.blog_ideas || []).forEach(idea => {
+      const oldKey = makeIdeaKey(sourceClusterTopic, idea.title);
+      const newKey = makeIdeaKey(targetClusterTopic, idea.title);
+      if (bm.has(oldKey)) { bm.delete(oldKey); bm.add(newKey); bmChanged = true; }
+      if (used.has(oldKey)) { used.delete(oldKey); used.add(newKey); usedChanged = true; }
+    });
+
+    if (bmChanged) { localStorage.setItem(bmKey, JSON.stringify([...bm])); setBookmarkedIdeas(new Set(bm)); }
+    if (usedChanged) { localStorage.setItem(USED_IDEAS_KEY, JSON.stringify([...used])); setUsedIdeas(new Set(used)); }
+
+    // Update content-queue-done keys
+    try {
+      const doneStr = localStorage.getItem("content-queue-done");
+      if (doneStr) {
+        const doneSet: Set<string> = new Set(JSON.parse(doneStr));
+        let doneChanged = false;
+        (source.blog_ideas || []).forEach(idea => {
+          const oldKey = makeIdeaKey(sourceClusterTopic, idea.title);
+          const newKey = makeIdeaKey(targetClusterTopic, idea.title);
+          if (doneSet.has(oldKey)) { doneSet.delete(oldKey); doneSet.add(newKey); doneChanged = true; }
+        });
+        if (doneChanged) localStorage.setItem("content-queue-done", JSON.stringify([...doneSet]));
+      }
+    } catch {}
+
+    const updatedResult: ClusteringResult = {
+      ...result,
+      clusters: result.clusters.filter(c => c.topic !== sourceClusterTopic).map(c =>
+        c.topic === targetClusterTopic ? mergedCluster : c
+      ),
+      total_keywords_clustered: result.total_keywords_clustered,
+    };
+
+    setResult(updatedResult);
+    setMergingFromSilo(null);
+    toast({ title: "Silos merged", description: `"${sourceClusterTopic}" merged into "${targetClusterTopic}"` });
+
+    if (activeResultId) {
+      await supabase
+        .from("keyword_clustering_results")
+        .update({ result: updatedResult as any })
+        .eq("id", activeResultId);
+    }
+  };
+
   const createIdeaFromKeyword = async (clusterTopic: string, keyword: string, keywordFilter?: "generic" | "questions") => {
     if (!result) return;
     const cluster = result.clusters.find(c => c.topic === clusterTopic);
