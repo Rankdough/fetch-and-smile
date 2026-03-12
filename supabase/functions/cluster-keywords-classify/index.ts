@@ -258,7 +258,7 @@ JSON FORMAT:
 
     console.log(`Pass 1 complete: ${clusters.length} topics, ${totalClustered} assigned, ${otherKeywords.length} in Other`);
 
-    return new Response(JSON.stringify({ clusters, total_keywords_clustered: totalClustered, unclustered: unassigned }), {
+    return new Response(JSON.stringify({ clusters, total_keywords_clustered: totalClustered, unclustered: otherKeywords }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e: any) {
