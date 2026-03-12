@@ -811,7 +811,16 @@ const KeywordClustering = () => {
     }
   };
 
-  const deleteIdeaFromCluster = async (clusterTopic: string, ideaIndex: number) => {
+  const reassignKeywordByTitle = async (clusterTopic: string, keyword: string, fromIdeaTitle: string, toIdeaTitle: string) => {
+    if (!result) return;
+    const cluster = result.clusters.find(c => c.topic === clusterTopic);
+    if (!cluster?.blog_ideas) return;
+    const fromIdx = cluster.blog_ideas.findIndex(i => i.title === fromIdeaTitle);
+    const toIdx = cluster.blog_ideas.findIndex(i => i.title === toIdeaTitle);
+    if (fromIdx === -1 || toIdx === -1) return;
+    reassignKeyword(clusterTopic, keyword, fromIdx, toIdx);
+  };
+
     if (!result) return;
     const updatedResult: ClusteringResult = {
       ...result,
