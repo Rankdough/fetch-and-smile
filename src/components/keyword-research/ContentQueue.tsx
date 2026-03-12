@@ -44,9 +44,13 @@ interface ContentQueueProps {
   onRemoveFromQueue: (ideaKey: string) => void;
   formatVolume: (v: number) => string;
   projectName?: string;
+  allClusters?: KeywordCluster[];
+  onReassignKeyword?: (clusterTopic: string, keyword: string, fromIdeaTitle: string, toIdeaTitle: string) => void;
+  onCreateIdeaFromKeyword?: (clusterTopic: string, keyword: string) => void;
+  generatingIdeaForKw?: string | null;
 }
 
-const ContentQueue = ({ queuedIdeas, onUseForArticle, onRemoveFromQueue, formatVolume, projectName }: ContentQueueProps) => {
+const ContentQueue = ({ queuedIdeas, onUseForArticle, onRemoveFromQueue, formatVolume, projectName, allClusters, onReassignKeyword, onCreateIdeaFromKeyword, generatingIdeaForKw }: ContentQueueProps) => {
   const { toast } = useToast();
   const [fallbackDownload, setFallbackDownload] = useState<{ url: string; filename: string } | null>(null);
   const [doneIdeas, setDoneIdeas] = useState<Set<string>>(() => {
