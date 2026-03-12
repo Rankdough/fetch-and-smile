@@ -521,10 +521,20 @@ Focus on providing actionable research that will help create a comprehensive, di
                   const isExpanded = expandedDone.has(ideaKey);
 
                   return (
-                    <div key={ideaKey} className="border rounded-md bg-background">
+                    <div key={ideaKey} className={cn(
+                      "border rounded-md bg-background",
+                      favoriteIdeas.has(ideaKey) && "border-amber-400 bg-amber-50/30 dark:bg-amber-900/10 dark:border-amber-600"
+                    )}>
                       {/* Collapsed header */}
                       <div className="flex items-center justify-between gap-3 px-4 py-3 cursor-pointer" onClick={() => toggleExpanded(ideaKey)}>
                         <div className="flex items-center gap-2 flex-1 min-w-0">
+                          <button
+                            className="shrink-0"
+                            onClick={(e) => { e.stopPropagation(); toggleFavorite(ideaKey); }}
+                            title={favoriteIdeas.has(ideaKey) ? "Remove from favorites" : "Add to favorites"}
+                          >
+                            <Star className={cn("h-4 w-4 transition-colors", favoriteIdeas.has(ideaKey) ? "text-amber-500 fill-amber-500" : "text-muted-foreground/40 hover:text-amber-400")} />
+                          </button>
                           {onEditIdeaTitle ? (
                             <div onClick={e => e.stopPropagation()}>
                               <EditableTitleCQ title={idea.title} onSave={(newTitle) => onEditIdeaTitle(cluster.topic, idea.title, newTitle)} />
