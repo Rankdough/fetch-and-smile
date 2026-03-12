@@ -11,12 +11,13 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { supabase } from "@/integrations/supabase/client";
 import {
   Upload, Layers, ChevronDown, ChevronRight, Loader2, Square,
-  TrendingUp, FileText, Copy, Download, BarChart3, Target, Info, Lightbulb, Trash2, RefreshCw, ArrowRight, Search, Bookmark, Clock, Star, Plus, ArrowDownToLine, Pencil
+  TrendingUp, FileText, Copy, Download, BarChart3, Target, Info, Lightbulb, Trash2, RefreshCw, ArrowRight, Search, Bookmark, Clock, Star, Plus, ArrowDownToLine, Pencil, Merge
 } from "lucide-react";
 import ContentQueue from "./ContentQueue";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Check } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 const USED_IDEAS_KEY = "kw-used-blog-ideas";
 const BOOKMARKED_IDEAS_KEY_PREFIX = "kw-bookmarked-blog-ideas";
@@ -201,6 +202,7 @@ const KeywordClustering = () => {
   const [generatingIdeaForKw, setGeneratingIdeaForKw] = useState<string | null>(null);
   const [collapsedBlogIdeas, setCollapsedBlogIdeas] = useState<Set<string>>(new Set());
   const [collapsedLandingPages, setCollapsedLandingPages] = useState<Set<string>>(new Set());
+  const [mergingFromSilo, setMergingFromSilo] = useState<string | null>(null);
 
   const toggleCollapsedSet = (setter: React.Dispatch<React.SetStateAction<Set<string>>>, key: string) => {
     setter(prev => {
@@ -936,6 +938,93 @@ const KeywordClustering = () => {
     }
   };
 
+  const mergeSilos = async (sourceClusterTopic: string, targetClusterTopic: string) => {
+    if (!result) return;
+    const source = result.clusters.find(c => c.topic === sourceClusterTopic);
+    const target = result.clusters.find(c => c.topic === targetClusterTopic);
+    if (!source || !target) return;
+
+    // Merge keywords (dedup case-insensitive)
+    const existingKwsLower = new Set(target.keywords.map(k => k.toLowerCase()));
+    const newKeywords = source.keywords.filter(k => !existingKwsLower.has(k.toLowerCase()));
+    const mergedKeywords = [...target.keywords, ...newKeywords];
+
+    // Merge keyword_volumes
+    const mergedVolumes = { ...(target.keyword_volumes || {}), ...(source.keyword_volumes || {}) };
+
+    // Merge blog ideas
+    const mergedBlogIdeas = [...(target.blog_ideas || []), ...(source.blog_ideas || [])];
+
+    // Merge landing page ideas
+    const mergedLandingPages = [...(target.landing_page_ideas || []), ...(source.landing_page_ideas || [])];
+
+    // Merge question overrides
+    const mergedQOverrides = [...new Set([...(target.question_overrides || []), ...(source.question_overrides || [])])];
+
+    // Update volumes
+    const mergedVolume = (target.estimated_monthly_volume || 0) + (source.estimated_monthly_volume || 0);
+
+    const mergedCluster: KeywordCluster = {
+      ...target,
+      keywords: mergedKeywords,
+      keyword_volumes: mergedVolumes,
+      blog_ideas: mergedBlogIdeas,
+      landing_page_ideas: mergedLandingPages,
+      question_overrides: mergedQOverrides,
+      estimated_monthly_volume: mergedVolume,
+    };
+
+    // Update bookmarks/used keys: remap source cluster keys to target cluster
+    const bmKey = getBookmarkedKey(activeResultId);
+    const bm = getStoredSet(bmKey);
+    const used = getStoredSet(USED_IDEAS_KEY);
+    let bmChanged = false, usedChanged = false;
+
+    (source.blog_ideas || []).forEach(idea => {
+      const oldKey = makeIdeaKey(sourceClusterTopic, idea.title);
+      const newKey = makeIdeaKey(targetClusterTopic, idea.title);
+      if (bm.has(oldKey)) { bm.delete(oldKey); bm.add(newKey); bmChanged = true; }
+      if (used.has(oldKey)) { used.delete(oldKey); used.add(newKey); usedChanged = true; }
+    });
+
+    if (bmChanged) { localStorage.setItem(bmKey, JSON.stringify([...bm])); setBookmarkedIdeas(new Set(bm)); }
+    if (usedChanged) { localStorage.setItem(USED_IDEAS_KEY, JSON.stringify([...used])); setUsedIdeas(new Set(used)); }
+
+    // Update content-queue-done keys
+    try {
+      const doneStr = localStorage.getItem("content-queue-done");
+      if (doneStr) {
+        const doneSet: Set<string> = new Set(JSON.parse(doneStr));
+        let doneChanged = false;
+        (source.blog_ideas || []).forEach(idea => {
+          const oldKey = makeIdeaKey(sourceClusterTopic, idea.title);
+          const newKey = makeIdeaKey(targetClusterTopic, idea.title);
+          if (doneSet.has(oldKey)) { doneSet.delete(oldKey); doneSet.add(newKey); doneChanged = true; }
+        });
+        if (doneChanged) localStorage.setItem("content-queue-done", JSON.stringify([...doneSet]));
+      }
+    } catch {}
+
+    const updatedResult: ClusteringResult = {
+      ...result,
+      clusters: result.clusters.filter(c => c.topic !== sourceClusterTopic).map(c =>
+        c.topic === targetClusterTopic ? mergedCluster : c
+      ),
+      total_keywords_clustered: result.total_keywords_clustered,
+    };
+
+    setResult(updatedResult);
+    setMergingFromSilo(null);
+    toast({ title: "Silos merged", description: `"${sourceClusterTopic}" merged into "${targetClusterTopic}"` });
+
+    if (activeResultId) {
+      await supabase
+        .from("keyword_clustering_results")
+        .update({ result: updatedResult as any })
+        .eq("id", activeResultId);
+    }
+  };
+
   const createIdeaFromKeyword = async (clusterTopic: string, keyword: string, keywordFilter?: "generic" | "questions") => {
     if (!result) return;
     const cluster = result.clusters.find(c => c.topic === clusterTopic);
@@ -1471,6 +1560,17 @@ const KeywordClustering = () => {
               </Badge>
             </div>
 
+            {/* Merge mode banner */}
+            {mergingFromSilo && (
+              <div className="flex items-center gap-3 px-4 py-2.5 rounded-md bg-primary/10 border border-primary/30">
+                <Merge className="h-4 w-4 text-primary shrink-0" />
+                <span className="text-sm font-medium text-primary flex-1">
+                  Select a silo to merge <span className="font-bold">"{mergingFromSilo}"</span> into:
+                </span>
+                <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setMergingFromSilo(null)}>Cancel</Button>
+              </div>
+            )}
+
             {/* Cluster cards */}
             <div className="space-y-2">
               {[...result.clusters]
@@ -1490,7 +1590,17 @@ const KeywordClustering = () => {
                   open={expandedClusters.has(cluster.topic)}
                   onOpenChange={() => toggleCluster(cluster.topic)}
                 >
-                  <Card className="border">
+                  <Card className={cn("border", mergingFromSilo === cluster.topic && "border-primary ring-2 ring-primary/20", mergingFromSilo && mergingFromSilo !== cluster.topic && "border-dashed border-primary/50 cursor-pointer hover:border-primary hover:bg-primary/5 transition-colors")}>
+                    {/* Merge target overlay */}
+                    {mergingFromSilo && mergingFromSilo !== cluster.topic && (
+                      <button
+                        className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-primary bg-primary/5 border-b border-primary/20 hover:bg-primary/10 transition-colors"
+                        onClick={(e) => { e.stopPropagation(); mergeSilos(mergingFromSilo, cluster.topic); }}
+                      >
+                        <Merge className="h-3.5 w-3.5" />
+                        Merge "{mergingFromSilo}" into this silo
+                      </button>
+                    )}
                     <CollapsibleTrigger className="w-full">
                       <div className="flex items-center justify-between px-4 py-3">
                         <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -1616,6 +1726,15 @@ const KeywordClustering = () => {
                           <Badge variant="secondary" className="text-sm font-medium">
                             {contentTypeLabels[cluster.content_type] || cluster.content_type}
                           </Badge>
+                          {!mergingFromSilo && (
+                            <button
+                              className="shrink-0 ml-1"
+                              title="Merge with another silo"
+                              onClick={(e) => { e.stopPropagation(); setMergingFromSilo(cluster.topic); }}
+                            >
+                              <Merge className="h-3.5 w-3.5 text-muted-foreground/40 hover:text-primary transition-colors" />
+                            </button>
+                          )}
                         </div>
                       </div>
                     </CollapsibleTrigger>
