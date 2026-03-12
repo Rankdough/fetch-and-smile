@@ -6,7 +6,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
-  ChevronDown, TrendingUp, ArrowRight, Search, Bookmark, FileText, Download, CheckCircle2, Plus, Loader2, Lightbulb, Pencil,
+  ChevronDown, TrendingUp, ArrowRight, Search, Bookmark, FileText, Download, CheckCircle2, Plus, Loader2, Lightbulb, Pencil, Star,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -95,6 +95,12 @@ const ContentQueue = ({ queuedIdeas, onUseForArticle, onRemoveFromQueue, formatV
       return saved ? new Set(JSON.parse(saved)) : new Set();
     } catch { return new Set(); }
   });
+  const [favoriteIdeas, setFavoriteIdeas] = useState<Set<string>>(() => {
+    try {
+      const saved = localStorage.getItem("content-queue-favorites");
+      return saved ? new Set(JSON.parse(saved)) : new Set();
+    } catch { return new Set(); }
+  });
   const [expandedDone, setExpandedDone] = useState<Set<string>>(new Set());
   const [completedSectionOpen, setCompletedSectionOpen] = useState(true);
 
@@ -113,6 +119,16 @@ const ContentQueue = ({ queuedIdeas, onUseForArticle, onRemoveFromQueue, formatV
       if (next.has(ideaKey)) next.delete(ideaKey);
       else next.add(ideaKey);
       localStorage.setItem("content-queue-done", JSON.stringify([...next]));
+      return next;
+    });
+  }, []);
+
+  const toggleFavorite = useCallback((ideaKey: string) => {
+    setFavoriteIdeas(prev => {
+      const next = new Set(prev);
+      if (next.has(ideaKey)) next.delete(ideaKey);
+      else next.add(ideaKey);
+      localStorage.setItem("content-queue-favorites", JSON.stringify([...next]));
       return next;
     });
   }, []);
@@ -308,9 +324,24 @@ Focus on providing actionable research that will help create a comprehensive, di
   const doneItems = queuedIdeas.filter(item => doneIdeas.has(item.ideaKey));
   const pendingItems = queuedIdeas.filter(item => !doneIdeas.has(item.ideaKey));
 
-  // Group pending by silo
+  // Helper to compute total volume for an idea
+  const getIdeaVolume = (item: QueuedIdea) => {
+    const vl = item.cluster.keyword_volumes || {};
+    return (item.idea.target_keywords || []).reduce((s, kw) => s + (vl[kw] ?? vl[kw.toLowerCase()] ?? 0), 0);
+  };
+
+  // Sort pending: favorites first (by volume desc), then non-favorites
+  const sortedPending = [...pendingItems].sort((a, b) => {
+    const aFav = favoriteIdeas.has(a.ideaKey) ? 1 : 0;
+    const bFav = favoriteIdeas.has(b.ideaKey) ? 1 : 0;
+    if (aFav !== bFav) return bFav - aFav;
+    if (aFav && bFav) return getIdeaVolume(b) - getIdeaVolume(a);
+    return 0;
+  });
+
+  // Group sorted pending by silo
   const bySilo = new Map<string, QueuedIdea[]>();
-  for (const item of pendingItems) {
+  for (const item of sortedPending) {
     const key = item.cluster.topic;
     if (!bySilo.has(key)) bySilo.set(key, []);
     bySilo.get(key)!.push(item);
@@ -490,10 +521,20 @@ Focus on providing actionable research that will help create a comprehensive, di
                   const isExpanded = expandedDone.has(ideaKey);
 
                   return (
-                    <div key={ideaKey} className="border rounded-md bg-background">
+                    <div key={ideaKey} className={cn(
+                      "border rounded-md bg-background",
+                      favoriteIdeas.has(ideaKey) && "border-amber-400 bg-amber-50/30 dark:bg-amber-900/10 dark:border-amber-600"
+                    )}>
                       {/* Collapsed header */}
                       <div className="flex items-center justify-between gap-3 px-4 py-3 cursor-pointer" onClick={() => toggleExpanded(ideaKey)}>
                         <div className="flex items-center gap-2 flex-1 min-w-0">
+                          <button
+                            className="shrink-0"
+                            onClick={(e) => { e.stopPropagation(); toggleFavorite(ideaKey); }}
+                            title={favoriteIdeas.has(ideaKey) ? "Remove from favorites" : "Add to favorites"}
+                          >
+                            <Star className={cn("h-4 w-4 transition-colors", favoriteIdeas.has(ideaKey) ? "text-amber-500 fill-amber-500" : "text-muted-foreground/40 hover:text-amber-400")} />
+                          </button>
                           {onEditIdeaTitle ? (
                             <div onClick={e => e.stopPropagation()}>
                               <EditableTitleCQ title={idea.title} onSave={(newTitle) => onEditIdeaTitle(cluster.topic, idea.title, newTitle)} />
