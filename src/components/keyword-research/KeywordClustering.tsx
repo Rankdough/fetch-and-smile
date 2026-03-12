@@ -765,6 +765,57 @@ const KeywordClustering = () => {
     }
   };
 
+  const moveKeywordToSilo = async (fromClusterTopic: string, keyword: string, toClusterTopic: string) => {
+    if (!result) return;
+    const fromCluster = result.clusters.find(c => c.topic === fromClusterTopic);
+    if (!fromCluster) return;
+    const vol = fromCluster.keyword_volumes?.[keyword] ?? fromCluster.keyword_volumes?.[keyword.toLowerCase()] ?? 0;
+
+    const updatedResult: ClusteringResult = {
+      ...result,
+      clusters: result.clusters.map(c => {
+        if (c.topic === fromClusterTopic) {
+          const newKeywords = c.keywords.filter(k => k !== keyword);
+          const newVolumes = c.keyword_volumes ? { ...c.keyword_volumes } : undefined;
+          if (newVolumes) { delete newVolumes[keyword]; delete newVolumes[keyword.toLowerCase()]; }
+          // Also remove from any blog idea target_keywords in this silo
+          const updatedIdeas = (c.blog_ideas || []).map(idea => ({
+            ...idea,
+            target_keywords: (idea.target_keywords || []).filter(tk => tk.toLowerCase() !== keyword.toLowerCase()),
+          }));
+          return {
+            ...c,
+            keywords: newKeywords,
+            keyword_volumes: newVolumes,
+            estimated_monthly_volume: c.estimated_monthly_volume - vol,
+            blog_ideas: updatedIdeas,
+          };
+        }
+        if (c.topic === toClusterTopic) {
+          // Add keyword if not already present
+          const alreadyExists = c.keywords.some(k => k.toLowerCase() === keyword.toLowerCase());
+          const newKeywords = alreadyExists ? c.keywords : [...c.keywords, keyword];
+          const newVolumes = { ...(c.keyword_volumes || {}), [keyword]: vol };
+          return {
+            ...c,
+            keywords: newKeywords,
+            keyword_volumes: newVolumes,
+            estimated_monthly_volume: c.estimated_monthly_volume + (alreadyExists ? 0 : vol),
+          };
+        }
+        return c;
+      }).filter(c => c.keywords.length > 0),
+    };
+    setResult(updatedResult);
+    toast({ title: "Keyword moved", description: `"${keyword}" moved to "${toClusterTopic}"` });
+    if (activeResultId) {
+      await supabase
+        .from("keyword_clustering_results")
+        .update({ result: updatedResult as any })
+        .eq("id", activeResultId);
+    }
+  };
+
   const toggleKeywordAsQuestion = async (clusterTopic: string, keyword: string) => {
     if (!result) return;
     const updatedResult: ClusteringResult = {
