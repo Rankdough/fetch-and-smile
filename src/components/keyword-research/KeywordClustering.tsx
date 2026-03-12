@@ -765,6 +765,57 @@ const KeywordClustering = () => {
     }
   };
 
+  const moveKeywordToSilo = async (fromClusterTopic: string, keyword: string, toClusterTopic: string) => {
+    if (!result) return;
+    const fromCluster = result.clusters.find(c => c.topic === fromClusterTopic);
+    if (!fromCluster) return;
+    const vol = fromCluster.keyword_volumes?.[keyword] ?? fromCluster.keyword_volumes?.[keyword.toLowerCase()] ?? 0;
+
+    const updatedResult: ClusteringResult = {
+      ...result,
+      clusters: result.clusters.map(c => {
+        if (c.topic === fromClusterTopic) {
+          const newKeywords = c.keywords.filter(k => k !== keyword);
+          const newVolumes = c.keyword_volumes ? { ...c.keyword_volumes } : undefined;
+          if (newVolumes) { delete newVolumes[keyword]; delete newVolumes[keyword.toLowerCase()]; }
+          // Also remove from any blog idea target_keywords in this silo
+          const updatedIdeas = (c.blog_ideas || []).map(idea => ({
+            ...idea,
+            target_keywords: (idea.target_keywords || []).filter(tk => tk.toLowerCase() !== keyword.toLowerCase()),
+          }));
+          return {
+            ...c,
+            keywords: newKeywords,
+            keyword_volumes: newVolumes,
+            estimated_monthly_volume: c.estimated_monthly_volume - vol,
+            blog_ideas: updatedIdeas,
+          };
+        }
+        if (c.topic === toClusterTopic) {
+          // Add keyword if not already present
+          const alreadyExists = c.keywords.some(k => k.toLowerCase() === keyword.toLowerCase());
+          const newKeywords = alreadyExists ? c.keywords : [...c.keywords, keyword];
+          const newVolumes = { ...(c.keyword_volumes || {}), [keyword]: vol };
+          return {
+            ...c,
+            keywords: newKeywords,
+            keyword_volumes: newVolumes,
+            estimated_monthly_volume: c.estimated_monthly_volume + (alreadyExists ? 0 : vol),
+          };
+        }
+        return c;
+      }).filter(c => c.keywords.length > 0),
+    };
+    setResult(updatedResult);
+    toast({ title: "Keyword moved", description: `"${keyword}" moved to "${toClusterTopic}"` });
+    if (activeResultId) {
+      await supabase
+        .from("keyword_clustering_results")
+        .update({ result: updatedResult as any })
+        .eq("id", activeResultId);
+    }
+  };
+
   const toggleKeywordAsQuestion = async (clusterTopic: string, keyword: string) => {
     if (!result) return;
     const updatedResult: ClusteringResult = {
@@ -1925,6 +1976,26 @@ const KeywordClustering = () => {
                                                       Create new blog idea for "{kw}"
                                                     </button>
                                                   </div>
+                                                  {result && result.clusters.length > 1 && (
+                                                    <div className="border-t mt-1.5 pt-1.5">
+                                                      <p className="text-[10px] font-semibold text-muted-foreground mb-1 px-2">Move to silo:</p>
+                                                      <div className="space-y-0.5 max-h-32 overflow-y-auto">
+                                                        {result.clusters.filter(c => c.topic !== cluster.topic).map(targetCluster => (
+                                                          <button
+                                                            key={targetCluster.topic}
+                                                            className="w-full text-left px-2 py-1.5 rounded text-xs hover:bg-muted transition-colors flex items-center justify-between gap-2"
+                                                            onClick={(e) => {
+                                                              e.stopPropagation();
+                                                              moveKeywordToSilo(cluster.topic, kw, targetCluster.topic);
+                                                            }}
+                                                          >
+                                                            <span className="truncate"><Layers className="h-3 w-3 inline mr-1 text-muted-foreground" />{targetCluster.topic}</span>
+                                                            <span className="text-muted-foreground shrink-0">{formatVolume(targetCluster.estimated_monthly_volume)}</span>
+                                                          </button>
+                                                        ))}
+                                                      </div>
+                                                    </div>
+                                                  )}
                                                 </PopoverContent>
                                               </Popover>
                                             ) : assignedIdeaTitle ? (
@@ -1975,6 +2046,26 @@ const KeywordClustering = () => {
                                                     Create new blog idea for "{kw}"
                                                   </button>
                                                 </div>
+                                                {result && result.clusters.length > 1 && (
+                                                  <div className="border-t mt-1.5 pt-1.5">
+                                                    <p className="text-[10px] font-semibold text-muted-foreground mb-1 px-2">Move to silo:</p>
+                                                    <div className="space-y-0.5 max-h-32 overflow-y-auto">
+                                                      {result.clusters.filter(c => c.topic !== cluster.topic).map(targetCluster => (
+                                                        <button
+                                                          key={targetCluster.topic}
+                                                          className="w-full text-left px-2 py-1.5 rounded text-xs hover:bg-muted transition-colors flex items-center justify-between gap-2"
+                                                          onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            moveKeywordToSilo(cluster.topic, kw, targetCluster.topic);
+                                                          }}
+                                                        >
+                                                          <span className="truncate"><Layers className="h-3 w-3 inline mr-1 text-muted-foreground" />{targetCluster.topic}</span>
+                                                          <span className="text-muted-foreground shrink-0">{formatVolume(targetCluster.estimated_monthly_volume)}</span>
+                                                        </button>
+                                                      ))}
+                                                    </div>
+                                                  </div>
+                                                )}
                                               </PopoverContent>
                                             </Popover>
                                           )}
@@ -2143,6 +2234,23 @@ const KeywordClustering = () => {
                                                           Create new blog idea
                                                         </button>
                                                       </div>
+                                                      {result && result.clusters.length > 1 && (
+                                                        <div className="border-t mt-1.5 pt-1.5">
+                                                          <p className="text-[10px] font-semibold text-muted-foreground mb-1 px-2">Move to silo:</p>
+                                                          <div className="space-y-0.5 max-h-32 overflow-y-auto">
+                                                            {result.clusters.filter(c => c.topic !== cluster.topic).map(targetCluster => (
+                                                              <button
+                                                                key={targetCluster.topic}
+                                                                className="w-full text-left px-2 py-1.5 rounded text-xs hover:bg-muted transition-colors flex items-center justify-between gap-2"
+                                                                onClick={() => moveKeywordToSilo(cluster.topic, kw, targetCluster.topic)}
+                                                              >
+                                                                <span className="truncate"><Layers className="h-3 w-3 inline mr-1 text-muted-foreground" />{targetCluster.topic}</span>
+                                                                <span className="text-muted-foreground shrink-0">{formatVolume(targetCluster.estimated_monthly_volume)}</span>
+                                                              </button>
+                                                            ))}
+                                                          </div>
+                                                        </div>
+                                                      )}
                                                     </PopoverContent>
                                                 </Popover>
                                               );
