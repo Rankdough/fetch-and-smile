@@ -324,9 +324,24 @@ Focus on providing actionable research that will help create a comprehensive, di
   const doneItems = queuedIdeas.filter(item => doneIdeas.has(item.ideaKey));
   const pendingItems = queuedIdeas.filter(item => !doneIdeas.has(item.ideaKey));
 
-  // Group pending by silo
+  // Helper to compute total volume for an idea
+  const getIdeaVolume = (item: QueuedIdea) => {
+    const vl = item.cluster.keyword_volumes || {};
+    return (item.idea.target_keywords || []).reduce((s, kw) => s + (vl[kw] ?? vl[kw.toLowerCase()] ?? 0), 0);
+  };
+
+  // Sort pending: favorites first (by volume desc), then non-favorites
+  const sortedPending = [...pendingItems].sort((a, b) => {
+    const aFav = favoriteIdeas.has(a.ideaKey) ? 1 : 0;
+    const bFav = favoriteIdeas.has(b.ideaKey) ? 1 : 0;
+    if (aFav !== bFav) return bFav - aFav;
+    if (aFav && bFav) return getIdeaVolume(b) - getIdeaVolume(a);
+    return 0;
+  });
+
+  // Group sorted pending by silo
   const bySilo = new Map<string, QueuedIdea[]>();
-  for (const item of pendingItems) {
+  for (const item of sortedPending) {
     const key = item.cluster.topic;
     if (!bySilo.has(key)) bySilo.set(key, []);
     bySilo.get(key)!.push(item);
