@@ -397,7 +397,13 @@ Focus on providing actionable research that will help create a comprehensive, di
                             onClick={() => toggleExpanded(ideaKey)}
                           >
                             <CheckCircle2 className="h-5 w-5 text-green-700 dark:text-green-400 fill-current shrink-0" />
-                            <h4 className="text-lg font-semibold text-green-800 dark:text-green-300 truncate">{idea.title}</h4>
+                            {onEditIdeaTitle ? (
+                              <div onClick={e => e.stopPropagation()}>
+                                <EditableTitleCQ title={idea.title} onSave={(newTitle) => onEditIdeaTitle(cluster.topic, idea.title, newTitle)} className="text-green-800 dark:text-green-300" />
+                              </div>
+                            ) : (
+                              <h4 className="text-lg font-semibold text-green-800 dark:text-green-300 truncate">{idea.title}</h4>
+                            )}
                             <Badge variant="outline" className="text-[10px] shrink-0">{cluster.topic}</Badge>
                             {totalVol > 0 && (
                               <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-semibold shrink-0">
