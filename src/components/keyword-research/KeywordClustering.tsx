@@ -1887,8 +1887,7 @@ const KeywordClustering = () => {
                                                       )}
                                                     </button>
                                                   </PopoverTrigger>
-                                                  {otherIdeas.length > 0 && (
-                                                    <PopoverContent side="bottom" align="start" className="w-72 p-2">
+                                                  <PopoverContent side="bottom" align="start" className="w-72 p-2">
                                                       <p className="text-[10px] font-semibold text-muted-foreground mb-1.5">Reassign "{kw}" to:</p>
                                                       <div className="space-y-0.5 max-h-40 overflow-y-auto">
                                                         {(cluster.blog_ideas || []).map((targetIdea, targetIdx) => {
@@ -1905,8 +1904,17 @@ const KeywordClustering = () => {
                                                           );
                                                         })}
                                                       </div>
+                                                      <div className="border-t mt-1.5 pt-1.5">
+                                                        <button
+                                                          className="w-full text-left px-2 py-1.5 rounded text-xs hover:bg-primary/10 transition-colors flex items-center gap-1.5 text-primary font-medium"
+                                                          disabled={generatingIdeaForKw === kw}
+                                                          onClick={() => createIdeaFromKeyword(cluster.topic, kw, "questions")}
+                                                        >
+                                                          {generatingIdeaForKw === kw ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
+                                                          Create new blog idea
+                                                        </button>
+                                                      </div>
                                                     </PopoverContent>
-                                                  )}
                                                 </Popover>
                                               );
                                             })}
