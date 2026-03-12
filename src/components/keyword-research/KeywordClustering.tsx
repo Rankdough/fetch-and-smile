@@ -1374,10 +1374,10 @@ const KeywordClustering = () => {
                   if (siloSortMode === "volume") {
                     return b.cluster.estimated_monthly_volume - a.cluster.estimated_monthly_volume;
                   }
-                  // favorites first, then original order
-                  const aFav = favoritedClusters.has(a.cluster.topic) ? 0 : 1;
-                  const bFav = favoritedClusters.has(b.cluster.topic) ? 0 : 1;
-                  return aFav - bFav || a.originalIdx - b.originalIdx;
+                  // favorites first, demoted last, then original order
+                  const aRank = favoritedClusters.has(a.cluster.topic) ? 0 : demotedClusters.has(a.cluster.topic) ? 2 : 1;
+                  const bRank = favoritedClusters.has(b.cluster.topic) ? 0 : demotedClusters.has(b.cluster.topic) ? 2 : 1;
+                  return aRank - bRank || a.originalIdx - b.originalIdx;
                 })
                 .map(({ cluster, originalIdx: idx }) => (
                 <Collapsible
