@@ -841,6 +841,66 @@ const KeywordClustering = () => {
     }
   };
 
+  const editIdeaTitle = async (clusterTopic: string, oldTitle: string, newTitle: string) => {
+    if (!result || !newTitle.trim() || newTitle === oldTitle) return;
+    const trimmed = newTitle.trim();
+    const oldKey = makeIdeaKey(clusterTopic, oldTitle);
+    const newKey = makeIdeaKey(clusterTopic, trimmed);
+
+    const updatedResult: ClusteringResult = {
+      ...result,
+      clusters: result.clusters.map(c => {
+        if (c.topic !== clusterTopic) return c;
+        return {
+          ...c,
+          blog_ideas: (c.blog_ideas || []).map(idea =>
+            idea.title === oldTitle ? { ...idea, title: trimmed } : idea
+          ),
+        };
+      }),
+    };
+    setResult(updatedResult);
+
+    // Update bookmarked ideas key
+    const bmKey = getBookmarkedKey(activeResultId);
+    const bm = getStoredSet(bmKey);
+    if (bm.has(oldKey)) {
+      bm.delete(oldKey);
+      bm.add(newKey);
+      localStorage.setItem(bmKey, JSON.stringify([...bm]));
+      setBookmarkedIdeas(new Set(bm));
+    }
+
+    // Update used/done ideas key
+    const used = getStoredSet(USED_IDEAS_KEY);
+    if (used.has(oldKey)) {
+      used.delete(oldKey);
+      used.add(newKey);
+      localStorage.setItem(USED_IDEAS_KEY, JSON.stringify([...used]));
+      setUsedIdeas(new Set(used));
+    }
+
+    // Update content-queue-done keys
+    try {
+      const doneStr = localStorage.getItem("content-queue-done");
+      if (doneStr) {
+        const doneSet: Set<string> = new Set(JSON.parse(doneStr));
+        if (doneSet.has(oldKey)) {
+          doneSet.delete(oldKey);
+          doneSet.add(newKey);
+          localStorage.setItem("content-queue-done", JSON.stringify([...doneSet]));
+        }
+      }
+    } catch {}
+
+    if (activeResultId) {
+      await supabase
+        .from("keyword_clustering_results")
+        .update({ result: updatedResult as any })
+        .eq("id", activeResultId);
+    }
+  };
+
   const createIdeaFromKeyword = async (clusterTopic: string, keyword: string, keywordFilter?: "generic" | "questions") => {
     if (!result) return;
     const cluster = result.clusters.find(c => c.topic === clusterTopic);
