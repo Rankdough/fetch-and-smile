@@ -4,8 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
-  ChevronDown, TrendingUp, ArrowRight, Search, Bookmark, FileText, Download, CheckCircle2,
+  ChevronDown, TrendingUp, ArrowRight, Search, Bookmark, FileText, Download, CheckCircle2, Plus, Loader2, Lightbulb,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -43,9 +44,13 @@ interface ContentQueueProps {
   onRemoveFromQueue: (ideaKey: string) => void;
   formatVolume: (v: number) => string;
   projectName?: string;
+  allClusters?: KeywordCluster[];
+  onReassignKeyword?: (clusterTopic: string, keyword: string, fromIdeaTitle: string, toIdeaTitle: string) => void;
+  onCreateIdeaFromKeyword?: (clusterTopic: string, keyword: string) => void;
+  generatingIdeaForKw?: string | null;
 }
 
-const ContentQueue = ({ queuedIdeas, onUseForArticle, onRemoveFromQueue, formatVolume, projectName }: ContentQueueProps) => {
+const ContentQueue = ({ queuedIdeas, onUseForArticle, onRemoveFromQueue, formatVolume, projectName, allClusters, onReassignKeyword, onCreateIdeaFromKeyword, generatingIdeaForKw }: ContentQueueProps) => {
   const { toast } = useToast();
   const [fallbackDownload, setFallbackDownload] = useState<{ url: string; filename: string } | null>(null);
   const [doneIdeas, setDoneIdeas] = useState<Set<string>>(() => {
@@ -81,6 +86,59 @@ const ContentQueue = ({ queuedIdeas, onUseForArticle, onRemoveFromQueue, formatV
       if (fallbackDownload?.url?.startsWith("blob:")) URL.revokeObjectURL(fallbackDownload.url);
     };
   }, [fallbackDownload]);
+
+  const renderKeywordBadge = (kw: string, ki: number, vol: number | undefined, cluster: KeywordCluster, idea: BlogIdea) => {
+    const siloCluster = allClusters?.find(c => c.topic === cluster.topic);
+    const otherIdeas = siloCluster?.blog_ideas?.filter(bi => bi.title !== idea.title) || [];
+    const canReassign = onReassignKeyword && (otherIdeas.length > 0 || onCreateIdeaFromKeyword);
+
+    if (!canReassign) {
+      return (
+        <Badge key={ki} variant="secondary" className="text-[10px] px-1.5 py-0 gap-1 font-medium">
+          {kw}
+          {vol != null && vol > 0 && <span className="text-primary/70 font-semibold">{vol.toLocaleString()}</span>}
+        </Badge>
+      );
+    }
+
+    return (
+      <Popover key={ki}>
+        <PopoverTrigger asChild>
+          <button className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-medium hover:bg-muted/70 hover:ring-1 hover:ring-primary/30 transition-all cursor-pointer">
+            {kw}
+            {vol != null && vol > 0 && <span className="text-primary/70 font-semibold">{vol.toLocaleString()}</span>}
+          </button>
+        </PopoverTrigger>
+        <PopoverContent side="bottom" align="start" className="w-72 p-2">
+          <p className="text-[10px] font-semibold text-muted-foreground mb-1.5">Reassign "{kw}" to:</p>
+          <div className="space-y-0.5 max-h-40 overflow-y-auto">
+            {otherIdeas.map((targetIdea, targetIdx) => (
+              <button
+                key={targetIdx}
+                className="w-full text-left px-2 py-1.5 rounded text-xs hover:bg-muted transition-colors whitespace-normal break-words leading-snug"
+                onClick={() => onReassignKeyword!(cluster.topic, kw, idea.title, targetIdea.title)}
+              >
+                <span className="text-muted-foreground mr-1">{targetIdx + 1}.</span>
+                {targetIdea.title}
+              </button>
+            ))}
+          </div>
+          {onCreateIdeaFromKeyword && (
+            <div className="border-t mt-1.5 pt-1.5">
+              <button
+                className="w-full text-left px-2 py-1.5 rounded text-xs hover:bg-primary/10 transition-colors flex items-center gap-1.5 text-primary font-medium"
+                disabled={generatingIdeaForKw === kw}
+                onClick={() => onCreateIdeaFromKeyword(cluster.topic, kw)}
+              >
+                {generatingIdeaForKw === kw ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
+                Create new blog idea
+              </button>
+            </div>
+          )}
+        </PopoverContent>
+      </Popover>
+    );
+  };
 
   if (queuedIdeas.length === 0) return (
     <Card className="border-dashed border-muted-foreground/30">
@@ -343,12 +401,7 @@ Focus on providing actionable research that will help create a comprehensive, di
                                 <div className="flex flex-wrap items-center gap-1">
                                   {sortedKws.map((kw, ki) => {
                                     const vol = volLookup[kw] ?? volLookup[kw.toLowerCase()];
-                                    return (
-                                      <Badge key={ki} variant="secondary" className="text-[10px] px-1.5 py-0 gap-1 font-medium">
-                                        {kw}
-                                        {vol != null && vol > 0 && <span className="text-primary/70 font-semibold">{vol.toLocaleString()}</span>}
-                                      </Badge>
-                                    );
+                                    return renderKeywordBadge(kw, ki, vol, cluster, idea);
                                   })}
                                 </div>
                               </div>
@@ -453,12 +506,7 @@ Focus on providing actionable research that will help create a comprehensive, di
                               <div className="flex flex-wrap items-center gap-1">
                                 {sortedKws.map((kw, ki) => {
                                   const vol = volLookup[kw] ?? volLookup[kw.toLowerCase()];
-                                  return (
-                                    <Badge key={ki} variant="secondary" className="text-[10px] px-1.5 py-0 gap-1 font-medium">
-                                      {kw}
-                                      {vol != null && vol > 0 && <span className="text-primary/70 font-semibold">{vol.toLocaleString()}</span>}
-                                    </Badge>
-                                  );
+                                  return renderKeywordBadge(kw, ki, vol, cluster, idea);
                                 })}
                               </div>
                             </div>

@@ -811,6 +811,16 @@ const KeywordClustering = () => {
     }
   };
 
+  const reassignKeywordByTitle = async (clusterTopic: string, keyword: string, fromIdeaTitle: string, toIdeaTitle: string) => {
+    if (!result) return;
+    const cluster = result.clusters.find(c => c.topic === clusterTopic);
+    if (!cluster?.blog_ideas) return;
+    const fromIdx = cluster.blog_ideas.findIndex(i => i.title === fromIdeaTitle);
+    const toIdx = cluster.blog_ideas.findIndex(i => i.title === toIdeaTitle);
+    if (fromIdx === -1 || toIdx === -1) return;
+    reassignKeyword(clusterTopic, keyword, fromIdx, toIdx);
+  };
+
   const deleteIdeaFromCluster = async (clusterTopic: string, ideaIndex: number) => {
     if (!result) return;
     const updatedResult: ClusteringResult = {
@@ -2137,6 +2147,10 @@ Focus on providing actionable research that will help create a comprehensive, di
               onRemoveFromQueue={(ideaKey) => setBookmarkedIdeas(toggleStoredSet(getBookmarkedKey(activeResultId), ideaKey))}
               formatVolume={formatVolume}
               projectName={projectName}
+              allClusters={result?.clusters}
+              onReassignKeyword={reassignKeywordByTitle}
+              onCreateIdeaFromKeyword={(clusterTopic, kw) => createIdeaFromKeyword(clusterTopic, kw, "questions")}
+              generatingIdeaForKw={generatingIdeaForKw}
             />
           );
         })()}
