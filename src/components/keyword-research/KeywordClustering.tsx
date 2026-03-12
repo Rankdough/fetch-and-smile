@@ -2147,6 +2147,10 @@ Focus on providing actionable research that will help create a comprehensive, di
               onRemoveFromQueue={(ideaKey) => setBookmarkedIdeas(toggleStoredSet(getBookmarkedKey(activeResultId), ideaKey))}
               formatVolume={formatVolume}
               projectName={projectName}
+              allClusters={result?.clusters}
+              onReassignKeyword={reassignKeywordByTitle}
+              onCreateIdeaFromKeyword={(clusterTopic, kw) => createIdeaFromKeyword(clusterTopic, kw, "questions")}
+              generatingIdeaForKw={generatingIdeaForKw}
             />
           );
         })()}
