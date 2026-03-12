@@ -130,10 +130,20 @@ Perform a thorough gap analysis. For each relevant dimension, show what's COVERE
       if (!toolCall) throw new Error("No structured output returned");
       const results = JSON.parse(toolCall.function.arguments);
 
-      const totalSuggested = results.dimensions.reduce((s: number, d: any) => s + d.modifiers.length, 0);
-      console.log(`Suggested ${totalSuggested} modifiers across ${results.dimensions.length} dimensions`);
+      // Filter out dimensions with no gaps and map to frontend format
+      const dimensionsWithGaps = results.dimensions
+        .filter((d: any) => d.missing && d.missing.length > 0)
+        .map((d: any) => ({
+          dimension_name: d.dimension_name,
+          modifiers: d.missing, // frontend expects "modifiers" key
+          covered: d.covered || [],
+        }));
 
-      return new Response(JSON.stringify({ suggestions: results }), {
+      const totalMissing = dimensionsWithGaps.reduce((s: number, d: any) => s + d.modifiers.length, 0);
+      const totalCovered = results.dimensions.reduce((s: number, d: any) => s + (d.covered?.length || 0), 0);
+      console.log(`Gap analysis: ${totalCovered} covered, ${totalMissing} missing across ${dimensionsWithGaps.length} dimensions`);
+
+      return new Response(JSON.stringify({ suggestions: { dimensions: dimensionsWithGaps } }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
