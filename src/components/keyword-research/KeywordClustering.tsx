@@ -1394,10 +1394,36 @@ const KeywordClustering = () => {
                             title={favoritedClusters.has(cluster.topic) ? "Remove from favorites" : "Add to favorites"}
                             onClick={(e) => {
                               e.stopPropagation();
-                              setFavoritedClusters(toggleStoredSet(FAVORITED_CLUSTERS_KEY, cluster.topic));
+                              const newFavs = toggleStoredSet(FAVORITED_CLUSTERS_KEY, cluster.topic);
+                              setFavoritedClusters(newFavs);
+                              // If favoriting, remove from demoted
+                              if (newFavs.has(cluster.topic)) {
+                                const newDemoted = new Set(demotedClusters);
+                                newDemoted.delete(cluster.topic);
+                                localStorage.setItem(DEMOTED_CLUSTERS_KEY, JSON.stringify([...newDemoted]));
+                                setDemotedClusters(newDemoted);
+                              }
                             }}
                           >
                             <Star className={`h-4 w-4 transition-colors ${favoritedClusters.has(cluster.topic) ? "fill-amber-400 text-amber-400" : "text-muted-foreground/40 hover:text-amber-400"}`} />
+                          </button>
+                          <button
+                            className="shrink-0 mr-0.5"
+                            title={demotedClusters.has(cluster.topic) ? "Remove from demoted" : "Demote to bottom"}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const newDemoted = toggleStoredSet(DEMOTED_CLUSTERS_KEY, cluster.topic);
+                              setDemotedClusters(newDemoted);
+                              // If demoting, remove from favorites
+                              if (newDemoted.has(cluster.topic)) {
+                                const newFavs = new Set(favoritedClusters);
+                                newFavs.delete(cluster.topic);
+                                localStorage.setItem(FAVORITED_CLUSTERS_KEY, JSON.stringify([...newFavs]));
+                                setFavoritedClusters(newFavs);
+                              }
+                            }}
+                          >
+                            <ArrowDownToLine className={`h-3.5 w-3.5 transition-colors ${demotedClusters.has(cluster.topic) ? "text-muted-foreground" : "text-muted-foreground/30 hover:text-muted-foreground"}`} />
                           </button>
                           <span className="text-sm font-bold text-foreground/50 w-6 shrink-0">#{idx + 1}</span>
                           {expandedClusters.has(cluster.topic) ? (
