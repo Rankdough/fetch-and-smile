@@ -21,6 +21,7 @@ import { Check } from "lucide-react";
 const USED_IDEAS_KEY = "kw-used-blog-ideas";
 const BOOKMARKED_IDEAS_KEY_PREFIX = "kw-bookmarked-blog-ideas";
 const FAVORITED_CLUSTERS_KEY = "kw-favorited-clusters";
+const DEMOTED_CLUSTERS_KEY = "kw-demoted-clusters";
 
 const getBookmarkedKey = (projectId: string | null) =>
   projectId ? `${BOOKMARKED_IDEAS_KEY_PREFIX}::${projectId}` : BOOKMARKED_IDEAS_KEY_PREFIX;
