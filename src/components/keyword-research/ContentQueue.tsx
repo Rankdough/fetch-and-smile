@@ -123,6 +123,16 @@ const ContentQueue = ({ queuedIdeas, onUseForArticle, onRemoveFromQueue, formatV
     });
   }, []);
 
+  const toggleFavorite = useCallback((ideaKey: string) => {
+    setFavoriteIdeas(prev => {
+      const next = new Set(prev);
+      if (next.has(ideaKey)) next.delete(ideaKey);
+      else next.add(ideaKey);
+      localStorage.setItem("content-queue-favorites", JSON.stringify([...next]));
+      return next;
+    });
+  }, []);
+
   useEffect(() => {
     return () => {
       if (fallbackDownload?.url?.startsWith("blob:")) URL.revokeObjectURL(fallbackDownload.url);
