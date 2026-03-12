@@ -1850,7 +1850,11 @@ const KeywordClustering = () => {
                                       )}
                                     </button>
                                     <div className="space-y-1 min-w-0 flex-1">
-                                      <p className={`text-base font-semibold leading-snug ${isUsed ? "text-green-700 dark:text-green-400" : ""}`}>{idea.title}</p>
+                                      <EditableTitle
+                                        title={idea.title}
+                                        onSave={(newTitle) => editIdeaTitle(cluster.topic, idea.title, newTitle)}
+                                        className={isUsed ? "text-green-700 dark:text-green-400" : ""}
+                                      />
                                       <p className="text-xs text-muted-foreground">{idea.description}</p>
                                       <p className="text-xs text-primary/80 italic">↳ {idea.reason}</p>
                                       {idea.target_keywords && idea.target_keywords.length > 0 && (() => {
