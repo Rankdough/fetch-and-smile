@@ -1976,6 +1976,26 @@ const KeywordClustering = () => {
                                                       Create new blog idea for "{kw}"
                                                     </button>
                                                   </div>
+                                                  {result && result.clusters.length > 1 && (
+                                                    <div className="border-t mt-1.5 pt-1.5">
+                                                      <p className="text-[10px] font-semibold text-muted-foreground mb-1 px-2">Move to silo:</p>
+                                                      <div className="space-y-0.5 max-h-32 overflow-y-auto">
+                                                        {result.clusters.filter(c => c.topic !== cluster.topic).map(targetCluster => (
+                                                          <button
+                                                            key={targetCluster.topic}
+                                                            className="w-full text-left px-2 py-1.5 rounded text-xs hover:bg-muted transition-colors flex items-center justify-between gap-2"
+                                                            onClick={(e) => {
+                                                              e.stopPropagation();
+                                                              moveKeywordToSilo(cluster.topic, kw, targetCluster.topic);
+                                                            }}
+                                                          >
+                                                            <span className="truncate"><Layers className="h-3 w-3 inline mr-1 text-muted-foreground" />{targetCluster.topic}</span>
+                                                            <span className="text-muted-foreground shrink-0">{formatVolume(targetCluster.estimated_monthly_volume)}</span>
+                                                          </button>
+                                                        ))}
+                                                      </div>
+                                                    </div>
+                                                  )}
                                                 </PopoverContent>
                                               </Popover>
                                             ) : assignedIdeaTitle ? (
