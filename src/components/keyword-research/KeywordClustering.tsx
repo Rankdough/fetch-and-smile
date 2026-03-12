@@ -17,6 +17,7 @@ import ContentQueue from "./ContentQueue";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Check } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 const USED_IDEAS_KEY = "kw-used-blog-ideas";
 const BOOKMARKED_IDEAS_KEY_PREFIX = "kw-bookmarked-blog-ideas";
