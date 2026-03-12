@@ -821,6 +821,7 @@ const KeywordClustering = () => {
     reassignKeyword(clusterTopic, keyword, fromIdx, toIdx);
   };
 
+  const deleteIdeaFromCluster = async (clusterTopic: string, ideaIndex: number) => {
     if (!result) return;
     const updatedResult: ClusteringResult = {
       ...result,
