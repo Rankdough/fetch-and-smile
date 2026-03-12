@@ -1812,7 +1812,10 @@ const KeywordClustering = () => {
                               )}
                             </div>
                             {!collapsedBlogIdeas.has(cluster.topic) && <div className="space-y-2">
-                              {cluster.blog_ideas.map((idea, i) => {
+                              {[...cluster.blog_ideas]
+                                .map((idea, origIdx) => ({ idea, origIdx, totalVol: (idea.target_keywords || []).reduce((sum, kw) => sum + (cluster.keyword_volumes?.[kw] ?? cluster.keyword_volumes?.[kw.toLowerCase()] ?? 0), 0) }))
+                                .sort((a, b) => b.totalVol - a.totalVol)
+                                .map(({ idea, origIdx: i }) => {
                                 const ideaKey = makeIdeaKey(cluster.topic, idea.title);
                                 const isUsed = usedIdeas.has(ideaKey);
                                 return (
