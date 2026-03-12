@@ -201,6 +201,7 @@ const KeywordClustering = () => {
   const [generatingIdeaForKw, setGeneratingIdeaForKw] = useState<string | null>(null);
   const [collapsedBlogIdeas, setCollapsedBlogIdeas] = useState<Set<string>>(new Set());
   const [collapsedLandingPages, setCollapsedLandingPages] = useState<Set<string>>(new Set());
+  const [mergingFromSilo, setMergingFromSilo] = useState<string | null>(null);
 
   const toggleCollapsedSet = (setter: React.Dispatch<React.SetStateAction<Set<string>>>, key: string) => {
     setter(prev => {
