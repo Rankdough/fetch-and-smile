@@ -1559,6 +1559,17 @@ const KeywordClustering = () => {
               </Badge>
             </div>
 
+            {/* Merge mode banner */}
+            {mergingFromSilo && (
+              <div className="flex items-center gap-3 px-4 py-2.5 rounded-md bg-primary/10 border border-primary/30">
+                <Merge className="h-4 w-4 text-primary shrink-0" />
+                <span className="text-sm font-medium text-primary flex-1">
+                  Select a silo to merge <span className="font-bold">"{mergingFromSilo}"</span> into:
+                </span>
+                <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setMergingFromSilo(null)}>Cancel</Button>
+              </div>
+            )}
+
             {/* Cluster cards */}
             <div className="space-y-2">
               {[...result.clusters]
