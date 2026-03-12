@@ -167,9 +167,12 @@ CRITICAL KEYWORD DEDUPLICATION RULES:
       console.log(`Enriching batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(clusters.length / BATCH_SIZE)} (${batch.length} clusters)...`);
 
       const clusterDescriptions = batch.map((c: any) => {
-        // Send ALL keywords so the model can properly group and deduplicate
-        const allKws = c.keywords.join(", ");
-        return `Topic: "${c.topic}" (${c.keywords.length} keywords, ~${c.estimated_monthly_volume} monthly volume)\nALL Keywords: ${allKws}`;
+        // Send keywords WITH volumes so the model can prioritize by search volume
+        const kwWithVols = c.keyword_volumes
+          ? c.keywords.map((kw: string) => `${kw} (${c.keyword_volumes[kw] ?? c.keyword_volumes[kw.toLowerCase()] ?? "?"})`)
+          : c.keywords;
+        const allKws = kwWithVols.join(", ");
+        return `Topic: "${c.topic}" (${c.keywords.length} keywords, ~${c.estimated_monthly_volume} monthly volume)\nALL Keywords (with search volume): ${allKws}`;
       }).join("\n\n");
 
       const userPrompt = `Enrich these ${batch.length} topic clusters:\n\n${clusterDescriptions}`;
