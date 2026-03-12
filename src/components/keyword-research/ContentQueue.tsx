@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,7 +6,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
-  ChevronDown, TrendingUp, ArrowRight, Search, Bookmark, FileText, Download, CheckCircle2, Plus, Loader2, Lightbulb,
+  ChevronDown, TrendingUp, ArrowRight, Search, Bookmark, FileText, Download, CheckCircle2, Plus, Loader2, Lightbulb, Pencil,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -48,9 +48,45 @@ interface ContentQueueProps {
   onReassignKeyword?: (clusterTopic: string, keyword: string, fromIdeaTitle: string, toIdeaTitle: string) => void;
   onCreateIdeaFromKeyword?: (clusterTopic: string, keyword: string) => void;
   generatingIdeaForKw?: string | null;
+  onEditIdeaTitle?: (clusterTopic: string, oldTitle: string, newTitle: string) => void;
 }
 
-const ContentQueue = ({ queuedIdeas, onUseForArticle, onRemoveFromQueue, formatVolume, projectName, allClusters, onReassignKeyword, onCreateIdeaFromKeyword, generatingIdeaForKw }: ContentQueueProps) => {
+const EditableTitleCQ = ({ title, onSave, className = "" }: { title: string; onSave: (newTitle: string) => void; className?: string }) => {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(title);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => { setValue(title); }, [title]);
+  useEffect(() => { if (editing) inputRef.current?.focus(); }, [editing]);
+
+  const commit = () => {
+    setEditing(false);
+    if (value.trim() && value.trim() !== title) onSave(value.trim());
+    else setValue(title);
+  };
+
+  if (editing) {
+    return (
+      <input
+        ref={inputRef}
+        value={value}
+        onChange={e => setValue(e.target.value)}
+        onBlur={commit}
+        onKeyDown={e => { if (e.key === "Enter") commit(); if (e.key === "Escape") { setValue(title); setEditing(false); } }}
+        className={`text-lg font-semibold bg-transparent border-b border-primary outline-none w-full ${className}`}
+      />
+    );
+  }
+
+  return (
+    <div className="group flex items-center gap-1 min-w-0">
+      <h4 className={`text-lg font-semibold truncate cursor-pointer hover:underline decoration-dashed underline-offset-2 ${className}`} onClick={() => setEditing(true)}>{title}</h4>
+      <Pencil className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0 cursor-pointer" onClick={() => setEditing(true)} />
+    </div>
+  );
+};
+
+const ContentQueue = ({ queuedIdeas, onUseForArticle, onRemoveFromQueue, formatVolume, projectName, allClusters, onReassignKeyword, onCreateIdeaFromKeyword, generatingIdeaForKw, onEditIdeaTitle }: ContentQueueProps) => {
   const { toast } = useToast();
   const [fallbackDownload, setFallbackDownload] = useState<{ url: string; filename: string } | null>(null);
   const [doneIdeas, setDoneIdeas] = useState<Set<string>>(() => {
@@ -361,7 +397,13 @@ Focus on providing actionable research that will help create a comprehensive, di
                             onClick={() => toggleExpanded(ideaKey)}
                           >
                             <CheckCircle2 className="h-5 w-5 text-green-700 dark:text-green-400 fill-current shrink-0" />
-                            <h4 className="text-lg font-semibold text-green-800 dark:text-green-300 truncate">{idea.title}</h4>
+                            {onEditIdeaTitle ? (
+                              <div onClick={e => e.stopPropagation()}>
+                                <EditableTitleCQ title={idea.title} onSave={(newTitle) => onEditIdeaTitle(cluster.topic, idea.title, newTitle)} className="text-green-800 dark:text-green-300" />
+                              </div>
+                            ) : (
+                              <h4 className="text-lg font-semibold text-green-800 dark:text-green-300 truncate">{idea.title}</h4>
+                            )}
                             <Badge variant="outline" className="text-[10px] shrink-0">{cluster.topic}</Badge>
                             {totalVol > 0 && (
                               <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-semibold shrink-0">
@@ -452,7 +494,13 @@ Focus on providing actionable research that will help create a comprehensive, di
                       {/* Collapsed header */}
                       <div className="flex items-center justify-between gap-3 px-4 py-3 cursor-pointer" onClick={() => toggleExpanded(ideaKey)}>
                         <div className="flex items-center gap-2 flex-1 min-w-0">
-                          <h4 className="text-lg font-semibold truncate">{idea.title}</h4>
+                          {onEditIdeaTitle ? (
+                            <div onClick={e => e.stopPropagation()}>
+                              <EditableTitleCQ title={idea.title} onSave={(newTitle) => onEditIdeaTitle(cluster.topic, idea.title, newTitle)} />
+                            </div>
+                          ) : (
+                            <h4 className="text-lg font-semibold truncate">{idea.title}</h4>
+                          )}
                           {totalVol > 0 && (
                             <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-semibold shrink-0">
                               <TrendingUp className="h-2.5 w-2.5" />

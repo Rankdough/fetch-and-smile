@@ -11,7 +11,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { supabase } from "@/integrations/supabase/client";
 import {
   Upload, Layers, ChevronDown, ChevronRight, Loader2, Square,
-  TrendingUp, FileText, Copy, Download, BarChart3, Target, Info, Lightbulb, Trash2, RefreshCw, ArrowRight, Search, Bookmark, Clock, Star, Plus, ArrowDownToLine
+  TrendingUp, FileText, Copy, Download, BarChart3, Target, Info, Lightbulb, Trash2, RefreshCw, ArrowRight, Search, Bookmark, Clock, Star, Plus, ArrowDownToLine, Pencil
 } from "lucide-react";
 import ContentQueue from "./ContentQueue";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
@@ -114,6 +114,41 @@ interface SavedClustering {
   input_keywords: string[];
   result: ClusteringResult;
 }
+
+const EditableTitle = ({ title, onSave, className = "" }: { title: string; onSave: (newTitle: string) => void; className?: string }) => {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(title);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => { setValue(title); }, [title]);
+  useEffect(() => { if (editing) inputRef.current?.focus(); }, [editing]);
+
+  const commit = () => {
+    setEditing(false);
+    if (value.trim() && value.trim() !== title) onSave(value.trim());
+    else setValue(title);
+  };
+
+  if (editing) {
+    return (
+      <input
+        ref={inputRef}
+        value={value}
+        onChange={e => setValue(e.target.value)}
+        onBlur={commit}
+        onKeyDown={e => { if (e.key === "Enter") commit(); if (e.key === "Escape") { setValue(title); setEditing(false); } }}
+        className={`text-base font-semibold leading-snug bg-transparent border-b border-primary outline-none w-full ${className}`}
+      />
+    );
+  }
+
+  return (
+    <div className="group flex items-center gap-1 min-w-0">
+      <p className={`text-base font-semibold leading-snug cursor-pointer hover:underline decoration-dashed underline-offset-2 ${className}`} onClick={() => setEditing(true)}>{title}</p>
+      <Pencil className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0 cursor-pointer" onClick={() => setEditing(true)} />
+    </div>
+  );
+};
 
 const difficultyColors: Record<string, string> = {
   low: "text-green-600 bg-green-500/10 border-green-500/20",
@@ -833,6 +868,66 @@ const KeywordClustering = () => {
     };
     setResult(updatedResult);
     toast({ title: "Blog idea deleted", description: "Keywords are now unassigned." });
+    if (activeResultId) {
+      await supabase
+        .from("keyword_clustering_results")
+        .update({ result: updatedResult as any })
+        .eq("id", activeResultId);
+    }
+  };
+
+  const editIdeaTitle = async (clusterTopic: string, oldTitle: string, newTitle: string) => {
+    if (!result || !newTitle.trim() || newTitle === oldTitle) return;
+    const trimmed = newTitle.trim();
+    const oldKey = makeIdeaKey(clusterTopic, oldTitle);
+    const newKey = makeIdeaKey(clusterTopic, trimmed);
+
+    const updatedResult: ClusteringResult = {
+      ...result,
+      clusters: result.clusters.map(c => {
+        if (c.topic !== clusterTopic) return c;
+        return {
+          ...c,
+          blog_ideas: (c.blog_ideas || []).map(idea =>
+            idea.title === oldTitle ? { ...idea, title: trimmed } : idea
+          ),
+        };
+      }),
+    };
+    setResult(updatedResult);
+
+    // Update bookmarked ideas key
+    const bmKey = getBookmarkedKey(activeResultId);
+    const bm = getStoredSet(bmKey);
+    if (bm.has(oldKey)) {
+      bm.delete(oldKey);
+      bm.add(newKey);
+      localStorage.setItem(bmKey, JSON.stringify([...bm]));
+      setBookmarkedIdeas(new Set(bm));
+    }
+
+    // Update used/done ideas key
+    const used = getStoredSet(USED_IDEAS_KEY);
+    if (used.has(oldKey)) {
+      used.delete(oldKey);
+      used.add(newKey);
+      localStorage.setItem(USED_IDEAS_KEY, JSON.stringify([...used]));
+      setUsedIdeas(new Set(used));
+    }
+
+    // Update content-queue-done keys
+    try {
+      const doneStr = localStorage.getItem("content-queue-done");
+      if (doneStr) {
+        const doneSet: Set<string> = new Set(JSON.parse(doneStr));
+        if (doneSet.has(oldKey)) {
+          doneSet.delete(oldKey);
+          doneSet.add(newKey);
+          localStorage.setItem("content-queue-done", JSON.stringify([...doneSet]));
+        }
+      }
+    } catch {}
+
     if (activeResultId) {
       await supabase
         .from("keyword_clustering_results")
@@ -1850,7 +1945,11 @@ const KeywordClustering = () => {
                                       )}
                                     </button>
                                     <div className="space-y-1 min-w-0 flex-1">
-                                      <p className={`text-base font-semibold leading-snug ${isUsed ? "text-green-700 dark:text-green-400" : ""}`}>{idea.title}</p>
+                                      <EditableTitle
+                                        title={idea.title}
+                                        onSave={(newTitle) => editIdeaTitle(cluster.topic, idea.title, newTitle)}
+                                        className={isUsed ? "text-green-700 dark:text-green-400" : ""}
+                                      />
                                       <p className="text-xs text-muted-foreground">{idea.description}</p>
                                       <p className="text-xs text-primary/80 italic">↳ {idea.reason}</p>
                                       {idea.target_keywords && idea.target_keywords.length > 0 && (() => {
@@ -2151,6 +2250,7 @@ Focus on providing actionable research that will help create a comprehensive, di
               onReassignKeyword={reassignKeywordByTitle}
               onCreateIdeaFromKeyword={(clusterTopic, kw) => createIdeaFromKeyword(clusterTopic, kw, "questions")}
               generatingIdeaForKw={generatingIdeaForKw}
+              onEditIdeaTitle={editIdeaTitle}
             />
           );
         })()}
