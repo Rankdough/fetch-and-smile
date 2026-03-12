@@ -496,6 +496,127 @@ Focus on providing actionable research that will help create a comprehensive, di
               );
             })()}
 
+            {/* Priority (favorited) items outside silos */}
+            {favoritePending.length > 0 && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Star className="h-3.5 w-3.5 text-amber-500 fill-amber-500" />
+                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                    Priority Articles ({favoritePending.length})
+                  </span>
+                  {(() => {
+                    const totalFavVol = favoritePending.reduce((s, item) => s + getIdeaVolume(item), 0);
+                    return totalFavVol > 0 ? (
+                      <Badge variant="outline" className="text-[10px]">
+                        <TrendingUp className="h-2.5 w-2.5 mr-0.5" />
+                        {formatVolume(totalFavVol)} total vol
+                      </Badge>
+                    ) : null;
+                  })()}
+                </div>
+                {favoritePending.map(({ cluster, idea, ideaKey }) => {
+                  const volLookup = cluster.keyword_volumes || {};
+                  const sortedKws = [...(idea.target_keywords || [])].sort(
+                    (a, b) => (volLookup[b] ?? volLookup[b.toLowerCase()] ?? 0) - (volLookup[a] ?? volLookup[a.toLowerCase()] ?? 0)
+                  );
+                  const totalVol = sortedKws.reduce((s, kw) => s + (volLookup[kw] ?? volLookup[kw.toLowerCase()] ?? 0), 0);
+                  const isExpanded = expandedDone.has(ideaKey);
+
+                  return (
+                    <div key={ideaKey} className="border rounded-md border-amber-400 bg-amber-50/30 dark:bg-amber-900/10 dark:border-amber-600">
+                      <div className="flex items-center justify-between gap-3 px-4 py-3 cursor-pointer" onClick={() => toggleExpanded(ideaKey)}>
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          <button
+                            className="shrink-0"
+                            onClick={(e) => { e.stopPropagation(); toggleFavorite(ideaKey); }}
+                            title="Remove from favorites"
+                          >
+                            <Star className="h-4 w-4 text-amber-500 fill-amber-500 transition-colors" />
+                          </button>
+                          {onEditIdeaTitle ? (
+                            <div onClick={e => e.stopPropagation()}>
+                              <EditableTitleCQ title={idea.title} onSave={(newTitle) => onEditIdeaTitle(cluster.topic, idea.title, newTitle)} />
+                            </div>
+                          ) : (
+                            <h4 className="text-lg font-semibold truncate">{idea.title}</h4>
+                          )}
+                          <Badge variant="outline" className="text-[10px] shrink-0">{cluster.topic}</Badge>
+                          {totalVol > 0 && (
+                            <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-semibold shrink-0">
+                              <TrendingUp className="h-2.5 w-2.5" />
+                              {totalVol.toLocaleString()} vol
+                            </span>
+                          )}
+                          <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform shrink-0", isExpanded && "rotate-180")} />
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+                          <Button variant="ghost" size="sm" className="gap-1 text-xs h-7 px-2" onClick={() => onUseForArticle(cluster, idea)}>
+                            Use for Article <ArrowRight className="h-3 w-3" />
+                          </Button>
+                          <Button variant="ghost" size="sm" className="gap-1 text-xs h-7 px-2 text-muted-foreground" onClick={() => toggleDone(ideaKey)}>
+                            <CheckCircle2 className="h-3 w-3" /> Done
+                          </Button>
+                          <Button variant="ghost" size="sm" className="gap-1 text-xs h-7 px-2 text-destructive" onClick={() => onRemoveFromQueue(ideaKey)}>
+                            <Bookmark className="h-3 w-3 fill-current" />
+                          </Button>
+                        </div>
+                      </div>
+                      {isExpanded && (
+                        <div className="px-4 pb-4 space-y-2 border-t pt-2">
+                          <p className="text-xs text-muted-foreground">{idea.description}</p>
+                          {idea.reason && <p className="text-xs italic text-primary/70">⚡ {idea.reason}</p>}
+                          <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button variant="ghost" size="sm" className="gap-1 text-xs h-7 px-2 text-muted-foreground" onClick={() => copyDeepResearch(cluster, idea)}>
+                                    <Search className="h-3 w-3" /> Deep Research
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent side="left">
+                                  <p className="text-xs">Copy a deep research prompt for this blog idea</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          </div>
+                          {sortedKws.length > 0 && (
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-semibold">
+                                  <TrendingUp className="h-2.5 w-2.5" />
+                                  {totalVol > 0 ? `${totalVol.toLocaleString()} vol` : "— vol"}
+                                </span>
+                                {sortedKws.slice(0, 3).map((kw, i) => (
+                                  <span key={i} className="text-sm font-semibold text-foreground">{kw}</span>
+                                ))}
+                              </div>
+                              <div className="flex flex-wrap items-center gap-1">
+                                {sortedKws.map((kw, ki) => {
+                                  const vol = volLookup[kw] ?? volLookup[kw.toLowerCase()];
+                                  return renderKeywordBadge(kw, ki, vol, cluster, idea);
+                                })}
+                              </div>
+                            </div>
+                          )}
+                          {idea.value_promises && idea.value_promises.length > 0 && (
+                            <div className="space-y-0.5">
+                              <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Value Promises</span>
+                              {idea.value_promises.map((vp, vi) => (
+                                <div key={vi} className="flex items-start gap-1.5">
+                                  <span className="text-[10px] text-primary mt-0.5">✓</span>
+                                  <span className="text-[11px] text-muted-foreground leading-tight">{vp}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
             {/* Pending items grouped by silo */}
             {[...bySilo.entries()].map(([siloTopic, ideas]) => (
               <div key={siloTopic} className="space-y-2">
