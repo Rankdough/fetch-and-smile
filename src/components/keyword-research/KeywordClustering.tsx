@@ -2079,7 +2079,8 @@ const KeywordClustering = () => {
                                             volLookup[k.toLowerCase().trim()] = v;
                                           }
                                         }
-                                        const getVol = (kw: string) => volLookup[kw.toLowerCase().trim()] ?? null;
+                                        const stripVol = (kw: string) => kw.replace(/\s*\(\d+\)\s*$/, "").replace(/\s*\(\?\)\s*$/, "").trim();
+                                        const getVol = (kw: string) => volLookup[kw.toLowerCase().trim()] ?? volLookup[stripVol(kw).toLowerCase().trim()] ?? null;
                                         const totalVol = idea.target_keywords!.reduce((sum, kw) => sum + (getVol(kw) || 0), 0);
                                         // Top 3 keywords by volume for quick highlight
                                         const sortedByVol = [...idea.target_keywords!]
