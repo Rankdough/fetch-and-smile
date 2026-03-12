@@ -494,7 +494,13 @@ Focus on providing actionable research that will help create a comprehensive, di
                       {/* Collapsed header */}
                       <div className="flex items-center justify-between gap-3 px-4 py-3 cursor-pointer" onClick={() => toggleExpanded(ideaKey)}>
                         <div className="flex items-center gap-2 flex-1 min-w-0">
-                          <h4 className="text-lg font-semibold truncate">{idea.title}</h4>
+                          {onEditIdeaTitle ? (
+                            <div onClick={e => e.stopPropagation()}>
+                              <EditableTitleCQ title={idea.title} onSave={(newTitle) => onEditIdeaTitle(cluster.topic, idea.title, newTitle)} />
+                            </div>
+                          ) : (
+                            <h4 className="text-lg font-semibold truncate">{idea.title}</h4>
+                          )}
                           {totalVol > 0 && (
                             <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-semibold shrink-0">
                               <TrendingUp className="h-2.5 w-2.5" />
