@@ -14,7 +14,7 @@ import {
   ArrowLeft, Search, Sparkles, Copy, Download, Trash2,
   ChevronDown, ChevronRight, Clock, Loader2, Square, ChevronUp,
   BrainCircuit, Tag, HelpCircle, SlidersHorizontal, Building2, Ban,
-  Globe, X, Link2, Plus, Layers, Upload
+  Globe, X, Link2, Plus, Layers, Upload, Filter
 } from "lucide-react";
 import KeywordClustering from "@/components/keyword-research/KeywordClustering";
 import KeywordDeduplicator from "@/components/keyword-research/KeywordDeduplicator";
