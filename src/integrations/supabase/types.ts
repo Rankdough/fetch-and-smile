@@ -112,6 +112,51 @@ export type Database = {
         }
         Relationships: []
       }
+      keyword_dedup_results: {
+        Row: {
+          ai_merged_groups: number
+          created_at: string
+          deduplicated_count: number
+          file_name: string | null
+          fuzzy_merged_groups: number
+          id: string
+          keywords: Json
+          name: string
+          original_count: number
+          removed_count: number
+          ungrouped_for_ai: Json
+          updated_at: string
+        }
+        Insert: {
+          ai_merged_groups?: number
+          created_at?: string
+          deduplicated_count?: number
+          file_name?: string | null
+          fuzzy_merged_groups?: number
+          id?: string
+          keywords?: Json
+          name: string
+          original_count?: number
+          removed_count?: number
+          ungrouped_for_ai?: Json
+          updated_at?: string
+        }
+        Update: {
+          ai_merged_groups?: number
+          created_at?: string
+          deduplicated_count?: number
+          file_name?: string | null
+          fuzzy_merged_groups?: number
+          id?: string
+          keywords?: Json
+          name?: string
+          original_count?: number
+          removed_count?: number
+          ungrouped_for_ai?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
       keyword_research: {
         Row: {
           context: string | null
