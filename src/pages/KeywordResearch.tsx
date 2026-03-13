@@ -17,6 +17,7 @@ import {
   Globe, X, Link2, Plus, Layers, Upload
 } from "lucide-react";
 import KeywordClustering from "@/components/keyword-research/KeywordClustering";
+import KeywordDeduplicator from "@/components/keyword-research/KeywordDeduplicator";
 
 interface ScanSite {
   url: string;
