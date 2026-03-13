@@ -1,14 +1,16 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import {
   Upload, Loader2, Download, Copy, Trash2, ChevronDown, ChevronRight,
-  FileText, Sparkles, X, Filter, Zap, BrainCircuit
+  FileText, Sparkles, X, Filter, Zap, BrainCircuit, Save, Clock, FolderOpen
 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { supabase } from "@/integrations/supabase/client";
 
 interface DedupKeyword {
   keyword: string;
@@ -30,6 +32,18 @@ interface DedupResult {
 interface UngroupedEntry {
   canonical: string;
   totalVolume: number;
+}
+
+interface SavedDedupResult {
+  id: string;
+  name: string;
+  file_name: string | null;
+  original_count: number;
+  deduplicated_count: number;
+  removed_count: number;
+  fuzzy_merged_groups: number;
+  ai_merged_groups: number;
+  created_at: string;
 }
 
 function parseCSV(text: string): string[][] {
@@ -79,6 +93,116 @@ const KeywordDeduplicator = () => {
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [showMergedOnly, setShowMergedOnly] = useState(false);
 
+  // Save/load state
+  const [savedResults, setSavedResults] = useState<SavedDedupResult[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isLoadingResults, setIsLoadingResults] = useState(false);
+  const [loadedResultId, setLoadedResultId] = useState<string | null>(null);
+  const [saveName, setSaveName] = useState("");
+  const [showSaveInput, setShowSaveInput] = useState(false);
+
+  // Load saved results on mount
+  useEffect(() => {
+    loadSavedResults();
+  }, []);
+
+  const loadSavedResults = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("keyword_dedup_results")
+        .select("id, name, file_name, original_count, deduplicated_count, removed_count, fuzzy_merged_groups, ai_merged_groups, created_at")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      setSavedResults((data as SavedDedupResult[]) || []);
+    } catch (err: any) {
+      console.error("Failed to load saved dedup results:", err);
+    }
+  };
+
+  const saveResult = async () => {
+    if (!result || !saveName.trim()) return;
+    setIsSaving(true);
+    try {
+      const { data, error } = await supabase
+        .from("keyword_dedup_results")
+        .insert({
+          name: saveName.trim(),
+          file_name: fileName,
+          original_count: result.originalCount,
+          deduplicated_count: result.deduplicatedCount,
+          removed_count: result.removedCount,
+          fuzzy_merged_groups: result.fuzzyMergedGroups,
+          ai_merged_groups: result.aiMergedGroups,
+          keywords: result.keywords as any,
+          ungrouped_for_ai: ungroupedForAI as any,
+        })
+        .select("id")
+        .single();
+      if (error) throw error;
+      setLoadedResultId(data.id);
+      setShowSaveInput(false);
+      setSaveName("");
+      toast({ title: "Saved!", description: `"${saveName.trim()}" saved successfully.` });
+      loadSavedResults();
+    } catch (err: any) {
+      toast({ title: "Save failed", description: err.message, variant: "destructive" });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const loadResult = async (id: string) => {
+    setIsLoadingResults(true);
+    try {
+      const { data, error } = await supabase
+        .from("keyword_dedup_results")
+        .select("*")
+        .eq("id", id)
+        .single();
+      if (error) throw error;
+
+      const keywords = (data.keywords as any) as DedupKeyword[];
+      const ungrouped = (data.ungrouped_for_ai as any) as UngroupedEntry[];
+
+      setResult({
+        originalCount: data.original_count,
+        deduplicatedCount: data.deduplicated_count,
+        removedCount: data.removed_count,
+        fuzzyMergedGroups: data.fuzzy_merged_groups,
+        aiMergedGroups: data.ai_merged_groups,
+        keywords,
+      });
+      setUngroupedForAI(ungrouped || []);
+      setFileName(data.file_name);
+      setLoadedResultId(id);
+      setRawKeywords([]);
+      toast({ title: "Loaded", description: `"${data.name}" loaded with ${keywords.length.toLocaleString()} keywords.` });
+    } catch (err: any) {
+      toast({ title: "Load failed", description: err.message, variant: "destructive" });
+    } finally {
+      setIsLoadingResults(false);
+    }
+  };
+
+  const deleteResult = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from("keyword_dedup_results")
+        .delete()
+        .eq("id", id);
+      if (error) throw error;
+      if (loadedResultId === id) {
+        setResult(null);
+        setUngroupedForAI([]);
+        setLoadedResultId(null);
+      }
+      toast({ title: "Deleted" });
+      loadSavedResults();
+    } catch (err: any) {
+      toast({ title: "Delete failed", description: err.message, variant: "destructive" });
+    }
+  };
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -110,6 +234,7 @@ const KeywordDeduplicator = () => {
         setFileName(file.name);
         setResult(null);
         setUngroupedForAI([]);
+        setLoadedResultId(null);
         toast({ title: `Loaded ${keywords.length} keywords`, description: file.name });
       } catch (err: any) {
         toast({ title: "Failed to parse CSV", description: err.message, variant: "destructive" });
@@ -155,6 +280,7 @@ const KeywordDeduplicator = () => {
         keywords: data.keywords,
       });
       setUngroupedForAI(data.ungroupedForAI || []);
+      setLoadedResultId(null);
 
       toast({
         title: "Fuzzy deduplication complete!",
@@ -192,7 +318,6 @@ const KeywordDeduplicator = () => {
         throw new Error(errData.error || `Request failed: ${response.status}`);
       }
 
-      // Read SSE stream
       const reader = response.body?.getReader();
       if (!reader) throw new Error("No response stream");
 
@@ -222,11 +347,9 @@ const KeywordDeduplicator = () => {
               setProgress(100);
               setProgressLabel("AI semantic pass complete!");
 
-              // Merge AI results into existing result
               setResult(prev => {
                 if (!prev) return prev;
 
-                // Remove ungrouped keywords that got merged by AI
                 const aiMergedCanonicals = new Set(event.aiMergedKeywords.map((k: DedupKeyword) => k.keyword.toLowerCase()));
                 const aiVariantKeywords = new Set(
                   event.aiMergedKeywords.flatMap((k: DedupKeyword) =>
@@ -235,16 +358,13 @@ const KeywordDeduplicator = () => {
                 );
                 const consumedByAI = new Set([...aiMergedCanonicals, ...aiVariantKeywords]);
 
-                // Keep fuzzy-merged + keywords not touched by AI
                 const filteredKeywords = prev.keywords.filter(k => {
-                  if (k.merged) return true; // Keep all fuzzy groups
+                  if (k.merged) return true;
                   return !consumedByAI.has(k.keyword.toLowerCase());
                 });
 
                 const allKeywords = [...filteredKeywords, ...event.aiMergedKeywords, ...event.aiSingles]
                   .sort((a: DedupKeyword, b: DedupKeyword) => b.volume - a.volume);
-
-                const totalMergedVariants = allKeywords.reduce((sum: number, k: DedupKeyword) => sum + k.variantCount, 0);
 
                 return {
                   ...prev,
@@ -362,7 +482,7 @@ const KeywordDeduplicator = () => {
           Upload CSV
         </Button>
 
-        {fileName && (
+        {fileName && !result && (
           <div className="flex items-center gap-2">
             <Badge variant="secondary" className="text-xs gap-1.5">
               <FileText className="h-3 w-3" />
@@ -372,7 +492,7 @@ const KeywordDeduplicator = () => {
               variant="ghost"
               size="icon"
               className="h-6 w-6"
-              onClick={() => { setFileName(null); setRawKeywords([]); setResult(null); setUngroupedForAI([]); }}
+              onClick={() => { setFileName(null); setRawKeywords([]); setResult(null); setUngroupedForAI([]); setLoadedResultId(null); }}
             >
               <X className="h-3 w-3" />
             </Button>
@@ -459,6 +579,19 @@ const KeywordDeduplicator = () => {
 
           {/* Actions */}
           <div className="flex items-center gap-2 flex-wrap">
+            {/* Save button */}
+            {!loadedResultId && !showSaveInput && (
+              <Button variant="default" size="sm" className="gap-1.5" onClick={() => { setShowSaveInput(true); setSaveName(fileName?.replace(/\.csv$/i, "") || ""); }}>
+                <Save className="h-3.5 w-3.5" />
+                Save Results
+              </Button>
+            )}
+            {loadedResultId && (
+              <Badge variant="outline" className="text-xs gap-1.5 py-1 px-2">
+                <Save className="h-3 w-3" />
+                Saved
+              </Badge>
+            )}
             <Button variant="outline" size="sm" className="gap-1.5" onClick={exportCleanCSV}>
               <Download className="h-3.5 w-3.5" />
               Export Clean CSV
@@ -481,6 +614,27 @@ const KeywordDeduplicator = () => {
               {showMergedOnly ? "Show All" : "Show Merged Only"}
             </Button>
           </div>
+
+          {/* Save input */}
+          {showSaveInput && (
+            <div className="flex items-center gap-2">
+              <Input
+                value={saveName}
+                onChange={(e) => setSaveName(e.target.value)}
+                placeholder="Name this dedup result..."
+                className="max-w-xs h-8 text-sm"
+                onKeyDown={(e) => e.key === "Enter" && saveResult()}
+                autoFocus
+              />
+              <Button size="sm" onClick={saveResult} disabled={isSaving || !saveName.trim()} className="gap-1.5">
+                {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                Save
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => setShowSaveInput(false)}>
+                Cancel
+              </Button>
+            </div>
+          )}
 
           {/* Keyword list */}
           <div className="border rounded-md max-h-[500px] overflow-y-auto">
@@ -550,13 +704,65 @@ const KeywordDeduplicator = () => {
               variant="outline"
               size="sm"
               className="gap-1.5"
-              onClick={() => { setResult(null); setUngroupedForAI([]); }}
+              onClick={() => { setResult(null); setUngroupedForAI([]); setLoadedResultId(null); setFileName(null); }}
             >
               <Trash2 className="h-3.5 w-3.5" />
               Clear Results
             </Button>
           </div>
         </div>
+      )}
+
+      {/* Previous Results */}
+      {savedResults.length > 0 && !result && (
+        <Collapsible defaultOpen={savedResults.length <= 5}>
+          <Card>
+            <CollapsibleTrigger className="w-full">
+              <CardContent className="py-3 px-4 flex items-center justify-between">
+                <span className="text-sm font-medium flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-muted-foreground" />
+                  Previous Results ({savedResults.length})
+                </span>
+                <ChevronDown className="h-4 w-4 text-muted-foreground" />
+              </CardContent>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent className="pt-0 px-4 pb-3 space-y-1.5">
+                {savedResults.map((saved) => (
+                  <div
+                    key={saved.id}
+                    className="flex items-center justify-between py-2 px-3 rounded-md hover:bg-accent/30 transition-colors group"
+                  >
+                    <button
+                      className="flex-1 text-left flex items-center gap-3"
+                      onClick={() => loadResult(saved.id)}
+                      disabled={isLoadingResults}
+                    >
+                      <FolderOpen className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium truncate">{saved.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {saved.deduplicated_count.toLocaleString()} keywords · {saved.removed_count.toLocaleString()} removed
+                          {saved.ai_merged_groups > 0 && ` · ${saved.ai_merged_groups} AI groups`}
+                          {" · "}
+                          {new Date(saved.created_at).toLocaleDateString()}
+                        </p>
+                      </div>
+                    </button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={(e) => { e.stopPropagation(); deleteResult(saved.id); }}
+                    >
+                      <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
+                    </Button>
+                  </div>
+                ))}
+              </CardContent>
+            </CollapsibleContent>
+          </Card>
+        </Collapsible>
       )}
     </div>
   );
