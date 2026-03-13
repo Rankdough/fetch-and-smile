@@ -14,9 +14,10 @@ import {
   ArrowLeft, Search, Sparkles, Copy, Download, Trash2,
   ChevronDown, ChevronRight, Clock, Loader2, Square, ChevronUp,
   BrainCircuit, Tag, HelpCircle, SlidersHorizontal, Building2, Ban,
-  Globe, X, Link2, Plus, Layers, Upload
+  Globe, X, Link2, Plus, Layers, Upload, Filter
 } from "lucide-react";
 import KeywordClustering from "@/components/keyword-research/KeywordClustering";
+import KeywordDeduplicator from "@/components/keyword-research/KeywordDeduplicator";
 
 interface ScanSite {
   url: string;
@@ -103,6 +104,7 @@ const KeywordResearch = () => {
   const resultsRef = useRef<HTMLDivElement | null>(null);
   const [isGeneratorOpen, setIsGeneratorOpen] = useState(true);
   const [isClusteringOpen, setIsClusteringOpen] = useState(false);
+  const [isDedupOpen, setIsDedupOpen] = useState(false);
 
   // Refine state
   const [isRefineOpen, setIsRefineOpen] = useState(false);
@@ -1395,6 +1397,28 @@ const KeywordResearch = () => {
             <CollapsibleContent>
               <CardContent className="pt-0">
                 <KeywordClustering />
+              </CardContent>
+            </CollapsibleContent>
+          </Card>
+        </Collapsible>
+
+        {/* Keyword Deduplicator — collapsible */}
+        <Collapsible open={isDedupOpen} onOpenChange={setIsDedupOpen}>
+          <Card className="border-[3px] border-primary/30">
+            <CollapsibleTrigger className="w-full">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Filter className="h-4 w-4 text-primary" />
+                    Keyword Deduplicator
+                  </CardTitle>
+                  {isDedupOpen ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+                </div>
+              </CardHeader>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent className="pt-0">
+                <KeywordDeduplicator />
               </CardContent>
             </CollapsibleContent>
           </Card>
