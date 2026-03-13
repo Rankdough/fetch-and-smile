@@ -104,6 +104,7 @@ const KeywordResearch = () => {
   const resultsRef = useRef<HTMLDivElement | null>(null);
   const [isGeneratorOpen, setIsGeneratorOpen] = useState(true);
   const [isClusteringOpen, setIsClusteringOpen] = useState(false);
+  const [isDedupOpen, setIsDedupOpen] = useState(false);
 
   // Refine state
   const [isRefineOpen, setIsRefineOpen] = useState(false);
