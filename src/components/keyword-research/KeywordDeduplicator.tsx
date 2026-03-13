@@ -6,7 +6,7 @@ import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import {
   Upload, Loader2, Download, Copy, Trash2, ChevronDown, ChevronRight,
-  FileText, Sparkles, X, Filter
+  FileText, Sparkles, X, Filter, Zap, BrainCircuit
 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
@@ -25,6 +25,11 @@ interface DedupResult {
   fuzzyMergedGroups: number;
   aiMergedGroups: number;
   keywords: DedupKeyword[];
+}
+
+interface UngroupedEntry {
+  canonical: string;
+  totalVolume: number;
 }
 
 function parseCSV(text: string): string[][] {
@@ -66,9 +71,11 @@ const KeywordDeduplicator = () => {
   const [fileName, setFileName] = useState<string | null>(null);
   const [rawKeywords, setRawKeywords] = useState<{ keyword: string; volume: number }[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isAIProcessing, setIsAIProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [progressLabel, setProgressLabel] = useState("");
   const [result, setResult] = useState<DedupResult | null>(null);
+  const [ungroupedForAI, setUngroupedForAI] = useState<UngroupedEntry[]>([]);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [showMergedOnly, setShowMergedOnly] = useState(false);
 
@@ -102,6 +109,7 @@ const KeywordDeduplicator = () => {
         setRawKeywords(keywords);
         setFileName(file.name);
         setResult(null);
+        setUngroupedForAI([]);
         toast({ title: `Loaded ${keywords.length} keywords`, description: file.name });
       } catch (err: any) {
         toast({ title: "Failed to parse CSV", description: err.message, variant: "destructive" });
@@ -111,16 +119,13 @@ const KeywordDeduplicator = () => {
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  const runDeduplication = async () => {
+  const runFuzzyDedup = async () => {
     if (rawKeywords.length === 0) return;
     setIsProcessing(true);
-    setProgress(10);
-    setProgressLabel("Uploading keywords...");
+    setProgress(30);
+    setProgressLabel("Running fuzzy matching...");
 
     try {
-      setProgress(20);
-      setProgressLabel("Running fuzzy matching & AI semantic grouping...");
-
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/deduplicate-keywords`,
         {
@@ -129,7 +134,7 @@ const KeywordDeduplicator = () => {
             "Content-Type": "application/json",
             Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
           },
-          body: JSON.stringify({ keywords: rawKeywords }),
+          body: JSON.stringify({ keywords: rawKeywords, mode: "fuzzy" }),
         }
       );
 
@@ -138,23 +143,139 @@ const KeywordDeduplicator = () => {
         throw new Error(errData.error || `Request failed: ${response.status}`);
       }
 
-      setProgress(90);
-      setProgressLabel("Processing results...");
-
-      const data: DedupResult = await response.json();
-      setResult(data);
       setProgress(100);
-      setProgressLabel("Done!");
+      const data = await response.json();
+
+      setResult({
+        originalCount: data.originalCount,
+        deduplicatedCount: data.deduplicatedCount,
+        removedCount: data.removedCount,
+        fuzzyMergedGroups: data.fuzzyMergedGroups,
+        aiMergedGroups: 0,
+        keywords: data.keywords,
+      });
+      setUngroupedForAI(data.ungroupedForAI || []);
 
       toast({
-        title: "Deduplication complete!",
-        description: `${data.originalCount} → ${data.deduplicatedCount} keywords (${data.removedCount} duplicates removed)`,
+        title: "Fuzzy deduplication complete!",
+        description: `${data.removedCount} exact duplicates merged. ${data.ungroupedForAI?.length || 0} keywords ready for AI semantic analysis.`,
       });
     } catch (err: any) {
       console.error(err);
       toast({ title: "Deduplication failed", description: err.message, variant: "destructive" });
     } finally {
       setIsProcessing(false);
+    }
+  };
+
+  const runAISemanticPass = async () => {
+    if (ungroupedForAI.length === 0) return;
+    setIsAIProcessing(true);
+    setProgress(5);
+    setProgressLabel("Starting AI semantic analysis...");
+
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/deduplicate-keywords`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({ mode: "semantic", ungroupedKeywords: ungroupedForAI }),
+        }
+      );
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || `Request failed: ${response.status}`);
+      }
+
+      // Read SSE stream
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error("No response stream");
+
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          try {
+            const event = JSON.parse(line.slice(6));
+
+            if (event.type === "progress") {
+              const pct = Math.round((event.batch / event.totalBatches) * 80) + 10;
+              setProgress(pct);
+              setProgressLabel(event.message);
+            } else if (event.type === "batch_complete") {
+              setProgressLabel(`Batch ${event.batch} done — ${event.totalMergedSoFar} groups merged so far`);
+            } else if (event.type === "complete") {
+              setProgress(100);
+              setProgressLabel("AI semantic pass complete!");
+
+              // Merge AI results into existing result
+              setResult(prev => {
+                if (!prev) return prev;
+
+                // Remove ungrouped keywords that got merged by AI
+                const aiMergedCanonicals = new Set(event.aiMergedKeywords.map((k: DedupKeyword) => k.keyword.toLowerCase()));
+                const aiVariantKeywords = new Set(
+                  event.aiMergedKeywords.flatMap((k: DedupKeyword) =>
+                    (k.variants || []).map((v: { keyword: string }) => v.keyword.toLowerCase())
+                  )
+                );
+                const consumedByAI = new Set([...aiMergedCanonicals, ...aiVariantKeywords]);
+
+                // Keep fuzzy-merged + keywords not touched by AI
+                const filteredKeywords = prev.keywords.filter(k => {
+                  if (k.merged) return true; // Keep all fuzzy groups
+                  return !consumedByAI.has(k.keyword.toLowerCase());
+                });
+
+                const allKeywords = [...filteredKeywords, ...event.aiMergedKeywords, ...event.aiSingles]
+                  .sort((a: DedupKeyword, b: DedupKeyword) => b.volume - a.volume);
+
+                const totalMergedVariants = allKeywords.reduce((sum: number, k: DedupKeyword) => sum + k.variantCount, 0);
+
+                return {
+                  ...prev,
+                  aiMergedGroups: event.aiMergedGroups,
+                  deduplicatedCount: allKeywords.length,
+                  removedCount: prev.originalCount - allKeywords.length,
+                  keywords: allKeywords,
+                };
+              });
+
+              setUngroupedForAI([]);
+
+              toast({
+                title: "AI semantic pass complete!",
+                description: `${event.aiMergedGroups} additional groups merged semantically.`,
+              });
+            } else if (event.type === "error") {
+              throw new Error(event.message);
+            }
+          } catch (parseErr: any) {
+            if (parseErr.message && !parseErr.message.includes("Unexpected")) {
+              throw parseErr;
+            }
+          }
+        }
+      }
+    } catch (err: any) {
+      console.error(err);
+      toast({ title: "AI pass failed", description: err.message, variant: "destructive" });
+    } finally {
+      setIsAIProcessing(false);
     }
   };
 
@@ -217,9 +338,9 @@ const KeywordDeduplicator = () => {
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        Upload a CSV with keywords and search volumes. The tool will identify duplicate and semantically
-        identical keywords (e.g., "does root canal hurt" = "is root canal painful"), keep the highest-volume
-        variant, and sum all volumes together.
+        Upload a CSV with keywords and search volumes. <strong>Step 1</strong> instantly merges exact duplicates
+        (same words, different order). <strong>Step 2</strong> (optional) uses AI to find semantic duplicates
+        (e.g., "does it hurt" = "is it painful").
       </p>
 
       {/* Upload */}
@@ -251,7 +372,7 @@ const KeywordDeduplicator = () => {
               variant="ghost"
               size="icon"
               className="h-6 w-6"
-              onClick={() => { setFileName(null); setRawKeywords([]); setResult(null); }}
+              onClick={() => { setFileName(null); setRawKeywords([]); setResult(null); setUngroupedForAI([]); }}
             >
               <X className="h-3 w-3" />
             </Button>
@@ -259,20 +380,20 @@ const KeywordDeduplicator = () => {
         )}
       </div>
 
-      {/* Run button */}
+      {/* Step 1 button */}
       {rawKeywords.length > 0 && !result && (
         <Button
-          onClick={runDeduplication}
+          onClick={runFuzzyDedup}
           disabled={isProcessing}
           className="gap-2"
         >
-          {isProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-          {isProcessing ? "Deduplicating..." : `Deduplicate ${rawKeywords.length.toLocaleString()} Keywords`}
+          {isProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
+          {isProcessing ? "Matching..." : `Step 1: Fuzzy Deduplicate ${rawKeywords.length.toLocaleString()} Keywords`}
         </Button>
       )}
 
       {/* Progress */}
-      {isProcessing && (
+      {(isProcessing || isAIProcessing) && (
         <div className="space-y-2">
           <Progress value={progress} className="h-2" />
           <p className="text-xs text-muted-foreground">{progressLabel}</p>
@@ -306,11 +427,35 @@ const KeywordDeduplicator = () => {
               <CardContent className="py-3 px-4 text-center">
                 <p className="text-2xl font-bold">{result.fuzzyMergedGroups + result.aiMergedGroups}</p>
                 <p className="text-xs text-muted-foreground">
-                  Merged groups ({result.fuzzyMergedGroups} fuzzy + {result.aiMergedGroups} AI)
+                  Groups ({result.fuzzyMergedGroups} fuzzy{result.aiMergedGroups > 0 ? ` + ${result.aiMergedGroups} AI` : ""})
                 </p>
               </CardContent>
             </Card>
           </div>
+
+          {/* Step 2: AI pass */}
+          {ungroupedForAI.length > 0 && !isAIProcessing && (
+            <Card className="border-amber-300/50 bg-amber-50/50 dark:bg-amber-900/10">
+              <CardContent className="py-4 px-4">
+                <div className="flex items-center justify-between flex-wrap gap-3">
+                  <div>
+                    <p className="text-sm font-medium flex items-center gap-2">
+                      <BrainCircuit className="h-4 w-4 text-amber-600" />
+                      Step 2: AI Semantic Deduplication (optional)
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {ungroupedForAI.length.toLocaleString()} unique keywords remaining — AI will find semantic duplicates
+                      like "does it hurt" = "is it painful". Estimated: {Math.ceil(ungroupedForAI.length / 1500)} AI calls.
+                    </p>
+                  </div>
+                  <Button onClick={runAISemanticPass} className="gap-2">
+                    <Sparkles className="h-4 w-4" />
+                    Run AI Pass
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Actions */}
           <div className="flex items-center gap-2 flex-wrap">
@@ -399,13 +544,13 @@ const KeywordDeduplicator = () => {
             </table>
           </div>
 
-          {/* Re-run */}
+          {/* Clear */}
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
               size="sm"
               className="gap-1.5"
-              onClick={() => { setResult(null); }}
+              onClick={() => { setResult(null); setUngroupedForAI([]); }}
             >
               <Trash2 className="h-3.5 w-3.5" />
               Clear Results
