@@ -135,6 +135,14 @@ export default function ContentMigration() {
             };
           }
           
+          // Re-run quality checks on loaded results
+          let qualityChecks: QualityCheck[] | undefined;
+          if (result && row.status === "done") {
+            // We need the markdown for quality checks, but we only have HTML stored.
+            // Run checks with what we have — structure checks will use HTML patterns.
+            qualityChecks = runQualityChecksFromHtml(result);
+          }
+
           return {
             id: row.id,
             url: row.url,
@@ -142,6 +150,7 @@ export default function ContentMigration() {
             status: row.status as UrlEntry["status"],
             result,
             error: row.error || undefined,
+            qualityChecks,
           };
         });
         setEntries(loaded);
