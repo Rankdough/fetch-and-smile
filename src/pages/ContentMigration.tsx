@@ -727,6 +727,10 @@ ${xmlRows}
                 <Label htmlFor="skip-title-html" className="text-sm cursor-pointer">Skip Title (H1) in HTML Content</Label>
                 <Switch id="skip-title-html" checked={skipTitleInHtml} onCheckedChange={(v) => { setSkipTitleInHtml(v); localStorage.setItem("migration-skip-title-html", String(v)); }} />
               </div>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="english-only" className="text-sm cursor-pointer">English Only (skip NL/DE translations)</Label>
+                <Switch id="english-only" checked={englishOnly} onCheckedChange={(v) => { setEnglishOnly(v); localStorage.setItem("migration-english-only", String(v)); }} />
+              </div>
             </div>
           )}
         </div>
