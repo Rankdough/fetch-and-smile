@@ -666,47 +666,62 @@ ${sourceHtml.substring(0, 8000)}`;
         console.log("[Migration] CTA generated for end of article");
       }
 
-      const renderVariant = (markdown: string, opts: typeof convertOpts, includeCta: boolean) => {
+      const renderVariant = (
+        markdown: string,
+        opts: typeof convertOpts,
+        includeCta: boolean,
+        forceUnstyled = false
+      ) => {
         const styled = markdownToStyledHtml(markdown, palette, opts);
         const withCta = includeCta && endCtaHtml ? styled + endCtaHtml : styled;
-        return compactHtmlForExcelLimit(withCta);
+
+        let candidate = compactHtmlForExcelLimit(withCta);
+        if (forceUnstyled) {
+          candidate = minifyHtmlForExport(
+            candidate
+              .replace(/\sstyle=(['"])[\s\S]*?\1/gi, "")
+              .replace(/\s(?:target|rel|id)=(['"])[\s\S]*?\1/gi, "")
+          );
+        }
+
+        return compactHtmlForExcelLimit(candidate);
       };
 
       const toExcelSafeHtml = (markdown: string, locale: "EN" | "NL" | "DE") => {
         const variants = [
-          { label: "full", opts: convertOpts, includeCta: true },
-          { label: "no-nav", opts: { ...convertOpts, skipNavigation: true }, includeCta: true },
-          { label: "no-nav-no-faq", opts: { ...convertOpts, skipNavigation: true, skipFaqs: true }, includeCta: true },
-          { label: "no-nav-no-faq-no-cta", opts: { ...convertOpts, skipNavigation: true, skipFaqs: true }, includeCta: false },
+          { label: "full", opts: convertOpts, includeCta: true, forceUnstyled: false },
+          { label: "no-nav", opts: { ...convertOpts, skipNavigation: true }, includeCta: true, forceUnstyled: false },
+          { label: "no-nav-no-faq", opts: { ...convertOpts, skipNavigation: true, skipFaqs: true }, includeCta: true, forceUnstyled: false },
+          { label: "no-nav-no-faq-no-cta", opts: { ...convertOpts, skipNavigation: true, skipFaqs: true }, includeCta: false, forceUnstyled: false },
+          { label: "essentials-only", opts: { ...convertOpts, skipNavigation: true, skipFaqs: true, skipQuickTips: true, skipSources: true }, includeCta: false, forceUnstyled: false },
+          { label: "essentials-unstyled", opts: { ...convertOpts, skipNavigation: true, skipFaqs: true, skipQuickTips: true, skipSources: true }, includeCta: false, forceUnstyled: true },
         ];
 
         let smallestHtml = "";
         let smallestLabel = "";
+        let smallestPayload = Number.MAX_SAFE_INTEGER;
 
         for (const variant of variants) {
-          const candidate = renderVariant(markdown, variant.opts, variant.includeCta);
+          const candidate = renderVariant(markdown, variant.opts, variant.includeCta, variant.forceUnstyled);
+          const payloadChars = getExcelCellPayloadLength(candidate);
 
-          if (!smallestHtml || candidate.length < smallestHtml.length) {
+          if (payloadChars < smallestPayload) {
             smallestHtml = candidate;
             smallestLabel = variant.label;
+            smallestPayload = payloadChars;
           }
 
-          if (candidate.length <= EXCEL_CELL_LIMIT) {
+          if (payloadChars <= EXCEL_CELL_LIMIT) {
             if (variant.label !== "full") {
-              console.warn(`[Migration] ${locale} switched to ${variant.label} render to stay Excel-safe (${candidate.length}/${EXCEL_CELL_LIMIT})`);
+              console.warn(`[Migration] ${locale} switched to ${variant.label} render to stay Excel-safe (${payloadChars}/${EXCEL_CELL_LIMIT})`);
             }
             return candidate;
           }
         }
 
-        if (smallestHtml.length > EXCEL_CELL_LIMIT) {
-          throw new Error(
-            `${locale} content exceeds Excel cell limit after all safe render modes (${smallestHtml.length}/${EXCEL_CELL_LIMIT}).`
-          );
-        }
-
-        console.warn(`[Migration] ${locale} using fallback render mode: ${smallestLabel}`);
-        return smallestHtml;
+        throw new Error(
+          `${locale} content exceeds Excel cell limit after all safe render modes (${smallestPayload}/${EXCEL_CELL_LIMIT}, smallest=${smallestLabel}).`
+        );
       };
 
       const data: MigrationResult = {
