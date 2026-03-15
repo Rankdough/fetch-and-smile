@@ -36,14 +36,18 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
-    // Filter out the article's own URL and any URL containing the same path
-    const normalise = (u: string) => u.trim().replace(/\/+$/, "").toLowerCase();
-    const articleNorm = articleUrl ? normalise(articleUrl) : null;
+    // Filter out the article's own URL — compare by slug (last meaningful path segment)
+    const extractSlug = (u: string) => {
+      try {
+        const path = new URL(u.trim()).pathname.replace(/\/+$/, "");
+        return path.split("/").filter(Boolean).pop()?.toLowerCase() || "";
+      } catch { return u.trim().toLowerCase(); }
+    };
+    const articleSlug = articleUrl ? extractSlug(articleUrl) : null;
     const filteredCandidates: LinkCandidate[] = (candidates as LinkCandidate[])
       .filter(c => {
-        const norm = normalise(c.url);
-        if (!norm) return false;
-        if (articleNorm && norm === articleNorm) return false;
+        if (!c.url.trim()) return false;
+        if (articleSlug && extractSlug(c.url) === articleSlug) return false;
         return true;
       });
 
