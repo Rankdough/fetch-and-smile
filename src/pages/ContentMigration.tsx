@@ -745,18 +745,37 @@ ${sourceHtml.substring(0, 8000)}`;
       "SEO Description", "SEO Description (EN)", "SEO Description (NL)", "SEO Description (DE)",
     ];
 
+    let maxContentCellChars = 0;
+    let exceedsCellLimit = false;
+
     const rows = entries.filter(e => e.status === "done" && e.result).map(e => {
       const r = e.result!;
       const maybeStripH1 = (html: string) => skipTitleInHtml ? stripH1FromHtml(html) : html;
+      const contentEn = minifyHtmlForExport(maybeStripH1(r.content ?? ""));
+      const contentNl = minifyHtmlForExport(maybeStripH1(r.contentNL ?? ""));
+      const contentDe = minifyHtmlForExport(maybeStripH1(r.contentDE ?? ""));
+
+      maxContentCellChars = Math.max(maxContentCellChars, contentEn.length, contentNl.length, contentDe.length);
+      if (maxContentCellChars > EXCEL_CELL_LIMIT) exceedsCellLimit = true;
+
       return [
         r.type ?? "", (r.imageUrls || [])[0] || "", r.url ?? "", "",
         r.title ?? "", r.title ?? "", r.titleNL ?? "", r.titleDE ?? "",
         r.subtitle ?? "", r.subtitleNL ?? "", r.subtitleDE ?? "",
-        maybeStripH1(r.content ?? ""), maybeStripH1(r.content ?? ""), maybeStripH1(r.contentNL ?? ""), maybeStripH1(r.contentDE ?? ""),
+        contentEn, contentEn, contentNl, contentDe,
         r.seoTitle ?? "", r.seoTitle ?? "", r.seoTitleNL ?? "", r.seoTitleDE ?? "",
         r.seoDescription ?? "", r.seoDescription ?? "", r.seoDescriptionNL ?? "", r.seoDescriptionDE ?? "",
       ];
     });
+
+    if (exceedsCellLimit) {
+      toast({
+        title: "Export blocked: content exceeds Excel cell limit",
+        description: `Max content cell is ${maxContentCellChars} chars (limit: ${EXCEL_CELL_LIMIT}). Reduce article size or skip non-essential sections.`,
+        variant: "destructive",
+      });
+      return;
+    }
 
     // Build Excel XML (SpreadsheetML) to keep raw HTML in single cells without row-splitting
     const escapeXml = (val: string): string =>
