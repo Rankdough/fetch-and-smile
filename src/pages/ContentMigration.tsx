@@ -293,7 +293,21 @@ export default function ContentMigration() {
       ].filter(Boolean).join(", ")}`,
     });
 
-    // 4. Export readiness check
+    // 4. Internal links check
+    if (internalLinkUrls.length > 0) {
+      const linkMatches = htmlContent.match(/<a\s[^>]*href="[^"]*"[^>]*>/gi) || [];
+      const internalLinksFound = linkMatches.filter(tag => {
+        const hrefMatch = tag.match(/href="([^"]*)"/i);
+        return hrefMatch && internalLinkUrls.some(c => c.url === hrefMatch[1]);
+      }).length;
+      checks.push({
+        label: "Internal Links",
+        passed: internalLinksFound >= 2,
+        detail: internalLinksFound > 0 ? `${internalLinksFound} internal links inserted` : "No internal links found",
+      });
+    }
+
+    // 5. Export readiness check
     const hasTitle = !!result.title?.trim();
     const hasSeoTitle = !!result.seoTitle?.trim();
     const hasSeoDesc = !!result.seoDescription?.trim();
