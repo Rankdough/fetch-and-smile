@@ -251,6 +251,10 @@ ${sourceHtml.substring(0, 8000)}`;
 
     console.log("Generated markdown length:", content.length, "title:", title);
 
+    // Step 2b: Deduplicate subtitle from article intro
+    // The AI often copies the subtitle verbatim as the first paragraph. Detect and fix this.
+    content = await deduplicateIntroFromSubtitle(LOVABLE_API_KEY, content, subtitle, title);
+
     // Step 3+4: Translate Markdown to NL and DE in parallel
     // Translating Markdown is simpler and more reliable than translating HTML
     console.log("Step 3+4: Translating Markdown to NL and DE in parallel");
@@ -361,4 +365,104 @@ ${fields.content}`;
     seoDescription: parseField(text, "SEO_DESCRIPTION", "CONTENT"),
     content: translatedContent,
   };
+}
+
+/**
+ * Detects if the article's first paragraph is too similar to the subtitle,
+ * and if so, asks the AI to write a fresh, distinct opening paragraph.
+ */
+async function deduplicateIntroFromSubtitle(
+  apiKey: string,
+  content: string,
+  subtitle: string,
+  title: string
+): Promise<string> {
+  if (!subtitle || !content) return content;
+
+  // Find the first paragraph after the H1 line
+  const lines = content.split("\n");
+  let h1EndIdx = -1;
+  let introParagraphStart = -1;
+  let introParagraphEnd = -1;
+
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].startsWith("# ")) {
+      h1EndIdx = i;
+      continue;
+    }
+    if (h1EndIdx >= 0 && lines[i].trim() === "") continue;
+    if (h1EndIdx >= 0 && !lines[i].startsWith("#") && !lines[i].startsWith(">") && !lines[i].startsWith("-") && !lines[i].startsWith("|") && lines[i].trim() !== "") {
+      introParagraphStart = i;
+      for (let j = i + 1; j <= lines.length; j++) {
+        if (j === lines.length || lines[j].trim() === "" || lines[j].startsWith("#")) {
+          introParagraphEnd = j;
+          break;
+        }
+      }
+      break;
+    }
+  }
+
+  if (introParagraphStart === -1) return content;
+
+  const introParagraph = lines.slice(introParagraphStart, introParagraphEnd).join(" ").trim();
+
+  // Normalize for comparison
+  const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9\s]/g, "").replace(/\s+/g, " ").trim();
+  const normalizedSubtitle = normalize(subtitle);
+  const normalizedIntro = normalize(introParagraph);
+
+  // Check similarity: if >60% of words overlap, it's a duplicate
+  const subtitleWords = new Set(normalizedSubtitle.split(" "));
+  const introWords = normalizedIntro.split(" ");
+  const overlap = introWords.filter(w => subtitleWords.has(w)).length;
+  const similarity = overlap / Math.max(introWords.length, 1);
+
+  console.log(`Subtitle/intro similarity: ${(similarity * 100).toFixed(0)}%`);
+
+  if (similarity < 0.6) return content;
+
+  console.log("Intro duplicates subtitle — generating fresh opening paragraph");
+
+  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "google/gemini-2.5-flash",
+      messages: [
+        { role: "system", content: "You write concise, engaging article introductions. Output ONLY the replacement paragraph, nothing else." },
+        { role: "user", content: `The article title is: "${title}"
+
+The subtitle (shown separately above the article) is:
+"${subtitle}"
+
+The current opening paragraph of the article body is nearly identical to the subtitle. Write a COMPLETELY DIFFERENT opening paragraph (30-50 words) that:
+- Sets up WHY this topic matters or provides broader context
+- Uses entirely different wording and facts from the subtitle
+- Still relates to the title question
+- Does NOT repeat brand names or specific examples from the subtitle
+- Flows naturally into the rest of the article
+
+Output ONLY the new paragraph text, no quotes, no markdown heading.` },
+      ],
+    }),
+  });
+
+  if (!response.ok) {
+    console.error("Failed to generate replacement intro:", response.status);
+    return content;
+  }
+
+  const data = await response.json();
+  const newIntro = (data.choices?.[0]?.message?.content || "").trim();
+
+  if (!newIntro || newIntro.length < 20) return content;
+
+  const newLines = [...lines];
+  newLines.splice(introParagraphStart, introParagraphEnd - introParagraphStart, newIntro);
+  console.log("Replaced duplicated intro with fresh paragraph");
+  return newLines.join("\n");
 }
