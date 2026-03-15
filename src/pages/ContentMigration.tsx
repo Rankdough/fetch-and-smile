@@ -86,6 +86,7 @@ export default function ContentMigration() {
   const [skipQuickTips, setSkipQuickTips] = useState(() => localStorage.getItem("migration-skip-tips") === "true");
   const [skipFaqs, setSkipFaqs] = useState(() => localStorage.getItem("migration-skip-faqs") === "true");
   const [skipSources, setSkipSources] = useState(() => localStorage.getItem("migration-skip-sources") === "true");
+  const [englishOnly, setEnglishOnly] = useState(() => localStorage.getItem("migration-english-only") === "true");
   const [skipTitleInHtml, setSkipTitleInHtml] = useState(() => localStorage.getItem("migration-skip-title-html") === "true");
   const [ctaUrl, setCtaUrl] = useState(() => localStorage.getItem("migration-cta-url") || "");
   const [ctaInstruction, setCtaInstruction] = useState(() => localStorage.getItem("migration-cta-instruction") || "");
@@ -243,13 +244,13 @@ export default function ContentMigration() {
     const hasSeoTitle = !!result.seoTitle?.trim();
     const hasSeoDesc = !!result.seoDescription?.trim();
     const hasContent = htmlContent.length > 100;
-    const hasNL = !!result.contentNL?.trim();
-    const hasDE = !!result.contentDE?.trim();
+    const hasNL = englishOnly || !!result.contentNL?.trim();
+    const hasDE = englishOnly || !!result.contentDE?.trim();
     const exportPassed = hasTitle && hasSeoTitle && hasSeoDesc && hasContent && hasNL && hasDE;
     checks.push({
       label: "Excel Export Ready",
       passed: exportPassed,
-      detail: exportPassed ? "All fields populated (EN, NL, DE)" : `Missing: ${[
+      detail: exportPassed ? (englishOnly ? "All fields populated (EN only)" : "All fields populated (EN, NL, DE)") : `Missing: ${[
         !hasTitle && "Title",
         !hasSeoTitle && "SEO Title",
         !hasSeoDesc && "SEO Description",
@@ -260,7 +261,7 @@ export default function ContentMigration() {
     });
 
     return checks;
-  }, [skipQuickTips, skipFaqs, skipSources]);
+  }, [skipQuickTips, skipFaqs, skipSources, englishOnly]);
 
   const processUrl = useCallback(async (entry: UrlEntry): Promise<UrlEntry> => {
     try {
@@ -380,17 +381,23 @@ ${sourceHtml.substring(0, 8000)}`;
       const seoTitle = title.length > 60 ? title.substring(0, 57) + "..." : title;
       const seoDescription = subtitle.length > 160 ? subtitle.substring(0, 157) + "..." : subtitle;
 
-      // === STEP 3: Translate to NL and DE ===
-      console.log("[Migration] Step 3: Translating to NL + DE");
-      const { data: translationData, error: translationError } = await supabase.functions.invoke("translate-content", {
-        body: { title, subtitle, seoTitle, seoDescription, content: generatedMarkdown },
-      });
-      if (translationError) {
-        console.error("[Migration] Translation failed, continuing with EN only:", translationError);
-      }
+      // === STEP 3: Translate to NL and DE (unless English Only) ===
+      let nl = { title: "", subtitle: "", seoTitle: "", seoDescription: "", content: "" };
+      let de = { title: "", subtitle: "", seoTitle: "", seoDescription: "", content: "" };
 
-      const nl = translationData?.nl || { title: "", subtitle: "", seoTitle: "", seoDescription: "", content: "" };
-      const de = translationData?.de || { title: "", subtitle: "", seoTitle: "", seoDescription: "", content: "" };
+      if (!englishOnly) {
+        console.log("[Migration] Step 3: Translating to NL + DE");
+        const { data: translationData, error: translationError } = await supabase.functions.invoke("translate-content", {
+          body: { title, subtitle, seoTitle, seoDescription, content: generatedMarkdown },
+        });
+        if (translationError) {
+          console.error("[Migration] Translation failed, continuing with EN only:", translationError);
+        }
+        nl = translationData?.nl || nl;
+        de = translationData?.de || de;
+      } else {
+        console.log("[Migration] Step 3: Skipping translations (English Only mode)");
+      }
 
       // === STEP 4: Convert Markdown → styled HTML ===
       console.log("[Migration] Step 4: Converting markdown to styled HTML");
@@ -464,7 +471,7 @@ ${sourceHtml.substring(0, 8000)}`;
 
       return { ...entry, status: "error", error: msg };
     }
-  }, [selectedColorPalette, skipNavigation, skipQuickTips, skipFaqs, skipSources, targetWordCount, selectedToneProfileId, runQualityChecks, ctaUrl, ctaInstruction]);
+  }, [selectedColorPalette, skipNavigation, skipQuickTips, skipFaqs, skipSources, targetWordCount, selectedToneProfileId, runQualityChecks, ctaUrl, ctaInstruction, englishOnly]);
 
   const startProcessing = async () => {
     setIsProcessing(true);
@@ -725,6 +732,10 @@ ${xmlRows}
               <div className="flex items-center justify-between">
                 <Label htmlFor="skip-title-html" className="text-sm cursor-pointer">Skip Title (H1) in HTML Content</Label>
                 <Switch id="skip-title-html" checked={skipTitleInHtml} onCheckedChange={(v) => { setSkipTitleInHtml(v); localStorage.setItem("migration-skip-title-html", String(v)); }} />
+              </div>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="english-only" className="text-sm cursor-pointer">English Only (skip NL/DE translations)</Label>
+                <Switch id="english-only" checked={englishOnly} onCheckedChange={(v) => { setEnglishOnly(v); localStorage.setItem("migration-english-only", String(v)); }} />
               </div>
             </div>
           )}
