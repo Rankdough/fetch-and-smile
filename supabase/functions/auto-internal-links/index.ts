@@ -147,6 +147,28 @@ function deterministicInsertLinks(
   return { content: lines.join("\n"), insertedUrls };
 }
 
+function appendGuaranteedLinks(
+  content: string,
+  urls: string[],
+  titleMap: Record<string, string>
+): string {
+  if (urls.length === 0) return content;
+
+  const links = urls.map((url) => {
+    const fallbackLabel = extractSlug(url).replace(/[-_]/g, " ").trim() || "related guide";
+    const label = (titleMap[url] || fallbackLabel).replace(/\s+/g, " ").trim();
+    return `[${label}](${url})`;
+  });
+
+  const sentence = `Related guides: ${links.join(", ")}.`;
+
+  if (/^##\s.*final\s*thoughts|^##\s.*conclusion/im.test(content)) {
+    return `${content.trim()}\n\n${sentence}`;
+  }
+
+  return `${content.trim()}\n\n## Related Reading\n${sentence}`;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -367,7 +389,20 @@ ${content}`;
       insertedUrls = detectInsertedUrls(linkedContent, selectedUrls);
 
       console.log(
-        `[auto-internal-links] Fallback inserted ${fallback.insertedUrls.length} extra links; final ${insertedUrls.length}/${selectedUrls.length}`
+        `[auto-internal-links] Fallback inserted ${fallback.insertedUrls.length} extra links; interim ${insertedUrls.length}/${selectedUrls.length}`
+      );
+    }
+
+    if (insertedUrls.length < minimumExpected) {
+      const guaranteedMissing = selectedUrls
+        .filter((u) => !insertedUrls.includes(u))
+        .slice(0, minimumExpected - insertedUrls.length);
+
+      linkedContent = appendGuaranteedLinks(linkedContent, guaranteedMissing, titleMap);
+      insertedUrls = detectInsertedUrls(linkedContent, selectedUrls);
+
+      console.log(
+        `[auto-internal-links] Guaranteed fallback appended ${guaranteedMissing.length} links; final ${insertedUrls.length}/${selectedUrls.length}`
       );
     } else {
       console.log(`[auto-internal-links] Inserted ${insertedUrls.length}/${selectedUrls.length} links`);

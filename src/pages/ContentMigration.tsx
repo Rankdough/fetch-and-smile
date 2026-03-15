@@ -107,6 +107,17 @@ export default function ContentMigration() {
   const [toneProfiles, setToneProfiles] = useState<Array<{ id: string; name: string }>>([]);
 
   const EXCEL_CELL_LIMIT = 32767;
+
+  const escapeSpreadsheetXml = (val: string): string =>
+    String(val ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, "");
+
+  const getExcelCellPayloadLength = (val: string): number => escapeSpreadsheetXml(val).length;
+
   const minifyHtmlForExport = (html: string) =>
     (html || "")
       .replace(/>\s+</g, "><")
@@ -160,15 +171,18 @@ export default function ContentMigration() {
   };
 
   const compactHtmlForExcelLimit = (html: string): string => {
+    const isWithinLimit = (value: string) => getExcelCellPayloadLength(value) <= EXCEL_CELL_LIMIT;
+
     let current = minifyHtmlForExport(html);
-    if (current.length <= EXCEL_CELL_LIMIT) return current;
+    if (isWithinLimit(current)) return current;
 
     current = minifyHtmlForExport(current.replace(/<style[\s\S]*?<\/style>/gi, ""));
-    if (current.length <= EXCEL_CELL_LIMIT) return current;
+    if (isWithinLimit(current)) return current;
 
-    const withoutInlineStyles = current.replace(/\sstyle=(['"])[\s\S]*?\1/gi, "");
-    current = minifyHtmlForExport(`<div style="line-height:1.6">${withoutInlineStyles}</div>`);
+    current = minifyHtmlForExport(current.replace(/\sstyle=(['"])[\s\S]*?\1/gi, ""));
+    if (isWithinLimit(current)) return current;
 
+    current = minifyHtmlForExport(current.replace(/\s(?:target|rel|id)=(['"])[\s\S]*?\1/gi, ""));
     return current;
   };
 
@@ -207,7 +221,14 @@ export default function ContentMigration() {
 
     const hasH2 = /<h2/i.test(html);
     const hasInline = html.includes("style=");
-    checks.push({ label: "HTML Formatting", passed: hasH2 && hasInline, detail: hasH2 && hasInline ? "Styled HTML with inline CSS, headings intact" : "Issues detected" });
+    const htmlPassed = hasH2 || /<p/i.test(html);
+    checks.push({
+      label: "HTML Formatting",
+      passed: htmlPassed,
+      detail: htmlPassed
+        ? (hasInline ? "Styled HTML with inline CSS, headings intact" : "Compact semantic HTML fallback (unstyled) for Excel safety")
+        : "Issues detected",
+    });
 
     const hasTitle = !!result.title?.trim();
     const hasSeoTitle = !!result.seoTitle?.trim();
@@ -226,15 +247,15 @@ export default function ContentMigration() {
     }
 
     const maxContentCellChars = Math.max(
-      compactHtmlForExcelLimit(result.content || "").length,
-      englishOnly ? 0 : compactHtmlForExcelLimit(result.contentNL || "").length,
-      englishOnly ? 0 : compactHtmlForExcelLimit(result.contentDE || "").length,
+      getExcelCellPayloadLength(compactHtmlForExcelLimit(result.content || "")),
+      englishOnly ? 0 : getExcelCellPayloadLength(compactHtmlForExcelLimit(result.contentNL || "")),
+      englishOnly ? 0 : getExcelCellPayloadLength(compactHtmlForExcelLimit(result.contentDE || "")),
     );
     const cellLimitPassed = maxContentCellChars <= EXCEL_CELL_LIMIT;
     checks.push({
       label: "Excel Cell Limit",
       passed: cellLimitPassed,
-      detail: `Max content cell: ${maxContentCellChars}/${EXCEL_CELL_LIMIT} chars`,
+      detail: `Max escaped cell payload: ${maxContentCellChars}/${EXCEL_CELL_LIMIT} chars`,
     });
 
     const exportPassed = hasTitle && hasSeoTitle && hasSeoDesc && hasContent && hasNL && hasDE && cellLimitPassed;
@@ -370,15 +391,17 @@ export default function ContentMigration() {
     const hasStyledHtml = htmlContent.startsWith("<");
     const hasInlineStyles = htmlContent.includes("style=");
     const hasH2Tags = /<h2/i.test(htmlContent);
-    const htmlPassed = hasStyledHtml && hasInlineStyles && hasH2Tags;
+    const hasParagraphs = /<p/i.test(htmlContent);
+    const htmlPassed = hasStyledHtml && (hasH2Tags || hasParagraphs);
     checks.push({
       label: "HTML Formatting",
       passed: htmlPassed,
-      detail: htmlPassed ? "Styled HTML with inline CSS, headings intact" : `Issues: ${[
-        !hasStyledHtml && "Not HTML",
-        !hasInlineStyles && "No inline styles",
-        !hasH2Tags && "No H2 tags",
-      ].filter(Boolean).join(", ")}`,
+      detail: htmlPassed
+        ? (hasInlineStyles ? "Styled HTML with inline CSS, headings intact" : "Compact semantic HTML fallback (unstyled) for Excel safety")
+        : `Issues: ${[
+          !hasStyledHtml && "Not HTML",
+          !hasH2Tags && !hasParagraphs && "No body content tags",
+        ].filter(Boolean).join(", ")}`,
     });
 
     // 4. Internal links check
@@ -400,15 +423,15 @@ export default function ContentMigration() {
     const hasDE = englishOnly || !!result.contentDE?.trim();
 
     const maxContentCellChars = Math.max(
-      compactHtmlForExcelLimit(htmlContent).length,
-      englishOnly ? 0 : compactHtmlForExcelLimit(result.contentNL || "").length,
-      englishOnly ? 0 : compactHtmlForExcelLimit(result.contentDE || "").length,
+      getExcelCellPayloadLength(compactHtmlForExcelLimit(htmlContent)),
+      englishOnly ? 0 : getExcelCellPayloadLength(compactHtmlForExcelLimit(result.contentNL || "")),
+      englishOnly ? 0 : getExcelCellPayloadLength(compactHtmlForExcelLimit(result.contentDE || "")),
     );
     const cellLimitPassed = maxContentCellChars <= EXCEL_CELL_LIMIT;
     checks.push({
       label: "Excel Cell Limit",
       passed: cellLimitPassed,
-      detail: `Max content cell: ${maxContentCellChars}/${EXCEL_CELL_LIMIT} chars`,
+      detail: `Max escaped cell payload: ${maxContentCellChars}/${EXCEL_CELL_LIMIT} chars`,
     });
 
     const exportPassed = hasTitle && hasSeoTitle && hasSeoDesc && hasContent && hasNL && hasDE && cellLimitPassed;
@@ -652,47 +675,62 @@ ${sourceHtml.substring(0, 8000)}`;
         console.log("[Migration] CTA generated for end of article");
       }
 
-      const renderVariant = (markdown: string, opts: typeof convertOpts, includeCta: boolean) => {
+      const renderVariant = (
+        markdown: string,
+        opts: typeof convertOpts,
+        includeCta: boolean,
+        forceUnstyled = false
+      ) => {
         const styled = markdownToStyledHtml(markdown, palette, opts);
         const withCta = includeCta && endCtaHtml ? styled + endCtaHtml : styled;
-        return compactHtmlForExcelLimit(withCta);
+
+        let candidate = compactHtmlForExcelLimit(withCta);
+        if (forceUnstyled) {
+          candidate = minifyHtmlForExport(
+            candidate
+              .replace(/\sstyle=(['"])[\s\S]*?\1/gi, "")
+              .replace(/\s(?:target|rel|id)=(['"])[\s\S]*?\1/gi, "")
+          );
+        }
+
+        return compactHtmlForExcelLimit(candidate);
       };
 
       const toExcelSafeHtml = (markdown: string, locale: "EN" | "NL" | "DE") => {
         const variants = [
-          { label: "full", opts: convertOpts, includeCta: true },
-          { label: "no-nav", opts: { ...convertOpts, skipNavigation: true }, includeCta: true },
-          { label: "no-nav-no-faq", opts: { ...convertOpts, skipNavigation: true, skipFaqs: true }, includeCta: true },
-          { label: "no-nav-no-faq-no-cta", opts: { ...convertOpts, skipNavigation: true, skipFaqs: true }, includeCta: false },
+          { label: "full", opts: convertOpts, includeCta: true, forceUnstyled: false },
+          { label: "no-nav", opts: { ...convertOpts, skipNavigation: true }, includeCta: true, forceUnstyled: false },
+          { label: "no-nav-no-faq", opts: { ...convertOpts, skipNavigation: true, skipFaqs: true }, includeCta: true, forceUnstyled: false },
+          { label: "no-nav-no-faq-no-cta", opts: { ...convertOpts, skipNavigation: true, skipFaqs: true }, includeCta: false, forceUnstyled: false },
+          { label: "essentials-only", opts: { ...convertOpts, skipNavigation: true, skipFaqs: true, skipQuickTips: true, skipSources: true }, includeCta: false, forceUnstyled: false },
+          { label: "essentials-unstyled", opts: { ...convertOpts, skipNavigation: true, skipFaqs: true, skipQuickTips: true, skipSources: true }, includeCta: false, forceUnstyled: true },
         ];
 
         let smallestHtml = "";
         let smallestLabel = "";
+        let smallestPayload = Number.MAX_SAFE_INTEGER;
 
         for (const variant of variants) {
-          const candidate = renderVariant(markdown, variant.opts, variant.includeCta);
+          const candidate = renderVariant(markdown, variant.opts, variant.includeCta, variant.forceUnstyled);
+          const payloadChars = getExcelCellPayloadLength(candidate);
 
-          if (!smallestHtml || candidate.length < smallestHtml.length) {
+          if (payloadChars < smallestPayload) {
             smallestHtml = candidate;
             smallestLabel = variant.label;
+            smallestPayload = payloadChars;
           }
 
-          if (candidate.length <= EXCEL_CELL_LIMIT) {
+          if (payloadChars <= EXCEL_CELL_LIMIT) {
             if (variant.label !== "full") {
-              console.warn(`[Migration] ${locale} switched to ${variant.label} render to stay Excel-safe (${candidate.length}/${EXCEL_CELL_LIMIT})`);
+              console.warn(`[Migration] ${locale} switched to ${variant.label} render to stay Excel-safe (${payloadChars}/${EXCEL_CELL_LIMIT})`);
             }
             return candidate;
           }
         }
 
-        if (smallestHtml.length > EXCEL_CELL_LIMIT) {
-          throw new Error(
-            `${locale} content exceeds Excel cell limit after all safe render modes (${smallestHtml.length}/${EXCEL_CELL_LIMIT}).`
-          );
-        }
-
-        console.warn(`[Migration] ${locale} using fallback render mode: ${smallestLabel}`);
-        return smallestHtml;
+        throw new Error(
+          `${locale} content exceeds Excel cell limit after all safe render modes (${smallestPayload}/${EXCEL_CELL_LIMIT}, smallest=${smallestLabel}).`
+        );
       };
 
       const data: MigrationResult = {
@@ -844,7 +882,11 @@ ${sourceHtml.substring(0, 8000)}`;
       const contentNl = compactHtmlForExcelLimit(maybeStripH1(r.contentNL ?? ""));
       const contentDe = compactHtmlForExcelLimit(maybeStripH1(r.contentDE ?? ""));
 
-      maxContentCellChars = Math.max(maxContentCellChars, contentEn.length, contentNl.length, contentDe.length);
+      const enPayload = getExcelCellPayloadLength(contentEn);
+      const nlPayload = getExcelCellPayloadLength(contentNl);
+      const dePayload = getExcelCellPayloadLength(contentDe);
+
+      maxContentCellChars = Math.max(maxContentCellChars, enPayload, nlPayload, dePayload);
       if (maxContentCellChars > EXCEL_CELL_LIMIT) exceedsCellLimit = true;
 
       return [
@@ -860,23 +902,15 @@ ${sourceHtml.substring(0, 8000)}`;
     if (exceedsCellLimit) {
       toast({
         title: "Export blocked: content exceeds Excel cell limit",
-        description: `Max content cell is ${maxContentCellChars} chars (limit: ${EXCEL_CELL_LIMIT}). Reduce article size or skip non-essential sections.`,
+        description: `Max escaped content cell payload is ${maxContentCellChars} chars (limit: ${EXCEL_CELL_LIMIT}). Reduce article size or skip non-essential sections.`,
         variant: "destructive",
       });
       return;
     }
 
     // Build Excel XML (SpreadsheetML) to keep raw HTML in single cells without row-splitting
-    const escapeXml = (val: string): string =>
-      String(val ?? "")
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, ""); // strip control chars
-
     const buildRow = (cells: string[]) =>
-      "<Row>" + cells.map(c => `<Cell><Data ss:Type="String">${escapeXml(c)}</Data></Cell>`).join("") + "</Row>";
+      "<Row>" + cells.map(c => `<Cell><Data ss:Type="String">${escapeSpreadsheetXml(c)}</Data></Cell>`).join("") + "</Row>";
 
     const xmlRows = [buildRow(headers), ...rows.map(buildRow)].join("\n");
 
