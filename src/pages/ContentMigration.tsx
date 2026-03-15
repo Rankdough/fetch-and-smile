@@ -632,7 +632,7 @@ ${sourceHtml.substring(0, 8000)}`;
         console.log("[Migration] Step 3: Skipping translations (English Only mode)");
       }
 
-      // === STEP 4: Convert Markdown → styled HTML ===
+      // === STEP 4: Convert Markdown → styled HTML (Excel-safe, deterministic) ===
       console.log("[Migration] Step 4: Converting markdown to styled HTML");
       const palette = selectedColorPalette || undefined;
       const convertOpts = { skipNavigation, skipQuickTips, skipFaqs, skipSources };
@@ -652,8 +652,48 @@ ${sourceHtml.substring(0, 8000)}`;
         console.log("[Migration] CTA generated for end of article");
       }
 
-      const appendCta = (html: string) => endCtaHtml ? html + endCtaHtml : html;
-      const toExportHtml = (markdown: string) => minifyHtmlForExport(appendCta(markdownToStyledHtml(markdown, palette, convertOpts)));
+      const renderVariant = (markdown: string, opts: typeof convertOpts, includeCta: boolean) => {
+        const styled = markdownToStyledHtml(markdown, palette, opts);
+        const withCta = includeCta && endCtaHtml ? styled + endCtaHtml : styled;
+        return compactHtmlForExcelLimit(withCta);
+      };
+
+      const toExcelSafeHtml = (markdown: string, locale: "EN" | "NL" | "DE") => {
+        const variants = [
+          { label: "full", opts: convertOpts, includeCta: true },
+          { label: "no-nav", opts: { ...convertOpts, skipNavigation: true }, includeCta: true },
+          { label: "no-nav-no-faq", opts: { ...convertOpts, skipNavigation: true, skipFaqs: true }, includeCta: true },
+          { label: "no-nav-no-faq-no-cta", opts: { ...convertOpts, skipNavigation: true, skipFaqs: true }, includeCta: false },
+        ];
+
+        let smallestHtml = "";
+        let smallestLabel = "";
+
+        for (const variant of variants) {
+          const candidate = renderVariant(markdown, variant.opts, variant.includeCta);
+
+          if (!smallestHtml || candidate.length < smallestHtml.length) {
+            smallestHtml = candidate;
+            smallestLabel = variant.label;
+          }
+
+          if (candidate.length <= EXCEL_CELL_LIMIT) {
+            if (variant.label !== "full") {
+              console.warn(`[Migration] ${locale} switched to ${variant.label} render to stay Excel-safe (${candidate.length}/${EXCEL_CELL_LIMIT})`);
+            }
+            return candidate;
+          }
+        }
+
+        if (smallestHtml.length > EXCEL_CELL_LIMIT) {
+          throw new Error(
+            `${locale} content exceeds Excel cell limit after all safe render modes (${smallestHtml.length}/${EXCEL_CELL_LIMIT}).`
+          );
+        }
+
+        console.warn(`[Migration] ${locale} using fallback render mode: ${smallestLabel}`);
+        return smallestHtml;
+      };
 
       const data: MigrationResult = {
         url: entry.url,
@@ -662,17 +702,17 @@ ${sourceHtml.substring(0, 8000)}`;
         subtitle,
         seoTitle,
         seoDescription,
-        content: toExportHtml(generatedMarkdown),
+        content: toExcelSafeHtml(generatedMarkdown, "EN"),
         titleNL: nl.title,
         subtitleNL: nl.subtitle,
         seoTitleNL: nl.seoTitle,
         seoDescriptionNL: nl.seoDescription,
-        contentNL: nl.content ? toExportHtml(nl.content) : "",
+        contentNL: nl.content ? toExcelSafeHtml(nl.content, "NL") : "",
         titleDE: de.title,
         subtitleDE: de.subtitle,
         seoTitleDE: de.seoTitle,
         seoDescriptionDE: de.seoDescription,
-        contentDE: de.content ? toExportHtml(de.content) : "",
+        contentDE: de.content ? toExcelSafeHtml(de.content, "DE") : "",
         imageUrls,
       };
 
