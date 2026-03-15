@@ -23,7 +23,7 @@ function buildMarkdownPrompt(skip: SkipOptions = {}) {
 
   sections.push(`${sectionNum}. H1 TITLE
    # [Title from content]
-   [Intro paragraph summarizing the article]`);
+   [Opening paragraph that introduces the article topic. CRITICAL: This paragraph MUST be COMPLETELY DIFFERENT from the subtitle. Do NOT repeat or rephrase the subtitle here. Instead, write a fresh introductory paragraph that sets up the article's scope, explains why the topic matters, or provides context — while still relating to the title question. Use different facts, angles, or framing than the subtitle.]`);
   sectionNum++;
 
   sections.push(`${sectionNum}. TL;DR SECTION
