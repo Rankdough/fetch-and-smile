@@ -251,6 +251,10 @@ ${sourceHtml.substring(0, 8000)}`;
 
     console.log("Generated markdown length:", content.length, "title:", title);
 
+    // Step 2b: Deduplicate subtitle from article intro
+    // The AI often copies the subtitle verbatim as the first paragraph. Detect and fix this.
+    content = await deduplicateIntroFromSubtitle(LOVABLE_API_KEY, content, subtitle, title);
+
     // Step 3+4: Translate Markdown to NL and DE in parallel
     // Translating Markdown is simpler and more reliable than translating HTML
     console.log("Step 3+4: Translating Markdown to NL and DE in parallel");
