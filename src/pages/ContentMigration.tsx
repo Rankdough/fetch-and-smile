@@ -349,7 +349,20 @@ export default function ContentMigration() {
     const hasContent = htmlContent.length > 100;
     const hasNL = englishOnly || !!result.contentNL?.trim();
     const hasDE = englishOnly || !!result.contentDE?.trim();
-    const exportPassed = hasTitle && hasSeoTitle && hasSeoDesc && hasContent && hasNL && hasDE;
+
+    const maxContentCellChars = Math.max(
+      htmlContent.length,
+      englishOnly ? 0 : (result.contentNL || "").length,
+      englishOnly ? 0 : (result.contentDE || "").length,
+    );
+    const cellLimitPassed = maxContentCellChars <= EXCEL_CELL_LIMIT;
+    checks.push({
+      label: "Excel Cell Limit",
+      passed: cellLimitPassed,
+      detail: `Max content cell: ${maxContentCellChars}/${EXCEL_CELL_LIMIT} chars`,
+    });
+
+    const exportPassed = hasTitle && hasSeoTitle && hasSeoDesc && hasContent && hasNL && hasDE && cellLimitPassed;
     checks.push({
       label: "Excel Export Ready",
       passed: exportPassed,
@@ -360,6 +373,7 @@ export default function ContentMigration() {
         !hasContent && "Content",
         !hasNL && "NL Translation",
         !hasDE && "DE Translation",
+        !cellLimitPassed && `Cell > ${EXCEL_CELL_LIMIT} chars`,
       ].filter(Boolean).join(", ")}`,
     });
 
