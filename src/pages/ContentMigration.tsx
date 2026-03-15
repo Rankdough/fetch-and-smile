@@ -107,6 +107,17 @@ export default function ContentMigration() {
   const [toneProfiles, setToneProfiles] = useState<Array<{ id: string; name: string }>>([]);
 
   const EXCEL_CELL_LIMIT = 32767;
+
+  const escapeSpreadsheetXml = (val: string): string =>
+    String(val ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, "");
+
+  const getExcelCellPayloadLength = (val: string): number => escapeSpreadsheetXml(val).length;
+
   const minifyHtmlForExport = (html: string) =>
     (html || "")
       .replace(/>\s+</g, "><")
@@ -160,15 +171,18 @@ export default function ContentMigration() {
   };
 
   const compactHtmlForExcelLimit = (html: string): string => {
+    const isWithinLimit = (value: string) => getExcelCellPayloadLength(value) <= EXCEL_CELL_LIMIT;
+
     let current = minifyHtmlForExport(html);
-    if (current.length <= EXCEL_CELL_LIMIT) return current;
+    if (isWithinLimit(current)) return current;
 
     current = minifyHtmlForExport(current.replace(/<style[\s\S]*?<\/style>/gi, ""));
-    if (current.length <= EXCEL_CELL_LIMIT) return current;
+    if (isWithinLimit(current)) return current;
 
-    const withoutInlineStyles = current.replace(/\sstyle=(['"])[\s\S]*?\1/gi, "");
-    current = minifyHtmlForExport(`<div style="line-height:1.6">${withoutInlineStyles}</div>`);
+    current = minifyHtmlForExport(current.replace(/\sstyle=(['"])[\s\S]*?\1/gi, ""));
+    if (isWithinLimit(current)) return current;
 
+    current = minifyHtmlForExport(current.replace(/\s(?:target|rel|id)=(['"])[\s\S]*?\1/gi, ""));
     return current;
   };
 
