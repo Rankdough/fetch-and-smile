@@ -382,49 +382,25 @@ ${sourceHtml.substring(0, 8000)}`;
       const seoDescription = subtitle.length > 160 ? subtitle.substring(0, 157) + "..." : subtitle;
 
       // === STEP 2b: Rewrite opening paragraph so it differs from subtitle ===
-      if (subtitle && firstParagraph) {
+      if (subtitle) {
         console.log("[Migration] Step 2b: Generating distinct opening paragraph");
         try {
-          const { data: rewriteData } = await supabase.functions.invoke("generate-content", {
-            body: {
-              topic: title,
-              length: "short",
-              wordCount: 50,
-              instructions: `Write ONLY a single opening paragraph (30-50 words) for an article titled "${title}". This paragraph must be COMPLETELY DIFFERENT from the following subtitle text — use different wording, different angle, different facts. Do NOT repeat any brand names or specific examples from the subtitle.
-
-SUBTITLE (do NOT repeat this): "${subtitle}"
-
-Write a fresh intro that sets up WHY this topic matters or provides broader context. Output ONLY the paragraph text, nothing else. No heading, no title, no markdown formatting.`,
-              migrationMode: true,
-              skipFaqs: true,
-              skipQuickTips: true,
-              skipSources: true,
-            },
+          const { data: rewriteData, error: rewriteError } = await supabase.functions.invoke("rewrite-intro", {
+            body: { title, subtitle },
           });
-          const newIntro = (rewriteData?.content || rewriteData?.generatedContent || "").trim();
-          // Extract just the first paragraph from the response (strip any headings/formatting the AI added)
-          const cleanIntro = newIntro
-            .replace(/^#.*\n*/gm, "") // remove headings
-            .replace(/^>\s*/gm, "") // remove blockquotes
-            .replace(/^\*\*.*\*\*\s*/gm, "") // remove bold-only lines
-            .split("\n\n")[0] // take first paragraph
-            .trim();
           
-          if (cleanIntro && cleanIntro.length > 20) {
-            // Replace the first non-heading, non-blockquote paragraph in the markdown
+          if (!rewriteError && rewriteData?.intro && rewriteData.intro.length > 20) {
+            const newIntro = rewriteData.intro.trim();
+            // Replace the first content paragraph in the markdown
             const lines = generatedMarkdown.split("\n");
-            let replaced = false;
             for (let i = 0; i < lines.length; i++) {
               if (lines[i].startsWith("#") || lines[i].startsWith(">") || lines[i].startsWith("|") || lines[i].startsWith("-") || lines[i].trim() === "") continue;
               if (lines[i].trim().length >= 20) {
-                lines[i] = cleanIntro;
-                replaced = true;
+                lines[i] = newIntro;
+                generatedMarkdown = lines.join("\n");
                 console.log("[Migration] Replaced duplicated intro with fresh paragraph");
                 break;
               }
-            }
-            if (replaced) {
-              generatedMarkdown = lines.join("\n");
             }
           }
         } catch (rewriteErr) {
