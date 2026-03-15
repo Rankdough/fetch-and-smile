@@ -414,15 +414,15 @@ export default function ContentMigration() {
     const hasDE = englishOnly || !!result.contentDE?.trim();
 
     const maxContentCellChars = Math.max(
-      compactHtmlForExcelLimit(htmlContent).length,
-      englishOnly ? 0 : compactHtmlForExcelLimit(result.contentNL || "").length,
-      englishOnly ? 0 : compactHtmlForExcelLimit(result.contentDE || "").length,
+      getExcelCellPayloadLength(compactHtmlForExcelLimit(htmlContent)),
+      englishOnly ? 0 : getExcelCellPayloadLength(compactHtmlForExcelLimit(result.contentNL || "")),
+      englishOnly ? 0 : getExcelCellPayloadLength(compactHtmlForExcelLimit(result.contentDE || "")),
     );
     const cellLimitPassed = maxContentCellChars <= EXCEL_CELL_LIMIT;
     checks.push({
       label: "Excel Cell Limit",
       passed: cellLimitPassed,
-      detail: `Max content cell: ${maxContentCellChars}/${EXCEL_CELL_LIMIT} chars`,
+      detail: `Max escaped cell payload: ${maxContentCellChars}/${EXCEL_CELL_LIMIT} chars`,
     });
 
     const exportPassed = hasTitle && hasSeoTitle && hasSeoDesc && hasContent && hasNL && hasDE && cellLimitPassed;
