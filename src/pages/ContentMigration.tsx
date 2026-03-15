@@ -106,6 +106,15 @@ export default function ContentMigration() {
   const [internalLinkUrls, setInternalLinkUrls] = useState<LinkEntry[]>([]);
   const [toneProfiles, setToneProfiles] = useState<Array<{ id: string; name: string }>>([]);
 
+  const EXCEL_CELL_LIMIT = 32767;
+  const minifyHtmlForExport = (html: string) =>
+    (html || "")
+      .replace(/>\s+</g, "><")
+      .replace(/\s{2,}/g, " ")
+      .replace(/;\s+/g, ";")
+      .replace(/:\s+/g, ":")
+      .trim();
+
   // Load tone profiles
   useEffect(() => {
     const loadProfiles = async () => {
