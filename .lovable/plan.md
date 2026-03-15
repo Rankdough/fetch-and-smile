@@ -1,32 +1,59 @@
 
 
-## Plan: "Use for Article" button on blog ideas
+# Plan: Implement Three AEO Content Optimisations
 
-### Approach
-Add a small button next to each blog idea in KeywordClustering that writes the idea's data to localStorage (same keys the content generator reads on mount) and navigates to `/`.
+Based on your earlier analysis notes, three changes are needed across the generation prompts:
 
-### What gets pre-filled
-From the blog idea and its parent cluster:
-- **Topic** (`seo-generator-formData.topic`) = blog idea title
-- **Keywords** (`seo-generator-keywords`) = blog idea's `target_keywords` array
-- **Instructions** (`seo-generator-formData.instructions`) = blog idea description + reason as guidance context
+---
 
-The cluster's `content_type` and `description` can also be folded into instructions for additional context.
+## 1. Change TL;DR to AI-Quotable Paragraph(s)
 
-### Changes
+**Current**: TL;DR is generated as bullet points (3-5 items).
 
-**File: `src/components/keyword-research/KeywordClustering.tsx`**
+**Change**: Replace bullet-point TL;DR instructions with a dense, factual paragraph format optimised for AI models to quote verbatim. Should include specific names, numbers, prices, and a clear "best for X" recommendation.
 
-1. Accept `useNavigate` from react-router-dom (add import)
-2. Add a `sendToGenerator` function that:
-   - Sets `localStorage["seo-generator-formData"]` with `{ topic: idea.title, length: "medium", outline: "", instructions: <cluster description + idea description + reason> }`
-   - Sets `localStorage["seo-generator-keywords"]` with `idea.target_keywords`
-   - Clears other generator keys that don't apply (gap analysis, format reference, etc.) so stale data doesn't leak -- OR leave them untouched so user's existing settings persist. Safer to leave untouched.
-   - Navigates to `/`
-3. Add a small "Use for Article" button (with an `ArrowRight` or `ExternalLink` icon) next to each blog idea, calling `sendToGenerator(cluster, idea)`
+**Files to edit**:
+- `supabase/functions/generate-content/index.ts` — line ~164: change the TL;DR structure instruction from bullet points to 1-2 dense paragraphs with specifics
+- `supabase/functions/apply-format/index.ts` — lines ~86-96: update the TL;DR format instruction for the post-processing step
+- `src/pages/ContentMigration.tsx` — line ~374: update the migration reformat instructions to use paragraph-style TL;DR
 
-### What stays unchanged
-- Index.tsx (content generator) -- no changes needed, it already reads from localStorage on mount
-- All other clustering functionality remains identical
-- No database changes needed
+---
+
+## 2. Rename "Which Option Should You Choose?" to "How to Choose" Decision Guide
+
+**Current**: Section 7 in article structure is `## Which Option Should You Choose?`
+
+**Change**: Replace with `## How to Choose` formatted as a practical checklist (4-6 decision criteria as bullet points), not a pros/cons split.
+
+**Files to edit**:
+- `supabase/functions/generate-content/index.ts` — line ~197: rename section and update format instructions to use checklist-style criteria
+- `supabase/functions/generate-outline/index.ts` — line ~176: update outline template
+- `supabase/functions/generate-standalone-outline/index.ts` — line ~62: update outline template
+- `src/pages/ContentMigration.tsx` — line ~389: update migration instructions
+- `src/pages/Index.tsx` — line ~131: update the example article (cosmetic only)
+
+---
+
+## 3. AI-Quotable Opening Paragraph (Layer 2)
+
+**Current**: The first paragraph after H1 answers the title question in 30-50 words with facts and brand names. The `rewrite-intro` edge function ensures uniqueness from the subtitle.
+
+**Change**: Enhance the opening paragraph instructions to be explicitly **AI-quotable** — a standalone, factual statement that an AI assistant could use as its entire recommendation. Must include specific names, numbers/prices, and a clear verdict. Update both the generation prompt and the rewrite-intro function.
+
+**Files to edit**:
+- `supabase/functions/generate-content/index.ts` — line ~131: strengthen the H1 intro instruction to emphasise AI-quotability (standalone factual statement with specifics)
+- `supabase/functions/rewrite-intro/index.ts` — update the system/user prompt to generate an AI-quotable paragraph (standalone, factual, includes specifics)
+- `src/pages/ContentMigration.tsx` — line ~378: update migration H1 intro instructions similarly
+
+---
+
+## Summary of Scope
+
+| Change | Files affected |
+|---|---|
+| AI-quotable TL;DR paragraphs | generate-content, apply-format, ContentMigration |
+| "How to Choose" decision guide | generate-content, generate-outline, generate-standalone-outline, ContentMigration, Index |
+| AI-quotable opening paragraph | generate-content, rewrite-intro, ContentMigration |
+
+No database changes. No new edge functions. Prompt-only modifications across existing files.
 
