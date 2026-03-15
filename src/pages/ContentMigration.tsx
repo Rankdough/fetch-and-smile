@@ -115,6 +115,63 @@ export default function ContentMigration() {
       .replace(/:\s+/g, ":")
       .trim();
 
+  const normalizeUrlForMatch = (rawUrl: string): string => {
+    if (!rawUrl) return "";
+
+    if (rawUrl.startsWith("#")) {
+      return rawUrl.toLowerCase();
+    }
+
+    try {
+      const parsed = new URL(rawUrl.trim());
+      const host = parsed.hostname.replace(/^www\./i, "").toLowerCase();
+      const path = (parsed.pathname.replace(/\/+$/, "") || "/").toLowerCase();
+      return `${host}${path}`;
+    } catch {
+      return rawUrl
+        .trim()
+        .replace(/^https?:\/\//i, "")
+        .replace(/^www\./i, "")
+        .replace(/[?#].*$/, "")
+        .replace(/\/+$/, "")
+        .toLowerCase();
+    }
+  };
+
+  const countInternalLinksInHtml = (html: string, candidates: LinkEntry[]): number => {
+    if (!html || candidates.length === 0) return 0;
+
+    const candidateSet = new Set(
+      candidates
+        .map((c) => normalizeUrlForMatch(c.url))
+        .filter(Boolean)
+    );
+
+    let count = 0;
+    const hrefRegex = /<a\s[^>]*href=["']([^"']+)["'][^>]*>/gi;
+    let match: RegExpExecArray | null;
+
+    while ((match = hrefRegex.exec(html)) !== null) {
+      const normalizedHref = normalizeUrlForMatch(match[1]);
+      if (candidateSet.has(normalizedHref)) count++;
+    }
+
+    return count;
+  };
+
+  const compactHtmlForExcelLimit = (html: string): string => {
+    let current = minifyHtmlForExport(html);
+    if (current.length <= EXCEL_CELL_LIMIT) return current;
+
+    current = minifyHtmlForExport(current.replace(/<style[\s\S]*?<\/style>/gi, ""));
+    if (current.length <= EXCEL_CELL_LIMIT) return current;
+
+    const withoutInlineStyles = current.replace(/\sstyle=(['"])[\s\S]*?\1/gi, "");
+    current = minifyHtmlForExport(`<div style="line-height:1.6">${withoutInlineStyles}</div>`);
+
+    return current;
+  };
+
   // Load tone profiles
   useEffect(() => {
     const loadProfiles = async () => {
