@@ -383,11 +383,7 @@ export default function ContentMigration() {
 
     // 4. Internal links check
     if (internalLinkUrls.length > 0) {
-      const linkMatches = htmlContent.match(/<a\s[^>]*href="[^"]*"[^>]*>/gi) || [];
-      const internalLinksFound = linkMatches.filter(tag => {
-        const hrefMatch = tag.match(/href="([^"]*)"/i);
-        return hrefMatch && internalLinkUrls.some(c => c.url === hrefMatch[1]);
-      }).length;
+      const internalLinksFound = countInternalLinksInHtml(htmlContent, internalLinkUrls);
       checks.push({
         label: "Internal Links",
         passed: internalLinksFound >= 2,
