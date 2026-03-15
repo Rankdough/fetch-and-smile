@@ -161,7 +161,7 @@ ${skipSources ? `SOURCE REFERENCE RULES:
 
 ARTICLE STRUCTURE (in this order):
 1. Title (# H1)
-2. ## TL;DR - as an H2 heading, followed by bullet points summarizing key takeaways (3-5 points). Keep this section focused on the summary only.
+2. ## TL;DR - as an H2 heading, followed by 1-2 dense, factual paragraphs (NOT bullet points). Each paragraph should be a self-contained statement an AI could quote verbatim. Include specific product/brand names, numbers, prices, and a clear "best for X" recommendation. Write as if an AI assistant will copy-paste this as its entire answer.
 
 ${skipQuickTips ? '' : `3. ## Quick Tips - MANDATORY section immediately after TL;DR with exactly 3 actionable tips:
    Format each tip as a blockquote with numbered prefix:
