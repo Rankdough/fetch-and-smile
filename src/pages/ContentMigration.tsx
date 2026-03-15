@@ -110,6 +110,46 @@ export default function ContentMigration() {
     loadProfiles();
   }, []);
 
+  // Re-run quality checks from stored HTML results (used when loading from DB)
+  const runQualityChecksFromHtml = (result: MigrationResult): QualityCheck[] => {
+    const checks: QualityCheck[] = [];
+    const html = result.content || "";
+
+    const hasTldr = /tl;?\s?dr/i.test(html);
+    const hasQuickTips = skipQuickTips || /quick\s*tips/i.test(html);
+    const hasFaq = skipFaqs || /frequently\s*asked|faq/i.test(html);
+    const hasFinalThoughts = /final\s*thoughts|conclusion/i.test(html);
+    const hasReferences = skipSources || /references/i.test(html);
+    const hasTable = /<table/i.test(html);
+    const missingParts = [
+      !hasTldr && "TL;DR", !hasQuickTips && !skipQuickTips && "Quick Tips",
+      !hasTable && "Tables", !hasFaq && !skipFaqs && "FAQ",
+      !hasFinalThoughts && "Final Thoughts", !hasReferences && !skipSources && "References",
+    ].filter(Boolean) as string[];
+    checks.push({ label: "Article Structure", passed: missingParts.length === 0, detail: missingParts.length === 0 ? "All sections present" : `Missing: ${missingParts.join(", ")}` });
+
+    const textContent = html.replace(/<[^>]*>/g, " ");
+    const wordCount = textContent.split(/\s+/).filter(Boolean).length;
+    const floor = Math.round(targetWordCount * 0.8);
+    const ceiling = Math.round(targetWordCount * 1.2);
+    checks.push({ label: "Word Count", passed: wordCount >= floor && wordCount <= ceiling, detail: `${wordCount} words (target: ${targetWordCount}, range: ${floor}-${ceiling})` });
+
+    const hasH2 = /<h2/i.test(html);
+    const hasInline = html.includes("style=");
+    checks.push({ label: "HTML Formatting", passed: hasH2 && hasInline, detail: hasH2 && hasInline ? "Styled HTML with inline CSS, headings intact" : "Issues detected" });
+
+    const hasTitle = !!result.title?.trim();
+    const hasSeoTitle = !!result.seoTitle?.trim();
+    const hasSeoDesc = !!result.seoDescription?.trim();
+    const hasContent = html.length > 100;
+    const hasNL = englishOnly || !!result.contentNL?.trim();
+    const hasDE = englishOnly || !!result.contentDE?.trim();
+    const exportPassed = hasTitle && hasSeoTitle && hasSeoDesc && hasContent && hasNL && hasDE;
+    checks.push({ label: "Excel Export Ready", passed: exportPassed, detail: exportPassed ? (englishOnly ? "All fields populated (EN only)" : "All fields populated (EN, NL, DE)") : "Missing fields" });
+
+    return checks;
+  };
+
   // Load saved jobs on mount
   useEffect(() => {
     const loadJobs = async () => {
@@ -135,6 +175,14 @@ export default function ContentMigration() {
             };
           }
           
+          // Re-run quality checks on loaded results
+          let qualityChecks: QualityCheck[] | undefined;
+          if (result && row.status === "done") {
+            // We need the markdown for quality checks, but we only have HTML stored.
+            // Run checks with what we have — structure checks will use HTML patterns.
+            qualityChecks = runQualityChecksFromHtml(result);
+          }
+
           return {
             id: row.id,
             url: row.url,
@@ -142,6 +190,7 @@ export default function ContentMigration() {
             status: row.status as UrlEntry["status"],
             result,
             error: row.error || undefined,
+            qualityChecks,
           };
         });
         setEntries(loaded);
