@@ -854,6 +854,7 @@ ${xmlRows}
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="300">Brief (~300 words)</SelectItem>
                 <SelectItem value="500">Short (~500 words)</SelectItem>
                 <SelectItem value="1000">Medium (~1,000 words)</SelectItem>
                 <SelectItem value="1500">Medium-Long (~1,500 words)</SelectItem>
