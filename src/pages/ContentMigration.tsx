@@ -217,11 +217,7 @@ export default function ContentMigration() {
     const hasDE = englishOnly || !!result.contentDE?.trim();
     // Internal links check (from HTML)
     if (internalLinkUrls.length > 0) {
-      const linkMatches = html.match(/<a\s[^>]*href="[^"]*"[^>]*>/gi) || [];
-      const internalLinksFound = linkMatches.filter(tag => {
-        const hrefMatch = tag.match(/href="([^"]*)"/i);
-        return hrefMatch && internalLinkUrls.some(c => c.url === hrefMatch[1]);
-      }).length;
+      const internalLinksFound = countInternalLinksInHtml(html, internalLinkUrls);
       checks.push({
         label: "Internal Links",
         passed: internalLinksFound >= 2,
