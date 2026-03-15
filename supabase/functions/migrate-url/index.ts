@@ -23,7 +23,7 @@ function buildMarkdownPrompt(skip: SkipOptions = {}) {
 
   sections.push(`${sectionNum}. H1 TITLE
    # [Title from content]
-   [Intro paragraph summarizing the article]`);
+   [Opening paragraph that introduces the article topic. CRITICAL: This paragraph MUST be COMPLETELY DIFFERENT from the subtitle. Do NOT repeat or rephrase the subtitle here. Instead, write a fresh introductory paragraph that sets up the article's scope, explains why the topic matters, or provides context — while still relating to the title question. Use different facts, angles, or framing than the subtitle.]`);
   sectionNum++;
 
   sections.push(`${sectionNum}. TL;DR SECTION
@@ -179,13 +179,13 @@ Return your response in this EXACT format (use these exact delimiters):
 ===TITLE===
 [The page title - extract from H1 or generate from content]
 ===SUBTITLE===
-[A 1-2 sentence factual subtitle that summarizes the key takeaway, include a credible source reference in parentheses]
+[A 1-2 sentence factual subtitle that directly answers the title question, include a credible source reference in parentheses. IMPORTANT: The article's opening paragraph (first paragraph after H1 in CONTENT) must be COMPLETELY DIFFERENT text from this subtitle — different wording, different angle, different facts. Never duplicate the subtitle as the intro.]
 ===SEO_TITLE===
 [SEO-optimized title under 60 characters]
 ===SEO_DESCRIPTION===
 [SEO meta description under 160 characters, compelling and keyword-rich]
 ===CONTENT===
-[The full Markdown content following the structure above]
+[The full Markdown content following the structure above. Remember: the first paragraph after the H1 must NOT repeat the subtitle text.]
 
 Here is the scraped content:
 
