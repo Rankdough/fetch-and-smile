@@ -840,9 +840,9 @@ ${sourceHtml.substring(0, 8000)}`;
     const rows = entries.filter(e => e.status === "done" && e.result).map(e => {
       const r = e.result!;
       const maybeStripH1 = (html: string) => skipTitleInHtml ? stripH1FromHtml(html) : html;
-      const contentEn = minifyHtmlForExport(maybeStripH1(r.content ?? ""));
-      const contentNl = minifyHtmlForExport(maybeStripH1(r.contentNL ?? ""));
-      const contentDe = minifyHtmlForExport(maybeStripH1(r.contentDE ?? ""));
+      const contentEn = compactHtmlForExcelLimit(maybeStripH1(r.content ?? ""));
+      const contentNl = compactHtmlForExcelLimit(maybeStripH1(r.contentNL ?? ""));
+      const contentDe = compactHtmlForExcelLimit(maybeStripH1(r.contentDE ?? ""));
 
       maxContentCellChars = Math.max(maxContentCellChars, contentEn.length, contentNl.length, contentDe.length);
       if (maxContentCellChars > EXCEL_CELL_LIMIT) exceedsCellLimit = true;
