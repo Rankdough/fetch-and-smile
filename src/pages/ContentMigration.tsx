@@ -226,9 +226,9 @@ export default function ContentMigration() {
     }
 
     const maxContentCellChars = Math.max(
-      (result.content || "").length,
-      englishOnly ? 0 : (result.contentNL || "").length,
-      englishOnly ? 0 : (result.contentDE || "").length,
+      compactHtmlForExcelLimit(result.content || "").length,
+      englishOnly ? 0 : compactHtmlForExcelLimit(result.contentNL || "").length,
+      englishOnly ? 0 : compactHtmlForExcelLimit(result.contentDE || "").length,
     );
     const cellLimitPassed = maxContentCellChars <= EXCEL_CELL_LIMIT;
     checks.push({
