@@ -161,7 +161,7 @@ OUTPUT FORMAT:
 STRUCTURE:
 - # [Article Title]
 - ## TL;DR
-  - 3-5 key takeaway bullet points
+  - 1-2 dense factual paragraphs (NOT bullets) with specific names, numbers, and a "best for X" recommendation
 - ## Quick Tips
   - 3 actionable tips the reader can use immediately
 - ## In This Article

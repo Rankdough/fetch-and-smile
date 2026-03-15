@@ -128,19 +128,16 @@ To ensure the veneers don't look bulky, a small amount of enamel (usually less t
 
 ---
 
-## Which Option Should You Choose?
+## How to Choose?
 
-### Choose Composite Bonding if:
-- You have **minor chips or small gaps**
-- You want to **preserve natural enamel**
-- You prefer a **lower upfront cost**
-- You're looking for a **reversible option**
+Use this checklist to pick the right treatment for your situation:
 
-### Choose Veneers if:
-- You want a **major colour or shape change**
-- You're planning a **full smile makeover**
-- You prioritise **long-term durability**
-- You need **colour stability** over many years
+- **Budget under £500 per tooth?** Composite bonding fits comfortably at £200-£450, while veneers start at £600+.
+- **Need to preserve natural enamel?** Bonding requires little to no tooth preparation and is largely reversible.
+- **Want results lasting 10+ years?** Porcelain veneers offer 10-15+ years of durability vs 5-8 years for bonding.
+- **Concerned about staining?** Veneers are highly stain-resistant; bonding can discolour over time with coffee, tea, or red wine.
+- **Planning a full smile makeover?** Veneers deliver a more dramatic, uniform transformation across multiple teeth.
+- **Prefer a single-appointment fix?** Bonding is completed in one 30-60 minute visit per tooth.
 
 ---
 

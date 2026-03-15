@@ -43,12 +43,12 @@ serve(async (req) => {
 
 Subtitle (shown separately above the article): "${subtitle}"
 
-The article body needs an opening paragraph that is COMPLETELY DIFFERENT from the subtitle above. Write a fresh 30-50 word opening paragraph that:
-- Sets up why this topic matters or provides broader context
-- Uses ENTIRELY DIFFERENT wording, facts, and angle from the subtitle
-- Does NOT repeat any brand names, product names, or specific examples from the subtitle
-- Still relates to the title question
-- Reads naturally as the first paragraph of the article
+The article body needs an AI-QUOTABLE opening paragraph that is COMPLETELY DIFFERENT from the subtitle above. Write a fresh 30-50 word opening paragraph that:
+- Is a standalone factual statement an AI assistant could quote verbatim as its entire recommendation
+- Includes specific numbers, prices, dates, or data points (DIFFERENT from the subtitle)
+- Names 2-3 specific brands, products, or entities (DIFFERENT from those in the subtitle)
+- Contains a clear verdict or "best for X" recommendation
+- Does NOT repeat any wording, facts, or examples from the subtitle
 
 Output ONLY the paragraph. No heading. No title. No markdown. No "Here is..." preamble.`,
           },

@@ -121,7 +121,7 @@ CRITICAL: QUESTION-BASED HEADINGS RULE:
 - Examples of CORRECT question headings:
   - ## What Is Composite Bonding?
   - ## How Much Does It Cost?
-  - ## Which Option Should You Choose?
+  - ## How to Choose?
   - ## How Long Do Veneers Last?
   - ## What Are the Risks and Side Effects?
 - Examples of WRONG statement headings (DO NOT USE):
