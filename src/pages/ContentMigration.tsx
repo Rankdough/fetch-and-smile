@@ -261,7 +261,7 @@ export default function ContentMigration() {
     });
 
     return checks;
-  }, [skipQuickTips, skipFaqs, skipSources]);
+  }, [skipQuickTips, skipFaqs, skipSources, englishOnly]);
 
   const processUrl = useCallback(async (entry: UrlEntry): Promise<UrlEntry> => {
     try {
