@@ -147,6 +147,28 @@ function deterministicInsertLinks(
   return { content: lines.join("\n"), insertedUrls };
 }
 
+function appendGuaranteedLinks(
+  content: string,
+  urls: string[],
+  titleMap: Record<string, string>
+): string {
+  if (urls.length === 0) return content;
+
+  const links = urls.map((url) => {
+    const fallbackLabel = extractSlug(url).replace(/[-_]/g, " ").trim() || "related guide";
+    const label = (titleMap[url] || fallbackLabel).replace(/\s+/g, " ").trim();
+    return `[${label}](${url})`;
+  });
+
+  const sentence = `Related guides: ${links.join(", ")}.`;
+
+  if (/^##\s.*final\s*thoughts|^##\s.*conclusion/im.test(content)) {
+    return `${content.trim()}\n\n${sentence}`;
+  }
+
+  return `${content.trim()}\n\n## Related Reading\n${sentence}`;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
