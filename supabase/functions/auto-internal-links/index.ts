@@ -206,6 +206,22 @@ ${content}`;
     // Strip markdown code fences if present
     linkedContent = linkedContent.replace(/^```(?:markdown)?\s*\n?/i, "").replace(/\n?```\s*$/i, "");
 
+    // Guardrail: never accept a link-inserted result that drops major content
+    const sourceWords = countWords(content);
+    const linkedWords = countWords(linkedContent);
+    const sourceH2Count = (content.match(/^##\s+/gm) || []).length;
+    const linkedH2Count = (linkedContent.match(/^##\s+/gm) || []).length;
+    const sourceHasFinalThoughts = /^##\s.*final\s*thoughts|^##\s.*conclusion/im.test(content);
+    const linkedHasFinalThoughts = /^##\s.*final\s*thoughts|^##\s.*conclusion/im.test(linkedContent);
+
+    const tooShort = linkedWords < Math.max(Math.floor(sourceWords * 0.85), sourceWords - 80);
+    const lostStructure = linkedH2Count + 1 < sourceH2Count || (sourceHasFinalThoughts && !linkedHasFinalThoughts);
+
+    if (tooShort || lostStructure) {
+      console.warn(`[auto-internal-links] Guardrail triggered. Keeping original content. sourceWords=${sourceWords}, linkedWords=${linkedWords}, sourceH2=${sourceH2Count}, linkedH2=${linkedH2Count}`);
+      linkedContent = content;
+    }
+
     // Count inserted URLs
     const insertedUrls = selectedUrls.filter(url => linkedContent.includes(url));
     console.log(`[auto-internal-links] Inserted ${insertedUrls.length}/${selectedUrls.length} links`);
