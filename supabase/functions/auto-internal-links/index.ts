@@ -36,9 +36,16 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
-    // Filter out the article's own URL from candidates
+    // Filter out the article's own URL and any URL containing the same path
+    const normalise = (u: string) => u.trim().replace(/\/+$/, "").toLowerCase();
+    const articleNorm = articleUrl ? normalise(articleUrl) : null;
     const filteredCandidates: LinkCandidate[] = (candidates as LinkCandidate[])
-      .filter(c => c.url.trim() && (!articleUrl || c.url.trim() !== articleUrl.trim()));
+      .filter(c => {
+        const norm = normalise(c.url);
+        if (!norm) return false;
+        if (articleNorm && norm === articleNorm) return false;
+        return true;
+      });
 
     // Step 1: Ask AI to pick 3-5 relevant URLs from the candidate list
     const pickPrompt = `You are an SEO internal linking expert. Given the article content below and a list of candidate URLs with their page titles, select exactly 3 to 5 URLs that are MOST contextually relevant to link FROM this article.
@@ -129,6 +136,8 @@ CRITICAL RULES:
 - DO NOT link text inside existing links
 - DO NOT link text inside bold (**) or italic (*) markers
 - DO NOT link text inside blockquotes (> lines) or CTA banners
+- NEVER link any text in the FIRST paragraph of the article (the opening paragraph right after the title)
+- NEVER link a single word or two-word phrase - linked text MUST be at least 3 words long
 - Prefer linking phrases in the body paragraphs of the article
 - If a URL's topic doesn't match any phrase in the article, SKIP that URL entirely
 
