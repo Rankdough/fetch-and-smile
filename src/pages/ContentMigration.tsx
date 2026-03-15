@@ -115,6 +115,63 @@ export default function ContentMigration() {
       .replace(/:\s+/g, ":")
       .trim();
 
+  const normalizeUrlForMatch = (rawUrl: string): string => {
+    if (!rawUrl) return "";
+
+    if (rawUrl.startsWith("#")) {
+      return rawUrl.toLowerCase();
+    }
+
+    try {
+      const parsed = new URL(rawUrl.trim());
+      const host = parsed.hostname.replace(/^www\./i, "").toLowerCase();
+      const path = (parsed.pathname.replace(/\/+$/, "") || "/").toLowerCase();
+      return `${host}${path}`;
+    } catch {
+      return rawUrl
+        .trim()
+        .replace(/^https?:\/\//i, "")
+        .replace(/^www\./i, "")
+        .replace(/[?#].*$/, "")
+        .replace(/\/+$/, "")
+        .toLowerCase();
+    }
+  };
+
+  const countInternalLinksInHtml = (html: string, candidates: LinkEntry[]): number => {
+    if (!html || candidates.length === 0) return 0;
+
+    const candidateSet = new Set(
+      candidates
+        .map((c) => normalizeUrlForMatch(c.url))
+        .filter(Boolean)
+    );
+
+    let count = 0;
+    const hrefRegex = /<a\s[^>]*href=["']([^"']+)["'][^>]*>/gi;
+    let match: RegExpExecArray | null;
+
+    while ((match = hrefRegex.exec(html)) !== null) {
+      const normalizedHref = normalizeUrlForMatch(match[1]);
+      if (candidateSet.has(normalizedHref)) count++;
+    }
+
+    return count;
+  };
+
+  const compactHtmlForExcelLimit = (html: string): string => {
+    let current = minifyHtmlForExport(html);
+    if (current.length <= EXCEL_CELL_LIMIT) return current;
+
+    current = minifyHtmlForExport(current.replace(/<style[\s\S]*?<\/style>/gi, ""));
+    if (current.length <= EXCEL_CELL_LIMIT) return current;
+
+    const withoutInlineStyles = current.replace(/\sstyle=(['"])[\s\S]*?\1/gi, "");
+    current = minifyHtmlForExport(`<div style="line-height:1.6">${withoutInlineStyles}</div>`);
+
+    return current;
+  };
+
   // Load tone profiles
   useEffect(() => {
     const loadProfiles = async () => {
@@ -160,11 +217,7 @@ export default function ContentMigration() {
     const hasDE = englishOnly || !!result.contentDE?.trim();
     // Internal links check (from HTML)
     if (internalLinkUrls.length > 0) {
-      const linkMatches = html.match(/<a\s[^>]*href="[^"]*"[^>]*>/gi) || [];
-      const internalLinksFound = linkMatches.filter(tag => {
-        const hrefMatch = tag.match(/href="([^"]*)"/i);
-        return hrefMatch && internalLinkUrls.some(c => c.url === hrefMatch[1]);
-      }).length;
+      const internalLinksFound = countInternalLinksInHtml(html, internalLinkUrls);
       checks.push({
         label: "Internal Links",
         passed: internalLinksFound >= 2,
@@ -173,9 +226,9 @@ export default function ContentMigration() {
     }
 
     const maxContentCellChars = Math.max(
-      (result.content || "").length,
-      englishOnly ? 0 : (result.contentNL || "").length,
-      englishOnly ? 0 : (result.contentDE || "").length,
+      compactHtmlForExcelLimit(result.content || "").length,
+      englishOnly ? 0 : compactHtmlForExcelLimit(result.contentNL || "").length,
+      englishOnly ? 0 : compactHtmlForExcelLimit(result.contentDE || "").length,
     );
     const cellLimitPassed = maxContentCellChars <= EXCEL_CELL_LIMIT;
     checks.push({
@@ -330,11 +383,7 @@ export default function ContentMigration() {
 
     // 4. Internal links check
     if (internalLinkUrls.length > 0) {
-      const linkMatches = htmlContent.match(/<a\s[^>]*href="[^"]*"[^>]*>/gi) || [];
-      const internalLinksFound = linkMatches.filter(tag => {
-        const hrefMatch = tag.match(/href="([^"]*)"/i);
-        return hrefMatch && internalLinkUrls.some(c => c.url === hrefMatch[1]);
-      }).length;
+      const internalLinksFound = countInternalLinksInHtml(htmlContent, internalLinkUrls);
       checks.push({
         label: "Internal Links",
         passed: internalLinksFound >= 2,
@@ -351,9 +400,9 @@ export default function ContentMigration() {
     const hasDE = englishOnly || !!result.contentDE?.trim();
 
     const maxContentCellChars = Math.max(
-      htmlContent.length,
-      englishOnly ? 0 : (result.contentNL || "").length,
-      englishOnly ? 0 : (result.contentDE || "").length,
+      compactHtmlForExcelLimit(htmlContent).length,
+      englishOnly ? 0 : compactHtmlForExcelLimit(result.contentNL || "").length,
+      englishOnly ? 0 : compactHtmlForExcelLimit(result.contentDE || "").length,
     );
     const cellLimitPassed = maxContentCellChars <= EXCEL_CELL_LIMIT;
     checks.push({
@@ -583,7 +632,7 @@ ${sourceHtml.substring(0, 8000)}`;
         console.log("[Migration] Step 3: Skipping translations (English Only mode)");
       }
 
-      // === STEP 4: Convert Markdown → styled HTML ===
+      // === STEP 4: Convert Markdown → styled HTML (Excel-safe, deterministic) ===
       console.log("[Migration] Step 4: Converting markdown to styled HTML");
       const palette = selectedColorPalette || undefined;
       const convertOpts = { skipNavigation, skipQuickTips, skipFaqs, skipSources };
@@ -603,8 +652,48 @@ ${sourceHtml.substring(0, 8000)}`;
         console.log("[Migration] CTA generated for end of article");
       }
 
-      const appendCta = (html: string) => endCtaHtml ? html + endCtaHtml : html;
-      const toExportHtml = (markdown: string) => minifyHtmlForExport(appendCta(markdownToStyledHtml(markdown, palette, convertOpts)));
+      const renderVariant = (markdown: string, opts: typeof convertOpts, includeCta: boolean) => {
+        const styled = markdownToStyledHtml(markdown, palette, opts);
+        const withCta = includeCta && endCtaHtml ? styled + endCtaHtml : styled;
+        return compactHtmlForExcelLimit(withCta);
+      };
+
+      const toExcelSafeHtml = (markdown: string, locale: "EN" | "NL" | "DE") => {
+        const variants = [
+          { label: "full", opts: convertOpts, includeCta: true },
+          { label: "no-nav", opts: { ...convertOpts, skipNavigation: true }, includeCta: true },
+          { label: "no-nav-no-faq", opts: { ...convertOpts, skipNavigation: true, skipFaqs: true }, includeCta: true },
+          { label: "no-nav-no-faq-no-cta", opts: { ...convertOpts, skipNavigation: true, skipFaqs: true }, includeCta: false },
+        ];
+
+        let smallestHtml = "";
+        let smallestLabel = "";
+
+        for (const variant of variants) {
+          const candidate = renderVariant(markdown, variant.opts, variant.includeCta);
+
+          if (!smallestHtml || candidate.length < smallestHtml.length) {
+            smallestHtml = candidate;
+            smallestLabel = variant.label;
+          }
+
+          if (candidate.length <= EXCEL_CELL_LIMIT) {
+            if (variant.label !== "full") {
+              console.warn(`[Migration] ${locale} switched to ${variant.label} render to stay Excel-safe (${candidate.length}/${EXCEL_CELL_LIMIT})`);
+            }
+            return candidate;
+          }
+        }
+
+        if (smallestHtml.length > EXCEL_CELL_LIMIT) {
+          throw new Error(
+            `${locale} content exceeds Excel cell limit after all safe render modes (${smallestHtml.length}/${EXCEL_CELL_LIMIT}).`
+          );
+        }
+
+        console.warn(`[Migration] ${locale} using fallback render mode: ${smallestLabel}`);
+        return smallestHtml;
+      };
 
       const data: MigrationResult = {
         url: entry.url,
@@ -613,17 +702,17 @@ ${sourceHtml.substring(0, 8000)}`;
         subtitle,
         seoTitle,
         seoDescription,
-        content: toExportHtml(generatedMarkdown),
+        content: toExcelSafeHtml(generatedMarkdown, "EN"),
         titleNL: nl.title,
         subtitleNL: nl.subtitle,
         seoTitleNL: nl.seoTitle,
         seoDescriptionNL: nl.seoDescription,
-        contentNL: nl.content ? toExportHtml(nl.content) : "",
+        contentNL: nl.content ? toExcelSafeHtml(nl.content, "NL") : "",
         titleDE: de.title,
         subtitleDE: de.subtitle,
         seoTitleDE: de.seoTitle,
         seoDescriptionDE: de.seoDescription,
-        contentDE: de.content ? toExportHtml(de.content) : "",
+        contentDE: de.content ? toExcelSafeHtml(de.content, "DE") : "",
         imageUrls,
       };
 
@@ -751,9 +840,9 @@ ${sourceHtml.substring(0, 8000)}`;
     const rows = entries.filter(e => e.status === "done" && e.result).map(e => {
       const r = e.result!;
       const maybeStripH1 = (html: string) => skipTitleInHtml ? stripH1FromHtml(html) : html;
-      const contentEn = minifyHtmlForExport(maybeStripH1(r.content ?? ""));
-      const contentNl = minifyHtmlForExport(maybeStripH1(r.contentNL ?? ""));
-      const contentDe = minifyHtmlForExport(maybeStripH1(r.contentDE ?? ""));
+      const contentEn = compactHtmlForExcelLimit(maybeStripH1(r.content ?? ""));
+      const contentNl = compactHtmlForExcelLimit(maybeStripH1(r.contentNL ?? ""));
+      const contentDe = compactHtmlForExcelLimit(maybeStripH1(r.contentDE ?? ""));
 
       maxContentCellChars = Math.max(maxContentCellChars, contentEn.length, contentNl.length, contentDe.length);
       if (maxContentCellChars > EXCEL_CELL_LIMIT) exceedsCellLimit = true;
