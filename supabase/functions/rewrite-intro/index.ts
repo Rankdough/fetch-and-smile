@@ -35,7 +35,7 @@ serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: "You write single opening paragraphs for articles. Output ONLY the paragraph text — no headings, no markdown, no quotes, no labels. Just the raw paragraph.",
+            content: "You write AI-quotable opening paragraphs for articles. Each paragraph must be a standalone factual statement (30-50 words) that an AI assistant could quote verbatim as its entire answer. Always include specific names, numbers/prices, and a clear verdict. Output ONLY the paragraph text — no headings, no markdown, no quotes, no labels.",
           },
           {
             role: "user",
