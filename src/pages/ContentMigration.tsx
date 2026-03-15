@@ -604,6 +604,7 @@ ${sourceHtml.substring(0, 8000)}`;
       }
 
       const appendCta = (html: string) => endCtaHtml ? html + endCtaHtml : html;
+      const toExportHtml = (markdown: string) => minifyHtmlForExport(appendCta(markdownToStyledHtml(markdown, palette, convertOpts)));
 
       const data: MigrationResult = {
         url: entry.url,
@@ -612,17 +613,17 @@ ${sourceHtml.substring(0, 8000)}`;
         subtitle,
         seoTitle,
         seoDescription,
-        content: appendCta(markdownToStyledHtml(generatedMarkdown, palette, convertOpts)),
+        content: toExportHtml(generatedMarkdown),
         titleNL: nl.title,
         subtitleNL: nl.subtitle,
         seoTitleNL: nl.seoTitle,
         seoDescriptionNL: nl.seoDescription,
-        contentNL: nl.content ? appendCta(markdownToStyledHtml(nl.content, palette, convertOpts)) : "",
+        contentNL: nl.content ? toExportHtml(nl.content) : "",
         titleDE: de.title,
         subtitleDE: de.subtitle,
         seoTitleDE: de.seoTitle,
         seoDescriptionDE: de.seoDescription,
-        contentDE: de.content ? appendCta(markdownToStyledHtml(de.content, palette, convertOpts)) : "",
+        contentDE: de.content ? toExportHtml(de.content) : "",
         imageUrls,
       };
 
