@@ -56,7 +56,9 @@ serve(async (req) => {
 
 RULES:
 - Pick URLs whose topics are genuinely related to phrases or concepts mentioned in the article
+- Prefer URLs about similar products, related foods/drinks, or the same category
 - Do NOT pick URLs that are unrelated just to fill the quota
+- Do NOT pick the article's own URL or any URL about the same specific product
 - If fewer than 3 URLs are truly relevant, pick only the relevant ones
 - Return ONLY a JSON array of the selected URLs, nothing else
 
