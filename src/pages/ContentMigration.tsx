@@ -149,6 +149,20 @@ export default function ContentMigration() {
     const hasContent = html.length > 100;
     const hasNL = englishOnly || !!result.contentNL?.trim();
     const hasDE = englishOnly || !!result.contentDE?.trim();
+    // Internal links check (from HTML)
+    if (internalLinkUrls.length > 0) {
+      const linkMatches = html.match(/<a\s[^>]*href="[^"]*"[^>]*>/gi) || [];
+      const internalLinksFound = linkMatches.filter(tag => {
+        const hrefMatch = tag.match(/href="([^"]*)"/i);
+        return hrefMatch && internalLinkUrls.some(c => c.url === hrefMatch[1]);
+      }).length;
+      checks.push({
+        label: "Internal Links",
+        passed: internalLinksFound >= 2,
+        detail: internalLinksFound > 0 ? `${internalLinksFound} internal links inserted` : "No internal links found",
+      });
+    }
+
     const exportPassed = hasTitle && hasSeoTitle && hasSeoDesc && hasContent && hasNL && hasDE;
     checks.push({ label: "Excel Export Ready", passed: exportPassed, detail: exportPassed ? (englishOnly ? "All fields populated (EN only)" : "All fields populated (EN, NL, DE)") : "Missing fields" });
 
