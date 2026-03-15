@@ -126,14 +126,22 @@ Return ONLY a JSON array like: ["https://...", "https://..."]`;
       );
     }
 
-    // Cap at 5
-    selectedUrls = selectedUrls.slice(0, 5);
+    // Cap at 5 and keep only known candidate URLs
+    const candidateUrlSet = new Set(filteredCandidates.map(c => c.url));
+    selectedUrls = selectedUrls.filter(url => candidateUrlSet.has(url)).slice(0, 5);
     
     // Also filter out self-links from AI selection
     if (articleSlug) {
       selectedUrls = selectedUrls.filter(u => extractSlug(u) !== articleSlug);
     }
-    
+
+    if (selectedUrls.length === 0) {
+      return new Response(
+        JSON.stringify({ content, insertedCount: 0, insertedUrls: [] }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // Build a title map for selected URLs
     const titleMap: Record<string, string> = {};
     for (const url of selectedUrls) {
