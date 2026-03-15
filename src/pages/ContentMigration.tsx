@@ -391,15 +391,17 @@ export default function ContentMigration() {
     const hasStyledHtml = htmlContent.startsWith("<");
     const hasInlineStyles = htmlContent.includes("style=");
     const hasH2Tags = /<h2/i.test(htmlContent);
-    const htmlPassed = hasStyledHtml && hasInlineStyles && hasH2Tags;
+    const hasParagraphs = /<p/i.test(htmlContent);
+    const htmlPassed = hasStyledHtml && (hasH2Tags || hasParagraphs);
     checks.push({
       label: "HTML Formatting",
       passed: htmlPassed,
-      detail: htmlPassed ? "Styled HTML with inline CSS, headings intact" : `Issues: ${[
-        !hasStyledHtml && "Not HTML",
-        !hasInlineStyles && "No inline styles",
-        !hasH2Tags && "No H2 tags",
-      ].filter(Boolean).join(", ")}`,
+      detail: htmlPassed
+        ? (hasInlineStyles ? "Styled HTML with inline CSS, headings intact" : "Compact semantic HTML fallback (unstyled) for Excel safety")
+        : `Issues: ${[
+          !hasStyledHtml && "Not HTML",
+          !hasH2Tags && !hasParagraphs && "No body content tags",
+        ].filter(Boolean).join(", ")}`,
     });
 
     // 4. Internal links check
