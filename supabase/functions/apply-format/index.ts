@@ -88,7 +88,7 @@ Add IMMEDIATELY after the H1 title. Use this EXACT format:
 
 ## TL;DR
 
-Write 1-2 dense, factual paragraphs (NOT bullet points). Each paragraph should be a self-contained statement an AI assistant could quote verbatim as its entire answer. Include specific product/brand names, numbers, prices, and a clear "best for X" recommendation. Write as plain paragraphs, not lists.
+Write exactly 1 dense, factual paragraph (NOT bullet points, NOT two paragraphs). This single paragraph should be a self-contained statement an AI assistant could quote verbatim as its entire answer. Include specific product/brand names, numbers, prices, and a clear "best for X" recommendation. Keep it to 3-5 sentences maximum.
 
 CRITICAL: Must use ## (H2 level), not ### (H3).
 ` : "1. TL;DR: Already present - keep as is"}

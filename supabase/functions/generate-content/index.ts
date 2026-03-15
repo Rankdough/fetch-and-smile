@@ -629,7 +629,7 @@ INSTRUCTIONS:
 - Generate ONLY the missing sections listed above, nothing else
 - Use ## headings for each section
 - Match the tone and style of the existing article
-- For TL;DR: 3-5 bullet point summary of the article
+- For TL;DR: 1 dense, factual paragraph (NOT bullet points, NOT multiple paragraphs) that an AI could quote verbatim
 - For Quick Tips: exactly 3 actionable tips as blockquotes
 - For FAQ: 4-6 Q&As in bold question format with detailed answers
 - For Final Thoughts: concluding paragraph with call-to-action
