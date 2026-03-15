@@ -400,9 +400,9 @@ export default function ContentMigration() {
     const hasDE = englishOnly || !!result.contentDE?.trim();
 
     const maxContentCellChars = Math.max(
-      htmlContent.length,
-      englishOnly ? 0 : (result.contentNL || "").length,
-      englishOnly ? 0 : (result.contentDE || "").length,
+      compactHtmlForExcelLimit(htmlContent).length,
+      englishOnly ? 0 : compactHtmlForExcelLimit(result.contentNL || "").length,
+      englishOnly ? 0 : compactHtmlForExcelLimit(result.contentDE || "").length,
     );
     const cellLimitPassed = maxContentCellChars <= EXCEL_CELL_LIMIT;
     checks.push({
