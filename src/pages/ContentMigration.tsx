@@ -866,6 +866,15 @@ ${xmlRows}
           </div>
         </div>
 
+        {/* Internal Links */}
+        <InternalLinkFileManager
+          selectedFileId={internalLinkFileId}
+          onFileSelected={(id, urls) => {
+            setInternalLinkFileId(id);
+            setInternalLinkUrls(urls);
+          }}
+        />
+
         <div className="rounded-lg border bg-card px-4 py-3 space-y-4">
           <div className="space-y-2">
             <Label className="text-sm font-semibold">Target Word Count</Label>
