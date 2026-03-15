@@ -137,7 +137,7 @@ CRITICAL RULES:
 - DO NOT link text inside bold (**) or italic (*) markers
 - DO NOT link text inside blockquotes (> lines) or CTA banners
 - NEVER link any text in the FIRST paragraph of the article (the opening paragraph right after the title)
-- NEVER link a single word or two-word phrase - linked text MUST be at least 3 words long
+- Link natural phrases that relate to the URL's topic
 - Prefer linking phrases in the body paragraphs of the article
 - If a URL's topic doesn't match any phrase in the article, SKIP that URL entirely
 
