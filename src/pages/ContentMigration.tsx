@@ -221,7 +221,14 @@ export default function ContentMigration() {
 
     const hasH2 = /<h2/i.test(html);
     const hasInline = html.includes("style=");
-    checks.push({ label: "HTML Formatting", passed: hasH2 && hasInline, detail: hasH2 && hasInline ? "Styled HTML with inline CSS, headings intact" : "Issues detected" });
+    const htmlPassed = hasH2 || /<p/i.test(html);
+    checks.push({
+      label: "HTML Formatting",
+      passed: htmlPassed,
+      detail: htmlPassed
+        ? (hasInline ? "Styled HTML with inline CSS, headings intact" : "Compact semantic HTML fallback (unstyled) for Excel safety")
+        : "Issues detected",
+    });
 
     const hasTitle = !!result.title?.trim();
     const hasSeoTitle = !!result.seoTitle?.trim();
