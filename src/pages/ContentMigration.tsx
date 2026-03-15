@@ -381,17 +381,23 @@ ${sourceHtml.substring(0, 8000)}`;
       const seoTitle = title.length > 60 ? title.substring(0, 57) + "..." : title;
       const seoDescription = subtitle.length > 160 ? subtitle.substring(0, 157) + "..." : subtitle;
 
-      // === STEP 3: Translate to NL and DE ===
-      console.log("[Migration] Step 3: Translating to NL + DE");
-      const { data: translationData, error: translationError } = await supabase.functions.invoke("translate-content", {
-        body: { title, subtitle, seoTitle, seoDescription, content: generatedMarkdown },
-      });
-      if (translationError) {
-        console.error("[Migration] Translation failed, continuing with EN only:", translationError);
-      }
+      // === STEP 3: Translate to NL and DE (unless English Only) ===
+      let nl = { title: "", subtitle: "", seoTitle: "", seoDescription: "", content: "" };
+      let de = { title: "", subtitle: "", seoTitle: "", seoDescription: "", content: "" };
 
-      const nl = translationData?.nl || { title: "", subtitle: "", seoTitle: "", seoDescription: "", content: "" };
-      const de = translationData?.de || { title: "", subtitle: "", seoTitle: "", seoDescription: "", content: "" };
+      if (!englishOnly) {
+        console.log("[Migration] Step 3: Translating to NL + DE");
+        const { data: translationData, error: translationError } = await supabase.functions.invoke("translate-content", {
+          body: { title, subtitle, seoTitle, seoDescription, content: generatedMarkdown },
+        });
+        if (translationError) {
+          console.error("[Migration] Translation failed, continuing with EN only:", translationError);
+        }
+        nl = translationData?.nl || nl;
+        de = translationData?.de || de;
+      } else {
+        console.log("[Migration] Step 3: Skipping translations (English Only mode)");
+      }
 
       // === STEP 4: Convert Markdown → styled HTML ===
       console.log("[Migration] Step 4: Converting markdown to styled HTML");
