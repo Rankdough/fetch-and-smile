@@ -47,7 +47,7 @@ OUTPUT FORMAT:
 STRUCTURE:
 - # [Article Title]
 - ## TL;DR
-  - 3-5 key takeaway bullet points
+  - 1-2 dense factual paragraphs (NOT bullets) with specific names, numbers, and a "best for X" recommendation
 - ## Quick Tips
   - 3 actionable tips the reader can use immediately
 - ## In This Article
@@ -59,7 +59,8 @@ STRUCTURE:
   - ### Sub-sections where needed
 - ## How Do They Compare Side by Side?
   - [Include comparison table with columns: Feature, Option A, Option B]
-- ## Which Option Should You Choose?
+- ## How to Choose?
+  - 4-6 decision criteria as a practical checklist (e.g., "Choose X if you need…")
 - ## Frequently Asked Questions
   - 4-6 Q&As listed as **Q: ...** followed by brief answer guidance
 - ## Final Thoughts

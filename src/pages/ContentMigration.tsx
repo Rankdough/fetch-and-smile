@@ -371,11 +371,11 @@ export default function ContentMigration() {
       const topicMatch = sourceMarkdown.match(/^#\s+(.+)$/m) || sourceMarkdown.match(/^(.{10,80})/);
       const topic = topicMatch ? topicMatch[1].trim() : "Article";
 
-      const instructions = `REFORMAT ONLY: The following content has been scraped from a web page. Restructure it into the standard article format (TL;DR, Quick Tips, question-based H2 headings, FAQ, References) but preserve the original text, facts, and voice as closely as possible. Do not invent new information. Only reorganise and add the required structural elements.
+      const instructions = `REFORMAT ONLY: The following content has been scraped from a web page. Restructure it into the standard article format (AI-quotable TL;DR paragraphs, Quick Tips, question-based H2 headings, FAQ, References) but preserve the original text, facts, and voice as closely as possible. The TL;DR must be 1-2 dense factual paragraphs (NOT bullet points) with specific names, numbers, and a "best for X" recommendation. Do not invent new information. Only reorganise and add the required structural elements.
 
 CRITICAL - PRESERVE ORIGINAL TITLES: Keep the original H1 title and all H2/H3 section headings from the source content EXACTLY as they are. Do NOT rename, rephrase, or convert them into questions. The heading text must remain unchanged - only add the required structural sections (TL;DR, Quick Tips, FAQ, References) around the existing content.
 
-CRITICAL - H1 INTRO PARAGRAPH MUST ANSWER THE TITLE: The very first paragraph immediately after the H1 title MUST directly answer the question posed by the title in roughly 30-50 words. It should include: (1) a brief factual definition relevant to the topic, (2) mention 2-3 specific brand or product names as examples. For example, if the title is "What advent calendars are gluten free?" the intro should say something like "Gluten-free advent calendars contain less than 20 ppm of gluten and are produced by allergy-conscious brands such as Moo Free, No Whey Foods, and Baci Perugina, offering safe chocolate options for people with coeliac disease." Do NOT write a vague, generic introduction — answer the title question directly with concrete facts and names.
+CRITICAL - AI-QUOTABLE OPENING PARAGRAPH: The very first paragraph immediately after the H1 title MUST be an AI-quotable standalone statement (30-50 words) that an AI assistant could use verbatim as its entire answer. It MUST include: (1) a specific factual claim with numbers/prices/dates, (2) 2-3 named brands/products/entities, (3) a clear verdict or "best for X" recommendation. Do NOT write a vague intro — write a quotable fact.
 
 CRITICAL - PRESERVE ALL HYPERLINKS: Cross-reference the HTML source below and include EVERY hyperlink found in the source content. Embed them naturally in the text where they originally appeared.
 
@@ -386,7 +386,7 @@ CRITICAL - DO NOT INCLUDE "In This Article" SECTION: Do NOT generate any "In Thi
 CRITICAL - H2 SUBTITLES MUST ANSWER THE HEADING: Every H2 heading that is phrased as a question MUST be immediately followed by a short paragraph (roughly 30 words) that directly answers that question. This answer paragraph comes before any supporting points, lists, or tables under that section.
 
 ADDITIONAL RULES:
-- Add comparison sections where relevant: "Which Option Should You Choose?", "How Do They Compare Side by Side?" with comparison tables
+- Add comparison sections where relevant: "How to Choose?" (as a practical checklist of 4-6 decision criteria), "How Do They Compare Side by Side?" with comparison tables
 - Do NOT include expert quotes or blockquote citations from named individuals
 - Do NOT duplicate any section - each structural element should appear exactly once
 

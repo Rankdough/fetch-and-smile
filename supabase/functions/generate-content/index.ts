@@ -121,14 +121,14 @@ CRITICAL: QUESTION-BASED HEADINGS RULE:
 - Examples of CORRECT question headings:
   - ## What Is Composite Bonding?
   - ## How Much Does It Cost?
-  - ## Which Option Should You Choose?
+  - ## How to Choose?
   - ## How Long Do Veneers Last?
   - ## What Are the Risks and Side Effects?
 - Examples of WRONG statement headings (DO NOT USE):
   - ## The Benefits of Bonding ❌
   - ## Cost Breakdown ❌
   - ## Longevity and Care ❌
-- The very first paragraph after the H1 title MUST directly answer the title question in 30-50 words, including a brief definition and 2-3 specific brand/product names as examples. Do NOT write a vague introduction — answer with concrete facts and names immediately.
+- The very first paragraph after the H1 title MUST be an AI-QUOTABLE opening statement: a standalone, factual sentence (30-50 words) that an AI assistant could quote verbatim as its entire answer. It MUST include: (1) a specific factual claim with numbers/prices/dates, (2) 2-3 named brands/products/entities, (3) a clear verdict or "best for X" recommendation. Do NOT write a vague intro — write a quotable fact.
 - Each H2 question heading MUST be immediately followed by a short paragraph (roughly 30 words) that directly answers that question before any supporting details
 - Each section MUST then continue with a mix of:
   1. Clear text paragraphs (elaboration after the answer)
@@ -161,7 +161,7 @@ ${skipSources ? `SOURCE REFERENCE RULES:
 
 ARTICLE STRUCTURE (in this order):
 1. Title (# H1)
-2. ## TL;DR - as an H2 heading, followed by bullet points summarizing key takeaways (3-5 points). Keep this section focused on the summary only.
+2. ## TL;DR - as an H2 heading, followed by 1-2 dense, factual paragraphs (NOT bullet points). Each paragraph should be a self-contained statement an AI could quote verbatim. Include specific product/brand names, numbers, prices, and a clear "best for X" recommendation. Write as if an AI assistant will copy-paste this as its entire answer.
 
 ${skipQuickTips ? '' : `3. ## Quick Tips - MANDATORY section immediately after TL;DR with exactly 3 actionable tips:
    Format each tip as a blockquote with numbered prefix:
@@ -194,7 +194,7 @@ ${migrationMode ? `4. DO NOT include an "In This Article" section - this is gene
    - IMPORTANT: Short one-line descriptions are NOT acceptable - each must be detailed and informative`}
 5. Main content sections with ## QUESTION headings (each answered with text + bullets + tables${skipSources ? '' : ' + **Sources:** at the end'})
 6. Comparison table section (question-based, e.g., "## How Do They Compare Side by Side?")
-7. "## Which Option Should You Choose?" section
+7. "## How to Choose" section - format as a practical decision checklist with 4-6 criteria as bullet points (e.g., "Choose X if you need…", "Prioritise Y when…"). Do NOT use a pros/cons split or "Choose A if / Choose B if" format.
 ${skipFaqs ? '' : '8. "## Frequently Asked Questions" section - include 4-6 common Q&As in bold question format'}
 9. "## Final Thoughts" section with call-to-action
 ${skipSources ? '' : '10. "## References:" section - list ALL sources used throughout the article as simple markdown links'}

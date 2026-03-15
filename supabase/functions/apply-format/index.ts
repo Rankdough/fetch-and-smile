@@ -88,9 +88,7 @@ Add IMMEDIATELY after the H1 title. Use this EXACT format:
 
 ## TL;DR
 
-- First key takeaway in one sentence
-- Second key takeaway in one sentence
-- Third key takeaway (optional)
+Write 1-2 dense, factual paragraphs (NOT bullet points). Each paragraph should be a self-contained statement an AI assistant could quote verbatim as its entire answer. Include specific product/brand names, numbers, prices, and a clear "best for X" recommendation. Write as plain paragraphs, not lists.
 
 CRITICAL: Must use ## (H2 level), not ### (H3).
 ` : "1. TL;DR: Already present - keep as is"}
