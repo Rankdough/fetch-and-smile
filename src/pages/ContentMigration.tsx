@@ -873,7 +873,11 @@ ${sourceHtml.substring(0, 8000)}`;
       const contentNl = compactHtmlForExcelLimit(maybeStripH1(r.contentNL ?? ""));
       const contentDe = compactHtmlForExcelLimit(maybeStripH1(r.contentDE ?? ""));
 
-      maxContentCellChars = Math.max(maxContentCellChars, contentEn.length, contentNl.length, contentDe.length);
+      const enPayload = getExcelCellPayloadLength(contentEn);
+      const nlPayload = getExcelCellPayloadLength(contentNl);
+      const dePayload = getExcelCellPayloadLength(contentDe);
+
+      maxContentCellChars = Math.max(maxContentCellChars, enPayload, nlPayload, dePayload);
       if (maxContentCellChars > EXCEL_CELL_LIMIT) exceedsCellLimit = true;
 
       return [
@@ -889,23 +893,15 @@ ${sourceHtml.substring(0, 8000)}`;
     if (exceedsCellLimit) {
       toast({
         title: "Export blocked: content exceeds Excel cell limit",
-        description: `Max content cell is ${maxContentCellChars} chars (limit: ${EXCEL_CELL_LIMIT}). Reduce article size or skip non-essential sections.`,
+        description: `Max escaped content cell payload is ${maxContentCellChars} chars (limit: ${EXCEL_CELL_LIMIT}). Reduce article size or skip non-essential sections.`,
         variant: "destructive",
       });
       return;
     }
 
     // Build Excel XML (SpreadsheetML) to keep raw HTML in single cells without row-splitting
-    const escapeXml = (val: string): string =>
-      String(val ?? "")
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, ""); // strip control chars
-
     const buildRow = (cells: string[]) =>
-      "<Row>" + cells.map(c => `<Cell><Data ss:Type="String">${escapeXml(c)}</Data></Cell>`).join("") + "</Row>";
+      "<Row>" + cells.map(c => `<Cell><Data ss:Type="String">${escapeSpreadsheetXml(c)}</Data></Cell>`).join("") + "</Row>";
 
     const xmlRows = [buildRow(headers), ...rows.map(buildRow)].join("\n");
 
