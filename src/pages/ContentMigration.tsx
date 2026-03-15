@@ -100,6 +100,10 @@ export default function ContentMigration() {
   const [selectedToneProfileId, setSelectedToneProfileId] = useState<string | null>(() => {
     return localStorage.getItem("migration-tone-profile") || null;
   });
+  const [internalLinkFileId, setInternalLinkFileId] = useState<string | null>(() => {
+    return localStorage.getItem("migration-internal-link-file") || null;
+  });
+  const [internalLinkUrls, setInternalLinkUrls] = useState<LinkEntry[]>([]);
   const [toneProfiles, setToneProfiles] = useState<Array<{ id: string; name: string }>>([]);
 
   // Load tone profiles
