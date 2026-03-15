@@ -85,6 +85,27 @@ export type Database = {
         }
         Relationships: []
       }
+      internal_link_files: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          urls: Json
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          urls?: Json
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          urls?: Json
+        }
+        Relationships: []
+      }
       keyword_clustering_results: {
         Row: {
           created_at: string

@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, Download, CheckCircle2, XCircle, ArrowLeft, Play, Eye, Trash2, Copy, Check, Palette, Settings2, ChevronDown, ChevronUp, Pencil, Save } from "lucide-react";
+import InternalLinkFileManager, { type LinkEntry } from "@/components/InternalLinkFileManager";
 import { NavLink } from "@/components/NavLink";
 import { ColorPaletteSelector, COLOR_PALETTES, type ColorPalette } from "@/components/ColorPaletteSelector";
 import { generateCTAHtml } from "@/components/CTABanner";
@@ -99,6 +100,10 @@ export default function ContentMigration() {
   const [selectedToneProfileId, setSelectedToneProfileId] = useState<string | null>(() => {
     return localStorage.getItem("migration-tone-profile") || null;
   });
+  const [internalLinkFileId, setInternalLinkFileId] = useState<string | null>(() => {
+    return localStorage.getItem("migration-internal-link-file") || null;
+  });
+  const [internalLinkUrls, setInternalLinkUrls] = useState<LinkEntry[]>([]);
   const [toneProfiles, setToneProfiles] = useState<Array<{ id: string; name: string }>>([]);
 
   // Load tone profiles
@@ -457,6 +462,28 @@ ${sourceHtml.substring(0, 8000)}`;
         }
       }
 
+      // === STEP 2c: Auto-insert internal links ===
+      if (internalLinkUrls.length > 0) {
+        console.log("[Migration] Step 2c: Auto-inserting internal links from", internalLinkUrls.length, "candidates");
+        try {
+          const { data: linkData, error: linkError } = await supabase.functions.invoke("auto-internal-links", {
+            body: {
+              content: generatedMarkdown,
+              candidates: internalLinkUrls,
+              articleUrl: entry.url,
+            },
+          });
+          if (!linkError && linkData?.content) {
+            generatedMarkdown = linkData.content;
+            console.log(`[Migration] Inserted ${linkData.insertedCount} internal links:`, linkData.insertedUrls);
+          } else if (linkError) {
+            console.error("[Migration] Internal links failed, continuing without:", linkError);
+          }
+        } catch (linkErr) {
+          console.error("[Migration] Internal links error, continuing:", linkErr);
+        }
+      }
+
       // === STEP 3: Translate to NL and DE (unless English Only) ===
       let nl = { title: "", subtitle: "", seoTitle: "", seoDescription: "", content: "" };
       let de = { title: "", subtitle: "", seoTitle: "", seoDescription: "", content: "" };
@@ -547,7 +574,7 @@ ${sourceHtml.substring(0, 8000)}`;
 
       return { ...entry, status: "error", error: msg };
     }
-  }, [selectedColorPalette, skipNavigation, skipQuickTips, skipFaqs, skipSources, targetWordCount, selectedToneProfileId, runQualityChecks, ctaUrl, ctaInstruction, englishOnly]);
+  }, [selectedColorPalette, skipNavigation, skipQuickTips, skipFaqs, skipSources, targetWordCount, selectedToneProfileId, runQualityChecks, ctaUrl, ctaInstruction, englishOnly, internalLinkUrls]);
 
   const startProcessing = async () => {
     setIsProcessing(true);
@@ -838,6 +865,15 @@ ${xmlRows}
             />
           </div>
         </div>
+
+        {/* Internal Links */}
+        <InternalLinkFileManager
+          selectedFileId={internalLinkFileId}
+          onFileSelected={(id, urls) => {
+            setInternalLinkFileId(id);
+            setInternalLinkUrls(urls);
+          }}
+        />
 
         <div className="rounded-lg border bg-card px-4 py-3 space-y-4">
           <div className="space-y-2">
