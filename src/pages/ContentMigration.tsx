@@ -462,6 +462,28 @@ ${sourceHtml.substring(0, 8000)}`;
         }
       }
 
+      // === STEP 2c: Auto-insert internal links ===
+      if (internalLinkUrls.length > 0) {
+        console.log("[Migration] Step 2c: Auto-inserting internal links from", internalLinkUrls.length, "candidates");
+        try {
+          const { data: linkData, error: linkError } = await supabase.functions.invoke("auto-internal-links", {
+            body: {
+              content: generatedMarkdown,
+              candidates: internalLinkUrls,
+              articleUrl: entry.url,
+            },
+          });
+          if (!linkError && linkData?.content) {
+            generatedMarkdown = linkData.content;
+            console.log(`[Migration] Inserted ${linkData.insertedCount} internal links:`, linkData.insertedUrls);
+          } else if (linkError) {
+            console.error("[Migration] Internal links failed, continuing without:", linkError);
+          }
+        } catch (linkErr) {
+          console.error("[Migration] Internal links error, continuing:", linkErr);
+        }
+      }
+
       // === STEP 3: Translate to NL and DE (unless English Only) ===
       let nl = { title: "", subtitle: "", seoTitle: "", seoDescription: "", content: "" };
       let de = { title: "", subtitle: "", seoTitle: "", seoDescription: "", content: "" };
