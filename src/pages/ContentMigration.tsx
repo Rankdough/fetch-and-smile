@@ -386,7 +386,7 @@ CRITICAL - DO NOT INCLUDE "In This Article" SECTION: Do NOT generate any "In Thi
 CRITICAL - H2 SUBTITLES MUST ANSWER THE HEADING: Every H2 heading that is phrased as a question MUST be immediately followed by a short paragraph (roughly 30 words) that directly answers that question. This answer paragraph comes before any supporting points, lists, or tables under that section.
 
 ADDITIONAL RULES:
-- Add comparison sections where relevant: "Which Option Should You Choose?", "How Do They Compare Side by Side?" with comparison tables
+- Add comparison sections where relevant: "How to Choose?" (as a practical checklist of 4-6 decision criteria), "How Do They Compare Side by Side?" with comparison tables
 - Do NOT include expert quotes or blockquote citations from named individuals
 - Do NOT duplicate any section - each structural element should appear exactly once
 
