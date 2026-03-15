@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, Download, CheckCircle2, XCircle, ArrowLeft, Play, Eye, Trash2, Copy, Check, Palette, Settings2, ChevronDown, ChevronUp, Pencil, Save } from "lucide-react";
+import InternalLinkFileManager, { type LinkEntry } from "@/components/InternalLinkFileManager";
 import { NavLink } from "@/components/NavLink";
 import { ColorPaletteSelector, COLOR_PALETTES, type ColorPalette } from "@/components/ColorPaletteSelector";
 import { generateCTAHtml } from "@/components/CTABanner";
