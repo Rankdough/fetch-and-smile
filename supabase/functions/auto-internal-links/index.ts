@@ -124,38 +124,41 @@ Return ONLY a JSON array like: ["https://...", "https://..."]`;
 
     // Cap at 5
     selectedUrls = selectedUrls.slice(0, 5);
+    
+    // Also filter out self-links from AI selection
+    if (articleSlug) {
+      selectedUrls = selectedUrls.filter(u => extractSlug(u) !== articleSlug);
+    }
+    
+    // Build a title map for selected URLs
+    const titleMap: Record<string, string> = {};
+    for (const url of selectedUrls) {
+      const candidate = filteredCandidates.find(c => c.url === url);
+      if (candidate) titleMap[url] = candidate.title;
+    }
+    
     console.log(`[auto-internal-links] Selected ${selectedUrls.length} URLs:`, selectedUrls);
 
     // Step 2: Insert the selected links into the content
-    const insertPrompt = `You are an expert SEO editor. Your task is to insert contextual internal links into an existing markdown article.
+    const insertPrompt = `You are an SEO editor. Insert internal links into the markdown article below.
 
-CRITICAL RULES:
-- DO NOT rewrite, rephrase, or modify ANY existing text
-- DO NOT remove any existing sections, headings, or formatting
-- DO NOT add new paragraphs, sentences, or content
-- ONLY convert existing relevant phrases/words into markdown links
-- Return the FULL article with the links inserted
-- Each URL should be linked EXACTLY ONCE (do not repeat the same link)
-- Choose the MOST contextually relevant phrase for each URL
-- Links should feel natural - link phrases that genuinely relate to the URL's topic
-- DO NOT link text inside headings (H1, H2, H3, etc.)
-- DO NOT link text inside existing links
-- DO NOT link text inside bold (**) or italic (*) markers
-- DO NOT link text inside blockquotes (> lines) or CTA banners
-- NEVER link any text in the FIRST paragraph of the article (the opening paragraph right after the title)
-- Link natural phrases that relate to the URL's topic
-- Prefer linking phrases in the body paragraphs of the article
-- If a URL's topic doesn't match any phrase in the article, SKIP that URL entirely
+For each URL provided, find a relevant phrase in the article body and convert it into a markdown link.
 
-LINK FORMAT:
-Convert: "relevant phrase about the topic"
-To: "[relevant phrase about the topic](URL)"
+RULES:
+1. Do NOT change, rewrite, or remove any existing text — only add link markup around existing words
+2. Each URL must be linked EXACTLY ONCE
+3. Do NOT link text in headings (#, ##, ###), blockquotes (>), or the first paragraph
+4. Do NOT link text inside existing links
+5. Return the COMPLETE article with links inserted
+6. If you cannot find a good phrase for a URL, skip it
 
-Return ONLY the enhanced markdown content with links inserted. No explanations.`;
+EXAMPLE:
+Before: "many people enjoy craft beer alternatives"
+After: "[craft beer alternatives](https://example.com/craft-beer)"`;
 
-    const insertUserPrompt = `Insert contextual internal links for these URLs:
+    const insertUserPrompt = `URLs to insert (with their page topics):
 
-${selectedUrls.map((url, i) => `${i + 1}. ${url}`).join("\n")}
+${selectedUrls.map((url, i) => `${i + 1}. ${url} — Topic: "${titleMap[url] || 'related content'}"`).join("\n")}
 
 ARTICLE:
 ${content}`;
