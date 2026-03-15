@@ -529,6 +529,11 @@ ${sourceHtml.substring(0, 8000)}`;
       if (internalLinkUrls.length > 0) {
         console.log("[Migration] Step 2c: Auto-inserting internal links from", internalLinkUrls.length, "candidates");
         try {
+          const beforeLinkContent = generatedMarkdown;
+          const beforeWords = beforeLinkContent.split(/\s+/).filter(Boolean).length;
+          const beforeH2Count = (beforeLinkContent.match(/^##\s+/gm) || []).length;
+          const beforeHasFinalThoughts = /##\s.*final\s*thoughts|##\s.*conclusion/i.test(beforeLinkContent);
+
           const { data: linkData, error: linkError } = await supabase.functions.invoke("auto-internal-links", {
             body: {
               content: generatedMarkdown,
@@ -536,9 +541,22 @@ ${sourceHtml.substring(0, 8000)}`;
               articleUrl: entry.url,
             },
           });
+
           if (!linkError && linkData?.content) {
-            generatedMarkdown = linkData.content;
-            console.log(`[Migration] Inserted ${linkData.insertedCount} internal links:`, linkData.insertedUrls);
+            const linkedCandidate = linkData.content as string;
+            const afterWords = linkedCandidate.split(/\s+/).filter(Boolean).length;
+            const afterH2Count = (linkedCandidate.match(/^##\s+/gm) || []).length;
+            const afterHasFinalThoughts = /##\s.*final\s*thoughts|##\s.*conclusion/i.test(linkedCandidate);
+
+            const tooShort = afterWords < Math.max(Math.floor(beforeWords * 0.85), beforeWords - 80);
+            const lostStructure = afterH2Count + 1 < beforeH2Count || (beforeHasFinalThoughts && !afterHasFinalThoughts);
+
+            if (tooShort || lostStructure) {
+              console.warn(`[Migration] Internal link guardrail triggered. Keeping original markdown. beforeWords=${beforeWords}, afterWords=${afterWords}, beforeH2=${beforeH2Count}, afterH2=${afterH2Count}`);
+            } else {
+              generatedMarkdown = linkedCandidate;
+              console.log(`[Migration] Inserted ${linkData.insertedCount} internal links:`, linkData.insertedUrls);
+            }
           } else if (linkError) {
             console.error("[Migration] Internal links failed, continuing without:", linkError);
           }
