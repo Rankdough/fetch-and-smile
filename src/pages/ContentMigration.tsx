@@ -509,12 +509,12 @@ ${sourceHtml.substring(0, 8000)}`;
         subtitleNL: nl.subtitle,
         seoTitleNL: nl.seoTitle,
         seoDescriptionNL: nl.seoDescription,
-        contentNL: appendCta(markdownToStyledHtml(nl.content || "", palette, convertOpts)),
+        contentNL: nl.content ? appendCta(markdownToStyledHtml(nl.content, palette, convertOpts)) : "",
         titleDE: de.title,
         subtitleDE: de.subtitle,
         seoTitleDE: de.seoTitle,
         seoDescriptionDE: de.seoDescription,
-        contentDE: appendCta(markdownToStyledHtml(de.content || "", palette, convertOpts)),
+        contentDE: de.content ? appendCta(markdownToStyledHtml(de.content, palette, convertOpts)) : "",
         imageUrls,
       };
 
