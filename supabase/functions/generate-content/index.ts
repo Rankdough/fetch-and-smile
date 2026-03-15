@@ -49,8 +49,9 @@ serve(async (req) => {
       comprehensive: 3500,
     };
     const targetWords = wordCount || wordCounts[length] || 1000;
-    const wordFloor = Math.round(targetWords * 0.85);
-    const wordCeiling = Math.round(targetWords * 1.15);
+    const tolerance = migrationMode ? 0.20 : 0.15;
+    const wordFloor = Math.round(targetWords * (1 - tolerance));
+    const wordCeiling = Math.round(targetWords * (1 + tolerance));
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -468,21 +469,21 @@ Place these images throughout the article at logical locations, typically after 
     const rebalanceToRange = async (content: string): Promise<string> => {
       let current = content;
 
-      for (let i = 0; i < 2; i++) {
+      for (let i = 0; i < 4; i++) {
         const words = countWords(current);
         if (words >= wordFloor && words <= wordCeiling) return current;
 
         const needsCondense = words > wordCeiling;
         const operation = needsCondense ? "condense" : "expand";
 
-        console.warn(`Word count out of range (${words}). Running ${operation} pass ${i + 1}/2.`);
+        console.warn(`Word count out of range (${words}). Running ${operation} pass ${i + 1}/4.`);
 
         const rebalancePrompt = `${needsCondense
-          ? `Rewrite this complete article to ${targetWords} words target (strict range ${wordFloor}-${wordCeiling}). Keep all sections, keep meaning, and condense phrasing/repetition only.`
-          : `Rewrite this complete article to ${targetWords} words target (strict range ${wordFloor}-${wordCeiling}). Keep all sections and add concise depth/examples where needed.`}
+          ? `Rewrite this complete article to ${targetWords} words target (strict range ${wordFloor}-${wordCeiling}). Keep all sections and meaning, but condense wording in EVERY section so the final output lands in range.`
+          : `Rewrite this complete article to ${targetWords} words target (strict range ${wordFloor}-${wordCeiling}). Keep all sections and add concise, concrete depth where needed so the final output lands in range.`}
 
 CRITICAL RULES:
-- Return the FULL article from # title through ## References
+- Return the FULL article from # title through the ending section
 - Do NOT output partial content
 - Keep headings and structure intact
 - End with a complete sentence
@@ -498,7 +499,7 @@ ${current}`;
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            model,
+            model: "google/gemini-2.5-flash",
             max_tokens: Math.min(Math.max(8192, Math.ceil(wordCeiling * 5)), 32768),
             messages: [
               { role: "system", content: systemPrompt },
@@ -518,6 +519,44 @@ ${current}`;
         if (!rewritten) break;
 
         current = rewritten;
+      }
+
+      const finalWords = countWords(current);
+      if (finalWords < wordFloor || finalWords > wordCeiling) {
+        console.warn(`Final strict rebalance pass: ${finalWords} words still outside ${wordFloor}-${wordCeiling}`);
+
+        const strictPrompt = `Rewrite this FULL article to land between ${wordFloor} and ${wordCeiling} words (target ${targetWords}).
+
+STRICT:
+- Keep ALL existing sections/headings
+- Preserve meaning and key facts
+- Do not remove Final Thoughts / CTA context
+- Return complete markdown only
+
+ARTICLE:
+${current}`;
+
+        const strictResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${LOVABLE_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "google/gemini-2.5-flash",
+            max_tokens: Math.min(Math.max(8192, Math.ceil(wordCeiling * 5)), 32768),
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: strictPrompt },
+            ],
+          }),
+        });
+
+        if (strictResponse.ok) {
+          const strictData = await strictResponse.json();
+          const strictContent = strictData.choices?.[0]?.message?.content;
+          if (strictContent) current = strictContent;
+        }
       }
 
       return current;

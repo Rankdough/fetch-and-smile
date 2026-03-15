@@ -106,6 +106,15 @@ export default function ContentMigration() {
   const [internalLinkUrls, setInternalLinkUrls] = useState<LinkEntry[]>([]);
   const [toneProfiles, setToneProfiles] = useState<Array<{ id: string; name: string }>>([]);
 
+  const EXCEL_CELL_LIMIT = 32767;
+  const minifyHtmlForExport = (html: string) =>
+    (html || "")
+      .replace(/>\s+</g, "><")
+      .replace(/\s{2,}/g, " ")
+      .replace(/;\s+/g, ";")
+      .replace(/:\s+/g, ":")
+      .trim();
+
   // Load tone profiles
   useEffect(() => {
     const loadProfiles = async () => {
@@ -163,8 +172,20 @@ export default function ContentMigration() {
       });
     }
 
-    const exportPassed = hasTitle && hasSeoTitle && hasSeoDesc && hasContent && hasNL && hasDE;
-    checks.push({ label: "Excel Export Ready", passed: exportPassed, detail: exportPassed ? (englishOnly ? "All fields populated (EN only)" : "All fields populated (EN, NL, DE)") : "Missing fields" });
+    const maxContentCellChars = Math.max(
+      (result.content || "").length,
+      englishOnly ? 0 : (result.contentNL || "").length,
+      englishOnly ? 0 : (result.contentDE || "").length,
+    );
+    const cellLimitPassed = maxContentCellChars <= EXCEL_CELL_LIMIT;
+    checks.push({
+      label: "Excel Cell Limit",
+      passed: cellLimitPassed,
+      detail: `Max content cell: ${maxContentCellChars}/${EXCEL_CELL_LIMIT} chars`,
+    });
+
+    const exportPassed = hasTitle && hasSeoTitle && hasSeoDesc && hasContent && hasNL && hasDE && cellLimitPassed;
+    checks.push({ label: "Excel Export Ready", passed: exportPassed, detail: exportPassed ? (englishOnly ? "All fields populated (EN only)" : "All fields populated (EN, NL, DE)") : "Missing fields or over cell limit" });
 
     return checks;
   };
@@ -328,7 +349,20 @@ export default function ContentMigration() {
     const hasContent = htmlContent.length > 100;
     const hasNL = englishOnly || !!result.contentNL?.trim();
     const hasDE = englishOnly || !!result.contentDE?.trim();
-    const exportPassed = hasTitle && hasSeoTitle && hasSeoDesc && hasContent && hasNL && hasDE;
+
+    const maxContentCellChars = Math.max(
+      htmlContent.length,
+      englishOnly ? 0 : (result.contentNL || "").length,
+      englishOnly ? 0 : (result.contentDE || "").length,
+    );
+    const cellLimitPassed = maxContentCellChars <= EXCEL_CELL_LIMIT;
+    checks.push({
+      label: "Excel Cell Limit",
+      passed: cellLimitPassed,
+      detail: `Max content cell: ${maxContentCellChars}/${EXCEL_CELL_LIMIT} chars`,
+    });
+
+    const exportPassed = hasTitle && hasSeoTitle && hasSeoDesc && hasContent && hasNL && hasDE && cellLimitPassed;
     checks.push({
       label: "Excel Export Ready",
       passed: exportPassed,
@@ -339,6 +373,7 @@ export default function ContentMigration() {
         !hasContent && "Content",
         !hasNL && "NL Translation",
         !hasDE && "DE Translation",
+        !cellLimitPassed && `Cell > ${EXCEL_CELL_LIMIT} chars`,
       ].filter(Boolean).join(", ")}`,
     });
 
@@ -494,6 +529,11 @@ ${sourceHtml.substring(0, 8000)}`;
       if (internalLinkUrls.length > 0) {
         console.log("[Migration] Step 2c: Auto-inserting internal links from", internalLinkUrls.length, "candidates");
         try {
+          const beforeLinkContent = generatedMarkdown;
+          const beforeWords = beforeLinkContent.split(/\s+/).filter(Boolean).length;
+          const beforeH2Count = (beforeLinkContent.match(/^##\s+/gm) || []).length;
+          const beforeHasFinalThoughts = /##\s.*final\s*thoughts|##\s.*conclusion/i.test(beforeLinkContent);
+
           const { data: linkData, error: linkError } = await supabase.functions.invoke("auto-internal-links", {
             body: {
               content: generatedMarkdown,
@@ -501,9 +541,22 @@ ${sourceHtml.substring(0, 8000)}`;
               articleUrl: entry.url,
             },
           });
+
           if (!linkError && linkData?.content) {
-            generatedMarkdown = linkData.content;
-            console.log(`[Migration] Inserted ${linkData.insertedCount} internal links:`, linkData.insertedUrls);
+            const linkedCandidate = linkData.content as string;
+            const afterWords = linkedCandidate.split(/\s+/).filter(Boolean).length;
+            const afterH2Count = (linkedCandidate.match(/^##\s+/gm) || []).length;
+            const afterHasFinalThoughts = /##\s.*final\s*thoughts|##\s.*conclusion/i.test(linkedCandidate);
+
+            const tooShort = afterWords < Math.max(Math.floor(beforeWords * 0.85), beforeWords - 80);
+            const lostStructure = afterH2Count + 1 < beforeH2Count || (beforeHasFinalThoughts && !afterHasFinalThoughts);
+
+            if (tooShort || lostStructure) {
+              console.warn(`[Migration] Internal link guardrail triggered. Keeping original markdown. beforeWords=${beforeWords}, afterWords=${afterWords}, beforeH2=${beforeH2Count}, afterH2=${afterH2Count}`);
+            } else {
+              generatedMarkdown = linkedCandidate;
+              console.log(`[Migration] Inserted ${linkData.insertedCount} internal links:`, linkData.insertedUrls);
+            }
           } else if (linkError) {
             console.error("[Migration] Internal links failed, continuing without:", linkError);
           }
@@ -551,6 +604,7 @@ ${sourceHtml.substring(0, 8000)}`;
       }
 
       const appendCta = (html: string) => endCtaHtml ? html + endCtaHtml : html;
+      const toExportHtml = (markdown: string) => minifyHtmlForExport(appendCta(markdownToStyledHtml(markdown, palette, convertOpts)));
 
       const data: MigrationResult = {
         url: entry.url,
@@ -559,17 +613,17 @@ ${sourceHtml.substring(0, 8000)}`;
         subtitle,
         seoTitle,
         seoDescription,
-        content: appendCta(markdownToStyledHtml(generatedMarkdown, palette, convertOpts)),
+        content: toExportHtml(generatedMarkdown),
         titleNL: nl.title,
         subtitleNL: nl.subtitle,
         seoTitleNL: nl.seoTitle,
         seoDescriptionNL: nl.seoDescription,
-        contentNL: nl.content ? appendCta(markdownToStyledHtml(nl.content, palette, convertOpts)) : "",
+        contentNL: nl.content ? toExportHtml(nl.content) : "",
         titleDE: de.title,
         subtitleDE: de.subtitle,
         seoTitleDE: de.seoTitle,
         seoDescriptionDE: de.seoDescription,
-        contentDE: de.content ? appendCta(markdownToStyledHtml(de.content, palette, convertOpts)) : "",
+        contentDE: de.content ? toExportHtml(de.content) : "",
         imageUrls,
       };
 
@@ -691,18 +745,37 @@ ${sourceHtml.substring(0, 8000)}`;
       "SEO Description", "SEO Description (EN)", "SEO Description (NL)", "SEO Description (DE)",
     ];
 
+    let maxContentCellChars = 0;
+    let exceedsCellLimit = false;
+
     const rows = entries.filter(e => e.status === "done" && e.result).map(e => {
       const r = e.result!;
       const maybeStripH1 = (html: string) => skipTitleInHtml ? stripH1FromHtml(html) : html;
+      const contentEn = minifyHtmlForExport(maybeStripH1(r.content ?? ""));
+      const contentNl = minifyHtmlForExport(maybeStripH1(r.contentNL ?? ""));
+      const contentDe = minifyHtmlForExport(maybeStripH1(r.contentDE ?? ""));
+
+      maxContentCellChars = Math.max(maxContentCellChars, contentEn.length, contentNl.length, contentDe.length);
+      if (maxContentCellChars > EXCEL_CELL_LIMIT) exceedsCellLimit = true;
+
       return [
         r.type ?? "", (r.imageUrls || [])[0] || "", r.url ?? "", "",
         r.title ?? "", r.title ?? "", r.titleNL ?? "", r.titleDE ?? "",
         r.subtitle ?? "", r.subtitleNL ?? "", r.subtitleDE ?? "",
-        maybeStripH1(r.content ?? ""), maybeStripH1(r.content ?? ""), maybeStripH1(r.contentNL ?? ""), maybeStripH1(r.contentDE ?? ""),
+        contentEn, contentEn, contentNl, contentDe,
         r.seoTitle ?? "", r.seoTitle ?? "", r.seoTitleNL ?? "", r.seoTitleDE ?? "",
         r.seoDescription ?? "", r.seoDescription ?? "", r.seoDescriptionNL ?? "", r.seoDescriptionDE ?? "",
       ];
     });
+
+    if (exceedsCellLimit) {
+      toast({
+        title: "Export blocked: content exceeds Excel cell limit",
+        description: `Max content cell is ${maxContentCellChars} chars (limit: ${EXCEL_CELL_LIMIT}). Reduce article size or skip non-essential sections.`,
+        variant: "destructive",
+      });
+      return;
+    }
 
     // Build Excel XML (SpreadsheetML) to keep raw HTML in single cells without row-splitting
     const escapeXml = (val: string): string =>

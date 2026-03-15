@@ -11,6 +11,10 @@ interface LinkCandidate {
   title: string;
 }
 
+function countWords(text: string): number {
+  return text.split(/\s+/).filter(Boolean).length;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -122,14 +126,22 @@ Return ONLY a JSON array like: ["https://...", "https://..."]`;
       );
     }
 
-    // Cap at 5
-    selectedUrls = selectedUrls.slice(0, 5);
+    // Cap at 5 and keep only known candidate URLs
+    const candidateUrlSet = new Set(filteredCandidates.map(c => c.url));
+    selectedUrls = selectedUrls.filter(url => candidateUrlSet.has(url)).slice(0, 5);
     
     // Also filter out self-links from AI selection
     if (articleSlug) {
       selectedUrls = selectedUrls.filter(u => extractSlug(u) !== articleSlug);
     }
-    
+
+    if (selectedUrls.length === 0) {
+      return new Response(
+        JSON.stringify({ content, insertedCount: 0, insertedUrls: [] }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // Build a title map for selected URLs
     const titleMap: Record<string, string> = {};
     for (const url of selectedUrls) {
@@ -193,6 +205,22 @@ ${content}`;
 
     // Strip markdown code fences if present
     linkedContent = linkedContent.replace(/^```(?:markdown)?\s*\n?/i, "").replace(/\n?```\s*$/i, "");
+
+    // Guardrail: never accept a link-inserted result that drops major content
+    const sourceWords = countWords(content);
+    const linkedWords = countWords(linkedContent);
+    const sourceH2Count = (content.match(/^##\s+/gm) || []).length;
+    const linkedH2Count = (linkedContent.match(/^##\s+/gm) || []).length;
+    const sourceHasFinalThoughts = /^##\s.*final\s*thoughts|^##\s.*conclusion/im.test(content);
+    const linkedHasFinalThoughts = /^##\s.*final\s*thoughts|^##\s.*conclusion/im.test(linkedContent);
+
+    const tooShort = linkedWords < Math.max(Math.floor(sourceWords * 0.85), sourceWords - 80);
+    const lostStructure = linkedH2Count + 1 < sourceH2Count || (sourceHasFinalThoughts && !linkedHasFinalThoughts);
+
+    if (tooShort || lostStructure) {
+      console.warn(`[auto-internal-links] Guardrail triggered. Keeping original content. sourceWords=${sourceWords}, linkedWords=${linkedWords}, sourceH2=${sourceH2Count}, linkedH2=${linkedH2Count}`);
+      linkedContent = content;
+    }
 
     // Count inserted URLs
     const insertedUrls = selectedUrls.filter(url => linkedContent.includes(url));
