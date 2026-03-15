@@ -161,7 +161,7 @@ ${skipSources ? `SOURCE REFERENCE RULES:
 
 ARTICLE STRUCTURE (in this order):
 1. Title (# H1)
-2. ## TL;DR - as an H2 heading, followed by 1-2 dense, factual paragraphs (NOT bullet points). Each paragraph should be a self-contained statement an AI could quote verbatim. Include specific product/brand names, numbers, prices, and a clear "best for X" recommendation. Write as if an AI assistant will copy-paste this as its entire answer.
+2. ## TL;DR - as an H2 heading, followed by exactly 1 dense, factual paragraph (NOT bullet points, NOT two paragraphs). This single paragraph should be a self-contained statement an AI could quote verbatim as its entire answer. Include specific product/brand names, numbers, prices, and a clear "best for X" recommendation. Keep it to 3-5 sentences maximum.
 
 ${skipQuickTips ? '' : `3. ## Quick Tips - MANDATORY section immediately after TL;DR with exactly 3 actionable tips:
    Format each tip as a blockquote with numbered prefix:
@@ -629,7 +629,7 @@ INSTRUCTIONS:
 - Generate ONLY the missing sections listed above, nothing else
 - Use ## headings for each section
 - Match the tone and style of the existing article
-- For TL;DR: 3-5 bullet point summary of the article
+- For TL;DR: 1 dense, factual paragraph (NOT bullet points, NOT multiple paragraphs) that an AI could quote verbatim
 - For Quick Tips: exactly 3 actionable tips as blockquotes
 - For FAQ: 4-6 Q&As in bold question format with detailed answers
 - For Final Thoughts: concluding paragraph with call-to-action
