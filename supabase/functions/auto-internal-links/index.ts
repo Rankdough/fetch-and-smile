@@ -389,7 +389,20 @@ ${content}`;
       insertedUrls = detectInsertedUrls(linkedContent, selectedUrls);
 
       console.log(
-        `[auto-internal-links] Fallback inserted ${fallback.insertedUrls.length} extra links; final ${insertedUrls.length}/${selectedUrls.length}`
+        `[auto-internal-links] Fallback inserted ${fallback.insertedUrls.length} extra links; interim ${insertedUrls.length}/${selectedUrls.length}`
+      );
+    }
+
+    if (insertedUrls.length < minimumExpected) {
+      const guaranteedMissing = selectedUrls
+        .filter((u) => !insertedUrls.includes(u))
+        .slice(0, minimumExpected - insertedUrls.length);
+
+      linkedContent = appendGuaranteedLinks(linkedContent, guaranteedMissing, titleMap);
+      insertedUrls = detectInsertedUrls(linkedContent, selectedUrls);
+
+      console.log(
+        `[auto-internal-links] Guaranteed fallback appended ${guaranteedMissing.length} links; final ${insertedUrls.length}/${selectedUrls.length}`
       );
     } else {
       console.log(`[auto-internal-links] Inserted ${insertedUrls.length}/${selectedUrls.length} links`);
