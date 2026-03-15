@@ -471,7 +471,7 @@ ${sourceHtml.substring(0, 8000)}`;
 
       return { ...entry, status: "error", error: msg };
     }
-  }, [selectedColorPalette, skipNavigation, skipQuickTips, skipFaqs, skipSources, targetWordCount, selectedToneProfileId, runQualityChecks, ctaUrl, ctaInstruction]);
+  }, [selectedColorPalette, skipNavigation, skipQuickTips, skipFaqs, skipSources, targetWordCount, selectedToneProfileId, runQualityChecks, ctaUrl, ctaInstruction, englishOnly]);
 
   const startProcessing = async () => {
     setIsProcessing(true);
