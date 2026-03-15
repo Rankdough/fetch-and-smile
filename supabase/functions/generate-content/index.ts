@@ -49,8 +49,9 @@ serve(async (req) => {
       comprehensive: 3500,
     };
     const targetWords = wordCount || wordCounts[length] || 1000;
-    const wordFloor = Math.round(targetWords * 0.85);
-    const wordCeiling = Math.round(targetWords * 1.15);
+    const tolerance = migrationMode ? 0.20 : 0.15;
+    const wordFloor = Math.round(targetWords * (1 - tolerance));
+    const wordCeiling = Math.round(targetWords * (1 + tolerance));
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
