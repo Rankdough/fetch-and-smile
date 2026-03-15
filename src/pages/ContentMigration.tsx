@@ -244,13 +244,13 @@ export default function ContentMigration() {
     const hasSeoTitle = !!result.seoTitle?.trim();
     const hasSeoDesc = !!result.seoDescription?.trim();
     const hasContent = htmlContent.length > 100;
-    const hasNL = !!result.contentNL?.trim();
-    const hasDE = !!result.contentDE?.trim();
+    const hasNL = englishOnly || !!result.contentNL?.trim();
+    const hasDE = englishOnly || !!result.contentDE?.trim();
     const exportPassed = hasTitle && hasSeoTitle && hasSeoDesc && hasContent && hasNL && hasDE;
     checks.push({
       label: "Excel Export Ready",
       passed: exportPassed,
-      detail: exportPassed ? "All fields populated (EN, NL, DE)" : `Missing: ${[
+      detail: exportPassed ? (englishOnly ? "All fields populated (EN only)" : "All fields populated (EN, NL, DE)") : `Missing: ${[
         !hasTitle && "Title",
         !hasSeoTitle && "SEO Title",
         !hasSeoDesc && "SEO Description",
