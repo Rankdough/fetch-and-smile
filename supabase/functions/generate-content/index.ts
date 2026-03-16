@@ -86,8 +86,15 @@ serve(async (req) => {
       }
     }
 
+    // For migration mode with low word targets, auto-skip heavy structural sections
+    // that are physically impossible to fit within the budget
+    if (migrationMode && targetWords <= 500) {
+      console.log(`Migration compact mode: target ${targetWords} words. Auto-skipping FAQ, References, expert quote for compact article.`);
+    }
+    const compactMigration = migrationMode && targetWords <= 500;
+
     // Calculate required tables based on word count (relaxed for migration)
-    const requiredTables = migrationMode ? 1 : (targetWords >= 3000 ? 4 : targetWords >= 2000 ? 3 : 1);
+    const requiredTables = compactMigration ? 0 : (migrationMode ? 1 : (targetWords >= 3000 ? 4 : targetWords >= 2000 ? 3 : 1));
     
     // Build the prompt
     let systemPrompt = `You are an expert SEO content writer. Write high-quality, engaging blog posts optimized for search engines while remaining valuable and readable.
