@@ -2774,7 +2774,6 @@ const Index = () => {
                 }
                 
                 // Add CTA banners only when content does not already contain inline CTA banners
-                const hasInlineCtaBanners = /data-cta-banner="true"/i.test(finalHtml);
                 if (generatedCTAs && ctaUrl && !hasInlineCtaBanners) {
                   // Add middle CTA at ~40% of content
                   const h2Matches = [...finalHtml.matchAll(/<h2[^>]*>/gi)];
