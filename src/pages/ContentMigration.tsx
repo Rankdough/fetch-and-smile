@@ -400,7 +400,7 @@ export default function ContentMigration() {
       label: "HTML Formatting",
       passed: htmlPassed,
       detail: htmlPassed
-        ? (hasInlineStyles ? "Styled HTML with inline CSS, headings intact" : "Compact semantic HTML fallback (unstyled) for Excel safety")
+        ? "Styled HTML with inline CSS, headings intact"
         : `Issues: ${[
           !hasStyledHtml && "Not HTML",
           !hasH2Tags && !hasParagraphs && "No body content tags",
