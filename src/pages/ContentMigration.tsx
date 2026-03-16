@@ -723,14 +723,12 @@ ${sourceHtml.substring(0, 8000)}`;
         );
       };
 
-      let generatedMarkdown = "";
       let title = pageTitle;
       let subtitle = "";
       let seoTitle = "";
       let seoDescription = "";
       let endCtaHtml = "";
       let contentEnHtml = "";
-      let effectiveWordBudget = targetWordCount;
 
       // Single generation pass - no futile regeneration loop.
       // Word count is now enforced deterministically in the backend.
