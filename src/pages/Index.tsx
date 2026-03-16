@@ -699,6 +699,10 @@ const Index = () => {
   useEffect(() => {
     localStorage.setItem("seo-generator-skipSources", JSON.stringify(skipSources));
   }, [skipSources]);
+
+  useEffect(() => {
+    localStorage.setItem("seo-generator-generateFaqSchema", JSON.stringify(generateFaqSchema));
+  }, [generateFaqSchema]);
   
   useEffect(() => {
     if (selectedToneProfileId) {
