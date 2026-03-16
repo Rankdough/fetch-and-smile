@@ -2804,6 +2804,23 @@ const Index = () => {
                   }
                 }
                 
+                // Append FAQ JSON-LD schema if enabled
+                if (generateFaqSchema && faqItems.length > 0) {
+                  const faqSchema = {
+                    "@context": "https://schema.org",
+                    "@type": "FAQPage",
+                    "mainEntity": faqItems.map(item => ({
+                      "@type": "Question",
+                      "name": item.question,
+                      "acceptedAnswer": {
+                        "@type": "Answer",
+                        "text": item.answer
+                      }
+                    }))
+                  };
+                  finalHtml += `\n<script type="application/ld+json">\n${JSON.stringify(faqSchema, null, 2)}\n</script>`;
+                }
+                
                 // Copy to clipboard
                 navigator.clipboard.writeText(finalHtml).then(() => {
                   toast({
