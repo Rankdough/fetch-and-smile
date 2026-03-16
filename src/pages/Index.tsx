@@ -2452,18 +2452,23 @@ const Index = () => {
                     const nextSibling = h.nextElementSibling;
                     if (nextSibling && nextSibling.tagName === 'UL') {
                       nextSibling.setAttribute('style', `background: ${panelBg}; color: ${panelText}; border-left: 4px solid ${primaryColor}; padding: 16px 24px 16px 40px; margin: 0 0 24px 0; border-radius: 0 0 8px 0; list-style-type: disc;`);
-                      // Also clean up LI items inside TL;DR to remove double bullets
+                      nextSibling.setAttribute('data-tldr-styled', 'true');
                       nextSibling.querySelectorAll('li').forEach((li) => {
                         li.setAttribute('style', `margin: 8px 0; line-height: 1.6; color: ${panelText};`);
-                        // Clean text content of double dashes/bullets
+                        li.setAttribute('data-tldr-styled', 'true');
                         if (li.innerHTML) {
                           li.innerHTML = li.innerHTML.replace(/^[\s]*[-–—•]\s*[-–—]?\s*/i, '');
                         }
                       });
                     }
-                    // Also handle if next sibling is a paragraph (some TL;DR use paragraph instead of list)
-                    if (nextSibling && nextSibling.tagName === 'P') {
-                      nextSibling.setAttribute('style', `background: ${panelBg}; color: ${panelText}; border-left: 4px solid ${primaryColor}; padding: 16px 24px; margin: 0 0 24px 0; border-radius: 0 0 8px 0; line-height: 1.7;`);
+                    // Handle all consecutive paragraphs after TL;DR heading
+                    let sibling = h.nextElementSibling;
+                    while (sibling && sibling.tagName === 'P') {
+                      const nextAfter = sibling.nextElementSibling;
+                      const isLast = !nextAfter || nextAfter.tagName !== 'P';
+                      sibling.setAttribute('style', `background: ${panelBg}; color: ${panelText}; border-left: 4px solid ${primaryColor}; padding: 16px 24px; margin: 0 0 ${isLast ? '24px' : '0'} 0; border-radius: ${isLast ? '0 0 8px 0' : '0'}; line-height: 1.7;`);
+                      sibling.setAttribute('data-tldr-styled', 'true');
+                      sibling = nextAfter;
                     }
                   } else {
                     // Regular H2 - only margins, inherit everything else (+ dark color if needed)
@@ -2499,8 +2504,9 @@ const Index = () => {
                   h.removeAttribute('class');
                 });
                 
-                // Style paragraphs
+                // Style paragraphs - skip those already styled as TL;DR siblings
                 clone.querySelectorAll('p').forEach((p) => {
+                  if (p.hasAttribute('data-tldr-styled')) return;
                   p.setAttribute('style', `margin: 0 0 16px 0; line-height: 1.7; color: ${bodyText};`);
                   p.removeAttribute('class');
                 });
@@ -2657,6 +2663,9 @@ const Index = () => {
                   divsToUnwrap = clone.querySelectorAll('div:not([data-preserve-cta]):not([data-cta-banner])');
                 }
                 
+                // Check for inline CTA banners BEFORE stripping data attributes
+                const hasInlineCtaBanners = !!clone.querySelector('[data-cta-banner]');
+                
                 // Remove all remaining class and data attributes
                 clone.querySelectorAll('*').forEach((el) => {
                   el.removeAttribute('class');
@@ -2685,13 +2694,36 @@ const Index = () => {
                 // Remove any remaining class attributes that DOM manipulation might have missed
                 htmlContent = htmlContent.replace(/\s+class="[^"]*"/gi, '');
                 
-                // Check for inline CTA banners BEFORE stripping data attributes
-                const hasInlineCtaBanners = /data-cta-banner="true"/i.test(htmlContent);
-                
-                htmlContent = htmlContent.replace(/\s+data-[a-z-]+="[^"]*"/gi, '');
-                
                 // Remove any stray React-specific attributes
                 htmlContent = htmlContent.replace(/\s+node="[^"]*"/gi, '');
+                
+                // Strip data attributes from the string now
+                htmlContent = htmlContent.replace(/\s+data-[a-z-]+="[^"]*"/gi, '');
+                
+                // Remove duplicate TL;DR / Quick Tips sections that appear after Final Thoughts
+                // The AI sometimes generates these at both top and bottom of the article
+                const finalThoughtsPos = htmlContent.search(/<h2[^>]*>.*?Final Thoughts.*?<\/h2>/i);
+                if (finalThoughtsPos > -1) {
+                  const beforeFT = htmlContent.slice(0, finalThoughtsPos);
+                  let afterFT = htmlContent.slice(finalThoughtsPos);
+                  // Find the end of the Final Thoughts section (next H2 or end)
+                  const nextH2InAfter = afterFT.match(/<h2[^>]*>/gi);
+                  if (nextH2InAfter && nextH2InAfter.length > 1) {
+                    // There's content after Final Thoughts paragraph - check for duplicate structural sections
+                    // Remove any TL;DR sections after Final Thoughts
+                    afterFT = afterFT.replace(/(<h2[^>]*>[\s\S]*?TL;?DR[\s\S]*?<\/h2>[\s\S]*?)(?=<h2|$)/gi, (match, _p1, offset) => {
+                      // Only remove if it's NOT the first H2 (which is Final Thoughts itself)
+                      if (offset > 0) return '';
+                      return match;
+                    });
+                    // Remove duplicate Quick Tips after Final Thoughts
+                    afterFT = afterFT.replace(/(<h2[^>]*>[\s\S]*?Quick\s*Tips[\s\S]*?<\/h2>(?:\s*<blockquote[\s\S]*?<\/blockquote>)*)/gi, (match, _p1, offset) => {
+                      if (offset > 0) return '';
+                      return match;
+                    });
+                  }
+                  htmlContent = beforeFT + afterFT;
+                }
                 
                 // Build final HTML with navigation, content, FAQ, and CTAs in correct order
                 let finalHtml = '';
