@@ -2684,6 +2684,10 @@ const Index = () => {
                 
                 // Remove any remaining class attributes that DOM manipulation might have missed
                 htmlContent = htmlContent.replace(/\s+class="[^"]*"/gi, '');
+                
+                // Check for inline CTA banners BEFORE stripping data attributes
+                const hasInlineCtaBanners = /data-cta-banner="true"/i.test(htmlContent);
+                
                 htmlContent = htmlContent.replace(/\s+data-[a-z-]+="[^"]*"/gi, '');
                 
                 // Remove any stray React-specific attributes
@@ -2726,7 +2730,8 @@ const Index = () => {
                 let lastTipEndPos = -1;
                 
                 allBlockquotes.forEach((match) => {
-                  if (/Tip\s*\d/i.test(match[0])) {
+                  // Match both raw "Tip N" text AND styled tip blockquotes (circle spans with inline-flex)
+                  if (/Tip\s*\d/i.test(match[0]) || /inline-flex.*28px.*28px.*border-radius:\s*50%/i.test(match[0])) {
                     lastTipEndPos = (match.index || 0) + match[0].length;
                   }
                 });
@@ -2738,7 +2743,8 @@ const Index = () => {
                   finalHtml = beforeNav + generateNavigationHtml(navItems, selectedColorPalette) + afterNav;
                 } else if (!skipNavigation) {
                   // Fallback: insert after TL;DR section
-                  const tldrMatch = cleanedHtmlContent.match(/(<h2[^>]*>.*?TL;?DR.*?<\/h2>[\s\S]*?<\/ul>)/i);
+                  // Try matching TL;DR followed by list or paragraph
+                  const tldrMatch = cleanedHtmlContent.match(/(<h2[^>]*>.*?TL;?DR.*?<\/h2>[\s\S]*?<\/(?:ul|p)>)/i);
                   if (tldrMatch && navItems.length > 0) {
                     const tldrEndIndex = cleanedHtmlContent.indexOf(tldrMatch[0]) + tldrMatch[0].length;
                     const beforeNav = cleanedHtmlContent.slice(0, tldrEndIndex);
@@ -2770,7 +2776,6 @@ const Index = () => {
                 }
                 
                 // Add CTA banners only when content does not already contain inline CTA banners
-                const hasInlineCtaBanners = /data-cta-banner="true"/i.test(finalHtml);
                 if (generatedCTAs && ctaUrl && !hasInlineCtaBanners) {
                   // Add middle CTA at ~40% of content
                   const h2Matches = [...finalHtml.matchAll(/<h2[^>]*>/gi)];
