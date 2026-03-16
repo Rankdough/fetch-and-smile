@@ -146,11 +146,33 @@ All colors MUST be HSL.
   @apply pl-10 pr-4 py-4 rounded-br-lg mt-0 mb-6;
 }
 
-/* Also support TL;DR followed by paragraph instead of list */
+/* Also support TL;DR followed by paragraph(s) instead of list */
 .prose h2#tldr + p,
 .prose h2[id*="tldr"] + p,
 .prose h3#tldr + p,
 .prose h3[id*="tldr"] + p {
+  background-color: var(--brand-panel-bg, hsl(var(--tldr-bg)));
+  border-left: 4px solid hsl(var(--tldr-border));
+  color: var(--brand-panel-text, hsl(var(--foreground)));
+  @apply pl-4 pr-4 py-4 rounded-br-lg mt-0 mb-0;
+}
+
+/* Handle consecutive paragraphs in TL;DR section */
+.prose h2#tldr + p + p,
+.prose h2[id*="tldr"] + p + p,
+.prose h3#tldr + p + p,
+.prose h3[id*="tldr"] + p + p {
+  background-color: var(--brand-panel-bg, hsl(var(--tldr-bg)));
+  border-left: 4px solid hsl(var(--tldr-border));
+  color: var(--brand-panel-text, hsl(var(--foreground)));
+  @apply pl-4 pr-4 py-4 rounded-br-lg mt-0 mb-0;
+}
+
+/* Third consecutive paragraph in TL;DR */
+.prose h2#tldr + p + p + p,
+.prose h2[id*="tldr"] + p + p + p,
+.prose h3#tldr + p + p + p,
+.prose h3[id*="tldr"] + p + p + p {
   background-color: var(--brand-panel-bg, hsl(var(--tldr-bg)));
   border-left: 4px solid hsl(var(--tldr-border));
   color: var(--brand-panel-text, hsl(var(--foreground)));
