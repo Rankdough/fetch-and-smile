@@ -2684,6 +2684,10 @@ const Index = () => {
                 
                 // Remove any remaining class attributes that DOM manipulation might have missed
                 htmlContent = htmlContent.replace(/\s+class="[^"]*"/gi, '');
+                
+                // Check for inline CTA banners BEFORE stripping data attributes
+                const hasInlineCtaBanners = /data-cta-banner="true"/i.test(htmlContent);
+                
                 htmlContent = htmlContent.replace(/\s+data-[a-z-]+="[^"]*"/gi, '');
                 
                 // Remove any stray React-specific attributes
