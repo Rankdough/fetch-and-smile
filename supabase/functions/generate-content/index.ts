@@ -486,6 +486,7 @@ CRITICAL RULES:
 - Return the FULL article from # title through the ending section
 - Do NOT output partial content
 - Keep headings and structure intact
+- PRESERVE ALL MARKDOWN TABLES exactly as they are - do NOT remove or simplify any table
 - End with a complete sentence
 - Return markdown only
 
