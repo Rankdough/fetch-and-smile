@@ -550,7 +550,7 @@ ${sourceHtml.substring(0, 8000)}`;
 
       const renderFullHtml = (markdown: string, ctaHtml: string) => {
         const styled = markdownToStyledHtml(markdown, palette, convertOpts);
-        return compactHtmlForExcelLimit(ctaHtml ? styled + ctaHtml : styled);
+        return ctaHtml ? styled + ctaHtml : styled;
       };
 
       const generateMarkdownPass = async (wordBudget: number) => {
