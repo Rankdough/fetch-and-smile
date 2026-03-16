@@ -230,9 +230,7 @@ export default function ContentMigration() {
     checks.push({
       label: "HTML Formatting",
       passed: htmlPassed,
-      detail: htmlPassed
-        ? (hasInline ? "Styled HTML with inline CSS, headings intact" : "Compact semantic HTML fallback (unstyled) for Excel safety")
-        : "Issues detected",
+      detail: htmlPassed ? "Styled HTML with inline CSS, headings intact" : "Issues detected",
     });
 
     const hasTitle = !!result.title?.trim();
