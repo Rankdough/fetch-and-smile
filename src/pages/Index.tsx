@@ -2663,6 +2663,9 @@ const Index = () => {
                   divsToUnwrap = clone.querySelectorAll('div:not([data-preserve-cta]):not([data-cta-banner])');
                 }
                 
+                // Check for inline CTA banners BEFORE stripping data attributes
+                const hasInlineCtaBanners = !!clone.querySelector('[data-cta-banner]');
+                
                 // Remove all remaining class and data attributes
                 clone.querySelectorAll('*').forEach((el) => {
                   el.removeAttribute('class');
@@ -2690,11 +2693,6 @@ const Index = () => {
                 
                 // Remove any remaining class attributes that DOM manipulation might have missed
                 htmlContent = htmlContent.replace(/\s+class="[^"]*"/gi, '');
-                
-                // Check for inline CTA banners BEFORE stripping data attributes
-                const hasInlineCtaBanners = /data-cta-banner="true"/i.test(htmlContent);
-                
-                htmlContent = htmlContent.replace(/\s+data-[a-z-]+="[^"]*"/gi, '');
                 
                 // Remove any stray React-specific attributes
                 htmlContent = htmlContent.replace(/\s+node="[^"]*"/gi, '');
