@@ -126,6 +126,9 @@ export function markdownToStyledHtml(
 
   // Style paragraphs
   container.querySelectorAll("p").forEach((p) => {
+    // Skip paragraphs already styled as part of TL;DR section
+    const existingStyle = p.getAttribute("style") || "";
+    if (existingStyle.includes("border-left") && existingStyle.includes(panelBg)) return;
     p.setAttribute("style", `margin: 0 0 16px 0; line-height: 1.7; color: ${bodyText};`);
     p.removeAttribute("class");
   });
