@@ -92,14 +92,20 @@ export function markdownToStyledHtml(
 
     if (isTldr) {
       h.setAttribute("style", `background: ${panelBg}; color: ${panelText}; border-left: 4px solid ${primaryColor}; padding: 12px 16px; margin: 24px 0 0 0; border-radius: 0 8px 0 0;`);
-      const nextSibling = h.nextElementSibling;
-      if (nextSibling && nextSibling.tagName === "UL") {
-        nextSibling.setAttribute("style", `background: ${panelBg}; color: ${panelText}; border-left: 4px solid ${primaryColor}; padding: 16px 24px 16px 40px; margin: 0 0 24px 0; border-radius: 0 0 8px 0; list-style-type: disc;`);
-        nextSibling.querySelectorAll("li").forEach((li) => {
+      let sibling = h.nextElementSibling;
+      if (sibling && sibling.tagName === "UL") {
+        sibling.setAttribute("style", `background: ${panelBg}; color: ${panelText}; border-left: 4px solid ${primaryColor}; padding: 16px 24px 16px 40px; margin: 0 0 24px 0; border-radius: 0 0 8px 0; list-style-type: disc;`);
+        sibling.querySelectorAll("li").forEach((li) => {
           li.setAttribute("style", `margin: 8px 0; line-height: 1.6; color: ${panelText};`);
         });
-      } else if (nextSibling && nextSibling.tagName === "P") {
-        nextSibling.setAttribute("style", `background: ${panelBg}; color: ${panelText}; border-left: 4px solid ${primaryColor}; padding: 16px 24px; margin: 0 0 24px 0; border-radius: 0 0 8px 0; line-height: 1.7;`);
+      } else {
+        // Style all consecutive paragraphs after TL;DR
+        while (sibling && sibling.tagName === "P") {
+          const nextAfter = sibling.nextElementSibling;
+          const isLast = !nextAfter || nextAfter.tagName !== "P";
+          sibling.setAttribute("style", `background: ${panelBg}; color: ${panelText}; border-left: 4px solid ${primaryColor}; padding: 16px 24px; margin: 0 0 ${isLast ? "24px" : "0"} 0; border-radius: ${isLast ? "0 0 8px 0" : "0"}; line-height: 1.7;`);
+          sibling = nextAfter;
+        }
       }
     } else if (isQuickTips) {
       h.setAttribute("style", `margin: 32px 0 16px 0; ${headingColor}`);
