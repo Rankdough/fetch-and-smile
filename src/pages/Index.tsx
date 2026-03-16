@@ -540,6 +540,10 @@ const Index = () => {
     const saved = localStorage.getItem("seo-generator-skipSources");
     return saved !== null ? JSON.parse(saved) : false;
   });
+  const [generateFaqSchema, setGenerateFaqSchema] = useState(() => {
+    const saved = localStorage.getItem("seo-generator-generateFaqSchema");
+    return saved !== null ? JSON.parse(saved) : false;
+  });
   const [isEditMode, setIsEditMode] = useState(false);
   const [useFirstPerson, setUseFirstPerson] = useState<boolean>(() => {
     return localStorage.getItem("seo-generator-useFirstPerson") === "true";
@@ -695,6 +699,10 @@ const Index = () => {
   useEffect(() => {
     localStorage.setItem("seo-generator-skipSources", JSON.stringify(skipSources));
   }, [skipSources]);
+
+  useEffect(() => {
+    localStorage.setItem("seo-generator-generateFaqSchema", JSON.stringify(generateFaqSchema));
+  }, [generateFaqSchema]);
   
   useEffect(() => {
     if (selectedToneProfileId) {
@@ -2796,6 +2804,23 @@ const Index = () => {
                   }
                 }
                 
+                // Append FAQ JSON-LD schema if enabled
+                if (generateFaqSchema && faqItems.length > 0) {
+                  const faqSchema = {
+                    "@context": "https://schema.org",
+                    "@type": "FAQPage",
+                    "mainEntity": faqItems.map(item => ({
+                      "@type": "Question",
+                      "name": item.question,
+                      "acceptedAnswer": {
+                        "@type": "Answer",
+                        "text": item.answer
+                      }
+                    }))
+                  };
+                  finalHtml += `\n<script type="application/ld+json">\n${JSON.stringify(faqSchema, null, 2)}\n</script>`;
+                }
+                
                 // Copy to clipboard
                 navigator.clipboard.writeText(finalHtml).then(() => {
                   toast({
@@ -3988,6 +4013,21 @@ const Index = () => {
                       id="skip-sources"
                       checked={skipSources}
                       onCheckedChange={setSkipSources}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <label htmlFor="generate-faq-schema" className="text-sm font-medium">
+                        Generate FAQ Schema (JSON-LD)
+                      </label>
+                      <p className="text-xs text-muted-foreground">
+                        Append FAQPage structured data script to the exported HTML for rich results
+                      </p>
+                    </div>
+                    <Switch
+                      id="generate-faq-schema"
+                      checked={generateFaqSchema}
+                      onCheckedChange={setGenerateFaqSchema}
                     />
                   </div>
                 </div>
