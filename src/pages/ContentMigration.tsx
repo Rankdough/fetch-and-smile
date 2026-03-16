@@ -730,6 +730,7 @@ ${sourceHtml.substring(0, 8000)}`;
         }
 
         contentEnHtml = renderFullHtml(generatedMarkdown, endCtaHtml);
+        contentEnHtml = compactHtmlForExcelLimit(contentEnHtml);
         const payloadChars = getExcelCellPayloadLength(contentEnHtml);
 
         if (payloadChars <= EXCEL_CELL_LIMIT) {
@@ -740,7 +741,12 @@ ${sourceHtml.substring(0, 8000)}`;
         }
 
         if (pass === 3) {
-          throw new Error(`EN content exceeds Excel cell limit with full formatting (${payloadChars}/${EXCEL_CELL_LIMIT}).`);
+          // Hard truncate as absolute last resort — content will exist but may be cut
+          console.error(`[Migration] EN STILL over limit after 3 passes + compaction (${payloadChars}/${EXCEL_CELL_LIMIT}). Hard-truncating.`);
+          const escaped = escapeSpreadsheetXml(contentEnHtml);
+          const truncated = escaped.substring(0, EXCEL_CELL_LIMIT);
+          contentEnHtml = truncated.replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"');
+          break;
         }
 
         const markdownWords = generatedMarkdown.split(/\s+/).filter(Boolean).length;
