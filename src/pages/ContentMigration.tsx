@@ -107,6 +107,8 @@ export default function ContentMigration() {
   const [toneProfiles, setToneProfiles] = useState<Array<{ id: string; name: string }>>([]);
 
   const EXCEL_CELL_LIMIT = 32767;
+  const EXCEL_SAFE_TARGET = 32000;
+  const MAX_EXCEL_FIT_PASSES = 6;
 
   const escapeSpreadsheetXml = (val: string): string =>
     String(val ?? "")
@@ -175,58 +177,25 @@ export default function ContentMigration() {
 
     let current = minifyHtmlForExport(html);
 
-    // Deduplicate repeated disclosure-style blocks
-    let seenDisclosure = false;
-    current = current.replace(/<style>[^<]*details\[open\][^<]*<\/style>/gi, () => {
-      if (seenDisclosure) return "";
-      seenDisclosure = true;
-      return "<style>details[open] summary svg{transform:rotate(180deg)}details summary::-webkit-details-marker{display:none}</style>";
+    // Keep full article structure, only remove duplicated CSS blocks.
+    const seenStyleBlocks = new Set<string>();
+    current = current.replace(/<style>([\s\S]*?)<\/style>/gi, (full, css) => {
+      const normalizedCss = String(css || "").replace(/\s+/g, " ").trim();
+      if (!normalizedCss) return "";
+      if (seenStyleBlocks.has(normalizedCss)) return "";
+      seenStyleBlocks.add(normalizedCss);
+      return `<style>${normalizedCss}</style>`;
     });
 
-    // If within limit, return as-is with full formatting
-    if (getExcelCellPayloadLength(current) <= EXCEL_CELL_LIMIT) return current;
-
-    // Progressive compaction: strip heaviest sections first
-
-    // 1. Strip "In This Article" navigation (biggest payload hog ~5-10K chars)
-    current = current.replace(/<div[^>]*>(?:<div[^>]*>)*\s*<h4[^>]*>[^<]*In\s*This\s*Article[^<]*<\/h4>[\s\S]*?(?:<\/details>\s*)*<\/div>\s*<\/div>/gi, "");
-    console.log(`[ExcelCompact] After stripping nav: ${getExcelCellPayloadLength(current)} chars`);
-    if (getExcelCellPayloadLength(current) <= EXCEL_CELL_LIMIT) return current;
-
-    // 2. Strip FAQ section (~4-8K chars)
-    current = current.replace(/<div[^>]*>(?:<div[^>]*>)*\s*<h4[^>]*>[^<]*Frequently\s*Asked[^<]*<\/h4>[\s\S]*?(?:<\/details>\s*)*<\/div>\s*<\/div>/gi, "");
-    console.log(`[ExcelCompact] After stripping FAQ: ${getExcelCellPayloadLength(current)} chars`);
-    if (getExcelCellPayloadLength(current) <= EXCEL_CELL_LIMIT) return current;
-
-    // 3. Strip CTA banner
-    current = current.replace(/<div[^>]*data-cta-banner="true"[^>]*>[\s\S]*?<\/div>\s*(?:<\/div>)*/gi, "");
-    console.log(`[ExcelCompact] After stripping CTA: ${getExcelCellPayloadLength(current)} chars`);
-    if (getExcelCellPayloadLength(current) <= EXCEL_CELL_LIMIT) return current;
-
-    // 4. Strip Quick Tips blockquotes
-    current = current.replace(/<h2[^>]*>\s*Quick\s*Tips\s*<\/h2>(?:\s*<blockquote[^>]*>[\s\S]*?<\/blockquote>)*/gi, "");
-    console.log(`[ExcelCompact] After stripping Quick Tips: ${getExcelCellPayloadLength(current)} chars`);
-    if (getExcelCellPayloadLength(current) <= EXCEL_CELL_LIMIT) return current;
-
-    // 5. Compress inline styles: shorten verbose style attributes
-    current = current
-      .replace(/;color:#374151/g, "")
-      .replace(/;color:#1f2937/g, "")
-      .replace(/;font-family:inherit/g, "")
-      .replace(/;word-wrap:break-word/g, "")
-      .replace(/margin:0 0 16px 0;/g, "margin:0 0 16px;")
-      .replace(/padding:12px 16px;text-align:left;/g, "padding:12px 16px;")
-      .replace(/display:inline-flex;align-items:center;justify-content:center;/g, "display:inline-flex;align-items:center;")
-      .replace(/stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/g, 'stroke-width="2"')
-      .replace(/<svg[^>]*>[\s\S]*?<\/svg>/gi, "");
-    console.log(`[ExcelCompact] After style compression: ${getExcelCellPayloadLength(current)} chars`);
-    if (getExcelCellPayloadLength(current) <= EXCEL_CELL_LIMIT) return current;
-
-    // 6. Nuclear: strip ALL inline styles
-    current = current.replace(/ style="[^"]*"/g, "");
-    console.log(`[ExcelCompact] After stripping all styles: ${getExcelCellPayloadLength(current)} chars`);
-
     return current;
+  };
+
+  const prepareHtmlForExcel = (html: string) => {
+    const compacted = compactHtmlForExcelLimit(html);
+    return {
+      html: compacted,
+      payloadChars: getExcelCellPayloadLength(compacted),
+    };
   };
 
   // Load tone profiles
@@ -292,11 +261,11 @@ export default function ContentMigration() {
       englishOnly ? 0 : getExcelCellPayloadLength(compactHtmlForExcelLimit(result.contentNL || "")),
       englishOnly ? 0 : getExcelCellPayloadLength(compactHtmlForExcelLimit(result.contentDE || "")),
     );
-    const cellLimitPassed = maxContentCellChars <= EXCEL_CELL_LIMIT;
+    const cellLimitPassed = maxContentCellChars <= EXCEL_SAFE_TARGET;
     checks.push({
       label: "Excel Cell Limit",
       passed: cellLimitPassed,
-      detail: `Max escaped cell payload: ${maxContentCellChars}/${EXCEL_CELL_LIMIT} chars`,
+      detail: `Max escaped cell payload: ${maxContentCellChars}/${EXCEL_SAFE_TARGET} chars target (hard cap: ${EXCEL_CELL_LIMIT})`,
     });
 
     const exportPassed = hasTitle && hasSeoTitle && hasSeoDesc && hasContent && hasNL && hasDE && cellLimitPassed;
@@ -468,11 +437,11 @@ export default function ContentMigration() {
       englishOnly ? 0 : getExcelCellPayloadLength(compactHtmlForExcelLimit(result.contentNL || "")),
       englishOnly ? 0 : getExcelCellPayloadLength(compactHtmlForExcelLimit(result.contentDE || "")),
     );
-    const cellLimitPassed = maxContentCellChars <= EXCEL_CELL_LIMIT;
+    const cellLimitPassed = maxContentCellChars <= EXCEL_SAFE_TARGET;
     checks.push({
       label: "Excel Cell Limit",
       passed: cellLimitPassed,
-      detail: `Max escaped cell payload: ${maxContentCellChars}/${EXCEL_CELL_LIMIT} chars`,
+      detail: `Max escaped cell payload: ${maxContentCellChars}/${EXCEL_SAFE_TARGET} chars target (hard cap: ${EXCEL_CELL_LIMIT})`,
     });
 
     const exportPassed = hasTitle && hasSeoTitle && hasSeoDesc && hasContent && hasNL && hasDE && cellLimitPassed;
@@ -486,7 +455,7 @@ export default function ContentMigration() {
         !hasContent && "Content",
         !hasNL && "NL Translation",
         !hasDE && "DE Translation",
-        !cellLimitPassed && `Cell > ${EXCEL_CELL_LIMIT} chars`,
+        !cellLimitPassed && `Cell > ${EXCEL_SAFE_TARGET} chars target`,
       ].filter(Boolean).join(", ")}`,
     });
 
@@ -581,7 +550,7 @@ ${sourceHtml.substring(0, 8000)}`;
 
       const renderFullHtml = (markdown: string, ctaHtml: string) => {
         const styled = markdownToStyledHtml(markdown, palette, convertOpts);
-        return compactHtmlForExcelLimit(ctaHtml ? styled + ctaHtml : styled);
+        return ctaHtml ? styled + ctaHtml : styled;
       };
 
       const generateMarkdownPass = async (wordBudget: number) => {
@@ -716,7 +685,7 @@ ${sourceHtml.substring(0, 8000)}`;
       let contentEnHtml = "";
       let effectiveWordBudget = targetWordCount;
 
-      for (let pass = 1; pass <= 3; pass++) {
+      for (let pass = 1; pass <= MAX_EXCEL_FIT_PASSES; pass++) {
         const generated = await generateMarkdownPass(effectiveWordBudget);
         generatedMarkdown = generated.markdown;
         title = generated.title;
@@ -729,36 +698,32 @@ ${sourceHtml.substring(0, 8000)}`;
           console.log("[Migration] CTA generated for end of article");
         }
 
-        contentEnHtml = renderFullHtml(generatedMarkdown, endCtaHtml);
-        contentEnHtml = compactHtmlForExcelLimit(contentEnHtml);
-        const payloadChars = getExcelCellPayloadLength(contentEnHtml);
+        const rendered = renderFullHtml(generatedMarkdown, endCtaHtml);
+        const { html: preparedHtml, payloadChars } = prepareHtmlForExcel(rendered);
+        contentEnHtml = preparedHtml;
 
-        if (payloadChars <= EXCEL_CELL_LIMIT) {
+        if (payloadChars <= EXCEL_SAFE_TARGET) {
           if (pass > 1) {
-            console.warn(`[Migration] EN fit after pass ${pass} (${payloadChars}/${EXCEL_CELL_LIMIT}) with word budget ${effectiveWordBudget}`);
+            console.warn(`[Migration] EN fit after pass ${pass} (${payloadChars}/${EXCEL_SAFE_TARGET}) with word budget ${effectiveWordBudget}`);
           }
           break;
         }
 
-        if (pass === 3) {
-          // Hard truncate as absolute last resort — content will exist but may be cut
-          console.error(`[Migration] EN STILL over limit after 3 passes + compaction (${payloadChars}/${EXCEL_CELL_LIMIT}). Hard-truncating.`);
-          const escaped = escapeSpreadsheetXml(contentEnHtml);
-          const truncated = escaped.substring(0, EXCEL_CELL_LIMIT);
-          contentEnHtml = truncated.replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"');
-          break;
+        if (pass === MAX_EXCEL_FIT_PASSES) {
+          throw new Error(`Unable to fit full HTML under ${EXCEL_SAFE_TARGET} chars without truncation. Last payload: ${payloadChars}.`);
         }
 
+        const ratio = EXCEL_SAFE_TARGET / payloadChars;
         const markdownWords = generatedMarkdown.split(/\s+/).filter(Boolean).length;
-        const ratioBudget = Math.floor(effectiveWordBudget * (EXCEL_CELL_LIMIT / payloadChars) * 0.9);
-        const contentBudget = Math.floor(Math.min(markdownWords, effectiveWordBudget) * 0.82);
-        const nextBudget = Math.max(180, Math.min(ratioBudget, contentBudget, effectiveWordBudget - 40));
+        const ratioBudget = Math.floor(effectiveWordBudget * ratio * 0.9);
+        const markdownBudget = Math.floor(markdownWords * 0.9);
+        const nextBudget = Math.max(220, Math.min(ratioBudget, markdownBudget, effectiveWordBudget - 80));
 
-        effectiveWordBudget = nextBudget < effectiveWordBudget ? nextBudget : Math.max(180, effectiveWordBudget - 60);
-        console.warn(`[Migration] EN exceeded Excel limit (${payloadChars}/${EXCEL_CELL_LIMIT}). Retrying with reduced word budget ${effectiveWordBudget}.`);
+        effectiveWordBudget = nextBudget < effectiveWordBudget ? nextBudget : Math.max(220, effectiveWordBudget - 120);
+        console.warn(`[Migration] EN exceeded safe target (${payloadChars}/${EXCEL_SAFE_TARGET}). Retrying with reduced word budget ${effectiveWordBudget}.`);
       }
 
-      if (!generatedMarkdown.trim()) {
+      if (!generatedMarkdown.trim() || !contentEnHtml.trim()) {
         throw new Error("No content generated after Excel-safe retries");
       }
 
@@ -780,23 +745,18 @@ ${sourceHtml.substring(0, 8000)}`;
         console.log("[Migration] Step 3: Skipping translations (English Only mode)");
       }
 
-      // === STEP 4: Convert Markdown → styled HTML (full formatting, hard Excel cap) ===
+      // === STEP 4: Convert Markdown → styled HTML (full formatting, no destructive truncation) ===
       console.log("[Migration] Step 4: Converting markdown to styled HTML");
 
       const toExcelSafeHtml = (markdown: string, locale: "EN" | "NL" | "DE") => {
-        const candidate = renderFullHtml(markdown, endCtaHtml);
-        // compactHtmlForExcelLimit already handles progressive stripping
-        const safe = compactHtmlForExcelLimit(candidate);
-        const finalLen = getExcelCellPayloadLength(safe);
-        if (finalLen > EXCEL_CELL_LIMIT) {
-          console.error(`[Migration] ${locale} STILL over limit after all compaction: ${finalLen}/${EXCEL_CELL_LIMIT}. Hard-truncating.`);
-          // Hard truncate the raw HTML as absolute last resort
-          const escaped = escapeSpreadsheetXml(safe);
-          const truncated = escaped.substring(0, EXCEL_CELL_LIMIT);
-          // Unescape back — won't be perfect HTML but won't overflow Excel
-          return truncated.replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"');
+        const rendered = renderFullHtml(markdown, endCtaHtml);
+        const { html: preparedHtml, payloadChars } = prepareHtmlForExcel(rendered);
+
+        if (payloadChars > EXCEL_CELL_LIMIT) {
+          console.warn(`[Migration] ${locale} payload over Excel hard limit: ${payloadChars}/${EXCEL_CELL_LIMIT}. Keeping full HTML (export check will flag).`);
         }
-        return safe;
+
+        return preparedHtml;
       };
 
       const data: MigrationResult = {
@@ -953,7 +913,7 @@ ${sourceHtml.substring(0, 8000)}`;
       const dePayload = getExcelCellPayloadLength(contentDe);
 
       maxContentCellChars = Math.max(maxContentCellChars, enPayload, nlPayload, dePayload);
-      if (maxContentCellChars > EXCEL_CELL_LIMIT) exceedsCellLimit = true;
+      if (maxContentCellChars > EXCEL_SAFE_TARGET) exceedsCellLimit = true;
 
       return [
         r.type ?? "", (r.imageUrls || [])[0] || "", r.url ?? "", "",
@@ -967,8 +927,8 @@ ${sourceHtml.substring(0, 8000)}`;
 
     if (exceedsCellLimit) {
       toast({
-        title: "Export blocked: content exceeds Excel cell limit",
-        description: `Max escaped content cell payload is ${maxContentCellChars} chars (limit: ${EXCEL_CELL_LIMIT}). Reduce article size or skip non-essential sections.`,
+        title: "Export blocked: content exceeds safe payload target",
+        description: `Max escaped content cell payload is ${maxContentCellChars} chars (target: ${EXCEL_SAFE_TARGET}, hard cap: ${EXCEL_CELL_LIMIT}). Re-run with lower word count to keep full formatting without truncation.`,
         variant: "destructive",
       });
       return;
