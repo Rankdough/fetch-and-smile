@@ -612,13 +612,96 @@ ${current}`;
     // Remove horizontal rules (---, ***, ___ on their own line)
     content = content.replace(/^\s*[-*_]{3,}\s*$/gm, "");
 
-    // Log word count overshoot for monitoring but do NOT truncate —
-    // truncation causes mid-sentence/mid-section cuts. Rely on prompt + max_tokens instead.
+    // DETERMINISTIC WORD COUNT ENFORCEMENT
+    // If AI couldn't hit the ceiling, trim sections from the bottom up.
     if (!expandExistingContent) {
-      const wordCeiling = Math.round(targetWords * 1.15);
-      const currentWordCount = content.split(/\s+/).filter(Boolean).length;
-      if (currentWordCount > wordCeiling) {
-        console.warn(`Word count overshoot: ${currentWordCount} words vs ${targetWords} target (ceiling ${wordCeiling}). Not truncating to avoid content damage.`);
+      const effectiveCeiling = Math.round(targetWords * (migrationMode ? 1.20 : 1.15));
+      let currentWordCount = countWords(content);
+
+      if (currentWordCount > effectiveCeiling) {
+        console.warn(`Word count overshoot: ${currentWordCount} words vs ${targetWords} target (ceiling ${effectiveCeiling}). Applying deterministic section trimmer.`);
+
+        // Split content into sections by H2 headings
+        const lines = content.split("\n");
+        const sections: { startLine: number; heading: string; lines: string[] }[] = [];
+        let currentSection: { startLine: number; heading: string; lines: string[] } | null = null;
+
+        for (let i = 0; i < lines.length; i++) {
+          const h2Match = lines[i].match(/^##\s+(.+)$/);
+          if (h2Match) {
+            if (currentSection) sections.push(currentSection);
+            currentSection = { startLine: i, heading: h2Match[1], lines: [lines[i]] };
+          } else if (currentSection) {
+            currentSection.lines.push(lines[i]);
+          } else {
+            // Lines before any H2 (H1 + intro)
+            if (!sections.length && !currentSection) {
+              currentSection = { startLine: 0, heading: "__preamble__", lines: [lines[i]] };
+            } else if (currentSection) {
+              currentSection.lines.push(lines[i]);
+            }
+          }
+        }
+        if (currentSection) sections.push(currentSection);
+
+        // Classify sections as removable or protected
+        const protectedPatterns = [/tl;?\s?dr/i, /quick\s*tips/i, /final\s*thoughts/i, /conclusion/i, /in\s*this\s*article/i];
+        const removalPriority = [/references/i, /frequently\s*asked|faq/i, /how\s*to\s*choose/i];
+
+        const isProtected = (heading: string) =>
+          heading === "__preamble__" || protectedPatterns.some(p => p.test(heading));
+
+        // Build removal order: priority sections first, then body H2s from bottom up
+        const priorityRemovals = removalPriority
+          .map(pattern => sections.findIndex(s => pattern.test(s.heading)))
+          .filter(idx => idx !== -1);
+
+        const bodyIndices = sections
+          .map((s, i) => ({ idx: i, heading: s.heading }))
+          .filter(s => !isProtected(s.heading) && !priorityRemovals.includes(s.idx))
+          .map(s => s.idx)
+          .reverse(); // bottom-up
+
+        const removalOrder = [...priorityRemovals, ...bodyIndices];
+        const removedIndices = new Set<number>();
+
+        for (const idx of removalOrder) {
+          if (currentWordCount <= effectiveCeiling) break;
+          const sectionWordCount = countWords(sections[idx].lines.join("\n"));
+          removedIndices.add(idx);
+          currentWordCount -= sectionWordCount;
+          console.log(`Trimmer: removed "${sections[idx].heading}" (${sectionWordCount} words). Now ${currentWordCount} words.`);
+        }
+
+        // Rebuild content from remaining sections
+        if (removedIndices.size > 0) {
+          content = sections
+            .filter((_, i) => !removedIndices.has(i))
+            .map(s => s.lines.join("\n"))
+            .join("\n\n");
+
+          // Final sentence-boundary trim if still over
+          currentWordCount = countWords(content);
+          if (currentWordCount > effectiveCeiling) {
+            const words = content.split(/\s+/);
+            // Find last sentence boundary before ceiling
+            const joined = words.slice(0, effectiveCeiling).join(" ");
+            const lastSentenceEnd = Math.max(
+              joined.lastIndexOf(". "),
+              joined.lastIndexOf(".\n"),
+              joined.lastIndexOf("? "),
+              joined.lastIndexOf("! ")
+            );
+            if (lastSentenceEnd > joined.length * 0.8) {
+              content = joined.substring(0, lastSentenceEnd + 1);
+            } else {
+              content = joined;
+            }
+            console.log(`Trimmer: sentence-boundary trim to ${countWords(content)} words.`);
+          }
+
+          console.log(`Deterministic trimmer: final ${countWords(content)} words (ceiling ${effectiveCeiling}). Removed ${removedIndices.size} section(s).`);
+        }
       }
     }
 
