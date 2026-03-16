@@ -779,13 +779,18 @@ ${sourceHtml.substring(0, 8000)}`;
 
       const toExcelSafeHtml = (markdown: string, locale: "EN" | "NL" | "DE") => {
         const candidate = renderFullHtml(markdown, endCtaHtml);
-        const payloadChars = getExcelCellPayloadLength(candidate);
-
-        if (payloadChars > EXCEL_CELL_LIMIT) {
-          throw new Error(`${locale} content exceeds Excel cell limit with full formatting (${payloadChars}/${EXCEL_CELL_LIMIT}).`);
+        // compactHtmlForExcelLimit already handles progressive stripping
+        const safe = compactHtmlForExcelLimit(candidate);
+        const finalLen = getExcelCellPayloadLength(safe);
+        if (finalLen > EXCEL_CELL_LIMIT) {
+          console.error(`[Migration] ${locale} STILL over limit after all compaction: ${finalLen}/${EXCEL_CELL_LIMIT}. Hard-truncating.`);
+          // Hard truncate the raw HTML as absolute last resort
+          const escaped = escapeSpreadsheetXml(safe);
+          const truncated = escaped.substring(0, EXCEL_CELL_LIMIT);
+          // Unescape back — won't be perfect HTML but won't overflow Excel
+          return truncated.replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"');
         }
-
-        return candidate;
+        return safe;
       };
 
       const data: MigrationResult = {
