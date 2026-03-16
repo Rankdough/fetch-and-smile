@@ -2697,6 +2697,34 @@ const Index = () => {
                 // Remove any stray React-specific attributes
                 htmlContent = htmlContent.replace(/\s+node="[^"]*"/gi, '');
                 
+                // Strip data attributes from the string now
+                htmlContent = htmlContent.replace(/\s+data-[a-z-]+="[^"]*"/gi, '');
+                
+                // Remove duplicate TL;DR / Quick Tips sections that appear after Final Thoughts
+                // The AI sometimes generates these at both top and bottom of the article
+                const finalThoughtsPos = htmlContent.search(/<h2[^>]*>.*?Final Thoughts.*?<\/h2>/i);
+                if (finalThoughtsPos > -1) {
+                  const beforeFT = htmlContent.slice(0, finalThoughtsPos);
+                  let afterFT = htmlContent.slice(finalThoughtsPos);
+                  // Find the end of the Final Thoughts section (next H2 or end)
+                  const nextH2InAfter = afterFT.match(/<h2[^>]*>/gi);
+                  if (nextH2InAfter && nextH2InAfter.length > 1) {
+                    // There's content after Final Thoughts paragraph - check for duplicate structural sections
+                    // Remove any TL;DR sections after Final Thoughts
+                    afterFT = afterFT.replace(/(<h2[^>]*>[\s\S]*?TL;?DR[\s\S]*?<\/h2>[\s\S]*?)(?=<h2|$)/gi, (match, _p1, offset) => {
+                      // Only remove if it's NOT the first H2 (which is Final Thoughts itself)
+                      if (offset > 0) return '';
+                      return match;
+                    });
+                    // Remove duplicate Quick Tips after Final Thoughts
+                    afterFT = afterFT.replace(/(<h2[^>]*>[\s\S]*?Quick\s*Tips[\s\S]*?<\/h2>(?:\s*<blockquote[\s\S]*?<\/blockquote>)*)/gi, (match, _p1, offset) => {
+                      if (offset > 0) return '';
+                      return match;
+                    });
+                  }
+                  htmlContent = beforeFT + afterFT;
+                }
+                
                 // Build final HTML with navigation, content, FAQ, and CTAs in correct order
                 let finalHtml = '';
                 
