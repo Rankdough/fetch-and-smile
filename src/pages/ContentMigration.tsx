@@ -177,7 +177,7 @@ export default function ContentMigration() {
 
     let current = minifyHtmlForExport(html);
 
-    // Keep full article structure, only remove duplicated CSS blocks.
+    // Pass 1: Deduplicate <style> blocks
     const seenStyleBlocks = new Set<string>();
     current = current.replace(/<style>([\s\S]*?)<\/style>/gi, (full, css) => {
       const normalizedCss = String(css || "").replace(/\s+/g, " ").trim();
@@ -186,6 +186,53 @@ export default function ContentMigration() {
       seenStyleBlocks.add(normalizedCss);
       return `<style>${normalizedCss}</style>`;
     });
+
+    if (getExcelCellPayloadLength(current) <= EXCEL_SAFE_TARGET) return current;
+
+    // Pass 2: Strip "In This Article" navigation widget (heaviest element ~4-8K chars)
+    current = current.replace(/<div[^>]*class="[^"]*in-this-article[^"]*"[^>]*>[\s\S]*?<\/div>\s*(?:<\/div>)?/gi, "");
+    // Also try nav-based pattern
+    current = current.replace(/<nav[^>]*>[\s\S]*?In\s*This\s*Article[\s\S]*?<\/nav>/gi, "");
+    // And section-based with the heading
+    current = current.replace(/<div[^>]*>[\s\S]{0,200}?<h2[^>]*>[\s\S]{0,50}?In\s*This\s*Article[\s\S]*?<\/h2>[\s\S]*?(?=<h2|<div[^>]*class="[^"]*cta|$)/gi, (match) => {
+      // Only remove up to the next major section
+      const nextH2 = match.indexOf("<h2", 10);
+      if (nextH2 > 0) return match.substring(nextH2);
+      return "";
+    });
+
+    if (getExcelCellPayloadLength(current) <= EXCEL_SAFE_TARGET) return current;
+
+    // Pass 3: Strip FAQ accordion/section
+    current = current.replace(/<div[^>]*>[\s\S]{0,200}?<h2[^>]*>[\s\S]{0,80}?(?:FAQ|Frequently\s*Asked)[\s\S]*?<\/h2>[\s\S]*?(?=<h2|<div[^>]*class="[^"]*cta|$)/gi, (match) => {
+      const nextH2 = match.indexOf("<h2", 10);
+      if (nextH2 > 0) return match.substring(nextH2);
+      return "";
+    });
+
+    if (getExcelCellPayloadLength(current) <= EXCEL_SAFE_TARGET) return current;
+
+    // Pass 4: Extract all inline styles into a single shared <style> block
+    const styleMap = new Map<string, string>();
+    let classCounter = 0;
+    current = current.replace(/\sstyle="([^"]+)"/gi, (_match, styleVal) => {
+      const normalized = String(styleVal).replace(/\s+/g, " ").trim();
+      if (!styleMap.has(normalized)) {
+        styleMap.set(normalized, `_c${classCounter++}`);
+      }
+      return ` class="${styleMap.get(normalized)}"`;
+    });
+    if (styleMap.size > 0) {
+      const cssBlock = Array.from(styleMap.entries()).map(([style, cls]) => `.${cls}{${style}}`).join("");
+      // Prepend the style block
+      current = `<style>${cssBlock}</style>${current}`;
+    }
+
+    if (getExcelCellPayloadLength(current) <= EXCEL_SAFE_TARGET) return current;
+
+    // Pass 5: Strip ALL style attributes and style blocks entirely (keep semantic HTML + links)
+    current = current.replace(/<style>[\s\S]*?<\/style>/gi, "");
+    current = current.replace(/\s(?:style|class)="[^"]*"/gi, "");
 
     return current;
   };
@@ -676,51 +723,34 @@ ${sourceHtml.substring(0, 8000)}`;
         );
       };
 
-      let generatedMarkdown = "";
       let title = pageTitle;
       let subtitle = "";
       let seoTitle = "";
       let seoDescription = "";
       let endCtaHtml = "";
       let contentEnHtml = "";
-      let effectiveWordBudget = targetWordCount;
 
-      for (let pass = 1; pass <= MAX_EXCEL_FIT_PASSES; pass++) {
-        const generated = await generateMarkdownPass(effectiveWordBudget);
-        generatedMarkdown = generated.markdown;
-        title = generated.title;
-        subtitle = generated.subtitle;
-        seoTitle = generated.seoTitle;
-        seoDescription = generated.seoDescription;
-        endCtaHtml = buildCtaHtml(generated.ctas);
+      // Single generation pass - no futile regeneration loop.
+      // Word count is now enforced deterministically in the backend.
+      // HTML size is handled by progressive compaction in compactHtmlForExcelLimit.
+      const generated = await generateMarkdownPass(targetWordCount);
+      const generatedMarkdown = generated.markdown;
+      title = generated.title;
+      subtitle = generated.subtitle;
+      seoTitle = generated.seoTitle;
+      seoDescription = generated.seoDescription;
+      endCtaHtml = buildCtaHtml(generated.ctas);
 
-        if (endCtaHtml) {
-          console.log("[Migration] CTA generated for end of article");
-        }
+      if (endCtaHtml) {
+        console.log("[Migration] CTA generated for end of article");
+      }
 
-        const rendered = renderFullHtml(generatedMarkdown, endCtaHtml);
-        const { html: preparedHtml, payloadChars } = prepareHtmlForExcel(rendered);
-        contentEnHtml = preparedHtml;
+      const rendered = renderFullHtml(generatedMarkdown, endCtaHtml);
+      const { html: preparedHtml, payloadChars } = prepareHtmlForExcel(rendered);
+      contentEnHtml = preparedHtml;
 
-        if (payloadChars <= EXCEL_SAFE_TARGET) {
-          if (pass > 1) {
-            console.warn(`[Migration] EN fit after pass ${pass} (${payloadChars}/${EXCEL_SAFE_TARGET}) with word budget ${effectiveWordBudget}`);
-          }
-          break;
-        }
-
-        if (pass === MAX_EXCEL_FIT_PASSES) {
-          throw new Error(`Unable to fit full HTML under ${EXCEL_SAFE_TARGET} chars without truncation. Last payload: ${payloadChars}.`);
-        }
-
-        const ratio = EXCEL_SAFE_TARGET / payloadChars;
-        const markdownWords = generatedMarkdown.split(/\s+/).filter(Boolean).length;
-        const ratioBudget = Math.floor(effectiveWordBudget * ratio * 0.9);
-        const markdownBudget = Math.floor(markdownWords * 0.9);
-        const nextBudget = Math.max(220, Math.min(ratioBudget, markdownBudget, effectiveWordBudget - 80));
-
-        effectiveWordBudget = nextBudget < effectiveWordBudget ? nextBudget : Math.max(220, effectiveWordBudget - 120);
-        console.warn(`[Migration] EN exceeded safe target (${payloadChars}/${EXCEL_SAFE_TARGET}). Retrying with reduced word budget ${effectiveWordBudget}.`);
+      if (payloadChars > EXCEL_SAFE_TARGET) {
+        console.warn(`[Migration] EN payload ${payloadChars}/${EXCEL_SAFE_TARGET} after compaction. Progressive compaction handled it.`);
       }
 
       if (!generatedMarkdown.trim() || !contentEnHtml.trim()) {
