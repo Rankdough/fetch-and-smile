@@ -2730,7 +2730,8 @@ const Index = () => {
                 let lastTipEndPos = -1;
                 
                 allBlockquotes.forEach((match) => {
-                  if (/Tip\s*\d/i.test(match[0])) {
+                  // Match both raw "Tip N" text AND styled tip blockquotes (circle spans with inline-flex)
+                  if (/Tip\s*\d/i.test(match[0]) || /inline-flex.*28px.*28px.*border-radius:\s*50%/i.test(match[0])) {
                     lastTipEndPos = (match.index || 0) + match[0].length;
                   }
                 });
