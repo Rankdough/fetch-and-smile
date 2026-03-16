@@ -511,8 +511,6 @@ export default function ContentMigration() {
       console.log("[Migration] Scraped", sourceMarkdown.length, "chars, title:", pageTitle);
 
       // === STEP 2: Generate article via SEO Content Generator ===
-      console.log("[Migration] Step 2: Generating article via generate-content");
-
       const topicMatch = sourceMarkdown.match(/^#\s+(.+)$/m) || sourceMarkdown.match(/^(.{10,80})/);
       const topic = topicMatch ? topicMatch[1].trim() : "Article";
 
@@ -542,104 +540,184 @@ ${sourceHtml.substring(0, 8000)}`;
 
       const hasCtaUrl = ctaUrl.trim().length > 0;
       const ctaInstructions = hasCtaUrl && ctaInstruction.trim() ? `\n\nCTA INSTRUCTIONS: ${ctaInstruction.trim()}` : "";
+      const palette = selectedColorPalette || undefined;
+      const convertOpts = { skipNavigation, skipQuickTips, skipFaqs, skipSources };
 
-      const { data: contentData, error: contentError } = await supabase.functions.invoke("generate-content", {
-        body: {
-          topic,
-          length: "long",
-          wordCount: targetWordCount,
-          instructions: instructions + ctaInstructions,
-          contextFiles: [{ name: "source-content", content: sourceMarkdown.substring(0, 12000) }],
-          toneProfileId: selectedToneProfileId || undefined,
-          skipFaqs,
-          skipQuickTips,
-          skipSources,
-          migrationMode: true,
-          generateCTAs: hasCtaUrl,
-          ctaUrl: hasCtaUrl ? ctaUrl.trim() : undefined,
-        },
-      });
-      if (contentError) throw new Error(`Content generation failed: ${contentError.message}`);
+      const renderFullHtml = (markdown: string, ctaHtml: string) => {
+        const styled = markdownToStyledHtml(markdown, palette, convertOpts);
+        return compactHtmlForExcelLimit(ctaHtml ? styled + ctaHtml : styled);
+      };
 
-      let generatedMarkdown = contentData.content || contentData.generatedContent || "";
-      if (!generatedMarkdown.trim()) throw new Error("No content returned from generation");
-      console.log("[Migration] Generated", generatedMarkdown.length, "chars markdown");
+      const generateMarkdownPass = async (wordBudget: number) => {
+        console.log(`[Migration] Step 2: Generating article via generate-content (word budget: ${wordBudget})`);
 
-      console.log("[Migration] Generated", generatedMarkdown.length, "chars markdown");
+        const { data: contentData, error: contentError } = await supabase.functions.invoke("generate-content", {
+          body: {
+            topic,
+            length: "long",
+            wordCount: wordBudget,
+            instructions: instructions + ctaInstructions,
+            contextFiles: [{ name: "source-content", content: sourceMarkdown.substring(0, 12000) }],
+            toneProfileId: selectedToneProfileId || undefined,
+            skipFaqs,
+            skipQuickTips,
+            skipSources,
+            migrationMode: true,
+            generateCTAs: hasCtaUrl,
+            ctaUrl: hasCtaUrl ? ctaUrl.trim() : undefined,
+          },
+        });
+        if (contentError) throw new Error(`Content generation failed: ${contentError.message}`);
 
-      // Extract SEO metadata from generated content
-      const h1Match = generatedMarkdown.match(/^#\s+(.+)$/m);
-      const title = h1Match ? h1Match[1].trim() : pageTitle;
-      const firstParagraph = generatedMarkdown.match(/^(?!#)(?!>)(?!\|)(?!-)(.{20,})/m);
-      const subtitle = firstParagraph ? firstParagraph[1].trim() : "";
-      const seoTitle = title.length > 60 ? title.substring(0, 57) + "..." : title;
-      const seoDescription = subtitle.length > 160 ? subtitle.substring(0, 157) + "..." : subtitle;
+        let passMarkdown = contentData.content || contentData.generatedContent || "";
+        if (!passMarkdown.trim()) throw new Error("No content returned from generation");
+        console.log("[Migration] Generated", passMarkdown.length, "chars markdown");
 
-      // === STEP 2b: Rewrite opening paragraph so it differs from subtitle ===
-      if (subtitle) {
-        console.log("[Migration] Step 2b: Generating distinct opening paragraph");
-        try {
-          const { data: rewriteData, error: rewriteError } = await supabase.functions.invoke("rewrite-intro", {
-            body: { title, subtitle },
-          });
-          
-          if (!rewriteError && rewriteData?.intro && rewriteData.intro.length > 20) {
-            const newIntro = rewriteData.intro.trim();
-            // Replace the first content paragraph in the markdown
-            const lines = generatedMarkdown.split("\n");
-            for (let i = 0; i < lines.length; i++) {
-              if (lines[i].startsWith("#") || lines[i].startsWith(">") || lines[i].startsWith("|") || lines[i].startsWith("-") || lines[i].trim() === "") continue;
-              if (lines[i].trim().length >= 20) {
-                lines[i] = newIntro;
-                generatedMarkdown = lines.join("\n");
-                console.log("[Migration] Replaced duplicated intro with fresh paragraph");
-                break;
+        // Step 2b: rewrite opening paragraph
+        const h1InitialMatch = passMarkdown.match(/^#\s+(.+)$/m);
+        const initialTitle = h1InitialMatch ? h1InitialMatch[1].trim() : pageTitle;
+        const initialFirstParagraph = passMarkdown.match(/^(?!#)(?!>)(?!\|)(?!-)(.{20,})/m);
+        const initialSubtitle = initialFirstParagraph ? initialFirstParagraph[1].trim() : "";
+
+        if (initialSubtitle) {
+          console.log("[Migration] Step 2b: Generating distinct opening paragraph");
+          try {
+            const { data: rewriteData, error: rewriteError } = await supabase.functions.invoke("rewrite-intro", {
+              body: { title: initialTitle, subtitle: initialSubtitle },
+            });
+
+            if (!rewriteError && rewriteData?.intro && rewriteData.intro.length > 20) {
+              const newIntro = rewriteData.intro.trim();
+              const lines = passMarkdown.split("\n");
+              for (let i = 0; i < lines.length; i++) {
+                if (lines[i].startsWith("#") || lines[i].startsWith(">") || lines[i].startsWith("|") || lines[i].startsWith("-") || lines[i].trim() === "") continue;
+                if (lines[i].trim().length >= 20) {
+                  lines[i] = newIntro;
+                  passMarkdown = lines.join("\n");
+                  console.log("[Migration] Replaced duplicated intro with fresh paragraph");
+                  break;
+                }
               }
             }
+          } catch (rewriteErr) {
+            console.error("[Migration] Intro rewrite failed, keeping original:", rewriteErr);
           }
-        } catch (rewriteErr) {
-          console.error("[Migration] Intro rewrite failed, keeping original:", rewriteErr);
         }
+
+        // Step 2c: auto-insert internal links
+        if (internalLinkUrls.length > 0) {
+          console.log("[Migration] Step 2c: Auto-inserting internal links from", internalLinkUrls.length, "candidates");
+          try {
+            const beforeLinkContent = passMarkdown;
+            const beforeWords = beforeLinkContent.split(/\s+/).filter(Boolean).length;
+            const beforeH2Count = (beforeLinkContent.match(/^##\s+/gm) || []).length;
+            const beforeHasFinalThoughts = /##\s.*final\s*thoughts|##\s.*conclusion/i.test(beforeLinkContent);
+
+            const { data: linkData, error: linkError } = await supabase.functions.invoke("auto-internal-links", {
+              body: {
+                content: passMarkdown,
+                candidates: internalLinkUrls,
+                articleUrl: entry.url,
+              },
+            });
+
+            if (!linkError && linkData?.content) {
+              const linkedCandidate = linkData.content as string;
+              const afterWords = linkedCandidate.split(/\s+/).filter(Boolean).length;
+              const afterH2Count = (linkedCandidate.match(/^##\s+/gm) || []).length;
+              const afterHasFinalThoughts = /##\s.*final\s*thoughts|##\s.*conclusion/i.test(linkedCandidate);
+
+              const tooShort = afterWords < Math.max(Math.floor(beforeWords * 0.85), beforeWords - 80);
+              const lostStructure = afterH2Count + 1 < beforeH2Count || (beforeHasFinalThoughts && !afterHasFinalThoughts);
+
+              if (tooShort || lostStructure) {
+                console.warn(`[Migration] Internal link guardrail triggered. Keeping original markdown. beforeWords=${beforeWords}, afterWords=${afterWords}, beforeH2=${beforeH2Count}, afterH2=${afterH2Count}`);
+              } else {
+                passMarkdown = linkedCandidate;
+                console.log(`[Migration] Inserted ${linkData.insertedCount} internal links:`, linkData.insertedUrls);
+              }
+            } else if (linkError) {
+              console.error("[Migration] Internal links failed, continuing without:", linkError);
+            }
+          } catch (linkErr) {
+            console.error("[Migration] Internal links error, continuing:", linkErr);
+          }
+        }
+
+        const h1Match = passMarkdown.match(/^#\s+(.+)$/m);
+        const resolvedTitle = h1Match ? h1Match[1].trim() : pageTitle;
+        const firstParagraph = passMarkdown.match(/^(?!#)(?!>)(?!\|)(?!-)(.{20,})/m);
+        const resolvedSubtitle = firstParagraph ? firstParagraph[1].trim() : "";
+
+        return {
+          markdown: passMarkdown,
+          title: resolvedTitle,
+          subtitle: resolvedSubtitle,
+          seoTitle: resolvedTitle.length > 60 ? resolvedTitle.substring(0, 57) + "..." : resolvedTitle,
+          seoDescription: resolvedSubtitle.length > 160 ? resolvedSubtitle.substring(0, 157) + "..." : resolvedSubtitle,
+          ctas: contentData.ctas,
+        };
+      };
+
+      const buildCtaHtml = (ctas: any) => {
+        if (!ctas?.end || !hasCtaUrl) return "";
+        return generateCTAHtml(
+          ctas.end.headline,
+          ctas.end.description,
+          ctas.end.buttonText,
+          ctaUrl.trim(),
+          selectedColorPalette,
+          (ctas.end as any).tagline
+        );
+      };
+
+      let generatedMarkdown = "";
+      let title = pageTitle;
+      let subtitle = "";
+      let seoTitle = "";
+      let seoDescription = "";
+      let endCtaHtml = "";
+      let contentEnHtml = "";
+      let effectiveWordBudget = targetWordCount;
+
+      for (let pass = 1; pass <= 3; pass++) {
+        const generated = await generateMarkdownPass(effectiveWordBudget);
+        generatedMarkdown = generated.markdown;
+        title = generated.title;
+        subtitle = generated.subtitle;
+        seoTitle = generated.seoTitle;
+        seoDescription = generated.seoDescription;
+        endCtaHtml = buildCtaHtml(generated.ctas);
+
+        if (endCtaHtml) {
+          console.log("[Migration] CTA generated for end of article");
+        }
+
+        contentEnHtml = renderFullHtml(generatedMarkdown, endCtaHtml);
+        const payloadChars = getExcelCellPayloadLength(contentEnHtml);
+
+        if (payloadChars <= EXCEL_CELL_LIMIT) {
+          if (pass > 1) {
+            console.warn(`[Migration] EN fit after pass ${pass} (${payloadChars}/${EXCEL_CELL_LIMIT}) with word budget ${effectiveWordBudget}`);
+          }
+          break;
+        }
+
+        if (pass === 3) {
+          throw new Error(`EN content exceeds Excel cell limit with full formatting (${payloadChars}/${EXCEL_CELL_LIMIT}).`);
+        }
+
+        const markdownWords = generatedMarkdown.split(/\s+/).filter(Boolean).length;
+        const ratioBudget = Math.floor(effectiveWordBudget * (EXCEL_CELL_LIMIT / payloadChars) * 0.9);
+        const contentBudget = Math.floor(Math.min(markdownWords, effectiveWordBudget) * 0.82);
+        const nextBudget = Math.max(180, Math.min(ratioBudget, contentBudget, effectiveWordBudget - 40));
+
+        effectiveWordBudget = nextBudget < effectiveWordBudget ? nextBudget : Math.max(180, effectiveWordBudget - 60);
+        console.warn(`[Migration] EN exceeded Excel limit (${payloadChars}/${EXCEL_CELL_LIMIT}). Retrying with reduced word budget ${effectiveWordBudget}.`);
       }
 
-      // === STEP 2c: Auto-insert internal links ===
-      if (internalLinkUrls.length > 0) {
-        console.log("[Migration] Step 2c: Auto-inserting internal links from", internalLinkUrls.length, "candidates");
-        try {
-          const beforeLinkContent = generatedMarkdown;
-          const beforeWords = beforeLinkContent.split(/\s+/).filter(Boolean).length;
-          const beforeH2Count = (beforeLinkContent.match(/^##\s+/gm) || []).length;
-          const beforeHasFinalThoughts = /##\s.*final\s*thoughts|##\s.*conclusion/i.test(beforeLinkContent);
-
-          const { data: linkData, error: linkError } = await supabase.functions.invoke("auto-internal-links", {
-            body: {
-              content: generatedMarkdown,
-              candidates: internalLinkUrls,
-              articleUrl: entry.url,
-            },
-          });
-
-          if (!linkError && linkData?.content) {
-            const linkedCandidate = linkData.content as string;
-            const afterWords = linkedCandidate.split(/\s+/).filter(Boolean).length;
-            const afterH2Count = (linkedCandidate.match(/^##\s+/gm) || []).length;
-            const afterHasFinalThoughts = /##\s.*final\s*thoughts|##\s.*conclusion/i.test(linkedCandidate);
-
-            const tooShort = afterWords < Math.max(Math.floor(beforeWords * 0.85), beforeWords - 80);
-            const lostStructure = afterH2Count + 1 < beforeH2Count || (beforeHasFinalThoughts && !afterHasFinalThoughts);
-
-            if (tooShort || lostStructure) {
-              console.warn(`[Migration] Internal link guardrail triggered. Keeping original markdown. beforeWords=${beforeWords}, afterWords=${afterWords}, beforeH2=${beforeH2Count}, afterH2=${afterH2Count}`);
-            } else {
-              generatedMarkdown = linkedCandidate;
-              console.log(`[Migration] Inserted ${linkData.insertedCount} internal links:`, linkData.insertedUrls);
-            }
-          } else if (linkError) {
-            console.error("[Migration] Internal links failed, continuing without:", linkError);
-          }
-        } catch (linkErr) {
-          console.error("[Migration] Internal links error, continuing:", linkErr);
-        }
+      if (!generatedMarkdown.trim()) {
+        throw new Error("No content generated after Excel-safe retries");
       }
 
       // === STEP 3: Translate to NL and DE (unless English Only) ===
@@ -660,82 +738,18 @@ ${sourceHtml.substring(0, 8000)}`;
         console.log("[Migration] Step 3: Skipping translations (English Only mode)");
       }
 
-      // === STEP 4: Convert Markdown → styled HTML (Excel-safe, deterministic) ===
+      // === STEP 4: Convert Markdown → styled HTML (full formatting, hard Excel cap) ===
       console.log("[Migration] Step 4: Converting markdown to styled HTML");
-      const palette = selectedColorPalette || undefined;
-      const convertOpts = { skipNavigation, skipQuickTips, skipFaqs, skipSources };
-
-      // Generate CTA HTML if CTAs were returned
-      const ctas = contentData.ctas;
-      let endCtaHtml = "";
-      if (ctas?.end && hasCtaUrl) {
-        endCtaHtml = generateCTAHtml(
-          ctas.end.headline,
-          ctas.end.description,
-          ctas.end.buttonText,
-          ctaUrl.trim(),
-          selectedColorPalette,
-          (ctas.end as any).tagline
-        );
-        console.log("[Migration] CTA generated for end of article");
-      }
-
-      const renderVariant = (
-        markdown: string,
-        opts: typeof convertOpts,
-        includeCta: boolean,
-        forceUnstyled = false
-      ) => {
-        const styled = markdownToStyledHtml(markdown, palette, opts);
-        const withCta = includeCta && endCtaHtml ? styled + endCtaHtml : styled;
-
-        let candidate = compactHtmlForExcelLimit(withCta);
-        if (forceUnstyled) {
-          candidate = minifyHtmlForExport(
-            candidate
-              .replace(/\sstyle=(['"])[\s\S]*?\1/gi, "")
-              .replace(/\s(?:target|rel|id)=(['"])[\s\S]*?\1/gi, "")
-          );
-        }
-
-        return compactHtmlForExcelLimit(candidate);
-      };
 
       const toExcelSafeHtml = (markdown: string, locale: "EN" | "NL" | "DE") => {
-        const variants = [
-          { label: "full", opts: convertOpts, includeCta: true, forceUnstyled: false },
-          { label: "no-nav", opts: { ...convertOpts, skipNavigation: true }, includeCta: true, forceUnstyled: false },
-          { label: "no-nav-no-faq", opts: { ...convertOpts, skipNavigation: true, skipFaqs: true }, includeCta: true, forceUnstyled: false },
-          { label: "no-nav-no-faq-no-cta", opts: { ...convertOpts, skipNavigation: true, skipFaqs: true }, includeCta: false, forceUnstyled: false },
-          { label: "essentials-only", opts: { ...convertOpts, skipNavigation: true, skipFaqs: true, skipQuickTips: true, skipSources: true }, includeCta: false, forceUnstyled: false },
-          { label: "essentials-unstyled", opts: { ...convertOpts, skipNavigation: true, skipFaqs: true, skipQuickTips: true, skipSources: true }, includeCta: false, forceUnstyled: true },
-        ];
+        const candidate = renderFullHtml(markdown, endCtaHtml);
+        const payloadChars = getExcelCellPayloadLength(candidate);
 
-        let smallestHtml = "";
-        let smallestLabel = "";
-        let smallestPayload = Number.MAX_SAFE_INTEGER;
-
-        for (const variant of variants) {
-          const candidate = renderVariant(markdown, variant.opts, variant.includeCta, variant.forceUnstyled);
-          const payloadChars = getExcelCellPayloadLength(candidate);
-
-          if (payloadChars < smallestPayload) {
-            smallestHtml = candidate;
-            smallestLabel = variant.label;
-            smallestPayload = payloadChars;
-          }
-
-          if (payloadChars <= EXCEL_CELL_LIMIT) {
-            if (variant.label !== "full") {
-              console.warn(`[Migration] ${locale} switched to ${variant.label} render to stay Excel-safe (${payloadChars}/${EXCEL_CELL_LIMIT})`);
-            }
-            return candidate;
-          }
+        if (payloadChars > EXCEL_CELL_LIMIT) {
+          throw new Error(`${locale} content exceeds Excel cell limit with full formatting (${payloadChars}/${EXCEL_CELL_LIMIT}).`);
         }
 
-        throw new Error(
-          `${locale} content exceeds Excel cell limit after all safe render modes (${smallestPayload}/${EXCEL_CELL_LIMIT}, smallest=${smallestLabel}).`
-        );
+        return candidate;
       };
 
       const data: MigrationResult = {
@@ -745,7 +759,7 @@ ${sourceHtml.substring(0, 8000)}`;
         subtitle,
         seoTitle,
         seoDescription,
-        content: toExcelSafeHtml(generatedMarkdown, "EN"),
+        content: contentEnHtml,
         titleNL: nl.title,
         subtitleNL: nl.subtitle,
         seoTitleNL: nl.seoTitle,
