@@ -530,6 +530,7 @@ ${current}`;
 
 STRICT:
 - Keep ALL existing sections/headings
+- PRESERVE ALL MARKDOWN TABLES - do NOT remove any table
 - Preserve meaning and key facts
 - Do not remove Final Thoughts / CTA context
 - Return complete markdown only
