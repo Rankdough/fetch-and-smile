@@ -86,15 +86,8 @@ serve(async (req) => {
       }
     }
 
-    // For migration mode with low word targets, auto-skip heavy structural sections
-    // that are physically impossible to fit within the budget
-    if (migrationMode && targetWords <= 500) {
-      console.log(`Migration compact mode: target ${targetWords} words. Auto-skipping FAQ, References, expert quote for compact article.`);
-    }
-    const compactMigration = migrationMode && targetWords <= 500;
-
     // Calculate required tables based on word count (relaxed for migration)
-    const requiredTables = compactMigration ? 0 : (migrationMode ? 1 : (targetWords >= 3000 ? 4 : targetWords >= 2000 ? 3 : 1));
+    const requiredTables = migrationMode ? 1 : (targetWords >= 3000 ? 4 : targetWords >= 2000 ? 3 : 1);
     
     // Build the prompt
     let systemPrompt = `You are an expert SEO content writer. Write high-quality, engaging blog posts optimized for search engines while remaining valuable and readable.
@@ -200,12 +193,12 @@ ${migrationMode ? `4. DO NOT include an "In This Article" section - this is gene
    - List ALL main H2 sections from the article (not TL;DR or References)
    - DO NOT SKIP THIS SECTION - it must be present in every article
    - IMPORTANT: Short one-line descriptions are NOT acceptable - each must be detailed and informative`}
-5. Main content sections with ## QUESTION headings (each answered with text + bullets${compactMigration ? '' : ' + tables'}${(skipSources || compactMigration) ? '' : ' + **Sources:** at the end'})
-${compactMigration ? '' : `6. Comparison table section (question-based, e.g., "## How Do They Compare Side by Side?")
-7. "## How to Choose" section - format as a practical decision checklist with 4-6 criteria as bullet points (e.g., "Choose X if you need…", "Prioritise Y when…"). Do NOT use a pros/cons split or "Choose A if / Choose B if" format.`}
-${(skipFaqs || compactMigration) ? '' : '8. "## Frequently Asked Questions" section - include 4-6 common Q&As in bold question format'}
+5. Main content sections with ## QUESTION headings (each answered with text + bullets + tables${skipSources ? '' : ' + **Sources:** at the end'})
+6. Comparison table section (question-based, e.g., "## How Do They Compare Side by Side?")
+7. "## How to Choose" section - format as a practical decision checklist with 4-6 criteria as bullet points (e.g., "Choose X if you need…", "Prioritise Y when…"). Do NOT use a pros/cons split or "Choose A if / Choose B if" format.
+${skipFaqs ? '' : '8. "## Frequently Asked Questions" section - include 4-6 common Q&As in bold question format'}
 9. "## Final Thoughts" section with call-to-action
-${(skipSources || compactMigration) ? '' : '10. "## References:" section - list ALL sources used throughout the article as simple markdown links'}
+${skipSources ? '' : '10. "## References:" section - list ALL sources used throughout the article as simple markdown links'}
 
 Content Guidelines:
 - Start with a compelling hook that addresses the reader's pain point
@@ -619,96 +612,13 @@ ${current}`;
     // Remove horizontal rules (---, ***, ___ on their own line)
     content = content.replace(/^\s*[-*_]{3,}\s*$/gm, "");
 
-    // DETERMINISTIC WORD COUNT ENFORCEMENT
-    // If AI couldn't hit the ceiling, trim sections from the bottom up.
+    // Log word count overshoot for monitoring but do NOT truncate —
+    // truncation causes mid-sentence/mid-section cuts. Rely on prompt + max_tokens instead.
     if (!expandExistingContent) {
-      const effectiveCeiling = Math.round(targetWords * (migrationMode ? 1.20 : 1.15));
-      let currentWordCount = countWords(content);
-
-      if (currentWordCount > effectiveCeiling) {
-        console.warn(`Word count overshoot: ${currentWordCount} words vs ${targetWords} target (ceiling ${effectiveCeiling}). Applying deterministic section trimmer.`);
-
-        // Split content into sections by H2 headings
-        const lines = content.split("\n");
-        const sections: { startLine: number; heading: string; lines: string[] }[] = [];
-        let currentSection: { startLine: number; heading: string; lines: string[] } | null = null;
-
-        for (let i = 0; i < lines.length; i++) {
-          const h2Match = lines[i].match(/^##\s+(.+)$/);
-          if (h2Match) {
-            if (currentSection) sections.push(currentSection);
-            currentSection = { startLine: i, heading: h2Match[1], lines: [lines[i]] };
-          } else if (currentSection) {
-            currentSection.lines.push(lines[i]);
-          } else {
-            // Lines before any H2 (H1 + intro)
-            if (!sections.length && !currentSection) {
-              currentSection = { startLine: 0, heading: "__preamble__", lines: [lines[i]] };
-            } else if (currentSection) {
-              currentSection.lines.push(lines[i]);
-            }
-          }
-        }
-        if (currentSection) sections.push(currentSection);
-
-        // Classify sections as removable or protected
-        const protectedPatterns = [/tl;?\s?dr/i, /quick\s*tips/i, /final\s*thoughts/i, /conclusion/i, /in\s*this\s*article/i];
-        const removalPriority = [/references/i, /frequently\s*asked|faq/i, /how\s*to\s*choose/i];
-
-        const isProtected = (heading: string) =>
-          heading === "__preamble__" || protectedPatterns.some(p => p.test(heading));
-
-        // Build removal order: priority sections first, then body H2s from bottom up
-        const priorityRemovals = removalPriority
-          .map(pattern => sections.findIndex(s => pattern.test(s.heading)))
-          .filter(idx => idx !== -1);
-
-        const bodyIndices = sections
-          .map((s, i) => ({ idx: i, heading: s.heading }))
-          .filter(s => !isProtected(s.heading) && !priorityRemovals.includes(s.idx))
-          .map(s => s.idx)
-          .reverse(); // bottom-up
-
-        const removalOrder = [...priorityRemovals, ...bodyIndices];
-        const removedIndices = new Set<number>();
-
-        for (const idx of removalOrder) {
-          if (currentWordCount <= effectiveCeiling) break;
-          const sectionWordCount = countWords(sections[idx].lines.join("\n"));
-          removedIndices.add(idx);
-          currentWordCount -= sectionWordCount;
-          console.log(`Trimmer: removed "${sections[idx].heading}" (${sectionWordCount} words). Now ${currentWordCount} words.`);
-        }
-
-        // Rebuild content from remaining sections
-        if (removedIndices.size > 0) {
-          content = sections
-            .filter((_, i) => !removedIndices.has(i))
-            .map(s => s.lines.join("\n"))
-            .join("\n\n");
-
-          // Final sentence-boundary trim if still over
-          currentWordCount = countWords(content);
-          if (currentWordCount > effectiveCeiling) {
-            const words = content.split(/\s+/);
-            // Find last sentence boundary before ceiling
-            const joined = words.slice(0, effectiveCeiling).join(" ");
-            const lastSentenceEnd = Math.max(
-              joined.lastIndexOf(". "),
-              joined.lastIndexOf(".\n"),
-              joined.lastIndexOf("? "),
-              joined.lastIndexOf("! ")
-            );
-            if (lastSentenceEnd > joined.length * 0.8) {
-              content = joined.substring(0, lastSentenceEnd + 1);
-            } else {
-              content = joined;
-            }
-            console.log(`Trimmer: sentence-boundary trim to ${countWords(content)} words.`);
-          }
-
-          console.log(`Deterministic trimmer: final ${countWords(content)} words (ceiling ${effectiveCeiling}). Removed ${removedIndices.size} section(s).`);
-        }
+      const wordCeiling = Math.round(targetWords * 1.15);
+      const currentWordCount = content.split(/\s+/).filter(Boolean).length;
+      if (currentWordCount > wordCeiling) {
+        console.warn(`Word count overshoot: ${currentWordCount} words vs ${targetWords} target (ceiling ${wordCeiling}). Not truncating to avoid content damage.`);
       }
     }
 

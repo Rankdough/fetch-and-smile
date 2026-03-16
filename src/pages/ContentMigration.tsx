@@ -107,19 +107,6 @@ export default function ContentMigration() {
   const [toneProfiles, setToneProfiles] = useState<Array<{ id: string; name: string }>>([]);
 
   const EXCEL_CELL_LIMIT = 32767;
-  const EXCEL_SAFE_TARGET = 32000;
-  const MAX_EXCEL_FIT_PASSES = 6;
-
-  const escapeSpreadsheetXml = (val: string): string =>
-    String(val ?? "")
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;")
-      .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, "");
-
-  const getExcelCellPayloadLength = (val: string): number => escapeSpreadsheetXml(val).length;
-
   const minifyHtmlForExport = (html: string) =>
     (html || "")
       .replace(/>\s+</g, "><")
@@ -127,123 +114,6 @@ export default function ContentMigration() {
       .replace(/;\s+/g, ";")
       .replace(/:\s+/g, ":")
       .trim();
-
-  const normalizeUrlForMatch = (rawUrl: string): string => {
-    if (!rawUrl) return "";
-
-    if (rawUrl.startsWith("#")) {
-      return rawUrl.toLowerCase();
-    }
-
-    try {
-      const parsed = new URL(rawUrl.trim());
-      const host = parsed.hostname.replace(/^www\./i, "").toLowerCase();
-      const path = (parsed.pathname.replace(/\/+$/, "") || "/").toLowerCase();
-      return `${host}${path}`;
-    } catch {
-      return rawUrl
-        .trim()
-        .replace(/^https?:\/\//i, "")
-        .replace(/^www\./i, "")
-        .replace(/[?#].*$/, "")
-        .replace(/\/+$/, "")
-        .toLowerCase();
-    }
-  };
-
-  const countInternalLinksInHtml = (html: string, candidates: LinkEntry[]): number => {
-    if (!html || candidates.length === 0) return 0;
-
-    const candidateSet = new Set(
-      candidates
-        .map((c) => normalizeUrlForMatch(c.url))
-        .filter(Boolean)
-    );
-
-    let count = 0;
-    const hrefRegex = /<a\s[^>]*href=["']([^"']+)["'][^>]*>/gi;
-    let match: RegExpExecArray | null;
-
-    while ((match = hrefRegex.exec(html)) !== null) {
-      const normalizedHref = normalizeUrlForMatch(match[1]);
-      if (candidateSet.has(normalizedHref)) count++;
-    }
-
-    return count;
-  };
-
-  const compactHtmlForExcelLimit = (html: string): string => {
-    if (!html) return "";
-
-    let current = minifyHtmlForExport(html);
-
-    // Pass 1: Deduplicate <style> blocks
-    const seenStyleBlocks = new Set<string>();
-    current = current.replace(/<style>([\s\S]*?)<\/style>/gi, (full, css) => {
-      const normalizedCss = String(css || "").replace(/\s+/g, " ").trim();
-      if (!normalizedCss) return "";
-      if (seenStyleBlocks.has(normalizedCss)) return "";
-      seenStyleBlocks.add(normalizedCss);
-      return `<style>${normalizedCss}</style>`;
-    });
-
-    if (getExcelCellPayloadLength(current) <= EXCEL_SAFE_TARGET) return current;
-
-    // Pass 2: Strip "In This Article" navigation widget (heaviest element ~4-8K chars)
-    current = current.replace(/<div[^>]*class="[^"]*in-this-article[^"]*"[^>]*>[\s\S]*?<\/div>\s*(?:<\/div>)?/gi, "");
-    // Also try nav-based pattern
-    current = current.replace(/<nav[^>]*>[\s\S]*?In\s*This\s*Article[\s\S]*?<\/nav>/gi, "");
-    // And section-based with the heading
-    current = current.replace(/<div[^>]*>[\s\S]{0,200}?<h2[^>]*>[\s\S]{0,50}?In\s*This\s*Article[\s\S]*?<\/h2>[\s\S]*?(?=<h2|<div[^>]*class="[^"]*cta|$)/gi, (match) => {
-      // Only remove up to the next major section
-      const nextH2 = match.indexOf("<h2", 10);
-      if (nextH2 > 0) return match.substring(nextH2);
-      return "";
-    });
-
-    if (getExcelCellPayloadLength(current) <= EXCEL_SAFE_TARGET) return current;
-
-    // Pass 3: Strip FAQ accordion/section
-    current = current.replace(/<div[^>]*>[\s\S]{0,200}?<h2[^>]*>[\s\S]{0,80}?(?:FAQ|Frequently\s*Asked)[\s\S]*?<\/h2>[\s\S]*?(?=<h2|<div[^>]*class="[^"]*cta|$)/gi, (match) => {
-      const nextH2 = match.indexOf("<h2", 10);
-      if (nextH2 > 0) return match.substring(nextH2);
-      return "";
-    });
-
-    if (getExcelCellPayloadLength(current) <= EXCEL_SAFE_TARGET) return current;
-
-    // Pass 4: Extract all inline styles into a single shared <style> block
-    const styleMap = new Map<string, string>();
-    let classCounter = 0;
-    current = current.replace(/\sstyle="([^"]+)"/gi, (_match, styleVal) => {
-      const normalized = String(styleVal).replace(/\s+/g, " ").trim();
-      if (!styleMap.has(normalized)) {
-        styleMap.set(normalized, `_c${classCounter++}`);
-      }
-      return ` class="${styleMap.get(normalized)}"`;
-    });
-    if (styleMap.size > 0) {
-      const cssBlock = Array.from(styleMap.entries()).map(([style, cls]) => `.${cls}{${style}}`).join("");
-      // Prepend the style block
-      current = `<style>${cssBlock}</style>${current}`;
-    }
-
-    if (getExcelCellPayloadLength(current) <= EXCEL_SAFE_TARGET) return current;
-
-    // Pass 5: Strip ALL style attributes and style blocks entirely (keep semantic HTML + links)
-    current = current.replace(/<style>[\s\S]*?<\/style>/gi, "");
-    current = current.replace(/\s(?:style|class)="[^"]*"/gi, "");
-
-    return current;
-  };
-
-  const prepareHtmlForExcel = (html: string) => {
-    const compacted = compactHtmlForExcelLimit(html);
-    return {
-      html: compacted,
-      payloadChars: getExcelCellPayloadLength(compacted),
-    };
-  };
 
   // Load tone profiles
   useEffect(() => {
@@ -280,12 +150,7 @@ export default function ContentMigration() {
 
     const hasH2 = /<h2/i.test(html);
     const hasInline = html.includes("style=");
-    const htmlPassed = hasH2 || /<p/i.test(html);
-    checks.push({
-      label: "HTML Formatting",
-      passed: htmlPassed,
-      detail: htmlPassed ? "Styled HTML with inline CSS, headings intact" : "Issues detected",
-    });
+    checks.push({ label: "HTML Formatting", passed: hasH2 && hasInline, detail: hasH2 && hasInline ? "Styled HTML with inline CSS, headings intact" : "Issues detected" });
 
     const hasTitle = !!result.title?.trim();
     const hasSeoTitle = !!result.seoTitle?.trim();
@@ -295,7 +160,11 @@ export default function ContentMigration() {
     const hasDE = englishOnly || !!result.contentDE?.trim();
     // Internal links check (from HTML)
     if (internalLinkUrls.length > 0) {
-      const internalLinksFound = countInternalLinksInHtml(html, internalLinkUrls);
+      const linkMatches = html.match(/<a\s[^>]*href="[^"]*"[^>]*>/gi) || [];
+      const internalLinksFound = linkMatches.filter(tag => {
+        const hrefMatch = tag.match(/href="([^"]*)"/i);
+        return hrefMatch && internalLinkUrls.some(c => c.url === hrefMatch[1]);
+      }).length;
       checks.push({
         label: "Internal Links",
         passed: internalLinksFound >= 2,
@@ -304,15 +173,15 @@ export default function ContentMigration() {
     }
 
     const maxContentCellChars = Math.max(
-      getExcelCellPayloadLength(compactHtmlForExcelLimit(result.content || "")),
-      englishOnly ? 0 : getExcelCellPayloadLength(compactHtmlForExcelLimit(result.contentNL || "")),
-      englishOnly ? 0 : getExcelCellPayloadLength(compactHtmlForExcelLimit(result.contentDE || "")),
+      (result.content || "").length,
+      englishOnly ? 0 : (result.contentNL || "").length,
+      englishOnly ? 0 : (result.contentDE || "").length,
     );
-    const cellLimitPassed = maxContentCellChars <= EXCEL_SAFE_TARGET;
+    const cellLimitPassed = maxContentCellChars <= EXCEL_CELL_LIMIT;
     checks.push({
       label: "Excel Cell Limit",
       passed: cellLimitPassed,
-      detail: `Max escaped cell payload: ${maxContentCellChars}/${EXCEL_SAFE_TARGET} chars target (hard cap: ${EXCEL_CELL_LIMIT})`,
+      detail: `Max content cell: ${maxContentCellChars}/${EXCEL_CELL_LIMIT} chars`,
     });
 
     const exportPassed = hasTitle && hasSeoTitle && hasSeoDesc && hasContent && hasNL && hasDE && cellLimitPassed;
@@ -448,22 +317,24 @@ export default function ContentMigration() {
     const hasStyledHtml = htmlContent.startsWith("<");
     const hasInlineStyles = htmlContent.includes("style=");
     const hasH2Tags = /<h2/i.test(htmlContent);
-    const hasParagraphs = /<p/i.test(htmlContent);
-    const htmlPassed = hasStyledHtml && (hasH2Tags || hasParagraphs);
+    const htmlPassed = hasStyledHtml && hasInlineStyles && hasH2Tags;
     checks.push({
       label: "HTML Formatting",
       passed: htmlPassed,
-      detail: htmlPassed
-        ? "Styled HTML with inline CSS, headings intact"
-        : `Issues: ${[
-          !hasStyledHtml && "Not HTML",
-          !hasH2Tags && !hasParagraphs && "No body content tags",
-        ].filter(Boolean).join(", ")}`,
+      detail: htmlPassed ? "Styled HTML with inline CSS, headings intact" : `Issues: ${[
+        !hasStyledHtml && "Not HTML",
+        !hasInlineStyles && "No inline styles",
+        !hasH2Tags && "No H2 tags",
+      ].filter(Boolean).join(", ")}`,
     });
 
     // 4. Internal links check
     if (internalLinkUrls.length > 0) {
-      const internalLinksFound = countInternalLinksInHtml(htmlContent, internalLinkUrls);
+      const linkMatches = htmlContent.match(/<a\s[^>]*href="[^"]*"[^>]*>/gi) || [];
+      const internalLinksFound = linkMatches.filter(tag => {
+        const hrefMatch = tag.match(/href="([^"]*)"/i);
+        return hrefMatch && internalLinkUrls.some(c => c.url === hrefMatch[1]);
+      }).length;
       checks.push({
         label: "Internal Links",
         passed: internalLinksFound >= 2,
@@ -480,15 +351,15 @@ export default function ContentMigration() {
     const hasDE = englishOnly || !!result.contentDE?.trim();
 
     const maxContentCellChars = Math.max(
-      getExcelCellPayloadLength(compactHtmlForExcelLimit(htmlContent)),
-      englishOnly ? 0 : getExcelCellPayloadLength(compactHtmlForExcelLimit(result.contentNL || "")),
-      englishOnly ? 0 : getExcelCellPayloadLength(compactHtmlForExcelLimit(result.contentDE || "")),
+      htmlContent.length,
+      englishOnly ? 0 : (result.contentNL || "").length,
+      englishOnly ? 0 : (result.contentDE || "").length,
     );
-    const cellLimitPassed = maxContentCellChars <= EXCEL_SAFE_TARGET;
+    const cellLimitPassed = maxContentCellChars <= EXCEL_CELL_LIMIT;
     checks.push({
       label: "Excel Cell Limit",
       passed: cellLimitPassed,
-      detail: `Max escaped cell payload: ${maxContentCellChars}/${EXCEL_SAFE_TARGET} chars target (hard cap: ${EXCEL_CELL_LIMIT})`,
+      detail: `Max content cell: ${maxContentCellChars}/${EXCEL_CELL_LIMIT} chars`,
     });
 
     const exportPassed = hasTitle && hasSeoTitle && hasSeoDesc && hasContent && hasNL && hasDE && cellLimitPassed;
@@ -502,7 +373,7 @@ export default function ContentMigration() {
         !hasContent && "Content",
         !hasNL && "NL Translation",
         !hasDE && "DE Translation",
-        !cellLimitPassed && `Cell > ${EXCEL_SAFE_TARGET} chars target`,
+        !cellLimitPassed && `Cell > ${EXCEL_CELL_LIMIT} chars`,
       ].filter(Boolean).join(", ")}`,
     });
 
@@ -563,6 +434,8 @@ export default function ContentMigration() {
       console.log("[Migration] Scraped", sourceMarkdown.length, "chars, title:", pageTitle);
 
       // === STEP 2: Generate article via SEO Content Generator ===
+      console.log("[Migration] Step 2: Generating article via generate-content");
+
       const topicMatch = sourceMarkdown.match(/^#\s+(.+)$/m) || sourceMarkdown.match(/^(.{10,80})/);
       const topic = topicMatch ? topicMatch[1].trim() : "Article";
 
@@ -592,169 +465,104 @@ ${sourceHtml.substring(0, 8000)}`;
 
       const hasCtaUrl = ctaUrl.trim().length > 0;
       const ctaInstructions = hasCtaUrl && ctaInstruction.trim() ? `\n\nCTA INSTRUCTIONS: ${ctaInstruction.trim()}` : "";
-      const palette = selectedColorPalette || undefined;
-      const convertOpts = { skipNavigation, skipQuickTips, skipFaqs, skipSources };
 
-      const renderFullHtml = (markdown: string, ctaHtml: string) => {
-        const styled = markdownToStyledHtml(markdown, palette, convertOpts);
-        return ctaHtml ? styled + ctaHtml : styled;
-      };
+      const { data: contentData, error: contentError } = await supabase.functions.invoke("generate-content", {
+        body: {
+          topic,
+          length: "long",
+          wordCount: targetWordCount,
+          instructions: instructions + ctaInstructions,
+          contextFiles: [{ name: "source-content", content: sourceMarkdown.substring(0, 12000) }],
+          toneProfileId: selectedToneProfileId || undefined,
+          skipFaqs,
+          skipQuickTips,
+          skipSources,
+          migrationMode: true,
+          generateCTAs: hasCtaUrl,
+          ctaUrl: hasCtaUrl ? ctaUrl.trim() : undefined,
+        },
+      });
+      if (contentError) throw new Error(`Content generation failed: ${contentError.message}`);
 
-      const generateMarkdownPass = async (wordBudget: number) => {
-        console.log(`[Migration] Step 2: Generating article via generate-content (word budget: ${wordBudget})`);
+      let generatedMarkdown = contentData.content || contentData.generatedContent || "";
+      if (!generatedMarkdown.trim()) throw new Error("No content returned from generation");
+      console.log("[Migration] Generated", generatedMarkdown.length, "chars markdown");
 
-        const { data: contentData, error: contentError } = await supabase.functions.invoke("generate-content", {
-          body: {
-            topic,
-            length: "long",
-            wordCount: wordBudget,
-            instructions: instructions + ctaInstructions,
-            contextFiles: [{ name: "source-content", content: sourceMarkdown.substring(0, 12000) }],
-            toneProfileId: selectedToneProfileId || undefined,
-            skipFaqs,
-            skipQuickTips,
-            skipSources,
-            migrationMode: true,
-            generateCTAs: hasCtaUrl,
-            ctaUrl: hasCtaUrl ? ctaUrl.trim() : undefined,
-          },
-        });
-        if (contentError) throw new Error(`Content generation failed: ${contentError.message}`);
+      console.log("[Migration] Generated", generatedMarkdown.length, "chars markdown");
 
-        let passMarkdown = contentData.content || contentData.generatedContent || "";
-        if (!passMarkdown.trim()) throw new Error("No content returned from generation");
-        console.log("[Migration] Generated", passMarkdown.length, "chars markdown");
+      // Extract SEO metadata from generated content
+      const h1Match = generatedMarkdown.match(/^#\s+(.+)$/m);
+      const title = h1Match ? h1Match[1].trim() : pageTitle;
+      const firstParagraph = generatedMarkdown.match(/^(?!#)(?!>)(?!\|)(?!-)(.{20,})/m);
+      const subtitle = firstParagraph ? firstParagraph[1].trim() : "";
+      const seoTitle = title.length > 60 ? title.substring(0, 57) + "..." : title;
+      const seoDescription = subtitle.length > 160 ? subtitle.substring(0, 157) + "..." : subtitle;
 
-        // Step 2b: rewrite opening paragraph
-        const h1InitialMatch = passMarkdown.match(/^#\s+(.+)$/m);
-        const initialTitle = h1InitialMatch ? h1InitialMatch[1].trim() : pageTitle;
-        const initialFirstParagraph = passMarkdown.match(/^(?!#)(?!>)(?!\|)(?!-)(.{20,})/m);
-        const initialSubtitle = initialFirstParagraph ? initialFirstParagraph[1].trim() : "";
-
-        if (initialSubtitle) {
-          console.log("[Migration] Step 2b: Generating distinct opening paragraph");
-          try {
-            const { data: rewriteData, error: rewriteError } = await supabase.functions.invoke("rewrite-intro", {
-              body: { title: initialTitle, subtitle: initialSubtitle },
-            });
-
-            if (!rewriteError && rewriteData?.intro && rewriteData.intro.length > 20) {
-              const newIntro = rewriteData.intro.trim();
-              const lines = passMarkdown.split("\n");
-              for (let i = 0; i < lines.length; i++) {
-                if (lines[i].startsWith("#") || lines[i].startsWith(">") || lines[i].startsWith("|") || lines[i].startsWith("-") || lines[i].trim() === "") continue;
-                if (lines[i].trim().length >= 20) {
-                  lines[i] = newIntro;
-                  passMarkdown = lines.join("\n");
-                  console.log("[Migration] Replaced duplicated intro with fresh paragraph");
-                  break;
-                }
+      // === STEP 2b: Rewrite opening paragraph so it differs from subtitle ===
+      if (subtitle) {
+        console.log("[Migration] Step 2b: Generating distinct opening paragraph");
+        try {
+          const { data: rewriteData, error: rewriteError } = await supabase.functions.invoke("rewrite-intro", {
+            body: { title, subtitle },
+          });
+          
+          if (!rewriteError && rewriteData?.intro && rewriteData.intro.length > 20) {
+            const newIntro = rewriteData.intro.trim();
+            // Replace the first content paragraph in the markdown
+            const lines = generatedMarkdown.split("\n");
+            for (let i = 0; i < lines.length; i++) {
+              if (lines[i].startsWith("#") || lines[i].startsWith(">") || lines[i].startsWith("|") || lines[i].startsWith("-") || lines[i].trim() === "") continue;
+              if (lines[i].trim().length >= 20) {
+                lines[i] = newIntro;
+                generatedMarkdown = lines.join("\n");
+                console.log("[Migration] Replaced duplicated intro with fresh paragraph");
+                break;
               }
             }
-          } catch (rewriteErr) {
-            console.error("[Migration] Intro rewrite failed, keeping original:", rewriteErr);
           }
+        } catch (rewriteErr) {
+          console.error("[Migration] Intro rewrite failed, keeping original:", rewriteErr);
         }
+      }
 
-        // Step 2c: auto-insert internal links
-        if (internalLinkUrls.length > 0) {
-          console.log("[Migration] Step 2c: Auto-inserting internal links from", internalLinkUrls.length, "candidates");
-          try {
-            const beforeLinkContent = passMarkdown;
-            const beforeWords = beforeLinkContent.split(/\s+/).filter(Boolean).length;
-            const beforeH2Count = (beforeLinkContent.match(/^##\s+/gm) || []).length;
-            const beforeHasFinalThoughts = /##\s.*final\s*thoughts|##\s.*conclusion/i.test(beforeLinkContent);
+      // === STEP 2c: Auto-insert internal links ===
+      if (internalLinkUrls.length > 0) {
+        console.log("[Migration] Step 2c: Auto-inserting internal links from", internalLinkUrls.length, "candidates");
+        try {
+          const beforeLinkContent = generatedMarkdown;
+          const beforeWords = beforeLinkContent.split(/\s+/).filter(Boolean).length;
+          const beforeH2Count = (beforeLinkContent.match(/^##\s+/gm) || []).length;
+          const beforeHasFinalThoughts = /##\s.*final\s*thoughts|##\s.*conclusion/i.test(beforeLinkContent);
 
-            const { data: linkData, error: linkError } = await supabase.functions.invoke("auto-internal-links", {
-              body: {
-                content: passMarkdown,
-                candidates: internalLinkUrls,
-                articleUrl: entry.url,
-              },
-            });
+          const { data: linkData, error: linkError } = await supabase.functions.invoke("auto-internal-links", {
+            body: {
+              content: generatedMarkdown,
+              candidates: internalLinkUrls,
+              articleUrl: entry.url,
+            },
+          });
 
-            if (!linkError && linkData?.content) {
-              const linkedCandidate = linkData.content as string;
-              const afterWords = linkedCandidate.split(/\s+/).filter(Boolean).length;
-              const afterH2Count = (linkedCandidate.match(/^##\s+/gm) || []).length;
-              const afterHasFinalThoughts = /##\s.*final\s*thoughts|##\s.*conclusion/i.test(linkedCandidate);
+          if (!linkError && linkData?.content) {
+            const linkedCandidate = linkData.content as string;
+            const afterWords = linkedCandidate.split(/\s+/).filter(Boolean).length;
+            const afterH2Count = (linkedCandidate.match(/^##\s+/gm) || []).length;
+            const afterHasFinalThoughts = /##\s.*final\s*thoughts|##\s.*conclusion/i.test(linkedCandidate);
 
-              const tooShort = afterWords < Math.max(Math.floor(beforeWords * 0.85), beforeWords - 80);
-              const lostStructure = afterH2Count + 1 < beforeH2Count || (beforeHasFinalThoughts && !afterHasFinalThoughts);
+            const tooShort = afterWords < Math.max(Math.floor(beforeWords * 0.85), beforeWords - 80);
+            const lostStructure = afterH2Count + 1 < beforeH2Count || (beforeHasFinalThoughts && !afterHasFinalThoughts);
 
-              if (tooShort || lostStructure) {
-                console.warn(`[Migration] Internal link guardrail triggered. Keeping original markdown. beforeWords=${beforeWords}, afterWords=${afterWords}, beforeH2=${beforeH2Count}, afterH2=${afterH2Count}`);
-              } else {
-                passMarkdown = linkedCandidate;
-                console.log(`[Migration] Inserted ${linkData.insertedCount} internal links:`, linkData.insertedUrls);
-              }
-            } else if (linkError) {
-              console.error("[Migration] Internal links failed, continuing without:", linkError);
+            if (tooShort || lostStructure) {
+              console.warn(`[Migration] Internal link guardrail triggered. Keeping original markdown. beforeWords=${beforeWords}, afterWords=${afterWords}, beforeH2=${beforeH2Count}, afterH2=${afterH2Count}`);
+            } else {
+              generatedMarkdown = linkedCandidate;
+              console.log(`[Migration] Inserted ${linkData.insertedCount} internal links:`, linkData.insertedUrls);
             }
-          } catch (linkErr) {
-            console.error("[Migration] Internal links error, continuing:", linkErr);
+          } else if (linkError) {
+            console.error("[Migration] Internal links failed, continuing without:", linkError);
           }
+        } catch (linkErr) {
+          console.error("[Migration] Internal links error, continuing:", linkErr);
         }
-
-        const h1Match = passMarkdown.match(/^#\s+(.+)$/m);
-        const resolvedTitle = h1Match ? h1Match[1].trim() : pageTitle;
-        const firstParagraph = passMarkdown.match(/^(?!#)(?!>)(?!\|)(?!-)(.{20,})/m);
-        const resolvedSubtitle = firstParagraph ? firstParagraph[1].trim() : "";
-
-        return {
-          markdown: passMarkdown,
-          title: resolvedTitle,
-          subtitle: resolvedSubtitle,
-          seoTitle: resolvedTitle.length > 60 ? resolvedTitle.substring(0, 57) + "..." : resolvedTitle,
-          seoDescription: resolvedSubtitle.length > 160 ? resolvedSubtitle.substring(0, 157) + "..." : resolvedSubtitle,
-          ctas: contentData.ctas,
-        };
-      };
-
-      const buildCtaHtml = (ctas: any) => {
-        if (!ctas?.end || !hasCtaUrl) return "";
-        return generateCTAHtml(
-          ctas.end.headline,
-          ctas.end.description,
-          ctas.end.buttonText,
-          ctaUrl.trim(),
-          selectedColorPalette,
-          (ctas.end as any).tagline
-        );
-      };
-
-      let title = pageTitle;
-      let subtitle = "";
-      let seoTitle = "";
-      let seoDescription = "";
-      let endCtaHtml = "";
-      let contentEnHtml = "";
-
-      // Single generation pass - no futile regeneration loop.
-      // Word count is now enforced deterministically in the backend.
-      // HTML size is handled by progressive compaction in compactHtmlForExcelLimit.
-      const generated = await generateMarkdownPass(targetWordCount);
-      const generatedMarkdown = generated.markdown;
-      title = generated.title;
-      subtitle = generated.subtitle;
-      seoTitle = generated.seoTitle;
-      seoDescription = generated.seoDescription;
-      endCtaHtml = buildCtaHtml(generated.ctas);
-
-      if (endCtaHtml) {
-        console.log("[Migration] CTA generated for end of article");
-      }
-
-      const rendered = renderFullHtml(generatedMarkdown, endCtaHtml);
-      const { html: preparedHtml, payloadChars } = prepareHtmlForExcel(rendered);
-      contentEnHtml = preparedHtml;
-
-      if (payloadChars > EXCEL_SAFE_TARGET) {
-        console.warn(`[Migration] EN payload ${payloadChars}/${EXCEL_SAFE_TARGET} after compaction. Progressive compaction handled it.`);
-      }
-
-      if (!generatedMarkdown.trim() || !contentEnHtml.trim()) {
-        throw new Error("No content generated after Excel-safe retries");
       }
 
       // === STEP 3: Translate to NL and DE (unless English Only) ===
@@ -775,19 +583,28 @@ ${sourceHtml.substring(0, 8000)}`;
         console.log("[Migration] Step 3: Skipping translations (English Only mode)");
       }
 
-      // === STEP 4: Convert Markdown → styled HTML (full formatting, no destructive truncation) ===
+      // === STEP 4: Convert Markdown → styled HTML ===
       console.log("[Migration] Step 4: Converting markdown to styled HTML");
+      const palette = selectedColorPalette || undefined;
+      const convertOpts = { skipNavigation, skipQuickTips, skipFaqs, skipSources };
 
-      const toExcelSafeHtml = (markdown: string, locale: "EN" | "NL" | "DE") => {
-        const rendered = renderFullHtml(markdown, endCtaHtml);
-        const { html: preparedHtml, payloadChars } = prepareHtmlForExcel(rendered);
+      // Generate CTA HTML if CTAs were returned
+      const ctas = contentData.ctas;
+      let endCtaHtml = "";
+      if (ctas?.end && hasCtaUrl) {
+        endCtaHtml = generateCTAHtml(
+          ctas.end.headline,
+          ctas.end.description,
+          ctas.end.buttonText,
+          ctaUrl.trim(),
+          selectedColorPalette,
+          (ctas.end as any).tagline
+        );
+        console.log("[Migration] CTA generated for end of article");
+      }
 
-        if (payloadChars > EXCEL_CELL_LIMIT) {
-          console.warn(`[Migration] ${locale} payload over Excel hard limit: ${payloadChars}/${EXCEL_CELL_LIMIT}. Keeping full HTML (export check will flag).`);
-        }
-
-        return preparedHtml;
-      };
+      const appendCta = (html: string) => endCtaHtml ? html + endCtaHtml : html;
+      const toExportHtml = (markdown: string) => minifyHtmlForExport(appendCta(markdownToStyledHtml(markdown, palette, convertOpts)));
 
       const data: MigrationResult = {
         url: entry.url,
@@ -796,17 +613,17 @@ ${sourceHtml.substring(0, 8000)}`;
         subtitle,
         seoTitle,
         seoDescription,
-        content: contentEnHtml,
+        content: toExportHtml(generatedMarkdown),
         titleNL: nl.title,
         subtitleNL: nl.subtitle,
         seoTitleNL: nl.seoTitle,
         seoDescriptionNL: nl.seoDescription,
-        contentNL: nl.content ? toExcelSafeHtml(nl.content, "NL") : "",
+        contentNL: nl.content ? toExportHtml(nl.content) : "",
         titleDE: de.title,
         subtitleDE: de.subtitle,
         seoTitleDE: de.seoTitle,
         seoDescriptionDE: de.seoDescription,
-        contentDE: de.content ? toExcelSafeHtml(de.content, "DE") : "",
+        contentDE: de.content ? toExportHtml(de.content) : "",
         imageUrls,
       };
 
@@ -934,16 +751,12 @@ ${sourceHtml.substring(0, 8000)}`;
     const rows = entries.filter(e => e.status === "done" && e.result).map(e => {
       const r = e.result!;
       const maybeStripH1 = (html: string) => skipTitleInHtml ? stripH1FromHtml(html) : html;
-      const contentEn = compactHtmlForExcelLimit(maybeStripH1(r.content ?? ""));
-      const contentNl = compactHtmlForExcelLimit(maybeStripH1(r.contentNL ?? ""));
-      const contentDe = compactHtmlForExcelLimit(maybeStripH1(r.contentDE ?? ""));
+      const contentEn = minifyHtmlForExport(maybeStripH1(r.content ?? ""));
+      const contentNl = minifyHtmlForExport(maybeStripH1(r.contentNL ?? ""));
+      const contentDe = minifyHtmlForExport(maybeStripH1(r.contentDE ?? ""));
 
-      const enPayload = getExcelCellPayloadLength(contentEn);
-      const nlPayload = getExcelCellPayloadLength(contentNl);
-      const dePayload = getExcelCellPayloadLength(contentDe);
-
-      maxContentCellChars = Math.max(maxContentCellChars, enPayload, nlPayload, dePayload);
-      if (maxContentCellChars > EXCEL_SAFE_TARGET) exceedsCellLimit = true;
+      maxContentCellChars = Math.max(maxContentCellChars, contentEn.length, contentNl.length, contentDe.length);
+      if (maxContentCellChars > EXCEL_CELL_LIMIT) exceedsCellLimit = true;
 
       return [
         r.type ?? "", (r.imageUrls || [])[0] || "", r.url ?? "", "",
@@ -957,16 +770,24 @@ ${sourceHtml.substring(0, 8000)}`;
 
     if (exceedsCellLimit) {
       toast({
-        title: "Export blocked: content exceeds safe payload target",
-        description: `Max escaped content cell payload is ${maxContentCellChars} chars (target: ${EXCEL_SAFE_TARGET}, hard cap: ${EXCEL_CELL_LIMIT}). Re-run with lower word count to keep full formatting without truncation.`,
+        title: "Export blocked: content exceeds Excel cell limit",
+        description: `Max content cell is ${maxContentCellChars} chars (limit: ${EXCEL_CELL_LIMIT}). Reduce article size or skip non-essential sections.`,
         variant: "destructive",
       });
       return;
     }
 
     // Build Excel XML (SpreadsheetML) to keep raw HTML in single cells without row-splitting
+    const escapeXml = (val: string): string =>
+      String(val ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, ""); // strip control chars
+
     const buildRow = (cells: string[]) =>
-      "<Row>" + cells.map(c => `<Cell><Data ss:Type="String">${escapeSpreadsheetXml(c)}</Data></Cell>`).join("") + "</Row>";
+      "<Row>" + cells.map(c => `<Cell><Data ss:Type="String">${escapeXml(c)}</Data></Cell>`).join("") + "</Row>";
 
     const xmlRows = [buildRow(headers), ...rows.map(buildRow)].join("\n");
 
