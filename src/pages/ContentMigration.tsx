@@ -107,6 +107,8 @@ export default function ContentMigration() {
   const [toneProfiles, setToneProfiles] = useState<Array<{ id: string; name: string }>>([]);
 
   const EXCEL_CELL_LIMIT = 32767;
+  const EXCEL_SAFE_TARGET = 32000;
+  const MAX_EXCEL_FIT_PASSES = 6;
 
   const escapeSpreadsheetXml = (val: string): string =>
     String(val ?? "")
@@ -175,58 +177,25 @@ export default function ContentMigration() {
 
     let current = minifyHtmlForExport(html);
 
-    // Deduplicate repeated disclosure-style blocks
-    let seenDisclosure = false;
-    current = current.replace(/<style>[^<]*details\[open\][^<]*<\/style>/gi, () => {
-      if (seenDisclosure) return "";
-      seenDisclosure = true;
-      return "<style>details[open] summary svg{transform:rotate(180deg)}details summary::-webkit-details-marker{display:none}</style>";
+    // Keep full article structure, only remove duplicated CSS blocks.
+    const seenStyleBlocks = new Set<string>();
+    current = current.replace(/<style>([\s\S]*?)<\/style>/gi, (full, css) => {
+      const normalizedCss = String(css || "").replace(/\s+/g, " ").trim();
+      if (!normalizedCss) return "";
+      if (seenStyleBlocks.has(normalizedCss)) return "";
+      seenStyleBlocks.add(normalizedCss);
+      return `<style>${normalizedCss}</style>`;
     });
 
-    // If within limit, return as-is with full formatting
-    if (getExcelCellPayloadLength(current) <= EXCEL_CELL_LIMIT) return current;
-
-    // Progressive compaction: strip heaviest sections first
-
-    // 1. Strip "In This Article" navigation (biggest payload hog ~5-10K chars)
-    current = current.replace(/<div[^>]*>(?:<div[^>]*>)*\s*<h4[^>]*>[^<]*In\s*This\s*Article[^<]*<\/h4>[\s\S]*?(?:<\/details>\s*)*<\/div>\s*<\/div>/gi, "");
-    console.log(`[ExcelCompact] After stripping nav: ${getExcelCellPayloadLength(current)} chars`);
-    if (getExcelCellPayloadLength(current) <= EXCEL_CELL_LIMIT) return current;
-
-    // 2. Strip FAQ section (~4-8K chars)
-    current = current.replace(/<div[^>]*>(?:<div[^>]*>)*\s*<h4[^>]*>[^<]*Frequently\s*Asked[^<]*<\/h4>[\s\S]*?(?:<\/details>\s*)*<\/div>\s*<\/div>/gi, "");
-    console.log(`[ExcelCompact] After stripping FAQ: ${getExcelCellPayloadLength(current)} chars`);
-    if (getExcelCellPayloadLength(current) <= EXCEL_CELL_LIMIT) return current;
-
-    // 3. Strip CTA banner
-    current = current.replace(/<div[^>]*data-cta-banner="true"[^>]*>[\s\S]*?<\/div>\s*(?:<\/div>)*/gi, "");
-    console.log(`[ExcelCompact] After stripping CTA: ${getExcelCellPayloadLength(current)} chars`);
-    if (getExcelCellPayloadLength(current) <= EXCEL_CELL_LIMIT) return current;
-
-    // 4. Strip Quick Tips blockquotes
-    current = current.replace(/<h2[^>]*>\s*Quick\s*Tips\s*<\/h2>(?:\s*<blockquote[^>]*>[\s\S]*?<\/blockquote>)*/gi, "");
-    console.log(`[ExcelCompact] After stripping Quick Tips: ${getExcelCellPayloadLength(current)} chars`);
-    if (getExcelCellPayloadLength(current) <= EXCEL_CELL_LIMIT) return current;
-
-    // 5. Compress inline styles: shorten verbose style attributes
-    current = current
-      .replace(/;color:#374151/g, "")
-      .replace(/;color:#1f2937/g, "")
-      .replace(/;font-family:inherit/g, "")
-      .replace(/;word-wrap:break-word/g, "")
-      .replace(/margin:0 0 16px 0;/g, "margin:0 0 16px;")
-      .replace(/padding:12px 16px;text-align:left;/g, "padding:12px 16px;")
-      .replace(/display:inline-flex;align-items:center;justify-content:center;/g, "display:inline-flex;align-items:center;")
-      .replace(/stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/g, 'stroke-width="2"')
-      .replace(/<svg[^>]*>[\s\S]*?<\/svg>/gi, "");
-    console.log(`[ExcelCompact] After style compression: ${getExcelCellPayloadLength(current)} chars`);
-    if (getExcelCellPayloadLength(current) <= EXCEL_CELL_LIMIT) return current;
-
-    // 6. Nuclear: strip ALL inline styles
-    current = current.replace(/ style="[^"]*"/g, "");
-    console.log(`[ExcelCompact] After stripping all styles: ${getExcelCellPayloadLength(current)} chars`);
-
     return current;
+  };
+
+  const prepareHtmlForExcel = (html: string) => {
+    const compacted = compactHtmlForExcelLimit(html);
+    return {
+      html: compacted,
+      payloadChars: getExcelCellPayloadLength(compacted),
+    };
   };
 
   // Load tone profiles
