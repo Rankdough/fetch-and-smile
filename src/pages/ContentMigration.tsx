@@ -732,42 +732,27 @@ ${sourceHtml.substring(0, 8000)}`;
       let contentEnHtml = "";
       let effectiveWordBudget = targetWordCount;
 
-      for (let pass = 1; pass <= MAX_EXCEL_FIT_PASSES; pass++) {
-        const generated = await generateMarkdownPass(effectiveWordBudget);
-        generatedMarkdown = generated.markdown;
-        title = generated.title;
-        subtitle = generated.subtitle;
-        seoTitle = generated.seoTitle;
-        seoDescription = generated.seoDescription;
-        endCtaHtml = buildCtaHtml(generated.ctas);
+      // Single generation pass - no futile regeneration loop.
+      // Word count is now enforced deterministically in the backend.
+      // HTML size is handled by progressive compaction in compactHtmlForExcelLimit.
+      const generated = await generateMarkdownPass(targetWordCount);
+      const generatedMarkdown = generated.markdown;
+      title = generated.title;
+      subtitle = generated.subtitle;
+      seoTitle = generated.seoTitle;
+      seoDescription = generated.seoDescription;
+      endCtaHtml = buildCtaHtml(generated.ctas);
 
-        if (endCtaHtml) {
-          console.log("[Migration] CTA generated for end of article");
-        }
+      if (endCtaHtml) {
+        console.log("[Migration] CTA generated for end of article");
+      }
 
-        const rendered = renderFullHtml(generatedMarkdown, endCtaHtml);
-        const { html: preparedHtml, payloadChars } = prepareHtmlForExcel(rendered);
-        contentEnHtml = preparedHtml;
+      const rendered = renderFullHtml(generatedMarkdown, endCtaHtml);
+      const { html: preparedHtml, payloadChars } = prepareHtmlForExcel(rendered);
+      contentEnHtml = preparedHtml;
 
-        if (payloadChars <= EXCEL_SAFE_TARGET) {
-          if (pass > 1) {
-            console.warn(`[Migration] EN fit after pass ${pass} (${payloadChars}/${EXCEL_SAFE_TARGET}) with word budget ${effectiveWordBudget}`);
-          }
-          break;
-        }
-
-        if (pass === MAX_EXCEL_FIT_PASSES) {
-          throw new Error(`Unable to fit full HTML under ${EXCEL_SAFE_TARGET} chars without truncation. Last payload: ${payloadChars}.`);
-        }
-
-        const ratio = EXCEL_SAFE_TARGET / payloadChars;
-        const markdownWords = generatedMarkdown.split(/\s+/).filter(Boolean).length;
-        const ratioBudget = Math.floor(effectiveWordBudget * ratio * 0.9);
-        const markdownBudget = Math.floor(markdownWords * 0.9);
-        const nextBudget = Math.max(220, Math.min(ratioBudget, markdownBudget, effectiveWordBudget - 80));
-
-        effectiveWordBudget = nextBudget < effectiveWordBudget ? nextBudget : Math.max(220, effectiveWordBudget - 120);
-        console.warn(`[Migration] EN exceeded safe target (${payloadChars}/${EXCEL_SAFE_TARGET}). Retrying with reduced word budget ${effectiveWordBudget}.`);
+      if (payloadChars > EXCEL_SAFE_TARGET) {
+        console.warn(`[Migration] EN payload ${payloadChars}/${EXCEL_SAFE_TARGET} after compaction. Progressive compaction handled it.`);
       }
 
       if (!generatedMarkdown.trim() || !contentEnHtml.trim()) {
