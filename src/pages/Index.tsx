@@ -2743,7 +2743,8 @@ const Index = () => {
                   finalHtml = beforeNav + generateNavigationHtml(navItems, selectedColorPalette) + afterNav;
                 } else if (!skipNavigation) {
                   // Fallback: insert after TL;DR section
-                  const tldrMatch = cleanedHtmlContent.match(/(<h2[^>]*>.*?TL;?DR.*?<\/h2>[\s\S]*?<\/ul>)/i);
+                  // Try matching TL;DR followed by list or paragraph
+                  const tldrMatch = cleanedHtmlContent.match(/(<h2[^>]*>.*?TL;?DR.*?<\/h2>[\s\S]*?<\/(?:ul|p)>)/i);
                   if (tldrMatch && navItems.length > 0) {
                     const tldrEndIndex = cleanedHtmlContent.indexOf(tldrMatch[0]) + tldrMatch[0].length;
                     const beforeNav = cleanedHtmlContent.slice(0, tldrEndIndex);
