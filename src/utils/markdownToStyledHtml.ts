@@ -98,6 +98,8 @@ export function markdownToStyledHtml(
         nextSibling.querySelectorAll("li").forEach((li) => {
           li.setAttribute("style", `margin: 8px 0; line-height: 1.6; color: ${panelText};`);
         });
+      } else if (nextSibling && nextSibling.tagName === "P") {
+        nextSibling.setAttribute("style", `background: ${panelBg}; color: ${panelText}; border-left: 4px solid ${primaryColor}; padding: 16px 24px; margin: 0 0 24px 0; border-radius: 0 0 8px 0; line-height: 1.7;`);
       }
     } else if (isQuickTips) {
       h.setAttribute("style", `margin: 32px 0 16px 0; ${headingColor}`);
