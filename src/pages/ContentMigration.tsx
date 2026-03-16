@@ -437,11 +437,11 @@ export default function ContentMigration() {
       englishOnly ? 0 : getExcelCellPayloadLength(compactHtmlForExcelLimit(result.contentNL || "")),
       englishOnly ? 0 : getExcelCellPayloadLength(compactHtmlForExcelLimit(result.contentDE || "")),
     );
-    const cellLimitPassed = maxContentCellChars <= EXCEL_CELL_LIMIT;
+    const cellLimitPassed = maxContentCellChars <= EXCEL_SAFE_TARGET;
     checks.push({
       label: "Excel Cell Limit",
       passed: cellLimitPassed,
-      detail: `Max escaped cell payload: ${maxContentCellChars}/${EXCEL_CELL_LIMIT} chars`,
+      detail: `Max escaped cell payload: ${maxContentCellChars}/${EXCEL_SAFE_TARGET} chars target (hard cap: ${EXCEL_CELL_LIMIT})`,
     });
 
     const exportPassed = hasTitle && hasSeoTitle && hasSeoDesc && hasContent && hasNL && hasDE && cellLimitPassed;
@@ -455,7 +455,7 @@ export default function ContentMigration() {
         !hasContent && "Content",
         !hasNL && "NL Translation",
         !hasDE && "DE Translation",
-        !cellLimitPassed && `Cell > ${EXCEL_CELL_LIMIT} chars`,
+        !cellLimitPassed && `Cell > ${EXCEL_SAFE_TARGET} chars target`,
       ].filter(Boolean).join(", ")}`,
     });
 
