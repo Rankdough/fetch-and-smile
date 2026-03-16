@@ -540,6 +540,10 @@ const Index = () => {
     const saved = localStorage.getItem("seo-generator-skipSources");
     return saved !== null ? JSON.parse(saved) : false;
   });
+  const [generateFaqSchema, setGenerateFaqSchema] = useState(() => {
+    const saved = localStorage.getItem("seo-generator-generateFaqSchema");
+    return saved !== null ? JSON.parse(saved) : false;
+  });
   const [isEditMode, setIsEditMode] = useState(false);
   const [useFirstPerson, setUseFirstPerson] = useState<boolean>(() => {
     return localStorage.getItem("seo-generator-useFirstPerson") === "true";
