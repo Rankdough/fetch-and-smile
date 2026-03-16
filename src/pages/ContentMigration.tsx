@@ -913,7 +913,7 @@ ${sourceHtml.substring(0, 8000)}`;
       const dePayload = getExcelCellPayloadLength(contentDe);
 
       maxContentCellChars = Math.max(maxContentCellChars, enPayload, nlPayload, dePayload);
-      if (maxContentCellChars > EXCEL_CELL_LIMIT) exceedsCellLimit = true;
+      if (maxContentCellChars > EXCEL_SAFE_TARGET) exceedsCellLimit = true;
 
       return [
         r.type ?? "", (r.imageUrls || [])[0] || "", r.url ?? "", "",
@@ -927,8 +927,8 @@ ${sourceHtml.substring(0, 8000)}`;
 
     if (exceedsCellLimit) {
       toast({
-        title: "Export blocked: content exceeds Excel cell limit",
-        description: `Max escaped content cell payload is ${maxContentCellChars} chars (limit: ${EXCEL_CELL_LIMIT}). Reduce article size or skip non-essential sections.`,
+        title: "Export blocked: content exceeds safe payload target",
+        description: `Max escaped content cell payload is ${maxContentCellChars} chars (target: ${EXCEL_SAFE_TARGET}, hard cap: ${EXCEL_CELL_LIMIT}). Re-run with lower word count to keep full formatting without truncation.`,
         variant: "destructive",
       });
       return;
