@@ -2504,8 +2504,9 @@ const Index = () => {
                   h.removeAttribute('class');
                 });
                 
-                // Style paragraphs
+                // Style paragraphs - skip those already styled as TL;DR siblings
                 clone.querySelectorAll('p').forEach((p) => {
+                  if (p.hasAttribute('data-tldr-styled')) return;
                   p.setAttribute('style', `margin: 0 0 16px 0; line-height: 1.7; color: ${bodyText};`);
                   p.removeAttribute('class');
                 });
