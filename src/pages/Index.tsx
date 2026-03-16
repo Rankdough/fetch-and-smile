@@ -2452,18 +2452,23 @@ const Index = () => {
                     const nextSibling = h.nextElementSibling;
                     if (nextSibling && nextSibling.tagName === 'UL') {
                       nextSibling.setAttribute('style', `background: ${panelBg}; color: ${panelText}; border-left: 4px solid ${primaryColor}; padding: 16px 24px 16px 40px; margin: 0 0 24px 0; border-radius: 0 0 8px 0; list-style-type: disc;`);
-                      // Also clean up LI items inside TL;DR to remove double bullets
+                      nextSibling.setAttribute('data-tldr-styled', 'true');
                       nextSibling.querySelectorAll('li').forEach((li) => {
                         li.setAttribute('style', `margin: 8px 0; line-height: 1.6; color: ${panelText};`);
-                        // Clean text content of double dashes/bullets
+                        li.setAttribute('data-tldr-styled', 'true');
                         if (li.innerHTML) {
                           li.innerHTML = li.innerHTML.replace(/^[\s]*[-–—•]\s*[-–—]?\s*/i, '');
                         }
                       });
                     }
-                    // Also handle if next sibling is a paragraph (some TL;DR use paragraph instead of list)
-                    if (nextSibling && nextSibling.tagName === 'P') {
-                      nextSibling.setAttribute('style', `background: ${panelBg}; color: ${panelText}; border-left: 4px solid ${primaryColor}; padding: 16px 24px; margin: 0 0 24px 0; border-radius: 0 0 8px 0; line-height: 1.7;`);
+                    // Handle all consecutive paragraphs after TL;DR heading
+                    let sibling = h.nextElementSibling;
+                    while (sibling && sibling.tagName === 'P') {
+                      const nextAfter = sibling.nextElementSibling;
+                      const isLast = !nextAfter || nextAfter.tagName !== 'P';
+                      sibling.setAttribute('style', `background: ${panelBg}; color: ${panelText}; border-left: 4px solid ${primaryColor}; padding: 16px 24px; margin: 0 0 ${isLast ? '24px' : '0'} 0; border-radius: ${isLast ? '0 0 8px 0' : '0'}; line-height: 1.7;`);
+                      sibling.setAttribute('data-tldr-styled', 'true');
+                      sibling = nextAfter;
                     }
                   } else {
                     // Regular H2 - only margins, inherit everything else (+ dark color if needed)
