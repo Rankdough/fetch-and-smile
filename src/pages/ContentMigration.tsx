@@ -171,18 +171,23 @@ export default function ContentMigration() {
   };
 
   const compactHtmlForExcelLimit = (html: string): string => {
-    const isWithinLimit = (value: string) => getExcelCellPayloadLength(value) <= EXCEL_CELL_LIMIT;
+    if (!html) return "";
 
     let current = minifyHtmlForExport(html);
-    if (isWithinLimit(current)) return current;
 
-    current = minifyHtmlForExport(current.replace(/<style[\s\S]*?<\/style>/gi, ""));
-    if (isWithinLimit(current)) return current;
+    // Keep full formatting intact, but deduplicate repeated disclosure-style blocks to save payload.
+    const disclosureStyle = "<style>details[open] summary svg{transform:rotate(180deg)}details summary::-webkit-details-marker{display:none}</style>";
+    current = current
+      .replace(/<style>\s*details\[open\]\s+summary\s+svg\s*\{\s*transform:\s*rotate\(180deg\);?\s*\}\s*details\s+summary::-webkit-details-marker\s*\{\s*display:\s*none;?\s*\}\s*<\/style>/gi, disclosureStyle)
+      .replace(/<style>\s*details\[open\]\s+summary\s+svg\s*\{\s*transform:\s*rotate\(180deg\);?\s*\}\s*details\s+summary::-webkit-details-marker\s*\{\s*display:\s*none;?\s*\}\s*<\/style>/gi, (() => {
+        let seen = false;
+        return () => {
+          if (seen) return "";
+          seen = true;
+          return disclosureStyle;
+        };
+      })());
 
-    current = minifyHtmlForExport(current.replace(/\sstyle=(['"])[\s\S]*?\1/gi, ""));
-    if (isWithinLimit(current)) return current;
-
-    current = minifyHtmlForExport(current.replace(/\s(?:target|rel|id)=(['"])[\s\S]*?\1/gi, ""));
     return current;
   };
 
