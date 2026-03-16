@@ -200,12 +200,12 @@ ${migrationMode ? `4. DO NOT include an "In This Article" section - this is gene
    - List ALL main H2 sections from the article (not TL;DR or References)
    - DO NOT SKIP THIS SECTION - it must be present in every article
    - IMPORTANT: Short one-line descriptions are NOT acceptable - each must be detailed and informative`}
-5. Main content sections with ## QUESTION headings (each answered with text + bullets + tables${skipSources ? '' : ' + **Sources:** at the end'})
-6. Comparison table section (question-based, e.g., "## How Do They Compare Side by Side?")
-7. "## How to Choose" section - format as a practical decision checklist with 4-6 criteria as bullet points (e.g., "Choose X if you need…", "Prioritise Y when…"). Do NOT use a pros/cons split or "Choose A if / Choose B if" format.
-${skipFaqs ? '' : '8. "## Frequently Asked Questions" section - include 4-6 common Q&As in bold question format'}
+5. Main content sections with ## QUESTION headings (each answered with text + bullets${compactMigration ? '' : ' + tables'}${(skipSources || compactMigration) ? '' : ' + **Sources:** at the end'})
+${compactMigration ? '' : `6. Comparison table section (question-based, e.g., "## How Do They Compare Side by Side?")
+7. "## How to Choose" section - format as a practical decision checklist with 4-6 criteria as bullet points (e.g., "Choose X if you need…", "Prioritise Y when…"). Do NOT use a pros/cons split or "Choose A if / Choose B if" format.`}
+${(skipFaqs || compactMigration) ? '' : '8. "## Frequently Asked Questions" section - include 4-6 common Q&As in bold question format'}
 9. "## Final Thoughts" section with call-to-action
-${skipSources ? '' : '10. "## References:" section - list ALL sources used throughout the article as simple markdown links'}
+${(skipSources || compactMigration) ? '' : '10. "## References:" section - list ALL sources used throughout the article as simple markdown links'}
 
 Content Guidelines:
 - Start with a compelling hook that addresses the reader's pain point
