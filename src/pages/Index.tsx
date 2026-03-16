@@ -3998,6 +3998,21 @@ const Index = () => {
                       onCheckedChange={setSkipSources}
                     />
                   </div>
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <label htmlFor="generate-faq-schema" className="text-sm font-medium">
+                        Generate FAQ Schema (JSON-LD)
+                      </label>
+                      <p className="text-xs text-muted-foreground">
+                        Append FAQPage structured data script to the exported HTML for rich results
+                      </p>
+                    </div>
+                    <Switch
+                      id="generate-faq-schema"
+                      checked={generateFaqSchema}
+                      onCheckedChange={setGenerateFaqSchema}
+                    />
+                  </div>
                 </div>
               </CollapsibleSection>
 
