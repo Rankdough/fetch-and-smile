@@ -479,7 +479,7 @@ Place these images throughout the article at logical locations, typically after 
     const rebalanceToRange = async (content: string): Promise<string> => {
       let current = content;
 
-      for (let i = 0; i < 4; i++) {
+      for (let i = 0; i < 2; i++) {
         const words = countWords(current);
         if (words >= wordFloor && words <= wordCeiling) return current;
 
