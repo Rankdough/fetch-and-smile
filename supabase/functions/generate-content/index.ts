@@ -88,6 +88,26 @@ serve(async (req) => {
 
     // Calculate required tables based on word count (relaxed for migration)
     const requiredTables = migrationMode ? 1 : (targetWords >= 3000 ? 4 : targetWords >= 2000 ? 3 : 1);
+
+    // Calculate per-section word budgets so the AI knows exactly how much to write per section
+    const sectionBudgets = (() => {
+      const fixedSections: { name: string; words: number; included: boolean }[] = [
+        { name: "Opening paragraph (after H1)", words: 40, included: true },
+        { name: "TL;DR", words: 60, included: true },
+        { name: "Quick Tips", words: skipQuickTips ? 0 : 50, included: !skipQuickTips },
+        { name: "In This Article", words: migrationMode ? 0 : 80, included: !migrationMode },
+        { name: "How to Choose", words: Math.round(targetWords * 0.08), included: true },
+        { name: "FAQ", words: skipFaqs ? 0 : Math.round(targetWords * 0.12), included: !skipFaqs },
+        { name: "Final Thoughts", words: Math.round(targetWords * 0.05), included: true },
+        { name: "References", words: skipSources ? 0 : 30, included: !skipSources },
+      ];
+      const fixedTotal = fixedSections.filter(s => s.included).reduce((sum, s) => sum + s.words, 0);
+      const remainingWords = targetWords - fixedTotal;
+      // Estimate number of body H2 sections based on target length
+      const bodyH2Count = targetWords <= 500 ? 2 : targetWords <= 1000 ? 3 : targetWords <= 1500 ? 4 : targetWords <= 2000 ? 5 : targetWords <= 3000 ? 7 : 9;
+      const wordsPerBodyH2 = Math.round(remainingWords / bodyH2Count);
+      return { fixedSections: fixedSections.filter(s => s.included), bodyH2Count, wordsPerBodyH2, fixedTotal, remainingWords };
+    })();
     
     // Build the prompt
     let systemPrompt = `You are an expert SEO content writer. Write high-quality, engaging blog posts optimized for search engines while remaining valuable and readable.
