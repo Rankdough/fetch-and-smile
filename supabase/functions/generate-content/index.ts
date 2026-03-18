@@ -486,7 +486,7 @@ Place these images throughout the article at logical locations, typically after 
         const needsCondense = words > wordCeiling;
         const operation = needsCondense ? "condense" : "expand";
 
-        console.warn(`Word count out of range (${words}). Running ${operation} pass ${i + 1}/4.`);
+        console.warn(`Word count out of range (${words}). Running ${operation} pass ${i + 1}/2.`);
 
         const rebalancePrompt = `${needsCondense
           ? `Rewrite this complete article to ${targetWords} words target (strict range ${wordFloor}-${wordCeiling}). Keep all sections and meaning, but condense wording in EVERY section so the final output lands in range.`
