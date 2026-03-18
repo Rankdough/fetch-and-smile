@@ -180,45 +180,34 @@ ${skipSources ? `SOURCE REFERENCE RULES:
 - NEVER use placeholder URLs or made-up links - only include sources you know exist
 - Sources should be relevant to that specific section's content`}
 
-ARTICLE STRUCTURE (in this order):
-1. Title (# H1)
-2. ## TL;DR - as an H2 heading, followed by exactly 1 dense, factual paragraph (NOT bullet points, NOT two paragraphs). This single paragraph should be a self-contained statement an AI could quote verbatim as its entire answer. Include specific product/brand names, numbers, prices, and a clear "best for X" recommendation. Keep it to 3-5 sentences maximum.
+ARTICLE STRUCTURE (in this order) — WORD BUDGET PER SECTION:
+Total target: ${targetWords} words. Each section has a strict word budget. Do NOT exceed individual section budgets.
 
-${skipQuickTips ? '' : `3. ## Quick Tips - MANDATORY section immediately after TL;DR with exactly 3 actionable tips:
-   Format each tip as a blockquote with numbered prefix:
-   
+${sectionBudgets.fixedSections.map(s => `- ${s.name}: ~${s.words} words`).join("\n")}
+- Body H2 sections: ${sectionBudgets.bodyH2Count} sections × ~${sectionBudgets.wordsPerBodyH2} words each = ~${sectionBudgets.remainingWords} words total
+
+SECTION DETAILS:
+1. Title (# H1) + Opening paragraph (~${sectionBudgets.fixedSections.find(s => s.name.includes("Opening"))?.words || 40} words) — AI-quotable factual statement
+2. ## TL;DR (~${sectionBudgets.fixedSections.find(s => s.name === "TL;DR")?.words || 60} words) — exactly 1 dense paragraph, NOT bullet points. Self-contained statement an AI could quote. Include specific names, numbers, clear verdict.
+
+${skipQuickTips ? '' : `3. ## Quick Tips (~${sectionBudgets.fixedSections.find(s => s.name === "Quick Tips")?.words || 50} words) — exactly 3 tips:
    > **Tip 1:** [One short sentence - max 15 words]
-   
    > **Tip 2:** [One short sentence - max 15 words]
-   
    > **Tip 3:** [One short sentence - max 15 words]
-   
-   - CRITICAL: Each tip must be ONE SHORT LINE only (under 15 words)
-   - Be specific and actionable - no filler words
-   - Tips should fit on a single line when displayed
 `}
-${migrationMode ? `4. DO NOT include an "In This Article" section - this is generated automatically by the client.` : `4. ## In This Article - THIS SECTION IS MANDATORY AND MUST APPEAR IMMEDIATELY AFTER Quick Tips
-   - This is a navigation guide showing what the reader will learn
-   - Format as a BULLETED LIST with each item on its own line
-   - Each line format: - **1. Section Title** - DETAILED description (MINIMUM 150 characters, aim for 200+ characters) explaining what the reader will learn in this section
-   - CRITICAL: Each description MUST be long enough to wrap to AT LEAST 2 full lines of text
-   - Example:
-     
-     ## In This Article
-     
-     - **1. What Is Composite Bonding?** - Understand the fundamentals of this revolutionary minimally invasive cosmetic dental treatment, including how resin is applied and shaped to transform your smile in just one appointment.
-     - **2. How Much Does It Cost?** - Get a comprehensive understanding of exactly what you'll pay for different procedures, what factors influence pricing, and how to budget for your perfect smile.
-     - **3. How Long Do Results Last?** - Discover how long your results will realistically last, essential maintenance tips to extend their lifespan, and warning signs that indicate you need a touch-up.
-   
+${migrationMode ? `4. DO NOT include an "In This Article" section - this is generated automatically by the client.` : `4. ## In This Article (~${sectionBudgets.fixedSections.find(s => s.name === "In This Article")?.words || 80} words) — navigation guide:
+   - Format as a BULLETED LIST: - **1. Section Title** - DETAILED description (MINIMUM 150 characters)
    - List ALL main H2 sections from the article (not TL;DR or References)
-   - DO NOT SKIP THIS SECTION - it must be present in every article
-   - IMPORTANT: Short one-line descriptions are NOT acceptable - each must be detailed and informative`}
-5. Main content sections with ## QUESTION headings (each answered with text + bullets + tables${skipSources ? '' : ' + **Sources:** at the end'})
-6. Comparison table section (question-based, e.g., "## How Do They Compare Side by Side?")
-7. "## How to Choose" section - format as a practical decision checklist with 4-6 criteria as bullet points (e.g., "Choose X if you need…", "Prioritise Y when…"). Do NOT use a pros/cons split or "Choose A if / Choose B if" format.
-${skipFaqs ? '' : '8. "## Frequently Asked Questions" section - include 4-6 common Q&As in bold question format'}
-9. "## Final Thoughts" section with call-to-action
-${skipSources ? '' : '10. "## References:" section - list ALL sources used throughout the article as simple markdown links'}
+   - DO NOT SKIP THIS SECTION`}
+5. ${sectionBudgets.bodyH2Count} Main content sections with ## QUESTION headings (~${sectionBudgets.wordsPerBodyH2} words EACH, no more)
+   - Each answered with text + bullets + tables${skipSources ? '' : ' + **Sources:** at the end'}
+   - Include comparison table(s) where relevant
+6. "## How to Choose" (~${sectionBudgets.fixedSections.find(s => s.name === "How to Choose")?.words || 80} words) — practical checklist, 4-6 criteria as bullet points
+${skipFaqs ? '' : `7. "## Frequently Asked Questions" (~${sectionBudgets.fixedSections.find(s => s.name === "FAQ")?.words || 120} words) — 4-6 Q&As in bold question format`}
+8. "## Final Thoughts" (~${sectionBudgets.fixedSections.find(s => s.name === "Final Thoughts")?.words || 50} words) — with call-to-action
+${skipSources ? '' : `9. "## References:" (~${sectionBudgets.fixedSections.find(s => s.name === "References")?.words || 30} words) — list ALL sources as markdown links`}
+
+⚠️ WORD BUDGET ENFORCEMENT: Each body H2 section MUST be ~${sectionBudgets.wordsPerBodyH2} words. If you write ${sectionBudgets.bodyH2Count} body sections at ${sectionBudgets.wordsPerBodyH2} words each plus fixed sections, the total will be ~${targetWords} words. Going over budget on ANY section means the total will overshoot. Be disciplined.
 
 Content Guidelines:
 - Start with a compelling hook that addresses the reader's pain point
