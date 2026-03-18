@@ -479,14 +479,14 @@ Place these images throughout the article at logical locations, typically after 
     const rebalanceToRange = async (content: string): Promise<string> => {
       let current = content;
 
-      for (let i = 0; i < 4; i++) {
+      for (let i = 0; i < 2; i++) {
         const words = countWords(current);
         if (words >= wordFloor && words <= wordCeiling) return current;
 
         const needsCondense = words > wordCeiling;
         const operation = needsCondense ? "condense" : "expand";
 
-        console.warn(`Word count out of range (${words}). Running ${operation} pass ${i + 1}/4.`);
+        console.warn(`Word count out of range (${words}). Running ${operation} pass ${i + 1}/2.`);
 
         const rebalancePrompt = `${needsCondense
           ? `Rewrite this complete article to ${targetWords} words target (strict range ${wordFloor}-${wordCeiling}). Keep all sections and meaning, but condense wording in EVERY section so the final output lands in range.`
@@ -532,44 +532,7 @@ ${current}`;
         current = rewritten;
       }
 
-      const finalWords = countWords(current);
-      if (finalWords < wordFloor || finalWords > wordCeiling) {
-        console.warn(`Final strict rebalance pass: ${finalWords} words still outside ${wordFloor}-${wordCeiling}`);
-
-        const strictPrompt = `Rewrite this FULL article to land between ${wordFloor} and ${wordCeiling} words (target ${targetWords}).
-
-STRICT:
-- Keep ALL existing sections/headings
-- PRESERVE ALL MARKDOWN TABLES - do NOT remove any table
-- Preserve meaning and key facts
-- Do not remove Final Thoughts / CTA context
-- Return complete markdown only
-
-ARTICLE:
-${current}`;
-
-        const strictResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${LOVABLE_API_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model: "google/gemini-2.5-flash",
-            max_tokens: Math.min(Math.max(8192, Math.ceil(wordCeiling * 5)), 32768),
-            messages: [
-              { role: "system", content: systemPrompt },
-              { role: "user", content: strictPrompt },
-            ],
-          }),
-        });
-
-        if (strictResponse.ok) {
-          const strictData = await strictResponse.json();
-          const strictContent = strictData.choices?.[0]?.message?.content;
-          if (strictContent) current = strictContent;
-        }
-      }
+      // Skip the extra strict rebalance AI call - go straight to deterministic trimmer to save CPU time
 
       // DETERMINISTIC TRIMMER: If AI rebalance failed, programmatically trim sections from bottom up
       const finalWordCount = countWords(current);
