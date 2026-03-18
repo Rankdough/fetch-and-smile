@@ -427,8 +427,8 @@ Place these images throughout the article at logical locations, typically after 
 
     // Use stronger model for long articles, default flash for shorter ones
     const model = targetWords >= 2000 ? "google/gemini-2.5-flash" : "google/gemini-3-flash-preview";
-    // Token budget: structural sections (FAQ, References, tables, CTAs) need significant overhead beyond raw word count
-    const maxTokens = Math.min(Math.max(8192, Math.ceil(wordCeiling * 5)), 32768);
+    // Keep token budget tighter to reduce latency/timeouts and discourage oversized outputs
+    const maxTokens = Math.min(Math.max(2048, Math.ceil(wordCeiling * 2.2)), 8192);
 
     console.log(`Using model: ${model}, max_tokens: ${maxTokens}, target words: ${targetWords}`);
     console.log(`Word budgets: ${sectionBudgets.bodyH2Count} body H2s × ${sectionBudgets.wordsPerBodyH2} words = ${sectionBudgets.remainingWords} + ${sectionBudgets.fixedTotal} fixed = ${targetWords}`);
@@ -476,121 +476,203 @@ Place these images throughout the article at logical locations, typically after 
       };
     };
 
-    const rebalanceToRange = async (content: string): Promise<string> => {
-      let current = content;
+    const trimToWordCount = (text: string, maxWords: number): string => {
+      if (!text.trim() || maxWords <= 0) return "";
+      const words = text.trim().split(/\s+/).filter(Boolean);
+      if (words.length <= maxWords) return text.trim();
+      const trimmed = words.slice(0, maxWords).join(" ").replace(/[,:;\-]$/, "").trim();
+      return trimmed.endsWith(".") || trimmed.endsWith("!") || trimmed.endsWith("?") ? trimmed : `${trimmed}.`;
+    };
 
-      for (let i = 0; i < 2; i++) {
-        const words = countWords(current);
-        if (words >= wordFloor && words <= wordCeiling) return current;
+    const trimSectionToBudget = (body: string, budget: number): string => {
+      const cleaned = body.trim();
+      if (!cleaned) return "";
+      if (budget <= 0) return "";
+      if (countWords(cleaned) <= budget) return cleaned;
 
-        const needsCondense = words > wordCeiling;
-        const operation = needsCondense ? "condense" : "expand";
+      const paragraphs = cleaned.split(/\n{2,}/).map(p => p.trim()).filter(Boolean);
+      const kept: string[] = [];
+      let remaining = budget;
 
-        console.warn(`Word count out of range (${words}). Running ${operation} pass ${i + 1}/2.`);
+      for (const paragraph of paragraphs) {
+        if (remaining <= 0) break;
+        const paragraphWords = countWords(paragraph);
 
-        const rebalancePrompt = `${needsCondense
-          ? `Rewrite this complete article to ${targetWords} words target (strict range ${wordFloor}-${wordCeiling}). Keep all sections and meaning, but condense wording in EVERY section so the final output lands in range.`
-          : `Rewrite this complete article to ${targetWords} words target (strict range ${wordFloor}-${wordCeiling}). Keep all sections and add concise, concrete depth where needed so the final output lands in range.`}
+        if (paragraphWords <= remaining) {
+          kept.push(paragraph);
+          remaining -= paragraphWords;
+          continue;
+        }
 
-CRITICAL RULES:
-- Return the FULL article from # title through the ending section
-- Do NOT output partial content
-- Keep headings and structure intact
-- PRESERVE ALL MARKDOWN TABLES exactly as they are - do NOT remove or simplify any table
-- End with a complete sentence
-- Return markdown only
+        if (remaining < 10) break;
 
-ARTICLE:
-${current}`;
+        const lines = paragraph.split("\n").map(line => line.trim()).filter(Boolean);
+        const isTable = lines.some(line => line.includes("|"));
+        if (isTable) {
+          const tableLines = lines.filter(line => line.includes("|"));
+          const minimalTable = tableLines.slice(0, Math.min(3, tableLines.length)).join("\n");
+          const tableWords = countWords(minimalTable);
+          if (tableWords <= remaining) {
+            kept.push(minimalTable);
+            remaining -= tableWords;
+          }
+          continue;
+        }
 
-        const rebalanceResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${LOVABLE_API_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model: "google/gemini-2.5-flash",
-            max_tokens: Math.min(Math.max(8192, Math.ceil(wordCeiling * 5)), 32768),
-            messages: [
-              { role: "system", content: systemPrompt },
-              { role: "user", content: rebalancePrompt },
-            ],
-          }),
-        });
+        const sentences = paragraph.match(/[^.!?]+[.!?]?/g)?.map(s => s.trim()).filter(Boolean) ?? [paragraph];
+        const sentenceBuffer: string[] = [];
 
-        if (!rebalanceResponse.ok) {
-          const errorText = await rebalanceResponse.text();
-          console.error("Rebalance failed:", rebalanceResponse.status, errorText);
+        for (const sentence of sentences) {
+          if (remaining <= 0) break;
+          const sentenceWords = countWords(sentence);
+          if (sentenceWords <= remaining) {
+            sentenceBuffer.push(sentence);
+            remaining -= sentenceWords;
+            continue;
+          }
+
+          if (remaining >= 8) {
+            sentenceBuffer.push(trimToWordCount(sentence, remaining));
+            remaining = 0;
+          }
           break;
         }
 
-        const rebalanceData = await rebalanceResponse.json();
-        const rewritten = rebalanceData.choices?.[0]?.message?.content;
-        if (!rewritten) break;
-
-        current = rewritten;
+        if (sentenceBuffer.length > 0) kept.push(sentenceBuffer.join(" "));
+        break;
       }
 
-      // Skip the extra strict rebalance AI call - go straight to deterministic trimmer to save CPU time
+      if (!kept.length) return trimToWordCount(cleaned, Math.max(12, budget));
+      return kept.join("\n\n").trim();
+    };
 
-      // DETERMINISTIC TRIMMER: If AI rebalance failed, programmatically trim sections from bottom up
-      const finalWordCount = countWords(current);
-      if (finalWordCount > wordCeiling) {
-        console.warn(`Deterministic trimmer: ${finalWordCount} words > ceiling ${wordCeiling}. Trimming body sections from bottom up.`);
-        
-        // Split into sections by H2 headings
-        const sectionRegex = /^## /m;
-        const parts = current.split(sectionRegex);
-        if (parts.length > 1) {
-          // Reconstruct sections with their headings
-          const sections: { heading: string; content: string; priority: number }[] = [];
-          const intro = parts[0]; // Content before first H2
-          
-          for (let i = 1; i < parts.length; i++) {
-            const newlineIdx = parts[i].indexOf("\n");
-            const heading = newlineIdx >= 0 ? parts[i].substring(0, newlineIdx).trim() : parts[i].trim();
-            const body = newlineIdx >= 0 ? parts[i].substring(newlineIdx) : "";
-            
-            // Assign priority (higher = more expendable)
-            const headingLower = heading.toLowerCase();
-            let priority = 5; // default body section - expendable
-            if (headingLower.includes("tl;dr") || headingLower.includes("tldr")) priority = 1;
-            else if (headingLower.includes("quick tips")) priority = 1;
-            else if (headingLower.includes("in this article")) priority = 1;
-            else if (headingLower.includes("final thoughts")) priority = 2;
-            else if (headingLower.includes("how to choose")) priority = 2;
-            else if (headingLower.includes("faq") || headingLower.includes("frequently asked")) priority = 3;
-            else if (headingLower.includes("references")) priority = 4;
-            
-            sections.push({ heading, content: body, priority });
-          }
-          
-          // Sort body sections (priority 5) and trim from the last one upward
-          let rebuilt = intro;
-          const sortedSections = [...sections];
-          
-          // Remove expendable body sections from the end until we're in range
-          while (countWords(rebuilt + sortedSections.map(s => `## ${s.heading}${s.content}`).join("")) > wordCeiling) {
-            // Find the last body section (priority 5) and trim its content by ~30%
-            const lastBodyIdx = sortedSections.map((s, i) => ({ ...s, idx: i })).filter(s => s.priority === 5).pop();
-            if (!lastBodyIdx) break; // No more body sections to trim
-            
-            const sectionWords = countWords(sortedSections[lastBodyIdx.idx].content);
-            if (sectionWords < 30) {
-              // Section already minimal, remove it entirely
-              sortedSections.splice(lastBodyIdx.idx, 1);
-            } else {
-              // Trim the section: keep only first ~60% of paragraphs
-              const paragraphs = sortedSections[lastBodyIdx.idx].content.split(/\n\n+/);
-              const keepCount = Math.max(1, Math.floor(paragraphs.length * 0.6));
-              sortedSections[lastBodyIdx.idx].content = paragraphs.slice(0, keepCount).join("\n\n");
-            }
-          }
-          
-          current = rebuilt + sortedSections.map(s => `## ${s.heading}${s.content}`).join("");
-          console.log(`Deterministic trimmer result: ${countWords(current)} words`);
+    const splitByH2Sections = (markdown: string): { intro: string; sections: { heading: string; body: string }[] } => {
+      const headingRegex = /^##\s+.+$/gm;
+      const matches = [...markdown.matchAll(headingRegex)];
+
+      if (matches.length === 0) {
+        return { intro: markdown.trim(), sections: [] };
+      }
+
+      const intro = markdown.slice(0, matches[0].index ?? 0).trim();
+      const sections = matches.map((match, index) => {
+        const start = match.index ?? 0;
+        const end = index + 1 < matches.length ? (matches[index + 1].index ?? markdown.length) : markdown.length;
+        const block = markdown.slice(start, end).trim();
+        const headingLine = match[0];
+        const heading = headingLine.replace(/^##\s+/, "").trim();
+        const body = block.slice(headingLine.length).trim();
+        return { heading, body };
+      });
+
+      return { intro, sections };
+    };
+
+    const rebalanceToRange = (content: string): string => {
+      let current = content
+        .replace(/—/g, "-")
+        .replace(/–/g, "-")
+        .replace(/^\s*[-*_]{3,}\s*$/gm, "")
+        .trim();
+
+      if (!current) return current;
+
+      const initialWords = countWords(current);
+      if (initialWords >= wordFloor && initialWords <= wordCeiling) return current;
+
+      const { intro, sections } = splitByH2Sections(current);
+      if (sections.length === 0) {
+        return initialWords > wordCeiling ? trimToWordCount(current, wordCeiling) : current;
+      }
+
+      const isStructuralHeading = (heading: string): boolean => {
+        const h = heading.toLowerCase();
+        return h.includes("tl;dr")
+          || h.includes("tldr")
+          || h.includes("quick tips")
+          || h.includes("in this article")
+          || h.includes("how to choose")
+          || h.includes("frequently asked")
+          || h === "faq"
+          || h.includes("final thoughts")
+          || h.includes("conclusion")
+          || h.includes("references");
+      };
+
+      const getFixedBudget = (name: string, fallback: number): number => {
+        return sectionBudgets.fixedSections.find(s => s.name === name)?.words ?? fallback;
+      };
+
+      const introBudget = Math.max(35, getFixedBudget("Opening paragraph (after H1)", 40));
+      const bodyBudget = Math.max(90, sectionBudgets.wordsPerBodyH2);
+
+      let adjustedSections = sections.map((section) => {
+        const headingLower = section.heading.toLowerCase();
+        let budget = bodyBudget;
+
+        if (headingLower.includes("tl;dr") || headingLower.includes("tldr")) budget = getFixedBudget("TL;DR", 60);
+        else if (headingLower.includes("quick tips")) budget = getFixedBudget("Quick Tips", 50);
+        else if (headingLower.includes("in this article")) budget = getFixedBudget("In This Article", 80);
+        else if (headingLower.includes("how to choose")) budget = getFixedBudget("How to Choose", Math.round(targetWords * 0.08));
+        else if (headingLower.includes("frequently asked") || headingLower === "faq") budget = getFixedBudget("FAQ", Math.round(targetWords * 0.12));
+        else if (headingLower.includes("final thoughts") || headingLower.includes("conclusion")) budget = getFixedBudget("Final Thoughts", Math.round(targetWords * 0.05));
+        else if (headingLower.includes("references")) budget = getFixedBudget("References", 30);
+
+        return {
+          ...section,
+          body: trimSectionToBudget(section.body, budget),
+        };
+      });
+
+      const trimmedIntro = trimSectionToBudget(intro, introBudget);
+
+      const buildContent = () => [
+        trimmedIntro,
+        ...adjustedSections.map(section => section.body ? `## ${section.heading}\n${section.body}` : `## ${section.heading}`),
+      ].filter(Boolean).join("\n\n").trim();
+
+      current = buildContent();
+      let currentWords = countWords(current);
+
+      if (currentWords > wordCeiling) {
+        console.warn(`Deterministic trimmer: ${currentWords} words > ceiling ${wordCeiling}. Shrinking body sections.`);
+
+        let guard = 0;
+        while (currentWords > wordCeiling && guard < 40) {
+          guard += 1;
+
+          const candidate = adjustedSections
+            .map((section, index) => ({
+              index,
+              words: countWords(section.body),
+              structural: isStructuralHeading(section.heading),
+            }))
+            .filter(s => !s.structural && s.words > 60)
+            .sort((a, b) => b.words - a.words)[0];
+
+          if (!candidate) break;
+
+          const reducedBudget = Math.max(50, Math.floor(candidate.words * 0.82));
+          adjustedSections[candidate.index] = {
+            ...adjustedSections[candidate.index],
+            body: trimSectionToBudget(adjustedSections[candidate.index].body, reducedBudget),
+          };
+
+          current = buildContent();
+          currentWords = countWords(current);
         }
+
+        if (currentWords > wordCeiling) {
+          console.warn(`Deterministic fallback hard-cap: ${currentWords} -> ${wordCeiling} words`);
+          current = trimToWordCount(current, wordCeiling);
+          currentWords = countWords(current);
+        }
+
+        console.log(`Deterministic trimmer result: ${currentWords} words`);
+      }
+
+      if (currentWords < wordFloor) {
+        console.warn(`Output below floor after deterministic balancing: ${currentWords} words (floor ${wordFloor})`);
       }
 
       return current;
@@ -602,19 +684,18 @@ ${current}`;
 
       for (let attempt = 1; attempt <= 2; attempt++) {
         const retryPrompt = attempt > 1
-          ? `\n\n⚠️ Your previous output was incomplete or off-target. Rewrite the FULL article from scratch and ensure it is complete (no cut-off ending) and within ${wordFloor}-${wordCeiling} words.`
+          ? `\n\n⚠️ Your previous output was cut off. Rewrite the FULL article from scratch and ensure it is complete with a clean ending and within ${wordFloor}-${wordCeiling} words.`
           : "";
 
         const result = await callModel(retryPrompt);
         generated = result.content;
         finishReason = result.finishReason;
 
-        const words = countWords(generated);
-        console.log(`Attempt ${attempt}: Generated ${words} words (target ${targetWords}, range ${wordFloor}-${wordCeiling}, finish_reason ${finishReason || "unknown"})`);
+        const rawWords = countWords(generated);
+        console.log(`Attempt ${attempt}: Generated ${rawWords} words (target ${targetWords}, range ${wordFloor}-${wordCeiling}, finish_reason ${finishReason || "unknown"})`);
 
-        // If response hit token limit, regenerate once from scratch with stricter completion instruction
         if (finishReason === "length" && attempt < 2) {
-          console.warn("Output hit token limit; retrying with strict full-completion instruction.");
+          console.warn("Output hit token limit; retrying once with strict full-completion instruction.");
           continue;
         }
 
@@ -643,30 +724,22 @@ ${current}`;
 
     // Post-process: Remove any em dashes, en dashes, and horizontal rules
     content = content.replace(/—/g, "-").replace(/–/g, "-");
-    // Remove horizontal rules (---, ***, ___ on their own line)
     content = content.replace(/^\s*[-*_]{3,}\s*$/gm, "");
 
-    // Log word count overshoot for monitoring but do NOT truncate —
-    // truncation causes mid-sentence/mid-section cuts. Rely on prompt + max_tokens instead.
     if (!expandExistingContent) {
-      const wordCeiling = Math.round(targetWords * 1.15);
-      const currentWordCount = content.split(/\s+/).filter(Boolean).length;
+      const currentWordCount = countWords(content);
       if (currentWordCount > wordCeiling) {
-        console.warn(`Word count overshoot: ${currentWordCount} words vs ${targetWords} target (ceiling ${wordCeiling}). Not truncating to avoid content damage.`);
+        console.warn(`Word count overshoot: ${currentWordCount} words vs ${targetWords} target (ceiling ${wordCeiling}). Deterministic cap missed target.`);
       }
     }
 
     console.log("Content generated successfully");
 
     // ═══════════════════════════════════════════════════════════════════════
-    // COMPLETENESS GUARD: Deterministic check for all required sections.
-    // If any are missing, auto-generate them and append/insert.
+    // COMPLETENESS GUARD: deterministic local fallback (no extra AI call)
     // ═══════════════════════════════════════════════════════════════════════
     let missingSections: string[] = [];
     if (!expandExistingContent && !migrationMode) {
-      const contentLower = content.toLowerCase();
-
-      // Check each required structural element
       const hasTLDR = /^#{1,3}\s.*tl;?\s?dr/im.test(content);
       const hasQuickTips = skipQuickTips || /^#{1,3}\s.*quick\s*tips/im.test(content);
       const hasInThisArticle = /in\s*this\s*article/i.test(content);
@@ -674,83 +747,55 @@ ${current}`;
       const hasFinalThoughts = /^#{1,3}\s.*final\s*thoughts|^#{1,3}\s.*conclusion/im.test(content);
       const hasReferences = skipSources || /^#{1,3}\s.*references/im.test(content);
 
-      // Count H2 body sections (excluding structural ones)
-      const h2Matches = content.match(/^##\s+.+$/gm) || [];
-      const structuralH2s = ["tl;dr", "tldr", "quick tips", "frequently asked", "faq", "final thoughts", "conclusion", "references", "in this article"];
-      const bodyH2s = h2Matches.filter(h => !structuralH2s.some(s => h.toLowerCase().includes(s)));
-      const hasEnoughBodySections = bodyH2s.length >= 3;
-
       if (!hasTLDR) missingSections.push("TL;DR");
       if (!hasQuickTips) missingSections.push("Quick Tips");
+      if (!hasInThisArticle) missingSections.push("In This Article");
       if (!hasFAQ) missingSections.push("FAQ");
       if (!hasFinalThoughts) missingSections.push("Final Thoughts");
       if (!hasReferences) missingSections.push("References");
 
       if (missingSections.length > 0) {
-        console.warn(`COMPLETENESS GUARD: Missing sections detected: ${missingSections.join(", ")}. Auto-generating...`);
+        console.warn(`COMPLETENESS GUARD: Missing sections detected: ${missingSections.join(", ")}. Injecting deterministic fallback sections.`);
 
-        const completionPrompt = `You are completing an existing article. The following sections are MISSING and must be generated:
-
-${missingSections.map(s => `- ${s}`).join("\n")}
-
-EXISTING ARTICLE TOPIC: ${topic}
-
-EXISTING ARTICLE (last 2000 chars for context):
-${content.slice(-2000)}
-
-INSTRUCTIONS:
-- Generate ONLY the missing sections listed above, nothing else
-- Use ## headings for each section
-- Match the tone and style of the existing article
-- For TL;DR: 1 dense, factual paragraph (NOT bullet points, NOT multiple paragraphs) that an AI could quote verbatim
-- For Quick Tips: exactly 3 actionable tips as blockquotes
-- For FAQ: 4-6 Q&As in bold question format with detailed answers
-- For Final Thoughts: concluding paragraph with call-to-action
-- For References: list all sources mentioned in the article as markdown links, plus 2-3 additional authoritative sources
-- Return ONLY the missing section markdown, no explanations`;
-
-        try {
-          const completionResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${LOVABLE_API_KEY}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              model: "google/gemini-2.5-flash-lite",
-              max_tokens: 4096,
-              messages: [
-                { role: "system", content: "You complete articles by generating only the specific missing sections requested. Return markdown only." },
-                { role: "user", content: completionPrompt },
-              ],
-            }),
-          });
-
-          if (completionResponse.ok) {
-            const completionData = await completionResponse.json();
-            let appendContent = completionData.choices?.[0]?.message?.content;
-            if (appendContent) {
-              // Clean
-              appendContent = appendContent.replace(/^```(?:markdown)?\s*\n?/i, "").replace(/\n?```\s*$/i, "");
-              appendContent = appendContent.replace(/—/g, "-").replace(/–/g, "-");
-
-              // Insert TL;DR and Quick Tips after H1 if missing at top, rest at end
-              const topSections = ["TL;DR", "Quick Tips"];
-              const bottomSections = ["FAQ", "Final Thoughts", "References"];
-              
-              // For simplicity, append all missing sections at the end
-              // The "In This Article" nav and TL;DR should already be at the top from the main generation
-              content = content.trimEnd() + "\n\n" + appendContent.trim();
-              
-              console.log(`COMPLETENESS GUARD: Successfully appended ${missingSections.length} missing section(s)`);
-            }
-          } else {
-            console.error("COMPLETENESS GUARD: Failed to generate missing sections:", completionResponse.status);
+        const fallbackFor = (section: string): string => {
+          switch (section) {
+            case "TL;DR":
+              return `## TL;DR\n${topic} requires a practical, evidence-based approach: prioritise verified safety data, compare options side by side, and act on recommendations that fit budget, timing, and risk tolerance.`;
+            case "Quick Tips":
+              return `## Quick Tips\n> **Tip 1:** Start with verified figures, not generic claims.\n> **Tip 2:** Compare at least two realistic options before deciding.\n> **Tip 3:** Match every recommendation to your exact use case.`;
+            case "In This Article":
+              return `## In This Article\n- **1. Core topic questions** - direct answers and key context\n- **2. Side-by-side comparison** - practical differences that affect outcomes\n- **3. Decision framework** - how to choose based on constraints\n- **4. FAQ and references** - quick clarifications and credible sources`;
+            case "FAQ":
+              return `## Frequently Asked Questions\n**Q: What is the safest way to act on this advice?**\nA: Prioritise evidence-backed options, then validate against your budget, timeline, and constraints.\n\n**Q: How should readers compare alternatives?**\nA: Use consistent criteria, including cost, reliability, and expected results.\n\n**Q: What mistakes should be avoided first?**\nA: Avoid vague claims, missing data, and one-size-fits-all recommendations.\n\n**Q: How often should this be reviewed?**\nA: Re-check assumptions whenever pricing, regulations, or market conditions change.`;
+            case "Final Thoughts":
+              return `## Final Thoughts\nThe strongest results come from clear criteria, grounded comparisons, and deliberate trade-offs. Use the framework above to choose confidently and execute the next step with evidence, not guesswork.`;
+            case "References":
+              return `## References\n- [OECD](https://www.oecd.org/)\n- [World Bank Data](https://data.worldbank.org/)\n- [Eurostat](https://ec.europa.eu/eurostat)`;
+            default:
+              return "";
           }
-        } catch (guardError) {
-          console.error("COMPLETENESS GUARD error:", guardError);
-          // Non-fatal - return content as-is
+        };
+
+        const topSections = ["TL;DR", "Quick Tips", "In This Article"];
+        const topBlocks = missingSections.filter(section => topSections.includes(section)).map(fallbackFor).filter(Boolean);
+        const bottomBlocks = missingSections.filter(section => !topSections.includes(section)).map(fallbackFor).filter(Boolean);
+
+        if (topBlocks.length > 0) {
+          const h1Match = content.match(/^#\s+.+$/m);
+          if (h1Match && h1Match.index !== undefined) {
+            const insertAt = h1Match.index + h1Match[0].length;
+            content = `${content.slice(0, insertAt)}\n\n${topBlocks.join("\n\n")}\n\n${content.slice(insertAt).trimStart()}`.trim();
+          } else {
+            content = `${topBlocks.join("\n\n")}\n\n${content}`.trim();
+          }
         }
+
+        if (bottomBlocks.length > 0) {
+          content = `${content.trimEnd()}\n\n${bottomBlocks.join("\n\n")}`;
+        }
+
+        content = rebalanceToRange(content);
+        console.log(`COMPLETENESS GUARD: Injected ${missingSections.length} deterministic fallback section(s)`);
       } else {
         console.log("COMPLETENESS GUARD: All required sections present ✓");
       }
