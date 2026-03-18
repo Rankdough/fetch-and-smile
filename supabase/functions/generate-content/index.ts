@@ -570,6 +570,65 @@ ${current}`;
         }
       }
 
+      // DETERMINISTIC TRIMMER: If AI rebalance failed, programmatically trim sections from bottom up
+      const finalWordCount = countWords(current);
+      if (finalWordCount > wordCeiling) {
+        console.warn(`Deterministic trimmer: ${finalWordCount} words > ceiling ${wordCeiling}. Trimming body sections from bottom up.`);
+        
+        // Split into sections by H2 headings
+        const sectionRegex = /^## /m;
+        const parts = current.split(sectionRegex);
+        if (parts.length > 1) {
+          // Reconstruct sections with their headings
+          const sections: { heading: string; content: string; priority: number }[] = [];
+          const intro = parts[0]; // Content before first H2
+          
+          for (let i = 1; i < parts.length; i++) {
+            const newlineIdx = parts[i].indexOf("\n");
+            const heading = newlineIdx >= 0 ? parts[i].substring(0, newlineIdx).trim() : parts[i].trim();
+            const body = newlineIdx >= 0 ? parts[i].substring(newlineIdx) : "";
+            
+            // Assign priority (higher = more expendable)
+            const headingLower = heading.toLowerCase();
+            let priority = 5; // default body section - expendable
+            if (headingLower.includes("tl;dr") || headingLower.includes("tldr")) priority = 1;
+            else if (headingLower.includes("quick tips")) priority = 1;
+            else if (headingLower.includes("in this article")) priority = 1;
+            else if (headingLower.includes("final thoughts")) priority = 2;
+            else if (headingLower.includes("how to choose")) priority = 2;
+            else if (headingLower.includes("faq") || headingLower.includes("frequently asked")) priority = 3;
+            else if (headingLower.includes("references")) priority = 4;
+            
+            sections.push({ heading, content: body, priority });
+          }
+          
+          // Sort body sections (priority 5) and trim from the last one upward
+          let rebuilt = intro;
+          const sortedSections = [...sections];
+          
+          // Remove expendable body sections from the end until we're in range
+          while (countWords(rebuilt + sortedSections.map(s => `## ${s.heading}${s.content}`).join("")) > wordCeiling) {
+            // Find the last body section (priority 5) and trim its content by ~30%
+            const lastBodyIdx = sortedSections.map((s, i) => ({ ...s, idx: i })).filter(s => s.priority === 5).pop();
+            if (!lastBodyIdx) break; // No more body sections to trim
+            
+            const sectionWords = countWords(sortedSections[lastBodyIdx.idx].content);
+            if (sectionWords < 30) {
+              // Section already minimal, remove it entirely
+              sortedSections.splice(lastBodyIdx.idx, 1);
+            } else {
+              // Trim the section: keep only first ~60% of paragraphs
+              const paragraphs = sortedSections[lastBodyIdx.idx].content.split(/\n\n+/);
+              const keepCount = Math.max(1, Math.floor(paragraphs.length * 0.6));
+              sortedSections[lastBodyIdx.idx].content = paragraphs.slice(0, keepCount).join("\n\n");
+            }
+          }
+          
+          current = rebuilt + sortedSections.map(s => `## ${s.heading}${s.content}`).join("");
+          console.log(`Deterministic trimmer result: ${countWords(current)} words`);
+        }
+      }
+
       return current;
     };
 
