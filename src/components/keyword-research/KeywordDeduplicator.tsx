@@ -379,7 +379,7 @@ const KeywordDeduplicator = () => {
                   return !consumedByAI.has(k.keyword.toLowerCase());
                 });
 
-                const allKeywords = [...filteredKeywords, ...event.aiMergedKeywords, ...event.aiSingles]
+                const allKeywords = [...filteredKeywords, ...event.aiMergedKeywords]
                   .sort((a: DedupKeyword, b: DedupKeyword) => b.volume - a.volume);
 
                 return {
