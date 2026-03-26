@@ -284,8 +284,14 @@ const KeywordDeduplicator = () => {
 
       toast({
         title: "Fuzzy deduplication complete!",
-        description: `${data.removedCount} exact duplicates merged. ${data.ungroupedForAI?.length || 0} keywords ready for AI semantic analysis.`,
+        description: `${data.removedCount} exact duplicates merged. Starting AI semantic pass...`,
       });
+
+      // Auto-run AI semantic pass if there are ungrouped keywords
+      if (data.ungroupedForAI && data.ungroupedForAI.length > 0) {
+        setIsProcessing(false);
+        await runAISemanticPassWithKeywords(data.ungroupedForAI);
+      }
     } catch (err: any) {
       console.error(err);
       toast({ title: "Deduplication failed", description: err.message, variant: "destructive" });
