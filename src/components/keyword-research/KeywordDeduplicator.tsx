@@ -517,16 +517,37 @@ const KeywordDeduplicator = () => {
         )}
       </div>
 
-      {/* Step 1 button */}
+      {/* Topic filter + Step 1 button */}
       {rawKeywords.length > 0 && !result && (
-        <Button
-          onClick={runFuzzyDedup}
-          disabled={isProcessing}
-          className="gap-2"
-        >
-          {isProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
-          {isProcessing ? "Matching..." : `Step 1: Fuzzy Deduplicate ${rawKeywords.length.toLocaleString()} Keywords`}
-        </Button>
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <Filter className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+            <Input
+              value={topicFilter}
+              onChange={(e) => setTopicFilter(e.target.value)}
+              placeholder="Topic filter (optional) — e.g. 'dental fillings' to remove off-topic keywords"
+              className="max-w-lg h-8 text-sm"
+            />
+            {topicFilter && (
+              <Button variant="ghost" size="icon" className="h-6 w-6 flex-shrink-0" onClick={() => setTopicFilter("")}>
+                <X className="h-3 w-3" />
+              </Button>
+            )}
+          </div>
+          {topicFilter && (
+            <p className="text-xs text-muted-foreground ml-6">
+              Keywords not related to <strong>"{topicFilter}"</strong> will be removed before deduplication.
+            </p>
+          )}
+          <Button
+            onClick={runFuzzyDedup}
+            disabled={isProcessing}
+            className="gap-2"
+          >
+            {isProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
+            {isProcessing ? "Matching..." : `Step 1: Fuzzy Deduplicate ${rawKeywords.length.toLocaleString()} Keywords`}
+          </Button>
+        </div>
       )}
 
       {/* Progress */}
