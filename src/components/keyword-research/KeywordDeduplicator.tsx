@@ -178,6 +178,7 @@ const KeywordDeduplicator = () => {
 
       setResult({
         originalCount: data.original_count,
+        offTopicCount: 0,
         deduplicatedCount: data.deduplicated_count,
         removedCount: data.removed_count,
         fuzzyMergedGroups: data.fuzzy_merged_groups,
