@@ -212,7 +212,144 @@ serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { keywords, mode = "fuzzy", ungroupedKeywords } = body;
+    const { keywords, mode = "fuzzy", ungroupedKeywords, topic } = body;
+
+    if (mode === "topic-filter") {
+      // ── TOPIC FILTER: Remove off-topic keywords via AI ──
+      if (!keywords || !Array.isArray(keywords) || keywords.length === 0) {
+        return new Response(JSON.stringify({ error: "Please provide keywords" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      if (!topic || typeof topic !== "string") {
+        return new Response(JSON.stringify({ error: "Please provide a topic" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+      if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
+
+      const BATCH_SIZE = 500;
+      const totalBatches = Math.ceil(keywords.length / BATCH_SIZE);
+      console.log(`Topic filter: ${keywords.length} keywords, topic="${topic}", ${totalBatches} batches`);
+
+      const encoder = new TextEncoder();
+      const stream = new ReadableStream({
+        async start(controller) {
+          const send = (data: any) => {
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
+          };
+
+          try {
+            const onTopic: { keyword: string; volume: number }[] = [];
+            const offTopic: { keyword: string; volume: number }[] = [];
+
+            for (let i = 0; i < keywords.length; i += BATCH_SIZE) {
+              const batch = keywords.slice(i, i + BATCH_SIZE);
+              const batchIdx = Math.floor(i / BATCH_SIZE);
+
+              send({ type: "progress", progress: (batchIdx + 0.5) / totalBatches, message: `Filtering batch ${batchIdx + 1} of ${totalBatches}...` });
+
+              const kwList = batch.map((k: any) => k.keyword).join("\n");
+
+              const systemPrompt = `You are a keyword relevance filter. Given a TOPIC and a list of keywords, determine which keywords are RELEVANT to the topic and which are NOT.
+
+TOPIC: "${topic}"
+
+RULES:
+- A keyword is ON-TOPIC if it's about "${topic}" or closely related to "${topic}" in context
+- A keyword is OFF-TOPIC if it uses similar words but refers to a completely different subject
+- Examples for topic "dental fillings":
+  - ON-TOPIC: "how long does a filling last", "cavity filling pain", "amalgam filling dangerous"
+  - OFF-TOPIC: "how to make pie filling", "toilet not filling with water", "filling out tax forms", "cream cheese filling recipe"
+
+OUTPUT FORMAT (valid JSON only, no markdown):
+{"off_topic_indices":[0,3,7]}
+
+Return ONLY the indices (0-based) of OFF-TOPIC keywords. If all are on-topic: {"off_topic_indices":[]}`;
+
+              const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+                method: "POST",
+                headers: {
+                  Authorization: `Bearer ${LOVABLE_API_KEY}`,
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  model: "google/gemini-2.5-flash",
+                  messages: [
+                    { role: "system", content: systemPrompt },
+                    { role: "user", content: `Filter these ${batch.length} keywords for topic "${topic}":\n\n${kwList}` },
+                  ],
+                  temperature: 0.1,
+                }),
+              });
+
+              if (!response.ok) {
+                const t = await response.text();
+                console.error(`Topic filter AI error batch ${batchIdx + 1}:`, response.status, t);
+                if (response.status === 429 || response.status === 402) {
+                  throw { status: response.status, message: response.status === 429 ? "Rate limit exceeded" : "AI credits exhausted" };
+                }
+                // On error, keep all keywords from this batch
+                onTopic.push(...batch);
+                continue;
+              }
+
+              const data = await response.json();
+              let content = data.choices?.[0]?.message?.content || "";
+              content = content.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
+
+              let parsed: { off_topic_indices: number[] };
+              try {
+                parsed = JSON.parse(content);
+              } catch {
+                const match = content.match(/\{[\s\S]*\}/);
+                if (!match) {
+                  console.error(`Topic filter batch ${batchIdx + 1} parse failed, keeping all`);
+                  onTopic.push(...batch);
+                  continue;
+                }
+                parsed = JSON.parse(match[0]);
+              }
+
+              const offTopicSet = new Set(parsed.off_topic_indices || []);
+              for (let j = 0; j < batch.length; j++) {
+                if (offTopicSet.has(j)) {
+                  offTopic.push(batch[j]);
+                } else {
+                  onTopic.push(batch[j]);
+                }
+              }
+
+              send({ type: "progress", progress: (batchIdx + 1) / totalBatches, message: `Batch ${batchIdx + 1}/${totalBatches} done — ${offTopic.length} off-topic so far` });
+            }
+
+            send({
+              type: "complete",
+              onTopicKeywords: onTopic,
+              offTopicKeywords: offTopic,
+            });
+
+            console.log(`Topic filter complete: ${onTopic.length} on-topic, ${offTopic.length} off-topic`);
+          } catch (e: any) {
+            send({ type: "error", message: e.message || "Unknown error" });
+            console.error("Topic filter SSE error:", e);
+          } finally {
+            controller.close();
+          }
+        },
+      });
+
+      return new Response(stream, {
+        headers: {
+          ...corsHeaders,
+          "Content-Type": "text/event-stream",
+          "Cache-Control": "no-cache",
+          "Connection": "keep-alive",
+        },
+      });
+    }
 
     if (mode === "fuzzy") {
       // ── STEP 1: Instant fuzzy grouping (no AI) ──

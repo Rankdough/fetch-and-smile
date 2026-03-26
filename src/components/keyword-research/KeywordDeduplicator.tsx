@@ -110,6 +110,7 @@ const KeywordDeduplicator = () => {
   const [loadedResultId, setLoadedResultId] = useState<string | null>(null);
   const [saveName, setSaveName] = useState("");
   const [showSaveInput, setShowSaveInput] = useState(false);
+  const [topicFilter, setTopicFilter] = useState("");
 
   // Load saved results on mount
   useEffect(() => {
@@ -257,10 +258,77 @@ const KeywordDeduplicator = () => {
   const runFuzzyDedup = async () => {
     if (rawKeywords.length === 0) return;
     setIsProcessing(true);
-    setProgress(30);
-    setProgressLabel("Running fuzzy matching...");
+    setProgress(10);
+    setProgressLabel(topicFilter ? "Filtering off-topic keywords..." : "Running fuzzy matching...");
 
     try {
+      // If topic filter is set, first filter off-topic keywords via AI
+      let keywordsToDedup = rawKeywords;
+      let removedOffTopic: { keyword: string; volume: number }[] = [];
+
+      if (topicFilter.trim()) {
+        const filterResponse = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/deduplicate-keywords`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            },
+            body: JSON.stringify({ keywords: rawKeywords, mode: "topic-filter", topic: topicFilter.trim() }),
+          }
+        );
+
+        if (!filterResponse.ok) {
+          const errData = await filterResponse.json().catch(() => ({}));
+          throw new Error(errData.error || `Topic filter failed: ${filterResponse.status}`);
+        }
+
+        // SSE streaming for topic filter
+        const reader = filterResponse.body?.getReader();
+        if (!reader) throw new Error("No response stream");
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() || "";
+
+          for (const line of lines) {
+            if (!line.startsWith("data: ")) continue;
+            try {
+              const event = JSON.parse(line.slice(6));
+              if (event.type === "progress") {
+                setProgress(Math.round(event.progress * 30));
+                setProgressLabel(event.message);
+              } else if (event.type === "complete") {
+                keywordsToDedup = event.onTopicKeywords;
+                removedOffTopic = event.offTopicKeywords;
+                setProgress(30);
+                setProgressLabel(`Removed ${removedOffTopic.length} off-topic keywords. Running fuzzy matching...`);
+              } else if (event.type === "error") {
+                throw new Error(event.message);
+              }
+            } catch (parseErr: any) {
+              if (parseErr.message && !parseErr.message.includes("Unexpected")) throw parseErr;
+            }
+          }
+        }
+
+        if (removedOffTopic.length > 0) {
+          toast({
+            title: `${removedOffTopic.length} off-topic keywords removed`,
+            description: `Kept ${keywordsToDedup.length} keywords related to "${topicFilter}"`,
+          });
+        }
+      }
+
+      setProgress(40);
+      setProgressLabel("Running fuzzy matching...");
+
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/deduplicate-keywords`,
         {
@@ -269,7 +337,7 @@ const KeywordDeduplicator = () => {
             "Content-Type": "application/json",
             Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
           },
-          body: JSON.stringify({ keywords: rawKeywords, mode: "fuzzy" }),
+          body: JSON.stringify({ keywords: keywordsToDedup, mode: "fuzzy" }),
         }
       );
 
@@ -516,16 +584,37 @@ const KeywordDeduplicator = () => {
         )}
       </div>
 
-      {/* Step 1 button */}
+      {/* Topic filter + Step 1 button */}
       {rawKeywords.length > 0 && !result && (
-        <Button
-          onClick={runFuzzyDedup}
-          disabled={isProcessing}
-          className="gap-2"
-        >
-          {isProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
-          {isProcessing ? "Matching..." : `Step 1: Fuzzy Deduplicate ${rawKeywords.length.toLocaleString()} Keywords`}
-        </Button>
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <Filter className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+            <Input
+              value={topicFilter}
+              onChange={(e) => setTopicFilter(e.target.value)}
+              placeholder="Topic filter (optional) — e.g. 'dental fillings' to remove off-topic keywords"
+              className="max-w-lg h-8 text-sm"
+            />
+            {topicFilter && (
+              <Button variant="ghost" size="icon" className="h-6 w-6 flex-shrink-0" onClick={() => setTopicFilter("")}>
+                <X className="h-3 w-3" />
+              </Button>
+            )}
+          </div>
+          {topicFilter && (
+            <p className="text-xs text-muted-foreground ml-6">
+              Keywords not related to <strong>"{topicFilter}"</strong> will be removed before deduplication.
+            </p>
+          )}
+          <Button
+            onClick={runFuzzyDedup}
+            disabled={isProcessing}
+            className="gap-2"
+          >
+            {isProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
+            {isProcessing ? "Matching..." : `Step 1: Fuzzy Deduplicate ${rawKeywords.length.toLocaleString()} Keywords`}
+          </Button>
+        </div>
       )}
 
       {/* Progress */}
