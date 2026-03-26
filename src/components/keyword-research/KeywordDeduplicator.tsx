@@ -300,8 +300,8 @@ const KeywordDeduplicator = () => {
     }
   };
 
-  const runAISemanticPass = async () => {
-    if (ungroupedForAI.length === 0) return;
+  const runAISemanticPassWithKeywords = async (keywords: UngroupedEntry[]) => {
+    if (keywords.length === 0) return;
     setIsAIProcessing(true);
     setProgress(5);
     setProgressLabel("Starting AI semantic analysis...");
