@@ -230,7 +230,7 @@ serve(async (req) => {
       const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
       if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
-      const BATCH_SIZE = 500;
+      const BATCH_SIZE = 120;
       const totalBatches = Math.ceil(keywords.length / BATCH_SIZE);
       console.log(`Topic filter: ${keywords.length} keywords, topic="${topic}", ${totalBatches} batches`);
 
@@ -251,15 +251,18 @@ serve(async (req) => {
 
               send({ type: "progress", progress: (batchIdx + 0.5) / totalBatches, message: `Filtering batch ${batchIdx + 1} of ${totalBatches}...` });
 
-              const kwList = batch.map((k: any) => k.keyword).join("\n");
+              const indexedKwList = batch
+                .map((k: any, idx: number) => `${idx}. ${k.keyword}`)
+                .join("\n");
 
-              const systemPrompt = `You are a keyword relevance filter. Given a TOPIC and a list of keywords, determine which keywords are RELEVANT to the topic and which are NOT.
+              const systemPrompt = `You are a strict keyword relevance filter. Given a TOPIC and a numbered list of keywords, determine which keywords are RELEVANT to the topic and which are NOT.
 
 TOPIC: "${topic}"
 
 RULES:
 - A keyword is ON-TOPIC if it's about "${topic}" or closely related to "${topic}" in context
 - A keyword is OFF-TOPIC if it uses similar words but refers to a completely different subject
+- If a keyword is ambiguous or lacks clear context tying it to "${topic}", mark it OFF-TOPIC
 - Examples for topic "dental fillings":
   - ON-TOPIC: "how long does a filling last", "cavity filling pain", "amalgam filling dangerous"
   - OFF-TOPIC: "how to make pie filling", "toilet not filling with water", "filling out tax forms", "cream cheese filling recipe"
@@ -279,7 +282,7 @@ Return ONLY the indices (0-based) of OFF-TOPIC keywords. If all are on-topic: {"
                   model: "google/gemini-2.5-flash",
                   messages: [
                     { role: "system", content: systemPrompt },
-                    { role: "user", content: `Filter these ${batch.length} keywords for topic "${topic}":\n\n${kwList}` },
+                    { role: "user", content: `Filter these ${batch.length} numbered keywords for topic "${topic}". Use the number before each keyword as the index:\n\n${indexedKwList}` },
                   ],
                   temperature: 0.1,
                 }),
@@ -323,6 +326,95 @@ Return ONLY the indices (0-based) of OFF-TOPIC keywords. If all are on-topic: {"
               }
 
               send({ type: "progress", progress: (batchIdx + 1) / totalBatches, message: `Batch ${batchIdx + 1}/${totalBatches} done — ${offTopic.length} off-topic so far` });
+            }
+
+            // Strict verification pass to catch residual off-topic terms that slipped through
+            if (onTopic.length > 0) {
+              send({ type: "progress", progress: 0.98, message: "Running strict topic verification..." });
+
+              const verifyBatchSize = 120;
+              const verifiedOnTopic: { keyword: string; volume: number }[] = [];
+
+              for (let i = 0; i < onTopic.length; i += verifyBatchSize) {
+                const verifyBatch = onTopic.slice(i, i + verifyBatchSize);
+                const verifyBatchIdx = Math.floor(i / verifyBatchSize);
+                const verifyTotal = Math.ceil(onTopic.length / verifyBatchSize);
+
+                const verifyIndexedKwList = verifyBatch
+                  .map((k, idx) => `${idx}. ${k.keyword}`)
+                  .join("\n");
+
+                const verifyPrompt = `You are a STRICT topical gatekeeper.
+
+TOPIC: "${topic}"
+
+Mark a keyword OFF-TOPIC unless it is clearly and explicitly about the topic above.
+If there is any doubt, ambiguity, or alternate non-topic interpretation, mark it OFF-TOPIC.
+
+Output valid JSON only:
+{"off_topic_indices":[0,2]}
+
+If all are on-topic:
+{"off_topic_indices":[]}`;
+
+                const verifyResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+                  method: "POST",
+                  headers: {
+                    Authorization: `Bearer ${LOVABLE_API_KEY}`,
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({
+                    model: "google/gemini-2.5-flash",
+                    messages: [
+                      { role: "system", content: verifyPrompt },
+                      { role: "user", content: `Re-check these ${verifyBatch.length} keywords. Use the index number before each keyword:\n\n${verifyIndexedKwList}` },
+                    ],
+                    temperature: 0,
+                  }),
+                });
+
+                if (!verifyResponse.ok) {
+                  const t = await verifyResponse.text();
+                  console.error(`Topic verify AI error batch ${verifyBatchIdx + 1}:`, verifyResponse.status, t);
+                  verifiedOnTopic.push(...verifyBatch);
+                  continue;
+                }
+
+                const verifyData = await verifyResponse.json();
+                let verifyContent = verifyData.choices?.[0]?.message?.content || "";
+                verifyContent = verifyContent.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
+
+                let verifyParsed: { off_topic_indices: number[] };
+                try {
+                  verifyParsed = JSON.parse(verifyContent);
+                } catch {
+                  const match = verifyContent.match(/\{[\s\S]*\}/);
+                  if (!match) {
+                    console.error(`Topic verify batch ${verifyBatchIdx + 1} parse failed, keeping all`);
+                    verifiedOnTopic.push(...verifyBatch);
+                    continue;
+                  }
+                  verifyParsed = JSON.parse(match[0]);
+                }
+
+                const verifyOffTopicSet = new Set(verifyParsed.off_topic_indices || []);
+                for (let j = 0; j < verifyBatch.length; j++) {
+                  if (verifyOffTopicSet.has(j)) {
+                    offTopic.push(verifyBatch[j]);
+                  } else {
+                    verifiedOnTopic.push(verifyBatch[j]);
+                  }
+                }
+
+                send({
+                  type: "progress",
+                  progress: 0.98 + ((verifyBatchIdx + 1) / verifyTotal) * 0.02,
+                  message: `Strict verify ${verifyBatchIdx + 1}/${verifyTotal} — ${offTopic.length} off-topic total`,
+                });
+              }
+
+              onTopic.length = 0;
+              onTopic.push(...verifiedOnTopic);
             }
 
             send({
