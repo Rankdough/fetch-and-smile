@@ -374,10 +374,12 @@ const KeywordDeduplicator = () => {
       setProgress(100);
       const data = await response.json();
 
+      const offTopicCount = rawKeywords.length - keywordsToDedup.length;
       setResult({
-        originalCount: data.originalCount,
+        originalCount: rawKeywords.length,
+        offTopicCount,
         deduplicatedCount: data.deduplicatedCount,
-        removedCount: data.removedCount,
+        removedCount: data.removedCount + offTopicCount,
         fuzzyMergedGroups: data.fuzzyMergedGroups,
         aiMergedGroups: 0,
         keywords: data.keywords,
