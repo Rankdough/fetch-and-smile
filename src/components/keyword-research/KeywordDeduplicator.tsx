@@ -267,6 +267,7 @@ const KeywordDeduplicator = () => {
       let removedOffTopic: { keyword: string; volume: number }[] = [];
 
       if (topicFilter.trim()) {
+        console.log(`Topic filter active: "${topicFilter.trim()}", filtering ${rawKeywords.length} keywords...`);
         const filterResponse = await fetch(
           `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/deduplicate-keywords`,
           {
@@ -290,31 +291,53 @@ const KeywordDeduplicator = () => {
         const decoder = new TextDecoder();
         let buffer = "";
 
+        let sseBuffer = "";
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split("\n");
-          buffer = lines.pop() || "";
-
-          for (const line of lines) {
+          sseBuffer += decoder.decode(value, { stream: true });
+          
+          // Process complete SSE messages (delimited by double newline)
+          let doubleNewline: number;
+          while ((doubleNewline = sseBuffer.indexOf("\n\n")) !== -1) {
+            const message = sseBuffer.slice(0, doubleNewline);
+            sseBuffer = sseBuffer.slice(doubleNewline + 2);
+            
+            for (const line of message.split("\n")) {
+              if (!line.startsWith("data: ")) continue;
+              try {
+                const event = JSON.parse(line.slice(6));
+                if (event.type === "progress") {
+                  setProgress(Math.round(event.progress * 30));
+                  setProgressLabel(event.message);
+                } else if (event.type === "complete") {
+                  keywordsToDedup = event.onTopicKeywords;
+                  removedOffTopic = event.offTopicKeywords;
+                  setProgress(30);
+                  setProgressLabel(`Removed ${removedOffTopic.length} off-topic keywords. Running fuzzy matching...`);
+                } else if (event.type === "error") {
+                  throw new Error(event.message);
+                }
+              } catch (parseErr: any) {
+                if (parseErr.message && !parseErr.message.includes("Unexpected")) throw parseErr;
+              }
+            }
+          }
+        }
+        
+        // Process any remaining data in buffer
+        if (sseBuffer.trim()) {
+          for (const line of sseBuffer.split("\n")) {
             if (!line.startsWith("data: ")) continue;
             try {
               const event = JSON.parse(line.slice(6));
-              if (event.type === "progress") {
-                setProgress(Math.round(event.progress * 30));
-                setProgressLabel(event.message);
-              } else if (event.type === "complete") {
+              if (event.type === "complete") {
                 keywordsToDedup = event.onTopicKeywords;
                 removedOffTopic = event.offTopicKeywords;
-                setProgress(30);
-                setProgressLabel(`Removed ${removedOffTopic.length} off-topic keywords. Running fuzzy matching...`);
               } else if (event.type === "error") {
                 throw new Error(event.message);
               }
-            } catch (parseErr: any) {
-              if (parseErr.message && !parseErr.message.includes("Unexpected")) throw parseErr;
-            }
+            } catch { /* ignore partial */ }
           }
         }
 
