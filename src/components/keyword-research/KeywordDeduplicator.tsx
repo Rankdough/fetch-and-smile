@@ -22,6 +22,7 @@ interface DedupKeyword {
 
 interface DedupResult {
   originalCount: number;
+  offTopicCount: number;
   deduplicatedCount: number;
   removedCount: number;
   fuzzyMergedGroups: number;
