@@ -267,6 +267,7 @@ const KeywordDeduplicator = () => {
       let removedOffTopic: { keyword: string; volume: number }[] = [];
 
       if (topicFilter.trim()) {
+        console.log(`Topic filter active: "${topicFilter.trim()}", filtering ${rawKeywords.length} keywords...`);
         const filterResponse = await fetch(
           `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/deduplicate-keywords`,
           {
