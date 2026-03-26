@@ -284,8 +284,14 @@ const KeywordDeduplicator = () => {
 
       toast({
         title: "Fuzzy deduplication complete!",
-        description: `${data.removedCount} exact duplicates merged. ${data.ungroupedForAI?.length || 0} keywords ready for AI semantic analysis.`,
+        description: `${data.removedCount} exact duplicates merged. Starting AI semantic pass...`,
       });
+
+      // Auto-run AI semantic pass if there are ungrouped keywords
+      if (data.ungroupedForAI && data.ungroupedForAI.length > 0) {
+        setIsProcessing(false);
+        await runAISemanticPassWithKeywords(data.ungroupedForAI);
+      }
     } catch (err: any) {
       console.error(err);
       toast({ title: "Deduplication failed", description: err.message, variant: "destructive" });
@@ -294,8 +300,8 @@ const KeywordDeduplicator = () => {
     }
   };
 
-  const runAISemanticPass = async () => {
-    if (ungroupedForAI.length === 0) return;
+  const runAISemanticPassWithKeywords = async (keywords: UngroupedEntry[]) => {
+    if (keywords.length === 0) return;
     setIsAIProcessing(true);
     setProgress(5);
     setProgressLabel("Starting AI semantic analysis...");
@@ -309,7 +315,7 @@ const KeywordDeduplicator = () => {
             "Content-Type": "application/json",
             Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
           },
-          body: JSON.stringify({ mode: "semantic", ungroupedKeywords: ungroupedForAI }),
+          body: JSON.stringify({ mode: "semantic", ungroupedKeywords: keywords }),
         }
       );
 
@@ -568,7 +574,7 @@ const KeywordDeduplicator = () => {
                       like "does it hurt" = "is it painful". Estimated: {Math.ceil(ungroupedForAI.length / 1500)} AI calls.
                     </p>
                   </div>
-                  <Button onClick={runAISemanticPass} className="gap-2">
+                  <Button onClick={() => runAISemanticPassWithKeywords(ungroupedForAI)} className="gap-2">
                     <Sparkles className="h-4 w-4" />
                     Run AI Pass
                   </Button>

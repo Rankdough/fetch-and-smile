@@ -92,3 +92,6 @@ verify_jwt = false
 
 [functions.migrate-url]
 verify_jwt = false
+
+[functions.deduplicate-keywords]
+verify_jwt = false
