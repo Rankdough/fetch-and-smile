@@ -574,7 +574,7 @@ const KeywordDeduplicator = () => {
                       like "does it hurt" = "is it painful". Estimated: {Math.ceil(ungroupedForAI.length / 1500)} AI calls.
                     </p>
                   </div>
-                  <Button onClick={runAISemanticPass} className="gap-2">
+                  <Button onClick={() => runAISemanticPassWithKeywords(ungroupedForAI)} className="gap-2">
                     <Sparkles className="h-4 w-4" />
                     Run AI Pass
                   </Button>
