@@ -47,6 +47,16 @@ interface SavedDedupResult {
 }
 
 function parseCSV(text: string): string[][] {
+  // Detect delimiter: check first line for tabs or semicolons
+  const firstLine = text.split(/\r?\n/)[0] || "";
+  const tabCount = (firstLine.match(/\t/g) || []).length;
+  const commaCount = (firstLine.match(/,/g) || []).length;
+  const semiCount = (firstLine.match(/;/g) || []).length;
+  
+  // Use whichever delimiter appears most in the header
+  const delimiter = tabCount >= commaCount && tabCount >= semiCount ? "\t" 
+    : semiCount > commaCount ? ";" : ",";
+
   const rows: string[][] = [];
   let current = "";
   let inQuotes = false;
@@ -57,7 +67,7 @@ function parseCSV(text: string): string[][] {
     if (ch === '"') {
       if (inQuotes && text[i + 1] === '"') { current += '"'; i++; }
       else inQuotes = !inQuotes;
-    } else if (ch === "," && !inQuotes) {
+    } else if (ch === delimiter && !inQuotes) {
       row.push(current.trim()); current = "";
     } else if ((ch === "\n" || ch === "\r") && !inQuotes) {
       if (current || row.length) { row.push(current.trim()); rows.push(row); row = []; current = ""; }
