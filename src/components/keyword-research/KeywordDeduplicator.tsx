@@ -110,6 +110,7 @@ const KeywordDeduplicator = () => {
   const [loadedResultId, setLoadedResultId] = useState<string | null>(null);
   const [saveName, setSaveName] = useState("");
   const [showSaveInput, setShowSaveInput] = useState(false);
+  const [topicFilter, setTopicFilter] = useState("");
 
   // Load saved results on mount
   useEffect(() => {
