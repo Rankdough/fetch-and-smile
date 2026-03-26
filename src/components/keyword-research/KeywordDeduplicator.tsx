@@ -258,10 +258,77 @@ const KeywordDeduplicator = () => {
   const runFuzzyDedup = async () => {
     if (rawKeywords.length === 0) return;
     setIsProcessing(true);
-    setProgress(30);
-    setProgressLabel("Running fuzzy matching...");
+    setProgress(10);
+    setProgressLabel(topicFilter ? "Filtering off-topic keywords..." : "Running fuzzy matching...");
 
     try {
+      // If topic filter is set, first filter off-topic keywords via AI
+      let keywordsToDedup = rawKeywords;
+      let removedOffTopic: { keyword: string; volume: number }[] = [];
+
+      if (topicFilter.trim()) {
+        const filterResponse = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/deduplicate-keywords`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            },
+            body: JSON.stringify({ keywords: rawKeywords, mode: "topic-filter", topic: topicFilter.trim() }),
+          }
+        );
+
+        if (!filterResponse.ok) {
+          const errData = await filterResponse.json().catch(() => ({}));
+          throw new Error(errData.error || `Topic filter failed: ${filterResponse.status}`);
+        }
+
+        // SSE streaming for topic filter
+        const reader = filterResponse.body?.getReader();
+        if (!reader) throw new Error("No response stream");
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() || "";
+
+          for (const line of lines) {
+            if (!line.startsWith("data: ")) continue;
+            try {
+              const event = JSON.parse(line.slice(6));
+              if (event.type === "progress") {
+                setProgress(Math.round(event.progress * 30));
+                setProgressLabel(event.message);
+              } else if (event.type === "complete") {
+                keywordsToDedup = event.onTopicKeywords;
+                removedOffTopic = event.offTopicKeywords;
+                setProgress(30);
+                setProgressLabel(`Removed ${removedOffTopic.length} off-topic keywords. Running fuzzy matching...`);
+              } else if (event.type === "error") {
+                throw new Error(event.message);
+              }
+            } catch (parseErr: any) {
+              if (parseErr.message && !parseErr.message.includes("Unexpected")) throw parseErr;
+            }
+          }
+        }
+
+        if (removedOffTopic.length > 0) {
+          toast({
+            title: `${removedOffTopic.length} off-topic keywords removed`,
+            description: `Kept ${keywordsToDedup.length} keywords related to "${topicFilter}"`,
+          });
+        }
+      }
+
+      setProgress(40);
+      setProgressLabel("Running fuzzy matching...");
+
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/deduplicate-keywords`,
         {
@@ -270,7 +337,7 @@ const KeywordDeduplicator = () => {
             "Content-Type": "application/json",
             Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
           },
-          body: JSON.stringify({ keywords: rawKeywords, mode: "fuzzy" }),
+          body: JSON.stringify({ keywords: keywordsToDedup, mode: "fuzzy" }),
         }
       );
 
