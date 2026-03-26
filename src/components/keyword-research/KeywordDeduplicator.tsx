@@ -315,7 +315,7 @@ const KeywordDeduplicator = () => {
             "Content-Type": "application/json",
             Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
           },
-          body: JSON.stringify({ mode: "semantic", ungroupedKeywords: ungroupedForAI }),
+          body: JSON.stringify({ mode: "semantic", ungroupedKeywords: keywords }),
         }
       );
 
