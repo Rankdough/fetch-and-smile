@@ -656,13 +656,21 @@ const KeywordDeduplicator = () => {
       {result && (
         <div className="space-y-4">
           {/* Summary */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className={`grid grid-cols-2 ${result.offTopicCount > 0 ? 'sm:grid-cols-5' : 'sm:grid-cols-4'} gap-3`}>
             <Card className="border-muted">
               <CardContent className="py-3 px-4 text-center">
                 <p className="text-2xl font-bold">{result.originalCount.toLocaleString()}</p>
                 <p className="text-xs text-muted-foreground">Original</p>
               </CardContent>
             </Card>
+            {result.offTopicCount > 0 && (
+              <Card className="border-orange-300/50">
+                <CardContent className="py-3 px-4 text-center">
+                  <p className="text-2xl font-bold text-orange-600">{result.offTopicCount.toLocaleString()}</p>
+                  <p className="text-xs text-muted-foreground">Off-topic removed</p>
+                </CardContent>
+              </Card>
+            )}
             <Card className="border-primary/30">
               <CardContent className="py-3 px-4 text-center">
                 <p className="text-2xl font-bold text-primary">{result.deduplicatedCount.toLocaleString()}</p>
@@ -671,8 +679,8 @@ const KeywordDeduplicator = () => {
             </Card>
             <Card className="border-destructive/30">
               <CardContent className="py-3 px-4 text-center">
-                <p className="text-2xl font-bold text-destructive">{result.removedCount.toLocaleString()}</p>
-                <p className="text-xs text-muted-foreground">Duplicates removed</p>
+                <p className="text-2xl font-bold text-destructive">{(result.removedCount).toLocaleString()}</p>
+                <p className="text-xs text-muted-foreground">Total removed</p>
               </CardContent>
             </Card>
             <Card className="border-muted">
@@ -684,8 +692,6 @@ const KeywordDeduplicator = () => {
               </CardContent>
             </Card>
           </div>
-
-          {/* Step 2: AI pass */}
           {ungroupedForAI.length > 0 && !isAIProcessing && (
             <Card className="border-amber-300/50 bg-amber-50/50 dark:bg-amber-900/10">
               <CardContent className="py-4 px-4">
