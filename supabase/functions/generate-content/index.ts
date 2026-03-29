@@ -807,7 +807,7 @@ Place these images throughout the article at logical locations, typically after 
     // COMPLETENESS GUARD: deterministic local fallback (no extra AI call)
     // ═══════════════════════════════════════════════════════════════════════
     let missingSections: string[] = [];
-    if (!expandExistingContent && !migrationMode) {
+    if (!expandExistingContent && !migrationMode && !formatReference) {
       const hasTLDR = /^#{1,3}\s.*tl;?\s?dr/im.test(content);
       const hasQuickTips = skipQuickTips || /^#{1,3}\s.*quick\s*tips/im.test(content);
       const hasInThisArticle = /in\s*this\s*article/i.test(content);
