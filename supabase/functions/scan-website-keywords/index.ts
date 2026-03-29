@@ -37,14 +37,17 @@ const normalizeTerm = (raw: string): string => {
     .toLowerCase()
     .replace(/\\\./g, ".")
     .replace(/!\[([^\]]*)\]\([^)]+\)/g, "$1")
+    .replace(/^!\[([^\]]*)$/g, "$1")
+    .replace(/^!?\[([^\]]+)\]$/g, "$1")
     .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
     .replace(/&nbsp;/g, " ")
     .replace(/&amp;/g, " and ")
     .replace(/[“”]/g, '"')
     .replace(/[‘’]/g, "'")
     .replace(/^\d+\s*(?:[.)]|[-:])\s*/, "")
+    .replace(/[0-9]+\s*trusted\s*source/gi, "")
     .replace(/\btrusted\s*source\b/gi, "")
-    .replace(/^[\s'"`*_~>#\-\u2022]+/, "")
+    .replace(/^[\s!'"`*_~>#\-\[\]\u2022]+/, "")
     .replace(/[\s'"`*_~<>\-]+$/, "")
     .replace(/\s{2,}/g, " ")
     .trim();
@@ -53,9 +56,13 @@ const normalizeTerm = (raw: string): string => {
 const isUsefulTerm = (term: string): boolean => {
   if (!term || term.length < 3 || term.length > 80) return false;
   if (!/[a-z]/i.test(term)) return false;
+  if (/^!?\[/.test(term)) return false;
   if (/^(www\.|https?:)/.test(term)) return false;
   if (/\.(com|co\.uk|org|net|io)$/i.test(term)) return false;
   if (/^\d+$/.test(term)) return false;
+  if (/^\d+\s*trusted\s*source$/i.test(term)) return false;
+  if (/trusted\s*source/i.test(term)) return false;
+  if (/click to verify/i.test(term)) return false;
   if (stopTerms.has(term)) return false;
 
   for (const bot of botProtectionTerms) {
@@ -226,7 +233,10 @@ serve(async (req) => {
     const allTerms = new Set<string>([...urlKeywords, ...pageTerms]);
 
     // Final normalize + quality filter
-    const filtered = [...new Set([...allTerms].map(normalizeTerm).filter(isUsefulTerm))];
+    const filtered = [...new Set([...allTerms].map(normalizeTerm).filter(isUsefulTerm))]
+      .filter((t) => !/^!?\[/.test(t))
+      .filter((t) => !/trusted\s*source/i.test(t))
+      .filter((t) => !/click to verify/i.test(t));
 
     // Detect if the site is likely blocking us
     const isBlocked = filtered.length < 5 && filteredUrls.length < 10;
