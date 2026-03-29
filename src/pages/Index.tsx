@@ -4613,12 +4613,8 @@ const Index = () => {
                       }}
                     >
                       {(() => {
-                        // Extract "In This Article" navigation items - use explicit section or fallback to H2 extraction
-                        let navItems = extractInThisArticleItems(generatedContent);
-                        if (navItems.length === 0) {
-                          // Fallback: extract from H2 headings
-                          navItems = extractNavigationFromContent(generatedContent);
-                        }
+                        // Extract "In This Article" navigation items - robust parsing + fallback
+                        const navItems = getBestNavigationItems(generatedContent);
                         // Extract FAQ items
                         const faqItems = skipFaqs ? [] : extractFAQFromContent(generatedContent);
                         // Remove "In This Article" and FAQ sections from markdown for custom rendering
