@@ -197,69 +197,142 @@ const cleanContent = (content: string): string => {
 // Helper to extract "In This Article" navigation items from markdown
 const extractInThisArticleItems = (content: string): { number: number; title: string; description: string; detailedDescription?: string; slug: string; isHighlighted?: boolean }[] => {
   const items: { number: number; title: string; description: string; detailedDescription?: string; slug: string; isHighlighted?: boolean }[] = [];
-  
-  // Match the "## In This Article" section and its list items
-  const inThisArticleMatch = content.match(/## In This Article\s*\n([\s\S]*?)(?=\n## [^I]|\n## [A-Z](?!n This))/i);
+
+  const inThisArticleMatch = content.match(/^##\s*In This Article\s*\n([\s\S]*?)(?=\n##\s(?!In This Article)|$)/im);
   if (!inThisArticleMatch) return items;
-  
-  const listContent = inThisArticleMatch[1];
-  
-  // Match list items like: - **1. Title** - Description
-  const itemRegex = /- \*\*(\d+)\. ([^*]+)\*\*\s*[-–—]\s*(.+)/g;
-  let match;
-  
-  while ((match = itemRegex.exec(listContent)) !== null) {
-    const number = parseInt(match[1], 10);
-    const title = match[2].trim();
-    const bulletDescription = match[3].trim();
-    // Generate slug EXACTLY like ReactMarkdown does (line ~1846)
-    const slug = title
-      .toLowerCase()
-      .replace(/\s+/g, "-")
-      .replace(/[^\w-]/g, "");
-    
-    // Find the actual H2 section and extract its first paragraph for richer description
-    const h2Pattern = new RegExp(`## ${title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[\\s\\S]*?\\n\\n([^#\\n][\\s\\S]*?)(?=\\n\\n|\\n##|$)`, 'i');
+
+  const lines = inThisArticleMatch[1]
+    .split("\n")
+    .map((line) => line.replace(/^>\s?/, "").trim())
+    .filter(Boolean);
+
+  type ParsedNavItem = { number: number; title: string; description: string };
+  const parsedItems: ParsedNavItem[] = [];
+  let current: ParsedNavItem | null = null;
+
+  const pushCurrent = () => {
+    if (!current) return;
+    const cleanedDesc = current.description.trim().replace(/\s+/g, " ");
+    parsedItems.push({ ...current, description: cleanedDesc });
+    current = null;
+  };
+
+  for (const line of lines) {
+    let itemMatch = line.match(/^-\s*\*\*(\d+)\.\s*([^*]+?)\*\*\s*(?:[-–—:]\s*(.*))?$/);
+    if (!itemMatch) {
+      itemMatch = line.match(/^-\s*(\d+)\.\s*([^–—:-]+?)\s*(?:[-–—:]\s*(.*))?$/);
+    }
+
+    if (itemMatch) {
+      pushCurrent();
+      current = {
+        number: parseInt(itemMatch[1], 10),
+        title: itemMatch[2].trim(),
+        description: (itemMatch[3] || "").trim(),
+      };
+      continue;
+    }
+
+    if (current && !/^[-*]+$/.test(line)) {
+      current.description = `${current.description} ${line}`.trim();
+    }
+  }
+  pushCurrent();
+
+  const uniqueSortedItems = parsedItems
+    .filter((item, index, array) => array.findIndex((candidate) => candidate.number === item.number) === index)
+    .sort((a, b) => a.number - b.number);
+
+  for (const item of uniqueSortedItems) {
+    const title = item.title;
+    const bulletDescription = item.description || `Learn about ${title.toLowerCase()}.`;
+    const slug = title.toLowerCase().replace(/\s+/g, "-").replace(/[^\w-]/g, "");
+
+    const h2Pattern = new RegExp(`## ${title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}[\\s\\S]*?\\n\\n([^#\\n][\\s\\S]*?)(?=\\n\\n|\\n##|$)`, "i");
     const sectionMatch = content.match(h2Pattern);
-    
+
     let fullDescription = bulletDescription;
-    if (sectionMatch && sectionMatch[1]) {
-      // Use the section's first paragraph - it's usually longer and more descriptive
-      const sectionFirstPara = sectionMatch[1].replace(/\*\*/g, '').replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').trim();
+    if (sectionMatch?.[1]) {
+      const sectionFirstPara = sectionMatch[1]
+        .replace(/\*\*/g, "")
+        .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+        .trim();
       if (sectionFirstPara.length > bulletDescription.length) {
         fullDescription = sectionFirstPara;
       }
     }
-    
-    // Ensure we have enough text for 4 lines (~280 chars for 2+2 lines)
-    // If not enough, combine bullet description with section content
-    if (fullDescription.length < 200) {
-      fullDescription = bulletDescription + " " + fullDescription;
+
+    if (fullDescription.length < 120) {
+      fullDescription = `${bulletDescription} ${fullDescription}`.trim();
     }
-    
-    // Split: ~140 chars visible (2 lines), next ~140 chars expanded (2 more lines)
+
     const visibleLength = 140;
     const expandedLength = 140;
-    
-    const description = fullDescription.length > visibleLength 
-      ? fullDescription.slice(0, visibleLength).trim() + "..."
+
+    const description = fullDescription.length > visibleLength
+      ? `${fullDescription.slice(0, visibleLength).trim()}...`
       : fullDescription;
-    
-    const detailedDescription = fullDescription.length > visibleLength 
-      ? fullDescription.slice(visibleLength, visibleLength + expandedLength).trim() + (fullDescription.length > visibleLength + expandedLength ? "..." : "")
-      : "Click to jump directly to this section and learn more about " + title.toLowerCase() + ".";
-    
+
+    const detailedDescription = fullDescription.length > visibleLength
+      ? `${fullDescription.slice(visibleLength, visibleLength + expandedLength).trim()}${fullDescription.length > visibleLength + expandedLength ? "..." : ""}`
+      : `Click to jump directly to this section and learn more about ${title.toLowerCase()}.`;
+
     items.push({
-      number,
+      number: item.number,
       title,
       description,
       detailedDescription,
       slug,
-      isHighlighted: number === 1,
+      isHighlighted: item.number === 1,
     });
   }
-  
+
   return items;
+};
+
+const getBestNavigationItems = (content: string) => {
+  const explicitItems = extractInThisArticleItems(content);
+  const fallbackItems = extractNavigationFromContent(content);
+
+  if (explicitItems.length >= 2) return explicitItems;
+  if (fallbackItems.length > explicitItems.length) return fallbackItems;
+  return explicitItems;
+};
+
+const normalizeQuickTipsSection = (content: string): string => {
+  const quickTipsMatch = content.match(/^##\s*Quick Tips\s*\n([\s\S]*?)(?=\n##\s|$)/im);
+  if (!quickTipsMatch) return content;
+
+  const quickTipsBody = quickTipsMatch[1].replace(/^>\s?/gm, "").trim();
+
+  const extractTip = (tipNumber: number, nextTipNumber?: number): string => {
+    const nextBoundary = nextTipNumber
+      ? `(?=(?:\\*\\*)?Tip\\s*${nextTipNumber}\\s*:)`
+      : "$";
+    const tipRegex = new RegExp(`(?:\\*\\*)?Tip\\s*${tipNumber}\\s*:?\\*?\\*?\\s*([\\s\\S]*?)${nextBoundary}`, "i");
+    const tipMatch = quickTipsBody.match(tipRegex);
+    if (!tipMatch?.[1]) return "";
+
+    return tipMatch[1]
+      .replace(/\n+/g, " ")
+      .replace(/^[-–—:\s"“”']+|[-–—\s"“”']+$/g, "")
+      .trim();
+  };
+
+  const extractedTips = [
+    extractTip(1, 2),
+    extractTip(2, 3),
+    extractTip(3),
+  ].filter(Boolean);
+
+  if (extractedTips.length === 0) return content;
+
+  const normalizedQuickTipsSection = `## Quick Tips\n\n${extractedTips
+    .slice(0, 3)
+    .map((tip, index) => `> **Tip ${index + 1}:** ${tip}`)
+    .join("\n\n")}\n`;
+
+  return content.replace(quickTipsMatch[0], normalizedQuickTipsSection);
 };
 
 // Helper to remove "In This Article" section from markdown for custom rendering
@@ -346,7 +419,7 @@ const Index = () => {
   
   // Wrapper that auto-cleans content before setting
   const setGeneratedContent = (content: string, isNewGeneration = false) => {
-    const cleaned = cleanContent(content);
+    const cleaned = normalizeQuickTipsSection(cleanContent(content));
     setGeneratedContentRaw(cleaned);
     // If this is a new generation (not an edit), save as original
     if (isNewGeneration) {
@@ -2251,10 +2324,7 @@ const Index = () => {
                 const tableHeaderText = isDarkSitePaletteForExport ? "#000000" : "#ffffff";
                 
                 // Extract navigation and FAQ items from markdown
-                let navItems = extractInThisArticleItems(generatedContent);
-                if (navItems.length === 0) {
-                  navItems = extractNavigationFromContent(generatedContent);
-                }
+                const navItems = getBestNavigationItems(generatedContent);
                 const faqItems = skipFaqs ? [] : extractFAQFromContent(generatedContent);
                 
                 // Get article element for base HTML structure
@@ -4543,12 +4613,8 @@ const Index = () => {
                       }}
                     >
                       {(() => {
-                        // Extract "In This Article" navigation items - use explicit section or fallback to H2 extraction
-                        let navItems = extractInThisArticleItems(generatedContent);
-                        if (navItems.length === 0) {
-                          // Fallback: extract from H2 headings
-                          navItems = extractNavigationFromContent(generatedContent);
-                        }
+                        // Extract "In This Article" navigation items - robust parsing + fallback
+                        const navItems = getBestNavigationItems(generatedContent);
                         // Extract FAQ items
                         const faqItems = skipFaqs ? [] : extractFAQFromContent(generatedContent);
                         // Remove "In This Article" and FAQ sections from markdown for custom rendering
