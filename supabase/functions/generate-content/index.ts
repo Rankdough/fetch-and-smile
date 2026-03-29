@@ -126,7 +126,7 @@ ABSOLUTE RULE - NO HORIZONTAL LINES:
 
 CRITICAL MARKDOWN FORMATTING RULES:
 - Title: Use # for the main title (H1) - only one per article
-- Major sections: Use ## for H2 headings - ALL H2 headings MUST be phrased as QUESTIONS (see rule below)
+- Major sections: Use ## for H2 headings${!formatReference ? ' - ALL H2 headings MUST be phrased as QUESTIONS (see rule below)' : ''}
 - Subsections: Use ### for H3 headings
 - DO NOT use numbered headings like "1. Section Name" - use proper markdown ## syntax
 - Use **bold** for emphasis on key terms and important points
@@ -137,7 +137,7 @@ CRITICAL MARKDOWN FORMATTING RULES:
 - Use markdown tables with | for comparisons (e.g., Feature | Option A | Option B)
 - DO NOT use blockquotes (>) for TL;DR - use H2 heading instead
 
-CRITICAL: QUESTION-BASED HEADINGS RULE:
+${formatReference ? `FORMAT REFERENCE MODE: A format reference has been provided. You MUST replicate the STRUCTURE and LAYOUT PATTERN of the reference article instead of using the standard article template. The reference structure takes priority over default section rules. Keep the same types of sections, headings, and content patterns as the reference. Target word count: ~${targetWords} words.` : `CRITICAL: QUESTION-BASED HEADINGS RULE:
 - EVERY H2 section heading (except TL;DR, Quick Tips, In This Article, FAQ, Final Thoughts, References) MUST be phrased as a QUESTION
 - Examples of CORRECT question headings:
   - ## What Is Composite Bonding?
@@ -183,31 +183,31 @@ ${skipSources ? `SOURCE REFERENCE RULES:
 ARTICLE STRUCTURE (in this order) — WORD BUDGET PER SECTION:
 Total target: ${targetWords} words. Each section has a strict word budget. Do NOT exceed individual section budgets.
 
-${sectionBudgets.fixedSections.map(s => `- ${s.name}: ~${s.words} words`).join("\n")}
+${sectionBudgets.fixedSections.map(s => \`- \${s.name}: ~\${s.words} words\`).join("\\n")}
 - Body H2 sections: ${sectionBudgets.bodyH2Count} sections × ~${sectionBudgets.wordsPerBodyH2} words each = ~${sectionBudgets.remainingWords} words total
 
 SECTION DETAILS:
 1. Title (# H1) + Opening paragraph (~${sectionBudgets.fixedSections.find(s => s.name.includes("Opening"))?.words || 40} words) — AI-quotable factual statement
 2. ## TL;DR (~${sectionBudgets.fixedSections.find(s => s.name === "TL;DR")?.words || 60} words) — exactly 1 dense paragraph, NOT bullet points. Self-contained statement an AI could quote. Include specific names, numbers, clear verdict.
 
-${skipQuickTips ? '' : `3. ## Quick Tips (~${sectionBudgets.fixedSections.find(s => s.name === "Quick Tips")?.words || 50} words) — exactly 3 tips:
+${skipQuickTips ? '' : \`3. ## Quick Tips (~\${sectionBudgets.fixedSections.find(s => s.name === "Quick Tips")?.words || 50} words) — exactly 3 tips:
    > **Tip 1:** [One short sentence - max 15 words]
    > **Tip 2:** [One short sentence - max 15 words]
    > **Tip 3:** [One short sentence - max 15 words]
-`}
-${migrationMode ? `4. DO NOT include an "In This Article" section - this is generated automatically by the client.` : `4. ## In This Article (~${sectionBudgets.fixedSections.find(s => s.name === "In This Article")?.words || 80} words) — navigation guide:
+\`}
+${migrationMode ? \`4. DO NOT include an "In This Article" section - this is generated automatically by the client.\` : \`4. ## In This Article (~\${sectionBudgets.fixedSections.find(s => s.name === "In This Article")?.words || 80} words) — navigation guide:
    - Format as a BULLETED LIST: - **1. Section Title** - DETAILED description (MINIMUM 150 characters)
    - List ALL main H2 sections from the article (not TL;DR or References)
-   - DO NOT SKIP THIS SECTION`}
+   - DO NOT SKIP THIS SECTION\`}
 5. ${sectionBudgets.bodyH2Count} Main content sections with ## QUESTION headings (~${sectionBudgets.wordsPerBodyH2} words EACH, no more)
    - Each answered with text + bullets + tables${skipSources ? '' : ' + **Sources:** at the end'}
    - Include comparison table(s) where relevant
 6. "## How to Choose" (~${sectionBudgets.fixedSections.find(s => s.name === "How to Choose")?.words || 80} words) — practical checklist, 4-6 criteria as bullet points
-${skipFaqs ? '' : `7. "## Frequently Asked Questions" (~${sectionBudgets.fixedSections.find(s => s.name === "FAQ")?.words || 120} words) — 4-6 Q&As in bold question format`}
+${skipFaqs ? '' : \`7. "## Frequently Asked Questions" (~\${sectionBudgets.fixedSections.find(s => s.name === "FAQ")?.words || 120} words) — 4-6 Q&As in bold question format\`}
 8. "## Final Thoughts" (~${sectionBudgets.fixedSections.find(s => s.name === "Final Thoughts")?.words || 50} words) — with call-to-action
-${skipSources ? '' : `9. "## References:" (~${sectionBudgets.fixedSections.find(s => s.name === "References")?.words || 30} words) — list ALL sources as markdown links`}
+${skipSources ? '' : \`9. "## References:" (~\${sectionBudgets.fixedSections.find(s => s.name === "References")?.words || 30} words) — list ALL sources as markdown links\`}
 
-⚠️ WORD BUDGET ENFORCEMENT: Each body H2 section MUST be ~${sectionBudgets.wordsPerBodyH2} words. If you write ${sectionBudgets.bodyH2Count} body sections at ${sectionBudgets.wordsPerBodyH2} words each plus fixed sections, the total will be ~${targetWords} words. Going over budget on ANY section means the total will overshoot. Be disciplined.
+⚠️ WORD BUDGET ENFORCEMENT: Each body H2 section MUST be ~${sectionBudgets.wordsPerBodyH2} words. If you write ${sectionBudgets.bodyH2Count} body sections at ${sectionBudgets.wordsPerBodyH2} words each plus fixed sections, the total will be ~${targetWords} words. Going over budget on ANY section means the total will overshoot. Be disciplined.`}
 
 Content Guidelines:
 - Start with a compelling hook that addresses the reader's pain point
@@ -807,7 +807,7 @@ Place these images throughout the article at logical locations, typically after 
     // COMPLETENESS GUARD: deterministic local fallback (no extra AI call)
     // ═══════════════════════════════════════════════════════════════════════
     let missingSections: string[] = [];
-    if (!expandExistingContent && !migrationMode) {
+    if (!expandExistingContent && !migrationMode && !formatReference) {
       const hasTLDR = /^#{1,3}\s.*tl;?\s?dr/im.test(content);
       const hasQuickTips = skipQuickTips || /^#{1,3}\s.*quick\s*tips/im.test(content);
       const hasInThisArticle = /in\s*this\s*article/i.test(content);
