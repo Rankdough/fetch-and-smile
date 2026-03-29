@@ -303,36 +303,45 @@ const normalizeQuickTipsSection = (content: string): string => {
   const quickTipsMatch = content.match(/^##\s*Quick Tips\s*\n([\s\S]*?)(?=\n##\s|$)/im);
   if (!quickTipsMatch) return content;
 
-  const quickTipsBody = quickTipsMatch[1].replace(/^>\s?/gm, "").trim();
+  const raw = quickTipsMatch[1].replace(/^>\s?/gm, "").trim();
+  // Strip surrounding smart/straight quotes
+  const quickTipsBody = raw.replace(/^[\s"'\u201C\u201D]+/, "").replace(/[\s"'\u201C\u201D]+$/, "").trim();
 
-  const extractTip = (tipNumber: number, nextTipNumber?: number): string => {
-    const nextBoundary = nextTipNumber
-      ? `(?=(?:\\*\\*)?Tip\\s*${nextTipNumber}\\s*:)`
-      : "$";
-    const tipRegex = new RegExp(`(?:\\*\\*)?Tip\\s*${tipNumber}\\s*:?\\*?\\*?\\s*([\\s\\S]*?)${nextBoundary}`, "i");
-    const tipMatch = quickTipsBody.match(tipRegex);
-    if (!tipMatch?.[1]) return "";
-
-    return tipMatch[1]
-      .replace(/\n+/g, " ")
-      .replace(/^[-–—:\s"“”']+|[-–—\s"“”']+$/g, "")
-      .trim();
+  const buildNormalized = (tips: string[]): string => {
+    const section = "## Quick Tips\n\n" + tips.slice(0, 3).map((tip, i) => "> **Tip " + (i + 1) + ":** " + tip).join("\n\n") + "\n";
+    return content.replace(quickTipsMatch[0], section);
   };
 
-  const extractedTips = [
-    extractTip(1, 2),
-    extractTip(2, 3),
-    extractTip(3),
-  ].filter(Boolean);
+  // Strategy 1: Already has separate "> **Tip N:**" blockquotes
+  const blockquoteTips = quickTipsBody.match(/\*\*Tip\s*\d+\s*:\*\*\s*[^\n]+/gi);
+  if (blockquoteTips && blockquoteTips.length >= 2) {
+    const tips = blockquoteTips.map(t => t.replace(/\*\*Tip\s*\d+\s*:\*\*\s*/i, "").trim()).filter(Boolean);
+    if (tips.length >= 2) return buildNormalized(tips);
+  }
 
-  if (extractedTips.length === 0) return content;
+  // Strategy 2: Merged text with "Tip 2:", "Tip 3:" markers
+  if (/Tip\s*2\s*:/i.test(quickTipsBody)) {
+    const parts = quickTipsBody.split(/(?=(?:\*\*)?Tip\s*\d+\s*:)/i);
+    const tips: string[] = [];
+    for (const part of parts) {
+      const cleaned = part.replace(/^(?:\*\*)?Tip\s*\d+\s*:?\*?\*?\s*/i, "").replace(/\n+/g, " ").trim();
+      if (cleaned.length > 5) tips.push(cleaned);
+    }
+    if (tips.length >= 2) return buildNormalized(tips);
+  }
 
-  const normalizedQuickTipsSection = `## Quick Tips\n\n${extractedTips
-    .slice(0, 3)
-    .map((tip, index) => `> **Tip ${index + 1}:** ${tip}`)
-    .join("\n\n")}\n`;
+  // Strategy 3: Numbered list
+  const numberedTips = quickTipsBody.match(/^\d+\.\s+.+/gm);
+  if (numberedTips && numberedTips.length >= 2) {
+    const tips = numberedTips.map(t => t.replace(/^\d+\.\s+/, "").trim()).filter(Boolean);
+    return buildNormalized(tips);
+  }
 
-  return content.replace(quickTipsMatch[0], normalizedQuickTipsSection);
+  // Strategy 4: Sentence-split fallback
+  const sentences = quickTipsBody.split(/(?<=\.)\s+/).filter(s => s.trim().length > 10);
+  if (sentences.length >= 3) return buildNormalized(sentences.slice(0, 3));
+
+  return content;
 };
 
 // Helper to remove "In This Article" section from markdown for custom rendering
