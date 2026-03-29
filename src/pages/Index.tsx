@@ -447,6 +447,28 @@ const Index = () => {
       });
     }
   };
+
+  // One-time migration: normalize previously saved content already in localStorage/state
+  useEffect(() => {
+    const savedGenerated = localStorage.getItem("seo-generator-generatedContent");
+    if (savedGenerated) {
+      const normalizedGenerated = normalizeQuickTipsSection(cleanContent(savedGenerated));
+      if (normalizedGenerated !== savedGenerated) {
+        setGeneratedContentRaw(normalizedGenerated);
+        localStorage.setItem("seo-generator-generatedContent", normalizedGenerated);
+      }
+    }
+
+    const savedOriginal = localStorage.getItem("seo-generator-originalContent");
+    if (savedOriginal) {
+      const normalizedOriginal = normalizeQuickTipsSection(cleanContent(savedOriginal));
+      if (normalizedOriginal !== savedOriginal) {
+        setOriginalContent(normalizedOriginal);
+        localStorage.setItem("seo-generator-originalContent", normalizedOriginal);
+      }
+    }
+  }, []);
+
   const [isSavingArticle, setIsSavingArticle] = useState(false);
   
   const handleSaveArticle = async () => {
