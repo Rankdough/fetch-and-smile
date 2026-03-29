@@ -33,6 +33,10 @@ const stopTerms = new Set([
   "about us", "advertise with us", "advertising policy", "all",
 ]);
 
+const hintStopWords = new Set([
+  "and", "the", "for", "with", "from", "that", "this", "your", "into", "about", "what", "when", "where", "which", "while", "have", "does", "them", "they", "their",
+]);
+
 const normalizeTerm = (raw: string): string => {
   return raw
     .toLowerCase()
@@ -238,10 +242,37 @@ serve(async (req) => {
       .filter((t) => !/trusted\s*source/i.test(t))
       .filter((t) => !/click to verify/i.test(t));
 
-    // Detect if the site is likely blocking us
-    const isBlocked = filtered.length < 5 && filteredUrls.length < 10;
+    // If URL filters are active, keep only terms semantically anchored to filter/page hints.
+    let finalTerms = filtered;
+    if (filters.length > 0) {
+      const hintTokens = new Set<string>();
 
-    console.log(`Extracted ${filtered.length} keyword ideas (${urlKeywords.size} from URLs, ${pageTerms.length} from content). Filtered URLs: ${filteredUrls.length}/${allUrls.length}. Blocked: ${isBlocked}`);
+      for (const f of filters) {
+        for (const token of f.split(/\s+/)) {
+          const clean = token.trim().toLowerCase();
+          if (clean.length >= 4 && !hintStopWords.has(clean)) hintTokens.add(clean);
+        }
+      }
+
+      for (const k of urlKeywords) {
+        for (const token of k.split(/\s+/)) {
+          const clean = token.trim().toLowerCase();
+          if (clean.length >= 4 && !hintStopWords.has(clean)) hintTokens.add(clean);
+        }
+      }
+
+      finalTerms = filtered.filter((term) => {
+        for (const token of hintTokens) {
+          if (term.includes(token)) return true;
+        }
+        return false;
+      });
+    }
+
+    // Detect if the site is likely blocking us
+    const isBlocked = finalTerms.length < 5 && filteredUrls.length < 10;
+
+    console.log(`Extracted ${finalTerms.length} keyword ideas (${urlKeywords.size} from URLs, ${pageTerms.length} from content). Filtered URLs: ${filteredUrls.length}/${allUrls.length}. Blocked: ${isBlocked}`);
 
     return new Response(
       JSON.stringify({
@@ -249,7 +280,7 @@ serve(async (req) => {
         total_urls_found: allUrls.length,
         filtered_urls_count: filteredUrls.length,
         url_filters_applied: filters,
-        extracted_terms: filtered.sort(),
+        extracted_terms: finalTerms.sort(),
         sample_urls: filteredUrls.slice(0, 20),
         likely_blocked: isBlocked,
       }),
