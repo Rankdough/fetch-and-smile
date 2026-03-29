@@ -419,7 +419,7 @@ const Index = () => {
   
   // Wrapper that auto-cleans content before setting
   const setGeneratedContent = (content: string, isNewGeneration = false) => {
-    const cleaned = cleanContent(content);
+    const cleaned = normalizeQuickTipsSection(cleanContent(content));
     setGeneratedContentRaw(cleaned);
     // If this is a new generation (not an edit), save as original
     if (isNewGeneration) {
