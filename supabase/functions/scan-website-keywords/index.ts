@@ -173,8 +173,8 @@ serve(async (req) => {
           },
           body: JSON.stringify({
             url: targetUrl,
-            formats: ["links", "markdown"],
-            onlyMainContent: false,
+            formats: ["markdown"],
+            onlyMainContent: true,
             waitFor: 3000,
           }),
         });
@@ -194,15 +194,7 @@ serve(async (req) => {
           }
         }
 
-        // Extract link texts (ignore markdown images: ![alt](...))
-        const linkMatches = markdown.match(/!?\[[^\]]+\]\([^)]+\)/g) || [];
-        for (const link of linkMatches) {
-          if (link.startsWith("![")) continue;
-          const text = normalizeTerm(link.match(/!?\[([^\]]+)\]/)?.[1]?.trim() || "");
-          if (text && isUsefulTerm(text) && !/^(http|mailto|#)/i.test(text)) {
-            terms.push(text);
-          }
-        }
+        // Intentionally do not extract markdown link text because it introduces navigation/related-content noise.
 
         return terms;
       } catch {
