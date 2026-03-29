@@ -30,6 +30,7 @@ const stopTerms = new Set([
   "next", "previous", "read more", "learn more", "click here",
   "view all", "see all", "show more", "load more",
   "trusted source", "source", "medically reviewed",
+  "about us", "advertise with us", "advertising policy", "all",
 ]);
 
 const normalizeTerm = (raw: string): string => {
@@ -209,23 +210,30 @@ serve(async (req) => {
       }
     };
 
-    // Scrape homepage
-    const pageTerms: string[] = await scrapeUrl(formattedUrl);
-
-    // Find category-level URLs from the filtered set
-    const categoryUrls = filteredUrls.filter(u => {
+    const isScrapablePageUrl = (u: string) => {
       try {
         const parsed = new URL(u);
         const segments = parsed.pathname.split("/").filter(Boolean);
-        return segments.length >= 1 && segments.length <= 2 && !segments.some(s => /\.(jpg|png|gif|css|js|pdf|xml|json)$/i.test(s));
+        return segments.length >= 1 && segments.length <= 4 && !segments.some(s => /\.(jpg|png|gif|css|js|pdf|xml|json)$/i.test(s));
       } catch { return false; }
-    });
+    };
 
-    // Scrape up to 10 category pages in parallel
-    const categoriesToScrape = categoryUrls.slice(0, 10);
-    console.log(`Scraping ${categoriesToScrape.length} category pages...`);
-    const categoryResults = await Promise.all(categoriesToScrape.map(u => scrapeUrl(u)));
-    for (const terms of categoryResults) {
+    const pageTerms: string[] = [];
+    let urlsToScrape: string[] = [];
+
+    if (filters.length > 0) {
+      // When a URL filter is used, only scrape matching pages (skip homepage to avoid noisy global terms)
+      urlsToScrape = [...new Set(filteredUrls.filter(isScrapablePageUrl))].slice(0, 15);
+      console.log(`Scraping ${urlsToScrape.length} filtered pages (URL filter active)...`);
+    } else {
+      // No URL filter: include homepage and a few category pages
+      pageTerms.push(...await scrapeUrl(formattedUrl));
+      urlsToScrape = [...new Set(filteredUrls.filter(isScrapablePageUrl))].slice(0, 10);
+      console.log(`Scraping ${urlsToScrape.length} category pages...`);
+    }
+
+    const scrapeResults = await Promise.all(urlsToScrape.map(u => scrapeUrl(u)));
+    for (const terms of scrapeResults) {
       pageTerms.push(...terms);
     }
 
