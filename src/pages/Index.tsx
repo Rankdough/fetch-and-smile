@@ -414,13 +414,13 @@ const Index = () => {
   } | null>(null);
   const [generatedContent, setGeneratedContentRaw] = useState(() => {
     const saved = localStorage.getItem("seo-generator-generatedContent");
-    return saved ? cleanContent(saved) : "";
+    return saved ? normalizeQuickTipsSection(cleanContent(saved)) : "";
   });
   
   // Store the original generated content for reset functionality
   const [originalContent, setOriginalContent] = useState(() => {
     const saved = localStorage.getItem("seo-generator-originalContent");
-    return saved || "";
+    return saved ? normalizeQuickTipsSection(cleanContent(saved)) : "";
   });
   
   // Track if content has been modified since generation
@@ -440,13 +440,35 @@ const Index = () => {
   // Reset to original content
   const handleResetContent = () => {
     if (originalContent) {
-      setGeneratedContentRaw(cleanContent(originalContent));
+      setGeneratedContent(originalContent);
       toast({
         title: "Content reset",
         description: "Restored to the original generated version.",
       });
     }
   };
+
+  // One-time migration: normalize previously saved content already in localStorage/state
+  useEffect(() => {
+    const savedGenerated = localStorage.getItem("seo-generator-generatedContent");
+    if (savedGenerated) {
+      const normalizedGenerated = normalizeQuickTipsSection(cleanContent(savedGenerated));
+      if (normalizedGenerated !== savedGenerated) {
+        setGeneratedContentRaw(normalizedGenerated);
+        localStorage.setItem("seo-generator-generatedContent", normalizedGenerated);
+      }
+    }
+
+    const savedOriginal = localStorage.getItem("seo-generator-originalContent");
+    if (savedOriginal) {
+      const normalizedOriginal = normalizeQuickTipsSection(cleanContent(savedOriginal));
+      if (normalizedOriginal !== savedOriginal) {
+        setOriginalContent(normalizedOriginal);
+        localStorage.setItem("seo-generator-originalContent", normalizedOriginal);
+      }
+    }
+  }, []);
+
   const [isSavingArticle, setIsSavingArticle] = useState(false);
   
   const handleSaveArticle = async () => {
