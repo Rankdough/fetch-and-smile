@@ -306,10 +306,78 @@ CRITICAL: The tone profile defines HOW to write (style, vocabulary, rhythm), NOT
     }
 
     if (formatReference) {
-      systemPrompt += `
+      // Extract structural pattern from the reference rather than dumping raw content
+      const refLines = formatReference.split('\n');
+      const headings: string[] = [];
+      const structuralElements: string[] = [];
+      let hasNumberedItems = false;
+      let hasProductCards = false;
+      let hasTables = false;
+      let hasRatings = false;
+      let hasPricingButtons = false;
+      let hasFaq = false;
+      let hasComparison = false;
+      
+      for (const line of refLines) {
+        const trimmed = line.trim();
+        if (/^#{1,6}\s/.test(trimmed)) {
+          headings.push(trimmed);
+        }
+        if (/^\d+[\.\)]\s/.test(trimmed) || /^#{1,3}\s*\d+[\.\)]\s/.test(trimmed)) {
+          hasNumberedItems = true;
+        }
+        if (/product|review|rating|score|★|⭐|\/10|\/5/i.test(trimmed)) {
+          hasProductCards = true;
+        }
+        if (/^\|/.test(trimmed)) {
+          hasTables = true;
+        }
+        if (/\d+(\.\d+)?\s*\/\s*(10|5)|rating|score/i.test(trimmed)) {
+          hasRatings = true;
+        }
+        if (/check price|buy now|shop now|view deal|add to cart/i.test(trimmed)) {
+          hasPricingButtons = true;
+        }
+        if (/faq|frequently asked/i.test(trimmed)) {
+          hasFaq = true;
+        }
+        if (/vs\.?|versus|compared|comparison/i.test(trimmed)) {
+          hasComparison = true;
+        }
+      }
 
-IMPORTANT: Match the formatting style and structure of this reference article:
-${formatReference.substring(0, 2000)}`;
+      // Build a structural description
+      let structureDesc = `CRITICAL FORMAT REFERENCE - You MUST replicate the EXACT structure and layout pattern of the reference article. Do NOT fall back to a standard blog format.\n\n`;
+      structureDesc += `HEADING STRUCTURE FROM REFERENCE (replicate this pattern with the new topic):\n`;
+      for (const h of headings.slice(0, 30)) {
+        structureDesc += `${h}\n`;
+      }
+      
+      if (hasProductCards || hasRatings || hasPricingButtons) {
+        structureDesc += `\nTHIS IS A PRODUCT REVIEW/COMPARISON FORMAT. You MUST:\n`;
+        structureDesc += `- List products/items with numbered rankings\n`;
+        if (hasRatings) structureDesc += `- Include ratings/scores for each item\n`;
+        if (hasPricingButtons) structureDesc += `- Include call-to-action buttons (e.g. "Check Price")\n`;
+        structureDesc += `- Describe each product with pros, cons, key features\n`;
+        structureDesc += `- Match the review card structure from the reference\n`;
+      }
+      if (hasTables) {
+        structureDesc += `\nThe reference uses TABLES - include comparison tables in the same style.\n`;
+      }
+      if (hasComparison) {
+        structureDesc += `\nThe reference uses a COMPARISON format - compare items side by side.\n`;
+      }
+      if (hasFaq) {
+        structureDesc += `\nThe reference includes an FAQ section - include one.\n`;
+      }
+      if (hasNumberedItems) {
+        structureDesc += `\nThe reference uses NUMBERED LISTS/RANKINGS - replicate this pattern.\n`;
+      }
+
+      // Also include raw content for additional context (increased from 2000 to 6000)
+      structureDesc += `\nFULL REFERENCE CONTENT (replicate this structure with the new topic):\n${formatReference.substring(0, 6000)}`;
+
+      systemPrompt += `\n\n${structureDesc}`;
     }
 
     let userPrompt = "";
