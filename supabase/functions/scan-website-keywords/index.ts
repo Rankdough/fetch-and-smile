@@ -19,6 +19,64 @@ const botProtectionTerms = new Set([
   "www.smythstoys.com", "www.", ".com", ".co.uk",
 ]);
 
+// Generic boilerplate/navigation terms to drop from extracted terms
+const stopTerms = new Set([
+  "home", "index", "page", "about", "contact", "privacy", "terms",
+  "cookie", "cookies", "login", "signup", "sign up", "sign in",
+  "register", "cart", "checkout", "account", "search", "sitemap",
+  "blog", "news", "faq", "help", "support", "careers", "jobs",
+  "legal", "disclaimer", "accessibility", "subscribe", "unsubscribe",
+  "share", "print", "email", "menu", "close", "open", "back",
+  "next", "previous", "read more", "learn more", "click here",
+  "view all", "see all", "show more", "load more",
+  "trusted source", "source", "medically reviewed",
+  "about us", "advertise with us", "advertising policy", "all",
+]);
+
+const hintStopWords = new Set([
+  "and", "the", "for", "with", "from", "that", "this", "your", "into", "about", "what", "when", "where", "which", "while", "have", "does", "them", "they", "their",
+]);
+
+const normalizeTerm = (raw: string): string => {
+  return raw
+    .toLowerCase()
+    .replace(/\\\./g, ".")
+    .replace(/!\[([^\]]*)\]\([^)]+\)/g, "$1")
+    .replace(/^!\[([^\]]*)$/g, "$1")
+    .replace(/^!?\[([^\]]+)\]$/g, "$1")
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, " and ")
+    .replace(/[“”]/g, '"')
+    .replace(/[‘’]/g, "'")
+    .replace(/^\d+\s*(?:[.)]|[-:])\s*/, "")
+    .replace(/[0-9]+\s*trusted\s*source/gi, "")
+    .replace(/\btrusted\s*source\b/gi, "")
+    .replace(/^[\s!'"`*_~>#\-\[\]\u2022]+/, "")
+    .replace(/[\s'"`*_~<>\-]+$/, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+};
+
+const isUsefulTerm = (term: string): boolean => {
+  if (!term || term.length < 3 || term.length > 80) return false;
+  if (!/[a-z]/i.test(term)) return false;
+  if (/^!?\[/.test(term)) return false;
+  if (/^(www\.|https?:)/.test(term)) return false;
+  if (/\.(com|co\.uk|org|net|io)$/i.test(term)) return false;
+  if (/^\d+$/.test(term)) return false;
+  if (/^\d+\s*trusted\s*source$/i.test(term)) return false;
+  if (/trusted\s*source/i.test(term)) return false;
+  if (/click to verify/i.test(term)) return false;
+  if (stopTerms.has(term)) return false;
+
+  for (const bot of botProtectionTerms) {
+    if (term === bot || term.includes(bot)) return false;
+  }
+
+  return true;
+};
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -96,13 +154,13 @@ serve(async (req) => {
         const path = new URL(u).pathname;
         const segments = path.split("/").filter(Boolean);
         for (const seg of segments) {
-          const cleaned = seg
+          const cleaned = normalizeTerm(seg
             .replace(/[-_]/g, " ")
             .replace(/\.(html|htm|php|aspx|jsp)$/i, "")
             .replace(/[0-9]{5,}/g, "")
-            .trim();
-          if (cleaned.length >= 3 && cleaned.length <= 60 && !/^[0-9]+$/.test(cleaned)) {
-            urlKeywords.add(cleaned.toLowerCase());
+            .trim());
+          if (isUsefulTerm(cleaned)) {
+            urlKeywords.add(cleaned);
           }
         }
       } catch {}
@@ -119,8 +177,8 @@ serve(async (req) => {
           },
           body: JSON.stringify({
             url: targetUrl,
-            formats: ["links", "markdown"],
-            onlyMainContent: false,
+            formats: ["markdown"],
+            onlyMainContent: true,
             waitFor: 3000,
           }),
         });
@@ -134,20 +192,13 @@ serve(async (req) => {
         // Extract headings
         const headingMatches = markdown.match(/^#{1,3}\s+(.+)$/gm) || [];
         for (const h of headingMatches) {
-          const text = h.replace(/^#+\s+/, "").trim();
-          if (text.length >= 3 && text.length <= 60) {
-            terms.push(text.toLowerCase());
+          const text = normalizeTerm(h.replace(/^#+\s+/, "").trim());
+          if (isUsefulTerm(text)) {
+            terms.push(text);
           }
         }
 
-        // Extract link texts
-        const linkMatches = markdown.match(/\[([^\]]+)\]\([^)]+\)/g) || [];
-        for (const link of linkMatches) {
-          const text = link.match(/\[([^\]]+)\]/)?.[1]?.trim();
-          if (text && text.length >= 3 && text.length <= 60 && !/^(http|mailto|#)/i.test(text)) {
-            terms.push(text.toLowerCase());
-          }
-        }
+        // Intentionally do not extract markdown link text because it introduces navigation/related-content noise.
 
         return terms;
       } catch {
@@ -155,56 +206,73 @@ serve(async (req) => {
       }
     };
 
-    // Scrape homepage
-    const pageTerms: string[] = await scrapeUrl(formattedUrl);
-
-    // Find category-level URLs from the filtered set
-    const categoryUrls = filteredUrls.filter(u => {
+    const isScrapablePageUrl = (u: string) => {
       try {
         const parsed = new URL(u);
         const segments = parsed.pathname.split("/").filter(Boolean);
-        return segments.length >= 1 && segments.length <= 2 && !segments.some(s => /\.(jpg|png|gif|css|js|pdf|xml|json)$/i.test(s));
+        return segments.length >= 1 && segments.length <= 4 && !segments.some(s => /\.(jpg|png|gif|css|js|pdf|xml|json)$/i.test(s));
       } catch { return false; }
-    });
+    };
 
-    // Scrape up to 10 category pages in parallel
-    const categoriesToScrape = categoryUrls.slice(0, 10);
-    console.log(`Scraping ${categoriesToScrape.length} category pages...`);
-    const categoryResults = await Promise.all(categoriesToScrape.map(u => scrapeUrl(u)));
-    for (const terms of categoryResults) {
+    const pageTerms: string[] = [];
+    let urlsToScrape: string[] = [];
+
+    if (filters.length > 0) {
+      // When a URL filter is used, only scrape matching pages (skip homepage to avoid noisy global terms)
+      urlsToScrape = [...new Set(filteredUrls.filter(isScrapablePageUrl))].slice(0, 15);
+      console.log(`Scraping ${urlsToScrape.length} filtered pages (URL filter active)...`);
+    } else {
+      // No URL filter: include homepage and a few category pages
+      pageTerms.push(...await scrapeUrl(formattedUrl));
+      urlsToScrape = [...new Set(filteredUrls.filter(isScrapablePageUrl))].slice(0, 10);
+      console.log(`Scraping ${urlsToScrape.length} category pages...`);
+    }
+
+    const scrapeResults = await Promise.all(urlsToScrape.map(u => scrapeUrl(u)));
+    for (const terms of scrapeResults) {
       pageTerms.push(...terms);
     }
 
     // Combine and deduplicate all extracted terms
     const allTerms = new Set<string>([...urlKeywords, ...pageTerms]);
 
-    // Remove generic/boilerplate terms
-    const stopTerms = new Set([
-      "home", "index", "page", "about", "contact", "privacy", "terms",
-      "cookie", "cookies", "login", "signup", "sign up", "sign in",
-      "register", "cart", "checkout", "account", "search", "sitemap",
-      "blog", "news", "faq", "help", "support", "careers", "jobs",
-      "legal", "disclaimer", "accessibility", "subscribe", "unsubscribe",
-      "share", "print", "email", "menu", "close", "open", "back",
-      "next", "previous", "read more", "learn more", "click here",
-      "view all", "see all", "show more", "load more",
-    ]);
+    // Final normalize + quality filter
+    const filtered = [...new Set([...allTerms].map(normalizeTerm).filter(isUsefulTerm))]
+      .filter((t) => !/^!?\[/.test(t))
+      .filter((t) => !/trusted\s*source/i.test(t))
+      .filter((t) => !/click to verify/i.test(t));
 
-    // Filter out stop terms AND bot-protection junk
-    const filtered = [...allTerms].filter(t => {
-      if (stopTerms.has(t)) return false;
-      for (const bot of botProtectionTerms) {
-        if (t === bot || t.includes(bot)) return false;
+    // If URL filters are active, keep only terms semantically anchored to filter/page hints.
+    let finalTerms = filtered;
+    if (filters.length > 0) {
+      const hintTokens = new Set<string>();
+
+      for (const f of filters) {
+        for (const token of f.split(/\s+/)) {
+          const clean = token.trim().toLowerCase();
+          if (clean.length >= 4 && !hintStopWords.has(clean)) hintTokens.add(clean);
+        }
       }
-      if (/^(www\.|https?:)/.test(t)) return false;
-      if (/\.(com|co\.uk|org|net|io)$/i.test(t)) return false;
-      return true;
-    });
+
+      for (const k of urlKeywords) {
+        for (const token of k.split(/\s+/)) {
+          const clean = token.trim().toLowerCase();
+          if (clean.length >= 4 && !hintStopWords.has(clean)) hintTokens.add(clean);
+        }
+      }
+
+      finalTerms = filtered.filter((term) => {
+        for (const token of hintTokens) {
+          if (term.includes(token)) return true;
+        }
+        return false;
+      });
+    }
 
     // Detect if the site is likely blocking us
-    const isBlocked = filtered.length < 5 && filteredUrls.length < 10;
+    const isBlocked = finalTerms.length < 5 && filteredUrls.length < 10;
 
-    console.log(`Extracted ${filtered.length} keyword ideas (${urlKeywords.size} from URLs, ${pageTerms.length} from content). Filtered URLs: ${filteredUrls.length}/${allUrls.length}. Blocked: ${isBlocked}`);
+    console.log(`Extracted ${finalTerms.length} keyword ideas (${urlKeywords.size} from URLs, ${pageTerms.length} from content). Filtered URLs: ${filteredUrls.length}/${allUrls.length}. Blocked: ${isBlocked}`);
 
     return new Response(
       JSON.stringify({
@@ -212,7 +280,7 @@ serve(async (req) => {
         total_urls_found: allUrls.length,
         filtered_urls_count: filteredUrls.length,
         url_filters_applied: filters,
-        extracted_terms: filtered.sort(),
+        extracted_terms: finalTerms.sort(),
         sample_urls: filteredUrls.slice(0, 20),
         likely_blocked: isBlocked,
       }),
