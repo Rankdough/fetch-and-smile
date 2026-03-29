@@ -414,13 +414,13 @@ const Index = () => {
   } | null>(null);
   const [generatedContent, setGeneratedContentRaw] = useState(() => {
     const saved = localStorage.getItem("seo-generator-generatedContent");
-    return saved ? cleanContent(saved) : "";
+    return saved ? normalizeQuickTipsSection(cleanContent(saved)) : "";
   });
   
   // Store the original generated content for reset functionality
   const [originalContent, setOriginalContent] = useState(() => {
     const saved = localStorage.getItem("seo-generator-originalContent");
-    return saved || "";
+    return saved ? normalizeQuickTipsSection(cleanContent(saved)) : "";
   });
   
   // Track if content has been modified since generation
@@ -440,7 +440,7 @@ const Index = () => {
   // Reset to original content
   const handleResetContent = () => {
     if (originalContent) {
-      setGeneratedContentRaw(cleanContent(originalContent));
+      setGeneratedContent(originalContent);
       toast({
         title: "Content reset",
         description: "Restored to the original generated version.",
