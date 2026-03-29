@@ -19,6 +19,52 @@ const botProtectionTerms = new Set([
   "www.smythstoys.com", "www.", ".com", ".co.uk",
 ]);
 
+// Generic boilerplate/navigation terms to drop from extracted terms
+const stopTerms = new Set([
+  "home", "index", "page", "about", "contact", "privacy", "terms",
+  "cookie", "cookies", "login", "signup", "sign up", "sign in",
+  "register", "cart", "checkout", "account", "search", "sitemap",
+  "blog", "news", "faq", "help", "support", "careers", "jobs",
+  "legal", "disclaimer", "accessibility", "subscribe", "unsubscribe",
+  "share", "print", "email", "menu", "close", "open", "back",
+  "next", "previous", "read more", "learn more", "click here",
+  "view all", "see all", "show more", "load more",
+  "trusted source", "source", "medically reviewed",
+]);
+
+const normalizeTerm = (raw: string): string => {
+  return raw
+    .toLowerCase()
+    .replace(/\\\./g, ".")
+    .replace(/!\[([^\]]*)\]\([^)]+\)/g, "$1")
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, " and ")
+    .replace(/[“”]/g, '"')
+    .replace(/[‘’]/g, "'")
+    .replace(/^\d+\s*(?:[.)]|[-:])\s*/, "")
+    .replace(/\btrusted\s*source\b/gi, "")
+    .replace(/^[\s'"`*_~>#\-\u2022]+/, "")
+    .replace(/[\s'"`*_~<>\-]+$/, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+};
+
+const isUsefulTerm = (term: string): boolean => {
+  if (!term || term.length < 3 || term.length > 80) return false;
+  if (!/[a-z]/i.test(term)) return false;
+  if (/^(www\.|https?:)/.test(term)) return false;
+  if (/\.(com|co\.uk|org|net|io)$/i.test(term)) return false;
+  if (/^\d+$/.test(term)) return false;
+  if (stopTerms.has(term)) return false;
+
+  for (const bot of botProtectionTerms) {
+    if (term === bot || term.includes(bot)) return false;
+  }
+
+  return true;
+};
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -96,13 +142,13 @@ serve(async (req) => {
         const path = new URL(u).pathname;
         const segments = path.split("/").filter(Boolean);
         for (const seg of segments) {
-          const cleaned = seg
+          const cleaned = normalizeTerm(seg
             .replace(/[-_]/g, " ")
             .replace(/\.(html|htm|php|aspx|jsp)$/i, "")
             .replace(/[0-9]{5,}/g, "")
-            .trim();
-          if (cleaned.length >= 3 && cleaned.length <= 60 && !/^[0-9]+$/.test(cleaned)) {
-            urlKeywords.add(cleaned.toLowerCase());
+            .trim());
+          if (isUsefulTerm(cleaned)) {
+            urlKeywords.add(cleaned);
           }
         }
       } catch {}
@@ -134,18 +180,19 @@ serve(async (req) => {
         // Extract headings
         const headingMatches = markdown.match(/^#{1,3}\s+(.+)$/gm) || [];
         for (const h of headingMatches) {
-          const text = h.replace(/^#+\s+/, "").trim();
-          if (text.length >= 3 && text.length <= 60) {
-            terms.push(text.toLowerCase());
+          const text = normalizeTerm(h.replace(/^#+\s+/, "").trim());
+          if (isUsefulTerm(text)) {
+            terms.push(text);
           }
         }
 
-        // Extract link texts
-        const linkMatches = markdown.match(/\[([^\]]+)\]\([^)]+\)/g) || [];
+        // Extract link texts (ignore markdown images: ![alt](...))
+        const linkMatches = markdown.match(/!?\[[^\]]+\]\([^)]+\)/g) || [];
         for (const link of linkMatches) {
-          const text = link.match(/\[([^\]]+)\]/)?.[1]?.trim();
-          if (text && text.length >= 3 && text.length <= 60 && !/^(http|mailto|#)/i.test(text)) {
-            terms.push(text.toLowerCase());
+          if (link.startsWith("![")) continue;
+          const text = normalizeTerm(link.match(/!?\[([^\]]+)\]/)?.[1]?.trim() || "");
+          if (text && isUsefulTerm(text) && !/^(http|mailto|#)/i.test(text)) {
+            terms.push(text);
           }
         }
 
@@ -178,28 +225,8 @@ serve(async (req) => {
     // Combine and deduplicate all extracted terms
     const allTerms = new Set<string>([...urlKeywords, ...pageTerms]);
 
-    // Remove generic/boilerplate terms
-    const stopTerms = new Set([
-      "home", "index", "page", "about", "contact", "privacy", "terms",
-      "cookie", "cookies", "login", "signup", "sign up", "sign in",
-      "register", "cart", "checkout", "account", "search", "sitemap",
-      "blog", "news", "faq", "help", "support", "careers", "jobs",
-      "legal", "disclaimer", "accessibility", "subscribe", "unsubscribe",
-      "share", "print", "email", "menu", "close", "open", "back",
-      "next", "previous", "read more", "learn more", "click here",
-      "view all", "see all", "show more", "load more",
-    ]);
-
-    // Filter out stop terms AND bot-protection junk
-    const filtered = [...allTerms].filter(t => {
-      if (stopTerms.has(t)) return false;
-      for (const bot of botProtectionTerms) {
-        if (t === bot || t.includes(bot)) return false;
-      }
-      if (/^(www\.|https?:)/.test(t)) return false;
-      if (/\.(com|co\.uk|org|net|io)$/i.test(t)) return false;
-      return true;
-    });
+    // Final normalize + quality filter
+    const filtered = [...new Set([...allTerms].map(normalizeTerm).filter(isUsefulTerm))];
 
     // Detect if the site is likely blocking us
     const isBlocked = filtered.length < 5 && filteredUrls.length < 10;
