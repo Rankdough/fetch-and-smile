@@ -2324,10 +2324,7 @@ const Index = () => {
                 const tableHeaderText = isDarkSitePaletteForExport ? "#000000" : "#ffffff";
                 
                 // Extract navigation and FAQ items from markdown
-                let navItems = extractInThisArticleItems(generatedContent);
-                if (navItems.length === 0) {
-                  navItems = extractNavigationFromContent(generatedContent);
-                }
+                const navItems = getBestNavigationItems(generatedContent);
                 const faqItems = skipFaqs ? [] : extractFAQFromContent(generatedContent);
                 
                 // Get article element for base HTML structure
