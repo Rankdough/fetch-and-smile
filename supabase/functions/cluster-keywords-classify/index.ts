@@ -303,6 +303,93 @@ JSON FORMAT:
       topicKeywords["Other"].push(...otherKeywords);
     }
 
+    // ═══════════════════════════════════════════════
+    // CONSOLIDATION PASS: Merge down to ≤12 silos if AI over-fragmented
+    // ═══════════════════════════════════════════════
+    const MAX_SILOS = 12;
+    const siloNames = Object.keys(topicKeywords).filter(t => t !== "Other");
+    if (siloNames.length > MAX_SILOS) {
+      console.log(`Too many silos (${siloNames.length}). Consolidating to ≤${MAX_SILOS}...`);
+
+      // Build a summary of all silos with keyword counts and volumes
+      const siloSummaries = siloNames.map(name => {
+        const kws = topicKeywords[name];
+        let vol = 0;
+        if (hasVolume) {
+          for (const kw of kws) {
+            if (volumeMap[kw]) vol += volumeMap[kw];
+          }
+        }
+        return { name, count: kws.length, volume: vol };
+      }).sort((a, b) => b.volume - a.volume || b.count - a.count);
+
+      const siloList = siloSummaries.map(s => `- "${s.name}" (${s.count} kws, ~${s.volume} vol)`).join("\n");
+
+      const mergeSystem = `You are an SEO strategist. You have ${siloNames.length} topic silos but need to consolidate them to at most ${MAX_SILOS}.
+
+CURRENT SILOS:
+${siloList}
+
+RULES:
+- Output a merge map: for each silo that should be merged, specify which target silo it merges INTO
+- Keep the largest/highest-volume silos as targets
+- Merge small, thematically similar silos together
+- The merged result must have at most ${MAX_SILOS} silos (not counting "Other")
+- Use EXACT silo names from the list above
+- Output ONLY valid JSON, no markdown fences
+
+JSON FORMAT:
+{"merges":{"Small Silo Name":"Target Silo Name","Another Small Silo":"Target Silo Name",...}}
+
+Silos NOT mentioned in "merges" will be kept as-is.`;
+
+      try {
+        const mergeResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${LOVABLE_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "google/gemini-2.5-flash-lite",
+            messages: [
+              { role: "system", content: mergeSystem },
+              { role: "user", content: `Consolidate these ${siloNames.length} silos down to at most ${MAX_SILOS}.` },
+            ],
+          }),
+        });
+
+        if (mergeResponse.ok) {
+          const mergeData = await mergeResponse.json();
+          const mergeContent = mergeData.choices?.[0]?.message?.content || "";
+          let mergeParsed: { merges: Record<string, string> };
+          try {
+            mergeParsed = JSON.parse(cleanJson(mergeContent));
+          } catch {
+            console.error("Merge parse failed:", mergeContent.slice(0, 500));
+            mergeParsed = { merges: {} };
+          }
+
+          const merges = mergeParsed.merges || {};
+          let mergeCount = 0;
+          for (const [source, target] of Object.entries(merges)) {
+            if (source === target) continue;
+            if (!topicKeywords[source]) continue;
+            // Ensure target exists (might be a new name from the merge)
+            if (!topicKeywords[target]) topicKeywords[target] = [];
+            topicKeywords[target].push(...topicKeywords[source]);
+            delete topicKeywords[source];
+            mergeCount++;
+          }
+          console.log(`Consolidation: merged ${mergeCount} silos, now ${Object.keys(topicKeywords).filter(t => t !== "Other").length} silos`);
+        } else {
+          console.error("Consolidation AI call failed:", mergeResponse.status);
+        }
+      } catch (mergeErr) {
+        console.error("Consolidation error (non-fatal):", mergeErr);
+      }
+    }
+
     // Calculate volumes and build cluster summaries
     const clusters = Object.entries(topicKeywords)
       .map(([topic, kws]) => {
