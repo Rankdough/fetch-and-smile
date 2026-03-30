@@ -74,7 +74,7 @@ CRITICAL GROUPING LOGIC:
 - Think: "What is the COMMON THREAD across these keywords?" and name the silo after that thread.
 
 RULES:
-- ${allKnownSilos.length > 0 ? "Prefer assigning keywords to existing silos. Only create new silos if keywords genuinely don't fit any existing silo." : "Create at most 12 topic silos (never more than 12)"}
+- ${allKnownSilos.length > 0 ? "Prefer assigning keywords to existing silos. Only create new silos if keywords genuinely don't fit any existing silo." : "Create at most 12 topic silos. HARD LIMIT: 12 silos maximum. If you have more than 12 potential groups, merge the smallest/most-similar ones until you have exactly 12 or fewer."}
 - Every keyword must be assigned to exactly one topic
 - Topic names MUST be based on the main/highest-volume keywords in that silo — use the actual keyword phrases as silo names (e.g. "dental implants cost" not "Dental Implant Pricing Information")
 - Numbers in brackets are search volumes — use them to inform grouping but don't output them
