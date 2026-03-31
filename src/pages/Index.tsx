@@ -304,41 +304,72 @@ const normalizeQuickTipsSection = (content: string): string => {
   if (!quickTipsMatch) return content;
 
   const raw = quickTipsMatch[1].replace(/^>\s?/gm, "").trim();
-  // Strip surrounding smart/straight quotes
-  const quickTipsBody = raw.replace(/^[\s"'\u201C\u201D]+/, "").replace(/[\s"'\u201C\u201D]+$/, "").trim();
+  // Strip surrounding smart/straight quotes and normalize whitespace
+  const quickTipsBody = raw
+    .replace(/\r/g, "")
+    .replace(/\u00A0/g, " ")
+    .replace(/^[\s"'\u2018\u2019\u201C\u201D]+/, "")
+    .replace(/[\s"'\u2018\u2019\u201C\u201D]+$/, "")
+    .trim();
+
+  const cleanTip = (tip: string) => tip
+    .replace(/^(?:\*\*)?Tip\s*\d+\s*[:\-]?\*?\*?\s*/i, "")
+    .replace(/^[\s\-–—•:;,.]+/, "")
+    .replace(/\s+/g, " ")
+    .replace(/^[\s"'\u2018\u2019\u201C\u201D]+/, "")
+    .replace(/[\s"'\u2018\u2019\u201C\u201D]+$/, "")
+    .trim();
 
   const buildNormalized = (tips: string[]): string => {
-    const section = "## Quick Tips\n\n" + tips.slice(0, 3).map((tip, i) => "> **Tip " + (i + 1) + ":** " + tip).join("\n\n") + "\n";
+    const normalizedTips = tips.map(cleanTip).filter(Boolean);
+    if (normalizedTips.length < 2) return content;
+
+    const section = "## Quick Tips\n\n" + normalizedTips.slice(0, 3).map((tip, i) => "> **Tip " + (i + 1) + ":** " + tip).join("\n\n") + "\n";
     return content.replace(quickTipsMatch[0], section);
   };
 
   // Strategy 1: Already has separate "> **Tip N:**" blockquotes
   const blockquoteTips = quickTipsBody.match(/\*\*Tip\s*\d+\s*:\*\*\s*[^\n]+/gi);
   if (blockquoteTips && blockquoteTips.length >= 2) {
-    const tips = blockquoteTips.map(t => t.replace(/\*\*Tip\s*\d+\s*:\*\*\s*/i, "").trim()).filter(Boolean);
+    const tips = blockquoteTips.map(cleanTip).filter(Boolean);
     if (tips.length >= 2) return buildNormalized(tips);
   }
 
-  // Strategy 2: Merged text with "Tip 2:", "Tip 3:" markers
-  if (/Tip\s*2\s*:/i.test(quickTipsBody)) {
-    const parts = quickTipsBody.split(/(?=(?:\*\*)?Tip\s*\d+\s*:)/i);
+  // Strategy 2: Merged text with inline "Tip 2:" / "Tip 3:" markers inside one blockquote/paragraph
+  const tipMarkerMatches = [...quickTipsBody.matchAll(/(?:\*\*)?Tip\s*\d+\s*[:\-]\*?\*?\s*/gi)];
+  if (tipMarkerMatches.length >= 2) {
     const tips: string[] = [];
-    for (const part of parts) {
-      const cleaned = part.replace(/^(?:\*\*)?Tip\s*\d+\s*:?\*?\*?\s*/i, "").replace(/\n+/g, " ").trim();
-      if (cleaned.length > 5) tips.push(cleaned);
-    }
+
+    const firstMarkerIndex = tipMarkerMatches[0].index ?? 0;
+    const leadingTip = cleanTip(quickTipsBody.slice(0, firstMarkerIndex));
+    if (leadingTip) tips.push(leadingTip);
+
+    tipMarkerMatches.forEach((match, index) => {
+      const start = (match.index ?? 0) + match[0].length;
+      const end = index + 1 < tipMarkerMatches.length
+        ? (tipMarkerMatches[index + 1].index ?? quickTipsBody.length)
+        : quickTipsBody.length;
+
+      const extractedTip = cleanTip(quickTipsBody.slice(start, end));
+      if (extractedTip) tips.push(extractedTip);
+    });
+
     if (tips.length >= 2) return buildNormalized(tips);
   }
 
   // Strategy 3: Numbered list
   const numberedTips = quickTipsBody.match(/^\d+\.\s+.+/gm);
   if (numberedTips && numberedTips.length >= 2) {
-    const tips = numberedTips.map(t => t.replace(/^\d+\.\s+/, "").trim()).filter(Boolean);
+    const tips = numberedTips.map(t => cleanTip(t.replace(/^\d+\.\s+/, ""))).filter(Boolean);
     return buildNormalized(tips);
   }
 
   // Strategy 4: Sentence-split fallback
-  const sentences = quickTipsBody.split(/(?<=\.)\s+/).filter(s => s.trim().length > 10);
+  const sentences = quickTipsBody
+    .replace(/(?:\*\*)?Tip\s*\d+\s*[:\-]\*?\*?\s*/gi, "")
+    .split(/(?<=[.!?])\s+/)
+    .map(cleanTip)
+    .filter(s => s.length > 10);
   if (sentences.length >= 3) return buildNormalized(sentences.slice(0, 3));
 
   return content;
