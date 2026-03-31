@@ -124,10 +124,10 @@ const ContentQueue = ({ queuedIdeas, onUseForArticle, onRemoveFromQueue, formatV
 
   const toggleDone = useCallback((ideaKey: string) => {
     setDoneIdeas(prev => {
-      const next = new Set(prev);
+      const next = new Map(prev);
       if (next.has(ideaKey)) next.delete(ideaKey);
-      else next.add(ideaKey);
-      localStorage.setItem("content-queue-done", JSON.stringify([...next]));
+      else next.set(ideaKey, new Date().toISOString());
+      localStorage.setItem("content-queue-done", JSON.stringify(Object.fromEntries(next)));
       return next;
     });
   }, []);
