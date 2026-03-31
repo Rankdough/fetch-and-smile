@@ -89,11 +89,20 @@ const EditableTitleCQ = ({ title, onSave, className = "" }: { title: string; onS
 const ContentQueue = ({ queuedIdeas, onUseForArticle, onRemoveFromQueue, formatVolume, projectName, allClusters, onReassignKeyword, onCreateIdeaFromKeyword, generatingIdeaForKw, onEditIdeaTitle }: ContentQueueProps) => {
   const { toast } = useToast();
   const [fallbackDownload, setFallbackDownload] = useState<{ url: string; filename: string } | null>(null);
-  const [doneIdeas, setDoneIdeas] = useState<Set<string>>(() => {
+  // Map of ideaKey → ISO date string when marked done
+  const [doneIdeas, setDoneIdeas] = useState<Map<string, string>>(() => {
     try {
       const saved = localStorage.getItem("content-queue-done");
-      return saved ? new Set(JSON.parse(saved)) : new Set();
-    } catch { return new Set(); }
+      if (!saved) return new Map();
+      const parsed = JSON.parse(saved);
+      // Migrate from old Set (array of strings) to Map (object of key→date)
+      if (Array.isArray(parsed)) {
+        const migrated = new Map<string, string>();
+        parsed.forEach((key: string) => migrated.set(key, ""));
+        return migrated;
+      }
+      return new Map(Object.entries(parsed));
+    } catch { return new Map(); }
   });
   const [favoriteIdeas, setFavoriteIdeas] = useState<Set<string>>(() => {
     try {
@@ -115,10 +124,10 @@ const ContentQueue = ({ queuedIdeas, onUseForArticle, onRemoveFromQueue, formatV
 
   const toggleDone = useCallback((ideaKey: string) => {
     setDoneIdeas(prev => {
-      const next = new Set(prev);
+      const next = new Map(prev);
       if (next.has(ideaKey)) next.delete(ideaKey);
-      else next.add(ideaKey);
-      localStorage.setItem("content-queue-done", JSON.stringify([...next]));
+      else next.set(ideaKey, new Date().toISOString());
+      localStorage.setItem("content-queue-done", JSON.stringify(Object.fromEntries(next)));
       return next;
     });
   }, []);
@@ -236,7 +245,7 @@ Focus on providing actionable research that will help create a comprehensive, di
       "Silo", "Silo Description", "Silo Volume", "Silo Difficulty", "Silo Priority",
       "Article Title", "Article Description", "Strategic Angle",
       "Target Keywords", "Keyword Volumes", "Total Keyword Volume",
-      "Value Promises", "Status"
+      "Value Promises", "Status", "Completed Date", "Month"
     ]];
 
     for (const { cluster, idea } of queuedIdeas) {
@@ -253,6 +262,12 @@ Focus on providing actionable research that will help create a comprehensive, di
       });
       const totalVol = kws.reduce((sum, kw) => sum + (volLookup[kw.toLowerCase().trim()] || 0), 0);
 
+      const ideaKey = `${cluster.topic}::${idea.title}`;
+      const doneDate = doneIdeas.get(ideaKey);
+      const isDone = doneIdeas.has(ideaKey);
+      const formattedDate = doneDate ? new Date(doneDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "";
+      const monthYear = doneDate ? new Date(doneDate).toLocaleDateString("en-GB", { month: "long", year: "numeric" }) : "";
+
       rows.push([
         cluster.topic,
         cluster.description,
@@ -266,7 +281,9 @@ Focus on providing actionable research that will help create a comprehensive, di
         kwVolPairs.join("; "),
         totalVol.toString(),
         (idea.value_promises || []).join("; "),
-        doneIdeas.has(`${cluster.topic}::${idea.title}`) ? "Done" : ""
+        isDone ? "Done" : "",
+        formattedDate,
+        monthYear
       ]);
     }
 
@@ -438,6 +455,16 @@ Focus on providing actionable research that will help create a comprehensive, di
                                 {totalVol.toLocaleString()} vol
                               </span>
                             )}
+                            {(() => {
+                              const doneDate = doneIdeas.get(ideaKey);
+                              if (!doneDate) return null;
+                              const d = new Date(doneDate);
+                              return (
+                                <span className="text-[10px] text-muted-foreground shrink-0 whitespace-nowrap">
+                                  {d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
+                                </span>
+                              );
+                            })()}
                             <ChevronDown className={cn(
                               "h-4 w-4 text-green-600 dark:text-green-400 transition-transform shrink-0",
                               isExpanded && "rotate-180"
