@@ -97,11 +97,22 @@ const ContentQueue = ({ queuedIdeas, onUseForArticle, onRemoveFromQueue, formatV
       const parsed = JSON.parse(saved);
       // Migrate from old Set (array of strings) to Map (object of key→date)
       if (Array.isArray(parsed)) {
+        const now = new Date().toISOString();
         const migrated = new Map<string, string>();
-        parsed.forEach((key: string) => migrated.set(key, ""));
+        parsed.forEach((key: string) => migrated.set(key, now));
+        // Persist migrated format
+        localStorage.setItem("content-queue-done", JSON.stringify(Object.fromEntries(migrated)));
         return migrated;
       }
-      return new Map(Object.entries(parsed));
+      const map = new Map(Object.entries(parsed));
+      // Backfill empty dates from earlier migration
+      let needsPersist = false;
+      const now = new Date().toISOString();
+      map.forEach((val, key) => {
+        if (!val) { map.set(key, now); needsPersist = true; }
+      });
+      if (needsPersist) localStorage.setItem("content-queue-done", JSON.stringify(Object.fromEntries(map)));
+      return map;
     } catch { return new Map(); }
   });
   const [favoriteIdeas, setFavoriteIdeas] = useState<Set<string>>(() => {
