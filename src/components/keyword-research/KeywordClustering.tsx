@@ -2162,6 +2162,43 @@ const KeywordClustering = () => {
                                       />
                                       <p className="text-xs text-muted-foreground">{idea.description}</p>
                                       <p className="text-xs text-primary/80 italic">↳ {idea.reason}</p>
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="gap-1 text-xs h-7 px-2 text-muted-foreground w-fit"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          const prompt = `Act as an expert SEO content researcher. I'm planning to write an article titled "${idea.title}".
+
+Topic cluster: ${cluster.topic} — ${cluster.description}
+
+Article concept: ${idea.description}
+Strategic angle: ${idea.reason}
+
+Target keywords: ${idea.target_keywords?.join(", ") || "N/A"}
+
+Value promises this article must deliver:
+${idea.value_promises?.map((vp, vi) => `${vi+1}. ${vp}`).join("\n") || "N/A"}
+
+Please conduct deep research on this topic and provide:
+
+1. **Key facts & statistics** — Recent, citable data points relevant to this article
+2. **Expert perspectives** — Notable opinions or frameworks from authorities in this space
+3. **Common misconceptions** — What do people get wrong about this topic?
+4. **Unique angles** — Underexplored subtopics or fresh perspectives not covered by top-ranking content
+5. **Competitor content gaps** — What are the top-ranking articles missing?
+6. **Real-world examples & case studies** — Specific examples that would strengthen the article
+7. **Questions people ask** — Related questions from forums, PAA boxes, and communities
+8. **Recommended structure** — Suggested H2/H3 outline based on search intent and content depth
+
+Focus on providing actionable research that will help create a comprehensive, differentiated article.`;
+                                          navigator.clipboard.writeText(prompt);
+                                          toast({ title: "Research prompt copied!", description: "Paste into ChatGPT, Perplexity, or any AI research tool." });
+                                        }}
+                                      >
+                                        <Search className="h-3 w-3" />
+                                        Deep Research
+                                      </Button>
                                       {idea.target_keywords && idea.target_keywords.length > 0 && (() => {
                                         // Build a case-insensitive volume lookup from cluster keyword_volumes
                                         const volLookup: Record<string, number> = {};
