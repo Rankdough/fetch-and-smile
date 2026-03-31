@@ -455,6 +455,16 @@ Focus on providing actionable research that will help create a comprehensive, di
                                 {totalVol.toLocaleString()} vol
                               </span>
                             )}
+                            {(() => {
+                              const doneDate = doneIdeas.get(ideaKey);
+                              if (!doneDate) return null;
+                              const d = new Date(doneDate);
+                              return (
+                                <span className="text-[10px] text-muted-foreground shrink-0 whitespace-nowrap">
+                                  {d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
+                                </span>
+                              );
+                            })()}
                             <ChevronDown className={cn(
                               "h-4 w-4 text-green-600 dark:text-green-400 transition-transform shrink-0",
                               isExpanded && "rotate-180"
