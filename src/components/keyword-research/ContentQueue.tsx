@@ -262,6 +262,12 @@ Focus on providing actionable research that will help create a comprehensive, di
       });
       const totalVol = kws.reduce((sum, kw) => sum + (volLookup[kw.toLowerCase().trim()] || 0), 0);
 
+      const ideaKey = `${cluster.topic}::${idea.title}`;
+      const doneDate = doneIdeas.get(ideaKey);
+      const isDone = doneIdeas.has(ideaKey);
+      const formattedDate = doneDate ? new Date(doneDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "";
+      const monthYear = doneDate ? new Date(doneDate).toLocaleDateString("en-GB", { month: "long", year: "numeric" }) : "";
+
       rows.push([
         cluster.topic,
         cluster.description,
@@ -275,7 +281,9 @@ Focus on providing actionable research that will help create a comprehensive, di
         kwVolPairs.join("; "),
         totalVol.toString(),
         (idea.value_promises || []).join("; "),
-        doneIdeas.has(`${cluster.topic}::${idea.title}`) ? "Done" : ""
+        isDone ? "Done" : "",
+        formattedDate,
+        monthYear
       ]);
     }
 
