@@ -89,11 +89,20 @@ const EditableTitleCQ = ({ title, onSave, className = "" }: { title: string; onS
 const ContentQueue = ({ queuedIdeas, onUseForArticle, onRemoveFromQueue, formatVolume, projectName, allClusters, onReassignKeyword, onCreateIdeaFromKeyword, generatingIdeaForKw, onEditIdeaTitle }: ContentQueueProps) => {
   const { toast } = useToast();
   const [fallbackDownload, setFallbackDownload] = useState<{ url: string; filename: string } | null>(null);
-  const [doneIdeas, setDoneIdeas] = useState<Set<string>>(() => {
+  // Map of ideaKey → ISO date string when marked done
+  const [doneIdeas, setDoneIdeas] = useState<Map<string, string>>(() => {
     try {
       const saved = localStorage.getItem("content-queue-done");
-      return saved ? new Set(JSON.parse(saved)) : new Set();
-    } catch { return new Set(); }
+      if (!saved) return new Map();
+      const parsed = JSON.parse(saved);
+      // Migrate from old Set (array of strings) to Map (object of key→date)
+      if (Array.isArray(parsed)) {
+        const migrated = new Map<string, string>();
+        parsed.forEach((key: string) => migrated.set(key, ""));
+        return migrated;
+      }
+      return new Map(Object.entries(parsed));
+    } catch { return new Map(); }
   });
   const [favoriteIdeas, setFavoriteIdeas] = useState<Set<string>>(() => {
     try {
