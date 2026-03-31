@@ -245,7 +245,7 @@ Focus on providing actionable research that will help create a comprehensive, di
       "Silo", "Silo Description", "Silo Volume", "Silo Difficulty", "Silo Priority",
       "Article Title", "Article Description", "Strategic Angle",
       "Target Keywords", "Keyword Volumes", "Total Keyword Volume",
-      "Value Promises", "Status"
+      "Value Promises", "Status", "Completed Date", "Month"
     ]];
 
     for (const { cluster, idea } of queuedIdeas) {
