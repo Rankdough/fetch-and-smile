@@ -104,7 +104,15 @@ const ContentQueue = ({ queuedIdeas, onUseForArticle, onRemoveFromQueue, formatV
         localStorage.setItem("content-queue-done", JSON.stringify(Object.fromEntries(migrated)));
         return migrated;
       }
-      return new Map(Object.entries(parsed));
+      const map = new Map(Object.entries(parsed));
+      // Backfill empty dates from earlier migration
+      let needsPersist = false;
+      const now = new Date().toISOString();
+      map.forEach((val, key) => {
+        if (!val) { map.set(key, now); needsPersist = true; }
+      });
+      if (needsPersist) localStorage.setItem("content-queue-done", JSON.stringify(Object.fromEntries(map)));
+      return map;
     } catch { return new Map(); }
   });
   const [favoriteIdeas, setFavoriteIdeas] = useState<Set<string>>(() => {
