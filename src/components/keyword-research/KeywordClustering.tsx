@@ -217,6 +217,10 @@ const KeywordClustering = () => {
   const [isAddingKeywords, setIsAddingKeywords] = useState(false);
   const [addKwTargetSilo, setAddKwTargetSilo] = useState<string | null>(null);
   const addKwFileRef = useRef<HTMLInputElement>(null);
+  const expandedClusterTopics = [...expandedClusters];
+  const activeSiloParam = isResultsOpen && expandedClusterTopics.length > 0
+    ? expandedClusterTopics[expandedClusterTopics.length - 1]
+    : null;
 
   const toggleCollapsedSet = (setter: React.Dispatch<React.SetStateAction<Set<string>>>, key: string) => {
     setter(prev => {
@@ -232,9 +236,10 @@ const KeywordClustering = () => {
       const p = new URLSearchParams(prev);
       if (activeResultId) p.set("project", activeResultId); else p.delete("project");
       if (isResultsOpen) p.set("view", "results"); else p.delete("view");
+      if (activeSiloParam) p.set("silo", activeSiloParam); else p.delete("silo");
       return p;
     }, { replace: true });
-  }, [activeResultId, isResultsOpen, setSearchParams]);
+  }, [activeResultId, activeSiloParam, isResultsOpen, setSearchParams]);
 
   // Reload bookmarks when active project changes
   useEffect(() => {
