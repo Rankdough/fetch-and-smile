@@ -418,22 +418,52 @@ Focus on providing actionable research that will help create a comprehensive, di
               }, 0);
               return (
               <div className="space-y-2">
-                <div
-                  className="flex items-center gap-2 cursor-pointer select-none"
-                  onClick={() => setCompletedSectionOpen(prev => !prev)}
-                >
-                  <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", !completedSectionOpen && "-rotate-90")} />
-                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                    ✅ Completed ({doneItems.length})
-                  </span>
-                  {grandTotalVol > 0 && (
-                    <Badge variant="outline" className="text-[10px]">
-                      <TrendingUp className="h-2.5 w-2.5 mr-0.5" />
-                      {formatVolume(grandTotalVol)} total vol
-                    </Badge>
+                <div className="flex items-center justify-between">
+                  <div
+                    className="flex items-center gap-2 cursor-pointer select-none"
+                    onClick={() => setCompletedSectionOpen(prev => !prev)}
+                  >
+                    <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", !completedSectionOpen && "-rotate-90")} />
+                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                      ✅ Completed ({doneItems.length})
+                    </span>
+                    {grandTotalVol > 0 && (
+                      <Badge variant="outline" className="text-[10px]">
+                        <TrendingUp className="h-2.5 w-2.5 mr-0.5" />
+                        {formatVolume(grandTotalVol)} total vol
+                      </Badge>
+                    )}
+                  </div>
+                  {completedSectionOpen && (
+                    <select
+                      value={completedSort}
+                      onChange={e => setCompletedSort(e.target.value as typeof completedSort)}
+                      className="text-[10px] h-6 px-1.5 rounded border border-border bg-background text-foreground cursor-pointer"
+                    >
+                      <option value="date-desc">Newest first</option>
+                      <option value="date-asc">Oldest first</option>
+                      <option value="month">Group by month</option>
+                    </select>
                   )}
                 </div>
-                {completedSectionOpen && doneItems.map(({ cluster, idea, ideaKey }) => {
+                {completedSectionOpen && [...doneItems].sort((a, b) => {
+                  const da = doneIdeas.get(a.ideaKey) || "";
+                  const db = doneIdeas.get(b.ideaKey) || "";
+                  return completedSort === "date-asc" ? da.localeCompare(db) : db.localeCompare(da);
+                }).reduce<{ elements: React.ReactNode[]; lastMonth: string }>((acc, { cluster, idea, ideaKey }, idx) => {
+                  const doneDate = doneIdeas.get(ideaKey);
+                  if (completedSort === "month" && doneDate) {
+                    const monthLabel = new Date(doneDate).toLocaleDateString("en-GB", { month: "long", year: "numeric" });
+                    if (monthLabel !== acc.lastMonth) {
+                      acc.elements.push(
+                        <div key={`month-${monthLabel}`} className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide pt-2 pb-0.5 border-b border-border/50">
+                          📅 {monthLabel}
+                        </div>
+                      );
+                      acc.lastMonth = monthLabel;
+                    }
+                  }
+                  acc.elements.push((() => {
                   const volLookup = cluster.keyword_volumes || {};
                   const sortedKws = [...(idea.target_keywords || [])].sort(
                     (a, b) => (volLookup[b] ?? volLookup[b.toLowerCase()] ?? 0) - (volLookup[a] ?? volLookup[a.toLowerCase()] ?? 0)
