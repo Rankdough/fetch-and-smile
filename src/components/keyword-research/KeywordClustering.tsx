@@ -2344,6 +2344,64 @@ Focus on providing actionable research that will help create a comprehensive, di
                                               );
                                             })}
                                           </div>
+                                          {/* Search & Add Keywords from any silo */}
+                                          <Popover onOpenChange={(open) => { if (!open) setKwSearchQuery(""); }}>
+                                            <PopoverTrigger asChild>
+                                              <button className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border border-dashed border-primary/30 text-primary/70 font-medium hover:bg-primary/5 hover:border-primary/50 transition-all cursor-pointer mt-0.5">
+                                                <Search className="h-2.5 w-2.5" />
+                                                Add keyword
+                                              </button>
+                                            </PopoverTrigger>
+                                            <PopoverContent side="bottom" align="start" className="w-80 p-2">
+                                              <p className="text-[10px] font-semibold text-muted-foreground mb-1.5">Search keywords across all silos</p>
+                                              <Input
+                                                placeholder="Type to search keywords..."
+                                                value={kwSearchQuery}
+                                                onChange={(e) => setKwSearchQuery(e.target.value)}
+                                                className="h-7 text-xs mb-2"
+                                                autoFocus
+                                              />
+                                              {kwSearchQuery.trim().length >= 2 && (() => {
+                                                const q = kwSearchQuery.toLowerCase().trim();
+                                                const alreadyAssigned = new Set((idea.target_keywords || []).map(tk => tk.toLowerCase().trim()));
+                                                const matches: { kw: string; vol: number; siloTopic: string }[] = [];
+                                                for (const c of (result?.clusters || [])) {
+                                                  for (const kw of c.keywords) {
+                                                    if (kw.toLowerCase().includes(q) && !alreadyAssigned.has(kw.toLowerCase().trim())) {
+                                                      const v = c.keyword_volumes?.[kw] ?? c.keyword_volumes?.[kw.toLowerCase()] ?? 0;
+                                                      matches.push({ kw, vol: v, siloTopic: c.topic });
+                                                    }
+                                                  }
+                                                }
+                                                matches.sort((a, b) => b.vol - a.vol);
+                                                const limited = matches.slice(0, 20);
+                                                if (limited.length === 0) return <p className="text-xs text-muted-foreground px-1 py-2">No matching keywords found.</p>;
+                                                return (
+                                                  <div className="space-y-0.5 max-h-52 overflow-y-auto">
+                                                    {limited.map((m, mi) => (
+                                                      <button
+                                                        key={mi}
+                                                        className="w-full text-left px-2 py-1.5 rounded text-xs hover:bg-muted transition-colors flex items-center justify-between gap-2"
+                                                        onClick={() => {
+                                                          addKeywordToIdeaFromAnySilo(cluster.topic, i, m.kw, m.siloTopic);
+                                                          setKwSearchQuery("");
+                                                        }}
+                                                      >
+                                                        <span className="min-w-0 truncate">
+                                                          <span className="font-medium">{m.kw}</span>
+                                                          {m.siloTopic !== cluster.topic && (
+                                                            <span className="text-[10px] text-muted-foreground/60 ml-1.5">← {m.siloTopic}</span>
+                                                          )}
+                                                        </span>
+                                                        <span className="text-primary/70 font-semibold shrink-0 tabular-nums">{m.vol > 0 ? m.vol.toLocaleString() : "—"}</span>
+                                                      </button>
+                                                    ))}
+                                                    {matches.length > 20 && <p className="text-[10px] text-muted-foreground px-2 py-1">+ {matches.length - 20} more results…</p>}
+                                                  </div>
+                                                );
+                                              })()}
+                                            </PopoverContent>
+                                          </Popover>
                                         </div>
                                         );
                                       })()}
