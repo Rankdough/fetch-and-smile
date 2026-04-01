@@ -2625,6 +2625,14 @@ Focus on providing actionable research that will help create a comprehensive, di
               onCreateIdeaFromKeyword={(clusterTopic, kw) => createIdeaFromKeyword(clusterTopic, kw, "questions")}
               generatingIdeaForKw={generatingIdeaForKw}
               onEditIdeaTitle={editIdeaTitle}
+              onAddKeywordToIdea={(clusterTopic, ideaTitle, keyword, sourceClusterTopic) => {
+                if (!result) return;
+                const targetCluster = result.clusters.find(c => c.topic === clusterTopic);
+                const targetIdeaIdx = targetCluster?.blog_ideas?.findIndex(bi => bi.title === ideaTitle);
+                if (targetIdeaIdx != null && targetIdeaIdx >= 0) {
+                  addKeywordToIdeaFromAnySilo(clusterTopic, targetIdeaIdx, keyword, sourceClusterTopic);
+                }
+              }}
             />
           );
         })()}
