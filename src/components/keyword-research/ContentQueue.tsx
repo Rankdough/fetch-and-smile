@@ -515,7 +515,7 @@ Focus on providing actionable research that will help create a comprehensive, di
                             )} />
                           </div>
                           <span className="text-xs text-muted-foreground shrink-0 w-[90px] text-right tabular-nums whitespace-nowrap">
-                            {doneDate ? new Date(doneDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "—"}
+                            {doneDate ? formatStoredDate(doneDate, { day: "2-digit", month: "short", year: "numeric" }) : "—"}
                           </span>
                           <div className="flex items-center gap-1 shrink-0">
                             <Button variant="ghost" size="sm" className="gap-1 text-xs h-7 px-2 text-green-700 dark:text-green-400" onClick={() => toggleDone(ideaKey)}>
