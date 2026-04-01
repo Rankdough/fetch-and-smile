@@ -1333,6 +1333,56 @@ const KeywordClustering = () => {
 
     setIsAddingKeywords(true);
     try {
+      // If targeting a specific silo, add directly without classification
+      if (addKwTargetSilo) {
+        const targetIdx = result.clusters.findIndex(c => c.topic === addKwTargetSilo);
+        if (targetIdx < 0) {
+          toast({ title: "Silo not found", variant: "destructive" });
+          return;
+        }
+
+        const updatedClusters = [...result.clusters];
+        const existing = updatedClusters[targetIdx];
+        const volumeMap: Record<string, number> = { ...(existing.keyword_volumes || {}) };
+        for (const item of newKeywords) {
+          volumeMap[item.keyword] = (item.volume !== null && item.volume > 0) ? item.volume : 10;
+        }
+        const addedVolume = newKeywords.reduce((s, k) => s + (volumeMap[k.keyword] || 0), 0);
+
+        updatedClusters[targetIdx] = {
+          ...existing,
+          keywords: [...existing.keywords, ...newKeywords.map(k => k.keyword)],
+          keyword_volumes: volumeMap,
+          estimated_monthly_volume: existing.estimated_monthly_volume + addedVolume,
+        };
+
+        const updatedResult: ClusteringResult = {
+          ...result,
+          clusters: updatedClusters,
+          total_keywords_clustered: result.total_keywords_clustered + newKeywords.length,
+        };
+
+        setResult(updatedResult);
+        const allInputKws = [...new Set([
+          ...(savedResults.find(s => s.id === activeResultId)?.input_keywords || []),
+          ...newKeywords.map(k => k.keyword),
+        ])];
+        await supabase
+          .from("keyword_clustering_results")
+          .update({ result: updatedResult as any, input_keywords: allInputKws })
+          .eq("id", activeResultId);
+        loadSavedResults();
+
+        setShowAddKeywords(false);
+        setAddKwInput("");
+        setAddKwTargetSilo(null);
+        toast({
+          title: `${newKeywords.length} keywords added to "${addKwTargetSilo}"`,
+        });
+        return;
+      }
+
+      // Project-wide: classify into existing silos
       const existingSiloNames = result.clusters.map(c => c.topic);
       const volumeMap: Record<string, number> = {};
       for (const item of newKeywords) {
@@ -1410,6 +1460,7 @@ const KeywordClustering = () => {
 
       setShowAddKeywords(false);
       setAddKwInput("");
+      setAddKwTargetSilo(null);
       toast({
         title: `${totalNewKws} keywords added`,
         description: `${addedToExisting} added to existing silos${newSilosCreated > 0 ? `, ${newSilosCreated} new silo${newSilosCreated > 1 ? "s" : ""} created` : ""}`,
