@@ -87,6 +87,25 @@ const EditableTitleCQ = ({ title, onSave, className = "" }: { title: string; onS
 };
 
 const ContentQueue = ({ queuedIdeas, onUseForArticle, onRemoveFromQueue, formatVolume, projectName, allClusters, onReassignKeyword, onCreateIdeaFromKeyword, generatingIdeaForKw, onEditIdeaTitle }: ContentQueueProps) => {
+  // Returns YYYY-MM-DD in local timezone (avoids UTC shifting dates)
+  const localDateStr = () => {
+    const d = new Date();
+    const off = d.getTimezoneOffset();
+    return new Date(d.getTime() - off * 60000).toISOString().slice(0, 10);
+  };
+
+  // Format a stored date string (YYYY-MM-DD or ISO) for display, avoiding timezone shifts
+  const formatStoredDate = (dateStr: string, opts: Intl.DateTimeFormatOptions) => {
+    if (!dateStr) return "";
+    const ymd = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (ymd) {
+      const d = new Date(+ymd[1], +ymd[2] - 1, +ymd[3]);
+      return d.toLocaleDateString("en-GB", opts);
+    }
+    return new Date(dateStr).toLocaleDateString("en-GB", opts);
+  };
+
+
   const { toast } = useToast();
   const [fallbackDownload, setFallbackDownload] = useState<{ url: string; filename: string } | null>(null);
   // Map of ideaKey → ISO date string when marked done
@@ -97,21 +116,14 @@ const ContentQueue = ({ queuedIdeas, onUseForArticle, onRemoveFromQueue, formatV
       const parsed = JSON.parse(saved);
       // Migrate from old Set (array of strings) to Map (object of key→date)
       if (Array.isArray(parsed)) {
-        const now = new Date().toISOString();
         const migrated = new Map<string, string>();
-        parsed.forEach((key: string) => migrated.set(key, now));
+        parsed.forEach((key: string) => migrated.set(key, "")); // no date for legacy items
         // Persist migrated format
         localStorage.setItem("content-queue-done", JSON.stringify(Object.fromEntries(migrated)));
         return migrated;
       }
-      const map = new Map(Object.entries(parsed));
-      // Backfill empty dates from earlier migration
-      let needsPersist = false;
-      const now = new Date().toISOString();
-      map.forEach((val, key) => {
-        if (!val) { map.set(key, now); needsPersist = true; }
-      });
-      if (needsPersist) localStorage.setItem("content-queue-done", JSON.stringify(Object.fromEntries(map)));
+      const map = new Map<string, string>(Object.entries(parsed));
+      // Don't backfill empty dates — they're legacy items with unknown completion date
       return map;
     } catch { return new Map(); }
   });
@@ -138,7 +150,7 @@ const ContentQueue = ({ queuedIdeas, onUseForArticle, onRemoveFromQueue, formatV
     setDoneIdeas(prev => {
       const next = new Map(prev);
       if (next.has(ideaKey)) next.delete(ideaKey);
-      else next.set(ideaKey, new Date().toISOString());
+      else next.set(ideaKey, localDateStr());
       localStorage.setItem("content-queue-done", JSON.stringify(Object.fromEntries(next)));
       return next;
     });
@@ -277,8 +289,8 @@ Focus on providing actionable research that will help create a comprehensive, di
       const ideaKey = `${cluster.topic}::${idea.title}`;
       const doneDate = doneIdeas.get(ideaKey);
       const isDone = doneIdeas.has(ideaKey);
-      const formattedDate = doneDate ? new Date(doneDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "";
-      const monthYear = doneDate ? new Date(doneDate).toLocaleDateString("en-GB", { month: "long", year: "numeric" }) : "";
+      const formattedDate = doneDate ? formatStoredDate(doneDate, { day: "2-digit", month: "short", year: "numeric" }) : "";
+      const monthYear = doneDate ? formatStoredDate(doneDate, { month: "long", year: "numeric" }) : "";
 
       rows.push([
         cluster.topic,
@@ -453,7 +465,7 @@ Focus on providing actionable research that will help create a comprehensive, di
                 }).reduce<{ elements: React.ReactNode[]; lastMonth: string }>((acc, { cluster, idea, ideaKey }, idx) => {
                   const doneDate = doneIdeas.get(ideaKey);
                   if (completedSort === "month" && doneDate) {
-                    const monthLabel = new Date(doneDate).toLocaleDateString("en-GB", { month: "long", year: "numeric" });
+                    const monthLabel = formatStoredDate(doneDate, { month: "long", year: "numeric" });
                     if (monthLabel !== acc.lastMonth) {
                       acc.elements.push(
                         <div key={`month-${monthLabel}`} className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide pt-2 pb-0.5 border-b border-border/50">
@@ -503,7 +515,7 @@ Focus on providing actionable research that will help create a comprehensive, di
                             )} />
                           </div>
                           <span className="text-xs text-muted-foreground shrink-0 w-[90px] text-right tabular-nums whitespace-nowrap">
-                            {doneDate ? new Date(doneDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "—"}
+                            {doneDate ? formatStoredDate(doneDate, { day: "2-digit", month: "short", year: "numeric" }) : "—"}
                           </span>
                           <div className="flex items-center gap-1 shrink-0">
                             <Button variant="ghost" size="sm" className="gap-1 text-xs h-7 px-2 text-green-700 dark:text-green-400" onClick={() => toggleDone(ideaKey)}>
