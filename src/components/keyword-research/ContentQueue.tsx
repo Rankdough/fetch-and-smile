@@ -477,7 +477,7 @@ Focus on providing actionable research that will help create a comprehensive, di
                       "bg-green-100 border-green-400 dark:bg-green-900/50 dark:border-green-600"
                     )}>
                       <div className="space-y-0">
-                        <div className="flex items-center justify-between gap-3 px-4 py-3">
+                        <div className="flex items-center gap-3 px-4 py-3">
                           <div
                             className="flex items-center gap-2 flex-1 min-w-0 cursor-pointer"
                             onClick={() => toggleExpanded(ideaKey)}
@@ -497,21 +497,14 @@ Focus on providing actionable research that will help create a comprehensive, di
                                 {totalVol.toLocaleString()} vol
                               </span>
                             )}
-                            {(() => {
-                              const doneDate = doneIdeas.get(ideaKey);
-                              if (!doneDate) return null;
-                              const d = new Date(doneDate);
-                              return (
-                                <span className="text-[10px] text-muted-foreground shrink-0 whitespace-nowrap">
-                                  {d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
-                                </span>
-                              );
-                            })()}
                             <ChevronDown className={cn(
                               "h-4 w-4 text-green-600 dark:text-green-400 transition-transform shrink-0",
                               isExpanded && "rotate-180"
                             )} />
                           </div>
+                          <span className="text-xs text-muted-foreground shrink-0 w-[90px] text-right tabular-nums whitespace-nowrap">
+                            {doneDate ? new Date(doneDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "—"}
+                          </span>
                           <div className="flex items-center gap-1 shrink-0">
                             <Button variant="ghost" size="sm" className="gap-1 text-xs h-7 px-2 text-green-700 dark:text-green-400" onClick={() => toggleDone(ideaKey)}>
                               <CheckCircle2 className="h-3 w-3 fill-current" /> Undo
@@ -560,7 +553,9 @@ Focus on providing actionable research that will help create a comprehensive, di
                       </div>
                     </div>
                   );
-                })}
+                  })());
+                  return acc;
+                }, { elements: [] as React.ReactNode[], lastMonth: "" }).elements}
               </div>
               );
             })()}
