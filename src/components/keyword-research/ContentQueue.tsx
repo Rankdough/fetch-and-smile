@@ -646,6 +646,7 @@ Focus on providing actionable research that will help create a comprehensive, di
                                     const vol = volLookup[kw] ?? volLookup[kw.toLowerCase()];
                                     return renderKeywordBadge(kw, ki, vol, cluster, idea);
                                   })}
+                                  {renderAddKeywordPopover(cluster, idea)}
                                 </div>
                               </div>
                             )}
