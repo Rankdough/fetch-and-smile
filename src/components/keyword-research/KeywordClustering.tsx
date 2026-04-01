@@ -175,6 +175,7 @@ const contentTypeLabels: Record<string, string> = {
 const KeywordClustering = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const abortRef = useRef<AbortController | null>(null);
 
@@ -186,7 +187,10 @@ const KeywordClustering = () => {
   const [result, setResult] = useState<ClusteringResult | null>(null);
   const [usedIdeas, setUsedIdeas] = useState<Set<string>>(getUsedIdeas);
   const [bookmarkedIdeas, setBookmarkedIdeas] = useState<Set<string>>(() => getBookmarkedIdeas(null));
-  const [expandedClusters, setExpandedClusters] = useState<Set<string>>(new Set());
+  const [expandedClusters, setExpandedClusters] = useState<Set<string>>(() => {
+    const silo = searchParams.get("silo");
+    return silo ? new Set([silo]) : new Set();
+  });
   const [expandedKeywordSilos, setExpandedKeywordSilos] = useState<Set<string>>(new Set());
   const [kwFilterMode, setKwFilterMode] = useState<Record<string, "all" | "generic" | "questions">>({});
   const [siloSortMode, setSiloSortMode] = useState<"favorites" | "volume">("favorites");
@@ -196,9 +200,9 @@ const KeywordClustering = () => {
   const [projectName, setProjectName] = useState("");
   const [suggestedSilos, setSuggestedSilos] = useState("");
   const [savedResults, setSavedResults] = useState<SavedClustering[]>([]);
-  const [activeResultId, setActiveResultId] = useState<string | null>(null);
+  const [activeResultId, setActiveResultId] = useState<string | null>(() => searchParams.get("project"));
   const [userSuggestedSilos, setUserSuggestedSilos] = useState<string[]>([]);
-  const [isResultsOpen, setIsResultsOpen] = useState(false);
+  const [isResultsOpen, setIsResultsOpen] = useState(() => searchParams.get("view") === "results");
   const [generatingIdeaForKw, setGeneratingIdeaForKw] = useState<string | null>(null);
   const [collapsedBlogIdeas, setCollapsedBlogIdeas] = useState<Set<string>>(new Set());
   const [collapsedLandingPages, setCollapsedLandingPages] = useState<Set<string>>(new Set());
