@@ -465,7 +465,7 @@ Focus on providing actionable research that will help create a comprehensive, di
                 }).reduce<{ elements: React.ReactNode[]; lastMonth: string }>((acc, { cluster, idea, ideaKey }, idx) => {
                   const doneDate = doneIdeas.get(ideaKey);
                   if (completedSort === "month" && doneDate) {
-                    const monthLabel = new Date(doneDate).toLocaleDateString("en-GB", { month: "long", year: "numeric" });
+                    const monthLabel = formatStoredDate(doneDate, { month: "long", year: "numeric" });
                     if (monthLabel !== acc.lastMonth) {
                       acc.elements.push(
                         <div key={`month-${monthLabel}`} className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide pt-2 pb-0.5 border-b border-border/50">
