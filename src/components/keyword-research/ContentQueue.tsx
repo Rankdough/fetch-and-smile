@@ -105,9 +105,8 @@ const ContentQueue = ({ queuedIdeas, onUseForArticle, onRemoveFromQueue, formatV
       const parsed = JSON.parse(saved);
       // Migrate from old Set (array of strings) to Map (object of key→date)
       if (Array.isArray(parsed)) {
-        const now = new Date().toISOString();
         const migrated = new Map<string, string>();
-        parsed.forEach((key: string) => migrated.set(key, now));
+        parsed.forEach((key: string) => migrated.set(key, "")); // no date for legacy items
         // Persist migrated format
         localStorage.setItem("content-queue-done", JSON.stringify(Object.fromEntries(migrated)));
         return migrated;
