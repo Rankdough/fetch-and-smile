@@ -139,7 +139,7 @@ const ContentQueue = ({ queuedIdeas, onUseForArticle, onRemoveFromQueue, formatV
     setDoneIdeas(prev => {
       const next = new Map(prev);
       if (next.has(ideaKey)) next.delete(ideaKey);
-      else next.set(ideaKey, new Date().toISOString());
+      else next.set(ideaKey, localDateStr());
       localStorage.setItem("content-queue-done", JSON.stringify(Object.fromEntries(next)));
       return next;
     });
