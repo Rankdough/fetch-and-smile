@@ -11,7 +11,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { supabase } from "@/integrations/supabase/client";
 import {
   Upload, Layers, ChevronDown, ChevronRight, Loader2, Square,
-  TrendingUp, FileText, Copy, Download, BarChart3, Target, Info, Lightbulb, Trash2, RefreshCw, ArrowRight, Search, Bookmark, Clock, Star, Plus, ArrowDownToLine, Pencil, Merge
+  TrendingUp, FileText, Copy, Download, BarChart3, Target, Info, Lightbulb, Trash2, RefreshCw, ArrowRight, Search, Bookmark, Clock, Star, Plus, ArrowDownToLine, Pencil, Merge, CheckCircle2
 } from "lucide-react";
 import ContentQueue from "./ContentQueue";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
@@ -204,6 +204,9 @@ const KeywordClustering = () => {
   const [collapsedLandingPages, setCollapsedLandingPages] = useState<Set<string>>(new Set());
   const [mergingFromSilo, setMergingFromSilo] = useState<string | null>(null);
   const [kwSearchQuery, setKwSearchQuery] = useState("");
+  const [siloKwSearch, setSiloKwSearch] = useState<Record<string, string>>({});
+  const [selectedSiloKws, setSelectedSiloKws] = useState<Record<string, Set<string>>>({});
+  const [generatingFromSelected, setGeneratingFromSelected] = useState<string | null>(null);
 
   const toggleCollapsedSet = (setter: React.Dispatch<React.SetStateAction<Set<string>>>, key: string) => {
     setter(prev => {
@@ -1199,6 +1202,70 @@ const KeywordClustering = () => {
     }
   };
 
+  const createIdeaFromSelectedKeywords = async (clusterTopic: string, keywords: string[]) => {
+    if (!result || keywords.length === 0) return;
+    const cluster = result.clusters.find(c => c.topic === clusterTopic);
+    if (!cluster) return;
+
+    setGeneratingFromSelected(clusterTopic);
+    try {
+      const totalVol = keywords.reduce((s, kw) => s + (cluster.keyword_volumes?.[kw] ?? cluster.keyword_volumes?.[kw.toLowerCase()] ?? 0), 0);
+
+      const { data, error } = await supabase.functions.invoke("cluster-keywords-enrich", {
+        body: {
+          clusters: [{
+            topic: clusterTopic,
+            keywords,
+            estimated_monthly_volume: totalVol,
+          }],
+          singleIdea: true,
+          focusKeyword: keywords[0],
+        },
+      });
+
+      if (error) throw error;
+
+      const enrichment = data?.enrichments?.[0] || data?.clusters?.[0] || data;
+      if (!enrichment?.blog_ideas?.length) {
+        toast({ title: "Failed to generate idea", variant: "destructive" });
+        return;
+      }
+
+      const newIdea = enrichment.blog_ideas[0];
+      if (!newIdea.target_keywords) newIdea.target_keywords = [];
+      // Ensure all selected keywords are in target_keywords
+      for (const kw of keywords) {
+        if (!newIdea.target_keywords.some((tk: string) => tk.toLowerCase() === kw.toLowerCase())) {
+          newIdea.target_keywords.push(kw);
+        }
+      }
+
+      const updatedResult: ClusteringResult = {
+        ...result,
+        clusters: result.clusters.map(c => {
+          if (c.topic !== clusterTopic) return c;
+          return { ...c, blog_ideas: [...(c.blog_ideas || []), newIdea] };
+        }),
+      };
+      setResult(updatedResult);
+      // Clear selection
+      setSelectedSiloKws(prev => ({ ...prev, [clusterTopic]: new Set() }));
+      toast({ title: "Blog idea created", description: `"${newIdea.title}" from ${keywords.length} keywords` });
+
+      if (activeResultId) {
+        await supabase
+          .from("keyword_clustering_results")
+          .update({ result: updatedResult as any })
+          .eq("id", activeResultId);
+      }
+    } catch (e) {
+      console.error("Error creating idea from selected:", e);
+      toast({ title: "Failed to generate idea", variant: "destructive" });
+    } finally {
+      setGeneratingFromSelected(null);
+    }
+  };
+
   const clearGeneratorState = () => {
     const keysToRemove = [
       "seo-generator-formData", "seo-generator-internalLinks", "seo-generator-competitorUrls",
@@ -1889,7 +1956,28 @@ const KeywordClustering = () => {
                             const vb = cluster.keyword_volumes?.[b] ?? 0;
                             return vb - va;
                           });
-                          const displayKws = sortedKws;
+                          const searchTerm = (siloKwSearch[cluster.topic] || "").toLowerCase();
+                          const displayKws = searchTerm
+                            ? sortedKws.filter(kw => kw.toLowerCase().includes(searchTerm))
+                            : sortedKws;
+                          const selected = selectedSiloKws[cluster.topic] || new Set<string>();
+                          const toggleKwSelect = (kw: string) => {
+                            setSelectedSiloKws(prev => {
+                              const current = new Set(prev[cluster.topic] || []);
+                              if (current.has(kw)) current.delete(kw); else current.add(kw);
+                              return { ...prev, [cluster.topic]: current };
+                            });
+                          };
+                          const selectAllFiltered = () => {
+                            setSelectedSiloKws(prev => {
+                              const current = new Set(prev[cluster.topic] || []);
+                              displayKws.forEach(kw => current.add(kw));
+                              return { ...prev, [cluster.topic]: current };
+                            });
+                          };
+                          const clearSelection = () => {
+                            setSelectedSiloKws(prev => ({ ...prev, [cluster.topic]: new Set() }));
+                          };
                           const setFilter = (mode: "all" | "generic" | "questions") => {
                             setKwFilterMode(prev => ({ ...prev, [cluster.topic]: mode }));
                             setExpandedKeywordSilos(prev => { const n = new Set(prev); n.delete(cluster.topic); return n; });
@@ -1920,8 +2008,40 @@ const KeywordClustering = () => {
                                   Questions {questionKws.length}
                                 </Badge>
                               </div>
+                              {/* Search + selection controls */}
+                              <div className="flex items-center gap-2 mb-2">
+                                <Input
+                                  placeholder="Search keywords in this silo..."
+                                  value={siloKwSearch[cluster.topic] || ""}
+                                  onChange={e => setSiloKwSearch(prev => ({ ...prev, [cluster.topic]: e.target.value }))}
+                                  className="h-8 text-xs flex-1"
+                                />
+                                {searchTerm && displayKws.length > 0 && (
+                                  <Button variant="outline" size="sm" className="h-8 text-xs gap-1 shrink-0" onClick={selectAllFiltered}>
+                                    <CheckCircle2 className="h-3 w-3" /> Select all ({displayKws.length})
+                                  </Button>
+                                )}
+                                {selected.size > 0 && (
+                                  <>
+                                    <Button variant="ghost" size="sm" className="h-8 text-xs gap-1 shrink-0 text-muted-foreground" onClick={clearSelection}>
+                                      Clear ({selected.size})
+                                    </Button>
+                                    <Button
+                                      variant="default"
+                                      size="sm"
+                                      className="h-8 text-xs gap-1 shrink-0"
+                                      disabled={generatingFromSelected === cluster.topic}
+                                      onClick={() => createIdeaFromSelectedKeywords(cluster.topic, [...selected])}
+                                    >
+                                      {generatingFromSelected === cluster.topic ? <Loader2 className="h-3 w-3 animate-spin" /> : <Lightbulb className="h-3 w-3" />}
+                                      Generate blog idea ({selected.size} kw)
+                                    </Button>
+                                  </>
+                                )}
+                              </div>
                               <div className="border rounded-md overflow-hidden">
-                              <div className="grid grid-cols-[1fr_auto] gap-x-4 px-3 py-2 bg-muted/50 text-sm font-semibold text-foreground/70 border-b">
+                              <div className="grid grid-cols-[auto_1fr_auto] gap-x-4 px-3 py-2 bg-muted/50 text-sm font-semibold text-foreground/70 border-b">
+                                  <span className="w-5"></span>
                                   <span>Keyword</span>
                                   <span className="text-right flex items-center gap-4 justify-end"><span>Volume</span><span className="w-12"></span></span>
                                 </div>
@@ -1943,8 +2063,14 @@ const KeywordClustering = () => {
                                     return (
                                       <div
                                         key={i}
-                                        className={`grid grid-cols-[1fr_auto] gap-x-4 px-3 py-2 text-[15px] border-b last:border-b-0 hover:bg-muted/30 transition-colors group/kw ${!isAssigned && blogIdeas.length > 0 ? "bg-amber-50/50 dark:bg-amber-950/10" : ""}`}
+                                        className={`grid grid-cols-[auto_1fr_auto] gap-x-4 px-3 py-2 text-[15px] border-b last:border-b-0 hover:bg-muted/30 transition-colors group/kw ${!isAssigned && blogIdeas.length > 0 ? "bg-amber-50/50 dark:bg-amber-950/10" : ""} ${selected.has(kw) ? "bg-primary/5" : ""}`}
                                       >
+                                        <button
+                                          className={`shrink-0 w-5 h-5 rounded border flex items-center justify-center transition-colors ${selected.has(kw) ? "bg-primary border-primary text-primary-foreground" : "border-border hover:border-primary/50"}`}
+                                          onClick={() => toggleKwSelect(kw)}
+                                        >
+                                          {selected.has(kw) && <Check className="h-3 w-3" />}
+                                        </button>
                                         <span className="flex items-center gap-1.5 min-w-0">
                                           {(() => {
                                             const isQuestion = isQuestionKeyword(kw, cluster);
