@@ -51,6 +51,7 @@ interface ContentQueueProps {
   onCreateIdeaFromKeyword?: (clusterTopic: string, keyword: string) => void;
   generatingIdeaForKw?: string | null;
   onEditIdeaTitle?: (clusterTopic: string, oldTitle: string, newTitle: string) => void;
+  onAddKeywordToIdea?: (clusterTopic: string, ideaTitle: string, keyword: string, sourceClusterTopic: string) => void;
 }
 
 const EditableTitleCQ = ({ title, onSave, className = "" }: { title: string; onSave: (newTitle: string) => void; className?: string }) => {
