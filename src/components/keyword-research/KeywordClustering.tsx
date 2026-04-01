@@ -2063,8 +2063,14 @@ const KeywordClustering = () => {
                                     return (
                                       <div
                                         key={i}
-                                        className={`grid grid-cols-[1fr_auto] gap-x-4 px-3 py-2 text-[15px] border-b last:border-b-0 hover:bg-muted/30 transition-colors group/kw ${!isAssigned && blogIdeas.length > 0 ? "bg-amber-50/50 dark:bg-amber-950/10" : ""}`}
+                                        className={`grid grid-cols-[auto_1fr_auto] gap-x-4 px-3 py-2 text-[15px] border-b last:border-b-0 hover:bg-muted/30 transition-colors group/kw ${!isAssigned && blogIdeas.length > 0 ? "bg-amber-50/50 dark:bg-amber-950/10" : ""} ${selected.has(kw) ? "bg-primary/5" : ""}`}
                                       >
+                                        <button
+                                          className={`shrink-0 w-5 h-5 rounded border flex items-center justify-center transition-colors ${selected.has(kw) ? "bg-primary border-primary text-primary-foreground" : "border-border hover:border-primary/50"}`}
+                                          onClick={() => toggleKwSelect(kw)}
+                                        >
+                                          {selected.has(kw) && <Check className="h-3 w-3" />}
+                                        </button>
                                         <span className="flex items-center gap-1.5 min-w-0">
                                           {(() => {
                                             const isQuestion = isQuestionKeyword(kw, cluster);
