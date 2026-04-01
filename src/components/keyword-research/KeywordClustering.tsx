@@ -2975,6 +2975,49 @@ Focus on providing actionable research that will help create a comprehensive, di
             </Card>
           </Collapsible>
         )}
+
+      {/* Add Keywords Dialog */}
+      <Dialog open={showAddKeywords} onOpenChange={setShowAddKeywords}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Add Keywords to Project</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Paste keywords (one per line) or upload an Ahrefs CSV. New keywords will be classified into existing silos automatically.
+            </p>
+            <input
+              ref={addKwFileRef}
+              type="file"
+              accept=".csv"
+              className="hidden"
+              onChange={handleAddKwFileUpload}
+            />
+            <Button variant="outline" size="sm" className="gap-2" onClick={() => addKwFileRef.current?.click()}>
+              <Upload className="h-3.5 w-3.5" />
+              Upload CSV
+            </Button>
+            <Textarea
+              placeholder={"Paste keywords here, one per line...\n\nOr use tab-separated format:\nkeyword1\t250\nkeyword2\t100"}
+              value={addKwInput}
+              onChange={e => setAddKwInput(e.target.value)}
+              className="min-h-[200px] text-sm font-mono"
+            />
+            {addKwInput.trim() && (
+              <p className="text-xs text-muted-foreground">
+                {addKwInput.split(/\n/).filter(l => l.trim().length > 1).length} keywords ready to classify
+              </p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => { setShowAddKeywords(false); setAddKwInput(""); }}>Cancel</Button>
+            <Button onClick={addKeywordsToProject} disabled={isAddingKeywords || !addKwInput.trim()} className="gap-1.5">
+              {isAddingKeywords ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+              {isAddingKeywords ? "Classifying..." : "Add & Classify"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
