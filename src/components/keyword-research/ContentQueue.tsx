@@ -5,8 +5,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
 import {
-  ChevronDown, TrendingUp, ArrowRight, Search, Bookmark, FileText, Download, CheckCircle2, Plus, Loader2, Lightbulb, Pencil, Star,
+  ChevronDown, TrendingUp, ArrowRight, Search, Bookmark, FileText, Download, CheckCircle2, Plus, Loader2, Lightbulb, Pencil, Star, CalendarIcon,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -154,6 +155,19 @@ const ContentQueue = ({ queuedIdeas, onUseForArticle, onRemoveFromQueue, formatV
       if (next.has(ideaKey)) next.delete(ideaKey);
       else next.set(ideaKey, localDateStr());
       localStorage.setItem("content-queue-done", JSON.stringify(Object.fromEntries(next)));
+      return next;
+    });
+  }, []);
+
+  const updateDoneDate = useCallback((ideaKey: string, date: Date) => {
+    const off = date.getTimezoneOffset();
+    const localDate = new Date(date.getTime() - off * 60000).toISOString().slice(0, 10);
+    setDoneIdeas(prev => {
+      const next = new Map(prev);
+      if (next.has(ideaKey)) {
+        next.set(ideaKey, localDate);
+        localStorage.setItem("content-queue-done", JSON.stringify(Object.fromEntries(next)));
+      }
       return next;
     });
   }, []);
@@ -516,9 +530,28 @@ Focus on providing actionable research that will help create a comprehensive, di
                               isExpanded && "rotate-180"
                             )} />
                           </div>
-                          <span className="text-xs text-muted-foreground shrink-0 w-[90px] text-right tabular-nums whitespace-nowrap">
-                            {doneDate ? formatStoredDate(doneDate, { day: "2-digit", month: "short", year: "numeric" }) : "—"}
-                          </span>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <button
+                                className="text-xs text-muted-foreground shrink-0 w-[90px] text-right tabular-nums whitespace-nowrap hover:text-foreground hover:underline decoration-dashed underline-offset-2 transition-colors"
+                                title="Click to change date"
+                                onClick={e => e.stopPropagation()}
+                              >
+                                {doneDate ? formatStoredDate(doneDate, { day: "2-digit", month: "short", year: "numeric" }) : "—"}
+                              </button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="end" onClick={e => e.stopPropagation()}>
+                              <Calendar
+                                mode="single"
+                                selected={doneDate ? (() => {
+                                  const ymd = doneDate.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+                                  return ymd ? new Date(+ymd[1], +ymd[2] - 1, +ymd[3]) : new Date(doneDate);
+                                })() : undefined}
+                                onSelect={(date) => date && updateDoneDate(ideaKey, date)}
+                                className="p-3 pointer-events-auto"
+                              />
+                            </PopoverContent>
+                          </Popover>
                           <div className="flex items-center gap-1 shrink-0">
                             <Button variant="ghost" size="sm" className="gap-1 text-xs h-7 px-2 text-green-700 dark:text-green-400" onClick={() => toggleDone(ideaKey)}>
                               <CheckCircle2 className="h-3 w-3 fill-current" /> Undo
