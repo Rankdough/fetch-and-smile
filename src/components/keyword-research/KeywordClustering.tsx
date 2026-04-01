@@ -1956,7 +1956,28 @@ const KeywordClustering = () => {
                             const vb = cluster.keyword_volumes?.[b] ?? 0;
                             return vb - va;
                           });
-                          const displayKws = sortedKws;
+                          const searchTerm = (siloKwSearch[cluster.topic] || "").toLowerCase();
+                          const displayKws = searchTerm
+                            ? sortedKws.filter(kw => kw.toLowerCase().includes(searchTerm))
+                            : sortedKws;
+                          const selected = selectedSiloKws[cluster.topic] || new Set<string>();
+                          const toggleKwSelect = (kw: string) => {
+                            setSelectedSiloKws(prev => {
+                              const current = new Set(prev[cluster.topic] || []);
+                              if (current.has(kw)) current.delete(kw); else current.add(kw);
+                              return { ...prev, [cluster.topic]: current };
+                            });
+                          };
+                          const selectAllFiltered = () => {
+                            setSelectedSiloKws(prev => {
+                              const current = new Set(prev[cluster.topic] || []);
+                              displayKws.forEach(kw => current.add(kw));
+                              return { ...prev, [cluster.topic]: current };
+                            });
+                          };
+                          const clearSelection = () => {
+                            setSelectedSiloKws(prev => ({ ...prev, [cluster.topic]: new Set() }));
+                          };
                           const setFilter = (mode: "all" | "generic" | "questions") => {
                             setKwFilterMode(prev => ({ ...prev, [cluster.topic]: mode }));
                             setExpandedKeywordSilos(prev => { const n = new Set(prev); n.delete(cluster.topic); return n; });
@@ -1987,8 +2008,40 @@ const KeywordClustering = () => {
                                   Questions {questionKws.length}
                                 </Badge>
                               </div>
+                              {/* Search + selection controls */}
+                              <div className="flex items-center gap-2 mb-2">
+                                <Input
+                                  placeholder="Search keywords in this silo..."
+                                  value={siloKwSearch[cluster.topic] || ""}
+                                  onChange={e => setSiloKwSearch(prev => ({ ...prev, [cluster.topic]: e.target.value }))}
+                                  className="h-8 text-xs flex-1"
+                                />
+                                {searchTerm && displayKws.length > 0 && (
+                                  <Button variant="outline" size="sm" className="h-8 text-xs gap-1 shrink-0" onClick={selectAllFiltered}>
+                                    <CheckCircle2 className="h-3 w-3" /> Select all ({displayKws.length})
+                                  </Button>
+                                )}
+                                {selected.size > 0 && (
+                                  <>
+                                    <Button variant="ghost" size="sm" className="h-8 text-xs gap-1 shrink-0 text-muted-foreground" onClick={clearSelection}>
+                                      Clear ({selected.size})
+                                    </Button>
+                                    <Button
+                                      variant="default"
+                                      size="sm"
+                                      className="h-8 text-xs gap-1 shrink-0"
+                                      disabled={generatingFromSelected === cluster.topic}
+                                      onClick={() => createIdeaFromSelectedKeywords(cluster.topic, [...selected])}
+                                    >
+                                      {generatingFromSelected === cluster.topic ? <Loader2 className="h-3 w-3 animate-spin" /> : <Lightbulb className="h-3 w-3" />}
+                                      Generate blog idea ({selected.size} kw)
+                                    </Button>
+                                  </>
+                                )}
+                              </div>
                               <div className="border rounded-md overflow-hidden">
-                              <div className="grid grid-cols-[1fr_auto] gap-x-4 px-3 py-2 bg-muted/50 text-sm font-semibold text-foreground/70 border-b">
+                              <div className="grid grid-cols-[auto_1fr_auto] gap-x-4 px-3 py-2 bg-muted/50 text-sm font-semibold text-foreground/70 border-b">
+                                  <span className="w-5"></span>
                                   <span>Keyword</span>
                                   <span className="text-right flex items-center gap-4 justify-end"><span>Volume</span><span className="w-12"></span></span>
                                 </div>
