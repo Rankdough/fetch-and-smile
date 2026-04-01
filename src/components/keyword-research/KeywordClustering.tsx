@@ -217,6 +217,7 @@ const KeywordClustering = () => {
   const [isAddingKeywords, setIsAddingKeywords] = useState(false);
   const [addKwTargetSilo, setAddKwTargetSilo] = useState<string | null>(null);
   const addKwFileRef = useRef<HTMLInputElement>(null);
+  const [combiningIdea, setCombiningIdea] = useState<{ clusterTopic: string; ideaIndex: number } | null>(null);
   const expandedClusterTopics = [...expandedClusters];
   const activeSiloParam = isResultsOpen && expandedClusterTopics.length > 0
     ? expandedClusterTopics[expandedClusterTopics.length - 1]
@@ -993,6 +994,10 @@ const KeywordClustering = () => {
 
   const deleteIdeaFromCluster = async (clusterTopic: string, ideaIndex: number) => {
     if (!result) return;
+    // If we're combining and user deletes the source, cancel combine mode
+    if (combiningIdea?.clusterTopic === clusterTopic && combiningIdea?.ideaIndex === ideaIndex) {
+      setCombiningIdea(null);
+    }
     const updatedResult: ClusteringResult = {
       ...result,
       clusters: result.clusters.map(c => {
@@ -1003,6 +1008,81 @@ const KeywordClustering = () => {
     };
     setResult(updatedResult);
     toast({ title: "Blog idea deleted", description: "Keywords are now unassigned." });
+    if (activeResultId) {
+      await supabase
+        .from("keyword_clustering_results")
+        .update({ result: updatedResult as any })
+        .eq("id", activeResultId);
+    }
+  };
+
+  const combineBlogIdeas = async (clusterTopic: string, sourceIndex: number, targetIndex: number) => {
+    if (!result) return;
+    const cluster = result.clusters.find(c => c.topic === clusterTopic);
+    if (!cluster || !cluster.blog_ideas) return;
+    const source = cluster.blog_ideas[sourceIndex];
+    const target = cluster.blog_ideas[targetIndex];
+    if (!source || !target) return;
+
+    // Merge keywords (deduplicated)
+    const mergedKws = [...(target.target_keywords || [])];
+    for (const kw of (source.target_keywords || [])) {
+      if (!mergedKws.some(mk => mk.toLowerCase() === kw.toLowerCase())) {
+        mergedKws.push(kw);
+      }
+    }
+
+    // Merge value promises (deduplicated)
+    const mergedVPs = [...(target.value_promises || [])];
+    for (const vp of (source.value_promises || [])) {
+      if (!mergedVPs.some(mv => mv.toLowerCase() === vp.toLowerCase())) {
+        mergedVPs.push(vp);
+      }
+    }
+
+    // Combined idea keeps target's title, merges descriptions
+    const combined: BlogIdea = {
+      title: target.title,
+      description: `${target.description} ${source.description}`.trim(),
+      reason: `${target.reason} Additionally: ${source.reason}`.trim(),
+      target_keywords: mergedKws,
+      value_promises: mergedVPs,
+    };
+
+    const updatedIdeas = cluster.blog_ideas
+      .map((idea, idx) => idx === targetIndex ? combined : idea)
+      .filter((_, idx) => idx !== sourceIndex);
+
+    const updatedResult: ClusteringResult = {
+      ...result,
+      clusters: result.clusters.map(c =>
+        c.topic === clusterTopic ? { ...c, blog_ideas: updatedIdeas } : c
+      ),
+    };
+
+    // Migrate bookmarks/used state
+    const sourceKey = makeIdeaKey(clusterTopic, source.title);
+    const targetKey = makeIdeaKey(clusterTopic, target.title);
+    if (usedIdeas.has(sourceKey)) {
+      const newUsed = new Set(usedIdeas);
+      newUsed.delete(sourceKey);
+      newUsed.add(targetKey);
+      localStorage.setItem(USED_IDEAS_KEY, JSON.stringify([...newUsed]));
+      setUsedIdeas(newUsed);
+    }
+    const bmKey = getBookmarkedKey(activeResultId);
+    const bm = getStoredSet(bmKey);
+    if (bm.has(sourceKey)) {
+      bm.delete(sourceKey);
+      bm.add(targetKey);
+      localStorage.setItem(bmKey, JSON.stringify([...bm]));
+      setBookmarkedIdeas(new Set(bm));
+    }
+
+    setResult(updatedResult);
+    setCombiningIdea(null);
+    toast({ title: "Blog ideas combined", description: `"${source.title}" merged into "${target.title}"` });
+
     if (activeResultId) {
       await supabase
         .from("keyword_clustering_results")
