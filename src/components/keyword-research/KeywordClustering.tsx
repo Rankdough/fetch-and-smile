@@ -215,6 +215,7 @@ const KeywordClustering = () => {
   const [showAddKeywords, setShowAddKeywords] = useState(false);
   const [addKwInput, setAddKwInput] = useState("");
   const [isAddingKeywords, setIsAddingKeywords] = useState(false);
+  const [addKwTargetSilo, setAddKwTargetSilo] = useState<string | null>(null);
   const addKwFileRef = useRef<HTMLInputElement>(null);
 
   const toggleCollapsedSet = (setter: React.Dispatch<React.SetStateAction<Set<string>>>, key: string) => {
@@ -1332,6 +1333,56 @@ const KeywordClustering = () => {
 
     setIsAddingKeywords(true);
     try {
+      // If targeting a specific silo, add directly without classification
+      if (addKwTargetSilo) {
+        const targetIdx = result.clusters.findIndex(c => c.topic === addKwTargetSilo);
+        if (targetIdx < 0) {
+          toast({ title: "Silo not found", variant: "destructive" });
+          return;
+        }
+
+        const updatedClusters = [...result.clusters];
+        const existing = updatedClusters[targetIdx];
+        const volumeMap: Record<string, number> = { ...(existing.keyword_volumes || {}) };
+        for (const item of newKeywords) {
+          volumeMap[item.keyword] = (item.volume !== null && item.volume > 0) ? item.volume : 10;
+        }
+        const addedVolume = newKeywords.reduce((s, k) => s + (volumeMap[k.keyword] || 0), 0);
+
+        updatedClusters[targetIdx] = {
+          ...existing,
+          keywords: [...existing.keywords, ...newKeywords.map(k => k.keyword)],
+          keyword_volumes: volumeMap,
+          estimated_monthly_volume: existing.estimated_monthly_volume + addedVolume,
+        };
+
+        const updatedResult: ClusteringResult = {
+          ...result,
+          clusters: updatedClusters,
+          total_keywords_clustered: result.total_keywords_clustered + newKeywords.length,
+        };
+
+        setResult(updatedResult);
+        const allInputKws = [...new Set([
+          ...(savedResults.find(s => s.id === activeResultId)?.input_keywords || []),
+          ...newKeywords.map(k => k.keyword),
+        ])];
+        await supabase
+          .from("keyword_clustering_results")
+          .update({ result: updatedResult as any, input_keywords: allInputKws })
+          .eq("id", activeResultId);
+        loadSavedResults();
+
+        setShowAddKeywords(false);
+        setAddKwInput("");
+        setAddKwTargetSilo(null);
+        toast({
+          title: `${newKeywords.length} keywords added to "${addKwTargetSilo}"`,
+        });
+        return;
+      }
+
+      // Project-wide: classify into existing silos
       const existingSiloNames = result.clusters.map(c => c.topic);
       const volumeMap: Record<string, number> = {};
       for (const item of newKeywords) {
@@ -1409,6 +1460,7 @@ const KeywordClustering = () => {
 
       setShowAddKeywords(false);
       setAddKwInput("");
+      setAddKwTargetSilo(null);
       toast({
         title: `${totalNewKws} keywords added`,
         description: `${addedToExisting} added to existing silos${newSilosCreated > 0 ? `, ${newSilosCreated} new silo${newSilosCreated > 1 ? "s" : ""} created` : ""}`,
@@ -1759,7 +1811,7 @@ const KeywordClustering = () => {
                     </Button>
                   );
                 })()}
-                <Button variant="outline" size="sm" onClick={() => setShowAddKeywords(true)} className="gap-1.5">
+                <Button variant="outline" size="sm" onClick={() => { setAddKwTargetSilo(null); setShowAddKeywords(true); }} className="gap-1.5">
                   <FilePlus2 className="h-3.5 w-3.5" />
                   Add Keywords
                 </Button>
@@ -2053,6 +2105,15 @@ const KeywordClustering = () => {
                           <Badge variant="secondary" className="text-sm font-medium">
                             {contentTypeLabels[cluster.content_type] || cluster.content_type}
                           </Badge>
+                          {!mergingFromSilo && (
+                            <button
+                              className="shrink-0 ml-1"
+                              title="Add keywords to this silo"
+                              onClick={(e) => { e.stopPropagation(); setAddKwTargetSilo(cluster.topic); setShowAddKeywords(true); }}
+                            >
+                              <FilePlus2 className="h-3.5 w-3.5 text-muted-foreground/40 hover:text-primary transition-colors" />
+                            </button>
+                          )}
                           {!mergingFromSilo && (
                             <button
                               className="shrink-0 ml-1"
@@ -2977,14 +3038,16 @@ Focus on providing actionable research that will help create a comprehensive, di
         )}
 
       {/* Add Keywords Dialog */}
-      <Dialog open={showAddKeywords} onOpenChange={setShowAddKeywords}>
+      <Dialog open={showAddKeywords} onOpenChange={(open) => { setShowAddKeywords(open); if (!open) { setAddKwTargetSilo(null); setAddKwInput(""); } }}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Add Keywords to Project</DialogTitle>
+            <DialogTitle>{addKwTargetSilo ? `Add Keywords to "${addKwTargetSilo}"` : "Add Keywords to Project"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground">
-              Paste keywords (one per line) or upload an Ahrefs CSV. New keywords will be classified into existing silos automatically.
+              {addKwTargetSilo
+                ? `Paste keywords (one per line) or upload an Ahrefs CSV. Keywords will be added directly to the "${addKwTargetSilo}" silo.`
+                : "Paste keywords (one per line) or upload an Ahrefs CSV. New keywords will be classified into existing silos automatically."}
             </p>
             <input
               ref={addKwFileRef}
@@ -3005,15 +3068,15 @@ Focus on providing actionable research that will help create a comprehensive, di
             />
             {addKwInput.trim() && (
               <p className="text-xs text-muted-foreground">
-                {addKwInput.split(/\n/).filter(l => l.trim().length > 1).length} keywords ready to classify
+                {addKwInput.split(/\n/).filter(l => l.trim().length > 1).length} keywords ready{addKwTargetSilo ? ` for "${addKwTargetSilo}"` : " to classify"}
               </p>
             )}
           </div>
           <DialogFooter>
-            <Button variant="ghost" onClick={() => { setShowAddKeywords(false); setAddKwInput(""); }}>Cancel</Button>
+            <Button variant="ghost" onClick={() => { setShowAddKeywords(false); setAddKwInput(""); setAddKwTargetSilo(null); }}>Cancel</Button>
             <Button onClick={addKeywordsToProject} disabled={isAddingKeywords || !addKwInput.trim()} className="gap-1.5">
               {isAddingKeywords ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
-              {isAddingKeywords ? "Classifying..." : "Add & Classify"}
+              {isAddingKeywords ? (addKwTargetSilo ? "Adding..." : "Classifying...") : (addKwTargetSilo ? "Add to Silo" : "Add & Classify")}
             </Button>
           </DialogFooter>
         </DialogContent>
