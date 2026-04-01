@@ -3038,14 +3038,16 @@ Focus on providing actionable research that will help create a comprehensive, di
         )}
 
       {/* Add Keywords Dialog */}
-      <Dialog open={showAddKeywords} onOpenChange={setShowAddKeywords}>
+      <Dialog open={showAddKeywords} onOpenChange={(open) => { setShowAddKeywords(open); if (!open) { setAddKwTargetSilo(null); setAddKwInput(""); } }}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Add Keywords to Project</DialogTitle>
+            <DialogTitle>{addKwTargetSilo ? `Add Keywords to "${addKwTargetSilo}"` : "Add Keywords to Project"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground">
-              Paste keywords (one per line) or upload an Ahrefs CSV. New keywords will be classified into existing silos automatically.
+              {addKwTargetSilo
+                ? `Paste keywords (one per line) or upload an Ahrefs CSV. Keywords will be added directly to the "${addKwTargetSilo}" silo.`
+                : "Paste keywords (one per line) or upload an Ahrefs CSV. New keywords will be classified into existing silos automatically."}
             </p>
             <input
               ref={addKwFileRef}
@@ -3066,15 +3068,15 @@ Focus on providing actionable research that will help create a comprehensive, di
             />
             {addKwInput.trim() && (
               <p className="text-xs text-muted-foreground">
-                {addKwInput.split(/\n/).filter(l => l.trim().length > 1).length} keywords ready to classify
+                {addKwInput.split(/\n/).filter(l => l.trim().length > 1).length} keywords ready{addKwTargetSilo ? ` for "${addKwTargetSilo}"` : " to classify"}
               </p>
             )}
           </div>
           <DialogFooter>
-            <Button variant="ghost" onClick={() => { setShowAddKeywords(false); setAddKwInput(""); }}>Cancel</Button>
+            <Button variant="ghost" onClick={() => { setShowAddKeywords(false); setAddKwInput(""); setAddKwTargetSilo(null); }}>Cancel</Button>
             <Button onClick={addKeywordsToProject} disabled={isAddingKeywords || !addKwInput.trim()} className="gap-1.5">
               {isAddingKeywords ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
-              {isAddingKeywords ? "Classifying..." : "Add & Classify"}
+              {isAddingKeywords ? (addKwTargetSilo ? "Adding..." : "Classifying...") : (addKwTargetSilo ? "Add to Silo" : "Add & Classify")}
             </Button>
           </DialogFooter>
         </DialogContent>
