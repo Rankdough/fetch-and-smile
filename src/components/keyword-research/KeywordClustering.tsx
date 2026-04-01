@@ -204,6 +204,9 @@ const KeywordClustering = () => {
   const [collapsedLandingPages, setCollapsedLandingPages] = useState<Set<string>>(new Set());
   const [mergingFromSilo, setMergingFromSilo] = useState<string | null>(null);
   const [kwSearchQuery, setKwSearchQuery] = useState("");
+  const [siloKwSearch, setSiloKwSearch] = useState<Record<string, string>>({});
+  const [selectedSiloKws, setSelectedSiloKws] = useState<Record<string, Set<string>>>({});
+  const [generatingFromSelected, setGeneratingFromSelected] = useState<string | null>(null);
 
   const toggleCollapsedSet = (setter: React.Dispatch<React.SetStateAction<Set<string>>>, key: string) => {
     setter(prev => {
