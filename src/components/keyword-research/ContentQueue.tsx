@@ -123,6 +123,7 @@ const ContentQueue = ({ queuedIdeas, onUseForArticle, onRemoveFromQueue, formatV
   });
   const [expandedDone, setExpandedDone] = useState<Set<string>>(new Set());
   const [completedSectionOpen, setCompletedSectionOpen] = useState(true);
+  const [completedSort, setCompletedSort] = useState<"date-desc" | "date-asc" | "month">("date-desc");
 
   const toggleExpanded = useCallback((ideaKey: string) => {
     setExpandedDone(prev => {
@@ -417,22 +418,52 @@ Focus on providing actionable research that will help create a comprehensive, di
               }, 0);
               return (
               <div className="space-y-2">
-                <div
-                  className="flex items-center gap-2 cursor-pointer select-none"
-                  onClick={() => setCompletedSectionOpen(prev => !prev)}
-                >
-                  <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", !completedSectionOpen && "-rotate-90")} />
-                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                    ✅ Completed ({doneItems.length})
-                  </span>
-                  {grandTotalVol > 0 && (
-                    <Badge variant="outline" className="text-[10px]">
-                      <TrendingUp className="h-2.5 w-2.5 mr-0.5" />
-                      {formatVolume(grandTotalVol)} total vol
-                    </Badge>
+                <div className="flex items-center justify-between">
+                  <div
+                    className="flex items-center gap-2 cursor-pointer select-none"
+                    onClick={() => setCompletedSectionOpen(prev => !prev)}
+                  >
+                    <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", !completedSectionOpen && "-rotate-90")} />
+                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                      ✅ Completed ({doneItems.length})
+                    </span>
+                    {grandTotalVol > 0 && (
+                      <Badge variant="outline" className="text-[10px]">
+                        <TrendingUp className="h-2.5 w-2.5 mr-0.5" />
+                        {formatVolume(grandTotalVol)} total vol
+                      </Badge>
+                    )}
+                  </div>
+                  {completedSectionOpen && (
+                    <select
+                      value={completedSort}
+                      onChange={e => setCompletedSort(e.target.value as typeof completedSort)}
+                      className="text-[10px] h-6 px-1.5 rounded border border-border bg-background text-foreground cursor-pointer"
+                    >
+                      <option value="date-desc">Newest first</option>
+                      <option value="date-asc">Oldest first</option>
+                      <option value="month">Group by month</option>
+                    </select>
                   )}
                 </div>
-                {completedSectionOpen && doneItems.map(({ cluster, idea, ideaKey }) => {
+                {completedSectionOpen && [...doneItems].sort((a, b) => {
+                  const da = doneIdeas.get(a.ideaKey) || "";
+                  const db = doneIdeas.get(b.ideaKey) || "";
+                  return completedSort === "date-asc" ? da.localeCompare(db) : db.localeCompare(da);
+                }).reduce<{ elements: React.ReactNode[]; lastMonth: string }>((acc, { cluster, idea, ideaKey }, idx) => {
+                  const doneDate = doneIdeas.get(ideaKey);
+                  if (completedSort === "month" && doneDate) {
+                    const monthLabel = new Date(doneDate).toLocaleDateString("en-GB", { month: "long", year: "numeric" });
+                    if (monthLabel !== acc.lastMonth) {
+                      acc.elements.push(
+                        <div key={`month-${monthLabel}`} className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide pt-2 pb-0.5 border-b border-border/50">
+                          📅 {monthLabel}
+                        </div>
+                      );
+                      acc.lastMonth = monthLabel;
+                    }
+                  }
+                  acc.elements.push((() => {
                   const volLookup = cluster.keyword_volumes || {};
                   const sortedKws = [...(idea.target_keywords || [])].sort(
                     (a, b) => (volLookup[b] ?? volLookup[b.toLowerCase()] ?? 0) - (volLookup[a] ?? volLookup[a.toLowerCase()] ?? 0)
@@ -446,7 +477,7 @@ Focus on providing actionable research that will help create a comprehensive, di
                       "bg-green-100 border-green-400 dark:bg-green-900/50 dark:border-green-600"
                     )}>
                       <div className="space-y-0">
-                        <div className="flex items-center justify-between gap-3 px-4 py-3">
+                        <div className="flex items-center gap-3 px-4 py-3">
                           <div
                             className="flex items-center gap-2 flex-1 min-w-0 cursor-pointer"
                             onClick={() => toggleExpanded(ideaKey)}
@@ -466,21 +497,14 @@ Focus on providing actionable research that will help create a comprehensive, di
                                 {totalVol.toLocaleString()} vol
                               </span>
                             )}
-                            {(() => {
-                              const doneDate = doneIdeas.get(ideaKey);
-                              if (!doneDate) return null;
-                              const d = new Date(doneDate);
-                              return (
-                                <span className="text-[10px] text-muted-foreground shrink-0 whitespace-nowrap">
-                                  {d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
-                                </span>
-                              );
-                            })()}
                             <ChevronDown className={cn(
                               "h-4 w-4 text-green-600 dark:text-green-400 transition-transform shrink-0",
                               isExpanded && "rotate-180"
                             )} />
                           </div>
+                          <span className="text-xs text-muted-foreground shrink-0 w-[90px] text-right tabular-nums whitespace-nowrap">
+                            {doneDate ? new Date(doneDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "—"}
+                          </span>
                           <div className="flex items-center gap-1 shrink-0">
                             <Button variant="ghost" size="sm" className="gap-1 text-xs h-7 px-2 text-green-700 dark:text-green-400" onClick={() => toggleDone(ideaKey)}>
                               <CheckCircle2 className="h-3 w-3 fill-current" /> Undo
@@ -529,7 +553,9 @@ Focus on providing actionable research that will help create a comprehensive, di
                       </div>
                     </div>
                   );
-                })}
+                  })());
+                  return acc;
+                }, { elements: [] as React.ReactNode[], lastMonth: "" }).elements}
               </div>
               );
             })()}
