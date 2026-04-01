@@ -2108,6 +2108,15 @@ const KeywordClustering = () => {
                           {!mergingFromSilo && (
                             <button
                               className="shrink-0 ml-1"
+                              title="Add keywords to this silo"
+                              onClick={(e) => { e.stopPropagation(); setAddKwTargetSilo(cluster.topic); setShowAddKeywords(true); }}
+                            >
+                              <FilePlus2 className="h-3.5 w-3.5 text-muted-foreground/40 hover:text-primary transition-colors" />
+                            </button>
+                          )}
+                          {!mergingFromSilo && (
+                            <button
+                              className="shrink-0 ml-1"
                               title="Merge with another silo"
                               onClick={(e) => { e.stopPropagation(); setMergingFromSilo(cluster.topic); }}
                             >
