@@ -159,6 +159,19 @@ const ContentQueue = ({ queuedIdeas, onUseForArticle, onRemoveFromQueue, formatV
     });
   }, []);
 
+  const updateDoneDate = useCallback((ideaKey: string, date: Date) => {
+    const off = date.getTimezoneOffset();
+    const localDate = new Date(date.getTime() - off * 60000).toISOString().slice(0, 10);
+    setDoneIdeas(prev => {
+      const next = new Map(prev);
+      if (next.has(ideaKey)) {
+        next.set(ideaKey, localDate);
+        localStorage.setItem("content-queue-done", JSON.stringify(Object.fromEntries(next)));
+      }
+      return next;
+    });
+  }, []);
+
   const toggleFavorite = useCallback((ideaKey: string) => {
     setFavoriteIdeas(prev => {
       const next = new Set(prev);
