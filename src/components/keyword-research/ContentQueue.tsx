@@ -94,10 +94,12 @@ const ContentQueue = ({ queuedIdeas, onUseForArticle, onRemoveFromQueue, formatV
     return new Date(d.getTime() - off * 60000).toISOString().slice(0, 10);
   };
 
-  // Format a stored date string (YYYY-MM-DD or ISO) for display, avoiding timezone shifts
+  // Format a stored date string for display:
+  // - YYYY-MM-DD is treated as a local calendar date
+  // - ISO timestamps are rendered in local time so legacy entries keep the actual completion date
   const formatStoredDate = (dateStr: string, opts: Intl.DateTimeFormatOptions) => {
     if (!dateStr) return "";
-    const ymd = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    const ymd = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})$/);
     if (ymd) {
       const d = new Date(+ymd[1], +ymd[2] - 1, +ymd[3]);
       return d.toLocaleDateString("en-GB", opts);
@@ -108,7 +110,7 @@ const ContentQueue = ({ queuedIdeas, onUseForArticle, onRemoveFromQueue, formatV
 
   const { toast } = useToast();
   const [fallbackDownload, setFallbackDownload] = useState<{ url: string; filename: string } | null>(null);
-  // Map of ideaKey → ISO date string when marked done
+  // Map of ideaKey → stored completion date string when marked done
   const [doneIdeas, setDoneIdeas] = useState<Map<string, string>>(() => {
     try {
       const saved = localStorage.getItem("content-queue-done");
