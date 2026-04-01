@@ -123,6 +123,7 @@ const ContentQueue = ({ queuedIdeas, onUseForArticle, onRemoveFromQueue, formatV
   });
   const [expandedDone, setExpandedDone] = useState<Set<string>>(new Set());
   const [completedSectionOpen, setCompletedSectionOpen] = useState(true);
+  const [completedSort, setCompletedSort] = useState<"date-desc" | "date-asc" | "month">("date-desc");
 
   const toggleExpanded = useCallback((ideaKey: string) => {
     setExpandedDone(prev => {
