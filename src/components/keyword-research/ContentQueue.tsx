@@ -289,8 +289,8 @@ Focus on providing actionable research that will help create a comprehensive, di
       const ideaKey = `${cluster.topic}::${idea.title}`;
       const doneDate = doneIdeas.get(ideaKey);
       const isDone = doneIdeas.has(ideaKey);
-      const formattedDate = doneDate ? new Date(doneDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "";
-      const monthYear = doneDate ? new Date(doneDate).toLocaleDateString("en-GB", { month: "long", year: "numeric" }) : "";
+      const formattedDate = doneDate ? formatStoredDate(doneDate, { day: "2-digit", month: "short", year: "numeric" }) : "";
+      const monthYear = doneDate ? formatStoredDate(doneDate, { month: "long", year: "numeric" }) : "";
 
       rows.push([
         cluster.topic,
