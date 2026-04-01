@@ -867,6 +867,56 @@ const KeywordClustering = () => {
     }
   };
 
+  const addKeywordToIdeaFromAnySilo = async (targetClusterTopic: string, targetIdeaIndex: number, keyword: string, sourceClusterTopic: string) => {
+    if (!result) return;
+    const sourceCluster = result.clusters.find(c => c.topic === sourceClusterTopic);
+    if (!sourceCluster) return;
+    const vol = sourceCluster.keyword_volumes?.[keyword] ?? sourceCluster.keyword_volumes?.[keyword.toLowerCase()] ?? 0;
+    const isSameSilo = sourceClusterTopic === targetClusterTopic;
+
+    const updatedResult: ClusteringResult = {
+      ...result,
+      clusters: result.clusters.map(c => {
+        if (!isSameSilo && c.topic === sourceClusterTopic) {
+          // Remove keyword from source silo
+          const newKeywords = c.keywords.filter(k => k.toLowerCase() !== keyword.toLowerCase());
+          const newVolumes = c.keyword_volumes ? { ...c.keyword_volumes } : undefined;
+          if (newVolumes) { delete newVolumes[keyword]; delete newVolumes[keyword.toLowerCase()]; }
+          const updatedIdeas = (c.blog_ideas || []).map(idea => ({
+            ...idea,
+            target_keywords: (idea.target_keywords || []).filter(tk => tk.toLowerCase() !== keyword.toLowerCase()),
+          }));
+          return { ...c, keywords: newKeywords, keyword_volumes: newVolumes, estimated_monthly_volume: c.estimated_monthly_volume - vol, blog_ideas: updatedIdeas };
+        }
+        if (c.topic === targetClusterTopic) {
+          // Add keyword to target silo if not already there
+          const alreadyInSilo = c.keywords.some(k => k.toLowerCase() === keyword.toLowerCase());
+          const newKeywords = alreadyInSilo ? c.keywords : [...c.keywords, keyword];
+          const newVolumes = { ...(c.keyword_volumes || {}), [keyword]: vol };
+          // Remove from any other idea in this silo, then add to target idea
+          const updatedIdeas = (c.blog_ideas || []).map((idea, idx) => {
+            const withoutKw = { ...idea, target_keywords: (idea.target_keywords || []).filter(tk => tk.toLowerCase() !== keyword.toLowerCase()) };
+            if (idx === targetIdeaIndex) {
+              const existing = withoutKw.target_keywords || [];
+              return { ...withoutKw, target_keywords: [...existing, keyword] };
+            }
+            return withoutKw;
+          });
+          return { ...c, keywords: newKeywords, keyword_volumes: newVolumes, estimated_monthly_volume: c.estimated_monthly_volume + (alreadyInSilo || isSameSilo ? 0 : vol), blog_ideas: updatedIdeas };
+        }
+        return c;
+      }).filter(c => c.keywords.length > 0),
+    };
+    setResult(updatedResult);
+    toast({ title: "Keyword added", description: `"${keyword}" allocated to this blog idea` });
+    if (activeResultId) {
+      await supabase
+        .from("keyword_clustering_results")
+        .update({ result: updatedResult as any })
+        .eq("id", activeResultId);
+    }
+  };
+
   const reassignKeyword = async (clusterTopic: string, keyword: string, fromIdeaIndex: number, toIdeaIndex: number) => {
     if (!result) return;
     const updatedResult: ClusteringResult = {
