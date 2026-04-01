@@ -1288,6 +1288,138 @@ const KeywordClustering = () => {
     }
   };
 
+  const handleAddKwFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const text = ev.target?.result as string;
+      const parsed = parseCSVKeywords(text);
+      if (parsed.length === 0) {
+        toast({ title: "No keywords found in CSV", variant: "destructive" });
+        return;
+      }
+      // Append to existing text input
+      const newKws = parsed.map(p => `${p.keyword}${p.volume ? `\t${p.volume}` : ""}`).join("\n");
+      setAddKwInput(prev => prev ? `${prev}\n${newKws}` : newKws);
+      toast({ title: `${parsed.length} keywords loaded from CSV` });
+    };
+    reader.readAsText(file);
+    if (addKwFileRef.current) addKwFileRef.current.value = "";
+  };
+
+  const addKeywordsToProject = async () => {
+    if (!result || !activeResultId) return;
+    
+    // Parse input: support "keyword\tvolume" or plain keywords
+    const lines = addKwInput.split(/\n/).map(l => l.trim()).filter(l => l.length > 1);
+    const newKeywords: KeywordWithVolume[] = [];
+    const existingKwSet = new Set(result.clusters.flatMap(c => c.keywords.map(k => k.toLowerCase())));
+    
+    for (const line of lines) {
+      const parts = line.split(/\t/);
+      const kw = parts[0].trim().toLowerCase();
+      if (!kw || kw.length < 2 || kw.length > 200) continue;
+      if (existingKwSet.has(kw)) continue; // Skip already-in-project keywords
+      const vol = parts[1] ? parseInt(parts[1].replace(/[,\s]/g, ""), 10) : null;
+      newKeywords.push({ keyword: kw, volume: isNaN(vol as number) ? null : vol });
+    }
+
+    if (newKeywords.length === 0) {
+      toast({ title: "No new keywords to add", description: "All keywords are already in the project or no valid keywords found.", variant: "destructive" });
+      return;
+    }
+
+    setIsAddingKeywords(true);
+    try {
+      const existingSiloNames = result.clusters.map(c => c.topic);
+      const volumeMap: Record<string, number> = {};
+      for (const item of newKeywords) {
+        volumeMap[item.keyword] = (item.volume !== null && item.volume > 0) ? item.volume : 10;
+      }
+
+      // Call classify with existing silos as context
+      const classifyResponse = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/cluster-keywords-classify`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({
+            keywords: newKeywords.map(k => k.keyword),
+            volumeMap,
+            suggestedTopics: existingSiloNames,
+          }),
+        }
+      );
+
+      if (!classifyResponse.ok) {
+        const errData = await classifyResponse.json().catch(() => ({}));
+        throw new Error(errData.error || `Classification failed: ${classifyResponse.status}`);
+      }
+
+      const classifyData = await classifyResponse.json();
+      const newClusters: KeywordCluster[] = classifyData.clusters || [];
+
+      // Merge new clusters into existing result
+      const updatedClusters = [...result.clusters];
+      let addedToExisting = 0;
+      let newSilosCreated = 0;
+
+      for (const nc of newClusters) {
+        const existingIdx = updatedClusters.findIndex(c => c.topic.toLowerCase() === nc.topic.toLowerCase());
+        if (existingIdx >= 0) {
+          // Merge keywords into existing silo
+          const existing = updatedClusters[existingIdx];
+          const newKws = nc.keywords.filter(k => !existing.keywords.some(ek => ek.toLowerCase() === k.toLowerCase()));
+          updatedClusters[existingIdx] = {
+            ...existing,
+            keywords: [...existing.keywords, ...newKws],
+            keyword_volumes: { ...(existing.keyword_volumes || {}), ...(nc.keyword_volumes || {}) },
+            estimated_monthly_volume: existing.estimated_monthly_volume + (nc.estimated_monthly_volume || 0),
+          };
+          addedToExisting += newKws.length;
+        } else {
+          // Brand new silo
+          updatedClusters.push(nc);
+          newSilosCreated++;
+        }
+      }
+
+      const totalNewKws = newClusters.reduce((s, c) => s + c.keywords.length, 0);
+      const updatedResult: ClusteringResult = {
+        ...result,
+        clusters: updatedClusters,
+        total_keywords_clustered: result.total_keywords_clustered + totalNewKws,
+      };
+
+      setResult(updatedResult);
+      // Also update the input_keywords array in DB
+      const allInputKws = [...new Set([
+        ...(savedResults.find(s => s.id === activeResultId)?.input_keywords || []),
+        ...newKeywords.map(k => k.keyword),
+      ])];
+      await supabase
+        .from("keyword_clustering_results")
+        .update({ result: updatedResult as any, input_keywords: allInputKws })
+        .eq("id", activeResultId);
+      loadSavedResults();
+
+      setShowAddKeywords(false);
+      setAddKwInput("");
+      toast({
+        title: `${totalNewKws} keywords added`,
+        description: `${addedToExisting} added to existing silos${newSilosCreated > 0 ? `, ${newSilosCreated} new silo${newSilosCreated > 1 ? "s" : ""} created` : ""}`,
+      });
+    } catch (err: any) {
+      toast({ title: "Failed to add keywords", description: err.message, variant: "destructive" });
+    } finally {
+      setIsAddingKeywords(false);
+    }
+  };
+
   const clearGeneratorState = () => {
     const keysToRemove = [
       "seo-generator-formData", "seo-generator-internalLinks", "seo-generator-competitorUrls",
