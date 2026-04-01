@@ -220,6 +220,16 @@ const KeywordClustering = () => {
     });
   };
 
+  // Sync state → URL params
+  useEffect(() => {
+    setSearchParams(prev => {
+      const p = new URLSearchParams(prev);
+      if (activeResultId) p.set("project", activeResultId); else p.delete("project");
+      if (isResultsOpen) p.set("view", "results"); else p.delete("view");
+      return p;
+    }, { replace: true });
+  }, [activeResultId, isResultsOpen, setSearchParams]);
+
   // Reload bookmarks when active project changes
   useEffect(() => {
     setBookmarkedIdeas(getBookmarkedIdeas(activeResultId));
@@ -231,6 +241,7 @@ const KeywordClustering = () => {
   }, []);
 
   const loadSavedResults = async () => {
+    const urlProjectId = searchParams.get("project");
     const { data, error } = await supabase
       .from("keyword_clustering_results")
       .select("*")
@@ -248,7 +259,6 @@ const KeywordClustering = () => {
         if (isGeneric && item.result?.clusters?.length > 0) {
           const derived = deriveProjectName(item.result);
           item.name = derived;
-          // Update in DB silently
           supabase
             .from("keyword_clustering_results")
             .update({ name: derived })
@@ -258,14 +268,17 @@ const KeywordClustering = () => {
       }
 
       setSavedResults(mapped);
-      // Auto-load most recent
+      // Auto-load: prefer URL project param, else most recent
       if (data.length > 0 && !result) {
-        const latest = mapped[0];
-        setResult(latest.result);
-        setRawInput(latest.input_keywords.join("\n"));
-        setActiveResultId(latest.id);
-        setProjectName(latest.name || "");
-        setExpandedClusters(new Set());
+        const target = urlProjectId
+          ? mapped.find(m => m.id === urlProjectId) || mapped[0]
+          : mapped[0];
+        setResult(target.result);
+        setRawInput(target.input_keywords.join("\n"));
+        setActiveResultId(target.id);
+        setProjectName(target.name || "");
+        if (!urlProjectId) setExpandedClusters(new Set());
+        if (urlProjectId) setIsResultsOpen(true);
       }
     }
   };
