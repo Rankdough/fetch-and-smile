@@ -215,6 +215,7 @@ const KeywordClustering = () => {
   const [showAddKeywords, setShowAddKeywords] = useState(false);
   const [addKwInput, setAddKwInput] = useState("");
   const [isAddingKeywords, setIsAddingKeywords] = useState(false);
+  const [addKwTargetSilo, setAddKwTargetSilo] = useState<string | null>(null);
   const addKwFileRef = useRef<HTMLInputElement>(null);
 
   const toggleCollapsedSet = (setter: React.Dispatch<React.SetStateAction<Set<string>>>, key: string) => {
