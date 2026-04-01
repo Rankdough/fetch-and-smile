@@ -1759,6 +1759,10 @@ const KeywordClustering = () => {
                     </Button>
                   );
                 })()}
+                <Button variant="outline" size="sm" onClick={() => setShowAddKeywords(true)} className="gap-1.5">
+                  <FilePlus2 className="h-3.5 w-3.5" />
+                  Add Keywords
+                </Button>
                 <Button variant="outline" size="sm" onClick={exportSiloSummaryCSV} className="gap-1.5">
                   <Download className="h-3.5 w-3.5" />
                   Silo Summary
