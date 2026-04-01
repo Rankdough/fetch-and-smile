@@ -2615,7 +2615,16 @@ const KeywordClustering = () => {
                                 const ideaKey = makeIdeaKey(cluster.topic, idea.title);
                                 const isUsed = usedIdeas.has(ideaKey);
                                 return (
-                                <div key={i} className={`border rounded-md p-3 space-y-1 transition-colors ${isUsed ? "border-green-500 bg-green-50 dark:bg-green-950/30" : ""}`}>
+                                <div key={i} className={`border rounded-md p-3 space-y-1 transition-colors ${isUsed ? "border-green-500 bg-green-50 dark:bg-green-950/30" : ""} ${combiningIdea && combiningIdea.clusterTopic === cluster.topic && combiningIdea.ideaIndex !== i ? "border-dashed border-primary/50 cursor-pointer hover:border-primary hover:bg-primary/5" : ""} ${combiningIdea && combiningIdea.clusterTopic === cluster.topic && combiningIdea.ideaIndex === i ? "ring-2 ring-primary/30 border-primary" : ""}`}>
+                                  {combiningIdea && combiningIdea.clusterTopic === cluster.topic && combiningIdea.ideaIndex !== i && (
+                                    <button
+                                      className="w-full flex items-center justify-center gap-2 text-xs font-medium text-primary hover:text-primary/80 transition-colors pb-1"
+                                      onClick={(e) => { e.stopPropagation(); combineBlogIdeas(cluster.topic, combiningIdea.ideaIndex, i); }}
+                                    >
+                                      <Merge className="h-3 w-3" />
+                                      Combine into this idea
+                                    </button>
+                                  )}
                                   <div className="flex items-start gap-2">
                                     <button
                                       className={`mt-0.5 shrink-0 flex items-center justify-center h-5 w-5 rounded-full border transition-colors ${
@@ -2925,6 +2934,22 @@ Focus on providing actionable research that will help create a comprehensive, di
                                       >
                                         <Trash2 className="h-3 w-3" />
                                         Delete
+                                      </Button>
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className={`gap-1 text-xs h-7 px-2 ${combiningIdea?.clusterTopic === cluster.topic && combiningIdea?.ideaIndex === i ? "text-primary" : "text-muted-foreground"}`}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          if (combiningIdea?.clusterTopic === cluster.topic && combiningIdea?.ideaIndex === i) {
+                                            setCombiningIdea(null);
+                                          } else {
+                                            setCombiningIdea({ clusterTopic: cluster.topic, ideaIndex: i });
+                                          }
+                                        }}
+                                      >
+                                        <Merge className="h-3 w-3" />
+                                        {combiningIdea?.clusterTopic === cluster.topic && combiningIdea?.ideaIndex === i ? "Cancel" : "Combine"}
                                       </Button>
                                     </div>
                                   </div>
