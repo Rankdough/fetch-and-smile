@@ -1266,6 +1266,7 @@ const KeywordClustering = () => {
     }
   };
 
+  const clearGeneratorState = () => {
     const keysToRemove = [
       "seo-generator-formData", "seo-generator-internalLinks", "seo-generator-competitorUrls",
       "seo-generator-formatUrl", "seo-generator-formatReference", "seo-generator-gapAnalysis",
