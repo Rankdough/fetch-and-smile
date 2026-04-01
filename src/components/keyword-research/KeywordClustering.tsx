@@ -1202,7 +1202,70 @@ const KeywordClustering = () => {
     }
   };
 
-  const clearGeneratorState = () => {
+  const createIdeaFromSelectedKeywords = async (clusterTopic: string, keywords: string[]) => {
+    if (!result || keywords.length === 0) return;
+    const cluster = result.clusters.find(c => c.topic === clusterTopic);
+    if (!cluster) return;
+
+    setGeneratingFromSelected(clusterTopic);
+    try {
+      const totalVol = keywords.reduce((s, kw) => s + (cluster.keyword_volumes?.[kw] ?? cluster.keyword_volumes?.[kw.toLowerCase()] ?? 0), 0);
+
+      const { data, error } = await supabase.functions.invoke("cluster-keywords-enrich", {
+        body: {
+          clusters: [{
+            topic: clusterTopic,
+            keywords,
+            estimated_monthly_volume: totalVol,
+          }],
+          singleIdea: true,
+          focusKeyword: keywords[0],
+        },
+      });
+
+      if (error) throw error;
+
+      const enrichment = data?.enrichments?.[0] || data?.clusters?.[0] || data;
+      if (!enrichment?.blog_ideas?.length) {
+        toast({ title: "Failed to generate idea", variant: "destructive" });
+        return;
+      }
+
+      const newIdea = enrichment.blog_ideas[0];
+      if (!newIdea.target_keywords) newIdea.target_keywords = [];
+      // Ensure all selected keywords are in target_keywords
+      for (const kw of keywords) {
+        if (!newIdea.target_keywords.some((tk: string) => tk.toLowerCase() === kw.toLowerCase())) {
+          newIdea.target_keywords.push(kw);
+        }
+      }
+
+      const updatedResult: ClusteringResult = {
+        ...result,
+        clusters: result.clusters.map(c => {
+          if (c.topic !== clusterTopic) return c;
+          return { ...c, blog_ideas: [...(c.blog_ideas || []), newIdea] };
+        }),
+      };
+      setResult(updatedResult);
+      // Clear selection
+      setSelectedSiloKws(prev => ({ ...prev, [clusterTopic]: new Set() }));
+      toast({ title: "Blog idea created", description: `"${newIdea.title}" from ${keywords.length} keywords` });
+
+      if (activeResultId) {
+        await supabase
+          .from("keyword_clustering_results")
+          .update({ result: updatedResult as any })
+          .eq("id", activeResultId);
+      }
+    } catch (e) {
+      console.error("Error creating idea from selected:", e);
+      toast({ title: "Failed to generate idea", variant: "destructive" });
+    } finally {
+      setGeneratingFromSelected(null);
+    }
+  };
+
     const keysToRemove = [
       "seo-generator-formData", "seo-generator-internalLinks", "seo-generator-competitorUrls",
       "seo-generator-formatUrl", "seo-generator-formatReference", "seo-generator-gapAnalysis",
