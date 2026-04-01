@@ -1,4 +1,5 @@
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -50,6 +51,7 @@ interface ContentQueueProps {
   onCreateIdeaFromKeyword?: (clusterTopic: string, keyword: string) => void;
   generatingIdeaForKw?: string | null;
   onEditIdeaTitle?: (clusterTopic: string, oldTitle: string, newTitle: string) => void;
+  onAddKeywordToIdea?: (clusterTopic: string, ideaTitle: string, keyword: string, sourceClusterTopic: string) => void;
 }
 
 const EditableTitleCQ = ({ title, onSave, className = "" }: { title: string; onSave: (newTitle: string) => void; className?: string }) => {
@@ -87,7 +89,7 @@ const EditableTitleCQ = ({ title, onSave, className = "" }: { title: string; onS
   );
 };
 
-const ContentQueue = ({ queuedIdeas, onUseForArticle, onRemoveFromQueue, formatVolume, projectName, allClusters, onReassignKeyword, onCreateIdeaFromKeyword, generatingIdeaForKw, onEditIdeaTitle }: ContentQueueProps) => {
+const ContentQueue = ({ queuedIdeas, onUseForArticle, onRemoveFromQueue, formatVolume, projectName, allClusters, onReassignKeyword, onCreateIdeaFromKeyword, generatingIdeaForKw, onEditIdeaTitle, onAddKeywordToIdea }: ContentQueueProps) => {
   // Returns YYYY-MM-DD in local timezone (avoids UTC shifting dates)
   const localDateStr = () => {
     const d = new Date();
@@ -139,6 +141,69 @@ const ContentQueue = ({ queuedIdeas, onUseForArticle, onRemoveFromQueue, formatV
   const [expandedDone, setExpandedDone] = useState<Set<string>>(new Set());
   const [completedSectionOpen, setCompletedSectionOpen] = useState(true);
   const [completedSort, setCompletedSort] = useState<"date-desc" | "date-asc" | "month">("date-desc");
+  const [cqKwSearch, setCqKwSearch] = useState("");
+
+  // Build a flat list of all keywords across all silos for the "Add keyword" search
+  const allSiloKeywords = useMemo(() => {
+    if (!allClusters) return [];
+    const results: { kw: string; vol: number; siloTopic: string }[] = [];
+    for (const c of allClusters) {
+      for (const kw of c.keywords) {
+        const vol = c.keyword_volumes?.[kw] ?? c.keyword_volumes?.[kw.toLowerCase()] ?? 0;
+        results.push({ kw, vol, siloTopic: c.topic });
+      }
+    }
+    return results;
+  }, [allClusters]);
+
+  const renderAddKeywordPopover = (cluster: KeywordCluster, idea: BlogIdea) => {
+    if (!onAddKeywordToIdea || !allClusters) return null;
+    const existingKws = new Set((idea.target_keywords || []).map(k => k.toLowerCase()));
+    const filtered = cqKwSearch.length >= 2
+      ? allSiloKeywords.filter(m => m.kw.toLowerCase().includes(cqKwSearch.toLowerCase()) && !existingKws.has(m.kw.toLowerCase()))
+      : [];
+    return (
+      <Popover>
+        <PopoverTrigger asChild>
+          <button
+            className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border border-dashed border-primary/30 text-primary hover:bg-primary/10 transition-colors"
+            onClick={e => { e.stopPropagation(); setCqKwSearch(""); }}
+          >
+            <Plus className="h-2.5 w-2.5" /> Add keyword
+          </button>
+        </PopoverTrigger>
+        <PopoverContent side="bottom" align="start" className="w-80 p-3" onClick={e => e.stopPropagation()}>
+          <Input
+            placeholder="Search all siloed keywords..."
+            value={cqKwSearch}
+            onChange={e => setCqKwSearch(e.target.value)}
+            className="h-8 text-xs mb-2"
+            autoFocus
+          />
+          <div className="max-h-48 overflow-y-auto space-y-0.5">
+            {cqKwSearch.length < 2 && <p className="text-[10px] text-muted-foreground py-2 text-center">Type 2+ characters to search</p>}
+            {cqKwSearch.length >= 2 && filtered.length === 0 && <p className="text-[10px] text-muted-foreground py-2 text-center">No matching keywords</p>}
+            {filtered.slice(0, 30).map((m, mi) => (
+              <button
+                key={mi}
+                className="w-full text-left px-2 py-1.5 rounded text-xs hover:bg-muted transition-colors flex items-center justify-between gap-2"
+                onClick={() => {
+                  onAddKeywordToIdea(cluster.topic, idea.title, m.kw, m.siloTopic);
+                  setCqKwSearch("");
+                }}
+              >
+                <span className="truncate">{m.kw}</span>
+                <span className="flex items-center gap-1.5 shrink-0">
+                  {m.vol > 0 && <span className="text-primary/70 font-semibold text-[10px]">{m.vol.toLocaleString()}</span>}
+                  {m.siloTopic !== cluster.topic && <span className="text-[9px] text-muted-foreground bg-muted px-1 rounded">from: {m.siloTopic}</span>}
+                </span>
+              </button>
+            ))}
+          </div>
+        </PopoverContent>
+      </Popover>
+    );
+  };
 
   const toggleExpanded = useCallback((ideaKey: string) => {
     setExpandedDone(prev => {
@@ -581,6 +646,7 @@ Focus on providing actionable research that will help create a comprehensive, di
                                     const vol = volLookup[kw] ?? volLookup[kw.toLowerCase()];
                                     return renderKeywordBadge(kw, ki, vol, cluster, idea);
                                   })}
+                                  {renderAddKeywordPopover(cluster, idea)}
                                 </div>
                               </div>
                             )}
@@ -706,6 +772,7 @@ Focus on providing actionable research that will help create a comprehensive, di
                                   const vol = volLookup[kw] ?? volLookup[kw.toLowerCase()];
                                   return renderKeywordBadge(kw, ki, vol, cluster, idea);
                                 })}
+                                {renderAddKeywordPopover(cluster, idea)}
                               </div>
                             </div>
                           )}
@@ -822,6 +889,7 @@ Focus on providing actionable research that will help create a comprehensive, di
                                   const vol = volLookup[kw] ?? volLookup[kw.toLowerCase()];
                                   return renderKeywordBadge(kw, ki, vol, cluster, idea);
                                 })}
+                                {renderAddKeywordPopover(cluster, idea)}
                               </div>
                             </div>
                           )}
