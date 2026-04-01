@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -175,6 +175,7 @@ const contentTypeLabels: Record<string, string> = {
 const KeywordClustering = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const abortRef = useRef<AbortController | null>(null);
 
@@ -186,7 +187,10 @@ const KeywordClustering = () => {
   const [result, setResult] = useState<ClusteringResult | null>(null);
   const [usedIdeas, setUsedIdeas] = useState<Set<string>>(getUsedIdeas);
   const [bookmarkedIdeas, setBookmarkedIdeas] = useState<Set<string>>(() => getBookmarkedIdeas(null));
-  const [expandedClusters, setExpandedClusters] = useState<Set<string>>(new Set());
+  const [expandedClusters, setExpandedClusters] = useState<Set<string>>(() => {
+    const silo = searchParams.get("silo");
+    return silo ? new Set([silo]) : new Set();
+  });
   const [expandedKeywordSilos, setExpandedKeywordSilos] = useState<Set<string>>(new Set());
   const [kwFilterMode, setKwFilterMode] = useState<Record<string, "all" | "generic" | "questions">>({});
   const [siloSortMode, setSiloSortMode] = useState<"favorites" | "volume">("favorites");
@@ -196,9 +200,9 @@ const KeywordClustering = () => {
   const [projectName, setProjectName] = useState("");
   const [suggestedSilos, setSuggestedSilos] = useState("");
   const [savedResults, setSavedResults] = useState<SavedClustering[]>([]);
-  const [activeResultId, setActiveResultId] = useState<string | null>(null);
+  const [activeResultId, setActiveResultId] = useState<string | null>(() => searchParams.get("project"));
   const [userSuggestedSilos, setUserSuggestedSilos] = useState<string[]>([]);
-  const [isResultsOpen, setIsResultsOpen] = useState(false);
+  const [isResultsOpen, setIsResultsOpen] = useState(() => searchParams.get("view") === "results");
   const [generatingIdeaForKw, setGeneratingIdeaForKw] = useState<string | null>(null);
   const [collapsedBlogIdeas, setCollapsedBlogIdeas] = useState<Set<string>>(new Set());
   const [collapsedLandingPages, setCollapsedLandingPages] = useState<Set<string>>(new Set());
@@ -216,6 +220,16 @@ const KeywordClustering = () => {
     });
   };
 
+  // Sync state → URL params
+  useEffect(() => {
+    setSearchParams(prev => {
+      const p = new URLSearchParams(prev);
+      if (activeResultId) p.set("project", activeResultId); else p.delete("project");
+      if (isResultsOpen) p.set("view", "results"); else p.delete("view");
+      return p;
+    }, { replace: true });
+  }, [activeResultId, isResultsOpen, setSearchParams]);
+
   // Reload bookmarks when active project changes
   useEffect(() => {
     setBookmarkedIdeas(getBookmarkedIdeas(activeResultId));
@@ -227,6 +241,7 @@ const KeywordClustering = () => {
   }, []);
 
   const loadSavedResults = async () => {
+    const urlProjectId = searchParams.get("project");
     const { data, error } = await supabase
       .from("keyword_clustering_results")
       .select("*")
@@ -244,7 +259,6 @@ const KeywordClustering = () => {
         if (isGeneric && item.result?.clusters?.length > 0) {
           const derived = deriveProjectName(item.result);
           item.name = derived;
-          // Update in DB silently
           supabase
             .from("keyword_clustering_results")
             .update({ name: derived })
@@ -254,14 +268,17 @@ const KeywordClustering = () => {
       }
 
       setSavedResults(mapped);
-      // Auto-load most recent
+      // Auto-load: prefer URL project param, else most recent
       if (data.length > 0 && !result) {
-        const latest = mapped[0];
-        setResult(latest.result);
-        setRawInput(latest.input_keywords.join("\n"));
-        setActiveResultId(latest.id);
-        setProjectName(latest.name || "");
-        setExpandedClusters(new Set());
+        const target = urlProjectId
+          ? mapped.find(m => m.id === urlProjectId) || mapped[0]
+          : mapped[0];
+        setResult(target.result);
+        setRawInput(target.input_keywords.join("\n"));
+        setActiveResultId(target.id);
+        setProjectName(target.name || "");
+        if (!urlProjectId) setExpandedClusters(new Set());
+        if (urlProjectId) setIsResultsOpen(true);
       }
     }
   };
