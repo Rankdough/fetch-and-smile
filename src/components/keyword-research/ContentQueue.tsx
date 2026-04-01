@@ -89,7 +89,7 @@ const EditableTitleCQ = ({ title, onSave, className = "" }: { title: string; onS
   );
 };
 
-const ContentQueue = ({ queuedIdeas, onUseForArticle, onRemoveFromQueue, formatVolume, projectName, allClusters, onReassignKeyword, onCreateIdeaFromKeyword, generatingIdeaForKw, onEditIdeaTitle }: ContentQueueProps) => {
+const ContentQueue = ({ queuedIdeas, onUseForArticle, onRemoveFromQueue, formatVolume, projectName, allClusters, onReassignKeyword, onCreateIdeaFromKeyword, generatingIdeaForKw, onEditIdeaTitle, onAddKeywordToIdea }: ContentQueueProps) => {
   // Returns YYYY-MM-DD in local timezone (avoids UTC shifting dates)
   const localDateStr = () => {
     const d = new Date();
