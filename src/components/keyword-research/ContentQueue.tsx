@@ -86,7 +86,14 @@ const EditableTitleCQ = ({ title, onSave, className = "" }: { title: string; onS
   );
 };
 
-const ContentQueue = ({ queuedIdeas, onUseForArticle, onRemoveFromQueue, formatVolume, projectName, allClusters, onReassignKeyword, onCreateIdeaFromKeyword, generatingIdeaForKw, onEditIdeaTitle }: ContentQueueProps) => {
+  // Returns YYYY-MM-DD in local timezone (avoids UTC shifting dates)
+  const localDateStr = () => {
+    const d = new Date();
+    const off = d.getTimezoneOffset();
+    return new Date(d.getTime() - off * 60000).toISOString().slice(0, 10);
+  };
+
+
   const { toast } = useToast();
   const [fallbackDownload, setFallbackDownload] = useState<{ url: string; filename: string } | null>(null);
   // Map of ideaKey → ISO date string when marked done
