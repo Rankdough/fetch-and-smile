@@ -87,10 +87,16 @@ const EditableTitleCQ = ({ title, onSave, className = "" }: { title: string; onS
 };
 
 const ContentQueue = ({ queuedIdeas, onUseForArticle, onRemoveFromQueue, formatVolume, projectName, allClusters, onReassignKeyword, onCreateIdeaFromKeyword, generatingIdeaForKw, onEditIdeaTitle }: ContentQueueProps) => {
+  // Returns YYYY-MM-DD in local timezone (avoids UTC shifting dates)
+  const localDateStr = () => {
+    const d = new Date();
+    const off = d.getTimezoneOffset();
+    return new Date(d.getTime() - off * 60000).toISOString().slice(0, 10);
+  };
+
   // Format a stored date string (YYYY-MM-DD or ISO) for display, avoiding timezone shifts
   const formatStoredDate = (dateStr: string, opts: Intl.DateTimeFormatOptions) => {
     if (!dateStr) return "";
-    // For YYYY-MM-DD, parse as local date parts to avoid UTC shift
     const ymd = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
     if (ymd) {
       const d = new Date(+ymd[1], +ymd[2] - 1, +ymd[3]);
