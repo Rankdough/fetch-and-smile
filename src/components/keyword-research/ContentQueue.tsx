@@ -111,14 +111,8 @@ const ContentQueue = ({ queuedIdeas, onUseForArticle, onRemoveFromQueue, formatV
         localStorage.setItem("content-queue-done", JSON.stringify(Object.fromEntries(migrated)));
         return migrated;
       }
-      const map = new Map(Object.entries(parsed));
-      // Backfill empty dates from earlier migration
-      let needsPersist = false;
-      const now = new Date().toISOString();
-      map.forEach((val, key) => {
-        if (!val) { map.set(key, now); needsPersist = true; }
-      });
-      if (needsPersist) localStorage.setItem("content-queue-done", JSON.stringify(Object.fromEntries(map)));
+      const map = new Map<string, string>(Object.entries(parsed));
+      // Don't backfill empty dates — they're legacy items with unknown completion date
       return map;
     } catch { return new Map(); }
   });
