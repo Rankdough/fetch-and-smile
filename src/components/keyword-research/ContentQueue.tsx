@@ -530,9 +530,28 @@ Focus on providing actionable research that will help create a comprehensive, di
                               isExpanded && "rotate-180"
                             )} />
                           </div>
-                          <span className="text-xs text-muted-foreground shrink-0 w-[90px] text-right tabular-nums whitespace-nowrap">
-                            {doneDate ? formatStoredDate(doneDate, { day: "2-digit", month: "short", year: "numeric" }) : "—"}
-                          </span>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <button
+                                className="text-xs text-muted-foreground shrink-0 w-[90px] text-right tabular-nums whitespace-nowrap hover:text-foreground hover:underline decoration-dashed underline-offset-2 transition-colors"
+                                title="Click to change date"
+                                onClick={e => e.stopPropagation()}
+                              >
+                                {doneDate ? formatStoredDate(doneDate, { day: "2-digit", month: "short", year: "numeric" }) : "—"}
+                              </button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="end" onClick={e => e.stopPropagation()}>
+                              <Calendar
+                                mode="single"
+                                selected={doneDate ? (() => {
+                                  const ymd = doneDate.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+                                  return ymd ? new Date(+ymd[1], +ymd[2] - 1, +ymd[3]) : new Date(doneDate);
+                                })() : undefined}
+                                onSelect={(date) => date && updateDoneDate(ideaKey, date)}
+                                className="p-3 pointer-events-auto"
+                              />
+                            </PopoverContent>
+                          </Popover>
                           <div className="flex items-center gap-1 shrink-0">
                             <Button variant="ghost" size="sm" className="gap-1 text-xs h-7 px-2 text-green-700 dark:text-green-400" onClick={() => toggleDone(ideaKey)}>
                               <CheckCircle2 className="h-3 w-3 fill-current" /> Undo
