@@ -950,57 +950,6 @@ const KeywordDeduplicator = () => {
         </div>
       )}
 
-      {/* Previous Results */}
-      {savedResults.length > 0 && !result && (
-        <Collapsible defaultOpen={savedResults.length <= 5}>
-          <Card>
-            <CollapsibleTrigger className="w-full">
-              <CardContent className="py-3 px-4 flex items-center justify-between">
-                <span className="text-sm font-medium flex items-center gap-2">
-                  <Clock className="h-4 w-4 text-muted-foreground" />
-                  Previous Results ({savedResults.length})
-                </span>
-                <ChevronDown className="h-4 w-4 text-muted-foreground" />
-              </CardContent>
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-              <CardContent className="pt-0 px-4 pb-3 space-y-1.5">
-                {savedResults.map((saved) => (
-                  <div
-                    key={saved.id}
-                    className="flex items-center justify-between py-2 px-3 rounded-md hover:bg-accent/30 transition-colors group"
-                  >
-                    <button
-                      className="flex-1 text-left flex items-center gap-3"
-                      onClick={() => loadResult(saved.id)}
-                      disabled={isLoadingResults}
-                    >
-                      <FolderOpen className="h-4 w-4 text-muted-foreground shrink-0" />
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium truncate">{saved.name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {saved.deduplicated_count.toLocaleString()} keywords · {saved.removed_count.toLocaleString()} removed
-                          {saved.ai_merged_groups > 0 && ` · ${saved.ai_merged_groups} AI groups`}
-                          {" · "}
-                          {new Date(saved.created_at).toLocaleDateString()}
-                        </p>
-                      </div>
-                    </button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
-                      onClick={(e) => { e.stopPropagation(); deleteResult(saved.id); }}
-                    >
-                      <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
-                    </Button>
-                  </div>
-                ))}
-              </CardContent>
-            </CollapsibleContent>
-          </Card>
-        </Collapsible>
-      )}
     </div>
   );
 };
