@@ -202,6 +202,7 @@ const KeywordResearch = () => {
         context: d.context,
         results: d.results,
         created_at: d.created_at,
+        client_tag: d.client_tag || null,
       })));
     }
     setIsLoadingSaved(false);
