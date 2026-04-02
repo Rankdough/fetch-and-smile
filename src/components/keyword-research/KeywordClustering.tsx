@@ -196,6 +196,7 @@ const KeywordClustering = () => {
   const [expandedKeywordSilos, setExpandedKeywordSilos] = useState<Set<string>>(new Set());
   const [kwFilterMode, setKwFilterMode] = useState<Record<string, "all" | "generic" | "questions">>({});
   const [siloSortMode, setSiloSortMode] = useState<"favorites" | "volume">("favorites");
+  const [keywordSearchQuery, setKeywordSearchQuery] = useState("");
   const [favoritedClusters, setFavoritedClusters] = useState<Set<string>>(() => getStoredSet(FAVORITED_CLUSTERS_KEY));
   const [demotedClusters, setDemotedClusters] = useState<Set<string>>(() => getStoredSet(DEMOTED_CLUSTERS_KEY));
   const [rawInput, setRawInput] = useState("");
