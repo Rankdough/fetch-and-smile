@@ -2350,14 +2350,30 @@ const KeywordClustering = () => {
                                 <p className="text-sm text-foreground/60 truncate">{cluster.description}</p>
                                 {cluster.keyword_volumes && (
                                   <div className="flex items-center gap-2.5 flex-wrap">
-                                    {Object.entries(cluster.keyword_volumes)
-                                      .sort(([, a], [, b]) => (b ?? 0) - (a ?? 0))
-                                      .slice(0, 4)
-                                      .map(([kw, vol]) => (
-                                        <span key={kw} className="text-sm text-foreground/50">
-                                          {kw} <span className="font-semibold text-foreground/70">({formatVolume(vol)})</span>
+                                    {(() => {
+                                      const q = keywordSearchQuery.trim().toLowerCase();
+                                      const entries = Object.entries(cluster.keyword_volumes)
+                                        .sort(([, a], [, b]) => (b ?? 0) - (a ?? 0));
+                                      // If searching, show matching keywords first, then top by volume
+                                      const matchingEntries = q ? entries.filter(([kw]) => kw.toLowerCase().includes(q)) : [];
+                                      const topEntries = entries.filter(([kw]) => !q || !kw.toLowerCase().includes(q)).slice(0, Math.max(0, 4 - matchingEntries.length));
+                                      const displayEntries = [...matchingEntries.slice(0, 4), ...topEntries].slice(0, 4);
+                                      return displayEntries.map(([kw, vol]) => (
+                                        <span key={kw} className={`text-sm ${q && kw.toLowerCase().includes(q) ? "text-primary font-medium" : "text-foreground/50"}`}>
+                                          {kw} <span className={`font-semibold ${q && kw.toLowerCase().includes(q) ? "text-primary" : "text-foreground/70"}`}>({formatVolume(vol)})</span>
                                         </span>
-                                      ))}
+                                      ));
+                                    })()}
+                                    {keywordSearchQuery.trim() && (() => {
+                                      const q = keywordSearchQuery.trim().toLowerCase();
+                                      const matchCount = cluster.keywords.filter(k => k.toLowerCase().includes(q)).length;
+                                      if (matchCount > 0) return (
+                                        <Badge variant="secondary" className="text-xs">
+                                          <Search className="h-3 w-3 mr-1" />{matchCount} match{matchCount !== 1 ? "es" : ""}
+                                        </Badge>
+                                      );
+                                      return null;
+                                    })()}
                                   </div>
                                 )}
                               </div>
