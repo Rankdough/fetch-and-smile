@@ -319,7 +319,7 @@ const KeywordClustering = () => {
 
     const { data, error } = await supabase
       .from("keyword_clustering_results")
-      .insert({ input_keywords: keywords, result: clusteringResult as any, name: displayName })
+      .insert({ input_keywords: keywords, result: clusteringResult as any, name: displayName, client_tag: clientTag.trim() || null } as any)
       .select()
       .single();
     if (data && !error) {
