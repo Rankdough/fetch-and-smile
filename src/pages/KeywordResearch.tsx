@@ -105,7 +105,7 @@ const KeywordResearch = () => {
 
   const [savedResearch, setSavedResearch] = useState<SavedResearch[]>([]);
   const [isLoadingSaved, setIsLoadingSaved] = useState(true);
-  const [clusteringProjects, setClusteringProjects] = useState<{ id: string; name: string | null; created_at: string; silo_count: number; kw_count: number }[]>([]);
+  const [clusteringProjects, setClusteringProjects] = useState<{ id: string; name: string | null; created_at: string; silo_count: number; kw_count: number; client_tag: string | null }[]>([]);
   const [dedupResults, setDedupResults] = useState<{ id: string; name: string; original_count: number; deduplicated_count: number; created_at: string }[]>([]);
 
   const abortControllerRef = useRef<AbortController | null>(null);
