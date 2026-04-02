@@ -143,6 +143,34 @@ const ContentQueue = ({ queuedIdeas, onUseForArticle, onRemoveFromQueue, formatV
   const [completedSectionOpen, setCompletedSectionOpen] = useState(true);
   const [completedSort, setCompletedSort] = useState<"date-desc" | "date-asc" | "month">("date-desc");
   const [cqKwSearch, setCqKwSearch] = useState("");
+  
+  // Notes for this content queue, stored per project
+  const notesStorageKey = projectName ? `content-queue-notes-${projectName}` : "content-queue-notes-default";
+  const [notes, setNotes] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem(notesStorageKey);
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
+  });
+  const [newNote, setNewNote] = useState("");
+  const [notesOpen, setNotesOpen] = useState(false);
+
+  const saveNotes = useCallback((updated: string[]) => {
+    setNotes(updated);
+    localStorage.setItem(notesStorageKey, JSON.stringify(updated));
+  }, [notesStorageKey]);
+
+  const addNote = useCallback(() => {
+    if (!newNote.trim()) return;
+    const updated = [newNote.trim(), ...notes];
+    saveNotes(updated);
+    setNewNote("");
+  }, [newNote, notes, saveNotes]);
+
+  const removeNote = useCallback((idx: number) => {
+    const updated = notes.filter((_, i) => i !== idx);
+    saveNotes(updated);
+  }, [notes, saveNotes]);
 
   // Build a flat list of all keywords across all silos for the "Add keyword" search
   const allSiloKeywords = useMemo(() => {
