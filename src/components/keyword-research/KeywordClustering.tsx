@@ -1816,7 +1816,7 @@ const KeywordClustering = () => {
         })()}
 
         {/* Project name & client tag inputs */}
-        <div className="flex items-end gap-3">
+        <div className="flex items-end gap-3 flex-wrap">
           <div className="space-y-1.5 flex-1 max-w-sm">
             <label className="text-xs font-medium text-muted-foreground">Project Name</label>
             <Input
@@ -1859,6 +1859,45 @@ const KeywordClustering = () => {
                 <option key={tag} value={tag!} />
               ))}
             </datalist>
+          </div>
+          <div className="flex items-end gap-2 pb-[1px]">
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              onClick={() => {
+                setResult(null);
+                setActiveResultId(null);
+                setRawInput("");
+                setProjectName("");
+                setClientTag("");
+                setKeywordsWithVolume([]);
+                setExpandedClusters(new Set());
+                setSearchParams({});
+                toast({ title: "New analysis", description: "Ready for a fresh keyword analysis" });
+              }}
+            >
+              <FilePlus2 className="h-3.5 w-3.5" />
+              New Analysis
+            </Button>
+            {(rawInput.trim() || result) && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="gap-1.5 text-muted-foreground hover:text-destructive"
+                onClick={() => {
+                  setResult(null);
+                  setRawInput("");
+                  setKeywordsWithVolume([]);
+                  setExpandedClusters(new Set());
+                  if (!activeResultId) setProjectName("");
+                  toast({ title: "Cleared", description: "Input and results cleared" });
+                }}
+              >
+                <RefreshCw className="h-3.5 w-3.5" />
+                Clear
+              </Button>
+            )}
           </div>
         </div>
 
