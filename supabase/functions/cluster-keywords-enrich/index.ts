@@ -165,7 +165,7 @@ STEP 4: ASSIGN KEYWORDS — EACH KEYWORD TO EXACTLY ONE IDEA
 RULES:
 - Generate 3-7 blog ideas per cluster (NOT always 5 — fewer is better if keywords are closely related)
 - Each blog idea MUST include "target_keywords": an array of keywords from the cluster that this article should target
-- Each blog idea MUST include "value_promises": an array of exactly 3 concise value promises
+- Each blog idea MUST include "value_promises": an array of exactly 3 sharp, specific value promises (see VALUE PROMISE RULES above)
 
 CRITICAL TOPICAL COHERENCE RULES:
 - Every target_keyword assigned to a blog idea MUST be directly relevant to that idea's specific title and angle.
