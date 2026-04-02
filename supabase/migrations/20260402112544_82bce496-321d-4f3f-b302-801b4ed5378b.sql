@@ -1,0 +1,1 @@
+ALTER TABLE public.keyword_research ADD COLUMN client_tag text DEFAULT NULL;
