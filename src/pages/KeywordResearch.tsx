@@ -429,13 +429,17 @@ const KeywordResearch = () => {
       setOpenClusters(new Set(map.clusters.map(c => c.cluster_name)));
 
       // Save to database
-      await supabase
+      const { data: inserted } = await supabase
         .from("keyword_research" as any)
         .insert({
           topic: topic.trim(),
           context: [audience.trim(), country.trim()].filter(Boolean).join(" | ") || null,
           results: map as any,
-        });
+          client_tag: universeClientTag.trim() || null,
+        } as any)
+        .select("id")
+        .single();
+      if (inserted) setActiveResearchId((inserted as any).id);
       loadSavedResearch();
 
       const totalSeeds = map.clusters.reduce((s, c) => s + c.seed_keywords.length, 0);
