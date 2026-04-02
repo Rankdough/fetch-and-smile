@@ -63,6 +63,7 @@ interface SavedResearch {
   context: string | null;
   results: SemanticMap | LegacyResult;
   created_at: string;
+  client_tag: string | null;
 }
 
 function isSemanticMap(r: any): r is SemanticMap {
@@ -114,6 +115,9 @@ const KeywordResearch = () => {
   const [isGeneratorOpen, setIsGeneratorOpen] = useState(false);
   const [isClusteringOpen, setIsClusteringOpen] = useState(() => hasClusteringStateInUrl);
   const [isDedupOpen, setIsDedupOpen] = useState(false);
+  const [universeClientTag, setUniverseClientTag] = useState("");
+  const [universeClientTagFilter, setUniverseClientTagFilter] = useState<string | null>(null);
+  const [activeResearchId, setActiveResearchId] = useState<string | null>(null);
 
   // Refine state
   const [isRefineOpen, setIsRefineOpen] = useState(false);
@@ -201,6 +205,7 @@ const KeywordResearch = () => {
         context: d.context,
         results: d.results,
         created_at: d.created_at,
+        client_tag: d.client_tag || null,
       })));
     }
     setIsLoadingSaved(false);
@@ -424,13 +429,17 @@ const KeywordResearch = () => {
       setOpenClusters(new Set(map.clusters.map(c => c.cluster_name)));
 
       // Save to database
-      await supabase
+      const { data: inserted } = await supabase
         .from("keyword_research" as any)
         .insert({
           topic: topic.trim(),
           context: [audience.trim(), country.trim()].filter(Boolean).join(" | ") || null,
           results: map as any,
-        });
+          client_tag: universeClientTag.trim() || null,
+        } as any)
+        .select("id")
+        .single();
+      if (inserted) setActiveResearchId((inserted as any).id);
       loadSavedResearch();
 
       const totalSeeds = map.clusters.reduce((s, c) => s + c.seed_keywords.length, 0);
@@ -660,6 +669,8 @@ const KeywordResearch = () => {
     setTopic(saved.topic);
     setAudience("");
     setCountry("");
+    setActiveResearchId(saved.id);
+    setUniverseClientTag(saved.client_tag || "");
     if (isSemanticMap(saved.results)) {
       setSemanticMap(saved.results);
       setLegacyResults(null);
@@ -749,6 +760,9 @@ const KeywordResearch = () => {
                         <Clock className="h-3 w-3 text-muted-foreground" />
                         <span className="truncate max-w-[180px]">{r.topic}</span>
                         <span className="text-muted-foreground">{getResearchStats(r)}</span>
+                        {r.client_tag && (
+                          <Badge variant="outline" className="text-[10px] px-1.5 py-0">{r.client_tag}</Badge>
+                        )}
                       </button>
                     ))}
                   </div>
@@ -758,44 +772,119 @@ const KeywordResearch = () => {
             <CollapsibleContent>
               <CardContent className="space-y-4 pt-0">
                 {/* Saved research — at the top when section is open */}
-                {savedResearch.length > 0 && (
-                  <Card className="border-dashed">
-                    <CardContent className="py-3 px-4">
-                      <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1.5">
-                        <Clock className="h-3.5 w-3.5" />
-                        Your Projects ({savedResearch.length})
-                      </p>
-                      <div className="flex flex-wrap gap-2">
-                        {savedResearch.map(r => (
-                          <div key={r.id} className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border bg-accent/30 hover:bg-accent text-xs font-medium transition-colors">
+                {savedResearch.length > 0 && (() => {
+                  const allTags = [...new Set(savedResearch.map(s => s.client_tag).filter(Boolean) as string[])].sort();
+                  const untagged = savedResearch.filter(s => !s.client_tag);
+                  const filteredResearch = universeClientTagFilter !== null
+                    ? universeClientTagFilter === ""
+                      ? savedResearch.filter(s => !s.client_tag)
+                      : savedResearch.filter(s => s.client_tag === universeClientTagFilter)
+                    : savedResearch;
+
+                  return (
+                    <Card className="border-dashed">
+                      <CardContent className="py-3 px-4">
+                        {/* Client tag filter tabs */}
+                        {allTags.length > 0 && (
+                          <div className="flex items-center gap-2 mb-3 flex-wrap">
+                            <span className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                              <Tag className="h-3.5 w-3.5" />
+                              Clients:
+                            </span>
                             <button
-                              className="flex items-center gap-1.5"
-                              onClick={() => loadResearch(r)}
+                              onClick={() => setUniverseClientTagFilter(null)}
+                              className={`px-2 py-0.5 rounded-full text-xs font-medium border transition-colors ${universeClientTagFilter === null ? "bg-primary text-primary-foreground border-primary" : "bg-muted/50 hover:bg-muted border-transparent"}`}
                             >
-                              <Clock className="h-3 w-3 text-muted-foreground shrink-0" />
-                              <span className="truncate max-w-[180px]">{r.topic}</span>
-                              <span className="text-muted-foreground">{getResearchStats(r)}</span>
+                              All ({savedResearch.length})
                             </button>
-                            <button
-                              className="text-muted-foreground hover:text-destructive ml-1"
-                              onClick={(e) => { e.stopPropagation(); deleteResearch(r.id); }}
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </button>
+                            {allTags.map(tag => {
+                              const count = savedResearch.filter(s => s.client_tag === tag).length;
+                              return (
+                                <button
+                                  key={tag}
+                                  onClick={() => setUniverseClientTagFilter(universeClientTagFilter === tag ? null : tag)}
+                                  className={`px-2 py-0.5 rounded-full text-xs font-medium border transition-colors ${universeClientTagFilter === tag ? "bg-primary text-primary-foreground border-primary" : "bg-muted/50 hover:bg-muted border-transparent"}`}
+                                >
+                                  {tag} ({count})
+                                </button>
+                              );
+                            })}
+                            {untagged.length > 0 && (
+                              <button
+                                onClick={() => setUniverseClientTagFilter(universeClientTagFilter === "" ? null : "")}
+                                className={`px-2 py-0.5 rounded-full text-xs font-medium border transition-colors ${universeClientTagFilter === "" ? "bg-primary text-primary-foreground border-primary" : "bg-muted/50 hover:bg-muted border-transparent"}`}
+                              >
+                                Untagged ({untagged.length})
+                              </button>
+                            )}
                           </div>
-                        ))}
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
-                <div>
-                  <label className="text-sm font-medium mb-1 block">Topic *</label>
-                  <Input
-                    placeholder="e.g. toys, meeting new people, dental tourism..."
-                    value={topic}
-                    onChange={e => setTopic(e.target.value)}
-                    onKeyDown={e => e.key === "Enter" && !isGenerating && generate()}
-                  />
+                        )}
+                        <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1.5">
+                          <Clock className="h-3.5 w-3.5" />
+                          Your Projects ({filteredResearch.length})
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {filteredResearch.map(r => (
+                            <div key={r.id} className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border bg-accent/30 hover:bg-accent text-xs font-medium transition-colors">
+                              <button
+                                className="flex items-center gap-1.5"
+                                onClick={() => loadResearch(r)}
+                              >
+                                <Clock className="h-3 w-3 text-muted-foreground shrink-0" />
+                                <span className="truncate max-w-[180px]">{r.topic}</span>
+                                <span className="text-muted-foreground">{getResearchStats(r)}</span>
+                                {r.client_tag && (
+                                  <Badge variant="outline" className="text-[10px] px-1.5 py-0">{r.client_tag}</Badge>
+                                )}
+                              </button>
+                              <button
+                                className="text-muted-foreground hover:text-destructive ml-1"
+                                onClick={(e) => { e.stopPropagation(); deleteResearch(r.id); }}
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })()}
+                <div className="grid grid-cols-1 sm:grid-cols-[1fr_200px] gap-4">
+                  <div>
+                    <label className="text-sm font-medium mb-1 block">Topic *</label>
+                    <Input
+                      placeholder="e.g. toys, meeting new people, dental tourism..."
+                      value={topic}
+                      onChange={e => setTopic(e.target.value)}
+                      onKeyDown={e => e.key === "Enter" && !isGenerating && generate()}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium mb-1 block flex items-center gap-1.5">
+                      <Tag className="h-3.5 w-3.5" />
+                      Client Tag
+                    </label>
+                    <Input
+                      placeholder="e.g. Bigleagueshirts"
+                      value={universeClientTag}
+                      onChange={e => setUniverseClientTag(e.target.value)}
+                      list="universe-client-tags"
+                      onBlur={() => {
+                        if (activeResearchId) {
+                          supabase.from("keyword_research" as any)
+                            .update({ client_tag: universeClientTag.trim() || null } as any)
+                            .eq("id", activeResearchId)
+                            .then(() => loadSavedResearch());
+                        }
+                      }}
+                    />
+                    <datalist id="universe-client-tags">
+                      {[...new Set(savedResearch.map(s => s.client_tag).filter(Boolean))].sort().map(tag => (
+                        <option key={tag} value={tag!} />
+                      ))}
+                    </datalist>
+                  </div>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>

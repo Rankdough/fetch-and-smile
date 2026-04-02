@@ -183,6 +183,7 @@ export type Database = {
       }
       keyword_research: {
         Row: {
+          client_tag: string | null
           context: string | null
           created_at: string
           id: string
@@ -190,6 +191,7 @@ export type Database = {
           topic: string
         }
         Insert: {
+          client_tag?: string | null
           context?: string | null
           created_at?: string
           id?: string
@@ -197,6 +199,7 @@ export type Database = {
           topic: string
         }
         Update: {
+          client_tag?: string | null
           context?: string | null
           created_at?: string
           id?: string
