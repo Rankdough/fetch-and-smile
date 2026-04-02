@@ -499,37 +499,54 @@ export function ArticleImagesPanel({
       {/* URL input section */}
       {showUrlInput && (
         <div className="rounded-lg border bg-muted/30 p-3 space-y-2">
-          <p className="text-xs font-medium text-muted-foreground">
-            Paste image URLs (one per line):
-          </p>
-          <Textarea
-            placeholder={"https://example.com/image1.jpg\nhttps://example.com/image2.png"}
-            value={urlInput}
-            onChange={(e) => setUrlInput(e.target.value)}
-            className="min-h-[60px] text-xs bg-input border-2 border-input-border resize-none"
-          />
           <div className="flex gap-2">
+            <Input
+              placeholder="Paste image URL and press Enter (or paste multiple URLs)"
+              value={urlInput}
+              onChange={(e) => setUrlInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && urlInput.trim() && !isAddingUrl) {
+                  e.preventDefault();
+                  handleAddFromUrl();
+                }
+              }}
+              onPaste={(e) => {
+                const pasted = e.clipboardData.getData("text");
+                const lines = pasted.split(/[\n\r]+/).map(l => l.trim()).filter(l => l.startsWith("http"));
+                if (lines.length > 1) {
+                  e.preventDefault();
+                  setUrlInput(lines.join("\n"));
+                  // Auto-submit multi-URL paste after a tick
+                  setTimeout(() => {
+                    const fakeUrlInput = lines.join("\n");
+                    const urls = fakeUrlInput.split("\n").map(u => u.trim()).filter(u => u && (u.startsWith("http://") || u.startsWith("https://")));
+                    if (urls.length > 0) {
+                      setUrlInput(fakeUrlInput);
+                    }
+                  }, 50);
+                }
+              }}
+              disabled={isAddingUrl}
+              className="flex-1 text-sm bg-input border-2 border-input-border"
+              autoFocus
+            />
             <Button
-              size="sm"
-              className="flex-1"
+              size="default"
               onClick={handleAddFromUrl}
               disabled={isAddingUrl || !urlInput.trim()}
             >
               {isAddingUrl ? (
-                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
-                <Plus className="h-3 w-3 mr-1" />
+                <Plus className="h-4 w-4" />
               )}
-              Add {urlInput.split("\n").filter(u => u.trim()).length || ""} Image{urlInput.split("\n").filter(u => u.trim()).length !== 1 ? "s" : ""}
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => { setShowUrlInput(false); setUrlInput(""); }}
-            >
-              Cancel
             </Button>
           </div>
+          {urlInput.includes("\n") && (
+            <p className="text-xs text-muted-foreground">
+              {urlInput.split("\n").filter(u => u.trim()).length} URLs detected — click + or press Enter to add all
+            </p>
+          )}
         </div>
       )}
 
