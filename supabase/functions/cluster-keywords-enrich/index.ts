@@ -33,6 +33,13 @@ OUTPUT ONLY valid JSON, no markdown fences.
 JSON FORMAT:
 {"enrichments":[{"topic":"${clusters[0].topic}","blog_ideas":[{"title":"...","description":"...","reason":"...","target_keywords":["${focusKeyword}",...],"value_promises":["Promise 1","Promise 2","Promise 3"]}]}]}
 
+VALUE PROMISE RULES:
+- Promise 1 MUST directly answer the core question in the title with a specific, factual statement. E.g. for "How Many Quarters in Hockey" → "Hockey has 3 periods of 20 minutes each, not quarters — learn why the terminology matters."
+- Promises 2-3 must address secondary questions implied by the target keywords (e.g. overtime rules, intermission length).
+- Every promise must be a concrete, punchy statement — NOT vague like "Understand the terminology" or "Learn the basics."
+- Format: State the fact or answer, then add what the reader gains. E.g. "NHL intermissions are exactly 18 minutes — here's how teams use them strategically."
+- BANNED: Generic verbs without specifics ("Understand...", "Learn about...", "Discover...", "Explore..."). Always include the actual answer or data point.
+
 TITLE RULES:
 - Format: "[Main Keyword]: [Natural Question]?" — e.g. "Cross-Country Running: How Do You Train for a Race?"
 - MUST contain "${focusKeyword}" verbatim, followed by a natural question.
