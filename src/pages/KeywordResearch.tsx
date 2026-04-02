@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -75,7 +75,13 @@ function isLegacy(r: any): r is LegacyResult {
 
 const KeywordResearch = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { toast } = useToast();
+  const hasClusteringStateInUrl = Boolean(
+    searchParams.get("project") ||
+    searchParams.get("silo") ||
+    searchParams.get("view") === "results"
+  );
 
   const [topic, setTopic] = useState("");
   const [audience, setAudience] = useState("");
@@ -102,8 +108,9 @@ const KeywordResearch = () => {
 
   const abortControllerRef = useRef<AbortController | null>(null);
   const resultsRef = useRef<HTMLDivElement | null>(null);
-  const [isGeneratorOpen, setIsGeneratorOpen] = useState(true);
-  const [isClusteringOpen, setIsClusteringOpen] = useState(false);
+  const clusteringSectionRef = useRef<HTMLDivElement | null>(null);
+  const [isGeneratorOpen, setIsGeneratorOpen] = useState(() => !hasClusteringStateInUrl);
+  const [isClusteringOpen, setIsClusteringOpen] = useState(() => hasClusteringStateInUrl);
   const [isDedupOpen, setIsDedupOpen] = useState(false);
 
   // Refine state
@@ -132,6 +139,19 @@ const KeywordResearch = () => {
   useEffect(() => {
     loadSavedResearch();
   }, []);
+
+  useEffect(() => {
+    if (!hasClusteringStateInUrl) return;
+
+    setIsClusteringOpen(true);
+    setIsGeneratorOpen(false);
+
+    const frame = window.requestAnimationFrame(() => {
+      clusteringSectionRef.current?.scrollIntoView({ block: "start" });
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [hasClusteringStateInUrl]);
 
   const loadSavedResearch = async () => {
     setIsLoadingSaved(true);
@@ -1381,6 +1401,7 @@ const KeywordResearch = () => {
         </div>
 
         {/* Keyword Clustering — collapsible */}
+        <div ref={clusteringSectionRef}>
         <Collapsible open={isClusteringOpen} onOpenChange={setIsClusteringOpen}>
           <Card className="border-[3px] border-primary/30">
             <CollapsibleTrigger className="w-full">
@@ -1401,6 +1422,7 @@ const KeywordResearch = () => {
             </CollapsibleContent>
           </Card>
         </Collapsible>
+        </div>
 
         {/* Keyword Deduplicator — collapsible */}
         <Collapsible open={isDedupOpen} onOpenChange={setIsDedupOpen}>
