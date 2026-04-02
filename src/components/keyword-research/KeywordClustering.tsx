@@ -115,6 +115,7 @@ interface SavedClustering {
   name: string | null;
   input_keywords: string[];
   result: ClusteringResult;
+  client_tag: string | null;
 }
 
 const EditableTitle = ({ title, onSave, className = "" }: { title: string; onSave: (newTitle: string) => void; className?: string }) => {
