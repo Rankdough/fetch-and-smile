@@ -33,6 +33,13 @@ OUTPUT ONLY valid JSON, no markdown fences.
 JSON FORMAT:
 {"enrichments":[{"topic":"${clusters[0].topic}","blog_ideas":[{"title":"...","description":"...","reason":"...","target_keywords":["${focusKeyword}",...],"value_promises":["Promise 1","Promise 2","Promise 3"]}]}]}
 
+VALUE PROMISE RULES:
+- Promise 1 MUST directly answer the core question in the title with a specific, factual statement. E.g. for "How Many Quarters in Hockey" → "Hockey has 3 periods of 20 minutes each, not quarters — learn why the terminology matters."
+- Promises 2-3 must address secondary questions implied by the target keywords (e.g. overtime rules, intermission length).
+- Every promise must be a concrete, punchy statement — NOT vague like "Understand the terminology" or "Learn the basics."
+- Format: State the fact or answer, then add what the reader gains. E.g. "NHL intermissions are exactly 18 minutes — here's how teams use them strategically."
+- BANNED: Generic verbs without specifics ("Understand...", "Learn about...", "Discover...", "Explore..."). Always include the actual answer or data point.
+
 TITLE RULES:
 - Format: "[Main Keyword]: [Natural Question]?" — e.g. "Cross-Country Running: How Do You Train for a Race?"
 - MUST contain "${focusKeyword}" verbatim, followed by a natural question.
@@ -42,7 +49,7 @@ TITLE RULES:
 RULES:
 - Generate exactly 1 blog idea
 - target_keywords: include "${focusKeyword}" plus 1-3 related keywords from the provided list
-- value_promises: exactly 3 concise promises of what the reader will learn`;
+- value_promises: exactly 3 sharp, specific promises (see VALUE PROMISE RULES above)`;
 
       const c = clusters[0];
       const kwList = c.keywords.join(", ");
@@ -111,7 +118,14 @@ RULES:
 OUTPUT ONLY valid JSON, no markdown fences.
 
 JSON FORMAT:
-{"enrichments":[{"topic":"Exact Topic Name","description":"1-sentence description of this cluster","content_type":"blog_post|landing_page|guide|comparison|listicle|how_to","difficulty":"low|medium|high","priority":"high|medium|low","blog_ideas":[{"title":"...","description":"...","reason":"...","target_keywords":["keyword1","keyword2","keyword3"],"value_promises":["Promise 1: what the reader will learn/gain","Promise 2: what the reader will learn/gain","Promise 3: what the reader will learn/gain"]}]}]}
+{"enrichments":[{"topic":"Exact Topic Name","description":"1-sentence description of this cluster","content_type":"blog_post|landing_page|guide|comparison|listicle|how_to","difficulty":"low|medium|high","priority":"high|medium|low","blog_ideas":[{"title":"...","description":"...","reason":"...","target_keywords":["keyword1","keyword2","keyword3"],"value_promises":["Promise 1","Promise 2","Promise 3"]}]}]}
+
+VALUE PROMISE RULES (apply to every blog idea):
+- Promise 1 MUST directly answer the core question in the blog title with a specific, factual statement. E.g. for "How Many Quarters in Hockey" → "Hockey has 3 periods of 20 minutes each, not quarters — learn why the terminology matters."
+- Promises 2-3 must address secondary questions implied by the target keywords (e.g. overtime rules, intermission length).
+- Every promise must be a concrete, punchy statement — NOT vague like "Understand the terminology" or "Learn the basics."
+- Format: State the fact or answer, then add what the reader gains. E.g. "NHL intermissions are exactly 18 minutes — here's how teams use them strategically."
+- BANNED: Generic verbs without specifics ("Understand...", "Learn about...", "Discover...", "Explore..."). Always include the actual answer or data point.
 
 BLOG IDEA TITLE RULES:
 - Format: "[Main Keyword]: [Natural Question]?" — e.g. "Cross-Country Running: How Do You Train for a Race?", "Track Pants: What Are They Made Of?"
@@ -151,7 +165,7 @@ STEP 4: ASSIGN KEYWORDS — EACH KEYWORD TO EXACTLY ONE IDEA
 RULES:
 - Generate 3-7 blog ideas per cluster (NOT always 5 — fewer is better if keywords are closely related)
 - Each blog idea MUST include "target_keywords": an array of keywords from the cluster that this article should target
-- Each blog idea MUST include "value_promises": an array of exactly 3 concise value promises
+- Each blog idea MUST include "value_promises": an array of exactly 3 sharp, specific value promises (see VALUE PROMISE RULES above)
 
 CRITICAL TOPICAL COHERENCE RULES:
 - Every target_keyword assigned to a blog idea MUST be directly relevant to that idea's specific title and angle.
