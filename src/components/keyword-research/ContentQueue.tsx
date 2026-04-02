@@ -8,8 +8,9 @@ import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/comp
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import {
-  ChevronDown, TrendingUp, ArrowRight, Search, Bookmark, FileText, Download, CheckCircle2, Plus, Loader2, Lightbulb, Pencil, Star, CalendarIcon,
+  ChevronDown, TrendingUp, ArrowRight, Search, Bookmark, FileText, Download, CheckCircle2, Plus, Loader2, Lightbulb, Pencil, Star, CalendarIcon, StickyNote, Trash2, X,
 } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
@@ -142,6 +143,34 @@ const ContentQueue = ({ queuedIdeas, onUseForArticle, onRemoveFromQueue, formatV
   const [completedSectionOpen, setCompletedSectionOpen] = useState(true);
   const [completedSort, setCompletedSort] = useState<"date-desc" | "date-asc" | "month">("date-desc");
   const [cqKwSearch, setCqKwSearch] = useState("");
+  
+  // Notes for this content queue, stored per project
+  const notesStorageKey = projectName ? `content-queue-notes-${projectName}` : "content-queue-notes-default";
+  const [notes, setNotes] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem(notesStorageKey);
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
+  });
+  const [newNote, setNewNote] = useState("");
+  const [notesOpen, setNotesOpen] = useState(false);
+
+  const saveNotes = useCallback((updated: string[]) => {
+    setNotes(updated);
+    localStorage.setItem(notesStorageKey, JSON.stringify(updated));
+  }, [notesStorageKey]);
+
+  const addNote = useCallback(() => {
+    if (!newNote.trim()) return;
+    const updated = [newNote.trim(), ...notes];
+    saveNotes(updated);
+    setNewNote("");
+  }, [newNote, notes, saveNotes]);
+
+  const removeNote = useCallback((idx: number) => {
+    const updated = notes.filter((_, i) => i !== idx);
+    saveNotes(updated);
+  }, [notes, saveNotes]);
 
   // Build a flat list of all keywords across all silos for the "Add keyword" search
   const allSiloKeywords = useMemo(() => {
@@ -503,6 +532,52 @@ Focus on providing actionable research that will help create a comprehensive, di
         </CardHeader>
         <CollapsibleContent>
           <CardContent className="pt-0 space-y-4">
+            {/* Notes section */}
+            <div className="border rounded-lg border-border bg-muted/30">
+              <button
+                onClick={() => setNotesOpen(prev => !prev)}
+                className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <span className="flex items-center gap-1.5">
+                  <StickyNote className="h-3.5 w-3.5" />
+                  Notes & Ideas
+                  {notes.length > 0 && <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{notes.length}</Badge>}
+                </span>
+                <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", !notesOpen && "-rotate-90")} />
+              </button>
+              {notesOpen && (
+                <div className="px-3 pb-3 space-y-2">
+                  <div className="flex gap-2">
+                    <Textarea
+                      placeholder="Add a note, idea, or reminder..."
+                      value={newNote}
+                      onChange={e => setNewNote(e.target.value)}
+                      onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); addNote(); } }}
+                      className="min-h-[36px] h-9 text-xs resize-none"
+                      rows={1}
+                    />
+                    <Button size="sm" className="h-9 px-3 shrink-0" onClick={addNote} disabled={!newNote.trim()}>
+                      <Plus className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                  {notes.length > 0 && (
+                    <div className="space-y-1">
+                      {notes.map((note, idx) => (
+                        <div key={idx} className="group flex items-start gap-2 px-2 py-1.5 rounded-md bg-background border text-xs">
+                          <span className="flex-1 whitespace-pre-wrap">{note}</span>
+                          <button
+                            onClick={() => removeNote(idx)}
+                            className="shrink-0 mt-0.5 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
             {/* Done items at the very top */}
             {doneItems.length > 0 && (() => {
               const grandTotalVol = doneItems.reduce((sum, { cluster, idea }) => {
