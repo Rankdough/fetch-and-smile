@@ -1527,6 +1527,7 @@ const KeywordResearch = () => {
                         <Layers className="h-3 w-3 text-muted-foreground" />
                         <span className="truncate max-w-[180px]">{p.name || "Untitled"}</span>
                         <span className="text-muted-foreground">{p.silo_count} silos · {p.kw_count} kw</span>
+                        {p.client_tag && <Badge variant="outline" className="text-[10px] px-1.5 py-0">{p.client_tag}</Badge>}
                       </button>
                     ))}
                   </div>
