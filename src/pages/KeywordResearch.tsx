@@ -149,7 +149,7 @@ const KeywordResearch = () => {
       .from("keyword_clustering_results")
       .select("id, name, created_at, result")
       .order("created_at", { ascending: false })
-      .limit(5);
+;
     if (data) {
       setClusteringProjects(data.map((d: any) => {
         const r = d.result as any;
@@ -169,7 +169,7 @@ const KeywordResearch = () => {
       .from("keyword_dedup_results")
       .select("id, name, original_count, deduplicated_count, created_at")
       .order("created_at", { ascending: false })
-      .limit(5);
+      ;
     if (data) setDedupResults(data as any);
   };
 
@@ -730,7 +730,7 @@ const KeywordResearch = () => {
                 </div>
                 {!isGeneratorOpen && savedResearch.length > 0 && (
                   <div className="flex flex-wrap gap-2 mt-2 text-left" onClick={e => e.stopPropagation()}>
-                    {savedResearch.slice(0, 4).map(r => (
+                    {savedResearch.map(r => (
                       <button
                         key={r.id}
                         onClick={() => { loadResearch(r); setIsGeneratorOpen(true); }}
@@ -741,9 +741,6 @@ const KeywordResearch = () => {
                         <span className="text-muted-foreground">{getResearchStats(r)}</span>
                       </button>
                     ))}
-                    {savedResearch.length > 4 && (
-                      <span className="text-xs text-muted-foreground self-center">+{savedResearch.length - 4} more</span>
-                    )}
                   </div>
                 )}
               </CardHeader>
