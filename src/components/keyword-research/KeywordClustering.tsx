@@ -2225,6 +2225,11 @@ const KeywordClustering = () => {
             <div className="space-y-2">
               {[...result.clusters]
                 .map((cluster, originalIdx) => ({ cluster, originalIdx }))
+                .filter(({ cluster }) => {
+                  if (!keywordSearchQuery.trim()) return true;
+                  const q = keywordSearchQuery.trim().toLowerCase();
+                  return cluster.keywords.some(k => k.toLowerCase().includes(q)) || cluster.topic.toLowerCase().includes(q);
+                })
                 .sort((a, b) => {
                   if (siloSortMode === "volume") {
                     return b.cluster.estimated_monthly_volume - a.cluster.estimated_monthly_volume;
