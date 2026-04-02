@@ -149,7 +149,7 @@ const KeywordResearch = () => {
       .from("keyword_clustering_results")
       .select("id, name, created_at, result")
       .order("created_at", { ascending: false })
-      .limit(5);
+;
     if (data) {
       setClusteringProjects(data.map((d: any) => {
         const r = d.result as any;
