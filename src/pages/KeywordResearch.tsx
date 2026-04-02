@@ -105,7 +105,7 @@ const KeywordResearch = () => {
 
   const [savedResearch, setSavedResearch] = useState<SavedResearch[]>([]);
   const [isLoadingSaved, setIsLoadingSaved] = useState(true);
-  const [clusteringProjects, setClusteringProjects] = useState<{ id: string; name: string | null; created_at: string; silo_count: number; kw_count: number }[]>([]);
+  const [clusteringProjects, setClusteringProjects] = useState<{ id: string; name: string | null; created_at: string; silo_count: number; kw_count: number; client_tag: string | null }[]>([]);
   const [dedupResults, setDedupResults] = useState<{ id: string; name: string; original_count: number; deduplicated_count: number; created_at: string }[]>([]);
 
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -147,7 +147,7 @@ const KeywordResearch = () => {
   const loadClusteringProjects = async () => {
     const { data } = await supabase
       .from("keyword_clustering_results")
-      .select("id, name, created_at, result")
+      .select("id, name, created_at, result, client_tag")
       .order("created_at", { ascending: false })
 ;
     if (data) {
@@ -159,6 +159,7 @@ const KeywordResearch = () => {
           created_at: d.created_at,
           silo_count: r?.clusters?.length || 0,
           kw_count: r?.total_keywords_clustered || 0,
+          client_tag: d.client_tag || null,
         };
       }));
     }
@@ -1526,6 +1527,7 @@ const KeywordResearch = () => {
                         <Layers className="h-3 w-3 text-muted-foreground" />
                         <span className="truncate max-w-[180px]">{p.name || "Untitled"}</span>
                         <span className="text-muted-foreground">{p.silo_count} silos · {p.kw_count} kw</span>
+                        {p.client_tag && <Badge variant="outline" className="text-[10px] px-1.5 py-0">{p.client_tag}</Badge>}
                       </button>
                     ))}
                   </div>

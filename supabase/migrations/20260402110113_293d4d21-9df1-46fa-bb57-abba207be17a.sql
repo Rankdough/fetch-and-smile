@@ -1,0 +1,1 @@
+ALTER TABLE public.keyword_clustering_results ADD COLUMN client_tag TEXT DEFAULT NULL;
