@@ -765,36 +765,84 @@ const KeywordResearch = () => {
             <CollapsibleContent>
               <CardContent className="space-y-4 pt-0">
                 {/* Saved research — at the top when section is open */}
-                {savedResearch.length > 0 && (
-                  <Card className="border-dashed">
-                    <CardContent className="py-3 px-4">
-                      <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1.5">
-                        <Clock className="h-3.5 w-3.5" />
-                        Your Projects ({savedResearch.length})
-                      </p>
-                      <div className="flex flex-wrap gap-2">
-                        {savedResearch.map(r => (
-                          <div key={r.id} className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border bg-accent/30 hover:bg-accent text-xs font-medium transition-colors">
+                {savedResearch.length > 0 && (() => {
+                  const allTags = [...new Set(savedResearch.map(s => s.client_tag).filter(Boolean) as string[])].sort();
+                  const untagged = savedResearch.filter(s => !s.client_tag);
+                  const filteredResearch = universeClientTagFilter !== null
+                    ? universeClientTagFilter === ""
+                      ? savedResearch.filter(s => !s.client_tag)
+                      : savedResearch.filter(s => s.client_tag === universeClientTagFilter)
+                    : savedResearch;
+
+                  return (
+                    <Card className="border-dashed">
+                      <CardContent className="py-3 px-4">
+                        {/* Client tag filter tabs */}
+                        {allTags.length > 0 && (
+                          <div className="flex items-center gap-2 mb-3 flex-wrap">
+                            <span className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                              <Tag className="h-3.5 w-3.5" />
+                              Clients:
+                            </span>
                             <button
-                              className="flex items-center gap-1.5"
-                              onClick={() => loadResearch(r)}
+                              onClick={() => setUniverseClientTagFilter(null)}
+                              className={`px-2 py-0.5 rounded-full text-xs font-medium border transition-colors ${universeClientTagFilter === null ? "bg-primary text-primary-foreground border-primary" : "bg-muted/50 hover:bg-muted border-transparent"}`}
                             >
-                              <Clock className="h-3 w-3 text-muted-foreground shrink-0" />
-                              <span className="truncate max-w-[180px]">{r.topic}</span>
-                              <span className="text-muted-foreground">{getResearchStats(r)}</span>
+                              All ({savedResearch.length})
                             </button>
-                            <button
-                              className="text-muted-foreground hover:text-destructive ml-1"
-                              onClick={(e) => { e.stopPropagation(); deleteResearch(r.id); }}
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </button>
+                            {allTags.map(tag => {
+                              const count = savedResearch.filter(s => s.client_tag === tag).length;
+                              return (
+                                <button
+                                  key={tag}
+                                  onClick={() => setUniverseClientTagFilter(universeClientTagFilter === tag ? null : tag)}
+                                  className={`px-2 py-0.5 rounded-full text-xs font-medium border transition-colors ${universeClientTagFilter === tag ? "bg-primary text-primary-foreground border-primary" : "bg-muted/50 hover:bg-muted border-transparent"}`}
+                                >
+                                  {tag} ({count})
+                                </button>
+                              );
+                            })}
+                            {untagged.length > 0 && (
+                              <button
+                                onClick={() => setUniverseClientTagFilter(universeClientTagFilter === "" ? null : "")}
+                                className={`px-2 py-0.5 rounded-full text-xs font-medium border transition-colors ${universeClientTagFilter === "" ? "bg-primary text-primary-foreground border-primary" : "bg-muted/50 hover:bg-muted border-transparent"}`}
+                              >
+                                Untagged ({untagged.length})
+                              </button>
+                            )}
                           </div>
-                        ))}
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
+                        )}
+                        <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1.5">
+                          <Clock className="h-3.5 w-3.5" />
+                          Your Projects ({filteredResearch.length})
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {filteredResearch.map(r => (
+                            <div key={r.id} className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border bg-accent/30 hover:bg-accent text-xs font-medium transition-colors">
+                              <button
+                                className="flex items-center gap-1.5"
+                                onClick={() => loadResearch(r)}
+                              >
+                                <Clock className="h-3 w-3 text-muted-foreground shrink-0" />
+                                <span className="truncate max-w-[180px]">{r.topic}</span>
+                                <span className="text-muted-foreground">{getResearchStats(r)}</span>
+                                {r.client_tag && (
+                                  <Badge variant="outline" className="text-[10px] px-1.5 py-0">{r.client_tag}</Badge>
+                                )}
+                              </button>
+                              <button
+                                className="text-muted-foreground hover:text-destructive ml-1"
+                                onClick={(e) => { e.stopPropagation(); deleteResearch(r.id); }}
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })()}
                 <div>
                   <label className="text-sm font-medium mb-1 block">Topic *</label>
                   <Input
