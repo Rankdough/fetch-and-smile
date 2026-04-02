@@ -196,6 +196,7 @@ const KeywordClustering = () => {
   const [expandedKeywordSilos, setExpandedKeywordSilos] = useState<Set<string>>(new Set());
   const [kwFilterMode, setKwFilterMode] = useState<Record<string, "all" | "generic" | "questions">>({});
   const [siloSortMode, setSiloSortMode] = useState<"favorites" | "volume">("favorites");
+  const [keywordSearchQuery, setKeywordSearchQuery] = useState("");
   const [favoritedClusters, setFavoritedClusters] = useState<Set<string>>(() => getStoredSet(FAVORITED_CLUSTERS_KEY));
   const [demotedClusters, setDemotedClusters] = useState<Set<string>>(() => getStoredSet(DEMOTED_CLUSTERS_KEY));
   const [rawInput, setRawInput] = useState("");
@@ -2166,8 +2167,23 @@ const KeywordClustering = () => {
               );
             })()}
 
-            {/* Sort controls */}
-            <div className="flex items-center gap-2 mb-1">
+            {/* Search & Sort controls */}
+            <div className="flex items-center gap-3 mb-1 flex-wrap">
+              <div className="relative flex-1 min-w-[200px] max-w-sm">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                <Input
+                  placeholder="Search keywords across silos..."
+                  value={keywordSearchQuery}
+                  onChange={e => setKeywordSearchQuery(e.target.value)}
+                  className="pl-8 h-8 text-sm"
+                />
+                {keywordSearchQuery && (
+                  <button
+                    onClick={() => setKeywordSearchQuery("")}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground text-xs"
+                  >✕</button>
+                )}
+              </div>
               <span className="text-sm text-foreground/70 font-medium">Sort:</span>
               <Badge
                 variant={siloSortMode === "favorites" ? "default" : "outline"}
@@ -2183,6 +2199,15 @@ const KeywordClustering = () => {
               >
                 ↓ Volume
               </Badge>
+              {keywordSearchQuery.trim() && (
+                <span className="text-xs text-muted-foreground ml-auto">
+                  {(() => {
+                    const q = keywordSearchQuery.trim().toLowerCase();
+                    const count = result.clusters.filter(c => c.keywords.some(k => k.toLowerCase().includes(q))).length;
+                    return `Found in ${count} silo${count !== 1 ? 's' : ''}`;
+                  })()}
+                </span>
+              )}
             </div>
 
             {/* Merge mode banner */}
@@ -2200,6 +2225,11 @@ const KeywordClustering = () => {
             <div className="space-y-2">
               {[...result.clusters]
                 .map((cluster, originalIdx) => ({ cluster, originalIdx }))
+                .filter(({ cluster }) => {
+                  if (!keywordSearchQuery.trim()) return true;
+                  const q = keywordSearchQuery.trim().toLowerCase();
+                  return cluster.keywords.some(k => k.toLowerCase().includes(q)) || cluster.topic.toLowerCase().includes(q);
+                })
                 .sort((a, b) => {
                   if (siloSortMode === "volume") {
                     return b.cluster.estimated_monthly_volume - a.cluster.estimated_monthly_volume;
@@ -2320,14 +2350,30 @@ const KeywordClustering = () => {
                                 <p className="text-sm text-foreground/60 truncate">{cluster.description}</p>
                                 {cluster.keyword_volumes && (
                                   <div className="flex items-center gap-2.5 flex-wrap">
-                                    {Object.entries(cluster.keyword_volumes)
-                                      .sort(([, a], [, b]) => (b ?? 0) - (a ?? 0))
-                                      .slice(0, 4)
-                                      .map(([kw, vol]) => (
-                                        <span key={kw} className="text-sm text-foreground/50">
-                                          {kw} <span className="font-semibold text-foreground/70">({formatVolume(vol)})</span>
+                                    {(() => {
+                                      const q = keywordSearchQuery.trim().toLowerCase();
+                                      const entries = Object.entries(cluster.keyword_volumes)
+                                        .sort(([, a], [, b]) => (b ?? 0) - (a ?? 0));
+                                      // If searching, show matching keywords first, then top by volume
+                                      const matchingEntries = q ? entries.filter(([kw]) => kw.toLowerCase().includes(q)) : [];
+                                      const topEntries = entries.filter(([kw]) => !q || !kw.toLowerCase().includes(q)).slice(0, Math.max(0, 4 - matchingEntries.length));
+                                      const displayEntries = [...matchingEntries.slice(0, 4), ...topEntries].slice(0, 4);
+                                      return displayEntries.map(([kw, vol]) => (
+                                        <span key={kw} className={`text-sm ${q && kw.toLowerCase().includes(q) ? "text-primary font-medium" : "text-foreground/50"}`}>
+                                          {kw} <span className={`font-semibold ${q && kw.toLowerCase().includes(q) ? "text-primary" : "text-foreground/70"}`}>({formatVolume(vol)})</span>
                                         </span>
-                                      ))}
+                                      ));
+                                    })()}
+                                    {keywordSearchQuery.trim() && (() => {
+                                      const q = keywordSearchQuery.trim().toLowerCase();
+                                      const matchCount = cluster.keywords.filter(k => k.toLowerCase().includes(q)).length;
+                                      if (matchCount > 0) return (
+                                        <Badge variant="secondary" className="text-xs">
+                                          <Search className="h-3 w-3 mr-1" />{matchCount} match{matchCount !== 1 ? "es" : ""}
+                                        </Badge>
+                                      );
+                                      return null;
+                                    })()}
                                   </div>
                                 )}
                               </div>
