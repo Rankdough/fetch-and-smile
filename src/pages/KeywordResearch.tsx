@@ -760,6 +760,9 @@ const KeywordResearch = () => {
                         <Clock className="h-3 w-3 text-muted-foreground" />
                         <span className="truncate max-w-[180px]">{r.topic}</span>
                         <span className="text-muted-foreground">{getResearchStats(r)}</span>
+                        {r.client_tag && (
+                          <Badge variant="outline" className="text-[10px] px-1.5 py-0">{r.client_tag}</Badge>
+                        )}
                       </button>
                     ))}
                   </div>
