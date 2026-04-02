@@ -49,7 +49,7 @@ TITLE RULES:
 RULES:
 - Generate exactly 1 blog idea
 - target_keywords: include "${focusKeyword}" plus 1-3 related keywords from the provided list
-- value_promises: exactly 3 concise promises of what the reader will learn`;
+- value_promises: exactly 3 sharp, specific promises (see VALUE PROMISE RULES above)`;
 
       const c = clusters[0];
       const kwList = c.keywords.join(", ");
