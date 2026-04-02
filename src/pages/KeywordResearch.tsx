@@ -169,7 +169,7 @@ const KeywordResearch = () => {
       .from("keyword_dedup_results")
       .select("id, name, original_count, deduplicated_count, created_at")
       .order("created_at", { ascending: false })
-      .limit(5);
+      ;
     if (data) setDedupResults(data as any);
   };
 
