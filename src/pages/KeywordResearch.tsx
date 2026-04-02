@@ -665,6 +665,8 @@ const KeywordResearch = () => {
     setTopic(saved.topic);
     setAudience("");
     setCountry("");
+    setActiveResearchId(saved.id);
+    setUniverseClientTag(saved.client_tag || "");
     if (isSemanticMap(saved.results)) {
       setSemanticMap(saved.results);
       setLegacyResults(null);
