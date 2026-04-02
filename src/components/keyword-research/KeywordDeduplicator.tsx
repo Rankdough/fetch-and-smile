@@ -566,8 +566,70 @@ const KeywordDeduplicator = () => {
     ? result?.keywords.filter(k => k.merged) || []
     : result?.keywords || [];
 
+  const renameResult = async (id: string, newName: string) => {
+    try {
+      const { error } = await supabase
+        .from("keyword_dedup_results")
+        .update({ name: newName })
+        .eq("id", id);
+      if (error) throw error;
+      setSavedResults(prev => prev.map(r => r.id === id ? { ...r, name: newName } : r));
+      toast({ title: "Renamed" });
+    } catch (err: any) {
+      toast({ title: "Rename failed", description: err.message, variant: "destructive" });
+    }
+  };
+
   return (
     <div className="space-y-4">
+      {/* Saved projects — at the top */}
+      {savedResults.length > 0 && !result && (
+        <Card className="border-dashed">
+          <CardContent className="py-3 px-4">
+            <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1.5">
+              <Clock className="h-3.5 w-3.5" />
+              Your Projects ({savedResults.length})
+            </p>
+            <div className="space-y-1.5">
+              {savedResults.map((saved) => (
+                <div
+                  key={saved.id}
+                  className={`flex items-center justify-between py-2 px-3 rounded-md hover:bg-accent/30 transition-colors group ${loadedResultId === saved.id ? "border border-primary bg-primary/5" : ""}`}
+                >
+                  <button
+                    className="flex-1 text-left flex items-center gap-3"
+                    onClick={() => loadResult(saved.id)}
+                    disabled={isLoadingResults}
+                  >
+                    <FolderOpen className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <div className="min-w-0">
+                      <EditableName
+                        name={saved.name}
+                        onSave={(newName) => renameResult(saved.id, newName)}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        {saved.deduplicated_count.toLocaleString()} keywords · {saved.removed_count.toLocaleString()} removed
+                        {saved.ai_merged_groups > 0 && ` · ${saved.ai_merged_groups} AI groups`}
+                        {" · "}
+                        {new Date(saved.created_at).toLocaleDateString()}
+                      </p>
+                    </div>
+                  </button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
+                    onClick={(e) => { e.stopPropagation(); deleteResult(saved.id); }}
+                  >
+                    <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <p className="text-sm text-muted-foreground">
         Upload a CSV with keywords and search volumes. <strong>Step 1</strong> instantly merges exact duplicates
         (same words, different order). <strong>Step 2</strong> (optional) uses AI to find semantic duplicates
