@@ -200,6 +200,8 @@ const KeywordClustering = () => {
   const [demotedClusters, setDemotedClusters] = useState<Set<string>>(() => getStoredSet(DEMOTED_CLUSTERS_KEY));
   const [rawInput, setRawInput] = useState("");
   const [projectName, setProjectName] = useState("");
+  const [clientTag, setClientTag] = useState("");
+  const [clientTagFilter, setClientTagFilter] = useState<string | null>(null);
   const [suggestedSilos, setSuggestedSilos] = useState("");
   const [savedResults, setSavedResults] = useState<SavedClustering[]>([]);
   const [activeResultId, setActiveResultId] = useState<string | null>(() => searchParams.get("project"));
