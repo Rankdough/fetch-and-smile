@@ -111,7 +111,7 @@ const KeywordResearch = () => {
   const abortControllerRef = useRef<AbortController | null>(null);
   const resultsRef = useRef<HTMLDivElement | null>(null);
   const clusteringSectionRef = useRef<HTMLDivElement | null>(null);
-  const [isGeneratorOpen, setIsGeneratorOpen] = useState(() => !hasClusteringStateInUrl);
+  const [isGeneratorOpen, setIsGeneratorOpen] = useState(false);
   const [isClusteringOpen, setIsClusteringOpen] = useState(() => hasClusteringStateInUrl);
   const [isDedupOpen, setIsDedupOpen] = useState(false);
 
