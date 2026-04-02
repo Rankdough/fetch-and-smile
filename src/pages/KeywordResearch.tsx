@@ -705,10 +705,19 @@ const KeywordResearch = () => {
             <ArrowLeft className="h-4 w-4" />
             Back
           </Button>
-          <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              setSearchParams({});
+              setIsGeneratorOpen(false);
+              setIsClusteringOpen(false);
+              setIsDedupOpen(false);
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }}
+            className="flex items-center gap-2 hover:opacity-70 transition-opacity"
+          >
             <Search className="h-5 w-5 text-primary" />
             <h1 className="text-lg font-semibold">Keyword Research</h1>
-          </div>
+          </button>
         </div>
       </header>
 
