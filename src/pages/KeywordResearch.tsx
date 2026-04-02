@@ -75,7 +75,7 @@ function isLegacy(r: any): r is LegacyResult {
 
 const KeywordResearch = () => {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { toast } = useToast();
   const hasClusteringStateInUrl = Boolean(
     searchParams.get("project") ||
