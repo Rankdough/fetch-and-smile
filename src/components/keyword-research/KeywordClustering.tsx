@@ -292,6 +292,7 @@ const KeywordClustering = () => {
         setRawInput(target.input_keywords.join("\n"));
         setActiveResultId(target.id);
         setProjectName(target.name || "");
+        setClientTag(target.client_tag || "");
         if (!urlProjectId) setExpandedClusters(new Set());
         if (urlProjectId) setIsResultsOpen(true);
       }
