@@ -74,7 +74,7 @@ CRITICAL GROUPING LOGIC:
 - Think: "What is the COMMON THREAD across these keywords?" and name the silo after that thread.
 
 RULES:
-- ${allKnownSilos.length > 0 ? "Prefer assigning keywords to existing silos. Only create new silos if keywords genuinely don't fit any existing silo." : "Create at most 12 topic silos. HARD LIMIT: 12 silos maximum. If you have more than 12 potential groups, merge the smallest/most-similar ones until you have exactly 12 or fewer."}
+- ${allKnownSilos.length > 0 ? "Prefer assigning keywords to existing silos. Only create new silos if keywords genuinely don't fit any existing silo." : "Create at most 20 topic silos. HARD LIMIT: 20 silos maximum. If you have more than 20 potential groups, merge the smallest/most-similar ones until you have exactly 20 or fewer."}
 - Every keyword must be assigned to exactly one topic
 - Topic names MUST be based on the main/highest-volume keywords in that silo — use the actual keyword phrases as silo names (e.g. "dental implants cost" not "Dental Implant Pricing Information")
 - Numbers in brackets are search volumes — use them to inform grouping but don't output them
@@ -306,7 +306,7 @@ JSON FORMAT:
     // ═══════════════════════════════════════════════
     // CONSOLIDATION PASS: Merge down to ≤12 silos if AI over-fragmented
     // ═══════════════════════════════════════════════
-    const MAX_SILOS = 12;
+    const MAX_SILOS = 20;
     const siloNames = Object.keys(topicKeywords).filter(t => t !== "Other");
     if (siloNames.length > MAX_SILOS) {
       console.log(`Too many silos (${siloNames.length}). Consolidating to ≤${MAX_SILOS}...`);
