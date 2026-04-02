@@ -108,6 +108,7 @@ export type Database = {
       }
       keyword_clustering_results: {
         Row: {
+          client_tag: string | null
           created_at: string
           id: string
           input_keywords: string[]
@@ -116,6 +117,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          client_tag?: string | null
           created_at?: string
           id?: string
           input_keywords?: string[]
@@ -124,6 +126,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          client_tag?: string | null
           created_at?: string
           id?: string
           input_keywords?: string[]
