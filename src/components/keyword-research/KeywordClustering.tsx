@@ -1734,64 +1734,130 @@ const KeywordClustering = () => {
 
   return (
     <div className="space-y-4">
-        {/* Saved projects — at the top */}
-        {savedResults.length > 0 && (
-          <Card className="border-dashed">
-            <CardContent className="py-3 px-4">
-              <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1.5">
-                <Clock className="h-3.5 w-3.5" />
-                Your Projects ({savedResults.length})
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {savedResults.map(saved => {
-                  const clusterCount = saved.result?.clusters?.length || 0;
-                  const kwCount = saved.input_keywords?.length || 0;
-                  const isActive = activeResultId === saved.id;
-                  return (
-                    <div key={saved.id} className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border text-xs font-medium transition-colors ${isActive ? "border-primary bg-primary/10" : "bg-accent/30 hover:bg-accent"}`}>
-                      <button
-                        className="flex items-center gap-1.5"
-                        onClick={() => { loadResult(saved); setProjectName(saved.name || ""); }}
-                      >
-                        <Layers className="h-3 w-3 text-muted-foreground shrink-0" />
-                        <span className="truncate max-w-[180px]">{saved.name || "Untitled"}</span>
-                        <span className="text-muted-foreground">{clusterCount} silos · {kwCount} kw</span>
-                      </button>
-                      <button
-                        className="text-muted-foreground hover:text-destructive ml-1"
-                        onClick={(e) => { e.stopPropagation(); deleteResult(saved.id); }}
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-            </CardContent>
-          </Card>
-        )}
+        {/* Saved projects — at the top, grouped by client tag */}
+        {savedResults.length > 0 && (() => {
+          const allTags = [...new Set(savedResults.map(s => s.client_tag || "").filter(Boolean))].sort();
+          const untagged = savedResults.filter(s => !s.client_tag);
+          const filteredResults = clientTagFilter
+            ? savedResults.filter(s => (s.client_tag || "") === clientTagFilter)
+            : savedResults;
 
-        {/* Project name input */}
-        <div className="space-y-1.5">
-          <label className="text-xs font-medium text-muted-foreground">Project Name</label>
-          <Input
-            placeholder="e.g. pickleball, lacrosse, hiking gear..."
-            value={projectName}
-            onChange={(e) => {
-              setProjectName(e.target.value);
-            }}
-            onBlur={() => {
-              // Save name change to DB when user leaves the field
-              if (activeResultId && projectName.trim()) {
-                supabase
-                  .from("keyword_clustering_results")
-                  .update({ name: projectName.trim() })
-                  .eq("id", activeResultId)
-                  .then(() => loadSavedResults());
-              }
-            }}
-            className="max-w-sm"
-          />
+          return (
+            <Card className="border-dashed">
+              <CardContent className="py-3 px-4">
+                {/* Client tag filter tabs */}
+                <div className="flex items-center gap-2 mb-3 flex-wrap">
+                  <span className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                    <Tag className="h-3.5 w-3.5" />
+                    Clients:
+                  </span>
+                  <button
+                    onClick={() => setClientTagFilter(null)}
+                    className={`px-2 py-0.5 rounded-full text-xs font-medium border transition-colors ${!clientTagFilter ? "bg-primary text-primary-foreground border-primary" : "bg-accent/30 hover:bg-accent border-transparent"}`}
+                  >
+                    All ({savedResults.length})
+                  </button>
+                  {allTags.map(tag => {
+                    const count = savedResults.filter(s => s.client_tag === tag).length;
+                    return (
+                      <button
+                        key={tag}
+                        onClick={() => setClientTagFilter(clientTagFilter === tag ? null : tag)}
+                        className={`px-2 py-0.5 rounded-full text-xs font-medium border transition-colors ${clientTagFilter === tag ? "bg-primary text-primary-foreground border-primary" : "bg-accent/30 hover:bg-accent border-transparent"}`}
+                      >
+                        {tag} ({count})
+                      </button>
+                    );
+                  })}
+                  {untagged.length > 0 && (
+                    <button
+                      onClick={() => setClientTagFilter(clientTagFilter === "" ? null : "")}
+                      className={`px-2 py-0.5 rounded-full text-xs font-medium border transition-colors ${clientTagFilter === "" ? "bg-primary text-primary-foreground border-primary" : "bg-muted/50 hover:bg-muted border-transparent"}`}
+                    >
+                      Untagged ({untagged.length})
+                    </button>
+                  )}
+                </div>
+
+                {/* Project chips */}
+                <div className="flex flex-wrap gap-2">
+                  {filteredResults.map(saved => {
+                    const clusterCount = saved.result?.clusters?.length || 0;
+                    const kwCount = saved.input_keywords?.length || 0;
+                    const isActive = activeResultId === saved.id;
+                    return (
+                      <div key={saved.id} className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border text-xs font-medium transition-colors ${isActive ? "border-primary bg-primary/10" : "bg-accent/30 hover:bg-accent"}`}>
+                        <button
+                          className="flex items-center gap-1.5"
+                          onClick={() => { loadResult(saved); setProjectName(saved.name || ""); }}
+                        >
+                          <Layers className="h-3 w-3 text-muted-foreground shrink-0" />
+                          <span className="truncate max-w-[180px]">{saved.name || "Untitled"}</span>
+                          <span className="text-muted-foreground">{clusterCount} silos · {kwCount} kw</span>
+                          {saved.client_tag && !clientTagFilter && (
+                            <Badge variant="outline" className="text-[10px] px-1.5 py-0">{saved.client_tag}</Badge>
+                          )}
+                        </button>
+                        <button
+                          className="text-muted-foreground hover:text-destructive ml-1"
+                          onClick={(e) => { e.stopPropagation(); deleteResult(saved.id); }}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })()}
+
+        {/* Project name & client tag inputs */}
+        <div className="flex items-end gap-3">
+          <div className="space-y-1.5 flex-1 max-w-sm">
+            <label className="text-xs font-medium text-muted-foreground">Project Name</label>
+            <Input
+              placeholder="e.g. pickleball, lacrosse, hiking gear..."
+              value={projectName}
+              onChange={(e) => setProjectName(e.target.value)}
+              onBlur={() => {
+                if (activeResultId && projectName.trim()) {
+                  supabase
+                    .from("keyword_clustering_results")
+                    .update({ name: projectName.trim() } as any)
+                    .eq("id", activeResultId)
+                    .then(() => loadSavedResults());
+                }
+              }}
+            />
+          </div>
+          <div className="space-y-1.5 max-w-[200px]">
+            <label className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+              <Tag className="h-3 w-3" />
+              Client Tag
+            </label>
+            <Input
+              placeholder="e.g. Little Helpers"
+              value={clientTag}
+              onChange={(e) => setClientTag(e.target.value)}
+              onBlur={() => {
+                if (activeResultId) {
+                  supabase
+                    .from("keyword_clustering_results")
+                    .update({ client_tag: clientTag.trim() || null } as any)
+                    .eq("id", activeResultId)
+                    .then(() => loadSavedResults());
+                }
+              }}
+              list="client-tags-datalist"
+            />
+            <datalist id="client-tags-datalist">
+              {[...new Set(savedResults.map(s => s.client_tag).filter(Boolean))].sort().map(tag => (
+                <option key={tag} value={tag!} />
+              ))}
+            </datalist>
+          </div>
         </div>
 
         <div className="space-y-2">
