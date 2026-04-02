@@ -1729,13 +1729,62 @@ const KeywordClustering = () => {
 
   return (
     <div className="space-y-4">
+        {/* Saved projects — at the top */}
+        {savedResults.length > 0 && (
+          <Card className="border-dashed">
+            <CardContent className="py-3 px-4">
+              <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1.5">
+                <Clock className="h-3.5 w-3.5" />
+                Your Projects ({savedResults.length})
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {savedResults.map(saved => {
+                  const clusterCount = saved.result?.clusters?.length || 0;
+                  const kwCount = saved.input_keywords?.length || 0;
+                  const isActive = activeResultId === saved.id;
+                  return (
+                    <div key={saved.id} className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border text-xs font-medium transition-colors ${isActive ? "border-primary bg-primary/10" : "bg-accent/30 hover:bg-accent"}`}>
+                      <button
+                        className="flex items-center gap-1.5"
+                        onClick={() => { loadResult(saved); setProjectName(saved.name || ""); }}
+                      >
+                        <Layers className="h-3 w-3 text-muted-foreground shrink-0" />
+                        <span className="truncate max-w-[180px]">{saved.name || "Untitled"}</span>
+                        <span className="text-muted-foreground">{clusterCount} silos · {kwCount} kw</span>
+                      </button>
+                      <button
+                        className="text-muted-foreground hover:text-destructive ml-1"
+                        onClick={(e) => { e.stopPropagation(); deleteResult(saved.id); }}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Project name input */}
         <div className="space-y-1.5">
           <label className="text-xs font-medium text-muted-foreground">Project Name</label>
           <Input
             placeholder="e.g. pickleball, lacrosse, hiking gear..."
             value={projectName}
-            onChange={(e) => setProjectName(e.target.value)}
+            onChange={(e) => {
+              setProjectName(e.target.value);
+            }}
+            onBlur={() => {
+              // Save name change to DB when user leaves the field
+              if (activeResultId && projectName.trim()) {
+                supabase
+                  .from("keyword_clustering_results")
+                  .update({ name: projectName.trim() })
+                  .eq("id", activeResultId)
+                  .then(() => loadSavedResults());
+              }
+            }}
             className="max-w-sm"
           />
         </div>
