@@ -11,6 +11,43 @@ import {
 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { supabase } from "@/integrations/supabase/client";
+import { Pencil } from "lucide-react";
+
+const EditableName = ({ name, onSave }: { name: string; onSave: (newName: string) => void }) => {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(name);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => { setValue(name); }, [name]);
+  useEffect(() => { if (editing) inputRef.current?.focus(); }, [editing]);
+
+  const commit = () => {
+    setEditing(false);
+    if (value.trim() && value.trim() !== name) onSave(value.trim());
+    else setValue(name);
+  };
+
+  if (editing) {
+    return (
+      <input
+        ref={inputRef}
+        value={value}
+        onChange={e => setValue(e.target.value)}
+        onBlur={commit}
+        onKeyDown={e => { if (e.key === "Enter") commit(); if (e.key === "Escape") { setValue(name); setEditing(false); } }}
+        onClick={e => e.stopPropagation()}
+        className="text-sm font-medium bg-transparent border-b border-primary outline-none w-full"
+      />
+    );
+  }
+
+  return (
+    <span className="group/name inline-flex items-center gap-1 text-sm font-medium">
+      <span className="cursor-pointer hover:underline decoration-dashed underline-offset-2" onClick={(e) => { e.stopPropagation(); setEditing(true); }}>{name}</span>
+      <Pencil className="h-2.5 w-2.5 text-muted-foreground opacity-0 group-hover/name:opacity-100 transition-opacity cursor-pointer" onClick={(e) => { e.stopPropagation(); setEditing(true); }} />
+    </span>
+  );
+};
 
 interface DedupKeyword {
   keyword: string;
