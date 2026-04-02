@@ -1738,8 +1738,10 @@ const KeywordClustering = () => {
         {savedResults.length > 0 && (() => {
           const allTags = [...new Set(savedResults.map(s => s.client_tag || "").filter(Boolean))].sort();
           const untagged = savedResults.filter(s => !s.client_tag);
-          const filteredResults = clientTagFilter
-            ? savedResults.filter(s => (s.client_tag || "") === clientTagFilter)
+          const filteredResults = clientTagFilter !== null
+            ? clientTagFilter === ""
+              ? savedResults.filter(s => !s.client_tag)
+              : savedResults.filter(s => s.client_tag === clientTagFilter)
             : savedResults;
 
           return (
