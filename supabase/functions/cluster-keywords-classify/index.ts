@@ -306,7 +306,7 @@ JSON FORMAT:
     // ═══════════════════════════════════════════════
     // CONSOLIDATION PASS: Merge down to ≤12 silos if AI over-fragmented
     // ═══════════════════════════════════════════════
-    const MAX_SILOS = 12;
+    const MAX_SILOS = 20;
     const siloNames = Object.keys(topicKeywords).filter(t => t !== "Other");
     if (siloNames.length > MAX_SILOS) {
       console.log(`Too many silos (${siloNames.length}). Consolidating to ≤${MAX_SILOS}...`);
