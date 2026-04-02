@@ -2167,8 +2167,23 @@ const KeywordClustering = () => {
               );
             })()}
 
-            {/* Sort controls */}
-            <div className="flex items-center gap-2 mb-1">
+            {/* Search & Sort controls */}
+            <div className="flex items-center gap-3 mb-1 flex-wrap">
+              <div className="relative flex-1 min-w-[200px] max-w-sm">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                <Input
+                  placeholder="Search keywords across silos..."
+                  value={keywordSearchQuery}
+                  onChange={e => setKeywordSearchQuery(e.target.value)}
+                  className="pl-8 h-8 text-sm"
+                />
+                {keywordSearchQuery && (
+                  <button
+                    onClick={() => setKeywordSearchQuery("")}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground text-xs"
+                  >✕</button>
+                )}
+              </div>
               <span className="text-sm text-foreground/70 font-medium">Sort:</span>
               <Badge
                 variant={siloSortMode === "favorites" ? "default" : "outline"}
@@ -2184,6 +2199,15 @@ const KeywordClustering = () => {
               >
                 ↓ Volume
               </Badge>
+              {keywordSearchQuery.trim() && (
+                <span className="text-xs text-muted-foreground ml-auto">
+                  {(() => {
+                    const q = keywordSearchQuery.trim().toLowerCase();
+                    const count = result.clusters.filter(c => c.keywords.some(k => k.toLowerCase().includes(q))).length;
+                    return `Found in ${count} silo${count !== 1 ? 's' : ''}`;
+                  })()}
+                </span>
+              )}
             </div>
 
             {/* Merge mode banner */}
