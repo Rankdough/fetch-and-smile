@@ -147,7 +147,7 @@ const KeywordResearch = () => {
   const loadClusteringProjects = async () => {
     const { data } = await supabase
       .from("keyword_clustering_results")
-      .select("id, name, created_at, result")
+      .select("id, name, created_at, result, client_tag")
       .order("created_at", { ascending: false })
 ;
     if (data) {
@@ -159,6 +159,7 @@ const KeywordResearch = () => {
           created_at: d.created_at,
           silo_count: r?.clusters?.length || 0,
           kw_count: r?.total_keywords_clustered || 0,
+          client_tag: d.client_tag || null,
         };
       }));
     }
