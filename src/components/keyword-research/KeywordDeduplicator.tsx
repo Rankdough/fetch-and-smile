@@ -11,6 +11,43 @@ import {
 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { supabase } from "@/integrations/supabase/client";
+import { Pencil } from "lucide-react";
+
+const EditableName = ({ name, onSave }: { name: string; onSave: (newName: string) => void }) => {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(name);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => { setValue(name); }, [name]);
+  useEffect(() => { if (editing) inputRef.current?.focus(); }, [editing]);
+
+  const commit = () => {
+    setEditing(false);
+    if (value.trim() && value.trim() !== name) onSave(value.trim());
+    else setValue(name);
+  };
+
+  if (editing) {
+    return (
+      <input
+        ref={inputRef}
+        value={value}
+        onChange={e => setValue(e.target.value)}
+        onBlur={commit}
+        onKeyDown={e => { if (e.key === "Enter") commit(); if (e.key === "Escape") { setValue(name); setEditing(false); } }}
+        onClick={e => e.stopPropagation()}
+        className="text-sm font-medium bg-transparent border-b border-primary outline-none w-full"
+      />
+    );
+  }
+
+  return (
+    <span className="group/name inline-flex items-center gap-1 text-sm font-medium">
+      <span className="cursor-pointer hover:underline decoration-dashed underline-offset-2" onClick={(e) => { e.stopPropagation(); setEditing(true); }}>{name}</span>
+      <Pencil className="h-2.5 w-2.5 text-muted-foreground opacity-0 group-hover/name:opacity-100 transition-opacity cursor-pointer" onClick={(e) => { e.stopPropagation(); setEditing(true); }} />
+    </span>
+  );
+};
 
 interface DedupKeyword {
   keyword: string;
@@ -566,8 +603,70 @@ const KeywordDeduplicator = () => {
     ? result?.keywords.filter(k => k.merged) || []
     : result?.keywords || [];
 
+  const renameResult = async (id: string, newName: string) => {
+    try {
+      const { error } = await supabase
+        .from("keyword_dedup_results")
+        .update({ name: newName })
+        .eq("id", id);
+      if (error) throw error;
+      setSavedResults(prev => prev.map(r => r.id === id ? { ...r, name: newName } : r));
+      toast({ title: "Renamed" });
+    } catch (err: any) {
+      toast({ title: "Rename failed", description: err.message, variant: "destructive" });
+    }
+  };
+
   return (
     <div className="space-y-4">
+      {/* Saved projects — at the top */}
+      {savedResults.length > 0 && !result && (
+        <Card className="border-dashed">
+          <CardContent className="py-3 px-4">
+            <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1.5">
+              <Clock className="h-3.5 w-3.5" />
+              Your Projects ({savedResults.length})
+            </p>
+            <div className="space-y-1.5">
+              {savedResults.map((saved) => (
+                <div
+                  key={saved.id}
+                  className={`flex items-center justify-between py-2 px-3 rounded-md hover:bg-accent/30 transition-colors group ${loadedResultId === saved.id ? "border border-primary bg-primary/5" : ""}`}
+                >
+                  <button
+                    className="flex-1 text-left flex items-center gap-3"
+                    onClick={() => loadResult(saved.id)}
+                    disabled={isLoadingResults}
+                  >
+                    <FolderOpen className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <div className="min-w-0">
+                      <EditableName
+                        name={saved.name}
+                        onSave={(newName) => renameResult(saved.id, newName)}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        {saved.deduplicated_count.toLocaleString()} keywords · {saved.removed_count.toLocaleString()} removed
+                        {saved.ai_merged_groups > 0 && ` · ${saved.ai_merged_groups} AI groups`}
+                        {" · "}
+                        {new Date(saved.created_at).toLocaleDateString()}
+                      </p>
+                    </div>
+                  </button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
+                    onClick={(e) => { e.stopPropagation(); deleteResult(saved.id); }}
+                  >
+                    <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <p className="text-sm text-muted-foreground">
         Upload a CSV with keywords and search volumes. <strong>Step 1</strong> instantly merges exact duplicates
         (same words, different order). <strong>Step 2</strong> (optional) uses AI to find semantic duplicates
@@ -851,57 +950,6 @@ const KeywordDeduplicator = () => {
         </div>
       )}
 
-      {/* Previous Results */}
-      {savedResults.length > 0 && !result && (
-        <Collapsible defaultOpen={savedResults.length <= 5}>
-          <Card>
-            <CollapsibleTrigger className="w-full">
-              <CardContent className="py-3 px-4 flex items-center justify-between">
-                <span className="text-sm font-medium flex items-center gap-2">
-                  <Clock className="h-4 w-4 text-muted-foreground" />
-                  Previous Results ({savedResults.length})
-                </span>
-                <ChevronDown className="h-4 w-4 text-muted-foreground" />
-              </CardContent>
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-              <CardContent className="pt-0 px-4 pb-3 space-y-1.5">
-                {savedResults.map((saved) => (
-                  <div
-                    key={saved.id}
-                    className="flex items-center justify-between py-2 px-3 rounded-md hover:bg-accent/30 transition-colors group"
-                  >
-                    <button
-                      className="flex-1 text-left flex items-center gap-3"
-                      onClick={() => loadResult(saved.id)}
-                      disabled={isLoadingResults}
-                    >
-                      <FolderOpen className="h-4 w-4 text-muted-foreground shrink-0" />
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium truncate">{saved.name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {saved.deduplicated_count.toLocaleString()} keywords · {saved.removed_count.toLocaleString()} removed
-                          {saved.ai_merged_groups > 0 && ` · ${saved.ai_merged_groups} AI groups`}
-                          {" · "}
-                          {new Date(saved.created_at).toLocaleDateString()}
-                        </p>
-                      </div>
-                    </button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
-                      onClick={(e) => { e.stopPropagation(); deleteResult(saved.id); }}
-                    >
-                      <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
-                    </Button>
-                  </div>
-                ))}
-              </CardContent>
-            </CollapsibleContent>
-          </Card>
-        </Collapsible>
-      )}
     </div>
   );
 };

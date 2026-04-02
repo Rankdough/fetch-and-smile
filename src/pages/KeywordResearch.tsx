@@ -756,6 +756,37 @@ const KeywordResearch = () => {
             </CollapsibleTrigger>
             <CollapsibleContent>
               <CardContent className="space-y-4 pt-0">
+                {/* Saved research — at the top when section is open */}
+                {savedResearch.length > 0 && (
+                  <Card className="border-dashed">
+                    <CardContent className="py-3 px-4">
+                      <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1.5">
+                        <Clock className="h-3.5 w-3.5" />
+                        Your Projects ({savedResearch.length})
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {savedResearch.map(r => (
+                          <div key={r.id} className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border bg-accent/30 hover:bg-accent text-xs font-medium transition-colors">
+                            <button
+                              className="flex items-center gap-1.5"
+                              onClick={() => loadResearch(r)}
+                            >
+                              <Clock className="h-3 w-3 text-muted-foreground shrink-0" />
+                              <span className="truncate max-w-[180px]">{r.topic}</span>
+                              <span className="text-muted-foreground">{getResearchStats(r)}</span>
+                            </button>
+                            <button
+                              className="text-muted-foreground hover:text-destructive ml-1"
+                              onClick={(e) => { e.stopPropagation(); deleteResearch(r.id); }}
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
                 <div>
                   <label className="text-sm font-medium mb-1 block">Topic *</label>
                   <Input

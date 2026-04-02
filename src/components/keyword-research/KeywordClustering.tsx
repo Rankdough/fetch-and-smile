@@ -1729,13 +1729,62 @@ const KeywordClustering = () => {
 
   return (
     <div className="space-y-4">
+        {/* Saved projects — at the top */}
+        {savedResults.length > 0 && (
+          <Card className="border-dashed">
+            <CardContent className="py-3 px-4">
+              <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1.5">
+                <Clock className="h-3.5 w-3.5" />
+                Your Projects ({savedResults.length})
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {savedResults.map(saved => {
+                  const clusterCount = saved.result?.clusters?.length || 0;
+                  const kwCount = saved.input_keywords?.length || 0;
+                  const isActive = activeResultId === saved.id;
+                  return (
+                    <div key={saved.id} className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border text-xs font-medium transition-colors ${isActive ? "border-primary bg-primary/10" : "bg-accent/30 hover:bg-accent"}`}>
+                      <button
+                        className="flex items-center gap-1.5"
+                        onClick={() => { loadResult(saved); setProjectName(saved.name || ""); }}
+                      >
+                        <Layers className="h-3 w-3 text-muted-foreground shrink-0" />
+                        <span className="truncate max-w-[180px]">{saved.name || "Untitled"}</span>
+                        <span className="text-muted-foreground">{clusterCount} silos · {kwCount} kw</span>
+                      </button>
+                      <button
+                        className="text-muted-foreground hover:text-destructive ml-1"
+                        onClick={(e) => { e.stopPropagation(); deleteResult(saved.id); }}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Project name input */}
         <div className="space-y-1.5">
           <label className="text-xs font-medium text-muted-foreground">Project Name</label>
           <Input
             placeholder="e.g. pickleball, lacrosse, hiking gear..."
             value={projectName}
-            onChange={(e) => setProjectName(e.target.value)}
+            onChange={(e) => {
+              setProjectName(e.target.value);
+            }}
+            onBlur={() => {
+              // Save name change to DB when user leaves the field
+              if (activeResultId && projectName.trim()) {
+                supabase
+                  .from("keyword_clustering_results")
+                  .update({ name: projectName.trim() })
+                  .eq("id", activeResultId)
+                  .then(() => loadSavedResults());
+              }
+            }}
             className="max-w-sm"
           />
         </div>
@@ -3093,59 +3142,6 @@ Focus on providing actionable research that will help create a comprehensive, di
         })()}
         </div>
 
-        {/* Saved results - Previous Research */}
-        {savedResults.length > 0 && (
-          <Collapsible>
-            <Card className="border-dashed">
-              <CardHeader className="py-3">
-                <CollapsibleTrigger className="w-full flex items-center justify-between">
-                  <CardTitle className="text-sm flex items-center gap-2 text-muted-foreground">
-                    <Clock className="h-4 w-4" />
-                    Previous Research
-                    <Badge variant="secondary" className="text-[10px]">{savedResults.length}</Badge>
-                  </CardTitle>
-                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                </CollapsibleTrigger>
-              </CardHeader>
-              <CollapsibleContent>
-                <CardContent className="pt-0">
-                  <div className="space-y-2">
-                    {savedResults.map(saved => {
-                      const clusterCount = saved.result?.clusters?.length || 0;
-                      const kwCount = saved.input_keywords?.length || 0;
-                      const totalVol = saved.result?.clusters?.reduce((s, c) => s + (c.estimated_monthly_volume || 0), 0) || 0;
-                      return (
-                        <div
-                          key={saved.id}
-                          className={`flex items-center justify-between p-3 rounded-md border hover:bg-accent/50 transition-colors cursor-pointer ${activeResultId === saved.id ? "border-primary bg-primary/5" : ""}`}
-                          onClick={() => {
-                            loadResult(saved);
-                            setProjectName(saved.name || "");
-                          }}
-                        >
-                          <div className="flex-1 text-left">
-                            <span className="font-medium text-sm">{saved.name || "Untitled"}</span>
-                            <span className="text-xs text-muted-foreground ml-2">
-                              {kwCount} terms · {clusterCount} silos{totalVol > 0 ? ` · ~${formatVolume(totalVol)} vol` : ""} · {new Date(saved.created_at).toLocaleDateString()}
-                            </span>
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                            onClick={(e) => { e.stopPropagation(); deleteResult(saved.id); }}
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </CardContent>
-              </CollapsibleContent>
-            </Card>
-          </Collapsible>
-        )}
 
       {/* Add Keywords Dialog */}
       <Dialog open={showAddKeywords} onOpenChange={(open) => { setShowAddKeywords(open); if (!open) { setAddKwTargetSilo(null); setAddKwInput(""); } }}>
