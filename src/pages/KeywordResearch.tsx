@@ -115,6 +115,9 @@ const KeywordResearch = () => {
   const [isGeneratorOpen, setIsGeneratorOpen] = useState(false);
   const [isClusteringOpen, setIsClusteringOpen] = useState(() => hasClusteringStateInUrl);
   const [isDedupOpen, setIsDedupOpen] = useState(false);
+  const [universeClientTag, setUniverseClientTag] = useState("");
+  const [universeClientTagFilter, setUniverseClientTagFilter] = useState<string | null>(null);
+  const [activeResearchId, setActiveResearchId] = useState<string | null>(null);
 
   // Refine state
   const [isRefineOpen, setIsRefineOpen] = useState(false);
