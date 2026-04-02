@@ -345,6 +345,7 @@ const KeywordClustering = () => {
     setActiveResultId(saved.id);
     setExpandedClusters(new Set());
     setIsResultsOpen(true);
+    setClientTag(saved.client_tag || "");
   };
 
   const parseKeywordsFromText = (text: string): string[] => {
