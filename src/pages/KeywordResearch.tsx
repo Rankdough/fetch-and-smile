@@ -63,6 +63,7 @@ interface SavedResearch {
   context: string | null;
   results: SemanticMap | LegacyResult;
   created_at: string;
+  client_tag: string | null;
 }
 
 function isSemanticMap(r: any): r is SemanticMap {
