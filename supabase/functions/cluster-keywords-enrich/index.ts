@@ -118,7 +118,14 @@ RULES:
 OUTPUT ONLY valid JSON, no markdown fences.
 
 JSON FORMAT:
-{"enrichments":[{"topic":"Exact Topic Name","description":"1-sentence description of this cluster","content_type":"blog_post|landing_page|guide|comparison|listicle|how_to","difficulty":"low|medium|high","priority":"high|medium|low","blog_ideas":[{"title":"...","description":"...","reason":"...","target_keywords":["keyword1","keyword2","keyword3"],"value_promises":["Promise 1: what the reader will learn/gain","Promise 2: what the reader will learn/gain","Promise 3: what the reader will learn/gain"]}]}]}
+{"enrichments":[{"topic":"Exact Topic Name","description":"1-sentence description of this cluster","content_type":"blog_post|landing_page|guide|comparison|listicle|how_to","difficulty":"low|medium|high","priority":"high|medium|low","blog_ideas":[{"title":"...","description":"...","reason":"...","target_keywords":["keyword1","keyword2","keyword3"],"value_promises":["Promise 1","Promise 2","Promise 3"]}]}]}
+
+VALUE PROMISE RULES (apply to every blog idea):
+- Promise 1 MUST directly answer the core question in the blog title with a specific, factual statement. E.g. for "How Many Quarters in Hockey" → "Hockey has 3 periods of 20 minutes each, not quarters — learn why the terminology matters."
+- Promises 2-3 must address secondary questions implied by the target keywords (e.g. overtime rules, intermission length).
+- Every promise must be a concrete, punchy statement — NOT vague like "Understand the terminology" or "Learn the basics."
+- Format: State the fact or answer, then add what the reader gains. E.g. "NHL intermissions are exactly 18 minutes — here's how teams use them strategically."
+- BANNED: Generic verbs without specifics ("Understand...", "Learn about...", "Discover...", "Explore..."). Always include the actual answer or data point.
 
 BLOG IDEA TITLE RULES:
 - Format: "[Main Keyword]: [Natural Question]?" — e.g. "Cross-Country Running: How Do You Train for a Race?", "Track Pants: What Are They Made Of?"
