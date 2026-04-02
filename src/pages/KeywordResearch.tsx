@@ -105,6 +105,8 @@ const KeywordResearch = () => {
 
   const [savedResearch, setSavedResearch] = useState<SavedResearch[]>([]);
   const [isLoadingSaved, setIsLoadingSaved] = useState(true);
+  const [clusteringProjects, setClusteringProjects] = useState<{ id: string; name: string | null; created_at: string; silo_count: number; kw_count: number }[]>([]);
+  const [dedupResults, setDedupResults] = useState<{ id: string; name: string; original_count: number; deduplicated_count: number; created_at: string }[]>([]);
 
   const abortControllerRef = useRef<AbortController | null>(null);
   const resultsRef = useRef<HTMLDivElement | null>(null);
@@ -138,7 +140,38 @@ const KeywordResearch = () => {
 
   useEffect(() => {
     loadSavedResearch();
+    loadClusteringProjects();
+    loadDedupResults();
   }, []);
+
+  const loadClusteringProjects = async () => {
+    const { data } = await supabase
+      .from("keyword_clustering_results")
+      .select("id, name, created_at, result")
+      .order("created_at", { ascending: false })
+      .limit(5);
+    if (data) {
+      setClusteringProjects(data.map((d: any) => {
+        const r = d.result as any;
+        return {
+          id: d.id,
+          name: d.name,
+          created_at: d.created_at,
+          silo_count: r?.clusters?.length || 0,
+          kw_count: r?.total_keywords_clustered || 0,
+        };
+      }));
+    }
+  };
+
+  const loadDedupResults = async () => {
+    const { data } = await supabase
+      .from("keyword_dedup_results")
+      .select("id, name, original_count, deduplicated_count, created_at")
+      .order("created_at", { ascending: false })
+      .limit(5);
+    if (data) setDedupResults(data as any);
+  };
 
   useEffect(() => {
     if (!hasClusteringStateInUrl) return;
@@ -679,8 +712,8 @@ const KeywordResearch = () => {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 py-6 space-y-6 keyword-research-page">
-        {/* Input */}
+      <main className="max-w-7xl mx-auto px-4 py-6 space-y-4 keyword-research-page">
+        {/* Semantic Keyword Universe */}
         <Collapsible open={isGeneratorOpen} onOpenChange={setIsGeneratorOpen}>
           <Card className="border-[3px] border-primary/30">
             <CollapsibleTrigger className="w-full">
@@ -689,9 +722,30 @@ const KeywordResearch = () => {
                   <CardTitle className="text-base flex items-center gap-2">
                     <BrainCircuit className="h-4 w-4 text-primary" />
                     Semantic Keyword Universe
+                    {!isGeneratorOpen && savedResearch.length > 0 && (
+                      <Badge variant="secondary" className="text-xs ml-1">{savedResearch.length} saved</Badge>
+                    )}
                   </CardTitle>
                   {isGeneratorOpen ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
                 </div>
+                {!isGeneratorOpen && savedResearch.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-2 text-left" onClick={e => e.stopPropagation()}>
+                    {savedResearch.slice(0, 4).map(r => (
+                      <button
+                        key={r.id}
+                        onClick={() => { loadResearch(r); setIsGeneratorOpen(true); }}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border bg-accent/30 hover:bg-accent text-xs font-medium transition-colors"
+                      >
+                        <Clock className="h-3 w-3 text-muted-foreground" />
+                        <span className="truncate max-w-[180px]">{r.topic}</span>
+                        <span className="text-muted-foreground">{getResearchStats(r)}</span>
+                      </button>
+                    ))}
+                    {savedResearch.length > 4 && (
+                      <span className="text-xs text-muted-foreground self-center">+{savedResearch.length - 4} more</span>
+                    )}
+                  </div>
+                )}
               </CardHeader>
             </CollapsibleTrigger>
             <CollapsibleContent>
@@ -1410,9 +1464,35 @@ const KeywordResearch = () => {
                   <CardTitle className="text-base flex items-center gap-2">
                     <Layers className="h-4 w-4 text-primary" />
                     Keyword Clustering & Topic Silos
+                    {!isClusteringOpen && clusteringProjects.length > 0 && (
+                      <Badge variant="secondary" className="text-xs ml-1">{clusteringProjects.length} project{clusteringProjects.length !== 1 ? "s" : ""}</Badge>
+                    )}
                   </CardTitle>
                   {isClusteringOpen ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
                 </div>
+                {!isClusteringOpen && clusteringProjects.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-2 text-left" onClick={e => e.stopPropagation()}>
+                    {clusteringProjects.map(p => (
+                      <button
+                        key={p.id}
+                        onClick={() => {
+                          setSearchParams(prev => {
+                            const params = new URLSearchParams(prev);
+                            params.set("project", p.id);
+                            params.set("view", "results");
+                            return params;
+                          });
+                          setIsClusteringOpen(true);
+                        }}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border bg-accent/30 hover:bg-accent text-xs font-medium transition-colors"
+                      >
+                        <Layers className="h-3 w-3 text-muted-foreground" />
+                        <span className="truncate max-w-[180px]">{p.name || "Untitled"}</span>
+                        <span className="text-muted-foreground">{p.silo_count} silos · {p.kw_count} kw</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </CardHeader>
             </CollapsibleTrigger>
             <CollapsibleContent>
@@ -1433,9 +1513,27 @@ const KeywordResearch = () => {
                   <CardTitle className="text-base flex items-center gap-2">
                     <Filter className="h-4 w-4 text-primary" />
                     Keyword Deduplicator
+                    {!isDedupOpen && dedupResults.length > 0 && (
+                      <Badge variant="secondary" className="text-xs ml-1">{dedupResults.length} saved</Badge>
+                    )}
                   </CardTitle>
                   {isDedupOpen ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
                 </div>
+                {!isDedupOpen && dedupResults.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-2 text-left" onClick={e => e.stopPropagation()}>
+                    {dedupResults.map(d => (
+                      <button
+                        key={d.id}
+                        onClick={() => setIsDedupOpen(true)}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border bg-accent/30 hover:bg-accent text-xs font-medium transition-colors"
+                      >
+                        <Filter className="h-3 w-3 text-muted-foreground" />
+                        <span className="truncate max-w-[180px]">{d.name}</span>
+                        <span className="text-muted-foreground">{d.original_count}→{d.deduplicated_count}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </CardHeader>
             </CollapsibleTrigger>
             <CollapsibleContent>
@@ -1445,46 +1543,6 @@ const KeywordResearch = () => {
             </CollapsibleContent>
           </Card>
         </Collapsible>
-
-        {/* Previous Research — standalone */}
-        {savedResearch.length > 0 && (
-          <Collapsible>
-            <Card>
-              <CardHeader>
-                <CollapsibleTrigger className="w-full flex items-center justify-between">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <Clock className="h-4 w-4 text-muted-foreground" />
-                    Previous Research
-                    <Badge variant="secondary" className="text-xs">{savedResearch.length}</Badge>
-                  </CardTitle>
-                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                </CollapsibleTrigger>
-              </CardHeader>
-              <CollapsibleContent>
-                <CardContent>
-                  <div className="space-y-2">
-                    {savedResearch.map(saved => (
-                      <div
-                        key={saved.id}
-                        className="flex items-center justify-between p-3 rounded-md border hover:bg-accent/50 transition-colors"
-                      >
-                        <button className="flex-1 text-left" onClick={() => loadResearch(saved)}>
-                          <span className="font-medium text-sm">{saved.topic}</span>
-                          <span className="text-xs text-muted-foreground ml-2">
-                            {getResearchStats(saved)} · {new Date(saved.created_at).toLocaleDateString()}
-                          </span>
-                        </button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={e => { e.stopPropagation(); deleteResearch(saved.id); }}>
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </CollapsibleContent>
-            </Card>
-          </Collapsible>
-        )}
 
         {isLoadingSaved && !savedResearch.length && (
           <Skeleton className="h-24 w-full" />
