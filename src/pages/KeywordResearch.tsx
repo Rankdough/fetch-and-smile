@@ -843,14 +843,41 @@ const KeywordResearch = () => {
                     </Card>
                   );
                 })()}
-                <div>
-                  <label className="text-sm font-medium mb-1 block">Topic *</label>
-                  <Input
-                    placeholder="e.g. toys, meeting new people, dental tourism..."
-                    value={topic}
-                    onChange={e => setTopic(e.target.value)}
-                    onKeyDown={e => e.key === "Enter" && !isGenerating && generate()}
-                  />
+                <div className="grid grid-cols-1 sm:grid-cols-[1fr_200px] gap-4">
+                  <div>
+                    <label className="text-sm font-medium mb-1 block">Topic *</label>
+                    <Input
+                      placeholder="e.g. toys, meeting new people, dental tourism..."
+                      value={topic}
+                      onChange={e => setTopic(e.target.value)}
+                      onKeyDown={e => e.key === "Enter" && !isGenerating && generate()}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium mb-1 block flex items-center gap-1.5">
+                      <Tag className="h-3.5 w-3.5" />
+                      Client Tag
+                    </label>
+                    <Input
+                      placeholder="e.g. Bigleagueshirts"
+                      value={universeClientTag}
+                      onChange={e => setUniverseClientTag(e.target.value)}
+                      list="universe-client-tags"
+                      onBlur={() => {
+                        if (activeResearchId) {
+                          supabase.from("keyword_research" as any)
+                            .update({ client_tag: universeClientTag.trim() || null } as any)
+                            .eq("id", activeResearchId)
+                            .then(() => loadSavedResearch());
+                        }
+                      }}
+                    />
+                    <datalist id="universe-client-tags">
+                      {[...new Set(savedResearch.map(s => s.client_tag).filter(Boolean))].sort().map(tag => (
+                        <option key={tag} value={tag!} />
+                      ))}
+                    </datalist>
+                  </div>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
