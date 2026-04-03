@@ -34,11 +34,14 @@ JSON FORMAT:
 {"enrichments":[{"topic":"${clusters[0].topic}","blog_ideas":[{"title":"...","description":"...","reason":"...","target_keywords":["${focusKeyword}",...],"value_promises":["Promise 1","Promise 2","Promise 3"]}]}]}
 
 VALUE PROMISE RULES:
-- Promise 1 MUST directly answer the core question in the title with a specific, factual statement. E.g. for "How Many Quarters in Hockey" → "Hockey has 3 periods of 20 minutes each, not quarters — learn why the terminology matters."
-- Promises 2-3 must address secondary questions implied by the target keywords (e.g. overtime rules, intermission length).
-- Every promise must be a concrete, punchy statement — NOT vague like "Understand the terminology" or "Learn the basics."
-- Format: State the fact or answer, then add what the reader gains. E.g. "NHL intermissions are exactly 18 minutes — here's how teams use them strategically."
-- BANNED: Generic verbs without specifics ("Understand...", "Learn about...", "Discover...", "Explore..."). Always include the actual answer or data point.
+Value promises are SPECIFIC COMMITMENTS to the reader derived directly from the target_keywords.
+1. Look at EVERY target keyword — each implies a question or information need.
+2. The promise commits to answering that need WITHOUT revealing the actual answer.
+3. Be SPECIFIC: mention the exact sport, level, entity, or metric from the keywords.
+4. Promise comparison tables, figures, and data breakdowns where keywords imply numerical/comparative answers.
+- Example keywords: "batting average formula", "how to calculate batting average" → Promise: "Step-by-step batting average formula with worked examples so you can calculate any player's average yourself."
+- Example keywords: "good batting average softball" → Promise: "Get the exact batting average benchmarks for softball — with a table showing good, great, and elite ranges by level."
+- BANNED: Generic filler ("Understand...", "Learn about...", "Discover...") and revealing the actual answer/numbers.
 
 TITLE RULES:
 - Format: "[Main Keyword]: [Natural Question]?" — e.g. "Cross-Country Running: How Do You Train for a Race?"
@@ -121,11 +124,15 @@ JSON FORMAT:
 {"enrichments":[{"topic":"Exact Topic Name","description":"1-sentence description of this cluster","content_type":"blog_post|landing_page|guide|comparison|listicle|how_to","difficulty":"low|medium|high","priority":"high|medium|low","blog_ideas":[{"title":"...","description":"...","reason":"...","target_keywords":["keyword1","keyword2","keyword3"],"value_promises":["Promise 1","Promise 2","Promise 3"]}]}]}
 
 VALUE PROMISE RULES (apply to every blog idea):
-- Promise 1 MUST directly answer the core question in the blog title with a specific, factual statement. E.g. for "How Many Quarters in Hockey" → "Hockey has 3 periods of 20 minutes each, not quarters — learn why the terminology matters."
-- Promises 2-3 must address secondary questions implied by the target keywords (e.g. overtime rules, intermission length).
-- Every promise must be a concrete, punchy statement — NOT vague like "Understand the terminology" or "Learn the basics."
-- Format: State the fact or answer, then add what the reader gains. E.g. "NHL intermissions are exactly 18 minutes — here's how teams use them strategically."
-- BANNED: Generic verbs without specifics ("Understand...", "Learn about...", "Discover...", "Explore..."). Always include the actual answer or data point.
+Value promises are SPECIFIC COMMITMENTS to the reader derived directly from the target_keywords assigned to that blog idea.
+1. Look at EVERY target keyword — each implies a question or information need.
+2. The promise commits to answering that need WITHOUT revealing the actual answer.
+3. Be SPECIFIC: mention the exact sport, level, entity, or metric from the keywords.
+4. Group related keywords into a single promise when they share the same angle.
+5. Promise comparison tables, figures, and data breakdowns where keywords imply numerical/comparative answers.
+- Example keywords: "batting average formula", "how to calculate batting average" → Promise: "Step-by-step batting average formula with worked examples so you can calculate any player's average yourself."
+- Example keywords: "good batting average softball", "what is a good batting average in softball" → Promise: "Get the exact batting average benchmarks for softball — with a table showing good, great, and elite ranges by level."
+- BANNED: Generic filler ("Understand...", "Learn about...", "Discover...", "Explore...") and revealing the actual answer/numbers in the promise itself.
 
 BLOG IDEA TITLE RULES:
 - Format: "[Main Keyword]: [Natural Question]?" — e.g. "Cross-Country Running: How Do You Train for a Race?", "Track Pants: What Are They Made Of?"
