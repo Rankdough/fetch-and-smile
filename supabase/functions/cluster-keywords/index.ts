@@ -156,11 +156,13 @@ JSON FORMAT:
 {"enrichments":[{"topic":"Exact Topic Name","description":"1-sentence description of this cluster","content_type":"blog_post|landing_page|guide|comparison|listicle|how_to","difficulty":"low|medium|high","priority":"high|medium|low","blog_ideas":[{"title":"...","description":"...","reason":"...","target_keywords":["keyword1","keyword2","keyword3"],"value_promises":["Promise 1","Promise 2","Promise 3"]},{"title":"...","description":"...","reason":"...","target_keywords":["keyword1","keyword2"],"value_promises":["Promise 1","Promise 2","Promise 3"]}]}]}
 
 VALUE PROMISE RULES (apply to every blog idea):
-- Promise 1 MUST directly answer the core question in the blog title with a specific, factual statement. E.g. for "How Many Quarters in Hockey" → "Hockey has 3 periods of 20 minutes each, not quarters — learn why the terminology matters."
-- Promises 2-3 must address secondary questions implied by the target keywords.
-- Every promise must be a concrete, punchy statement — NOT vague like "Understand the terminology" or "Learn the basics."
-- Format: State the fact or answer, then add what the reader gains.
-- BANNED: Generic verbs without specifics ("Understand...", "Learn about...", "Discover...", "Explore..."). Always include the actual answer or data point.
+Value promises are COMMITMENTS TO THE READER about what the article will deliver — they are NOT the answers themselves.
+- Promise 1 MUST promise to answer the core question posed by the blog title. E.g. for "How Many Quarters in Hockey" → "Find out exactly how hockey periods work and why the sport doesn't use quarters like other games."
+- For "What is and How to Calculate Good Batting Average" → "Learn exactly what batting average measures and get a step-by-step formula to calculate it yourself."
+- Promises 2-3 should promise to cover secondary angles implied by the target keywords.
+- Every promise must be a concrete, punchy COMMITMENT — telling the reader what they'll learn or gain, NOT giving away the actual answer.
+- Format: State what the reader will learn/get/know, be specific about the topic but don't reveal the answer.
+- BANNED: Vague verbs without specifics ("Understand...", "Learn about...", "Discover...", "Explore..." used generically). Also BANNED: Actually stating the factual answer in the promise (e.g. "Hockey has 3 periods" or ".270 is above average" — save those for the article body).
 
 RULES:
 - Exactly 5 blog ideas per cluster

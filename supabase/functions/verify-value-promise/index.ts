@@ -47,7 +47,7 @@ serve(async (req) => {
 
     const systemPrompt = `You are a strict content auditor. You will be given an article and a list of specific claims/promises the article MUST deliver on.
 
-For EACH claim, determine with a BINARY pass/fail whether the article substantively addresses it. 
+Each claim is a COMMITMENT TO THE READER about what the article will deliver (e.g. "Learn exactly how batting average is calculated"). For EACH claim, determine with a BINARY pass/fail whether the article substantively delivers on that commitment. 
 - "Substantively" means there is a dedicated section, paragraph, or detailed treatment — NOT just a passing mention or single sentence.
 - A claim about "comparing X vs Y" requires an actual side-by-side comparison, not just mentioning both.
 - A claim about "covering [specific topic]" requires multiple sentences with actionable detail.
