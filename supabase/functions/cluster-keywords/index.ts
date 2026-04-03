@@ -156,18 +156,27 @@ JSON FORMAT:
 {"enrichments":[{"topic":"Exact Topic Name","description":"1-sentence description of this cluster","content_type":"blog_post|landing_page|guide|comparison|listicle|how_to","difficulty":"low|medium|high","priority":"high|medium|low","blog_ideas":[{"title":"...","description":"...","reason":"...","target_keywords":["keyword1","keyword2","keyword3"],"value_promises":["Promise 1","Promise 2","Promise 3"]},{"title":"...","description":"...","reason":"...","target_keywords":["keyword1","keyword2"],"value_promises":["Promise 1","Promise 2","Promise 3"]}]}]}
 
 VALUE PROMISE RULES (apply to every blog idea):
-Value promises are COMMITMENTS TO THE READER about what the article will deliver — they are NOT the answers themselves.
-- Promise 1 MUST promise to answer the core question posed by the blog title. E.g. for "How Many Quarters in Hockey" → "Find out exactly how hockey periods work and why the sport doesn't use quarters like other games."
-- For "What is and How to Calculate Good Batting Average" → "Learn exactly what batting average measures and get a step-by-step formula to calculate it yourself."
-- Promises 2-3 should promise to cover secondary angles implied by the target keywords.
-- Every promise must be a concrete, punchy COMMITMENT — telling the reader what they'll learn or gain, NOT giving away the actual answer.
-- Format: State what the reader will learn/get/know, be specific about the topic but don't reveal the answer.
-- BANNED: Vague verbs without specifics ("Understand...", "Learn about...", "Discover...", "Explore..." used generically). Also BANNED: Actually stating the factual answer in the promise (e.g. "Hockey has 3 periods" or ".270 is above average" — save those for the article body).
+Value promises are SPECIFIC COMMITMENTS to the reader about what the article will deliver. They must be derived directly from the target_keywords assigned to the blog idea.
+
+HOW TO GENERATE VALUE PROMISES:
+1. Look at EVERY target keyword assigned to this blog idea.
+2. Each keyword implies a question or information need — the promise commits to answering it.
+3. Group related keywords into a single promise when they share the same angle.
+4. Be SPECIFIC about what topics/subtopics will be covered, mentioning the exact entities from the keywords (e.g., "softball", "MLB", "high school").
+5. Promise comparison tables, figures, and data breakdowns wherever the keywords imply comparisons or numerical answers.
+
+EXAMPLES:
+- Keywords: "what is a good batting average in softball", "good batting average softball" → Promise: "Get the exact batting average benchmarks for softball at every level — with a comparison table showing good, great, and elite ranges."
+- Keywords: "what is a good batting average in mlb", "average mlb batting average" → Promise: "See the current MLB batting average benchmarks and how today's numbers compare to historical standards."
+- Keywords: "how to calculate batting average", "batting average formula" → Promise: "Step-by-step batting average formula with worked examples so you can calculate any player's average yourself."
 
 RULES:
-- Exactly 5 blog ideas per cluster
-- Each blog idea MUST include "target_keywords": an array of 2-5 keywords from the cluster's keyword list that this article should target
-- Each blog idea MUST include "value_promises": an array of exactly 3 sharp, specific value promises (see VALUE PROMISE RULES above)
+- Generate exactly 3 value promises per blog idea.
+- Each promise MUST map to one or more of the blog idea's target_keywords — do NOT invent promises about topics not in the keywords.
+- Be specific: mention the exact sport, level, entity, or metric from the keywords.
+- Promise tables, comparisons, or figures when keywords imply numerical or comparative answers.
+- Do NOT reveal the actual answer/numbers — promise to DELIVER them.
+- BANNED: Generic filler ("Understand the basics...", "Learn about...", "Discover...", "Explore...") without keyword-specific detail.
 
 CRITICAL TOPICAL COHERENCE RULES:
 - Every target_keyword assigned to a blog idea MUST be directly relevant to that idea's specific title and angle.
