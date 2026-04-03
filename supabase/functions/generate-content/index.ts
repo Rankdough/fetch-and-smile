@@ -183,7 +183,7 @@ ${skipSources ? `SOURCE REFERENCE RULES:
 ARTICLE STRUCTURE (in this order) — WORD BUDGET PER SECTION:
 Total target: ${targetWords} words. Each section has a strict word budget. Do NOT exceed individual section budgets.
 
-${sectionBudgets.fixedSections.map(s => \`- \${s.name}: ~\${s.words} words\`).join("\\n")}
+${sectionBudgets.fixedSections.map(s => \`- \${s.name}: ~\${s.words} words\`).join("\n")}
 - Body H2 sections: ${sectionBudgets.bodyH2Count} sections × ~${sectionBudgets.wordsPerBodyH2} words each = ~${sectionBudgets.remainingWords} words total
 
 SECTION DETAILS:
