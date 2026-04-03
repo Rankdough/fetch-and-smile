@@ -161,8 +161,10 @@ serve(async (req) => {
             .map((f: { name: string; content: string }) => `--- ${f.name} ---\n${f.content}`)
             .join("\n\n");
           changeInstructions.push(
-            `INCORPORATE CONTEXT FILES: Use information from these files to enrich the content:\n${fileContents}\n` +
-            `Cite sources where appropriate. Preserve existing structure.`
+            `INCORPORATE CONTEXT FILES AS PRIMARY SOURCE OF TRUTH: Use information from these files as your AUTHORITATIVE source. ` +
+            `ONLY use facts, data, statistics, and claims that appear in these files. NEVER fabricate information not found in the files. ` +
+            `If the files contain specific numbers or details, use them EXACTLY as provided.\n${fileContents}\n` +
+            `Preserve existing structure but replace any hallucinated or unsupported claims with accurate information from these files.`
           );
           break;
         }
