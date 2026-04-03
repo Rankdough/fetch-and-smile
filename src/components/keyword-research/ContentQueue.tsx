@@ -146,23 +146,38 @@ const ContentQueue = ({ queuedIdeas, onUseForArticle, onRemoveFromQueue, formatV
   
   // Notes for this content queue, stored per project
   const notesStorageKey = projectName ? `content-queue-notes-${projectName}` : "content-queue-notes-default";
-  const [notes, setNotes] = useState<string[]>(() => {
+  
+  interface NoteItem {
+    text: string;
+    createdAt: string;
+  }
+  
+  const [notes, setNotes] = useState<NoteItem[]>(() => {
     try {
       const saved = localStorage.getItem(notesStorageKey);
-      return saved ? JSON.parse(saved) : [];
+      if (!saved) return [];
+      const parsed = JSON.parse(saved);
+      // Migrate old string[] format to NoteItem[]
+      if (Array.isArray(parsed) && parsed.length > 0 && typeof parsed[0] === 'string') {
+        return parsed.map((text: string) => ({ text, createdAt: new Date().toISOString() }));
+      }
+      return parsed;
     } catch { return []; }
   });
   const [newNote, setNewNote] = useState("");
   const [notesOpen, setNotesOpen] = useState(false);
+  const [editingNoteIdx, setEditingNoteIdx] = useState<number | null>(null);
+  const [editingNoteText, setEditingNoteText] = useState("");
+  const editTextareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const saveNotes = useCallback((updated: string[]) => {
+  const saveNotes = useCallback((updated: NoteItem[]) => {
     setNotes(updated);
     localStorage.setItem(notesStorageKey, JSON.stringify(updated));
   }, [notesStorageKey]);
 
   const addNote = useCallback(() => {
     if (!newNote.trim()) return;
-    const updated = [newNote.trim(), ...notes];
+    const updated: NoteItem[] = [{ text: newNote.trim(), createdAt: new Date().toISOString() }, ...notes];
     saveNotes(updated);
     setNewNote("");
   }, [newNote, notes, saveNotes]);
@@ -170,7 +185,40 @@ const ContentQueue = ({ queuedIdeas, onUseForArticle, onRemoveFromQueue, formatV
   const removeNote = useCallback((idx: number) => {
     const updated = notes.filter((_, i) => i !== idx);
     saveNotes(updated);
-  }, [notes, saveNotes]);
+    if (editingNoteIdx === idx) setEditingNoteIdx(null);
+  }, [notes, saveNotes, editingNoteIdx]);
+
+  const startEditNote = useCallback((idx: number) => {
+    setEditingNoteIdx(idx);
+    setEditingNoteText(notes[idx].text);
+    setTimeout(() => editTextareaRef.current?.focus(), 50);
+  }, [notes]);
+
+  const saveEditNote = useCallback(() => {
+    if (editingNoteIdx === null) return;
+    if (!editingNoteText.trim()) {
+      removeNote(editingNoteIdx);
+      return;
+    }
+    const updated = [...notes];
+    updated[editingNoteIdx] = { ...updated[editingNoteIdx], text: editingNoteText.trim() };
+    saveNotes(updated);
+    setEditingNoteIdx(null);
+  }, [editingNoteIdx, editingNoteText, notes, saveNotes, removeNote]);
+
+  const formatNoteDate = (iso: string) => {
+    const d = new Date(iso);
+    const now = new Date();
+    const diffMs = now.getTime() - d.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    if (diffMins < 1) return "Just now";
+    if (diffMins < 60) return `${diffMins}m ago`;
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours < 24) return `${diffHours}h ago`;
+    const diffDays = Math.floor(diffHours / 24);
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return d.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+  };
 
   // Build a flat list of all keywords across all silos for the "Add keyword" search
   const allSiloKeywords = useMemo(() => {
