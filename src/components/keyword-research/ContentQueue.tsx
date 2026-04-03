@@ -594,31 +594,64 @@ Focus on providing actionable research that will help create a comprehensive, di
                 <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", !notesOpen && "-rotate-90")} />
               </button>
               {notesOpen && (
-                <div className="px-3 pb-3 space-y-2">
+                <div className="px-3 pb-3 space-y-2.5">
                   <div className="flex gap-2">
                     <Textarea
                       placeholder="Add a note, idea, or reminder..."
                       value={newNote}
                       onChange={e => setNewNote(e.target.value)}
                       onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); addNote(); } }}
-                      className="min-h-[36px] h-9 text-xs resize-none"
-                      rows={1}
+                      className="min-h-[40px] text-sm resize-none"
+                      rows={2}
                     />
-                    <Button size="sm" className="h-9 px-3 shrink-0" onClick={addNote} disabled={!newNote.trim()}>
-                      <Plus className="h-3.5 w-3.5" />
+                    <Button size="sm" className="h-10 px-3 shrink-0" onClick={addNote} disabled={!newNote.trim()}>
+                      <Plus className="h-4 w-4" />
                     </Button>
                   </div>
                   {notes.length > 0 && (
-                    <div className="space-y-1">
+                    <div className="space-y-2">
                       {notes.map((note, idx) => (
-                        <div key={idx} className="group flex items-start gap-2 px-2 py-1.5 rounded-md bg-background border text-xs">
-                          <span className="flex-1 whitespace-pre-wrap">{note}</span>
-                          <button
-                            onClick={() => removeNote(idx)}
-                            className="shrink-0 mt-0.5 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all"
-                          >
-                            <X className="h-3 w-3" />
-                          </button>
+                        <div key={idx} className="group rounded-lg bg-background border p-3 transition-colors hover:border-primary/30">
+                          {editingNoteIdx === idx ? (
+                            <div className="space-y-2">
+                              <Textarea
+                                ref={editTextareaRef}
+                                value={editingNoteText}
+                                onChange={e => setEditingNoteText(e.target.value)}
+                                onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); saveEditNote(); } if (e.key === "Escape") setEditingNoteIdx(null); }}
+                                className="text-sm resize-none"
+                                rows={3}
+                                autoFocus
+                              />
+                              <div className="flex gap-2 justify-end">
+                                <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setEditingNoteIdx(null)}>Cancel</Button>
+                                <Button size="sm" className="h-7 text-xs" onClick={saveEditNote}>Save</Button>
+                              </div>
+                            </div>
+                          ) : (
+                            <>
+                              <p className="text-sm whitespace-pre-wrap break-words leading-relaxed">{note.text}</p>
+                              <div className="flex items-center justify-between mt-2 pt-1.5 border-t border-border/50">
+                                <span className="text-[11px] text-muted-foreground">{formatNoteDate(note.createdAt)}</span>
+                                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <button
+                                    onClick={() => startEditNote(idx)}
+                                    className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                                    title="Edit note"
+                                  >
+                                    <Pencil className="h-3.5 w-3.5" />
+                                  </button>
+                                  <button
+                                    onClick={() => removeNote(idx)}
+                                    className="p-1 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                                    title="Delete note"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </button>
+                                </div>
+                              </div>
+                            </>
+                          )}
                         </div>
                       ))}
                     </div>
