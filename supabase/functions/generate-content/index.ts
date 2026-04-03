@@ -108,6 +108,24 @@ serve(async (req) => {
       const wordsPerBodyH2 = Math.round(remainingWords / bodyH2Count);
       return { fixedSections: fixedSections.filter(s => s.included), bodyH2Count, wordsPerBodyH2, fixedTotal, remainingWords };
     })();
+
+    // Pre-compute dynamic section budget strings to avoid nested template literals
+    const fixedSectionBudgetList = sectionBudgets.fixedSections.map(s => "- " + s.name + ": ~" + s.words + " words").join("\n");
+    const quickTipsWords = sectionBudgets.fixedSections.find(s => s.name === "Quick Tips")?.words || 50;
+    const inThisArticleWords = sectionBudgets.fixedSections.find(s => s.name === "In This Article")?.words || 80;
+    const faqWords = sectionBudgets.fixedSections.find(s => s.name === "FAQ")?.words || 120;
+    const referencesWords = sectionBudgets.fixedSections.find(s => s.name === "References")?.words || 30;
+    const openingWords = sectionBudgets.fixedSections.find(s => s.name.includes("Opening"))?.words || 40;
+    const tldrWords = sectionBudgets.fixedSections.find(s => s.name === "TL;DR")?.words || 60;
+    const howToChooseWords = sectionBudgets.fixedSections.find(s => s.name === "How to Choose")?.words || 80;
+    const finalThoughtsWords = sectionBudgets.fixedSections.find(s => s.name === "Final Thoughts")?.words || 50;
+    
+    const quickTipsSection = skipQuickTips ? '' : "3. ## Quick Tips (~" + quickTipsWords + " words) — exactly 3 tips:\n   > **Tip 1:** [One short sentence - max 15 words]\n   > **Tip 2:** [One short sentence - max 15 words]\n   > **Tip 3:** [One short sentence - max 15 words]\n";
+    const inThisArticleSection = migrationMode
+      ? "4. DO NOT include an \"In This Article\" section - this is generated automatically by the client."
+      : "4. ## In This Article (~" + inThisArticleWords + " words) — navigation guide:\n   - Format as a BULLETED LIST: - **1. Section Title** - DETAILED description (MINIMUM 150 characters)\n   - List ALL main H2 sections from the article (not TL;DR or References)\n   - DO NOT SKIP THIS SECTION";
+    const faqSection = skipFaqs ? '' : "7. \"## Frequently Asked Questions\" (~" + faqWords + " words) — 4-6 Q&As in bold question format";
+    const referencesSection = skipSources ? '' : "9. \"## References:\" (~" + referencesWords + " words) — list ALL sources as markdown links";
     
     // Build the prompt
     let systemPrompt = `You are an expert SEO content writer. Write high-quality, engaging blog posts optimized for search engines while remaining valuable and readable.
@@ -183,29 +201,22 @@ ${skipSources ? `SOURCE REFERENCE RULES:
 ARTICLE STRUCTURE (in this order) — WORD BUDGET PER SECTION:
 Total target: ${targetWords} words. Each section has a strict word budget. Do NOT exceed individual section budgets.
 
-${sectionBudgets.fixedSections.map(s => \`- \${s.name}: ~\${s.words} words\`).join("\\n")}
+${fixedSectionBudgetList}
 - Body H2 sections: ${sectionBudgets.bodyH2Count} sections × ~${sectionBudgets.wordsPerBodyH2} words each = ~${sectionBudgets.remainingWords} words total
 
 SECTION DETAILS:
-1. Title (# H1) + Opening paragraph (~${sectionBudgets.fixedSections.find(s => s.name.includes("Opening"))?.words || 40} words) — AI-quotable factual statement
-2. ## TL;DR (~${sectionBudgets.fixedSections.find(s => s.name === "TL;DR")?.words || 60} words) — exactly 1 dense paragraph, NOT bullet points. Self-contained statement an AI could quote. Include specific names, numbers, clear verdict.
+1. Title (# H1) + Opening paragraph (~${openingWords} words) — AI-quotable factual statement
+2. ## TL;DR (~${tldrWords} words) — exactly 1 dense paragraph, NOT bullet points. Self-contained statement an AI could quote. Include specific names, numbers, clear verdict.
 
-${skipQuickTips ? '' : \`3. ## Quick Tips (~\${sectionBudgets.fixedSections.find(s => s.name === "Quick Tips")?.words || 50} words) — exactly 3 tips:
-   > **Tip 1:** [One short sentence - max 15 words]
-   > **Tip 2:** [One short sentence - max 15 words]
-   > **Tip 3:** [One short sentence - max 15 words]
-\`}
-${migrationMode ? \`4. DO NOT include an "In This Article" section - this is generated automatically by the client.\` : \`4. ## In This Article (~\${sectionBudgets.fixedSections.find(s => s.name === "In This Article")?.words || 80} words) — navigation guide:
-   - Format as a BULLETED LIST: - **1. Section Title** - DETAILED description (MINIMUM 150 characters)
-   - List ALL main H2 sections from the article (not TL;DR or References)
-   - DO NOT SKIP THIS SECTION\`}
+${quickTipsSection}
+${inThisArticleSection}
 5. ${sectionBudgets.bodyH2Count} Main content sections with ## QUESTION headings (~${sectionBudgets.wordsPerBodyH2} words EACH, no more)
    - Each answered with text + bullets + tables${skipSources ? '' : ' + **Sources:** at the end'}
    - Include comparison table(s) where relevant
-6. "## How to Choose" (~${sectionBudgets.fixedSections.find(s => s.name === "How to Choose")?.words || 80} words) — practical checklist, 4-6 criteria as bullet points
-${skipFaqs ? '' : \`7. "## Frequently Asked Questions" (~\${sectionBudgets.fixedSections.find(s => s.name === "FAQ")?.words || 120} words) — 4-6 Q&As in bold question format\`}
-8. "## Final Thoughts" (~${sectionBudgets.fixedSections.find(s => s.name === "Final Thoughts")?.words || 50} words) — with call-to-action
-${skipSources ? '' : \`9. "## References:" (~\${sectionBudgets.fixedSections.find(s => s.name === "References")?.words || 30} words) — list ALL sources as markdown links\`}
+6. "## How to Choose" (~${howToChooseWords} words) — practical checklist, 4-6 criteria as bullet points
+${faqSection}
+8. "## Final Thoughts" (~${finalThoughtsWords} words) — with call-to-action
+${referencesSection}
 
 ⚠️ WORD BUDGET ENFORCEMENT: Each body H2 section MUST be ~${sectionBudgets.wordsPerBodyH2} words. If you write ${sectionBudgets.bodyH2Count} body sections at ${sectionBudgets.wordsPerBodyH2} words each plus fixed sections, the total will be ~${targetWords} words. Going over budget on ANY section means the total will overshoot. Be disciplined.`}
 
@@ -474,7 +485,16 @@ ${instructions}`;
           .join("\n\n");
         userPrompt += `
 
-Reference materials to incorporate:
+🚨 PRIMARY SOURCE OF TRUTH - CONTEXT FILES (NON-NEGOTIABLE):
+The following reference materials are your AUTHORITATIVE source. You MUST:
+1. Use ONLY facts, data, statistics, names, dates, and claims that appear in these files
+2. NEVER fabricate or hallucinate information that is not in these files
+3. If the files contain specific numbers, quotes, or details, use them EXACTLY as provided
+4. If a topic is covered in the files, base your writing on the file content, NOT your training data
+5. If the files do not cover a subtopic, you may use general knowledge BUT clearly keep it factual and verifiable
+6. When in doubt, stick to what the files say — accuracy trumps creativity
+
+CONTEXT FILES:
 ${contextContent}`;
       }
 
