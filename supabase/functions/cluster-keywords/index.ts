@@ -178,7 +178,11 @@ RULES:
 - Do NOT reveal the actual answer/numbers — promise to DELIVER them.
 - BANNED: Generic filler ("Understand the basics...", "Learn about...", "Discover...", "Explore...") without keyword-specific detail.
 
-CRITICAL TOPICAL COHERENCE RULES:
+RULES:
+- Exactly 5 blog ideas per cluster
+- Each blog idea MUST include "target_keywords": an array of 2-5 keywords from the cluster's keyword list that this article should target
+- Each blog idea MUST include "value_promises": an array of exactly 3 keyword-derived value promises (see VALUE PROMISE RULES above)
+
 - Every target_keyword assigned to a blog idea MUST be directly relevant to that idea's specific title and angle.
 - Do NOT assign keywords about other countries/brands/entities to an article focused on a specific one. For example, an article about "Albania Dental Tourism" must NOT target keywords like "dental tourism germany" — those belong in a separate article.
 - If a cluster contains keywords spanning multiple sub-entities (countries, brands, products), create separate blog ideas for each OR a comparison/roundup article.
