@@ -474,7 +474,16 @@ ${instructions}`;
           .join("\n\n");
         userPrompt += `
 
-Reference materials to incorporate:
+🚨 PRIMARY SOURCE OF TRUTH - CONTEXT FILES (NON-NEGOTIABLE):
+The following reference materials are your AUTHORITATIVE source. You MUST:
+1. Use ONLY facts, data, statistics, names, dates, and claims that appear in these files
+2. NEVER fabricate or hallucinate information that is not in these files
+3. If the files contain specific numbers, quotes, or details, use them EXACTLY as provided
+4. If a topic is covered in the files, base your writing on the file content, NOT your training data
+5. If the files do not cover a subtopic, you may use general knowledge BUT clearly keep it factual and verifiable
+6. When in doubt, stick to what the files say — accuracy trumps creativity
+
+CONTEXT FILES:
 ${contextContent}`;
       }
 
