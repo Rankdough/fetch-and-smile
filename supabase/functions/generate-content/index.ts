@@ -108,6 +108,24 @@ serve(async (req) => {
       const wordsPerBodyH2 = Math.round(remainingWords / bodyH2Count);
       return { fixedSections: fixedSections.filter(s => s.included), bodyH2Count, wordsPerBodyH2, fixedTotal, remainingWords };
     })();
+
+    // Pre-compute dynamic section budget strings to avoid nested template literals
+    const fixedSectionBudgetList = sectionBudgets.fixedSections.map(s => "- " + s.name + ": ~" + s.words + " words").join("\n");
+    const quickTipsWords = sectionBudgets.fixedSections.find(s => s.name === "Quick Tips")?.words || 50;
+    const inThisArticleWords = sectionBudgets.fixedSections.find(s => s.name === "In This Article")?.words || 80;
+    const faqWords = sectionBudgets.fixedSections.find(s => s.name === "FAQ")?.words || 120;
+    const referencesWords = sectionBudgets.fixedSections.find(s => s.name === "References")?.words || 30;
+    const openingWords = sectionBudgets.fixedSections.find(s => s.name.includes("Opening"))?.words || 40;
+    const tldrWords = sectionBudgets.fixedSections.find(s => s.name === "TL;DR")?.words || 60;
+    const howToChooseWords = sectionBudgets.fixedSections.find(s => s.name === "How to Choose")?.words || 80;
+    const finalThoughtsWords = sectionBudgets.fixedSections.find(s => s.name === "Final Thoughts")?.words || 50;
+    
+    const quickTipsSection = skipQuickTips ? '' : "3. ## Quick Tips (~" + quickTipsWords + " words) — exactly 3 tips:\n   > **Tip 1:** [One short sentence - max 15 words]\n   > **Tip 2:** [One short sentence - max 15 words]\n   > **Tip 3:** [One short sentence - max 15 words]\n";
+    const inThisArticleSection = migrationMode
+      ? "4. DO NOT include an \"In This Article\" section - this is generated automatically by the client."
+      : "4. ## In This Article (~" + inThisArticleWords + " words) — navigation guide:\n   - Format as a BULLETED LIST: - **1. Section Title** - DETAILED description (MINIMUM 150 characters)\n   - List ALL main H2 sections from the article (not TL;DR or References)\n   - DO NOT SKIP THIS SECTION";
+    const faqSection = skipFaqs ? '' : "7. \"## Frequently Asked Questions\" (~" + faqWords + " words) — 4-6 Q&As in bold question format";
+    const referencesSection = skipSources ? '' : "9. \"## References:\" (~" + referencesWords + " words) — list ALL sources as markdown links";
     
     // Build the prompt
     let systemPrompt = `You are an expert SEO content writer. Write high-quality, engaging blog posts optimized for search engines while remaining valuable and readable.
