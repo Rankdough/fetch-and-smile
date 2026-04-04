@@ -1488,7 +1488,7 @@ const Index = () => {
                 if (idx !== -1) newHistory.splice(idx, 1);
                 newHistory.unshift(trimmed);
               });
-              return newHistory.slice(0, 15);
+              return newHistory.slice(0, 100);
             });
           }
         } else {
