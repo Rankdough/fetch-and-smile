@@ -2097,6 +2097,18 @@ const Index = () => {
 
       setGeneratedContent(data.content);
 
+      // Save used URLs to history
+      setInternalLinkHistory(prev => {
+        const newHistory = [...prev];
+        validUrls.forEach(url => {
+          const trimmed = url.trim();
+          const idx = newHistory.indexOf(trimmed);
+          if (idx !== -1) newHistory.splice(idx, 1);
+          newHistory.unshift(trimmed);
+        });
+        return newHistory.slice(0, 100);
+      });
+
       const skipped = data.skippedUrls?.length || 0;
       toast({
         title: "Internal links inserted!",
