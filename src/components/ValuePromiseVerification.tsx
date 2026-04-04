@@ -97,13 +97,32 @@ export const ValuePromiseVerification = ({
       if (!data?.content) throw new Error("No content returned");
 
       onContentUpdate(data.content);
+      
+      // Update the fixed claims in-place instead of clearing results
+      const fixedClaimTexts = claimsToFix.map(c => c.claim);
+      setResult(prev => {
+        if (!prev) return prev;
+        const updatedClaims = prev.claims.map(c => 
+          fixedClaimTexts.includes(c.claim) 
+            ? { ...c, fulfilled: true, evidence: "Fixed via AI repair", explanation: "This claim was repaired. Click 'Re-verify After Edits' to confirm." }
+            : c
+        );
+        const fulfilledCount = updatedClaims.filter(c => c.fulfilled).length;
+        return {
+          ...prev,
+          claims: updatedClaims,
+          fulfilledCount,
+          summary: fulfilledCount === prev.totalClaims 
+            ? "All claims now addressed. Re-verify to confirm." 
+            : `${fulfilledCount}/${prev.totalClaims} claims fulfilled. Fix remaining claims or re-verify.`,
+        };
+      });
+      
       toast.success(
         claimsToFix.length === 1
           ? "Claim fix applied. Re-verify to confirm."
           : `Fixed ${claimsToFix.length} failed claim(s). Re-verify to confirm.`,
       );
-
-      setResult(null);
     } catch (error) {
       console.error("Fix error:", error);
       const message = error instanceof Error ? error.message : "Failed to fix claims";
