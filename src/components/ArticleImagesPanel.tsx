@@ -203,25 +203,15 @@ export function ArticleImagesPanel({
     const image = images[index];
     
     try {
-      // Delete from storage
-      const { error } = await supabase.storage
-        .from("article-images")
-        .remove([image.filePath]);
-
-      if (error) {
-        console.error("Delete error:", error);
-      }
-
-      // Remove from state regardless of storage deletion result
+      // Only remove from the current article's image list — never delete from storage
       onImagesChange(images.filter((_, i) => i !== index));
       
       toast({
-        title: "Image removed",
-        description: `${image.name} has been deleted`,
+        title: "Image removed from article",
+        description: `${image.name} has been removed from this article (still available in your library)`,
       });
     } catch (error) {
-      console.error("Delete error:", error);
-      // Still remove from UI
+      console.error("Remove error:", error);
       onImagesChange(images.filter((_, i) => i !== index));
     }
   };
