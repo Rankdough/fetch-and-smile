@@ -3186,23 +3186,34 @@ const Index = () => {
                     setGeneratedCTAs(null);
                   }
 
-                  // Auto-insert internal links if configured
-                  const validUrls = internalLinks.filter((url) => url.trim());
-                  if (validUrls.length > 0 && finalContent.trim()) {
-                    try {
-                      const linkResult = await supabase.functions.invoke("insert-internal-links", {
-                        body: {
-                          content: finalContent,
-                          urls: validUrls,
-                        },
-                      });
-                      if (!linkResult.error && linkResult.data?.content) {
-                        finalContent = linkResult.data.content;
-                      }
-                    } catch (linkErr) {
-                      console.warn("Auto internal link insertion failed:", linkErr);
-                    }
-                  }
+                   // Auto-insert internal links if configured
+                   const validUrls = internalLinks.filter((url) => url.trim());
+                   if (validUrls.length > 0 && finalContent.trim()) {
+                     try {
+                       const linkResult = await supabase.functions.invoke("insert-internal-links", {
+                         body: {
+                           content: finalContent,
+                           urls: validUrls,
+                         },
+                       });
+                       if (!linkResult.error && linkResult.data?.content) {
+                         finalContent = linkResult.data.content;
+                       }
+                     } catch (linkErr) {
+                       console.warn("Auto internal link insertion failed:", linkErr);
+                     }
+                     // Save URLs to history
+                     setInternalLinkHistory(prev => {
+                       const newHistory = [...prev];
+                       validUrls.forEach(url => {
+                         const trimmed = url.trim();
+                         const idx = newHistory.indexOf(trimmed);
+                         if (idx !== -1) newHistory.splice(idx, 1);
+                         newHistory.unshift(trimmed);
+                       });
+                       return newHistory.slice(0, 100);
+                     });
+                   }
 
                   setGeneratedContent(finalContent, true);
                   toast({
