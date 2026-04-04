@@ -1,0 +1,1 @@
+DROP POLICY "Anyone can delete article images" ON storage.objects;
