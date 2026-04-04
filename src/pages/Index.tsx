@@ -4050,8 +4050,8 @@ const Index = () => {
                       if (!grouped[domain]) grouped[domain] = [];
                       grouped[domain].push(url);
                     });
-                    return (
-                      <div className="space-y-2">
+                      return (
+                      <div className="max-h-[200px] overflow-y-auto space-y-2 pr-1">
                         {Object.entries(grouped).map(([domain, urls]) => (
                           <div key={domain}>
                             <p className="text-[10px] font-semibold text-muted-foreground/70 uppercase tracking-wide mb-1">{domain}</p>
