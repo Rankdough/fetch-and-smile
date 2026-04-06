@@ -63,6 +63,7 @@ import { CreditUsageDisplay } from "@/components/CreditUsageDisplay";
 import { GenerationProgress, PipelineStage } from "@/components/GenerationProgress";
 import { ValuePromiseVerification } from "@/components/ValuePromiseVerification";
 import { ApplyFormatProgress, FormatStep, DEFAULT_FORMAT_STEPS } from "@/components/ApplyFormatProgress";
+import ContextHubPanel from "@/components/ContextHubPanel";
 
 const SAMPLE_CONTENT = `# Composite Bonding vs Veneers: Which Smile Transformation is Right for You?
 
