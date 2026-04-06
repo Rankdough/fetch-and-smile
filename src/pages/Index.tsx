@@ -63,6 +63,7 @@ import { CreditUsageDisplay } from "@/components/CreditUsageDisplay";
 import { GenerationProgress, PipelineStage } from "@/components/GenerationProgress";
 import { ValuePromiseVerification } from "@/components/ValuePromiseVerification";
 import { ApplyFormatProgress, FormatStep, DEFAULT_FORMAT_STEPS } from "@/components/ApplyFormatProgress";
+import ContextHubPanel from "@/components/ContextHubPanel";
 
 const SAMPLE_CONTENT = `# Composite Bonding vs Veneers: Which Smile Transformation is Right for You?
 
@@ -3681,6 +3682,19 @@ const Index = () => {
                     ))}
                   </div>
                 )}
+
+                <Separator className="my-3" />
+
+                <ContextHubPanel
+                  contextFiles={contextFiles}
+                  onLoadTopicFiles={(files) => {
+                    setContextFiles((prev) => {
+                      const existingNames = new Set(prev.map((f) => f.name));
+                      const newFiles = files.filter((f) => !existingNames.has(f.name));
+                      return [...prev, ...newFiles];
+                    });
+                  }}
+                />
               </CollapsibleSection>
 
               {/* Section 6: Tone of Voice Profiles */}

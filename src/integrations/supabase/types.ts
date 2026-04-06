@@ -14,6 +14,68 @@ export type Database = {
   }
   public: {
     Tables: {
+      context_documents: {
+        Row: {
+          content: string
+          created_at: string
+          file_name: string
+          id: string
+          summary: string | null
+          topic_id: string
+          updated_at: string
+        }
+        Insert: {
+          content?: string
+          created_at?: string
+          file_name: string
+          id?: string
+          summary?: string | null
+          topic_id: string
+          updated_at?: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          file_name?: string
+          id?: string
+          summary?: string | null
+          topic_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "context_documents_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "context_topics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      context_topics: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       image_folder_assignments: {
         Row: {
           created_at: string
