@@ -188,11 +188,23 @@ The right choice depends on the scale of change you want, how long you want resu
 `;
 // Helper to auto-clean prohibited characters from content
 const cleanContent = (content: string): string => {
-  return content
+  let cleaned = content
     .replace(/—/g, "-")  // Remove em dashes
     .replace(/–/g, "-")  // Remove en dashes
     .replace(/^\s*[-*_]{3,}\s*$/gm, "")  // Remove horizontal lines
     .replace(/^(\s*[-*])\s+[-–—]\s*/gm, "$1 ");  // Remove dashes after bullet points (e.g., "- - text" -> "- text")
+
+  // Fix inline numbered lists rendered as a single paragraph
+  // e.g., "1. Foo: text here. 2. Bar: text here." → separate lines
+  cleaned = cleaned.replace(/^(\d+\.\s+\*\*[^*]+\*\*[:\s].+?)(?=\s+\d+\.\s+\*\*)/gm, "$1");
+  // Split inline numbered items: "1. **X:** ... 2. **Y:** ..." into separate lines
+  cleaned = cleaned.replace(/(\S)\s+(\d+)\.\s+(\*\*)/g, "$1\n$2. $3");
+
+  // Fix inline bold-label bullet items merged into one paragraph
+  // e.g., "**Income Requirements:** text - **Residency Status:** text" → separate bullets
+  cleaned = cleaned.replace(/([.!?])\s+-\s+\*\*/g, "$1\n- **");
+
+  return cleaned;
 };
 
 // Helper to extract "In This Article" navigation items from markdown
