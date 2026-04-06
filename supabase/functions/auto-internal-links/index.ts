@@ -55,15 +55,15 @@ serve(async (req) => {
         return true;
       });
 
-    // Step 1: Ask AI to pick 3-5 relevant URLs from the candidate list
-    const pickPrompt = `You are an SEO internal linking expert. Given the article content below and a list of candidate URLs with their page titles, select exactly 3 to 5 URLs that are MOST contextually relevant to link FROM this article.
+    // Step 1: Ask AI to pick up to 10 relevant URLs from the candidate list
+    const pickPrompt = `You are an SEO internal linking expert. Given the article content below and a list of candidate URLs with their page titles, select up to 10 URLs that are MOST contextually relevant to link FROM this article.
 
 RULES:
 - Pick URLs whose topics are genuinely related to phrases or concepts mentioned in the article
 - Prefer URLs about similar products, related foods/drinks, or the same category
 - Do NOT pick URLs that are unrelated just to fill the quota
 - Do NOT pick the article's own URL or any URL about the same specific product
-- If fewer than 3 URLs are truly relevant, pick only the relevant ones
+- If fewer than 5 URLs are truly relevant, pick only the relevant ones
 - Return ONLY a JSON array of the selected URLs, nothing else
 
 CANDIDATE URLs:

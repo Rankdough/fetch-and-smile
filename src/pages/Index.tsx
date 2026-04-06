@@ -4042,7 +4042,7 @@ const Index = () => {
                 icon={<Link className="h-4 w-4" />}
               >
                 <p className="text-sm text-muted-foreground">
-                  Add up to 6 internal URLs to contextually link within your article
+                  Add up to 12 internal URLs to contextually link within your article
                 </p>
                 <div className="space-y-2">
                   {internalLinks.map((url, idx) => (
@@ -4074,7 +4074,7 @@ const Index = () => {
                       )}
                     </div>
                   ))}
-                  {internalLinks.length < 6 && (
+                  {internalLinks.length < 12 && (
                     <Button
                       type="button"
                       variant="ghost"
@@ -4107,11 +4107,12 @@ const Index = () => {
                             <div className="flex flex-wrap gap-1.5">
                               {urls.map((url, idx) => {
                                 let displayUrl = url;
+                                let pathDisplay = url;
                                 try {
                                   const urlObj = new URL(url);
-                                  displayUrl = urlObj.pathname === '/' ? '/' : urlObj.pathname.slice(0, 30) + (urlObj.pathname.length > 30 ? '...' : '');
+                                  pathDisplay = urlObj.pathname === '/' ? '/' : urlObj.pathname;
                                 } catch {
-                                  displayUrl = url.slice(0, 35) + (url.length > 35 ? '...' : '');
+                                  pathDisplay = url;
                                 }
                                 return (
                                   <button
@@ -4123,14 +4124,14 @@ const Index = () => {
                                         const updated = [...internalLinks];
                                         updated[emptyIdx] = url;
                                         setInternalLinks(updated);
-                                      } else if (internalLinks.length < 6) {
+                                      } else if (internalLinks.length < 12) {
                                         setInternalLinks([...internalLinks, url]);
                                       }
                                     }}
-                                    className="text-xs px-2 py-1 rounded-md bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors truncate max-w-[220px]"
+                                    className="text-xs px-2.5 py-1.5 rounded-md bg-muted hover:bg-primary/10 border border-border hover:border-primary/30 text-foreground/80 hover:text-foreground transition-colors text-left break-all"
                                     title={url}
                                   >
-                                    {displayUrl}
+                                    {pathDisplay}
                                   </button>
                                 );
                               })}
