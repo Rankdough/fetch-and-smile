@@ -69,6 +69,10 @@ export function markdownToStyledHtml(
   }
   cleanMarkdown = filteredLines.join('\n');
 
+  // Fix inline numbered lists and bold-label items merged into single paragraphs
+  cleanMarkdown = cleanMarkdown.replace(/(\S)\s+(\d+)\.\s+(\*\*)/g, "$1\n$2. $3");
+  cleanMarkdown = cleanMarkdown.replace(/([.!?])\s+-\s+\*\*/g, "$1\n- **");
+
   // 2. Convert Markdown → basic HTML
   const basicHtml = marked.parse(cleanMarkdown, { async: false }) as string;
 
