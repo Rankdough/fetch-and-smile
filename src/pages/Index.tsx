@@ -3682,6 +3682,19 @@ const Index = () => {
                     ))}
                   </div>
                 )}
+
+                <Separator className="my-3" />
+
+                <ContextHubPanel
+                  contextFiles={contextFiles}
+                  onLoadTopicFiles={(files) => {
+                    setContextFiles((prev) => {
+                      const existingNames = new Set(prev.map((f) => f.name));
+                      const newFiles = files.filter((f) => !existingNames.has(f.name));
+                      return [...prev, ...newFiles];
+                    });
+                  }}
+                />
               </CollapsibleSection>
 
               {/* Section 6: Tone of Voice Profiles */}
