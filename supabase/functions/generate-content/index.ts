@@ -848,7 +848,7 @@ Place these images throughout the article at logical locations, typically after 
         const fallbackFor = (section: string): string => {
           switch (section) {
             case "TL;DR":
-              return `## TL;DR\n${topic} requires a practical, evidence-based approach: prioritise verified safety data, compare options side by side, and act on recommendations that fit budget, timing, and risk tolerance.`;
+              return `## TL;DR\nThis article covers everything you need to know about ${topic}, including key considerations, practical comparisons, and actionable recommendations to help you make an informed decision.`;
             case "Quick Tips":
               return `## Quick Tips\n> **Tip 1:** Start with verified figures, not generic claims.\n> **Tip 2:** Compare at least two realistic options before deciding.\n> **Tip 3:** Match every recommendation to your exact use case.`;
             case "In This Article":
