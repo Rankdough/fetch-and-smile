@@ -153,7 +153,7 @@ JSON FORMAT:
 OUTPUT ONLY valid JSON, no markdown fences.
 
 JSON FORMAT:
-{"enrichments":[{"topic":"Exact Topic Name","description":"1-sentence description of this cluster","content_type":"blog_post|landing_page|guide|comparison|listicle|how_to","difficulty":"low|medium|high","priority":"high|medium|low","blog_ideas":[{"title":"...","description":"...","reason":"...","target_keywords":["keyword1","keyword2","keyword3"],"value_promises":["Promise 1","Promise 2","Promise 3"]},{"title":"...","description":"...","reason":"...","target_keywords":["keyword1","keyword2"],"value_promises":["Promise 1","Promise 2","Promise 3"]}]}]}
+{"enrichments":[{"topic":"Exact Topic Name","description":"1-sentence description of this cluster","content_type":"blog_post|landing_page|guide|comparison|listicle|how_to","difficulty":"low|medium|high","priority":"high|medium|low","blog_ideas":[{"title":"...","description":"...","reason":"...","target_keywords":["keyword1","keyword2","keyword3"],"value_promises":["Promise 1","Promise 2","Promise 3","Promise 4","Promise 5"]},{"title":"...","description":"...","reason":"...","target_keywords":["keyword1","keyword2"],"value_promises":["Promise 1","Promise 2","Promise 3","Promise 4","Promise 5"]}]}]}
 
 VALUE PROMISE RULES (apply to every blog idea):
 Value promises state what the reader will UNDERSTAND or be able to EVALUATE after reading — NOT what they will do.
