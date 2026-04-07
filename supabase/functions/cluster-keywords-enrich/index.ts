@@ -123,18 +123,19 @@ RULES:
 OUTPUT ONLY valid JSON, no markdown fences.
 
 JSON FORMAT:
-{"enrichments":[{"topic":"Exact Topic Name","description":"1-sentence description of this cluster","content_type":"blog_post|landing_page|guide|comparison|listicle|how_to","difficulty":"low|medium|high","priority":"high|medium|low","blog_ideas":[{"title":"...","description":"...","reason":"...","target_keywords":["keyword1","keyword2","keyword3"],"value_promises":["Promise 1","Promise 2","Promise 3"]}]}]}
+{"enrichments":[{"topic":"Exact Topic Name","description":"1-sentence description of this cluster","content_type":"blog_post|landing_page|guide|comparison|listicle|how_to","difficulty":"low|medium|high","priority":"high|medium|low","blog_ideas":[{"title":"...","description":"...","reason":"...","target_keywords":["keyword1","keyword2","keyword3"],"value_promises":["Promise 1","Promise 2","Promise 3","Promise 4","Promise 5"]}]}]}
 
 VALUE PROMISE RULES (apply to every blog idea):
-Value promises are SPECIFIC COMMITMENTS to the reader derived directly from the target_keywords assigned to that blog idea.
-1. Look at EVERY target keyword — each implies a question or information need.
-2. The promise commits to answering that need WITHOUT revealing the actual answer.
-3. Be SPECIFIC: mention the exact sport, level, entity, or metric from the keywords.
-4. Group related keywords into a single promise when they share the same angle.
-5. Promise comparison tables, figures, and data breakdowns where keywords imply numerical/comparative answers.
-- Example keywords: "batting average formula", "how to calculate batting average" → Promise: "Step-by-step batting average formula with worked examples so you can calculate any player's average yourself."
-- Example keywords: "good batting average softball", "what is a good batting average in softball" → Promise: "Get the exact batting average benchmarks for softball — with a table showing good, great, and elite ranges by level."
-- BANNED: Generic filler ("Understand...", "Learn about...", "Discover...", "Explore...") and revealing the actual answer/numbers in the promise itself.
+Value promises state what the reader will UNDERSTAND or be able to EVALUATE after reading — NOT what they will do.
+They must be tightly aligned with the target_keywords, naturally incorporating their search intent.
+1. Each promise describes a tangible OUTCOME the reader walks away with, tied to the keywords.
+2. Focus on: exact factors/criteria/components, clear comparisons between options, specific risks/mistakes/failure points, cost/performance/outcome differences, and what "good"/"safe"/"high-quality" looks like in real terms.
+3. Include structured thinking where relevant (comparison tables, breakdowns, checklists, benchmarks).
+4. Reflect the search intent behind the keywords (informational, commercial, or decision-making).
+5. Keep each value promise to ONE concise sentence.
+- Example: "The real per-square-metre construction costs for villas in Bali — broken down by material quality, location, and finish level."
+- Example: "How leasehold and freehold ownership structures compare — including legal risk, resale value, and long-term cost differences for foreign buyers."
+- BANNED: "Learn", "Understand", "Explore", "Discover", "Use", "Follow", "Check", "tips", "guide", action verbs directed at the reader, generic filler, revealing actual answers.
 
 BLOG IDEA TITLE RULES:
 - Format: "[Main Keyword]: [Natural Question]?" — e.g. "Cross-Country Running: How Do You Train for a Race?", "Track Pants: What Are They Made Of?"
@@ -174,7 +175,7 @@ STEP 4: ASSIGN KEYWORDS — EACH KEYWORD TO EXACTLY ONE IDEA
 RULES:
 - Generate 3-7 blog ideas per cluster (NOT always 5 — fewer is better if keywords are closely related)
 - Each blog idea MUST include "target_keywords": an array of keywords from the cluster that this article should target
-- Each blog idea MUST include "value_promises": an array of exactly 3 sharp, specific value promises (see VALUE PROMISE RULES above)
+- Each blog idea MUST include "value_promises": an array of exactly 5 sharp, specific value promises (see VALUE PROMISE RULES above)
 
 CRITICAL TOPICAL COHERENCE RULES:
 - Every target_keyword assigned to a blog idea MUST be directly relevant to that idea's specific title and angle.
