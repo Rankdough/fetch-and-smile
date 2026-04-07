@@ -31,17 +31,19 @@ serve(async (req) => {
 OUTPUT ONLY valid JSON, no markdown fences.
 
 JSON FORMAT:
-{"enrichments":[{"topic":"${clusters[0].topic}","blog_ideas":[{"title":"...","description":"...","reason":"...","target_keywords":["${focusKeyword}",...],"value_promises":["Promise 1","Promise 2","Promise 3"]}]}]}
+{"enrichments":[{"topic":"${clusters[0].topic}","blog_ideas":[{"title":"...","description":"...","reason":"...","target_keywords":["${focusKeyword}",...],"value_promises":["Promise 1","Promise 2","Promise 3","Promise 4","Promise 5"]}]}]}
 
 VALUE PROMISE RULES:
-Value promises are SPECIFIC COMMITMENTS to the reader derived directly from the target_keywords.
-1. Look at EVERY target keyword — each implies a question or information need.
-2. The promise commits to answering that need WITHOUT revealing the actual answer.
-3. Be SPECIFIC: mention the exact sport, level, entity, or metric from the keywords.
-4. Promise comparison tables, figures, and data breakdowns where keywords imply numerical/comparative answers.
-- Example keywords: "batting average formula", "how to calculate batting average" → Promise: "Step-by-step batting average formula with worked examples so you can calculate any player's average yourself."
-- Example keywords: "good batting average softball" → Promise: "Get the exact batting average benchmarks for softball — with a table showing good, great, and elite ranges by level."
-- BANNED: Generic filler ("Understand...", "Learn about...", "Discover...") and revealing the actual answer/numbers.
+Value promises state what the reader will UNDERSTAND or be able to EVALUATE after reading — NOT what they will do.
+They must be tightly aligned with the target_keywords, naturally incorporating their search intent.
+1. Each promise describes a tangible OUTCOME the reader walks away with, tied to the keywords.
+2. Focus on: exact factors/criteria/components, clear comparisons between options, specific risks/mistakes/failure points, cost/performance/outcome differences, and what "good"/"safe"/"high-quality" looks like in real terms.
+3. Include structured thinking where relevant (comparison tables, breakdowns, checklists, benchmarks).
+4. Reflect the search intent behind the keywords (informational, commercial, or decision-making).
+5. Keep each value promise to ONE concise sentence.
+- Example: "The real per-square-metre construction costs for villas in Bali — broken down by material quality, location, and finish level."
+- Example: "How leasehold and freehold ownership structures compare — including legal risk, resale value, and long-term cost differences for foreign buyers."
+- BANNED: "Learn", "Understand", "Explore", "Discover", "Use", "Follow", "Check", "tips", "guide", action verbs directed at the reader, generic filler, revealing actual answers.
 
 TITLE RULES:
 - Format: "[Main Keyword]: [Natural Question]?" — e.g. "Cross-Country Running: How Do You Train for a Race?"
@@ -52,7 +54,7 @@ TITLE RULES:
 RULES:
 - Generate exactly 1 blog idea
 - target_keywords: include "${focusKeyword}" plus 1-3 related keywords from the provided list
-- value_promises: exactly 3 sharp, specific promises (see VALUE PROMISE RULES above)`;
+- value_promises: exactly 5 sharp, specific promises (see VALUE PROMISE RULES above)`;
 
       const c = clusters[0];
       const kwList = c.keywords.join(", ");

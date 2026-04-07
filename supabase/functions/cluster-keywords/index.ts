@@ -156,32 +156,34 @@ JSON FORMAT:
 {"enrichments":[{"topic":"Exact Topic Name","description":"1-sentence description of this cluster","content_type":"blog_post|landing_page|guide|comparison|listicle|how_to","difficulty":"low|medium|high","priority":"high|medium|low","blog_ideas":[{"title":"...","description":"...","reason":"...","target_keywords":["keyword1","keyword2","keyword3"],"value_promises":["Promise 1","Promise 2","Promise 3"]},{"title":"...","description":"...","reason":"...","target_keywords":["keyword1","keyword2"],"value_promises":["Promise 1","Promise 2","Promise 3"]}]}]}
 
 VALUE PROMISE RULES (apply to every blog idea):
-Value promises are SPECIFIC COMMITMENTS to the reader about what the article will deliver. They must be derived directly from the target_keywords assigned to the blog idea.
+Value promises state what the reader will UNDERSTAND or be able to EVALUATE after reading — NOT what they will do.
+They must be tightly aligned with the target_keywords, naturally incorporating their search intent.
 
 HOW TO GENERATE VALUE PROMISES:
-1. Look at EVERY target keyword assigned to this blog idea.
-2. Each keyword implies a question or information need — the promise commits to answering it.
-3. Group related keywords into a single promise when they share the same angle.
-4. Be SPECIFIC about what topics/subtopics will be covered, mentioning the exact entities from the keywords (e.g., "softball", "MLB", "high school").
-5. Promise comparison tables, figures, and data breakdowns wherever the keywords imply comparisons or numerical answers.
+1. Look at EVERY target keyword — each implies a specific information need or decision point.
+2. Each promise describes a tangible OUTCOME the reader walks away with, tied to those keywords.
+3. Focus on: exact factors/criteria/components tied to the keywords, clear comparisons between keyword-related options, specific risks/mistakes/failure points, cost/performance/outcome differences, and what "good", "safe", or "high-quality" looks like in real terms for that keyword topic.
+4. Include structured thinking where relevant (e.g., comparison tables, breakdowns, checklists, benchmarks, scenarios).
+5. Each promise must reflect the search intent behind the keywords (informational, commercial, or decision-making).
+6. Keep each value promise to ONE concise sentence.
 
 EXAMPLES:
-- Keywords: "what is a good batting average in softball", "good batting average softball" → Promise: "Get the exact batting average benchmarks for softball at every level — with a comparison table showing good, great, and elite ranges."
-- Keywords: "what is a good batting average in mlb", "average mlb batting average" → Promise: "See the current MLB batting average benchmarks and how today's numbers compare to historical standards."
-- Keywords: "how to calculate batting average", "batting average formula" → Promise: "Step-by-step batting average formula with worked examples so you can calculate any player's average yourself."
+- Keywords: "cost of building a villa in bali", "bali construction costs" → "The real per-square-metre construction costs for villas in Bali — broken down by material quality, location, and finish level."
+- Keywords: "leasehold vs freehold bali", "buying property bali foreigners" → "How leasehold and freehold ownership structures compare in Bali — including legal risk, resale value, and long-term cost differences for foreign buyers."
+- Keywords: "best areas to invest in bali", "bali property roi" → "Which Bali regions deliver the strongest rental yields and capital growth — with a comparison table of ROI benchmarks by area."
 
 RULES:
-- Generate exactly 3 value promises per blog idea.
+- Generate exactly 5 value promises per blog idea.
 - Each promise MUST map to one or more of the blog idea's target_keywords — do NOT invent promises about topics not in the keywords.
-- Be specific: mention the exact sport, level, entity, or metric from the keywords.
-- Promise tables, comparisons, or figures when keywords imply numerical or comparative answers.
-- Do NOT reveal the actual answer/numbers — promise to DELIVER them.
-- BANNED: Generic filler ("Understand the basics...", "Learn about...", "Discover...", "Explore...") without keyword-specific detail.
-
+- Be specific: mention the exact entities, metrics, locations, or factors from the keywords.
+- Promise tables, comparisons, or breakdowns when keywords imply numerical or comparative answers.
+- Do NOT reveal the actual answer/numbers — describe what the reader will understand.
+- BANNED verbs/phrases: "Learn", "Understand", "Explore", "Discover", "Use", "Follow", "Check", "tips", "guide", generic filler without keyword-specific detail.
+- BANNED format: Action verbs directed at the reader (no "use X to...", "follow these steps...", "check whether...").
 RULES:
 - Exactly 5 blog ideas per cluster
 - Each blog idea MUST include "target_keywords": an array of 2-5 keywords from the cluster's keyword list that this article should target
-- Each blog idea MUST include "value_promises": an array of exactly 3 keyword-derived value promises (see VALUE PROMISE RULES above)
+- Each blog idea MUST include "value_promises": an array of exactly 5 keyword-derived value promises (see VALUE PROMISE RULES above)
 
 - Every target_keyword assigned to a blog idea MUST be directly relevant to that idea's specific title and angle.
 - Do NOT assign keywords about other countries/brands/entities to an article focused on a specific one. For example, an article about "Albania Dental Tourism" must NOT target keywords like "dental tourism germany" — those belong in a separate article.
