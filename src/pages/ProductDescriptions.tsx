@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { Sparkles, Upload, Download, Loader2, CheckCircle2, XCircle, ArrowLeft, FileSpreadsheet, Trash2, StopCircle } from "lucide-react";
+import { Sparkles, Upload, Download, Loader2, CheckCircle2, XCircle, ArrowLeft, FileSpreadsheet, Trash2, StopCircle, Plus, Clock, FolderOpen } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useProductDescriptions, ProductRow } from "@/hooks/useProductDescriptions";
 import InstructionPresetsDropdown from "@/components/InstructionPresetsDropdown";
@@ -85,6 +85,11 @@ const parseCSV = (text: string): Omit<ProductRow, "id" | "selected">[] => {
   })).filter((r) => r.title || r.url);
 };
 
+const formatDate = (dateStr: string) => {
+  const d = new Date(dateStr);
+  return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+};
+
 const ProductDescriptions = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -93,6 +98,8 @@ const ProductDescriptions = () => {
   const {
     products,
     setProducts,
+    batchId,
+    allBatches,
     wordCount,
     setWordCount,
     fileName,
@@ -104,6 +111,8 @@ const ProductDescriptions = () => {
     isLoading,
     saveBatch,
     clearBatch,
+    startNewJob,
+    loadBatch,
     handleGenerate,
     stopGeneration,
     resetRow,
@@ -126,11 +135,9 @@ const ProductDescriptions = () => {
         toast({ title: "No data found", description: "Could not parse any product rows from the CSV.", variant: "destructive" });
         return;
       }
-      // Save to DB
       const newBatchId = await saveBatch(parsed, name, wordCount);
       if (!newBatchId) return;
 
-      // Reload from DB to get proper UUIDs
       const { supabase } = await import("@/integrations/supabase/client");
       const { data: rows } = await supabase
         .from("product_description_rows")
@@ -213,61 +220,124 @@ const ProductDescriptions = () => {
         </div>
       </header>
 
-      <div className="container mx-auto px-4 py-8 max-w-[1400px]">
-        {/* Settings Bar */}
-        <Card className="mb-6">
-          <CardContent className="p-4">
-            <div className="flex flex-wrap items-end gap-4">
-              <div className="space-y-1.5">
-                <Label className="text-xs">Upload CSV</Label>
-                <input ref={fileInputRef} type="file" accept=".csv" onChange={handleFileUpload} className="hidden" />
-                <Button variant="outline" onClick={() => fileInputRef.current?.click()} className="gap-2">
-                  <Upload className="h-4 w-4" />
-                  {fileName || "Choose CSV file"}
-                </Button>
-              </div>
+      <div className="container mx-auto px-4 py-6 max-w-[1400px]">
+        <div className="flex gap-6">
+          {/* Left Sidebar — Job History */}
+          <div className="w-[240px] shrink-0 space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-foreground flex items-center gap-1.5">
+                <Clock className="h-4 w-4" />
+                Jobs
+              </h3>
+              <Button variant="outline" size="sm" onClick={startNewJob} className="gap-1 h-7 text-xs">
+                <Plus className="h-3 w-3" />
+                New
+              </Button>
+            </div>
 
-              <div className="space-y-1.5">
-                <Label className="text-xs">Words per description</Label>
-                <Select value={wordCount} onValueChange={setWordCount}>
-                  <SelectTrigger className="w-[160px]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="50">~50 words</SelectItem>
-                    <SelectItem value="75">~75 words</SelectItem>
-                    <SelectItem value="100">~100 words</SelectItem>
-                    <SelectItem value="150">~150 words</SelectItem>
-                    <SelectItem value="200">~200 words</SelectItem>
-                    <SelectItem value="250">~250 words</SelectItem>
-                    <SelectItem value="300">~300 words</SelectItem>
-                    <SelectItem value="400">~400 words</SelectItem>
-                    <SelectItem value="500">~500 words</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+            <div className="space-y-1.5 max-h-[calc(100vh-180px)] overflow-y-auto pr-1">
+              {allBatches.length === 0 && (
+                <p className="text-xs text-muted-foreground py-4 text-center">No jobs yet</p>
+              )}
+              {allBatches.map((batch, idx) => (
+                <button
+                  key={batch.id}
+                  onClick={() => loadBatch(batch.id)}
+                  className={`w-full text-left px-3 py-2.5 rounded-md border text-xs transition-colors ${
+                    batch.id === batchId
+                      ? "bg-primary/10 border-primary/30"
+                      : "bg-card border-border hover:bg-muted/50"
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-1 mb-1">
+                    <span className="font-medium text-foreground truncate">
+                      Job #{allBatches.length - idx}
+                    </span>
+                    {batch.done_count === batch.product_count && (batch.product_count || 0) > 0 ? (
+                      <Badge variant="default" className="text-[10px] px-1.5 py-0 h-4 bg-green-600">Done</Badge>
+                    ) : (batch.done_count || 0) > 0 ? (
+                      <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4">
+                        {batch.done_count}/{batch.product_count}
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4">Pending</Badge>
+                    )}
+                  </div>
+                  <p className="text-muted-foreground truncate">
+                    {batch.file_name || "Untitled"}
+                  </p>
+                  <p className="text-muted-foreground mt-0.5">
+                    {formatDate(batch.created_at)} · {batch.product_count} products
+                  </p>
+                </button>
+              ))}
+            </div>
+          </div>
 
-              <div className="space-y-1.5 flex-1 min-w-[200px]">
-                <div className="flex items-center justify-between">
-                  <Label className="text-xs">Custom Instructions (applied to all descriptions)</Label>
-                  <InstructionPresetsDropdown
-                    currentInstructions={customInstructions}
-                    onLoad={(instructions) => {
-                      setCustomInstructions(instructions);
-                      saveCustomInstructions(instructions);
-                    }}
-                  />
+          {/* Main Content Area */}
+          <div className="flex-1 min-w-0 space-y-4">
+            {/* Row 1: Upload + Settings */}
+            <Card>
+              <CardContent className="p-4">
+                <div className="grid grid-cols-[1fr_1fr] gap-6">
+                  {/* Left: Upload & Word Count */}
+                  <div className="space-y-3">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-medium">CSV File</Label>
+                      <input ref={fileInputRef} type="file" accept=".csv" onChange={handleFileUpload} className="hidden" />
+                      <Button variant="outline" onClick={() => fileInputRef.current?.click()} className="gap-2 w-full justify-start">
+                        <Upload className="h-4 w-4" />
+                        {fileName || "Upload CSV file"}
+                      </Button>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-medium">Words per description</Label>
+                      <Select value={wordCount} onValueChange={setWordCount}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="50">~50 words</SelectItem>
+                          <SelectItem value="75">~75 words</SelectItem>
+                          <SelectItem value="100">~100 words</SelectItem>
+                          <SelectItem value="150">~150 words</SelectItem>
+                          <SelectItem value="200">~200 words</SelectItem>
+                          <SelectItem value="250">~250 words</SelectItem>
+                          <SelectItem value="300">~300 words</SelectItem>
+                          <SelectItem value="400">~400 words</SelectItem>
+                          <SelectItem value="500">~500 words</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  {/* Right: Custom Instructions */}
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs font-medium">Custom Instructions</Label>
+                      <InstructionPresetsDropdown
+                        currentInstructions={customInstructions}
+                        onLoad={(instructions) => {
+                          setCustomInstructions(instructions);
+                          saveCustomInstructions(instructions);
+                        }}
+                      />
+                    </div>
+                    <Textarea
+                      value={customInstructions}
+                      onChange={(e) => setCustomInstructions(e.target.value)}
+                      onBlur={() => saveCustomInstructions(customInstructions)}
+                      placeholder="e.g. Full team orders available, no minimums, 20 business-day guarantee, price match guarantee..."
+                      className="min-h-[92px] text-sm"
+                    />
+                  </div>
                 </div>
-                <Textarea
-                  value={customInstructions}
-                  onChange={(e) => setCustomInstructions(e.target.value)}
-                  onBlur={() => saveCustomInstructions(customInstructions)}
-                  placeholder="e.g. Full team orders available, no minimums, 20 business-day guarantee, price match guarantee..."
-                  className="min-h-[60px] text-sm"
-                />
-              </div>
+              </CardContent>
+            </Card>
 
-              <div className="flex items-end gap-4 ml-auto">
+            {/* Row 2: Actions Bar */}
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
                 <GenerationChecklist
                   items={[
                     {
@@ -290,129 +360,130 @@ const ProductDescriptions = () => {
                     },
                   ]}
                 />
-                <div className="flex gap-2">
-                  {isGenerating ? (
-                    <Button onClick={stopGeneration} variant="destructive" className="gap-2">
-                      <StopCircle className="h-4 w-4" />
-                      Stop
-                    </Button>
-                  ) : (
-                    <Button
-                      onClick={handleGenerate}
-                      disabled={selectedCount === 0 || !customInstructions.trim()}
-                      className="gap-2"
-                    >
-                      <Sparkles className="h-4 w-4" />
-                      Generate ({selectedCount})
-                    </Button>
-                  )}
-                  <Button variant="outline" onClick={handleDownload} disabled={doneCount === 0} className="gap-2">
-                    <Download className="h-4 w-4" />
-                    Download CSV
+              </div>
+              <div className="flex items-center gap-2">
+                {isGenerating ? (
+                  <Button onClick={stopGeneration} variant="destructive" className="gap-2">
+                    <StopCircle className="h-4 w-4" />
+                    Stop
                   </Button>
-                  {products.length > 0 && (
-                    <Button variant="ghost" size="icon" onClick={clearBatch}>
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  )}
-                </div>
+                ) : (
+                  <Button
+                    onClick={handleGenerate}
+                    disabled={selectedCount === 0 || !customInstructions.trim()}
+                    className="gap-2"
+                  >
+                    <Sparkles className="h-4 w-4" />
+                    Generate ({selectedCount})
+                  </Button>
+                )}
+                <Button variant="outline" onClick={handleDownload} disabled={doneCount === 0} className="gap-2">
+                  <Download className="h-4 w-4" />
+                  Download CSV
+                </Button>
+                {products.length > 0 && (
+                  <Button variant="ghost" size="icon" onClick={clearBatch} title="Delete this job">
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                )}
               </div>
             </div>
-          </CardContent>
-        </Card>
 
-        {products.length === 0 ? (
-          <Card className="border-dashed">
-            <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-              <FileSpreadsheet className="h-12 w-12 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold mb-2">Upload a CSV spreadsheet</h3>
-              <p className="text-muted-foreground max-w-md mb-1">
-                Your CSV should have columns for: <strong>URL</strong>, <strong>Collection</strong> (category), <strong>Title</strong>, and optionally <strong>Product Info</strong>
-              </p>
-              <p className="text-xs text-muted-foreground mb-4">
-                Column headers are matched flexibly — "name" works for title, "category" works for collection, etc.
-              </p>
-              <Button variant="outline" onClick={() => fileInputRef.current?.click()} className="gap-2">
-                <Upload className="h-4 w-4" />
-                Upload CSV
-              </Button>
-            </CardContent>
-          </Card>
-        ) : (
-          <Card>
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-base">
-                  {products.length} products {doneCount > 0 && <Badge variant="secondary" className="ml-2">{doneCount} done</Badge>}
-                </CardTitle>
-              </div>
-            </CardHeader>
-            <CardContent className="p-0 overflow-auto max-h-[calc(100vh-300px)]">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-10 sticky top-0 bg-card z-10">
-                      <Checkbox
-                        checked={products.length > 0 && products.every((p) => p.selected)}
-                        onCheckedChange={(checked) => toggleAll(!!checked)}
-                      />
-                    </TableHead>
-                    <TableHead className="w-[200px] sticky top-0 bg-card z-10">Title</TableHead>
-                    <TableHead className="w-[100px] sticky top-0 bg-card z-10">Collection</TableHead>
-                    <TableHead className="w-[200px] sticky top-0 bg-card z-10">Product Info</TableHead>
-                    <TableHead className="w-[160px] sticky top-0 bg-card z-10">URL</TableHead>
-                    <TableHead className="w-[70px] sticky top-0 bg-card z-10">Status</TableHead>
-                    <TableHead className="w-[300px] sticky top-0 bg-card z-10">Description</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {products.map((product) => (
-                    <TableRow key={product.id} className={product.selected ? "bg-primary/5" : ""}>
-                      <TableCell className="align-top">
-                        <Checkbox checked={product.selected} onCheckedChange={() => toggleRow(product.id)} />
-                      </TableCell>
-                      <TableCell className="align-top font-medium text-sm truncate max-w-[200px]">{product.title}</TableCell>
-                      <TableCell className="align-top text-sm text-muted-foreground">{product.collection}</TableCell>
-                      <TableCell className="align-top text-xs text-muted-foreground max-w-[200px]">
-                        <p className="line-clamp-3">{product.productInfo || "—"}</p>
-                      </TableCell>
-                      <TableCell className="align-top text-xs text-muted-foreground truncate max-w-[160px]">
-                        {product.url && (
-                          <a href={product.url.startsWith("http") ? product.url : `https://${product.url}`} target="_blank" rel="noopener noreferrer" className="hover:underline text-primary">
-                            {product.url.replace(/https?:\/\//, "").substring(0, 35)}…
-                          </a>
-                        )}
-                      </TableCell>
-                      <TableCell className="align-top">
-                        {product.status === "pending" && <Badge variant="outline" className="text-xs">Pending</Badge>}
-                        {product.status === "generating" && <Loader2 className="h-4 w-4 animate-spin text-primary" />}
-                        {product.status === "done" && <CheckCircle2 className="h-4 w-4 text-green-600" />}
-                        {product.status === "error" && <XCircle className="h-4 w-4 text-destructive" />}
-                      </TableCell>
-                      <TableCell className="align-top text-sm leading-relaxed min-w-[400px]">
-                        {product.description ? (
-                          <div className="flex gap-2">
-                            <p className="whitespace-pre-wrap flex-1">{product.description}</p>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="shrink-0 h-6 w-6 mt-0.5"
-                              onClick={() => resetRow(product.id)}
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        ) : (
-                          <span className="text-muted-foreground italic">—</span>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        )}
+            {/* Products Table */}
+            {products.length === 0 ? (
+              <Card className="border-dashed">
+                <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+                  <FileSpreadsheet className="h-12 w-12 text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">Upload a CSV spreadsheet</h3>
+                  <p className="text-muted-foreground max-w-md mb-1">
+                    Your CSV should have columns for: <strong>URL</strong>, <strong>Collection</strong> (category), <strong>Title</strong>, and optionally <strong>Product Info</strong>
+                  </p>
+                  <p className="text-xs text-muted-foreground mb-4">
+                    Column headers are matched flexibly — "name" works for title, "category" works for collection, etc.
+                  </p>
+                  <Button variant="outline" onClick={() => fileInputRef.current?.click()} className="gap-2">
+                    <Upload className="h-4 w-4" />
+                    Upload CSV
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-base">
+                      {products.length} products {doneCount > 0 && <Badge variant="secondary" className="ml-2">{doneCount} done</Badge>}
+                    </CardTitle>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-0 overflow-auto max-h-[calc(100vh-380px)]">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-10 sticky top-0 bg-card z-10">
+                          <Checkbox
+                            checked={products.length > 0 && products.every((p) => p.selected)}
+                            onCheckedChange={(checked) => toggleAll(!!checked)}
+                          />
+                        </TableHead>
+                        <TableHead className="w-[200px] sticky top-0 bg-card z-10">Title</TableHead>
+                        <TableHead className="w-[100px] sticky top-0 bg-card z-10">Collection</TableHead>
+                        <TableHead className="w-[200px] sticky top-0 bg-card z-10">Product Info</TableHead>
+                        <TableHead className="w-[160px] sticky top-0 bg-card z-10">URL</TableHead>
+                        <TableHead className="w-[70px] sticky top-0 bg-card z-10">Status</TableHead>
+                        <TableHead className="w-[300px] sticky top-0 bg-card z-10">Description</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {products.map((product) => (
+                        <TableRow key={product.id} className={product.selected ? "bg-primary/5" : ""}>
+                          <TableCell className="align-top">
+                            <Checkbox checked={product.selected} onCheckedChange={() => toggleRow(product.id)} />
+                          </TableCell>
+                          <TableCell className="align-top font-medium text-sm truncate max-w-[200px]">{product.title}</TableCell>
+                          <TableCell className="align-top text-sm text-muted-foreground">{product.collection}</TableCell>
+                          <TableCell className="align-top text-xs text-muted-foreground max-w-[200px]">
+                            <p className="line-clamp-3">{product.productInfo || "—"}</p>
+                          </TableCell>
+                          <TableCell className="align-top text-xs text-muted-foreground truncate max-w-[160px]">
+                            {product.url && (
+                              <a href={product.url.startsWith("http") ? product.url : `https://${product.url}`} target="_blank" rel="noopener noreferrer" className="hover:underline text-primary">
+                                {product.url.replace(/https?:\/\//, "").substring(0, 35)}…
+                              </a>
+                            )}
+                          </TableCell>
+                          <TableCell className="align-top">
+                            {product.status === "pending" && <Badge variant="outline" className="text-xs">Pending</Badge>}
+                            {product.status === "generating" && <Loader2 className="h-4 w-4 animate-spin text-primary" />}
+                            {product.status === "done" && <CheckCircle2 className="h-4 w-4 text-green-600" />}
+                            {product.status === "error" && <XCircle className="h-4 w-4 text-destructive" />}
+                          </TableCell>
+                          <TableCell className="align-top text-sm leading-relaxed min-w-[400px]">
+                            {product.description ? (
+                              <div className="flex gap-2">
+                                <p className="whitespace-pre-wrap flex-1">{product.description}</p>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="shrink-0 h-6 w-6 mt-0.5"
+                                  onClick={() => resetRow(product.id)}
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            ) : (
+                              <span className="text-muted-foreground italic">—</span>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );
