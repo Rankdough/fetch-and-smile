@@ -3,8 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
 export type ProductRow = {
-  id: string; // uuid from DB
-  localId: number; // row index
+  id: string;
+  localId: number;
   url: string;
   collection: string;
   title: string;
@@ -12,6 +12,16 @@ export type ProductRow = {
   description: string;
   status: "pending" | "generating" | "done" | "error";
   selected: boolean;
+};
+
+export type BatchSummary = {
+  id: string;
+  file_name: string | null;
+  word_count: string;
+  created_at: string;
+  updated_at: string;
+  product_count?: number;
+  done_count?: number;
 };
 
 export const useProductDescriptions = () => {
@@ -23,55 +33,98 @@ export const useProductDescriptions = () => {
   const [customInstructions, setCustomInstructions] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [allBatches, setAllBatches] = useState<BatchSummary[]>([]);
   const abortRef = useRef(false);
 
-  // Load the most recent batch on mount
   useEffect(() => {
-    loadLatestBatch();
+    loadAllBatches();
   }, []);
 
-  const loadLatestBatch = async () => {
+  const loadAllBatches = async () => {
     setIsLoading(true);
+    try {
+      const { data: batches } = await supabase
+        .from("product_description_batches")
+        .select("*")
+        .order("updated_at", { ascending: false });
+
+      if (batches && batches.length > 0) {
+        // Get row counts for each batch
+        const batchSummaries: BatchSummary[] = [];
+        for (const batch of batches) {
+          const { count: totalCount } = await supabase
+            .from("product_description_rows")
+            .select("*", { count: "exact", head: true })
+            .eq("batch_id", batch.id);
+
+          const { count: doneCount } = await supabase
+            .from("product_description_rows")
+            .select("*", { count: "exact", head: true })
+            .eq("batch_id", batch.id)
+            .eq("status", "done");
+
+          batchSummaries.push({
+            id: batch.id,
+            file_name: batch.file_name,
+            word_count: batch.word_count || "200",
+            created_at: batch.created_at,
+            updated_at: batch.updated_at,
+            product_count: totalCount || 0,
+            done_count: doneCount || 0,
+          });
+        }
+        setAllBatches(batchSummaries);
+
+        // Load the most recent batch
+        await loadBatch(batches[0].id);
+      }
+    } catch (err) {
+      console.error("Failed to load batches:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const loadBatch = async (id: string) => {
     try {
       const { data: batch } = await supabase
         .from("product_description_batches")
         .select("*")
-        .order("updated_at", { ascending: false })
-        .limit(1)
+        .eq("id", id)
         .single();
 
-      if (batch) {
-        setBatchId(batch.id);
-        setWordCount(batch.word_count || "200");
-        setFileName(batch.file_name || "");
-        setCustomInstructions((batch as any).custom_instructions || "");
+      if (!batch) return;
 
-        const { data: rows } = await supabase
-          .from("product_description_rows")
-          .select("*")
-          .eq("batch_id", batch.id)
-          .order("row_index", { ascending: true });
+      setBatchId(batch.id);
+      setWordCount(batch.word_count || "200");
+      setFileName(batch.file_name || "");
+      setCustomInstructions(batch.custom_instructions || "");
 
-        if (rows && rows.length > 0) {
-          setProducts(
-            rows.map((r) => ({
-              id: r.id,
-              localId: r.row_index,
-              url: r.url || "",
-              collection: r.collection || "",
-              title: r.title || "",
-              productInfo: r.product_info || "",
-              description: r.description || "",
-              status: (r.status as ProductRow["status"]) || "pending",
-              selected: false,
-            }))
-          );
-        }
+      const { data: rows } = await supabase
+        .from("product_description_rows")
+        .select("*")
+        .eq("batch_id", batch.id)
+        .order("row_index", { ascending: true });
+
+      if (rows && rows.length > 0) {
+        setProducts(
+          rows.map((r) => ({
+            id: r.id,
+            localId: r.row_index,
+            url: r.url || "",
+            collection: r.collection || "",
+            title: r.title || "",
+            productInfo: r.product_info || "",
+            description: r.description || "",
+            status: (r.status as ProductRow["status"]) || "pending",
+            selected: false,
+          }))
+        );
+      } else {
+        setProducts([]);
       }
     } catch (err) {
       console.error("Failed to load batch:", err);
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -81,16 +134,14 @@ export const useProductDescriptions = () => {
     wc: string
   ): Promise<string | null> => {
     try {
-      // Create batch
       const { data: batch, error: batchErr } = await supabase
         .from("product_description_batches")
-        .insert({ file_name: name, word_count: wc, custom_instructions: customInstructions } as any)
+        .insert({ file_name: name, word_count: wc, custom_instructions: customInstructions })
         .select()
         .single();
 
       if (batchErr || !batch) throw batchErr;
 
-      // Insert rows
       const rowInserts = parsedProducts.map((p, i) => ({
         batch_id: batch.id,
         row_index: i,
@@ -102,7 +153,7 @@ export const useProductDescriptions = () => {
         status: p.status,
       }));
 
-      const { data: rows, error: rowErr } = await supabase
+      const { error: rowErr } = await supabase
         .from("product_description_rows")
         .insert(rowInserts)
         .select();
@@ -110,6 +161,21 @@ export const useProductDescriptions = () => {
       if (rowErr) throw rowErr;
 
       setBatchId(batch.id);
+
+      // Update allBatches list
+      setAllBatches((prev) => [
+        {
+          id: batch.id,
+          file_name: name,
+          word_count: wc,
+          created_at: batch.created_at,
+          updated_at: batch.updated_at,
+          product_count: parsedProducts.length,
+          done_count: 0,
+        },
+        ...prev,
+      ]);
+
       return batch.id;
     } catch (err) {
       console.error("Failed to save batch:", err);
@@ -132,12 +198,11 @@ export const useProductDescriptions = () => {
     []
   );
 
-  // Save custom instructions to DB when they change
   const saveCustomInstructions = useCallback(async (instructions: string) => {
     if (batchId) {
       await supabase
         .from("product_description_batches")
-        .update({ custom_instructions: instructions } as any)
+        .update({ custom_instructions: instructions })
         .eq("id", batchId);
     }
   }, [batchId]);
@@ -145,11 +210,20 @@ export const useProductDescriptions = () => {
   const clearBatch = async () => {
     if (batchId) {
       await supabase.from("product_description_batches").delete().eq("id", batchId);
+      setAllBatches((prev) => prev.filter((b) => b.id !== batchId));
     }
     setBatchId(null);
     setProducts([]);
     setFileName("");
     setCustomInstructions("");
+  };
+
+  const startNewJob = () => {
+    setBatchId(null);
+    setProducts([]);
+    setFileName("");
+    setCustomInstructions("");
+    setWordCount("200");
   };
 
   const handleGenerate = async () => {
@@ -181,7 +255,6 @@ export const useProductDescriptions = () => {
         });
 
         if (abortRef.current) {
-          // Reset this row back to pending since we're aborting
           setProducts((prev) => prev.map((p) => (p.id === product.id ? { ...p, status: "pending" } : p)));
           await updateRow(product.id, { status: "pending" });
           break;
@@ -194,6 +267,13 @@ export const useProductDescriptions = () => {
           prev.map((p) => (p.id === product.id ? { ...p, description: desc, status: "done" } : p))
         );
         await updateRow(product.id, { description: desc, status: "done" });
+
+        // Update batch summary done count
+        setAllBatches((prev) =>
+          prev.map((b) =>
+            b.id === batchId ? { ...b, done_count: (b.done_count || 0) + 1 } : b
+          )
+        );
       } catch (err) {
         if (abortRef.current) break;
         console.error("Generation error for", product.title, err);
@@ -204,7 +284,6 @@ export const useProductDescriptions = () => {
 
     setIsGenerating(false);
     if (abortRef.current) {
-      // Reset any remaining "generating" rows to pending
       setProducts((prev) => prev.map((p) => (p.status === "generating" ? { ...p, status: "pending" } : p)));
       toast({ title: "Generation stopped", description: "Remaining products were not processed." });
     } else {
@@ -223,6 +302,7 @@ export const useProductDescriptions = () => {
     products,
     setProducts,
     batchId,
+    allBatches,
     wordCount,
     setWordCount,
     fileName,
@@ -234,6 +314,8 @@ export const useProductDescriptions = () => {
     isLoading,
     saveBatch,
     clearBatch,
+    startNewJob,
+    loadBatch,
     handleGenerate,
     stopGeneration: () => { abortRef.current = true; },
     resetRow,
