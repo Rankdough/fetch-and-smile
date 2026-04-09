@@ -60,7 +60,8 @@ serve(async (req) => {
       knowledgeRules,
       bannedPhrases,
       issues,
-      toneProfile
+      toneProfile,
+      useFirstPerson
     } = await req.json();
 
     if (!draft) {
@@ -78,7 +79,41 @@ serve(async (req) => {
     // Combine default and custom banned phrases
     const allBannedPhrases = [...DEFAULT_BANNED_PHRASES, ...(bannedPhrases || [])];
 
-    let systemPrompt = `You are an expert editor specialising in making AI-generated content sound more human. Your task is to rewrite the provided draft to remove AI patterns while preserving the meaning and SEO value.
+    // Build tone profile block FIRST so it's the primary directive
+    let toneBlock = "";
+    if (toneProfile) {
+      const chars = Object.entries(toneProfile.characteristics || {})
+        .map(([k, v]: [string, unknown]) => `- ${k.replace(/_/g, " ")}: ${v}`)
+        .join("\n");
+      const phrases = toneProfile.example_phrases?.length
+        ? `\nExample phrases to emulate (match this style closely):\n${toneProfile.example_phrases.map((p: string, i: number) => `${i + 1}. "${p}"`).join("\n")}`
+        : "";
+      toneBlock = `
+TONE OF VOICE (HIGHEST PRIORITY - PRESERVE THE EXISTING TONE):
+The draft was written in a specific voice. Your job is to make it sound more human while PRESERVING this exact tone. Do NOT flatten the personality into generic professional writing. The tone is more important than any other transformation rule.
+
+Voice summary: ${toneProfile.summary || "Professional and helpful"}
+
+Style characteristics:
+${chars}
+${phrases}
+
+CRITICAL TONE RULES:
+- PRESERVE the warmth, personality, and energy of the original draft's voice
+- If the draft sounds casual/conversational, keep it casual - do NOT make it more formal
+- If the draft uses humour or personal touches, keep those - they are intentional
+- NEVER refer to the tone profile owner by name
+- The tone defines HOW to write, not WHO is speaking
+`;
+    }
+
+    const perspectiveRule = useFirstPerson
+      ? `Write in FIRST PERSON. Use "we", "our", "I" naturally.`
+      : `Write in THIRD PERSON only. NEVER use "I", "we", "our", "my", "us". Write as an objective narrator.`;
+
+    let systemPrompt = `You are an expert editor specialising in making AI-generated content sound more human. Your task is to rewrite the provided draft to remove AI patterns while preserving the meaning, SEO value, and voice.
+${toneBlock}
+PERSPECTIVE: ${perspectiveRule}
 
 TRANSFORMATION RULES:
 
@@ -122,14 +157,6 @@ ${allBannedPhrases.map(p => `- "${p}"`).join("\n")}
 
 OUTPUT FORMAT:
 Return the rewritten draft followed by a brief "### Changes Made" section listing 3-5 key transformations you applied.`;
-
-    // Add tone profile guidance if available
-    if (toneProfile) {
-      systemPrompt += `\n\nMAINTAIN THIS TONE:
-${toneProfile.summary || "Professional and helpful"}
-${toneProfile.example_phrases?.length > 0 ? `Emulate phrases like: ${toneProfile.example_phrases.slice(0, 3).join("; ")}` : ""}
-CRITICAL: Always write in first person ("we", "our", "I"). NEVER refer to the tone profile owner by name or write in third person about them. The tone defines HOW to write, not WHO is speaking.`;
-    }
 
     // Add specific issues to fix if provided (from quality gate)
     let userPrompt = `Rewrite this draft to sound more human:\n\n${draft}`;

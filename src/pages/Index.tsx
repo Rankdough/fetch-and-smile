@@ -1250,6 +1250,7 @@ const Index = () => {
         draft,
         knowledgeRules: knowledgeRules.slice(0, 20),
         toneProfile,
+        useFirstPerson,
       },
     });
 
@@ -1282,6 +1283,7 @@ const Index = () => {
           draft,
           issues: gateData.issues,
           toneProfile,
+          useFirstPerson,
         },
       });
 
@@ -1355,6 +1357,7 @@ const Index = () => {
           draft,
           knowledgeRules: knowledgeRules.slice(0, 20),
           toneProfile,
+          useFirstPerson,
         },
       });
 
@@ -1387,6 +1390,7 @@ const Index = () => {
             draft,
             issues: gateData.issues,
             toneProfile,
+            useFirstPerson,
           },
         });
 
