@@ -61,8 +61,38 @@ serve(async (req) => {
       .map((c: { claim: string; source: string }) => `- ${c.claim} (${c.source})`)
       .join("\n") || "";
 
-    let systemPrompt = `You are an expert content writer. Write a single section of an SEO article.
+    // Build tone profile block FIRST so it becomes the primary directive
+    let toneBlock = "";
+    if (toneProfile) {
+      const chars = Object.entries(toneProfile.characteristics || {})
+        .map(([k, v]) => `- ${k.replace(/_/g, " ")}: ${v}`)
+        .join("\n");
+      const phrases = toneProfile.example_phrases?.length
+        ? `\nExample phrases to emulate (match this style closely):\n${toneProfile.example_phrases.map((p: string, i: number) => `${i + 1}. "${p}"`).join("\n")}`
+        : "";
+      toneBlock = `
+TONE OF VOICE (HIGHEST PRIORITY - THIS OVERRIDES DEFAULT WRITING STYLE):
+Your writing style MUST match the following tone profile. Every sentence you write should sound like it was written by this voice. This is NOT optional guidance - it is the PRIMARY constraint on how you write.
 
+Voice summary: ${toneProfile.summary || "Professional and helpful"}
+
+Style characteristics:
+${chars}
+${phrases}
+
+CRITICAL TONE RULES:
+- The tone profile defines HOW to write (vocabulary, rhythm, personality, warmth level) - NOT who is speaking
+- NEVER refer to the tone profile owner by name
+- NEVER say "Hi, it's [Name]" or "[Name] recommends..."
+- Just adopt the voice naturally as if it were your own writing style
+- If the tone is casual/conversational, use casual language, contractions, and a relaxed rhythm
+- If the tone is formal/expert, use precise language and authoritative phrasing
+- Match the ENERGY and PERSONALITY of the example phrases, not just their words
+`;
+    }
+
+    let systemPrompt = `You are an expert content writer. Write a single section of an SEO article.
+${toneBlock}
 PERSPECTIVE RULE (NON-NEGOTIABLE):
 ${useFirstPerson
   ? `- Write in FIRST PERSON. Use "we", "our", "I" naturally throughout the section.`
@@ -88,18 +118,6 @@ OUTPUT FORMAT:
 - Start with ## ${section.h2}
 - Write the section content
 - End with **Sources:** [Source Name](URL) if applicable (use real URLs)`;
-
-    // Add tone profile if available
-    if (toneProfile) {
-      systemPrompt += `\n\nTONE OF VOICE:
-Summary: ${toneProfile.summary || "Professional and helpful"}
-Style: ${Object.entries(toneProfile.characteristics || {}).map(([k, v]) => `${k}: ${v}`).join(", ")}
-CRITICAL: The tone profile defines HOW to write (style, vocabulary, rhythm) - NOT who is speaking. Write in third person. NEVER use first-person pronouns (I, we, our). NEVER refer to the tone profile owner by name.`;
-      
-      if (toneProfile.example_phrases?.length > 0) {
-        systemPrompt += `\nExample phrases to emulate: ${toneProfile.example_phrases.slice(0, 3).join("; ")}`;
-      }
-    }
 
     // Add knowledge rules if available
     if (knowledgeRules && knowledgeRules.length > 0) {

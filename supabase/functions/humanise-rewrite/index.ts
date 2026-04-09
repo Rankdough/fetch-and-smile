@@ -60,7 +60,8 @@ serve(async (req) => {
       knowledgeRules,
       bannedPhrases,
       issues,
-      toneProfile
+      toneProfile,
+      useFirstPerson
     } = await req.json();
 
     if (!draft) {
