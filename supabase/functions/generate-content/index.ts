@@ -285,35 +285,34 @@ Apply the following SEO strategies and rules from the uploaded knowledge documen
 ${rulesToUse.map((rule, i) => `${i + 1}. ${rule}`).join("\n")}`;
     }
 
-    // Add tone of voice instructions if a profile is selected
+    // Add tone of voice instructions if a profile is selected - placed with HIGH PRIORITY
     if (toneProfile) {
-      systemPrompt += `
-
-TONE OF VOICE INSTRUCTIONS:
-You must match the following tone and writing style throughout the article:
-
-Summary: ${toneProfile.summary || "Not specified"}
-
-Characteristics:`;
-      
-      if (toneProfile.characteristics) {
-        for (const [key, value] of Object.entries(toneProfile.characteristics)) {
-          systemPrompt += `
-- ${key.replace(/_/g, " ")}: ${value}`;
-        }
-      }
-
-      if (toneProfile.example_phrases && toneProfile.example_phrases.length > 0) {
-        systemPrompt += `
-
-Example phrases to emulate:
-${toneProfile.example_phrases.map((p, i) => `${i + 1}. "${p}"`).join("\n")}`;
-      }
+      const chars = Object.entries(toneProfile.characteristics || {})
+        .map(([key, value]) => `- ${key.replace(/_/g, " ")}: ${value}`)
+        .join("\n");
+      const phrases = toneProfile.example_phrases?.length
+        ? `\nExample phrases to emulate (match this style closely):\n${toneProfile.example_phrases.map((p: string, i: number) => `${i + 1}. "${p}"`).join("\n")}`
+        : "";
 
       systemPrompt += `
 
-IMPORTANT: Maintain this tone consistently throughout the entire article.
-CRITICAL: The tone profile defines HOW to write (style, vocabulary, rhythm), NOT who is speaking. NEVER refer to the tone profile owner by name. Do not say things like "Hi, it's [Name]" or "[Name] recommends..." - just adopt the style naturally.`;
+TONE OF VOICE (HIGHEST PRIORITY - THIS OVERRIDES DEFAULT WRITING STYLE):
+Your writing style MUST match the following tone profile. Every sentence you write should sound like it was written by this voice. This is NOT optional guidance - it is the PRIMARY constraint on how you write.
+
+Voice summary: ${toneProfile.summary || "Not specified"}
+
+Style characteristics:
+${chars}
+${phrases}
+
+CRITICAL TONE RULES:
+- The tone profile defines HOW to write (vocabulary, rhythm, personality, warmth level) - NOT who is speaking
+- NEVER refer to the tone profile owner by name
+- NEVER say "Hi, it's [Name]" or "[Name] recommends..." - just adopt the voice naturally
+- If the tone is casual/conversational, use casual language, contractions, and a relaxed rhythm
+- If the tone is formal/expert, use precise language and authoritative phrasing
+- Match the ENERGY and PERSONALITY of the example phrases, not just their words
+- Maintain this tone CONSISTENTLY throughout the ENTIRE article - every paragraph, every section`;
     }
 
     if (formatReference) {
