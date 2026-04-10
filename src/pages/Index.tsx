@@ -821,9 +821,29 @@ const Index = () => {
     localStorage.setItem("seo-generator-ctaUrlHistory", JSON.stringify(ctaUrlHistory));
   }, [ctaUrlHistory]);
   
+  // Load internal link history from database on mount
   useEffect(() => {
-    localStorage.setItem("seo-generator-internalLinkHistory", JSON.stringify(internalLinkHistory));
-  }, [internalLinkHistory]);
+    const loadHistory = async () => {
+      const { data } = await supabase
+        .from("internal_link_history")
+        .select("url")
+        .order("created_at", { ascending: false })
+        .limit(100);
+      if (data && data.length > 0) {
+        setInternalLinkHistory(data.map(d => d.url));
+      }
+    };
+    loadHistory();
+  }, []);
+
+  // Sync internal link history changes to database
+  const addToInternalLinkHistoryDb = useCallback(async (urls: string[]) => {
+    for (const url of urls) {
+      await supabase
+        .from("internal_link_history")
+        .upsert({ url }, { onConflict: "url" });
+    }
+  }, []);
   
   useEffect(() => {
     localStorage.setItem("seo-generator-useKnowledgeBase", JSON.stringify(useKnowledgeBase));
