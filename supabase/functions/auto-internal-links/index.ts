@@ -164,6 +164,13 @@ RULES:
 5. Return the COMPLETE article with links inserted
 6. If you cannot find a good phrase for a URL, skip it
 
+DISTRIBUTION RULE (CRITICAL):
+- Links MUST be spread EVENLY across the entire article — from early sections to late sections.
+- Do NOT cluster multiple links in the final section (Final Thoughts, Conclusion, FAQ, etc.).
+- At most 1 link is allowed in the final section of the article.
+- Aim to place links in different H2 sections throughout the article body.
+- If you have 6 links, they should appear in roughly 6 different sections, not 4 in the last section.
+
 EXAMPLE:
 Before: "many people enjoy craft beer alternatives"
 After: "[craft beer alternatives](https://example.com/craft-beer)"`;
