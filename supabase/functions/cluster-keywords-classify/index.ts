@@ -58,6 +58,7 @@ async function classifyBatch(
       if (discoveredList.length > 0) {
         siloBlock += `\nDiscovered from previous batches:\n${discoveredList.map(t => `- ${t}`).join("\n")}`;
       }
+      siloBlock += `\n\nCRITICAL: If new keywords don't fit any existing silo, group ALL related new keywords into as FEW new silos as possible (ideally 1-2). NEVER create a separate silo for each individual keyword. Keywords that are variations of the same query (e.g. "X vs Y", "Y vs X", "X or Y") MUST go into ONE silo together.`;
     }
   }
 
