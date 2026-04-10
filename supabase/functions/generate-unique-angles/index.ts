@@ -12,7 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    const { topic, gapAnalysis, competitorContent } = await req.json();
+    const { topic, gapAnalysis, competitorContent, toneProfile } = await req.json();
 
     if (!topic) {
       return new Response(
@@ -26,16 +26,39 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    const systemPrompt = `You are a content strategist who identifies unique angles and perspectives that will make an article stand out from competitors.
+    // Build tone instruction block
+    let toneBlock = "";
+    if (toneProfile) {
+      const chars = toneProfile.characteristics || {};
+      const phrases = toneProfile.example_phrases || [];
+      toneBlock = `\n\nTONE OF VOICE (CRITICAL - angles MUST match this voice):
+Summary: ${toneProfile.summary || "N/A"}
+Personality: ${chars.personality || "N/A"}
+Formality: ${chars.formality || "N/A"}
+Energy: ${chars.energy || "N/A"}
+Vocabulary style: ${chars.vocabulary || "N/A"}
+${phrases.length > 0 ? `Example phrases from this voice: "${phrases.slice(0, 3).join('", "')}"` : ""}
 
-Your job is to analyze what competitors are covering and suggest 3 FRESH PERSPECTIVES that they're ALL missing. 
+The angle titles, descriptions, and example hooks MUST sound like they were written by someone with this voice. Match the energy, vocabulary, and personality exactly. Do NOT default to formal/academic/consultant tone.`;
+    }
+
+    const systemPrompt = `You are a content strategist who identifies unique angles that make articles stand out from competitors.
+
+Your job is to analyze what competitors are covering and suggest 3 FRESH PERSPECTIVES they're ALL missing.${toneBlock}
 
 Focus on:
-1. ANGLE gaps (not just topic gaps) - a different way to frame the same information
-2. Emotional/narrative angles - personal stories, journeys, transformations
-3. Contrarian takes - challenging common assumptions with evidence
-4. Practical depth - going deeper on the "how" when others stay surface level
-5. Unique frameworks - decision tools, checklists, matrices that help readers act
+1. ANGLE gaps - a different way to frame the same information that feels fresh and human
+2. Reader-first perspectives - what would genuinely help someone making this decision?
+3. Real-world practical angles - going deeper on the "how" when others stay surface level
+4. Honest/transparent takes - challenging marketing fluff with real talk
+5. Actionable tools - checklists, decision frameworks, things readers can actually use
+
+IMPORTANT STYLE RULES:
+- Write titles that sound like a real person talking, NOT like a marketing agency
+- Avoid overly clever wordplay, colons in titles, or buzzword-heavy phrasing
+- Keep descriptions conversational and specific
+- Example hooks should feel natural and engaging, not like a TED talk opening
+${!toneProfile ? "- Default to a warm, helpful, conversational tone" : ""}
 
 Return ONLY valid JSON with no markdown formatting.
 
@@ -43,10 +66,10 @@ Response format:
 {
   "angles": [
     {
-      "title": "Short punchy title (5-8 words)",
-      "description": "One sentence explaining the unique angle",
-      "whyItWorks": "Why this will resonate and differentiate",
-      "exampleHook": "A compelling opening line using this angle"
+      "title": "Short natural title (5-8 words)",
+      "description": "One sentence explaining the unique angle in plain language",
+      "whyItWorks": "Why this will resonate with real readers",
+      "exampleHook": "A compelling, natural-sounding opening line"
     }
   ]
 }`;
@@ -56,9 +79,9 @@ Response format:
 ${gapAnalysis ? `Gap Analysis Results:\n${gapAnalysis}\n\n` : ""}
 ${competitorContent ? `Competitor Content Summary:\n${competitorContent.substring(0, 3000)}\n\n` : ""}
 
-Generate 3 unique angles that will make this article STAND OUT from competitors. These should be perspectives and framings that no one else is using.`;
+Generate 3 unique angles that will make this article STAND OUT from competitors. These should feel fresh, human, and practical - NOT like they came from a content strategy textbook.`;
 
-    console.log("Generating unique angles for topic:", topic);
+    console.log("Generating unique angles for topic:", topic, "with tone:", toneProfile ? "yes" : "no");
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -78,6 +101,16 @@ Generate 3 unique angles that will make this article STAND OUT from competitors.
     if (!response.ok) {
       const errorText = await response.text();
       console.error("AI gateway error:", response.status, errorText);
+      if (response.status === 429) {
+        return new Response(JSON.stringify({ error: "Rate limited, please try again shortly." }), {
+          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" }
+        });
+      }
+      if (response.status === 402) {
+        return new Response(JSON.stringify({ error: "Credits exhausted. Please add funds in Settings." }), {
+          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" }
+        });
+      }
       throw new Error(`AI gateway error: ${response.status}`);
     }
 
@@ -88,7 +121,6 @@ Generate 3 unique angles that will make this article STAND OUT from competitors.
       throw new Error("No content generated");
     }
 
-    // Parse the JSON response
     const cleanedText = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
     const angles = JSON.parse(cleanedText);
 

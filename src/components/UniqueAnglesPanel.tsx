@@ -17,6 +17,7 @@ interface UniqueAnglesPanelProps {
   gapAnalysis: string;
   selectedAngles: string[];
   onAnglesChange: (angles: string[]) => void;
+  toneProfileId: string | null;
 }
 
 export const UniqueAnglesPanel = ({ 
