@@ -24,7 +24,8 @@ export const UniqueAnglesPanel = ({
   topic, 
   gapAnalysis, 
   selectedAngles, 
-  onAnglesChange 
+  onAnglesChange,
+  toneProfileId,
 }: UniqueAnglesPanelProps) => {
   const { toast } = useToast();
   const [isGenerating, setIsGenerating] = useState(false);
