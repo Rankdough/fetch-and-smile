@@ -1390,28 +1390,20 @@ const KeywordClustering = () => {
 
     setIsCreatingCustomIdea(true);
     try {
-      // Find keywords in this silo that are relevant to the custom title
-      const titleWords = title.toLowerCase().split(/\s+/).filter(w => w.length > 3);
-      const matchingKws = cluster.keywords
-        .filter(kw => {
-          const kwLower = kw.toLowerCase();
-          return titleWords.some(w => kwLower.includes(w));
-        })
-        .slice(0, 15);
-
-      // If no keyword matches, use the top volume keywords from the silo
-      const selectedKws = matchingKws.length > 0 ? matchingKws : cluster.keywords.slice(0, 10);
-      const totalVol = selectedKws.reduce((s, kw) => s + (cluster.keyword_volumes?.[kw] ?? cluster.keyword_volumes?.[kw.toLowerCase()] ?? 0), 0);
+      // Send ALL silo keywords with volumes so the AI can pick the truly relevant ones
+      const allKws = cluster.keywords;
+      const totalVol = allKws.reduce((s, kw) => s + (cluster.keyword_volumes?.[kw] ?? cluster.keyword_volumes?.[kw.toLowerCase()] ?? 0), 0);
 
       const { data, error } = await supabase.functions.invoke("cluster-keywords-enrich", {
         body: {
           clusters: [{
             topic: clusterTopic,
-            keywords: selectedKws,
+            keywords: allKws,
             estimated_monthly_volume: totalVol,
+            keyword_volumes: cluster.keyword_volumes || {},
           }],
           singleIdea: true,
-          focusKeyword: selectedKws[0],
+          focusKeyword: allKws[0],
           customTitle: title.trim(),
         },
       });
@@ -1428,20 +1420,43 @@ const KeywordClustering = () => {
       // Override title with what user typed
       newIdea.title = title.trim();
       if (!newIdea.target_keywords) newIdea.target_keywords = [];
-      // Ensure matching keywords are included
-      for (const kw of matchingKws.slice(0, 5)) {
-        if (!newIdea.target_keywords.some((tk: string) => tk.toLowerCase() === kw.toLowerCase())) {
-          newIdea.target_keywords.push(kw);
+      
+      // Handle "suggested: " prefixed keywords — these are AI-generated keywords not in the silo
+      const cleanedKeywords: string[] = [];
+      const newSiloKeywords: string[] = [];
+      const siloKwsLower = new Set(cluster.keywords.map(k => k.toLowerCase()));
+      
+      for (const kw of (newIdea.target_keywords as string[])) {
+        const cleaned = kw.replace(/^suggested:\s*/i, "").trim();
+        cleanedKeywords.push(cleaned);
+        if (!siloKwsLower.has(cleaned.toLowerCase())) {
+          newSiloKeywords.push(cleaned);
         }
       }
+      newIdea.target_keywords = cleanedKeywords;
 
+      // Add any AI-suggested new keywords to the silo itself
       const updatedResult: ClusteringResult = {
         ...result,
         clusters: result.clusters.map(c => {
           if (c.topic !== clusterTopic) return c;
-          return { ...c, blog_ideas: [...(c.blog_ideas || []), newIdea] };
+          const updatedKeywords = [...c.keywords, ...newSiloKeywords];
+          const updatedVolumes = { ...(c.keyword_volumes || {}) };
+          for (const nk of newSiloKeywords) {
+            updatedVolumes[nk] = 0; // No volume data for suggested keywords
+          }
+          return {
+            ...c,
+            keywords: updatedKeywords,
+            keyword_volumes: updatedVolumes,
+            blog_ideas: [...(c.blog_ideas || []), newIdea],
+          };
         }),
       };
+      
+      if (newSiloKeywords.length > 0) {
+        toast({ title: `${newSiloKeywords.length} new keywords suggested`, description: `AI suggested keywords for "${title.trim()}" since no existing keywords matched well.` });
+      }
       setResult(updatedResult);
       setCustomIdeaSilo(null);
       setCustomIdeaTitle("");
