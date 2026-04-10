@@ -11,7 +11,7 @@ serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { clusters, singleIdea, focusKeyword } = body;
+    const { clusters, singleIdea, focusKeyword, customTitle } = body;
 
     if (!clusters || !Array.isArray(clusters) || clusters.length === 0) {
       return new Response(JSON.stringify({ error: "Please provide clusters to enrich" }), {
@@ -24,9 +24,18 @@ serve(async (req) => {
 
     // Single idea generation mode
     if (singleIdea && focusKeyword) {
-      console.log(`Generating single blog idea for keyword: "${focusKeyword}" in cluster "${clusters[0].topic}"`);
+      const isCustom = !!customTitle;
+      console.log(isCustom ? `Generating custom blog idea: "${customTitle}" in cluster "${clusters[0].topic}"` : `Generating single blog idea for keyword: "${focusKeyword}" in cluster "${clusters[0].topic}"`);
       
-      const singlePrompt = `You are an expert SEO content strategist. Generate exactly ONE blog idea for the keyword "${focusKeyword}" within the topic cluster "${clusters[0].topic}".
+      const titleInstruction = isCustom
+        ? `TITLE: Use exactly "${customTitle}" as the blog idea title. Do NOT change it.`
+        : `TITLE RULES:
+- Format: "[Main Keyword]: [Natural Question]?" — e.g. "Cross-Country Running: How Do You Train for a Race?"
+- MUST contain "${focusKeyword}" verbatim, followed by a natural question.
+- Simple, short (6-12 words), conversational.
+- BANNED: "Ultimate Guide", "Beginner's Guide", "Handbook", "Comprehensive", "Everything You Need to Know", "Deep Dive", "Mastering", "Unpacking", "Unlocking", "Navigate", "Essential", "Your", "Checklist".`;
+
+      const singlePrompt = `You are an expert SEO content strategist. Generate exactly ONE blog idea ${isCustom ? `titled "${customTitle}"` : `for the keyword "${focusKeyword}"`} within the topic cluster "${clusters[0].topic}".
 
 OUTPUT ONLY valid JSON, no markdown fences.
 
@@ -45,16 +54,14 @@ They must be tightly aligned with the target_keywords, naturally incorporating t
 - Example: "How leasehold and freehold ownership structures compare — including legal risk, resale value, and long-term cost differences for foreign buyers."
 - BANNED: "Learn", "Understand", "Explore", "Discover", "Use", "Follow", "Check", "tips", "guide", action verbs directed at the reader, generic filler, revealing actual answers.
 
-TITLE RULES:
-- Format: "[Main Keyword]: [Natural Question]?" — e.g. "Cross-Country Running: How Do You Train for a Race?"
-- MUST contain "${focusKeyword}" verbatim, followed by a natural question.
-- Simple, short (6-12 words), conversational.
-- BANNED: "Ultimate Guide", "Beginner's Guide", "Handbook", "Comprehensive", "Everything You Need to Know", "Deep Dive", "Mastering", "Unpacking", "Unlocking", "Navigate", "Essential", "Your", "Checklist".
+${titleInstruction}
 
 RULES:
 - Generate exactly 1 blog idea
-- target_keywords: include "${focusKeyword}" plus 1-3 related keywords from the provided list
-- value_promises: exactly 5 sharp, specific promises (see VALUE PROMISE RULES above)`;
+- target_keywords: include the most relevant keywords from the provided list (3-8 keywords that best match the article topic)
+- value_promises: exactly 5 sharp, specific promises (see VALUE PROMISE RULES above)
+- description: 1-2 sentences describing the article's angle and coverage
+- reason: 1 sentence explaining the strategic value of this article`;
 
       const c = clusters[0];
       const kwList = c.keywords.join(", ");
