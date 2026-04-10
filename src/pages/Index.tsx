@@ -4061,6 +4061,16 @@ const Index = () => {
                           updated[idx] = e.target.value;
                           setInternalLinks(updated);
                         }}
+                        onBlur={() => {
+                          const trimmed = url.trim();
+                          if (trimmed && trimmed.startsWith("http")) {
+                            setInternalLinkHistory(prev => {
+                              if (prev.includes(trimmed)) return prev;
+                              const updated = [trimmed, ...prev].slice(0, 100);
+                              return updated;
+                            });
+                          }
+                        }}
                         className="bg-input border-2 border-input-border text-sm h-9"
                       />
                       {internalLinks.length > 1 && (
