@@ -639,10 +639,7 @@ const Index = () => {
     const saved = localStorage.getItem("seo-generator-ctaUrlHistory");
     return saved ? JSON.parse(saved) : [];
   });
-  const [internalLinkHistory, setInternalLinkHistory] = useState<string[]>(() => {
-    const saved = localStorage.getItem("seo-generator-internalLinkHistory");
-    return saved ? JSON.parse(saved) : [];
-  });
+  const [internalLinkHistory, setInternalLinkHistory] = useState<string[]>([]);
   
   const [selectedColorPalette, setSelectedColorPalette] = useState<ColorPalette | null>(() => {
     const saved = localStorage.getItem("seo-generator-colorPalette");
@@ -824,9 +821,29 @@ const Index = () => {
     localStorage.setItem("seo-generator-ctaUrlHistory", JSON.stringify(ctaUrlHistory));
   }, [ctaUrlHistory]);
   
+  // Load internal link history from database on mount
   useEffect(() => {
-    localStorage.setItem("seo-generator-internalLinkHistory", JSON.stringify(internalLinkHistory));
-  }, [internalLinkHistory]);
+    const loadHistory = async () => {
+      const { data } = await supabase
+        .from("internal_link_history")
+        .select("url")
+        .order("created_at", { ascending: false })
+        .limit(100);
+      if (data && data.length > 0) {
+        setInternalLinkHistory(data.map(d => d.url));
+      }
+    };
+    loadHistory();
+  }, []);
+
+  // Sync internal link history changes to database
+  const addToInternalLinkHistoryDb = useCallback(async (urls: string[]) => {
+    for (const url of urls) {
+      await supabase
+        .from("internal_link_history")
+        .upsert({ url }, { onConflict: "url" });
+    }
+  }, []);
   
   useEffect(() => {
     localStorage.setItem("seo-generator-useKnowledgeBase", JSON.stringify(useKnowledgeBase));
@@ -1496,18 +1513,19 @@ const Index = () => {
           
           // Save internal links to history
           const validInternalUrls = internalLinks.filter(u => u.trim());
-          if (validInternalUrls.length > 0) {
-            setInternalLinkHistory(prev => {
-              const newHistory = [...prev];
-              validInternalUrls.forEach(url => {
-                const trimmed = url.trim();
-                const idx = newHistory.indexOf(trimmed);
-                if (idx !== -1) newHistory.splice(idx, 1);
-                newHistory.unshift(trimmed);
-              });
-              return newHistory.slice(0, 100);
-            });
-          }
+           if (validInternalUrls.length > 0) {
+             setInternalLinkHistory(prev => {
+               const newHistory = [...prev];
+               validInternalUrls.forEach(url => {
+                 const trimmed = url.trim();
+                 const idx = newHistory.indexOf(trimmed);
+                 if (idx !== -1) newHistory.splice(idx, 1);
+                 newHistory.unshift(trimmed);
+               });
+               return newHistory.slice(0, 100);
+             });
+             addToInternalLinkHistoryDb(validInternalUrls.map(u => u.trim()));
+           }
         } else {
           setGeneratedCTAs(null);
         }
@@ -2125,6 +2143,7 @@ const Index = () => {
         });
         return newHistory.slice(0, 100);
       });
+      addToInternalLinkHistoryDb(validUrls.map(u => u.trim()));
 
       const skipped = data.skippedUrls?.length || 0;
       toast({
@@ -3230,6 +3249,7 @@ const Index = () => {
                        });
                        return newHistory.slice(0, 100);
                      });
+                     addToInternalLinkHistoryDb(validUrls.map(u => u.trim()));
                    }
 
                   setGeneratedContent(finalContent, true);
@@ -4069,6 +4089,7 @@ const Index = () => {
                               const updated = [trimmed, ...prev].slice(0, 100);
                               return updated;
                             });
+                            addToInternalLinkHistoryDb([trimmed]);
                           }
                         }}
                         className="bg-input border-2 border-input-border text-sm h-9"

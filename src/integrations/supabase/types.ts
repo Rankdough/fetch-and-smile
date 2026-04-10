@@ -168,6 +168,24 @@ export type Database = {
         }
         Relationships: []
       }
+      internal_link_history: {
+        Row: {
+          created_at: string
+          id: string
+          url: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          url: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          url?: string
+        }
+        Relationships: []
+      }
       keyword_clustering_results: {
         Row: {
           client_tag: string | null
