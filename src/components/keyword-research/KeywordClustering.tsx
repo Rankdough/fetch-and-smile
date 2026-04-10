@@ -1421,20 +1421,42 @@ const KeywordClustering = () => {
       newIdea.title = title.trim();
       if (!newIdea.target_keywords) newIdea.target_keywords = [];
       
-      // If AI suggested new keywords not in the silo, add them to the silo
+      // Handle "suggested: " prefixed keywords — these are AI-generated keywords not in the silo
+      const cleanedKeywords: string[] = [];
+      const newSiloKeywords: string[] = [];
       const siloKwsLower = new Set(cluster.keywords.map(k => k.toLowerCase()));
-      const suggestedNewKws = (newIdea.target_keywords as string[]).filter(kw => !siloKwsLower.has(kw.toLowerCase()));
-      if (suggestedNewKws.length > 0) {
-        console.log(`AI suggested ${suggestedNewKws.length} new keywords for custom idea:`, suggestedNewKws);
+      
+      for (const kw of (newIdea.target_keywords as string[])) {
+        const cleaned = kw.replace(/^suggested:\s*/i, "").trim();
+        cleanedKeywords.push(cleaned);
+        if (!siloKwsLower.has(cleaned.toLowerCase())) {
+          newSiloKeywords.push(cleaned);
+        }
       }
+      newIdea.target_keywords = cleanedKeywords;
 
+      // Add any AI-suggested new keywords to the silo itself
       const updatedResult: ClusteringResult = {
         ...result,
         clusters: result.clusters.map(c => {
           if (c.topic !== clusterTopic) return c;
-          return { ...c, blog_ideas: [...(c.blog_ideas || []), newIdea] };
+          const updatedKeywords = [...c.keywords, ...newSiloKeywords];
+          const updatedVolumes = { ...(c.keyword_volumes || {}) };
+          for (const nk of newSiloKeywords) {
+            updatedVolumes[nk] = 0; // No volume data for suggested keywords
+          }
+          return {
+            ...c,
+            keywords: updatedKeywords,
+            keyword_volumes: updatedVolumes,
+            blog_ideas: [...(c.blog_ideas || []), newIdea],
+          };
         }),
       };
+      
+      if (newSiloKeywords.length > 0) {
+        toast({ title: `${newSiloKeywords.length} new keywords suggested`, description: `AI suggested keywords for "${title.trim()}" since no existing keywords matched well.` });
+      }
       setResult(updatedResult);
       setCustomIdeaSilo(null);
       setCustomIdeaTitle("");
