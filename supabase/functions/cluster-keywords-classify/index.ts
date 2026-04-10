@@ -41,24 +41,22 @@ async function classifyBatch(
   const hasExisting = existingSilos.length > 0;
 
   let siloBlock = "";
+  const isAppendMode = hasSuggested; // suggestedTopics means we're adding to an existing project
   if (allKnownSilos.length > 0) {
-    if (batchIndex === 0 && hasSuggested && !hasExisting) {
-      // First batch with only user-suggested silos
-      siloBlock = `\n\nSUGGESTED SILOS (from the user — you MUST include these as silos, using the exact names provided. Assign relevant keywords to them. You may also create additional silos for keywords that don't fit any suggested silo):\n${suggestedTopics!.map(t => `- ${t}`).join("\n")}`;
+    siloBlock = "\n\nEXISTING SILOS — you MUST assign keywords to these when relevant:";
+    siloBlock += `\n${allKnownSilos.map(t => `- ${t}`).join("\n")}`;
+    
+    if (isAppendMode) {
+      siloBlock += `\n\nSTRICT APPEND RULES:
+- These keywords are being ADDED to an existing project with the silos listed above.
+- Your PRIMARY goal is to assign each keyword to the MOST RELEVANT existing silo above.
+- Only create a new silo if a keyword has ZERO thematic overlap with ANY existing silo.
+- If you must create new silos, create as FEW as possible — ideally ONE that groups all non-fitting keywords together.
+- NEVER create more than 2 new silos total.
+- Keywords that are variations of the same query (e.g. "X vs Y", "Y vs X", "X or Y", "difference between X and Y") MUST all go into the SAME silo.
+- If ALL new keywords share a theme, they ALL go into ONE silo (existing or new).`;
     } else {
-      // Subsequent batches or mix of suggested + discovered
-      const suggestedSet = new Set(suggestedTopics || []);
-      const suggestedList = allKnownSilos.filter(t => suggestedSet.has(t));
-      const discoveredList = allKnownSilos.filter(t => !suggestedSet.has(t));
-
-      siloBlock = "\n\nEXISTING SILOS (you MUST use these silo names for relevant keywords. You may create new silos ONLY if a keyword genuinely doesn't fit any existing silo):";
-      if (suggestedList.length > 0) {
-        siloBlock += `\nUser-suggested:\n${suggestedList.map(t => `- ${t}`).join("\n")}`;
-      }
-      if (discoveredList.length > 0) {
-        siloBlock += `\nDiscovered from previous batches:\n${discoveredList.map(t => `- ${t}`).join("\n")}`;
-      }
-      siloBlock += `\n\nCRITICAL: If new keywords don't fit any existing silo, group ALL related new keywords into as FEW new silos as possible (ideally 1-2). NEVER create a separate silo for each individual keyword. Keywords that are variations of the same query (e.g. "X vs Y", "Y vs X", "X or Y") MUST go into ONE silo together.`;
+      siloBlock += `\n\nYou may create new silos for keywords that don't fit any existing silo, but group related new keywords together — never one silo per keyword.`;
     }
   }
 
@@ -75,7 +73,11 @@ CRITICAL GROUPING LOGIC:
 - Think: "What is the COMMON THREAD across these keywords?" and name the silo after that thread.
 
 RULES:
-- ${allKnownSilos.length > 0 ? "Prefer assigning keywords to existing silos. Only create new silos if keywords genuinely don't fit any existing silo." : "Create at most 20 topic silos. HARD LIMIT: 20 silos maximum. If you have more than 20 potential groups, merge the smallest/most-similar ones until you have exactly 20 or fewer."}
+- ${allKnownSilos.length > 0 
+    ? (isAppendMode 
+      ? "You are in APPEND mode. Existing silos are provided. You MUST assign keywords to existing silos whenever there is ANY thematic relevance. Create new silos ONLY as a last resort, and never more than 2 new silos total. If all keywords share the same theme, they ALL go into ONE silo." 
+      : "Prefer assigning keywords to existing silos. Only create new silos if keywords genuinely don't fit any existing silo.")
+    : "Create at most 20 topic silos. HARD LIMIT: 20 silos maximum. If you have more than 20 potential groups, merge the smallest/most-similar ones until you have exactly 20 or fewer."}
 - Every keyword must be assigned to exactly one topic
 - Topic names MUST be based on the main/highest-volume keywords in that silo — use the actual keyword phrases as silo names (e.g. "dental implants cost" not "Dental Implant Pricing Information")
 - Numbers in brackets are search volumes — use them to inform grouping but don't output them
