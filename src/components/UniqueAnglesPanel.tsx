@@ -17,13 +17,15 @@ interface UniqueAnglesPanelProps {
   gapAnalysis: string;
   selectedAngles: string[];
   onAnglesChange: (angles: string[]) => void;
+  toneProfileId: string | null;
 }
 
 export const UniqueAnglesPanel = ({ 
   topic, 
   gapAnalysis, 
   selectedAngles, 
-  onAnglesChange 
+  onAnglesChange,
+  toneProfileId,
 }: UniqueAnglesPanelProps) => {
   const { toast } = useToast();
   const [isGenerating, setIsGenerating] = useState(false);
@@ -51,8 +53,21 @@ export const UniqueAnglesPanel = ({
     
     setIsGenerating(true);
     try {
+      // Fetch tone profile if selected
+      let toneProfile = null;
+      if (toneProfileId) {
+        const { data: profileData } = await supabase
+          .from("tone_profiles")
+          .select("summary, characteristics, example_phrases")
+          .eq("id", toneProfileId)
+          .maybeSingle();
+        if (profileData) {
+          toneProfile = profileData;
+        }
+      }
+
       const { data, error } = await supabase.functions.invoke("generate-unique-angles", {
-        body: { topic, gapAnalysis },
+        body: { topic, gapAnalysis, toneProfile },
       });
 
       if (error) throw error;
