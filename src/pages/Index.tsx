@@ -1513,18 +1513,19 @@ const Index = () => {
           
           // Save internal links to history
           const validInternalUrls = internalLinks.filter(u => u.trim());
-          if (validInternalUrls.length > 0) {
-            setInternalLinkHistory(prev => {
-              const newHistory = [...prev];
-              validInternalUrls.forEach(url => {
-                const trimmed = url.trim();
-                const idx = newHistory.indexOf(trimmed);
-                if (idx !== -1) newHistory.splice(idx, 1);
-                newHistory.unshift(trimmed);
-              });
-              return newHistory.slice(0, 100);
-            });
-          }
+           if (validInternalUrls.length > 0) {
+             setInternalLinkHistory(prev => {
+               const newHistory = [...prev];
+               validInternalUrls.forEach(url => {
+                 const trimmed = url.trim();
+                 const idx = newHistory.indexOf(trimmed);
+                 if (idx !== -1) newHistory.splice(idx, 1);
+                 newHistory.unshift(trimmed);
+               });
+               return newHistory.slice(0, 100);
+             });
+             addToInternalLinkHistoryDb(validInternalUrls.map(u => u.trim()));
+           }
         } else {
           setGeneratedCTAs(null);
         }
@@ -2142,6 +2143,7 @@ const Index = () => {
         });
         return newHistory.slice(0, 100);
       });
+      addToInternalLinkHistoryDb(validUrls.map(u => u.trim()));
 
       const skipped = data.skippedUrls?.length || 0;
       toast({
@@ -3247,6 +3249,7 @@ const Index = () => {
                        });
                        return newHistory.slice(0, 100);
                      });
+                     addToInternalLinkHistoryDb(validUrls.map(u => u.trim()));
                    }
 
                   setGeneratedContent(finalContent, true);
@@ -4086,6 +4089,7 @@ const Index = () => {
                               const updated = [trimmed, ...prev].slice(0, 100);
                               return updated;
                             });
+                            addToInternalLinkHistoryDb([trimmed]);
                           }
                         }}
                         className="bg-input border-2 border-input-border text-sm h-9"
