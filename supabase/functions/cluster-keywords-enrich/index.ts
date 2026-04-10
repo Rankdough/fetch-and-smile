@@ -65,7 +65,7 @@ RULES:
 
       const c = clusters[0];
       const kwList = c.keywords.join(", ");
-      const userMsg = `Cluster: "${c.topic}" (~${c.estimated_monthly_volume} monthly volume)\nKeywords: ${kwList}\n\nFocus keyword: "${focusKeyword}"`;
+      const userMsg = `Cluster: "${c.topic}" (~${c.estimated_monthly_volume} monthly volume)\nKeywords: ${kwList}\n\n${isCustom ? `Custom article title: "${customTitle}"\nFind the most relevant keywords from the list above.` : `Focus keyword: "${focusKeyword}"`}`;
 
       const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
