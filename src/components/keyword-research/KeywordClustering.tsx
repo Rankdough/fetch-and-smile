@@ -222,6 +222,9 @@ const KeywordClustering = () => {
   const [addKwTargetSilo, setAddKwTargetSilo] = useState<string | null>(null);
   const addKwFileRef = useRef<HTMLInputElement>(null);
   const [combiningIdea, setCombiningIdea] = useState<{ clusterTopic: string; ideaIndex: number } | null>(null);
+  const [customIdeaSilo, setCustomIdeaSilo] = useState<string | null>(null);
+  const [customIdeaTitle, setCustomIdeaTitle] = useState("");
+  const [isCreatingCustomIdea, setIsCreatingCustomIdea] = useState(false);
   const expandedClusterTopics = [...expandedClusters];
   const activeSiloParam = isResultsOpen && expandedClusterTopics.length > 0
     ? expandedClusterTopics[expandedClusterTopics.length - 1]
@@ -1377,6 +1380,84 @@ const KeywordClustering = () => {
       toast({ title: "Failed to generate idea", variant: "destructive" });
     } finally {
       setGeneratingFromSelected(null);
+    }
+  };
+
+  const createCustomIdea = async (clusterTopic: string, title: string) => {
+    if (!result || !title.trim()) return;
+    const cluster = result.clusters.find(c => c.topic === clusterTopic);
+    if (!cluster) return;
+
+    setIsCreatingCustomIdea(true);
+    try {
+      // Find keywords in this silo that are relevant to the custom title
+      const titleWords = title.toLowerCase().split(/\s+/).filter(w => w.length > 3);
+      const matchingKws = cluster.keywords
+        .filter(kw => {
+          const kwLower = kw.toLowerCase();
+          return titleWords.some(w => kwLower.includes(w));
+        })
+        .slice(0, 15);
+
+      // If no keyword matches, use the top volume keywords from the silo
+      const selectedKws = matchingKws.length > 0 ? matchingKws : cluster.keywords.slice(0, 10);
+      const totalVol = selectedKws.reduce((s, kw) => s + (cluster.keyword_volumes?.[kw] ?? cluster.keyword_volumes?.[kw.toLowerCase()] ?? 0), 0);
+
+      const { data, error } = await supabase.functions.invoke("cluster-keywords-enrich", {
+        body: {
+          clusters: [{
+            topic: clusterTopic,
+            keywords: selectedKws,
+            estimated_monthly_volume: totalVol,
+          }],
+          singleIdea: true,
+          focusKeyword: selectedKws[0],
+          customTitle: title.trim(),
+        },
+      });
+
+      if (error) throw error;
+
+      const enrichment = data?.enrichments?.[0] || data?.clusters?.[0] || data;
+      if (!enrichment?.blog_ideas?.length) {
+        toast({ title: "Failed to generate idea", variant: "destructive" });
+        return;
+      }
+
+      const newIdea = enrichment.blog_ideas[0];
+      // Override title with what user typed
+      newIdea.title = title.trim();
+      if (!newIdea.target_keywords) newIdea.target_keywords = [];
+      // Ensure matching keywords are included
+      for (const kw of matchingKws.slice(0, 5)) {
+        if (!newIdea.target_keywords.some((tk: string) => tk.toLowerCase() === kw.toLowerCase())) {
+          newIdea.target_keywords.push(kw);
+        }
+      }
+
+      const updatedResult: ClusteringResult = {
+        ...result,
+        clusters: result.clusters.map(c => {
+          if (c.topic !== clusterTopic) return c;
+          return { ...c, blog_ideas: [...(c.blog_ideas || []), newIdea] };
+        }),
+      };
+      setResult(updatedResult);
+      setCustomIdeaSilo(null);
+      setCustomIdeaTitle("");
+      toast({ title: "Custom idea created", description: `"${title.trim()}" added to ${clusterTopic}` });
+
+      if (activeResultId) {
+        await supabase
+          .from("keyword_clustering_results")
+          .update({ result: updatedResult as any })
+          .eq("id", activeResultId);
+      }
+    } catch (e) {
+      console.error("Error creating custom idea:", e);
+      toast({ title: "Failed to create idea", variant: "destructive" });
+    } finally {
+      setIsCreatingCustomIdea(false);
     }
   };
 
@@ -2811,6 +2892,16 @@ const KeywordClustering = () => {
                                 >
                                   + Blog Ideas
                                 </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="gap-1 text-xs h-6 px-2 text-primary"
+                                  disabled={isCreatingCustomIdea}
+                                  onClick={(e) => { e.stopPropagation(); setCustomIdeaSilo(cluster.topic); setCustomIdeaTitle(""); }}
+                                >
+                                  <FilePlus2 className="h-3 w-3" />
+                                  Custom Idea
+                                </Button>
                               </div>
                               )}
                             </div>
@@ -3341,6 +3432,38 @@ Focus on providing actionable research that will help create a comprehensive, di
             <Button onClick={addKeywordsToProject} disabled={isAddingKeywords || !addKwInput.trim()} className="gap-1.5">
               {isAddingKeywords ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
               {isAddingKeywords ? (addKwTargetSilo ? "Adding..." : "Classifying...") : (addKwTargetSilo ? "Add to Silo" : "Add & Classify")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Custom Idea Dialog */}
+      <Dialog open={!!customIdeaSilo} onOpenChange={(open) => { if (!open) { setCustomIdeaSilo(null); setCustomIdeaTitle(""); } }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add Custom Blog Idea</DialogTitle>
+            <p className="text-sm text-muted-foreground">
+              Type your article title and we'll match relevant keywords from <span className="font-medium">{customIdeaSilo}</span> and generate the description, value promises, and keyword mapping.
+            </p>
+          </DialogHeader>
+          <div className="space-y-3">
+            <Input
+              placeholder="e.g. How to Choose a Dental Clinic Abroad"
+              value={customIdeaTitle}
+              onChange={e => setCustomIdeaTitle(e.target.value)}
+              onKeyDown={e => { if (e.key === "Enter" && customIdeaTitle.trim() && !isCreatingCustomIdea) createCustomIdea(customIdeaSilo!, customIdeaTitle); }}
+              autoFocus
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => { setCustomIdeaSilo(null); setCustomIdeaTitle(""); }}>Cancel</Button>
+            <Button
+              onClick={() => createCustomIdea(customIdeaSilo!, customIdeaTitle)}
+              disabled={isCreatingCustomIdea || !customIdeaTitle.trim()}
+              className="gap-1.5"
+            >
+              {isCreatingCustomIdea ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FilePlus2 className="h-3.5 w-3.5" />}
+              {isCreatingCustomIdea ? "Generating..." : "Create Idea"}
             </Button>
           </DialogFooter>
         </DialogContent>
