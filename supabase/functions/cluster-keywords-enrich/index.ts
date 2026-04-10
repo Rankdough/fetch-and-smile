@@ -40,7 +40,7 @@ serve(async (req) => {
 OUTPUT ONLY valid JSON, no markdown fences.
 
 JSON FORMAT:
-{"enrichments":[{"topic":"${clusters[0].topic}","blog_ideas":[{"title":"...","description":"...","reason":"...","target_keywords":["${focusKeyword}",...],"value_promises":["Promise 1","Promise 2","Promise 3","Promise 4","Promise 5"]}]}]}
+{"enrichments":[{"topic":"${clusters[0].topic}","blog_ideas":[{"title":"...","description":"...","reason":"...","target_keywords":["keyword1","keyword2",...],"value_promises":["Promise 1","Promise 2","Promise 3","Promise 4","Promise 5"]}]}]}
 
 VALUE PROMISE RULES:
 Value promises state what the reader will UNDERSTAND or be able to EVALUATE after reading — NOT what they will do.
@@ -56,16 +56,22 @@ They must be tightly aligned with the target_keywords, naturally incorporating t
 
 ${titleInstruction}
 
-RULES:
-- Generate exactly 1 blog idea
-- target_keywords: include the most relevant keywords from the provided list (3-8 keywords that best match the article topic)
+KEYWORD SELECTION (CRITICAL):
+${isCustom ? `- You are given the FULL list of keywords in this silo. Your job is to find ONLY keywords that are DIRECTLY relevant to the article titled "${customTitle}".
+- A keyword is relevant ONLY if a reader searching for that keyword would genuinely expect to find this specific article.
+- Do NOT select keywords just because they share a word (e.g. "dental tourism bulgaria" is NOT relevant to "how to choose a dental clinic abroad" — the first is about a specific country, the second is about evaluation criteria).
+- If fewer than 3 keywords from the list are truly relevant, that's OK — include only the genuinely matching ones.
+- If ZERO keywords from the list are relevant, generate 3-8 SUGGESTED keywords that someone would actually search to find this article (e.g. "how to choose dental clinic abroad", "dental clinic abroad checklist", "what to look for dental tourism"). Mark these as suggested by prefixing with "suggested: ".` : `- target_keywords: include the most relevant keywords from the provided list (3-8 keywords that best match the article topic)`}
 - value_promises: exactly 5 sharp, specific promises (see VALUE PROMISE RULES above)
 - description: 1-2 sentences describing the article's angle and coverage
 - reason: 1 sentence explaining the strategic value of this article`;
 
       const c = clusters[0];
-      const kwList = c.keywords.join(", ");
-      const userMsg = `Cluster: "${c.topic}" (~${c.estimated_monthly_volume} monthly volume)\nKeywords: ${kwList}\n\n${isCustom ? `Custom article title: "${customTitle}"\nFind the most relevant keywords from the list above.` : `Focus keyword: "${focusKeyword}"`}`;
+      const kwWithVols = c.keyword_volumes
+        ? c.keywords.map((kw: string) => `${kw} (${c.keyword_volumes[kw] ?? c.keyword_volumes[kw.toLowerCase()] ?? "?"})`)
+        : c.keywords;
+      const kwList = kwWithVols.join(", ");
+      const userMsg = `Cluster: "${c.topic}" (~${c.estimated_monthly_volume} monthly volume)\nAll keywords in silo (with search volume): ${kwList}\n\n${isCustom ? `Custom article title: "${customTitle}"\nFrom the keywords above, select ONLY those that are directly and specifically relevant to this exact article topic. Be very strict — topical mismatch is worse than having few keywords.` : `Focus keyword: "${focusKeyword}"`}`;
 
       const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
