@@ -394,6 +394,8 @@ const KeywordClustering = () => {
       .single();
     if (data && !error) {
       setActiveResultId(data.id);
+      activeResultIdRef.current = data.id;
+      applyQueueState({ ...EMPTY_QUEUE_STATE });
       loadSavedResults();
     }
   };
@@ -403,7 +405,9 @@ const KeywordClustering = () => {
     if (activeResultId === id) {
       setResult(null);
       setActiveResultId(null);
+      activeResultIdRef.current = null;
       setRawInput("");
+      applyQueueState({ ...EMPTY_QUEUE_STATE });
     }
     loadSavedResults();
     toast({ title: "Analysis deleted" });
