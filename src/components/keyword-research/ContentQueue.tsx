@@ -93,7 +93,7 @@ const EditableTitleCQ = ({ title, onSave, className = "" }: { title: string; onS
   );
 };
 
-const ContentQueue = ({ queuedIdeas, onUseForArticle, onRemoveFromQueue, formatVolume, projectName, allClusters, onReassignKeyword, onCreateIdeaFromKeyword, generatingIdeaForKw, onEditIdeaTitle, onAddKeywordToIdea }: ContentQueueProps) => {
+const ContentQueue = ({ queuedIdeas, onUseForArticle, onRemoveFromQueue, formatVolume, projectName, allClusters, onReassignKeyword, onCreateIdeaFromKeyword, generatingIdeaForKw, onEditIdeaTitle, onAddKeywordToIdea, queueState, onUpdateQueueState }: ContentQueueProps) => {
   // Returns YYYY-MM-DD in local timezone (avoids UTC shifting dates)
   const localDateStr = () => {
     const d = new Date();
@@ -102,8 +102,6 @@ const ContentQueue = ({ queuedIdeas, onUseForArticle, onRemoveFromQueue, formatV
   };
 
   // Format a stored date string for display:
-  // - YYYY-MM-DD is treated as a local calendar date
-  // - ISO timestamps are rendered in local time so legacy entries keep the actual completion date
   const formatStoredDate = (dateStr: string, opts: Intl.DateTimeFormatOptions) => {
     if (!dateStr) return "";
     const ymd = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})$/);
@@ -114,59 +112,24 @@ const ContentQueue = ({ queuedIdeas, onUseForArticle, onRemoveFromQueue, formatV
     return new Date(dateStr).toLocaleDateString("en-GB", opts);
   };
 
-
   const { toast } = useToast();
   const [fallbackDownload, setFallbackDownload] = useState<{ url: string; filename: string } | null>(null);
-  // Map of ideaKey → stored completion date string when marked done
-  const [doneIdeas, setDoneIdeas] = useState<Map<string, string>>(() => {
-    try {
-      const saved = localStorage.getItem("content-queue-done");
-      if (!saved) return new Map();
-      const parsed = JSON.parse(saved);
-      // Migrate from old Set (array of strings) to Map (object of key→date)
-      if (Array.isArray(parsed)) {
-        const migrated = new Map<string, string>();
-        parsed.forEach((key: string) => migrated.set(key, "")); // no date for legacy items
-        // Persist migrated format
-        localStorage.setItem("content-queue-done", JSON.stringify(Object.fromEntries(migrated)));
-        return migrated;
-      }
-      const map = new Map<string, string>(Object.entries(parsed));
-      // Don't backfill empty dates — they're legacy items with unknown completion date
-      return map;
-    } catch { return new Map(); }
-  });
-  const [favoriteIdeas, setFavoriteIdeas] = useState<Set<string>>(() => {
-    try {
-      const saved = localStorage.getItem("content-queue-favorites");
-      return saved ? new Set(JSON.parse(saved)) : new Set();
-    } catch { return new Set(); }
-  });
+
+  // Derive done/favorites/notes from queueState prop
+  const doneIdeas = useMemo(() => new Map(Object.entries(queueState.done)), [queueState.done]);
+  const favoriteIdeas = useMemo(() => new Set(queueState.favorites), [queueState.favorites]);
+  const notes = queueState.notes;
+
   const [expandedDone, setExpandedDone] = useState<Set<string>>(new Set());
   const [completedSectionOpen, setCompletedSectionOpen] = useState(true);
   const [completedSort, setCompletedSort] = useState<"date-desc" | "date-asc" | "month">("date-desc");
   const [cqKwSearch, setCqKwSearch] = useState("");
-  
-  // Notes for this content queue, stored per project
-  const notesStorageKey = projectName ? `content-queue-notes-${projectName}` : "content-queue-notes-default";
-  
+
   interface NoteItem {
     text: string;
     createdAt: string;
   }
-  
-  const [notes, setNotes] = useState<NoteItem[]>(() => {
-    try {
-      const saved = localStorage.getItem(notesStorageKey);
-      if (!saved) return [];
-      const parsed = JSON.parse(saved);
-      // Migrate old string[] format to NoteItem[]
-      if (Array.isArray(parsed) && parsed.length > 0 && typeof parsed[0] === 'string') {
-        return parsed.map((text: string) => ({ text, createdAt: new Date().toISOString() }));
-      }
-      return parsed;
-    } catch { return []; }
-  });
+
   const [newNote, setNewNote] = useState("");
   const [notesOpen, setNotesOpen] = useState(false);
   const [editingNoteIdx, setEditingNoteIdx] = useState<number | null>(null);
@@ -174,9 +137,8 @@ const ContentQueue = ({ queuedIdeas, onUseForArticle, onRemoveFromQueue, formatV
   const editTextareaRef = useRef<HTMLTextAreaElement>(null);
 
   const saveNotes = useCallback((updated: NoteItem[]) => {
-    setNotes(updated);
-    localStorage.setItem(notesStorageKey, JSON.stringify(updated));
-  }, [notesStorageKey]);
+    onUpdateQueueState(prev => ({ ...prev, notes: updated }));
+  }, [onUpdateQueueState]);
 
   const addNote = useCallback(() => {
     if (!newNote.trim()) return;
@@ -295,37 +257,32 @@ const ContentQueue = ({ queuedIdeas, onUseForArticle, onRemoveFromQueue, formatV
   }, []);
 
   const toggleDone = useCallback((ideaKey: string) => {
-    setDoneIdeas(prev => {
-      const next = new Map(prev);
-      if (next.has(ideaKey)) next.delete(ideaKey);
-      else next.set(ideaKey, localDateStr());
-      localStorage.setItem("content-queue-done", JSON.stringify(Object.fromEntries(next)));
-      return next;
+    onUpdateQueueState(prev => {
+      const newDone = { ...prev.done };
+      if (newDone[ideaKey] !== undefined) {
+        delete newDone[ideaKey];
+      } else {
+        newDone[ideaKey] = localDateStr();
+      }
+      return { ...prev, done: newDone };
     });
-  }, []);
+  }, [onUpdateQueueState]);
 
   const updateDoneDate = useCallback((ideaKey: string, date: Date) => {
     const off = date.getTimezoneOffset();
     const localDate = new Date(date.getTime() - off * 60000).toISOString().slice(0, 10);
-    setDoneIdeas(prev => {
-      const next = new Map(prev);
-      if (next.has(ideaKey)) {
-        next.set(ideaKey, localDate);
-        localStorage.setItem("content-queue-done", JSON.stringify(Object.fromEntries(next)));
-      }
-      return next;
+    onUpdateQueueState(prev => {
+      if (prev.done[ideaKey] === undefined) return prev;
+      return { ...prev, done: { ...prev.done, [ideaKey]: localDate } };
     });
-  }, []);
+  }, [onUpdateQueueState]);
 
   const toggleFavorite = useCallback((ideaKey: string) => {
-    setFavoriteIdeas(prev => {
-      const next = new Set(prev);
-      if (next.has(ideaKey)) next.delete(ideaKey);
-      else next.add(ideaKey);
-      localStorage.setItem("content-queue-favorites", JSON.stringify([...next]));
-      return next;
+    onUpdateQueueState(prev => {
+      const has = prev.favorites.includes(ideaKey);
+      return { ...prev, favorites: has ? prev.favorites.filter(k => k !== ideaKey) : [...prev.favorites, ideaKey] };
     });
-  }, []);
+  }, [onUpdateQueueState]);
 
   useEffect(() => {
     return () => {
