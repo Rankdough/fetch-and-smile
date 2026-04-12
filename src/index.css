@@ -485,30 +485,30 @@ All colors MUST be HSL.
   font-size: 2.125rem !important; /* 30px → 34px */
 }
 
-/* Darken gray/muted text colors (skip pure black) */
+/* Darken gray/muted text colors — make everything highly legible */
 .keyword-research-page .text-muted-foreground {
-  color: hsl(215.4 20% 28%) !important; /* was 36% → 28% */
+  color: hsl(220 15% 15%) !important;
 }
 
 .keyword-research-page .text-gray-500 {
-  color: hsl(220 10% 28%) !important; /* was 35% → 28% */
+  color: hsl(220 10% 15%) !important;
 }
 
 .keyword-research-page .text-gray-400 {
-  color: hsl(220 10% 32%) !important; /* was 40% → 32% */
+  color: hsl(220 10% 18%) !important;
 }
 
 .keyword-research-page .text-gray-600 {
-  color: hsl(220 10% 22%) !important; /* was 30% → 22% */
+  color: hsl(220 10% 12%) !important;
 }
 
 .keyword-research-page .text-gray-700 {
-  color: hsl(220 12% 16%) !important; /* was 22% → 16% */
+  color: hsl(220 12% 8%) !important;
 }
 
 /* Darken badge & secondary text */
 .keyword-research-page .text-secondary-foreground {
-  color: hsl(300 52% 12%) !important; /* was 18% → 12% */
+  color: hsl(300 52% 8%) !important;
 }
 
 /* Bump font sizes inside badges */
