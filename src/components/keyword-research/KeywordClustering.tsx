@@ -20,50 +20,32 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const USED_IDEAS_KEY = "kw-used-blog-ideas";
-const BOOKMARKED_IDEAS_KEY_PREFIX = "kw-bookmarked-blog-ideas";
-const FAVORITED_CLUSTERS_KEY = "kw-favorited-clusters";
-const DEMOTED_CLUSTERS_KEY = "kw-demoted-clusters";
+export interface ContentQueueState {
+  bookmarked: string[];
+  used: string[];
+  done: Record<string, string>; // ideaKey → date string
+  favorites: string[];
+  notes: { text: string; createdAt: string }[];
+  favorited_clusters: string[];
+  demoted_clusters: string[];
+}
 
-const getBookmarkedKey = (projectId: string | null) =>
-  projectId ? `${BOOKMARKED_IDEAS_KEY_PREFIX}::${projectId}` : BOOKMARKED_IDEAS_KEY_PREFIX;
-
-const getStoredSet = (key: string): Set<string> => {
-  try {
-    const stored = localStorage.getItem(key);
-    return stored ? new Set(JSON.parse(stored)) : new Set();
-  } catch { return new Set(); }
+const EMPTY_QUEUE_STATE: ContentQueueState = {
+  bookmarked: [], used: [], done: {}, favorites: [], notes: [],
+  favorited_clusters: [], demoted_clusters: [],
 };
 
-const toggleStoredSet = (key: string, value: string): Set<string> => {
-  const set = getStoredSet(key);
-  if (set.has(value)) set.delete(value); else set.add(value);
-  localStorage.setItem(key, JSON.stringify([...set]));
-  return new Set(set);
-};
-
-const getUsedIdeas = (): Set<string> => getStoredSet(USED_IDEAS_KEY);
-const getBookmarkedIdeas = (projectId: string | null): Set<string> => {
-  const key = getBookmarkedKey(projectId);
-  const current = getStoredSet(key);
-  // Migrate old non-namespaced bookmarks to the current project if they exist
-  if (projectId) {
-    const oldKey = BOOKMARKED_IDEAS_KEY_PREFIX;
-    const old = getStoredSet(oldKey);
-    if (old.size > 0) {
-      const merged = new Set([...current, ...old]);
-      localStorage.setItem(key, JSON.stringify([...merged]));
-      localStorage.removeItem(oldKey);
-      return merged;
-    }
-  }
-  return current;
-};
-
-const markIdeaUsed = (ideaKey: string) => {
-  const used = getUsedIdeas();
-  used.add(ideaKey);
-  localStorage.setItem(USED_IDEAS_KEY, JSON.stringify([...used]));
+const parseQueueState = (raw: any): ContentQueueState => {
+  if (!raw || typeof raw !== "object") return { ...EMPTY_QUEUE_STATE };
+  return {
+    bookmarked: Array.isArray(raw.bookmarked) ? raw.bookmarked : [],
+    used: Array.isArray(raw.used) ? raw.used : [],
+    done: raw.done && typeof raw.done === "object" && !Array.isArray(raw.done) ? raw.done : {},
+    favorites: Array.isArray(raw.favorites) ? raw.favorites : [],
+    notes: Array.isArray(raw.notes) ? raw.notes : [],
+    favorited_clusters: Array.isArray(raw.favorited_clusters) ? raw.favorited_clusters : [],
+    demoted_clusters: Array.isArray(raw.demoted_clusters) ? raw.demoted_clusters : [],
+  };
 };
 
 const makeIdeaKey = (clusterTopic: string, ideaTitle: string) =>
