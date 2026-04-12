@@ -88,6 +88,7 @@ const ContextHubPanel = ({ contextFiles, onLoadTopicFiles }: ContextHubPanelProp
   useEffect(() => {
     if (selectedTopicId) {
       loadTopicDocuments(selectedTopicId);
+      setExcludedDocIds(new Set()); // Reset exclusions when switching topics
     } else {
       setTopicDocuments([]);
     }
