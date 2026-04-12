@@ -20,50 +20,32 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const USED_IDEAS_KEY = "kw-used-blog-ideas";
-const BOOKMARKED_IDEAS_KEY_PREFIX = "kw-bookmarked-blog-ideas";
-const FAVORITED_CLUSTERS_KEY = "kw-favorited-clusters";
-const DEMOTED_CLUSTERS_KEY = "kw-demoted-clusters";
+export interface ContentQueueState {
+  bookmarked: string[];
+  used: string[];
+  done: Record<string, string>; // ideaKey → date string
+  favorites: string[];
+  notes: { text: string; createdAt: string }[];
+  favorited_clusters: string[];
+  demoted_clusters: string[];
+}
 
-const getBookmarkedKey = (projectId: string | null) =>
-  projectId ? `${BOOKMARKED_IDEAS_KEY_PREFIX}::${projectId}` : BOOKMARKED_IDEAS_KEY_PREFIX;
-
-const getStoredSet = (key: string): Set<string> => {
-  try {
-    const stored = localStorage.getItem(key);
-    return stored ? new Set(JSON.parse(stored)) : new Set();
-  } catch { return new Set(); }
+const EMPTY_QUEUE_STATE: ContentQueueState = {
+  bookmarked: [], used: [], done: {}, favorites: [], notes: [],
+  favorited_clusters: [], demoted_clusters: [],
 };
 
-const toggleStoredSet = (key: string, value: string): Set<string> => {
-  const set = getStoredSet(key);
-  if (set.has(value)) set.delete(value); else set.add(value);
-  localStorage.setItem(key, JSON.stringify([...set]));
-  return new Set(set);
-};
-
-const getUsedIdeas = (): Set<string> => getStoredSet(USED_IDEAS_KEY);
-const getBookmarkedIdeas = (projectId: string | null): Set<string> => {
-  const key = getBookmarkedKey(projectId);
-  const current = getStoredSet(key);
-  // Migrate old non-namespaced bookmarks to the current project if they exist
-  if (projectId) {
-    const oldKey = BOOKMARKED_IDEAS_KEY_PREFIX;
-    const old = getStoredSet(oldKey);
-    if (old.size > 0) {
-      const merged = new Set([...current, ...old]);
-      localStorage.setItem(key, JSON.stringify([...merged]));
-      localStorage.removeItem(oldKey);
-      return merged;
-    }
-  }
-  return current;
-};
-
-const markIdeaUsed = (ideaKey: string) => {
-  const used = getUsedIdeas();
-  used.add(ideaKey);
-  localStorage.setItem(USED_IDEAS_KEY, JSON.stringify([...used]));
+const parseQueueState = (raw: any): ContentQueueState => {
+  if (!raw || typeof raw !== "object") return { ...EMPTY_QUEUE_STATE };
+  return {
+    bookmarked: Array.isArray(raw.bookmarked) ? raw.bookmarked : [],
+    used: Array.isArray(raw.used) ? raw.used : [],
+    done: raw.done && typeof raw.done === "object" && !Array.isArray(raw.done) ? raw.done : {},
+    favorites: Array.isArray(raw.favorites) ? raw.favorites : [],
+    notes: Array.isArray(raw.notes) ? raw.notes : [],
+    favorited_clusters: Array.isArray(raw.favorited_clusters) ? raw.favorited_clusters : [],
+    demoted_clusters: Array.isArray(raw.demoted_clusters) ? raw.demoted_clusters : [],
+  };
 };
 
 const makeIdeaKey = (clusterTopic: string, ideaTitle: string) =>
@@ -116,6 +98,7 @@ interface SavedClustering {
   input_keywords: string[];
   result: ClusteringResult;
   client_tag: string | null;
+  content_queue_state: ContentQueueState | null;
 }
 
 const EditableTitle = ({ title, onSave, className = "" }: { title: string; onSave: (newTitle: string) => void; className?: string }) => {
@@ -187,8 +170,11 @@ const KeywordClustering = () => {
   const [generatingLandingPages, setGeneratingLandingPages] = useState<string | null>(null);
   const [analysisStage, setAnalysisStage] = useState<"classify" | "enrich" | null>(null);
   const [result, setResult] = useState<ClusteringResult | null>(null);
-  const [usedIdeas, setUsedIdeas] = useState<Set<string>>(getUsedIdeas);
-  const [bookmarkedIdeas, setBookmarkedIdeas] = useState<Set<string>>(() => getBookmarkedIdeas(null));
+  const [queueState, setQueueState] = useState<ContentQueueState>({ ...EMPTY_QUEUE_STATE });
+  const queueStateRef = useRef<ContentQueueState>(queueState);
+  const activeResultIdRef = useRef<string | null>(null);
+  const [usedIdeas, setUsedIdeas] = useState<Set<string>>(new Set());
+  const [bookmarkedIdeas, setBookmarkedIdeas] = useState<Set<string>>(new Set());
   const [expandedClusters, setExpandedClusters] = useState<Set<string>>(() => {
     const silo = searchParams.get("silo");
     return silo ? new Set([silo]) : new Set();
@@ -197,8 +183,8 @@ const KeywordClustering = () => {
   const [kwFilterMode, setKwFilterMode] = useState<Record<string, "all" | "generic" | "questions">>({});
   const [siloSortMode, setSiloSortMode] = useState<"favorites" | "volume">("favorites");
   const [keywordSearchQuery, setKeywordSearchQuery] = useState("");
-  const [favoritedClusters, setFavoritedClusters] = useState<Set<string>>(() => getStoredSet(FAVORITED_CLUSTERS_KEY));
-  const [demotedClusters, setDemotedClusters] = useState<Set<string>>(() => getStoredSet(DEMOTED_CLUSTERS_KEY));
+  const [favoritedClusters, setFavoritedClusters] = useState<Set<string>>(new Set());
+  const [demotedClusters, setDemotedClusters] = useState<Set<string>>(new Set());
   const [rawInput, setRawInput] = useState("");
   const [projectName, setProjectName] = useState("");
   const [clientTag, setClientTag] = useState("");
@@ -249,10 +235,43 @@ const KeywordClustering = () => {
     }, { replace: true });
   }, [activeResultId, activeSiloParam, isResultsOpen, setSearchParams]);
 
-  // Reload bookmarks when active project changes
-  useEffect(() => {
-    setBookmarkedIdeas(getBookmarkedIdeas(activeResultId));
-  }, [activeResultId]);
+  // Save queue state to DB (debounced via ref)
+  const saveQueueStateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const saveQueueStateToDB = useCallback((state: ContentQueueState, projectId?: string | null) => {
+    const id = projectId !== undefined ? projectId : activeResultIdRef.current;
+    if (!id) return;
+    queueStateRef.current = state;
+    if (saveQueueStateTimer.current) clearTimeout(saveQueueStateTimer.current);
+    saveQueueStateTimer.current = setTimeout(() => {
+      supabase
+        .from("keyword_clustering_results")
+        .update({ content_queue_state: state as any })
+        .eq("id", id)
+        .then();
+    }, 300);
+  }, []);
+
+  const updateQueueState = useCallback((updater: (prev: ContentQueueState) => ContentQueueState) => {
+    setQueueState(prev => {
+      const next = updater(prev);
+      // Sync derived state
+      setBookmarkedIdeas(new Set(next.bookmarked));
+      setUsedIdeas(new Set(next.used));
+      setFavoritedClusters(new Set(next.favorited_clusters));
+      setDemotedClusters(new Set(next.demoted_clusters));
+      saveQueueStateToDB(next);
+      return next;
+    });
+  }, [saveQueueStateToDB]);
+
+  const applyQueueState = useCallback((state: ContentQueueState) => {
+    setQueueState(state);
+    queueStateRef.current = state;
+    setBookmarkedIdeas(new Set(state.bookmarked));
+    setUsedIdeas(new Set(state.used));
+    setFavoritedClusters(new Set(state.favorited_clusters));
+    setDemotedClusters(new Set(state.demoted_clusters));
+  }, []);
 
   // Load saved results on mount
   useEffect(() => {
@@ -266,9 +285,10 @@ const KeywordClustering = () => {
       .select("*")
       .order("created_at", { ascending: false });
     if (data && !error) {
-      const mapped = data.map(d => ({
+      const mapped: SavedClustering[] = data.map(d => ({
         ...d,
         result: d.result as unknown as ClusteringResult,
+        content_queue_state: parseQueueState(d.content_queue_state),
       }));
 
       // Retroactively fix generic names (e.g. "28 silos · 896 keywords")
@@ -286,6 +306,50 @@ const KeywordClustering = () => {
         }
       }
 
+      // Migrate localStorage data to DB for projects that have no content_queue_state yet
+      for (const item of mapped) {
+        if (!item.content_queue_state || (item.content_queue_state.bookmarked.length === 0 && item.content_queue_state.used.length === 0)) {
+          const lsKey = item.id ? `kw-bookmarked-blog-ideas::${item.id}` : "kw-bookmarked-blog-ideas";
+          try {
+            const lsBookmarks = localStorage.getItem(lsKey);
+            const lsDone = localStorage.getItem("content-queue-done");
+            const lsFavs = localStorage.getItem("content-queue-favorites");
+            const lsNotes = localStorage.getItem(`content-queue-notes-${item.name || "default"}`);
+            const lsUsed = localStorage.getItem("kw-used-blog-ideas");
+            const lsFavClusters = localStorage.getItem("kw-favorited-clusters");
+            const lsDemClusters = localStorage.getItem("kw-demoted-clusters");
+
+            const migrated: ContentQueueState = {
+              bookmarked: lsBookmarks ? JSON.parse(lsBookmarks) : [],
+              used: lsUsed ? JSON.parse(lsUsed) : [],
+              done: (() => {
+                if (!lsDone) return {};
+                const parsed = JSON.parse(lsDone);
+                if (Array.isArray(parsed)) {
+                  const obj: Record<string, string> = {};
+                  parsed.forEach((k: string) => { obj[k] = ""; });
+                  return obj;
+                }
+                return parsed;
+              })(),
+              favorites: lsFavs ? JSON.parse(lsFavs) : [],
+              notes: lsNotes ? JSON.parse(lsNotes) : [],
+              favorited_clusters: lsFavClusters ? JSON.parse(lsFavClusters) : [],
+              demoted_clusters: lsDemClusters ? JSON.parse(lsDemClusters) : [],
+            };
+
+            if (migrated.bookmarked.length > 0 || migrated.used.length > 0 || Object.keys(migrated.done).length > 0) {
+              item.content_queue_state = migrated;
+              supabase
+                .from("keyword_clustering_results")
+                .update({ content_queue_state: migrated as any })
+                .eq("id", item.id)
+                .then();
+            }
+          } catch {}
+        }
+      }
+
       setSavedResults(mapped);
       // Auto-load: prefer URL project param, else most recent
       if (data.length > 0 && !result) {
@@ -295,8 +359,10 @@ const KeywordClustering = () => {
         setResult(target.result);
         setRawInput(target.input_keywords.join("\n"));
         setActiveResultId(target.id);
+        activeResultIdRef.current = target.id;
         setProjectName(target.name || "");
         setClientTag(target.client_tag || "");
+        applyQueueState(target.content_queue_state || { ...EMPTY_QUEUE_STATE });
         if (!urlProjectId) setExpandedClusters(new Set());
         if (urlProjectId) setIsResultsOpen(true);
       }
@@ -328,6 +394,8 @@ const KeywordClustering = () => {
       .single();
     if (data && !error) {
       setActiveResultId(data.id);
+      activeResultIdRef.current = data.id;
+      applyQueueState({ ...EMPTY_QUEUE_STATE });
       loadSavedResults();
     }
   };
@@ -337,7 +405,9 @@ const KeywordClustering = () => {
     if (activeResultId === id) {
       setResult(null);
       setActiveResultId(null);
+      activeResultIdRef.current = null;
       setRawInput("");
+      applyQueueState({ ...EMPTY_QUEUE_STATE });
     }
     loadSavedResults();
     toast({ title: "Analysis deleted" });
@@ -347,9 +417,11 @@ const KeywordClustering = () => {
     setResult(saved.result);
     setRawInput(saved.input_keywords.join("\n"));
     setActiveResultId(saved.id);
+    activeResultIdRef.current = saved.id;
     setExpandedClusters(new Set());
     setIsResultsOpen(true);
     setClientTag(saved.client_tag || "");
+    applyQueueState(saved.content_queue_state || { ...EMPTY_QUEUE_STATE });
   };
 
   const parseKeywordsFromText = (text: string): string[] => {
@@ -503,6 +575,7 @@ const KeywordClustering = () => {
     setIsAnalyzing(true);
     setResult(null);
     setActiveResultId(null);
+    activeResultIdRef.current = null;
     setAnalysisStage("classify");
     const controller = new AbortController();
     abortRef.current = controller;
@@ -1072,21 +1145,19 @@ const KeywordClustering = () => {
     // Migrate bookmarks/used state
     const sourceKey = makeIdeaKey(clusterTopic, source.title);
     const targetKey = makeIdeaKey(clusterTopic, target.title);
-    if (usedIdeas.has(sourceKey)) {
-      const newUsed = new Set(usedIdeas);
-      newUsed.delete(sourceKey);
-      newUsed.add(targetKey);
-      localStorage.setItem(USED_IDEAS_KEY, JSON.stringify([...newUsed]));
-      setUsedIdeas(newUsed);
-    }
-    const bmKey = getBookmarkedKey(activeResultId);
-    const bm = getStoredSet(bmKey);
-    if (bm.has(sourceKey)) {
-      bm.delete(sourceKey);
-      bm.add(targetKey);
-      localStorage.setItem(bmKey, JSON.stringify([...bm]));
-      setBookmarkedIdeas(new Set(bm));
-    }
+    updateQueueState(prev => {
+      const next = { ...prev };
+      next.used = prev.used.map(k => k === sourceKey ? targetKey : k);
+      next.bookmarked = prev.bookmarked.map(k => k === sourceKey ? targetKey : k);
+      next.favorites = prev.favorites.map(k => k === sourceKey ? targetKey : k);
+      if (prev.done[sourceKey] !== undefined) {
+        const newDone = { ...prev.done };
+        newDone[targetKey] = newDone[sourceKey];
+        delete newDone[sourceKey];
+        next.done = newDone;
+      }
+      return next;
+    });
 
     setResult(updatedResult);
     setCombiningIdea(null);
@@ -1120,37 +1191,20 @@ const KeywordClustering = () => {
     };
     setResult(updatedResult);
 
-    // Update bookmarked ideas key
-    const bmKey = getBookmarkedKey(activeResultId);
-    const bm = getStoredSet(bmKey);
-    if (bm.has(oldKey)) {
-      bm.delete(oldKey);
-      bm.add(newKey);
-      localStorage.setItem(bmKey, JSON.stringify([...bm]));
-      setBookmarkedIdeas(new Set(bm));
-    }
-
-    // Update used/done ideas key
-    const used = getStoredSet(USED_IDEAS_KEY);
-    if (used.has(oldKey)) {
-      used.delete(oldKey);
-      used.add(newKey);
-      localStorage.setItem(USED_IDEAS_KEY, JSON.stringify([...used]));
-      setUsedIdeas(new Set(used));
-    }
-
-    // Update content-queue-done keys
-    try {
-      const doneStr = localStorage.getItem("content-queue-done");
-      if (doneStr) {
-        const doneSet: Set<string> = new Set(JSON.parse(doneStr));
-        if (doneSet.has(oldKey)) {
-          doneSet.delete(oldKey);
-          doneSet.add(newKey);
-          localStorage.setItem("content-queue-done", JSON.stringify([...doneSet]));
-        }
+    // Update queue state keys
+    updateQueueState(prev => {
+      const next = { ...prev };
+      next.bookmarked = prev.bookmarked.map(k => k === oldKey ? newKey : k);
+      next.used = prev.used.map(k => k === oldKey ? newKey : k);
+      next.favorites = prev.favorites.map(k => k === oldKey ? newKey : k);
+      if (prev.done[oldKey] !== undefined) {
+        const newDone = { ...prev.done };
+        newDone[newKey] = newDone[oldKey];
+        delete newDone[oldKey];
+        next.done = newDone;
       }
-    } catch {}
+      return next;
+    });
 
     if (activeResultId) {
       await supabase
@@ -1196,36 +1250,29 @@ const KeywordClustering = () => {
       estimated_monthly_volume: mergedVolume,
     };
 
-    // Update bookmarks/used keys: remap source cluster keys to target cluster
-    const bmKey = getBookmarkedKey(activeResultId);
-    const bm = getStoredSet(bmKey);
-    const used = getStoredSet(USED_IDEAS_KEY);
-    let bmChanged = false, usedChanged = false;
-
-    (source.blog_ideas || []).forEach(idea => {
-      const oldKey = makeIdeaKey(sourceClusterTopic, idea.title);
-      const newKey = makeIdeaKey(targetClusterTopic, idea.title);
-      if (bm.has(oldKey)) { bm.delete(oldKey); bm.add(newKey); bmChanged = true; }
-      if (used.has(oldKey)) { used.delete(oldKey); used.add(newKey); usedChanged = true; }
+    // Update queue state keys: remap source cluster keys to target cluster
+    updateQueueState(prev => {
+      const next = { ...prev };
+      const remap = (arr: string[]) => arr.map(k => {
+        for (const idea of (source.blog_ideas || [])) {
+          const oldK = makeIdeaKey(sourceClusterTopic, idea.title);
+          const newK = makeIdeaKey(targetClusterTopic, idea.title);
+          if (k === oldK) return newK;
+        }
+        return k;
+      });
+      next.bookmarked = remap(prev.bookmarked);
+      next.used = remap(prev.used);
+      next.favorites = remap(prev.favorites);
+      const newDone = { ...prev.done };
+      (source.blog_ideas || []).forEach(idea => {
+        const oldK = makeIdeaKey(sourceClusterTopic, idea.title);
+        const newK = makeIdeaKey(targetClusterTopic, idea.title);
+        if (newDone[oldK] !== undefined) { newDone[newK] = newDone[oldK]; delete newDone[oldK]; }
+      });
+      next.done = newDone;
+      return next;
     });
-
-    if (bmChanged) { localStorage.setItem(bmKey, JSON.stringify([...bm])); setBookmarkedIdeas(new Set(bm)); }
-    if (usedChanged) { localStorage.setItem(USED_IDEAS_KEY, JSON.stringify([...used])); setUsedIdeas(new Set(used)); }
-
-    // Update content-queue-done keys
-    try {
-      const doneStr = localStorage.getItem("content-queue-done");
-      if (doneStr) {
-        const doneSet: Set<string> = new Set(JSON.parse(doneStr));
-        let doneChanged = false;
-        (source.blog_ideas || []).forEach(idea => {
-          const oldKey = makeIdeaKey(sourceClusterTopic, idea.title);
-          const newKey = makeIdeaKey(targetClusterTopic, idea.title);
-          if (doneSet.has(oldKey)) { doneSet.delete(oldKey); doneSet.add(newKey); doneChanged = true; }
-        });
-        if (doneChanged) localStorage.setItem("content-queue-done", JSON.stringify([...doneSet]));
-      }
-    } catch {}
 
     const updatedResult: ClusteringResult = {
       ...result,
@@ -1736,8 +1783,7 @@ const KeywordClustering = () => {
     }
 
     const key = makeIdeaKey(cluster.topic, idea.title);
-    markIdeaUsed(key);
-    setUsedIdeas(prev => new Set(prev).add(key));
+    updateQueueState(prev => ({ ...prev, used: [...prev.used, key] }));
 
     toast({ title: "Pre-filled article settings", description: `Topic: ${idea.title}` });
     window.location.href = "/";
@@ -1984,6 +2030,8 @@ const KeywordClustering = () => {
               onClick={() => {
                 setResult(null);
                 setActiveResultId(null);
+                activeResultIdRef.current = null;
+                applyQueueState({ ...EMPTY_QUEUE_STATE });
                 setRawInput("");
                 setProjectName("");
                 setClientTag("");
@@ -2379,15 +2427,15 @@ const KeywordClustering = () => {
                             title={favoritedClusters.has(cluster.topic) ? "Remove from favorites" : "Add to favorites"}
                             onClick={(e) => {
                               e.stopPropagation();
-                              const newFavs = toggleStoredSet(FAVORITED_CLUSTERS_KEY, cluster.topic);
-                              setFavoritedClusters(newFavs);
-                              // If favoriting, remove from demoted
-                              if (newFavs.has(cluster.topic)) {
-                                const newDemoted = new Set(demotedClusters);
-                                newDemoted.delete(cluster.topic);
-                                localStorage.setItem(DEMOTED_CLUSTERS_KEY, JSON.stringify([...newDemoted]));
-                                setDemotedClusters(newDemoted);
-                              }
+                              updateQueueState(prev => {
+                                const next = { ...prev };
+                                const has = prev.favorited_clusters.includes(cluster.topic);
+                                next.favorited_clusters = has
+                                  ? prev.favorited_clusters.filter(t => t !== cluster.topic)
+                                  : [...prev.favorited_clusters, cluster.topic];
+                                if (!has) next.demoted_clusters = prev.demoted_clusters.filter(t => t !== cluster.topic);
+                                return next;
+                              });
                             }}
                           >
                             <Star className={`h-4 w-4 transition-colors ${favoritedClusters.has(cluster.topic) ? "fill-amber-400 text-amber-400" : "text-muted-foreground/40 hover:text-amber-400"}`} />
@@ -2397,15 +2445,15 @@ const KeywordClustering = () => {
                             title={demotedClusters.has(cluster.topic) ? "Remove from demoted" : "Demote to bottom"}
                             onClick={(e) => {
                               e.stopPropagation();
-                              const newDemoted = toggleStoredSet(DEMOTED_CLUSTERS_KEY, cluster.topic);
-                              setDemotedClusters(newDemoted);
-                              // If demoting, remove from favorites
-                              if (newDemoted.has(cluster.topic)) {
-                                const newFavs = new Set(favoritedClusters);
-                                newFavs.delete(cluster.topic);
-                                localStorage.setItem(FAVORITED_CLUSTERS_KEY, JSON.stringify([...newFavs]));
-                                setFavoritedClusters(newFavs);
-                              }
+                              updateQueueState(prev => {
+                                const next = { ...prev };
+                                const has = prev.demoted_clusters.includes(cluster.topic);
+                                next.demoted_clusters = has
+                                  ? prev.demoted_clusters.filter(t => t !== cluster.topic)
+                                  : [...prev.demoted_clusters, cluster.topic];
+                                if (!has) next.favorited_clusters = prev.favorited_clusters.filter(t => t !== cluster.topic);
+                                return next;
+                              });
                             }}
                           >
                             <ArrowDownToLine className={`h-3.5 w-3.5 transition-colors ${demotedClusters.has(cluster.topic) ? "text-muted-foreground" : "text-muted-foreground/30 hover:text-muted-foreground"}`} />
@@ -2967,7 +3015,10 @@ const KeywordClustering = () => {
                                       title={isUsed ? "Mark as not done" : "Mark as done"}
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        setUsedIdeas(toggleStoredSet(USED_IDEAS_KEY, ideaKey));
+                                        updateQueueState(prev => {
+                                          const has = prev.used.includes(ideaKey);
+                                          return { ...prev, used: has ? prev.used.filter(k => k !== ideaKey) : [...prev.used, ideaKey] };
+                                        });
                                       }}
                                     >
                                       {isUsed ? (
@@ -3195,7 +3246,10 @@ Focus on providing actionable research that will help create a comprehensive, di
                                         className={`gap-1 text-xs h-7 px-2 ${bookmarkedIdeas.has(ideaKey) ? "text-amber-600" : "text-muted-foreground"}`}
                                         onClick={(e) => {
                                           e.stopPropagation();
-                                          setBookmarkedIdeas(toggleStoredSet(getBookmarkedKey(activeResultId), ideaKey));
+                                          updateQueueState(prev => {
+                                            const has = prev.bookmarked.includes(ideaKey);
+                                            return { ...prev, bookmarked: has ? prev.bookmarked.filter(k => k !== ideaKey) : [...prev.bookmarked, ideaKey] };
+                                          });
                                         }}
                                       >
                                         <Bookmark className={`h-3 w-3 ${bookmarkedIdeas.has(ideaKey) ? "fill-current" : ""}`} />
@@ -3404,7 +3458,7 @@ Focus on providing actionable research that will help create a comprehensive, di
             <ContentQueue
               queuedIdeas={queuedIdeas}
               onUseForArticle={sendToGenerator}
-              onRemoveFromQueue={(ideaKey) => setBookmarkedIdeas(toggleStoredSet(getBookmarkedKey(activeResultId), ideaKey))}
+              onRemoveFromQueue={(ideaKey) => updateQueueState(prev => ({ ...prev, bookmarked: prev.bookmarked.filter(k => k !== ideaKey) }))}
               formatVolume={formatVolume}
               projectName={projectName}
               allClusters={result?.clusters}
@@ -3420,6 +3474,8 @@ Focus on providing actionable research that will help create a comprehensive, di
                   addKeywordToIdeaFromAnySilo(clusterTopic, targetIdeaIdx, keyword, sourceClusterTopic);
                 }
               }}
+              queueState={queueState}
+              onUpdateQueueState={updateQueueState}
             />
           );
         })()}
