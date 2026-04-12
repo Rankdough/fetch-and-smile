@@ -3467,6 +3467,8 @@ Focus on providing actionable research that will help create a comprehensive, di
                   addKeywordToIdeaFromAnySilo(clusterTopic, targetIdeaIdx, keyword, sourceClusterTopic);
                 }
               }}
+              queueState={queueState}
+              onUpdateQueueState={updateQueueState}
             />
           );
         })()}
