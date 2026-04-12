@@ -67,6 +67,7 @@ const ContextHubPanel = ({ contextFiles, onLoadTopicFiles }: ContextHubPanelProp
   const [newTopicName, setNewTopicName] = useState("");
   const [showNewTopic, setShowNewTopic] = useState(false);
   const [manageOpen, setManageOpen] = useState(false);
+  const [excludedDocIds, setExcludedDocIds] = useState<Set<string>>(new Set());
 
   // Load topics on mount
   useEffect(() => {
@@ -87,6 +88,7 @@ const ContextHubPanel = ({ contextFiles, onLoadTopicFiles }: ContextHubPanelProp
   useEffect(() => {
     if (selectedTopicId) {
       loadTopicDocuments(selectedTopicId);
+      setExcludedDocIds(new Set()); // Reset exclusions when switching topics
     } else {
       setTopicDocuments([]);
     }
@@ -137,14 +139,9 @@ const ContextHubPanel = ({ contextFiles, onLoadTopicFiles }: ContextHubPanelProp
     toast({ title: "Topic deleted" });
   };
 
-  const handleDeleteDocument = async (docId: string) => {
-    const { error } = await supabase.from("context_documents").delete().eq("id", docId);
-    if (error) {
-      toast({ title: "Failed to delete document", variant: "destructive" });
-      return;
-    }
-    setTopicDocuments((prev) => prev.filter((d) => d.id !== docId));
-    toast({ title: "Document removed" });
+  const handleExcludeDocument = (docId: string) => {
+    setExcludedDocIds((prev) => new Set([...prev, docId]));
+    toast({ title: "Document excluded from this article" });
   };
 
   const handleSaveCurrentFiles = async () => {
@@ -178,8 +175,9 @@ const ContextHubPanel = ({ contextFiles, onLoadTopicFiles }: ContextHubPanelProp
   };
 
   const handleLoadTopicFiles = () => {
-    if (topicDocuments.length === 0) return;
-    const files: ContextFile[] = topicDocuments.map((d) => ({
+    const visibleDocs = topicDocuments.filter((d) => !excludedDocIds.has(d.id));
+    if (visibleDocs.length === 0) return;
+    const files: ContextFile[] = visibleDocs.map((d) => ({
       name: d.file_name,
       content: d.content,
     }));
@@ -286,12 +284,15 @@ const ContextHubPanel = ({ contextFiles, onLoadTopicFiles }: ContextHubPanelProp
             </div>
           ) : (
             <>
-              {topicDocuments.length > 0 && (
+              {(() => {
+                const visibleDocs = topicDocuments.filter((d) => !excludedDocIds.has(d.id));
+                return visibleDocs.length > 0 ? (
                 <div className="space-y-1.5">
                   <Label className="text-xs text-muted-foreground">
-                    {topicDocuments.length} document(s) in "{selectedTopic?.name}"
+                    {visibleDocs.length} document(s) in "{selectedTopic?.name}"
+                    {excludedDocIds.size > 0 && ` (${excludedDocIds.size} excluded for this article)`}
                   </Label>
-                  {topicDocuments.map((doc) => (
+                  {visibleDocs.map((doc) => (
                     <div key={doc.id} className="flex items-center justify-between rounded-md bg-muted p-1.5 text-xs">
                       <div className="flex items-center gap-1.5 truncate">
                         <FileText className="h-3 w-3 flex-shrink-0" />
@@ -304,22 +305,24 @@ const ContextHubPanel = ({ contextFiles, onLoadTopicFiles }: ContextHubPanelProp
                         variant="ghost"
                         size="icon"
                         className="h-5 w-5"
-                        onClick={() => handleDeleteDocument(doc.id)}
+                        onClick={() => handleExcludeDocument(doc.id)}
                       >
                         <X className="h-3 w-3" />
                       </Button>
                     </div>
                   ))}
                 </div>
-              )}
-              {topicDocuments.length === 0 && (
+              ) : (
                 <p className="text-xs text-muted-foreground">
-                  No documents yet. Upload context files above, then save them to this topic.
+                  {topicDocuments.length > 0 
+                    ? `All documents excluded for this article. Switch topics or reload to restore.`
+                    : "No documents yet. Upload context files above, then save them to this topic."}
                 </p>
-              )}
+              );
+              })()}
 
               <div className="flex gap-2">
-                {topicDocuments.length > 0 && (
+                {topicDocuments.filter((d) => !excludedDocIds.has(d.id)).length > 0 && (
                   <Button
                     variant="default"
                     size="sm"
