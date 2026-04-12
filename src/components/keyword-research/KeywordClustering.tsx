@@ -575,6 +575,7 @@ const KeywordClustering = () => {
     setIsAnalyzing(true);
     setResult(null);
     setActiveResultId(null);
+    activeResultIdRef.current = null;
     setAnalysisStage("classify");
     const controller = new AbortController();
     abortRef.current = controller;
@@ -2029,6 +2030,8 @@ const KeywordClustering = () => {
               onClick={() => {
                 setResult(null);
                 setActiveResultId(null);
+                activeResultIdRef.current = null;
+                applyQueueState({ ...EMPTY_QUEUE_STATE });
                 setRawInput("");
                 setProjectName("");
                 setClientTag("");
