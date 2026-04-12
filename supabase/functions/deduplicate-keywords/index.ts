@@ -20,7 +20,7 @@ const STOPWORDS = new Set([
 const MODIFIER_TOKENS = new Set([
   "dental", "front", "back", "tooth", "teeth", "emax", "zirconia",
   "porcelain", "composite", "ceramic", "gold", "metal", "resin",
-  "acrylic", "diy",
+  "acrylic", "diy", "temporary", "permanent", "nhs",
 ]);
 
 function tokenizeKeyword(kw: string): string[] {
