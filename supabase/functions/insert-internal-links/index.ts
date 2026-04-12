@@ -38,7 +38,7 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    const validUrls = urls.filter((u) => u.trim()).slice(0, 6);
+    const validUrls = urls.filter((u) => u.trim()).slice(0, 12);
     console.log("Inserting internal links", {
       contentLength: content.length,
       urlCount: validUrls.length,
@@ -62,6 +62,13 @@ CRITICAL RULES:
 - DO NOT link text inside blockquotes (> lines) or CTA banners
 - Prefer linking phrases in the body paragraphs of the article
 - If a URL's topic doesn't match any phrase in the article, SKIP that URL entirely - do not force it
+
+DISTRIBUTION RULE (CRITICAL):
+- Spread links as evenly as possible across the full article.
+- Use different H2 sections whenever possible.
+- Do NOT place the majority of links in the last section.
+- The final section (Final Thoughts, Conclusion, FAQ, References) may contain AT MOST 1 link total.
+- If there are N links and at least N eligible sections, place them in N different sections.
 
 LINK FORMAT:
 Convert: "relevant phrase about the topic"

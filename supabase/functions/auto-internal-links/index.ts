@@ -55,15 +55,16 @@ serve(async (req) => {
         return true;
       });
 
-    // Step 1: Ask AI to pick up to 10 relevant URLs from the candidate list
-    const pickPrompt = `You are an SEO internal linking expert. Given the article content below and a list of candidate URLs with their page titles, select up to 10 URLs that are MOST contextually relevant to link FROM this article.
+    // Step 1: Ask AI to pick the most relevant URLs from the candidate list
+    const maxSelectable = Math.min(filteredCandidates.length, 12);
+    const pickPrompt = `You are an SEO internal linking expert. Given the article content below and a list of candidate URLs with their page titles, select up to ${maxSelectable} URLs that are MOST contextually relevant to link FROM this article.
 
 RULES:
 - Pick URLs whose topics are genuinely related to phrases or concepts mentioned in the article
 - Prefer URLs about similar products, related foods/drinks, or the same category
 - Do NOT pick URLs that are unrelated just to fill the quota
 - Do NOT pick the article's own URL or any URL about the same specific product
-- If fewer than 5 URLs are truly relevant, pick only the relevant ones
+- If fewer than ${maxSelectable} URLs are truly relevant, pick only the relevant ones
 - Return ONLY a JSON array of the selected URLs, nothing else
 
 CANDIDATE URLs:
@@ -126,9 +127,9 @@ Return ONLY a JSON array like: ["https://...", "https://..."]`;
       );
     }
 
-    // Cap at 5 and keep only known candidate URLs
+    // Keep only known candidate URLs and allow up to 12 selected links
     const candidateUrlSet = new Set(filteredCandidates.map(c => c.url));
-    selectedUrls = selectedUrls.filter(url => candidateUrlSet.has(url)).slice(0, 5);
+    selectedUrls = selectedUrls.filter(url => candidateUrlSet.has(url)).slice(0, 12);
     
     // Also filter out self-links from AI selection
     if (articleSlug) {
@@ -165,11 +166,11 @@ RULES:
 6. If you cannot find a good phrase for a URL, skip it
 
 DISTRIBUTION RULE (CRITICAL):
-- Links MUST be spread EVENLY across the entire article — from early sections to late sections.
-- Do NOT cluster multiple links in the final section (Final Thoughts, Conclusion, FAQ, etc.).
-- At most 1 link is allowed in the final section of the article.
-- Aim to place links in different H2 sections throughout the article body.
-- If you have 6 links, they should appear in roughly 6 different sections, not 4 in the last section.
+- Links MUST be spread as evenly as possible across the entire article — early, middle, and late sections.
+- Use different H2 sections whenever possible. Do not stack multiple links into one section if other eligible sections exist.
+- The final section (Final Thoughts, Conclusion, FAQ, References) may contain AT MOST 1 link total.
+- If there are N links and at least N eligible sections, place them in N different sections.
+- If there are fewer sections than links, distribute them as evenly as possible and never cluster the majority in the last section.
 
 EXAMPLE:
 Before: "many people enjoy craft beer alternatives"
