@@ -235,10 +235,43 @@ const KeywordClustering = () => {
     }, { replace: true });
   }, [activeResultId, activeSiloParam, isResultsOpen, setSearchParams]);
 
-  // Reload bookmarks when active project changes
-  useEffect(() => {
-    setBookmarkedIdeas(getBookmarkedIdeas(activeResultId));
-  }, [activeResultId]);
+  // Save queue state to DB (debounced via ref)
+  const saveQueueStateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const saveQueueStateToDB = useCallback((state: ContentQueueState, projectId?: string | null) => {
+    const id = projectId !== undefined ? projectId : activeResultIdRef.current;
+    if (!id) return;
+    queueStateRef.current = state;
+    if (saveQueueStateTimer.current) clearTimeout(saveQueueStateTimer.current);
+    saveQueueStateTimer.current = setTimeout(() => {
+      supabase
+        .from("keyword_clustering_results")
+        .update({ content_queue_state: state as any })
+        .eq("id", id)
+        .then();
+    }, 300);
+  }, []);
+
+  const updateQueueState = useCallback((updater: (prev: ContentQueueState) => ContentQueueState) => {
+    setQueueState(prev => {
+      const next = updater(prev);
+      // Sync derived state
+      setBookmarkedIdeas(new Set(next.bookmarked));
+      setUsedIdeas(new Set(next.used));
+      setFavoritedClusters(new Set(next.favorited_clusters));
+      setDemotedClusters(new Set(next.demoted_clusters));
+      saveQueueStateToDB(next);
+      return next;
+    });
+  }, [saveQueueStateToDB]);
+
+  const applyQueueState = useCallback((state: ContentQueueState) => {
+    setQueueState(state);
+    queueStateRef.current = state;
+    setBookmarkedIdeas(new Set(state.bookmarked));
+    setUsedIdeas(new Set(state.used));
+    setFavoritedClusters(new Set(state.favorited_clusters));
+    setDemotedClusters(new Set(state.demoted_clusters));
+  }, []);
 
   // Load saved results on mount
   useEffect(() => {
@@ -252,9 +285,10 @@ const KeywordClustering = () => {
       .select("*")
       .order("created_at", { ascending: false });
     if (data && !error) {
-      const mapped = data.map(d => ({
+      const mapped: SavedClustering[] = data.map(d => ({
         ...d,
         result: d.result as unknown as ClusteringResult,
+        content_queue_state: parseQueueState(d.content_queue_state),
       }));
 
       // Retroactively fix generic names (e.g. "28 silos · 896 keywords")
@@ -272,6 +306,50 @@ const KeywordClustering = () => {
         }
       }
 
+      // Migrate localStorage data to DB for projects that have no content_queue_state yet
+      for (const item of mapped) {
+        if (!item.content_queue_state || (item.content_queue_state.bookmarked.length === 0 && item.content_queue_state.used.length === 0)) {
+          const lsKey = item.id ? `kw-bookmarked-blog-ideas::${item.id}` : "kw-bookmarked-blog-ideas";
+          try {
+            const lsBookmarks = localStorage.getItem(lsKey);
+            const lsDone = localStorage.getItem("content-queue-done");
+            const lsFavs = localStorage.getItem("content-queue-favorites");
+            const lsNotes = localStorage.getItem(`content-queue-notes-${item.name || "default"}`);
+            const lsUsed = localStorage.getItem("kw-used-blog-ideas");
+            const lsFavClusters = localStorage.getItem("kw-favorited-clusters");
+            const lsDemClusters = localStorage.getItem("kw-demoted-clusters");
+
+            const migrated: ContentQueueState = {
+              bookmarked: lsBookmarks ? JSON.parse(lsBookmarks) : [],
+              used: lsUsed ? JSON.parse(lsUsed) : [],
+              done: (() => {
+                if (!lsDone) return {};
+                const parsed = JSON.parse(lsDone);
+                if (Array.isArray(parsed)) {
+                  const obj: Record<string, string> = {};
+                  parsed.forEach((k: string) => { obj[k] = ""; });
+                  return obj;
+                }
+                return parsed;
+              })(),
+              favorites: lsFavs ? JSON.parse(lsFavs) : [],
+              notes: lsNotes ? JSON.parse(lsNotes) : [],
+              favorited_clusters: lsFavClusters ? JSON.parse(lsFavClusters) : [],
+              demoted_clusters: lsDemClusters ? JSON.parse(lsDemClusters) : [],
+            };
+
+            if (migrated.bookmarked.length > 0 || migrated.used.length > 0 || Object.keys(migrated.done).length > 0) {
+              item.content_queue_state = migrated;
+              supabase
+                .from("keyword_clustering_results")
+                .update({ content_queue_state: migrated as any })
+                .eq("id", item.id)
+                .then();
+            }
+          } catch {}
+        }
+      }
+
       setSavedResults(mapped);
       // Auto-load: prefer URL project param, else most recent
       if (data.length > 0 && !result) {
@@ -281,8 +359,10 @@ const KeywordClustering = () => {
         setResult(target.result);
         setRawInput(target.input_keywords.join("\n"));
         setActiveResultId(target.id);
+        activeResultIdRef.current = target.id;
         setProjectName(target.name || "");
         setClientTag(target.client_tag || "");
+        applyQueueState(target.content_queue_state || { ...EMPTY_QUEUE_STATE });
         if (!urlProjectId) setExpandedClusters(new Set());
         if (urlProjectId) setIsResultsOpen(true);
       }
