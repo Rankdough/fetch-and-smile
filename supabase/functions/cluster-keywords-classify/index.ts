@@ -52,7 +52,7 @@ async function classifyBatch(
 - Your PRIMARY goal is to assign each keyword to the MOST RELEVANT existing silo above.
 - Only create a new silo if a keyword has ZERO thematic overlap with ANY existing silo.
 - If you must create new silos, create as FEW as possible — ideally ONE that groups all non-fitting keywords together.
-- NEVER create more than 2 new silos total.
+- NEVER create more than 3 new silos total.
 - Keywords that are variations of the same query (e.g. "X vs Y", "Y vs X", "X or Y", "difference between X and Y") MUST all go into the SAME silo.
 - If ALL new keywords share a theme, they ALL go into ONE silo (existing or new).`;
     } else {
