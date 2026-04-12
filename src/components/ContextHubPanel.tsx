@@ -322,7 +322,7 @@ const ContextHubPanel = ({ contextFiles, onLoadTopicFiles }: ContextHubPanelProp
               })()}
 
               <div className="flex gap-2">
-                {topicDocuments.length > 0 && (
+                {topicDocuments.filter((d) => !excludedDocIds.has(d.id)).length > 0 && (
                   <Button
                     variant="default"
                     size="sm"
