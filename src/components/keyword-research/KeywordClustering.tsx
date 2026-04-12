@@ -1186,37 +1186,20 @@ const KeywordClustering = () => {
     };
     setResult(updatedResult);
 
-    // Update bookmarked ideas key
-    const bmKey = getBookmarkedKey(activeResultId);
-    const bm = getStoredSet(bmKey);
-    if (bm.has(oldKey)) {
-      bm.delete(oldKey);
-      bm.add(newKey);
-      localStorage.setItem(bmKey, JSON.stringify([...bm]));
-      setBookmarkedIdeas(new Set(bm));
-    }
-
-    // Update used/done ideas key
-    const used = getStoredSet(USED_IDEAS_KEY);
-    if (used.has(oldKey)) {
-      used.delete(oldKey);
-      used.add(newKey);
-      localStorage.setItem(USED_IDEAS_KEY, JSON.stringify([...used]));
-      setUsedIdeas(new Set(used));
-    }
-
-    // Update content-queue-done keys
-    try {
-      const doneStr = localStorage.getItem("content-queue-done");
-      if (doneStr) {
-        const doneSet: Set<string> = new Set(JSON.parse(doneStr));
-        if (doneSet.has(oldKey)) {
-          doneSet.delete(oldKey);
-          doneSet.add(newKey);
-          localStorage.setItem("content-queue-done", JSON.stringify([...doneSet]));
-        }
+    // Update queue state keys
+    updateQueueState(prev => {
+      const next = { ...prev };
+      next.bookmarked = prev.bookmarked.map(k => k === oldKey ? newKey : k);
+      next.used = prev.used.map(k => k === oldKey ? newKey : k);
+      next.favorites = prev.favorites.map(k => k === oldKey ? newKey : k);
+      if (prev.done[oldKey] !== undefined) {
+        const newDone = { ...prev.done };
+        newDone[newKey] = newDone[oldKey];
+        delete newDone[oldKey];
+        next.done = newDone;
       }
-    } catch {}
+      return next;
+    });
 
     if (activeResultId) {
       await supabase
