@@ -47,14 +47,14 @@ async function classifyBatch(
     siloBlock += `\n${allKnownSilos.map(t => `- ${t}`).join("\n")}`;
     
     if (isAppendMode) {
-      siloBlock += `\n\nSTRICT APPEND RULES:
-- These keywords are being ADDED to an existing project with the silos listed above.
-- Your PRIMARY goal is to assign each keyword to the MOST RELEVANT existing silo above.
-- Only create a new silo if a keyword has ZERO thematic overlap with ANY existing silo.
-- If you must create new silos, create as FEW as possible — ideally ONE that groups all non-fitting keywords together.
-- NEVER create more than 3 new silos total.
-- Keywords that are variations of the same query (e.g. "X vs Y", "Y vs X", "X or Y", "difference between X and Y") MUST all go into the SAME silo.
-- If ALL new keywords share a theme, they ALL go into ONE silo (existing or new).`;
+      siloBlock += `\n\nSTRICT APPEND RULES (YOU MUST FOLLOW THESE — NO EXCEPTIONS):
+- These keywords are being ADDED to an existing project. The silos above already exist.
+- STEP 1: For EACH keyword, check if it fits ANY existing silo. If yes, assign it there. Be generous — even loose thematic overlap counts.
+- STEP 2: Only keywords with ZERO connection to ANY existing silo can go into new silos.
+- STEP 3: Group ALL remaining keywords into AT MOST 3 new silos. If there are fewer than 10 unmatched keywords, use only 1 new silo.
+- HARD LIMIT: Maximum 3 new silo names in your output. If your output contains more than 3 silo names that are NOT in the existing list above, your response is INVALID.
+- Keywords that are variations of the same query (e.g. "X vs Y", "Y vs X", "X or Y") MUST go into the SAME silo.
+- Prefer assigning to existing silos even if the fit isn't perfect — creating new silos is a LAST RESORT.`;
     } else {
       siloBlock += `\n\nYou may create new silos for keywords that don't fit any existing silo, but group related new keywords together — never one silo per keyword.`;
     }
@@ -75,7 +75,7 @@ CRITICAL GROUPING LOGIC:
 RULES:
 - ${allKnownSilos.length > 0 
     ? (isAppendMode 
-      ? "You are in APPEND mode. Existing silos are provided. You MUST assign keywords to existing silos whenever there is ANY thematic relevance. Create new silos ONLY as a last resort, and never more than 2 new silos total. If all keywords share the same theme, they ALL go into ONE silo." 
+      ? "You are in APPEND mode. Assign keywords to existing silos whenever possible. You may create AT MOST 3 new silos — fewer is better. If all keywords share a theme, put them in ONE silo." 
       : "Prefer assigning keywords to existing silos. Only create new silos if keywords genuinely don't fit any existing silo.")
     : "Create at most 20 topic silos. HARD LIMIT: 20 silos maximum. If you have more than 20 potential groups, merge the smallest/most-similar ones until you have exactly 20 or fewer."}
 - Every keyword must be assigned to exactly one topic
