@@ -67,6 +67,7 @@ const ContextHubPanel = ({ contextFiles, onLoadTopicFiles }: ContextHubPanelProp
   const [newTopicName, setNewTopicName] = useState("");
   const [showNewTopic, setShowNewTopic] = useState(false);
   const [manageOpen, setManageOpen] = useState(false);
+  const [excludedDocIds, setExcludedDocIds] = useState<Set<string>>(new Set());
 
   // Load topics on mount
   useEffect(() => {
@@ -137,14 +138,9 @@ const ContextHubPanel = ({ contextFiles, onLoadTopicFiles }: ContextHubPanelProp
     toast({ title: "Topic deleted" });
   };
 
-  const handleDeleteDocument = async (docId: string) => {
-    const { error } = await supabase.from("context_documents").delete().eq("id", docId);
-    if (error) {
-      toast({ title: "Failed to delete document", variant: "destructive" });
-      return;
-    }
-    setTopicDocuments((prev) => prev.filter((d) => d.id !== docId));
-    toast({ title: "Document removed" });
+  const handleExcludeDocument = (docId: string) => {
+    setExcludedDocIds((prev) => new Set([...prev, docId]));
+    toast({ title: "Document excluded from this article" });
   };
 
   const handleSaveCurrentFiles = async () => {
@@ -178,8 +174,9 @@ const ContextHubPanel = ({ contextFiles, onLoadTopicFiles }: ContextHubPanelProp
   };
 
   const handleLoadTopicFiles = () => {
-    if (topicDocuments.length === 0) return;
-    const files: ContextFile[] = topicDocuments.map((d) => ({
+    const visibleDocs = topicDocuments.filter((d) => !excludedDocIds.has(d.id));
+    if (visibleDocs.length === 0) return;
+    const files: ContextFile[] = visibleDocs.map((d) => ({
       name: d.file_name,
       content: d.content,
     }));
@@ -304,7 +301,7 @@ const ContextHubPanel = ({ contextFiles, onLoadTopicFiles }: ContextHubPanelProp
                         variant="ghost"
                         size="icon"
                         className="h-5 w-5"
-                        onClick={() => handleDeleteDocument(doc.id)}
+                        onClick={() => handleExcludeDocument(doc.id)}
                       >
                         <X className="h-3 w-3" />
                       </Button>
