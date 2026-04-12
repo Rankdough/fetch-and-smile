@@ -284,12 +284,15 @@ const ContextHubPanel = ({ contextFiles, onLoadTopicFiles }: ContextHubPanelProp
             </div>
           ) : (
             <>
-              {topicDocuments.length > 0 && (
+              {(() => {
+                const visibleDocs = topicDocuments.filter((d) => !excludedDocIds.has(d.id));
+                return visibleDocs.length > 0 ? (
                 <div className="space-y-1.5">
                   <Label className="text-xs text-muted-foreground">
-                    {topicDocuments.length} document(s) in "{selectedTopic?.name}"
+                    {visibleDocs.length} document(s) in "{selectedTopic?.name}"
+                    {excludedDocIds.size > 0 && ` (${excludedDocIds.size} excluded for this article)`}
                   </Label>
-                  {topicDocuments.map((doc) => (
+                  {visibleDocs.map((doc) => (
                     <div key={doc.id} className="flex items-center justify-between rounded-md bg-muted p-1.5 text-xs">
                       <div className="flex items-center gap-1.5 truncate">
                         <FileText className="h-3 w-3 flex-shrink-0" />
@@ -309,12 +312,14 @@ const ContextHubPanel = ({ contextFiles, onLoadTopicFiles }: ContextHubPanelProp
                     </div>
                   ))}
                 </div>
-              )}
-              {topicDocuments.length === 0 && (
+              ) : (
                 <p className="text-xs text-muted-foreground">
-                  No documents yet. Upload context files above, then save them to this topic.
+                  {topicDocuments.length > 0 
+                    ? `All documents excluded for this article. Switch topics or reload to restore.`
+                    : "No documents yet. Upload context files above, then save them to this topic."}
                 </p>
-              )}
+              );
+              })()}
 
               <div className="flex gap-2">
                 {topicDocuments.length > 0 && (
