@@ -189,6 +189,7 @@ export type Database = {
       keyword_clustering_results: {
         Row: {
           client_tag: string | null
+          content_queue_state: Json | null
           created_at: string
           id: string
           input_keywords: string[]
@@ -198,6 +199,7 @@ export type Database = {
         }
         Insert: {
           client_tag?: string | null
+          content_queue_state?: Json | null
           created_at?: string
           id?: string
           input_keywords?: string[]
@@ -207,6 +209,7 @@ export type Database = {
         }
         Update: {
           client_tag?: string | null
+          content_queue_state?: Json | null
           created_at?: string
           id?: string
           input_keywords?: string[]
