@@ -1245,36 +1245,29 @@ const KeywordClustering = () => {
       estimated_monthly_volume: mergedVolume,
     };
 
-    // Update bookmarks/used keys: remap source cluster keys to target cluster
-    const bmKey = getBookmarkedKey(activeResultId);
-    const bm = getStoredSet(bmKey);
-    const used = getStoredSet(USED_IDEAS_KEY);
-    let bmChanged = false, usedChanged = false;
-
-    (source.blog_ideas || []).forEach(idea => {
-      const oldKey = makeIdeaKey(sourceClusterTopic, idea.title);
-      const newKey = makeIdeaKey(targetClusterTopic, idea.title);
-      if (bm.has(oldKey)) { bm.delete(oldKey); bm.add(newKey); bmChanged = true; }
-      if (used.has(oldKey)) { used.delete(oldKey); used.add(newKey); usedChanged = true; }
+    // Update queue state keys: remap source cluster keys to target cluster
+    updateQueueState(prev => {
+      const next = { ...prev };
+      const remap = (arr: string[]) => arr.map(k => {
+        for (const idea of (source.blog_ideas || [])) {
+          const oldK = makeIdeaKey(sourceClusterTopic, idea.title);
+          const newK = makeIdeaKey(targetClusterTopic, idea.title);
+          if (k === oldK) return newK;
+        }
+        return k;
+      });
+      next.bookmarked = remap(prev.bookmarked);
+      next.used = remap(prev.used);
+      next.favorites = remap(prev.favorites);
+      const newDone = { ...prev.done };
+      (source.blog_ideas || []).forEach(idea => {
+        const oldK = makeIdeaKey(sourceClusterTopic, idea.title);
+        const newK = makeIdeaKey(targetClusterTopic, idea.title);
+        if (newDone[oldK] !== undefined) { newDone[newK] = newDone[oldK]; delete newDone[oldK]; }
+      });
+      next.done = newDone;
+      return next;
     });
-
-    if (bmChanged) { localStorage.setItem(bmKey, JSON.stringify([...bm])); setBookmarkedIdeas(new Set(bm)); }
-    if (usedChanged) { localStorage.setItem(USED_IDEAS_KEY, JSON.stringify([...used])); setUsedIdeas(new Set(used)); }
-
-    // Update content-queue-done keys
-    try {
-      const doneStr = localStorage.getItem("content-queue-done");
-      if (doneStr) {
-        const doneSet: Set<string> = new Set(JSON.parse(doneStr));
-        let doneChanged = false;
-        (source.blog_ideas || []).forEach(idea => {
-          const oldKey = makeIdeaKey(sourceClusterTopic, idea.title);
-          const newKey = makeIdeaKey(targetClusterTopic, idea.title);
-          if (doneSet.has(oldKey)) { doneSet.delete(oldKey); doneSet.add(newKey); doneChanged = true; }
-        });
-        if (doneChanged) localStorage.setItem("content-queue-done", JSON.stringify([...doneSet]));
-      }
-    } catch {}
 
     const updatedResult: ClusteringResult = {
       ...result,
