@@ -246,7 +246,7 @@ const InternalLinkFileManager = ({ selectedFileId, onFileSelected }: InternalLin
       )}
 
       <p className="text-xs text-muted-foreground">
-        Upload a Screaming Frog CSV. AI will pick 3-5 relevant internal links per article.
+        Upload a Screaming Frog CSV. AI will use as many relevant internal links as fit naturally, with links distributed across the article.
       </p>
     </div>
   );
