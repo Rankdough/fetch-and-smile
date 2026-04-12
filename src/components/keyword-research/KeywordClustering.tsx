@@ -1140,21 +1140,19 @@ const KeywordClustering = () => {
     // Migrate bookmarks/used state
     const sourceKey = makeIdeaKey(clusterTopic, source.title);
     const targetKey = makeIdeaKey(clusterTopic, target.title);
-    if (usedIdeas.has(sourceKey)) {
-      const newUsed = new Set(usedIdeas);
-      newUsed.delete(sourceKey);
-      newUsed.add(targetKey);
-      localStorage.setItem(USED_IDEAS_KEY, JSON.stringify([...newUsed]));
-      setUsedIdeas(newUsed);
-    }
-    const bmKey = getBookmarkedKey(activeResultId);
-    const bm = getStoredSet(bmKey);
-    if (bm.has(sourceKey)) {
-      bm.delete(sourceKey);
-      bm.add(targetKey);
-      localStorage.setItem(bmKey, JSON.stringify([...bm]));
-      setBookmarkedIdeas(new Set(bm));
-    }
+    updateQueueState(prev => {
+      const next = { ...prev };
+      next.used = prev.used.map(k => k === sourceKey ? targetKey : k);
+      next.bookmarked = prev.bookmarked.map(k => k === sourceKey ? targetKey : k);
+      next.favorites = prev.favorites.map(k => k === sourceKey ? targetKey : k);
+      if (prev.done[sourceKey] !== undefined) {
+        const newDone = { ...prev.done };
+        newDone[targetKey] = newDone[sourceKey];
+        delete newDone[sourceKey];
+        next.done = newDone;
+      }
+      return next;
+    });
 
     setResult(updatedResult);
     setCombiningIdea(null);
