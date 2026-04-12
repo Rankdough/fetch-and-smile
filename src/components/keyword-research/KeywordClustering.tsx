@@ -98,6 +98,7 @@ interface SavedClustering {
   input_keywords: string[];
   result: ClusteringResult;
   client_tag: string | null;
+  content_queue_state: ContentQueueState | null;
 }
 
 const EditableTitle = ({ title, onSave, className = "" }: { title: string; onSave: (newTitle: string) => void; className?: string }) => {
