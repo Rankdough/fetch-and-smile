@@ -413,9 +413,11 @@ const KeywordClustering = () => {
     setResult(saved.result);
     setRawInput(saved.input_keywords.join("\n"));
     setActiveResultId(saved.id);
+    activeResultIdRef.current = saved.id;
     setExpandedClusters(new Set());
     setIsResultsOpen(true);
     setClientTag(saved.client_tag || "");
+    applyQueueState(saved.content_queue_state || { ...EMPTY_QUEUE_STATE });
   };
 
   const parseKeywordsFromText = (text: string): string[] => {
