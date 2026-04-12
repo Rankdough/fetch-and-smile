@@ -17,13 +17,31 @@ const STOPWORDS = new Set([
   "zu", "von", "mit", "auf", "für", "bei", "nach", "es", "sich",
 ]);
 
-function normalizeKeyword(kw: string): string {
+const MODIFIER_TOKENS = new Set([
+  "dental", "front", "back", "tooth", "teeth", "emax", "zirconia",
+  "porcelain", "composite", "ceramic", "gold", "metal", "resin",
+  "acrylic", "diy",
+]);
+
+function tokenizeKeyword(kw: string): string[] {
   return kw
     .toLowerCase()
     .replace(/[^a-zäöüß0-9\s]/g, " ")
     .split(/\s+/)
-    .filter(w => w.length > 0 && !STOPWORDS.has(w))
+    .filter(Boolean);
+}
+
+function normalizeKeyword(kw: string): string {
+  return tokenizeKeyword(kw)
+    .filter(w => !STOPWORDS.has(w))
     .sort()
+    .join(" ");
+}
+
+function normalizeCoreKeyword(kw: string): string {
+  return tokenizeKeyword(kw)
+    .filter(w => !STOPWORDS.has(w))
+    .filter(w => !MODIFIER_TOKENS.has(w))
     .join(" ");
 }
 
@@ -36,28 +54,52 @@ interface DedupGroup {
   variants: { keyword: string; volume: number }[];
 }
 
+function buildDedupGroup(entries: KeywordEntry[]): DedupGroup {
+  entries.sort((a, b) => b.volume - a.volume);
+  const canonical = entries[0];
+  return {
+    canonical: canonical.keyword,
+    canonicalVolume: canonical.volume,
+    totalVolume: entries.reduce((sum, e) => sum + e.volume, 0),
+    variants: entries.slice(1),
+  };
+}
+
 function fuzzyGroup(keywords: KeywordEntry[]): { groups: DedupGroup[]; ungrouped: DedupGroup[] } {
-  const normMap = new Map<string, KeywordEntry[]>();
+  const exactMap = new Map<string, KeywordEntry[]>();
   for (const entry of keywords) {
     const norm = normalizeKeyword(entry.keyword);
     if (!norm) continue;
-    if (!normMap.has(norm)) normMap.set(norm, []);
-    normMap.get(norm)!.push(entry);
+    if (!exactMap.has(norm)) exactMap.set(norm, []);
+    exactMap.get(norm)!.push(entry);
   }
 
   const groups: DedupGroup[] = [];
+  const exactSingles: KeywordEntry[] = [];
+
+  for (const [, entries] of exactMap) {
+    if (entries.length > 1) groups.push(buildDedupGroup(entries));
+    else exactSingles.push(entries[0]);
+  }
+
+  const coreMap = new Map<string, KeywordEntry[]>();
   const ungrouped: DedupGroup[] = [];
 
-  for (const [, entries] of normMap) {
-    entries.sort((a, b) => b.volume - a.volume);
-    const canonical = entries[0];
-    const totalVolume = entries.reduce((sum, e) => sum + e.volume, 0);
-    const group: DedupGroup = {
-      canonical: canonical.keyword,
-      canonicalVolume: canonical.volume,
-      totalVolume,
-      variants: entries.slice(1),
-    };
+  for (const entry of exactSingles) {
+    const core = normalizeCoreKeyword(entry.keyword);
+    const coreTokenCount = core ? core.split(/\s+/).filter(Boolean).length : 0;
+
+    if (!core || coreTokenCount < 2) {
+      ungrouped.push(buildDedupGroup([entry]));
+      continue;
+    }
+
+    if (!coreMap.has(core)) coreMap.set(core, []);
+    coreMap.get(core)!.push(entry);
+  }
+
+  for (const [, entries] of coreMap) {
+    const group = buildDedupGroup(entries);
     if (entries.length > 1) groups.push(group);
     else ungrouped.push(group);
   }
