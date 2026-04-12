@@ -1778,8 +1778,7 @@ const KeywordClustering = () => {
     }
 
     const key = makeIdeaKey(cluster.topic, idea.title);
-    markIdeaUsed(key);
-    setUsedIdeas(prev => new Set(prev).add(key));
+    updateQueueState(prev => ({ ...prev, used: [...prev.used, key] }));
 
     toast({ title: "Pre-filled article settings", description: `Topic: ${idea.title}` });
     window.location.href = "/";
@@ -2421,15 +2420,15 @@ const KeywordClustering = () => {
                             title={favoritedClusters.has(cluster.topic) ? "Remove from favorites" : "Add to favorites"}
                             onClick={(e) => {
                               e.stopPropagation();
-                              const newFavs = toggleStoredSet(FAVORITED_CLUSTERS_KEY, cluster.topic);
-                              setFavoritedClusters(newFavs);
-                              // If favoriting, remove from demoted
-                              if (newFavs.has(cluster.topic)) {
-                                const newDemoted = new Set(demotedClusters);
-                                newDemoted.delete(cluster.topic);
-                                localStorage.setItem(DEMOTED_CLUSTERS_KEY, JSON.stringify([...newDemoted]));
-                                setDemotedClusters(newDemoted);
-                              }
+                              updateQueueState(prev => {
+                                const next = { ...prev };
+                                const has = prev.favorited_clusters.includes(cluster.topic);
+                                next.favorited_clusters = has
+                                  ? prev.favorited_clusters.filter(t => t !== cluster.topic)
+                                  : [...prev.favorited_clusters, cluster.topic];
+                                if (!has) next.demoted_clusters = prev.demoted_clusters.filter(t => t !== cluster.topic);
+                                return next;
+                              });
                             }}
                           >
                             <Star className={`h-4 w-4 transition-colors ${favoritedClusters.has(cluster.topic) ? "fill-amber-400 text-amber-400" : "text-muted-foreground/40 hover:text-amber-400"}`} />
@@ -2439,15 +2438,15 @@ const KeywordClustering = () => {
                             title={demotedClusters.has(cluster.topic) ? "Remove from demoted" : "Demote to bottom"}
                             onClick={(e) => {
                               e.stopPropagation();
-                              const newDemoted = toggleStoredSet(DEMOTED_CLUSTERS_KEY, cluster.topic);
-                              setDemotedClusters(newDemoted);
-                              // If demoting, remove from favorites
-                              if (newDemoted.has(cluster.topic)) {
-                                const newFavs = new Set(favoritedClusters);
-                                newFavs.delete(cluster.topic);
-                                localStorage.setItem(FAVORITED_CLUSTERS_KEY, JSON.stringify([...newFavs]));
-                                setFavoritedClusters(newFavs);
-                              }
+                              updateQueueState(prev => {
+                                const next = { ...prev };
+                                const has = prev.demoted_clusters.includes(cluster.topic);
+                                next.demoted_clusters = has
+                                  ? prev.demoted_clusters.filter(t => t !== cluster.topic)
+                                  : [...prev.demoted_clusters, cluster.topic];
+                                if (!has) next.favorited_clusters = prev.favorited_clusters.filter(t => t !== cluster.topic);
+                                return next;
+                              });
                             }}
                           >
                             <ArrowDownToLine className={`h-3.5 w-3.5 transition-colors ${demotedClusters.has(cluster.topic) ? "text-muted-foreground" : "text-muted-foreground/30 hover:text-muted-foreground"}`} />
@@ -3009,7 +3008,10 @@ const KeywordClustering = () => {
                                       title={isUsed ? "Mark as not done" : "Mark as done"}
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        setUsedIdeas(toggleStoredSet(USED_IDEAS_KEY, ideaKey));
+                                        updateQueueState(prev => {
+                                          const has = prev.used.includes(ideaKey);
+                                          return { ...prev, used: has ? prev.used.filter(k => k !== ideaKey) : [...prev.used, ideaKey] };
+                                        });
                                       }}
                                     >
                                       {isUsed ? (
@@ -3237,7 +3239,10 @@ Focus on providing actionable research that will help create a comprehensive, di
                                         className={`gap-1 text-xs h-7 px-2 ${bookmarkedIdeas.has(ideaKey) ? "text-amber-600" : "text-muted-foreground"}`}
                                         onClick={(e) => {
                                           e.stopPropagation();
-                                          setBookmarkedIdeas(toggleStoredSet(getBookmarkedKey(activeResultId), ideaKey));
+                                          updateQueueState(prev => {
+                                            const has = prev.bookmarked.includes(ideaKey);
+                                            return { ...prev, bookmarked: has ? prev.bookmarked.filter(k => k !== ideaKey) : [...prev.bookmarked, ideaKey] };
+                                          });
                                         }}
                                       >
                                         <Bookmark className={`h-3 w-3 ${bookmarkedIdeas.has(ideaKey) ? "fill-current" : ""}`} />
@@ -3446,7 +3451,7 @@ Focus on providing actionable research that will help create a comprehensive, di
             <ContentQueue
               queuedIdeas={queuedIdeas}
               onUseForArticle={sendToGenerator}
-              onRemoveFromQueue={(ideaKey) => setBookmarkedIdeas(toggleStoredSet(getBookmarkedKey(activeResultId), ideaKey))}
+              onRemoveFromQueue={(ideaKey) => updateQueueState(prev => ({ ...prev, bookmarked: prev.bookmarked.filter(k => k !== ideaKey) }))}
               formatVolume={formatVolume}
               projectName={projectName}
               allClusters={result?.clusters}
