@@ -170,8 +170,11 @@ const KeywordClustering = () => {
   const [generatingLandingPages, setGeneratingLandingPages] = useState<string | null>(null);
   const [analysisStage, setAnalysisStage] = useState<"classify" | "enrich" | null>(null);
   const [result, setResult] = useState<ClusteringResult | null>(null);
-  const [usedIdeas, setUsedIdeas] = useState<Set<string>>(getUsedIdeas);
-  const [bookmarkedIdeas, setBookmarkedIdeas] = useState<Set<string>>(() => getBookmarkedIdeas(null));
+  const [queueState, setQueueState] = useState<ContentQueueState>({ ...EMPTY_QUEUE_STATE });
+  const queueStateRef = useRef<ContentQueueState>(queueState);
+  const activeResultIdRef = useRef<string | null>(null);
+  const [usedIdeas, setUsedIdeas] = useState<Set<string>>(new Set());
+  const [bookmarkedIdeas, setBookmarkedIdeas] = useState<Set<string>>(new Set());
   const [expandedClusters, setExpandedClusters] = useState<Set<string>>(() => {
     const silo = searchParams.get("silo");
     return silo ? new Set([silo]) : new Set();
@@ -180,8 +183,8 @@ const KeywordClustering = () => {
   const [kwFilterMode, setKwFilterMode] = useState<Record<string, "all" | "generic" | "questions">>({});
   const [siloSortMode, setSiloSortMode] = useState<"favorites" | "volume">("favorites");
   const [keywordSearchQuery, setKeywordSearchQuery] = useState("");
-  const [favoritedClusters, setFavoritedClusters] = useState<Set<string>>(() => getStoredSet(FAVORITED_CLUSTERS_KEY));
-  const [demotedClusters, setDemotedClusters] = useState<Set<string>>(() => getStoredSet(DEMOTED_CLUSTERS_KEY));
+  const [favoritedClusters, setFavoritedClusters] = useState<Set<string>>(new Set());
+  const [demotedClusters, setDemotedClusters] = useState<Set<string>>(new Set());
   const [rawInput, setRawInput] = useState("");
   const [projectName, setProjectName] = useState("");
   const [clientTag, setClientTag] = useState("");
