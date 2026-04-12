@@ -84,10 +84,19 @@ EXAMPLES of semantically identical groups:
 - "does a root canal hurt" = "is root canal painful" = "how painful is a root canal"
 - "how long does a root canal take" = "how long is a root canal" = "root canal how long"
 - "cost of dental implants" = "how much do dental implants cost" = "dental implant price"
+- "how long do veneers last" = "how long do composite veneers last" = "how long do porcelain veneers last" = "how long do emax veneers last" (same core question, type modifier doesn't change the intent)
+- "can you get veneers with missing teeth" = "can you have veneers with missing teeth" (same question rephrased)
+- "how long do veneers take" = "how long does it take to get veneers" (same question)
+
+CRITICAL GROUPING RULE:
+When keywords share the SAME core question structure and differ ONLY by a type/material/brand modifier (e.g., "composite", "porcelain", "emax"), they ARE duplicates. The generic version and all type-specific versions belong in ONE group. Examples:
+- "are veneers permanent" = "are porcelain veneers permanent" = "are composite veneers permanent"
+- "how to clean veneers" = "how to clean porcelain veneers" = "how to clean composite veneers"
 
 RULES:
-- Only group TRUE semantic duplicates — same intent, same answer
-- Do NOT group related but different keywords (e.g., "root canal pain" vs "root canal recovery")
+- Group TRUE semantic duplicates — same intent, same answer
+- Group modifier variants (generic + type-specific versions of the same question)
+- Do NOT group related but genuinely different keywords (e.g., "veneers cost" vs "veneers pain")
 - Each keyword in exactly ONE group
 - Canonical = highest search volume keyword
 - Only output groups with 2+ members${existingContext}
