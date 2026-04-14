@@ -1,32 +1,35 @@
 
 
-## Plan: "Use for Article" button on blog ideas
+# Create Blended Tone Profile from V2 + V3 + Client Notes
 
-### Approach
-Add a small button next to each blog idea in KeywordClustering that writes the idea's data to localStorage (same keys the content generator reads on mount) and navigates to `/`.
+## What We're Doing
 
-### What gets pre-filled
-From the blog idea and its parent cluster:
-- **Topic** (`seo-generator-formData.topic`) = blog idea title
-- **Keywords** (`seo-generator-keywords`) = blog idea's `target_keywords` array
-- **Instructions** (`seo-generator-formData.instructions`) = blog idea description + reason as guidance context
+Creating a custom tone of voice profile that blends V2's neutral, mature tone with V3's friendly character, adjusted for a 40+ adult audience. The profile will be inserted directly into the database and immediately available in Content Generator settings.
 
-The cluster's `content_type` and `description` can also be folded into instructions for additional context.
+## Client Brief Summary
 
-### Changes
+- **V3 pros**: Friendly, entertaining, has character
+- **V3 cons**: Too GenZ, tries too hard with extreme comparisons
+- **V2 pros/cons**: Neutral, no strong character either way
+- **Target**: V2's maturity + a touch of V3's warmth, aimed at adults 40+
+- **Constraint**: No mentions of other apps (Bumble For Friends, etc.)
 
-**File: `src/components/keyword-research/KeywordClustering.tsx`**
+## Steps
 
-1. Accept `useNavigate` from react-router-dom (add import)
-2. Add a `sendToGenerator` function that:
-   - Sets `localStorage["seo-generator-formData"]` with `{ topic: idea.title, length: "medium", outline: "", instructions: <cluster description + idea description + reason> }`
-   - Sets `localStorage["seo-generator-keywords"]` with `idea.target_keywords`
-   - Clears other generator keys that don't apply (gap analysis, format reference, etc.) so stale data doesn't leak -- OR leave them untouched so user's existing settings persist. Safer to leave untouched.
-   - Navigates to `/`
-3. Add a small "Use for Article" button (with an `ArrowRight` or `ExternalLink` icon) next to each blog idea, calling `sendToGenerator(cluster, idea)`
+1. **Run AI synthesis script** — Feed both full articles plus the client's notes into the AI gateway, asking it to produce a blended tone profile JSON matching the `tone_profiles` table schema (summary, characteristics, example_phrases). The prompt will instruct the AI to:
+   - Take V2 as the baseline tone
+   - Add measured warmth and personality from V3
+   - Strip any GenZ-leaning language patterns
+   - Target 40+ adults: confident, relatable, warm but not trying too hard
+   - Avoid forced metaphors and extreme comparisons
 
-### What stays unchanged
-- Index.tsx (content generator) -- no changes needed, it already reads from localStorage on mount
-- All other clustering functionality remains identical
-- No database changes needed
+2. **Insert into database** — Write the resulting profile directly into the `tone_profiles` table with name like "Meet5 Brand Voice (40+ Audience)" so it appears in the Tone of Voice panel.
+
+3. **Verify** — Confirm the profile is queryable and will show up in the UI.
+
+## Technical Detail
+
+- Uses the `lovable_ai.py` script with `--json` flag to get structured output
+- Direct `psql` insert into `tone_profiles` table (or Supabase SDK via a small script)
+- No changes to application code — the existing `ToneProfilePanel` will pick it up automatically
 
