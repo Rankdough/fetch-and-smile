@@ -51,6 +51,16 @@ serve(async (req) => {
 
     // Build context for each changed setting
     const changeInstructions: string[] = [];
+    const structuralChanges = new Set([
+      "outline",
+      "formatReference",
+      "targetLength",
+      "gapAnalysis",
+      "selectedAngles",
+      "selectedGapInsights",
+      "valuePromise",
+    ]);
+    const hasStructuralChanges = changedSettings.some((change) => structuralChanges.has(change));
 
     for (const change of changedSettings) {
       switch (change) {
@@ -68,16 +78,16 @@ serve(async (req) => {
                 .join("\n");
               const phrases = profileData.example_phrases?.slice(0, 5).join('" | "') || "";
               changeInstructions.push(
-                `APPLY TONE OF VOICE: Rewrite the content to match this writing style:\n` +
+                `APPLY TONE OF VOICE: Rewrite ONLY the wording, phrasing, sentence rhythm, and voice to match this writing style:\n` +
                 `Summary: ${profileData.summary || "N/A"}\n` +
                 `Characteristics:\n${chars}\n` +
                 `Example phrases: "${phrases}"\n` +
-                `Preserve all facts, structure, headings, tables, and information. Only change the writing style and voice.`
+                `Keep the existing headings, H2s, H3s, section order, bullet structure, tables, links, CTAs, FAQs, and overall article layout unchanged. Do not rename headings.`
               );
             }
           } else {
             changeInstructions.push(
-              "REMOVE TONE OF VOICE: Rewrite the content in a neutral, professional tone. Preserve all facts, structure, and information."
+              "REMOVE TONE OF VOICE: Rewrite ONLY the phrasing into a neutral, professional tone while preserving headings, section order, lists, tables, links, and all structure exactly as-is."
             );
           }
           break;
@@ -85,8 +95,8 @@ serve(async (req) => {
 
         case "keywords": {
           changeInstructions.push(
-            `OPTIMIZE FOR KEYWORDS: Naturally incorporate these keywords throughout the content: ${(keywords || []).join(", ")}. ` +
-            `Ensure they appear in headings, early paragraphs, and throughout the body. Do not keyword-stuff. Preserve all existing structure and information.`
+            `OPTIMIZE FOR KEYWORDS: Naturally incorporate these keywords throughout the existing content: ${(keywords || []).join(", ")}. ` +
+            `Improve placement within the current article, but keep the existing headings, section order, lists, tables, and overall structure unchanged unless absolutely necessary.`
           );
           break;
         }
@@ -102,9 +112,9 @@ serve(async (req) => {
               const rules = knowledgeData.flatMap((item: any) => item.key_rules || []);
               if (rules.length > 0) {
                 changeInstructions.push(
-                  `APPLY SEO KNOWLEDGE BASE RULES: Ensure the content follows these rules:\n` +
+                  `APPLY SEO KNOWLEDGE BASE RULES: Ensure the existing content follows these rules:\n` +
                   rules.map((r: string, i: number) => `${i + 1}. ${r}`).join("\n") +
-                  `\nAdjust content as needed while preserving the core information and structure.`
+                  `\nAdjust wording and claims where needed, but preserve the existing headings, section order, lists, tables, and article layout.`
                 );
               }
             }
@@ -114,7 +124,8 @@ serve(async (req) => {
 
         case "instructions": {
           changeInstructions.push(
-            `APPLY NEW INSTRUCTIONS: Follow these additional instructions when rewriting:\n${instructions || "(none)"}\nPreserve existing structure and information unless the instructions specifically contradict them.`
+            `APPLY NEW INSTRUCTIONS: Follow these additional instructions when rewriting:\n${instructions || "(none)"}\n` +
+            `Apply them within the existing structure. Do not rename headings or reorganize sections unless the instructions explicitly require structural changes.`
           );
           break;
         }
@@ -122,7 +133,7 @@ serve(async (req) => {
         case "valuePromise": {
           changeInstructions.push(
             `UPDATE VALUE PROMISE: The reader MUST be able to: ${valuePromise}. ` +
-            `Review every section and ensure it helps achieve this outcome. Add, modify, or strengthen content to better deliver on this promise.`
+            `Strengthen the current content to better deliver this outcome. Preserve the current headings and section order wherever possible, only making structural changes if absolutely required.`
           );
           break;
         }
@@ -132,9 +143,9 @@ serve(async (req) => {
           const allAngles = [...(selectedGapInsights || []), ...(selectedAngles || [])];
           if (allAngles.length > 0) {
             changeInstructions.push(
-              `INCORPORATE UNIQUE ANGLES: Weave these perspectives/insights into the content:\n` +
+              `INCORPORATE UNIQUE ANGLES: Weave these perspectives/insights into the existing content:\n` +
               allAngles.map((a: string, i: number) => `${i + 1}. ${a}`).join("\n") +
-              `\nAdd new sections or enrich existing ones to address these angles. Preserve existing structure where possible.`
+              `\nPrefer enriching existing sections first. Only add or restructure sections if there is no other reasonable way to include the requested angles.`
             );
           }
           break;
@@ -143,7 +154,7 @@ serve(async (req) => {
         case "gapAnalysis": {
           changeInstructions.push(
             `APPLY GAP ANALYSIS: Address the following content gaps identified from competitor analysis:\n${gapAnalysis}\n` +
-            `Strengthen or add content to cover these gaps while preserving existing structure.`
+            `Fill the gaps with the minimum structural change necessary. Prefer improving existing sections over adding new ones.`
           );
           break;
         }
@@ -151,7 +162,7 @@ serve(async (req) => {
         case "formatReference": {
           changeInstructions.push(
             `APPLY FORMAT REFERENCE: Restructure the content to match this format/structure:\n${formatReference}\n` +
-            `Preserve all information but reorganize to match the reference format.`
+            `This is an explicit structural change, so reorganize the article as needed while preserving the underlying information.`
           );
           break;
         }
@@ -164,7 +175,7 @@ serve(async (req) => {
             `INCORPORATE CONTEXT FILES AS PRIMARY SOURCE OF TRUTH: Use information from these files as your AUTHORITATIVE source. ` +
             `ONLY use facts, data, statistics, and claims that appear in these files. NEVER fabricate information not found in the files. ` +
             `If the files contain specific numbers or details, use them EXACTLY as provided.\n${fileContents}\n` +
-            `Preserve existing structure but replace any hallucinated or unsupported claims with accurate information from these files.`
+            `Preserve the existing headings and structure while replacing unsupported or inaccurate claims.`
           );
           break;
         }
@@ -172,7 +183,7 @@ serve(async (req) => {
         case "outline": {
           changeInstructions.push(
             `APPLY NEW OUTLINE: Restructure the content to follow this outline:\n${outline}\n` +
-            `Preserve existing information but reorganize to match the new outline.`
+            `This is an explicit structural change, so reorganize headings and sections as needed while preserving the underlying information.`
           );
           break;
         }
@@ -184,7 +195,7 @@ serve(async (req) => {
           const target = wordCounts[targetLength] || 1000;
           changeInstructions.push(
             `ADJUST LENGTH: Modify the content to be approximately ${target} words. ` +
-            `If expanding, add depth and detail. If shortening, keep the most important information and remove redundancy.`
+            `If expanding, add depth mostly inside the existing sections. If shortening, trim redundancy while preserving the current headings and article structure as much as possible.`
           );
           break;
         }
@@ -201,8 +212,10 @@ serve(async (req) => {
       );
     }
 
-    const systemPrompt = `You are an expert SEO content editor. You will receive an existing article and specific change instructions. 
+    const systemPrompt = `You are an expert SEO content editor. You will receive an existing article and specific change instructions.
 Your job is to apply ONLY the requested changes while preserving everything else exactly as-is.
+
+RERUN MODE: ${hasStructuralChanges ? "STRUCTURAL" : "NON-STRUCTURAL"}
 
 CRITICAL RULES:
 1. Preserve ALL existing headings, sections, tables, lists, and structure unless a change specifically requires modification
@@ -213,6 +226,20 @@ CRITICAL RULES:
 6. Apply changes seamlessly - the result should read as if it was originally written this way
 7. Keep the same approximate length unless a length change is requested
 8. Return ONLY the modified article content in markdown format, no explanations
+
+${hasStructuralChanges ? `STRUCTURAL RERUN RULES:
+- Structural changes are allowed ONLY because one of the requested settings explicitly requires them
+- Still preserve as much of the original article as possible
+- Reuse existing headings and section structure wherever reasonable
+- Make the minimum structural changes necessary to satisfy the request` : `NON-STRUCTURAL RERUN RULES:
+- You are NOT allowed to change the heading hierarchy
+- You are NOT allowed to rename H1, H2, or H3 headings
+- You are NOT allowed to reorder sections
+- You are NOT allowed to add sections, remove sections, or merge sections
+- You are NOT allowed to convert paragraphs into lists or lists into paragraphs
+- You are NOT allowed to alter table structure
+- Rewrite only the prose inside the existing structure
+- Think of this as an in-place edit of the existing article, not a regeneration`}
 
 MANDATORY FORMAT PRESERVATION - these specific section formats MUST be kept exactly:
 - "## TL;DR" must remain as a single dense paragraph (NOT bullet points)
