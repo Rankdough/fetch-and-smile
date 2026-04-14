@@ -82,6 +82,7 @@ serve(async (req) => {
                 `Summary: ${profileData.summary || "N/A"}\n` +
                 `Characteristics:\n${chars}\n` +
                 `Example phrases: "${phrases}"\n` +
+                `CRITICAL COMPETITOR RULE: Do NOT mention any competitor apps or platforms by name (e.g. Bumble, Bumble For Friends, Meetup, Hinge, Tinder, Eventbrite, Facebook Groups, or any other social/dating/friendship app). Replace any such mentions with generic terms like "friendship apps", "social platforms", or "event platforms". The ONLY app you may mention by name is "Meet5".\n` +
                 `Keep the existing headings, H2s, H3s, section order, bullet structure, tables, links, CTAs, FAQs, and overall article layout unchanged. Do not rename headings.`
               );
             }
