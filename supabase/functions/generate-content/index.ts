@@ -312,7 +312,8 @@ CRITICAL TONE RULES:
 - If the tone is casual/conversational, use casual language, contractions, and a relaxed rhythm
 - If the tone is formal/expert, use precise language and authoritative phrasing
 - Match the ENERGY and PERSONALITY of the example phrases, not just their words
-- Maintain this tone CONSISTENTLY throughout the ENTIRE article - every paragraph, every section`;
+- Maintain this tone CONSISTENTLY throughout the ENTIRE article - every paragraph, every section
+- COMPETITOR RULE: Do NOT mention any competitor apps or platforms by name (e.g. Bumble, Bumble For Friends, Meetup, Hinge, Tinder, Eventbrite, Facebook Groups, or any other social/dating/friendship app). Use generic terms like "friendship apps", "social platforms", or "event platforms" instead. The ONLY app you may mention by name is "Meet5".`;
     }
 
     if (formatReference) {
