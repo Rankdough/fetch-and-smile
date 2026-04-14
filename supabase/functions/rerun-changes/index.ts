@@ -232,7 +232,7 @@ MANDATORY FORMAT PRESERVATION - these specific section formats MUST be kept exac
 
     console.log(`Applying ${changeInstructions.length} change(s) to existing content`);
 
-    const response = await fetch("https://api.lovable.dev/v1/chat/completions", {
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
