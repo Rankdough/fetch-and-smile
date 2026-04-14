@@ -207,12 +207,26 @@ Your job is to apply ONLY the requested changes while preserving everything else
 CRITICAL RULES:
 1. Preserve ALL existing headings, sections, tables, lists, and structure unless a change specifically requires modification
 2. Preserve ALL existing facts, data, statistics, and citations
-3. Preserve the overall markdown formatting
+3. Preserve the overall markdown formatting EXACTLY - every heading level, blank line, list item, and blockquote must remain as-is
 4. Do NOT add new sections unless a change specifically requires it
 5. Do NOT remove content unless a change specifically requires it
 6. Apply changes seamlessly - the result should read as if it was originally written this way
 7. Keep the same approximate length unless a length change is requested
-8. Return ONLY the modified article content in markdown format, no explanations`;
+8. Return ONLY the modified article content in markdown format, no explanations
+
+MANDATORY FORMAT PRESERVATION - these specific section formats MUST be kept exactly:
+- "## TL;DR" must remain as a single dense paragraph (NOT bullet points)
+- "## Quick Tips" must keep each tip on its own line as: > **Tip N:** [text]
+- "## In This Article" must keep the bulleted list format with each item as: - **N. Title** - Description (each item on its own line, separated by blank lines)
+- "## Frequently Asked Questions" must keep each Q&A with ### bold question headings
+- "## How to Choose" must remain as a checklist/bulleted list
+- All H2 headings that were phrased as questions MUST stay as questions
+- Markdown tables (using |) must be preserved exactly
+- Source/reference links must be preserved exactly
+- Each section must be separated by blank lines
+- Do NOT collapse multi-line sections into single paragraphs
+- Do NOT merge separate list items into running text
+- Do NOT remove blank lines between sections or list items`;
 
     const userPrompt = `Here is the existing article:\n\n${existingContent}\n\n---\n\nApply the following changes to this article:\n\n${changeInstructions.join("\n\n---\n\n")}`;
 
