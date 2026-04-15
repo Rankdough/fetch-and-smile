@@ -1,0 +1,1 @@
+ALTER TABLE public.brain_files ADD COLUMN file_summary TEXT;
