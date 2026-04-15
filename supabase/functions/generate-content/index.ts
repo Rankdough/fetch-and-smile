@@ -17,7 +17,7 @@ serve(async (req) => {
   }
 
   try {
-    const { topic, length, outline, instructions, gapAnalysis, valuePromiseClaims, formatReference, contextFiles, keywords, generateCTAs, ctaUrl, useKnowledgeBase, toneProfileId, articleImages, expandExistingContent, existingContent, wordsToAdd, wordCount, useFirstPerson, skipFaqs, skipQuickTips, skipSources, migrationMode } = await req.json();
+    const { topic, length, outline, instructions, gapAnalysis, valuePromiseClaims, formatReference, contextFiles, keywords, generateCTAs, ctaUrl, useKnowledgeBase, toneProfileId, articleImages, expandExistingContent, existingContent, wordsToAdd, wordCount, useFirstPerson, skipFaqs, skipQuickTips, skipSources, migrationMode, useBrainInsights } = await req.json();
 
     // Handle expand mode - different validation
     if (expandExistingContent) {
@@ -71,7 +71,31 @@ serve(async (req) => {
       }
     }
 
-    // Fetch tone profile if provided
+    // Fetch brain insights if enabled
+    let brainInsightsContext = "";
+    if (useBrainInsights && topic) {
+      const topicWords = topic.toLowerCase().split(/\s+/).filter((w: string) => w.length > 3);
+      const { data: brainData } = await supabase
+        .from("brain_insights")
+        .select("title, insight_type, summary, full_text");
+
+      if (brainData && brainData.length > 0) {
+        // Score by keyword overlap with topic
+        const scored = brainData.map((insight: any) => {
+          const text = `${insight.title} ${insight.summary || ""} ${insight.full_text || ""}`.toLowerCase();
+          const score = topicWords.reduce((acc: number, w: string) => acc + (text.includes(w) ? 1 : 0), 0);
+          return { ...insight, score };
+        }).filter((i: any) => i.score > 0).sort((a: any, b: any) => b.score - a.score).slice(0, 5);
+
+        if (scored.length > 0) {
+          brainInsightsContext = scored.map((i: any) =>
+            `[${i.insight_type.toUpperCase()}] ${i.title}: ${i.summary || ""}\n${i.full_text || ""}`
+          ).join("\n---\n");
+          console.log(`Loaded ${scored.length} brain insights for topic: ${topic}`);
+        }
+      }
+    }
+
     let toneProfile: { summary: string | null; characteristics: Record<string, string>; example_phrases: string[] | null } | null = null;
     if (toneProfileId) {
       const { data: profileData } = await supabase
@@ -283,6 +307,14 @@ ${migrationMode ? '' : `7. EXPERT QUOTE:
 CUSTOM SEO RULES FROM KNOWLEDGE BASE:
 Apply the following SEO strategies and rules from the uploaded knowledge documents:
 ${rulesToUse.map((rule, i) => `${i + 1}. ${rule}`).join("\n")}`;
+    }
+
+    // Add brain insights context to the prompt
+    if (brainInsightsContext) {
+      systemPrompt += `
+
+SEO BRAIN INSIGHTS (apply these strategic insights where relevant):
+${brainInsightsContext}`;
     }
 
     // Add tone of voice instructions if a profile is selected - placed with HIGH PRIORITY

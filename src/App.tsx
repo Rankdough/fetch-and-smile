@@ -9,6 +9,10 @@ import ProductDescriptions from "./pages/ProductDescriptions";
 import KeywordResearch from "./pages/KeywordResearch";
 import OutlineGenerator from "./pages/OutlineGenerator";
 import ContentMigration from "./pages/ContentMigration";
+import BrainLibrary from "./pages/BrainLibrary";
+import BrainInsights from "./pages/BrainInsights";
+import BrainAsk from "./pages/BrainAsk";
+import BrainOutputs from "./pages/BrainOutputs";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -26,6 +30,10 @@ const App = () => (
           <Route path="/keyword-research" element={<KeywordResearch />} />
           <Route path="/outline-generator" element={<OutlineGenerator />} />
           <Route path="/content-migration" element={<ContentMigration />} />
+          <Route path="/seo-brain/library" element={<BrainLibrary />} />
+          <Route path="/seo-brain/insights" element={<BrainInsights />} />
+          <Route path="/seo-brain/ask" element={<BrainAsk />} />
+          <Route path="/seo-brain/outputs" element={<BrainOutputs />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

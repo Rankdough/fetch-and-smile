@@ -95,3 +95,9 @@ verify_jwt = false
 
 [functions.deduplicate-keywords]
 verify_jwt = false
+
+[functions.analyze-brain-file]
+verify_jwt = false
+
+[functions.ask-brain]
+verify_jwt = false

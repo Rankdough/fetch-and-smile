@@ -1,0 +1,240 @@
+import { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Loader2, Brain, FileText, BookOpen, MessageSquare, History, Search, Pencil, Trash2, Plus } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+
+const INSIGHT_TYPES = ["principle", "tactic", "case_study", "framework", "client_note"] as const;
+
+interface Insight {
+  id: string;
+  title: string;
+  insight_type: string;
+  summary: string | null;
+  full_text: string | null;
+  created_at: string;
+  tags?: { id: string; name: string; tag_type: string }[];
+}
+
+interface Tag {
+  id: string;
+  name: string;
+  tag_type: string;
+}
+
+const BrainInsights = () => {
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  const [insights, setInsights] = useState<Insight[]>([]);
+  const [tags, setTags] = useState<Tag[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [typeFilter, setTypeFilter] = useState<string>("all");
+  const [tagFilter, setTagFilter] = useState<string>("all");
+  const [editingInsight, setEditingInsight] = useState<Insight | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
+  const [newInsight, setNewInsight] = useState({ title: "", insight_type: "principle", summary: "", full_text: "" });
+
+  const fetchData = useCallback(async () => {
+    const [insightsRes, tagsRes, junctionRes] = await Promise.all([
+      supabase.from("brain_insights").select("*").order("created_at", { ascending: false }),
+      supabase.from("brain_tags").select("*").order("name"),
+      supabase.from("brain_insight_tags").select("insight_id, tag_id"),
+    ]);
+
+    const tagMap: Record<string, Tag> = {};
+    (tagsRes.data || []).forEach(t => tagMap[t.id] = t);
+    setTags(tagsRes.data || []);
+
+    const insightTagMap: Record<string, Tag[]> = {};
+    (junctionRes.data || []).forEach(j => {
+      if (!insightTagMap[j.insight_id]) insightTagMap[j.insight_id] = [];
+      if (tagMap[j.tag_id]) insightTagMap[j.insight_id].push(tagMap[j.tag_id]);
+    });
+
+    const enriched = (insightsRes.data || []).map(i => ({
+      ...i,
+      tags: insightTagMap[i.id] || [],
+    }));
+    setInsights(enriched);
+    setIsLoading(false);
+  }, []);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  const filtered = insights.filter(i => {
+    if (typeFilter !== "all" && i.insight_type !== typeFilter) return false;
+    if (tagFilter !== "all" && !i.tags?.some(t => t.id === tagFilter)) return false;
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      return i.title.toLowerCase().includes(q) || i.summary?.toLowerCase().includes(q) || i.full_text?.toLowerCase().includes(q);
+    }
+    return true;
+  });
+
+  const handleSaveEdit = async () => {
+    if (!editingInsight) return;
+    await supabase.from("brain_insights").update({
+      title: editingInsight.title,
+      insight_type: editingInsight.insight_type,
+      summary: editingInsight.summary,
+      full_text: editingInsight.full_text,
+    }).eq("id", editingInsight.id);
+    setEditingInsight(null);
+    fetchData();
+    toast({ title: "Insight updated" });
+  };
+
+  const handleCreate = async () => {
+    await supabase.from("brain_insights").insert({
+      title: newInsight.title,
+      insight_type: newInsight.insight_type,
+      summary: newInsight.summary || null,
+      full_text: newInsight.full_text || null,
+    });
+    setIsCreating(false);
+    setNewInsight({ title: "", insight_type: "principle", summary: "", full_text: "" });
+    fetchData();
+    toast({ title: "Insight created" });
+  };
+
+  const handleDelete = async (id: string) => {
+    await supabase.from("brain_insight_tags").delete().eq("insight_id", id);
+    await supabase.from("brain_insights").delete().eq("id", id);
+    setInsights(prev => prev.filter(i => i.id !== id));
+    toast({ title: "Insight deleted" });
+  };
+
+  return (
+    <div className="min-h-screen bg-background">
+      <header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-50">
+        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center gap-4">
+          <Button variant="ghost" size="sm" onClick={() => navigate("/")} className="gap-2">
+            <FileText className="h-4 w-4" /> Content Generator
+          </Button>
+          <div className="flex items-center gap-2 ml-auto">
+            <Brain className="h-5 w-5 text-primary" />
+            <span className="font-semibold text-lg">SEO Brain</span>
+          </div>
+          <nav className="flex items-center gap-1">
+            <Button variant="ghost" size="sm" onClick={() => navigate("/seo-brain/library")} className="gap-2"><BookOpen className="h-4 w-4" />Library</Button>
+            <Button variant="default" size="sm" className="gap-2"><FileText className="h-4 w-4" />Insights</Button>
+            <Button variant="ghost" size="sm" onClick={() => navigate("/seo-brain/ask")} className="gap-2"><MessageSquare className="h-4 w-4" />Ask</Button>
+            <Button variant="ghost" size="sm" onClick={() => navigate("/seo-brain/outputs")} className="gap-2"><History className="h-4 w-4" />Outputs</Button>
+          </nav>
+        </div>
+      </header>
+
+      <main className="max-w-6xl mx-auto px-4 py-8">
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-2xl font-bold">Insights</h1>
+          <Button onClick={() => setIsCreating(true)} className="gap-2"><Plus className="h-4 w-4" />Add Insight</Button>
+        </div>
+
+        <div className="flex items-center gap-3 mb-6">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input placeholder="Search insights..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="pl-9" />
+          </div>
+          <Select value={typeFilter} onValueChange={setTypeFilter}>
+            <SelectTrigger className="w-[180px]"><SelectValue placeholder="All types" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All types</SelectItem>
+              {INSIGHT_TYPES.map(t => <SelectItem key={t} value={t}>{t.replace("_", " ")}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Select value={tagFilter} onValueChange={setTagFilter}>
+            <SelectTrigger className="w-[180px]"><SelectValue placeholder="All tags" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All tags</SelectItem>
+              {tags.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {isLoading ? (
+          <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
+        ) : filtered.length === 0 ? (
+          <Card><CardContent className="py-12 text-center text-muted-foreground">No insights found.</CardContent></Card>
+        ) : (
+          <div className="space-y-3">
+            {filtered.map(insight => (
+              <Card key={insight.id}>
+                <CardContent className="py-4 px-4">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Badge variant="outline" className="text-xs capitalize">{insight.insight_type.replace("_", " ")}</Badge>
+                        <span className="font-medium">{insight.title}</span>
+                      </div>
+                      {insight.summary && <p className="text-sm text-muted-foreground mb-2">{insight.summary}</p>}
+                      {insight.tags && insight.tags.length > 0 && (
+                        <div className="flex gap-1 flex-wrap">
+                          {insight.tags.map(tag => <Badge key={tag.id} variant="secondary" className="text-xs">{tag.name}</Badge>)}
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1 ml-3">
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEditingInsight(insight)}><Pencil className="h-3.5 w-3.5" /></Button>
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleDelete(insight.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </main>
+
+      {/* Edit Dialog */}
+      <Dialog open={!!editingInsight} onOpenChange={() => setEditingInsight(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Edit Insight</DialogTitle></DialogHeader>
+          {editingInsight && (
+            <div className="space-y-4">
+              <div><Label>Title</Label><Input value={editingInsight.title} onChange={e => setEditingInsight({ ...editingInsight, title: e.target.value })} /></div>
+              <div><Label>Type</Label>
+                <Select value={editingInsight.insight_type} onValueChange={v => setEditingInsight({ ...editingInsight, insight_type: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>{INSIGHT_TYPES.map(t => <SelectItem key={t} value={t}>{t.replace("_", " ")}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div><Label>Summary</Label><Textarea value={editingInsight.summary || ""} onChange={e => setEditingInsight({ ...editingInsight, summary: e.target.value })} rows={3} /></div>
+              <div><Label>Full Text</Label><Textarea value={editingInsight.full_text || ""} onChange={e => setEditingInsight({ ...editingInsight, full_text: e.target.value })} rows={6} /></div>
+            </div>
+          )}
+          <DialogFooter><Button onClick={handleSaveEdit}>Save Changes</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Dialog */}
+      <Dialog open={isCreating} onOpenChange={setIsCreating}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Add New Insight</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div><Label>Title</Label><Input value={newInsight.title} onChange={e => setNewInsight({ ...newInsight, title: e.target.value })} /></div>
+            <div><Label>Type</Label>
+              <Select value={newInsight.insight_type} onValueChange={v => setNewInsight({ ...newInsight, insight_type: v })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>{INSIGHT_TYPES.map(t => <SelectItem key={t} value={t}>{t.replace("_", " ")}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div><Label>Summary</Label><Textarea value={newInsight.summary} onChange={e => setNewInsight({ ...newInsight, summary: e.target.value })} rows={3} /></div>
+            <div><Label>Full Text</Label><Textarea value={newInsight.full_text} onChange={e => setNewInsight({ ...newInsight, full_text: e.target.value })} rows={6} /></div>
+          </div>
+          <DialogFooter><Button onClick={handleCreate} disabled={!newInsight.title}>Create Insight</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+};
+
+export default BrainInsights;
