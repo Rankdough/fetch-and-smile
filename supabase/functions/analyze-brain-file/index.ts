@@ -40,7 +40,9 @@ serve(async (req) => {
             role: "system",
             content: `You are an SEO knowledge extraction expert. Analyze the document and extract structured insights.
 
-For each distinct insight, principle, tactic, framework, or case study found, extract:
+First, provide a file_summary: a 3-5 sentence overview of what this document covers, its main thesis, and the most important takeaways. Write it as a quick briefing for someone who hasn't read the document.
+
+Then, for each distinct insight, principle, tactic, framework, or case study found, extract:
 - title: concise name
 - insight_type: one of "principle", "tactic", "case_study", "framework", "client_note"
 - summary: 1-2 sentence summary
@@ -49,6 +51,8 @@ For each distinct insight, principle, tactic, framework, or case study found, ex
 
 Return ONLY valid JSON:
 {
+  "file_summary": "3-5 sentence overview of the entire document...",
+  "top_learnings": ["Learning 1", "Learning 2", "Learning 3"],
   "insights": [
     {
       "title": "...",
