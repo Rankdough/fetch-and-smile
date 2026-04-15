@@ -14,6 +14,161 @@ export type Database = {
   }
   public: {
     Tables: {
+      brain_files: {
+        Row: {
+          created_at: string
+          file_type: string
+          file_url: string
+          id: string
+          status: string
+          title: string
+          updated_at: string
+          uploaded_at: string
+        }
+        Insert: {
+          created_at?: string
+          file_type?: string
+          file_url: string
+          id?: string
+          status?: string
+          title: string
+          updated_at?: string
+          uploaded_at?: string
+        }
+        Update: {
+          created_at?: string
+          file_type?: string
+          file_url?: string
+          id?: string
+          status?: string
+          title?: string
+          updated_at?: string
+          uploaded_at?: string
+        }
+        Relationships: []
+      }
+      brain_insight_tags: {
+        Row: {
+          insight_id: string
+          tag_id: string
+        }
+        Insert: {
+          insight_id: string
+          tag_id: string
+        }
+        Update: {
+          insight_id?: string
+          tag_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brain_insight_tags_insight_id_fkey"
+            columns: ["insight_id"]
+            isOneToOne: false
+            referencedRelation: "brain_insights"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "brain_insight_tags_tag_id_fkey"
+            columns: ["tag_id"]
+            isOneToOne: false
+            referencedRelation: "brain_tags"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      brain_insights: {
+        Row: {
+          created_at: string
+          full_text: string | null
+          id: string
+          insight_type: string
+          source_file_id: string | null
+          summary: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          full_text?: string | null
+          id?: string
+          insight_type?: string
+          source_file_id?: string | null
+          summary?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          full_text?: string | null
+          id?: string
+          insight_type?: string
+          source_file_id?: string | null
+          summary?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brain_insights_source_file_id_fkey"
+            columns: ["source_file_id"]
+            isOneToOne: false
+            referencedRelation: "brain_files"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      brain_outputs: {
+        Row: {
+          created_at: string
+          generated_text: string
+          id: string
+          insight_ids: string[] | null
+          output_type: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          generated_text: string
+          id?: string
+          insight_ids?: string[] | null
+          output_type?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          generated_text?: string
+          id?: string
+          insight_ids?: string[] | null
+          output_type?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      brain_tags: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          tag_type: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          tag_type?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          tag_type?: string
+        }
+        Relationships: []
+      }
       context_documents: {
         Row: {
           content: string
