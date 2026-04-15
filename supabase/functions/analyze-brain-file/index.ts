@@ -107,6 +107,8 @@ Extract as many distinct insights as the document supports. Focus on actionable,
       throw new Error("Failed to parse AI response");
     }
 
+    const fileSummary = parsed.file_summary || null;
+    const topLearnings = parsed.top_learnings || [];
     const insights = parsed.insights || [];
     let insertedCount = 0;
 
@@ -160,13 +162,20 @@ Extract as many distinct insights as the document supports. Focus on actionable,
       }
     }
 
-    // Mark file as processed
-    await supabase.from("brain_files").update({ status: "processed" }).eq("id", fileId);
+    // Build full summary with top learnings
+    const fullSummary = fileSummary
+      ? (topLearnings.length > 0
+        ? `${fileSummary}\n\n**Top Learnings:**\n${topLearnings.map((l: string, i: number) => `${i + 1}. ${l}`).join("\n")}`
+        : fileSummary)
+      : null;
+
+    // Mark file as processed with summary
+    await supabase.from("brain_files").update({ status: "processed", file_summary: fullSummary }).eq("id", fileId);
 
     console.log(`Processed ${insertedCount} insights from ${fileName}`);
 
     return new Response(
-      JSON.stringify({ success: true, insightsCount: insertedCount }),
+      JSON.stringify({ success: true, insightsCount: insertedCount, summary: fullSummary }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
