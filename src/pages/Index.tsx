@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { Loader2, Sparkles, FileText, Link, Search, X, Upload, Plus, Tag, Download, ExternalLink, BookOpen, Eye, Edit2, Mic2, RotateCcw, Target, Maximize2, Minimize2, ImagePlus, Wand2, Image, ChevronDown, Trash2, Settings, FileUp, Save, FolderOpen, ArrowRightLeft } from "lucide-react";
+import { Loader2, Sparkles, FileText, Link, Search, X, Upload, Plus, Tag, Download, ExternalLink, BookOpen, Eye, Edit2, Mic2, RotateCcw, Target, Maximize2, Minimize2, ImagePlus, Wand2, Image, ChevronDown, Trash2, Settings, FileUp, Save, FolderOpen, ArrowRightLeft, Brain } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   DropdownMenu,
@@ -2271,6 +2271,15 @@ const Index = () => {
             >
               <ArrowRightLeft className="h-4 w-4" />
               Content Migration
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => navigate("/seo-brain/library")}
+              className="gap-2"
+            >
+              <Brain className="h-4 w-4" />
+              SEO Brain
             </Button>
           </nav>
         </div>
