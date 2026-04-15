@@ -1,0 +1,126 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+};
+
+serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  try {
+    const { question, history } = await req.json();
+    if (!question) {
+      return new Response(JSON.stringify({ error: "question required" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
+
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Fetch all insights (simple text match for now - can be upgraded to embeddings later)
+    const { data: allInsights } = await supabase
+      .from("brain_insights")
+      .select("id, title, insight_type, summary, full_text");
+
+    // Simple relevance scoring: keyword overlap
+    const queryWords = question.toLowerCase().split(/\s+/).filter((w: string) => w.length > 3);
+    const scored = (allInsights || []).map((insight: any) => {
+      const text = `${insight.title} ${insight.summary || ""} ${insight.full_text || ""}`.toLowerCase();
+      const score = queryWords.reduce((acc: number, word: string) => acc + (text.includes(word) ? 1 : 0), 0);
+      return { ...insight, score };
+    }).filter((i: any) => i.score > 0).sort((a: any, b: any) => b.score - a.score).slice(0, 10);
+
+    // Build context from top insights
+    const contextBlock = scored.map((i: any) =>
+      `[${i.insight_type.toUpperCase()}] ${i.title}\n${i.summary || ""}\n${i.full_text || ""}`
+    ).join("\n---\n");
+
+    const sources = scored.map((i: any) => ({ id: i.id, title: i.title, insight_type: i.insight_type }));
+
+    // Build messages with history
+    const chatMessages: any[] = [
+      {
+        role: "system",
+        content: `You are an SEO Brain assistant. Answer questions using the knowledge base insights provided below. Be specific, actionable, and reference the source insights when relevant.
+
+${contextBlock ? `## Knowledge Base Context\n\n${contextBlock}` : "No relevant insights found in the knowledge base. Answer based on general SEO knowledge and note that the knowledge base doesn't have specific information on this topic."}`,
+      },
+    ];
+
+    // Add history
+    if (history && Array.isArray(history)) {
+      for (const msg of history.slice(-10)) {
+        chatMessages.push({ role: msg.role, content: msg.content });
+      }
+    }
+    chatMessages.push({ role: "user", content: question });
+
+    // Stream response
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash",
+        messages: chatMessages,
+        stream: true,
+      }),
+    });
+
+    if (!response.ok) {
+      if (response.status === 429) {
+        return new Response(JSON.stringify({ error: "Rate limited, please try again later" }), {
+          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      if (response.status === 402) {
+        return new Response(JSON.stringify({ error: "Credits exhausted, please add funds" }), {
+          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`AI gateway error: ${response.status}`);
+    }
+
+    // Create a transform stream that prepends the sources event
+    const { readable, writable } = new TransformStream();
+    const writer = writable.getWriter();
+    const encoder = new TextEncoder();
+
+    // Send sources first as a custom SSE event
+    writer.write(encoder.encode(`data: ${JSON.stringify({ sources })}\n\n`));
+
+    // Pipe the AI response stream
+    const reader = response.body!.getReader();
+    (async () => {
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          await writer.write(value);
+        }
+      } finally {
+        writer.close();
+      }
+    })();
+
+    return new Response(readable, {
+      headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
+    });
+  } catch (error) {
+    console.error("ask-brain error:", error);
+    return new Response(
+      JSON.stringify({ error: error instanceof Error ? error.message : "Failed" }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+});
