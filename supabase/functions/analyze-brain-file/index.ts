@@ -40,7 +40,9 @@ serve(async (req) => {
             role: "system",
             content: `You are an SEO knowledge extraction expert. Analyze the document and extract structured insights.
 
-For each distinct insight, principle, tactic, framework, or case study found, extract:
+First, provide a file_summary: a 3-5 sentence overview of what this document covers, its main thesis, and the most important takeaways. Write it as a quick briefing for someone who hasn't read the document.
+
+Then, for each distinct insight, principle, tactic, framework, or case study found, extract:
 - title: concise name
 - insight_type: one of "principle", "tactic", "case_study", "framework", "client_note"
 - summary: 1-2 sentence summary
@@ -49,6 +51,8 @@ For each distinct insight, principle, tactic, framework, or case study found, ex
 
 Return ONLY valid JSON:
 {
+  "file_summary": "3-5 sentence overview of the entire document...",
+  "top_learnings": ["Learning 1", "Learning 2", "Learning 3"],
   "insights": [
     {
       "title": "...",
@@ -103,6 +107,8 @@ Extract as many distinct insights as the document supports. Focus on actionable,
       throw new Error("Failed to parse AI response");
     }
 
+    const fileSummary = parsed.file_summary || null;
+    const topLearnings = parsed.top_learnings || [];
     const insights = parsed.insights || [];
     let insertedCount = 0;
 
@@ -156,13 +162,20 @@ Extract as many distinct insights as the document supports. Focus on actionable,
       }
     }
 
-    // Mark file as processed
-    await supabase.from("brain_files").update({ status: "processed" }).eq("id", fileId);
+    // Build full summary with top learnings
+    const fullSummary = fileSummary
+      ? (topLearnings.length > 0
+        ? `${fileSummary}\n\n**Top Learnings:**\n${topLearnings.map((l: string, i: number) => `${i + 1}. ${l}`).join("\n")}`
+        : fileSummary)
+      : null;
+
+    // Mark file as processed with summary
+    await supabase.from("brain_files").update({ status: "processed", file_summary: fullSummary }).eq("id", fileId);
 
     console.log(`Processed ${insertedCount} insights from ${fileName}`);
 
     return new Response(
-      JSON.stringify({ success: true, insightsCount: insertedCount }),
+      JSON.stringify({ success: true, insightsCount: insertedCount, summary: fullSummary }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
