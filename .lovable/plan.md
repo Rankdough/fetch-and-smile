@@ -1,35 +1,30 @@
 
 
-# Create Blended Tone Profile from V2 + V3 + Client Notes
+# Information Gain Enhancement for Unique Angles
 
-## What We're Doing
+## What Changes
 
-Creating a custom tone of voice profile that blends V2's neutral, mature tone with V3's friendly character, adjusted for a 40+ adult audience. The profile will be inserted directly into the database and immediately available in Content Generator settings.
+Update the `generate-unique-angles` edge function prompt to a two-step process:
+1. First identify 3 "Information Gain Gaps" — knowledge the internet generally lacks on this topic
+2. Then generate 3 unique angles that specifically target those gaps
 
-## Client Brief Summary
+Update the `UniqueAnglesPanel` UI to display the new `informationGainGap` field on each angle.
 
-- **V3 pros**: Friendly, entertaining, has character
-- **V3 cons**: Too GenZ, tries too hard with extreme comparisons
-- **V2 pros/cons**: Neutral, no strong character either way
-- **Target**: V2's maturity + a touch of V3's warmth, aimed at adults 40+
-- **Constraint**: No mentions of other apps (Bumble For Friends, etc.)
+## Files to Edit
 
-## Steps
+### 1. `supabase/functions/generate-unique-angles/index.ts`
+- Update the system prompt to instruct the AI to first analyze what knowledge is commonly missing/over-published on the topic, then generate angles targeting those specific gaps
+- Add `informationGainGap` field to the response JSON schema
+- Update the response format to include a top-level `gaps` array (the 3 identified information gaps) alongside the `angles` array
 
-1. **Run AI synthesis script** — Feed both full articles plus the client's notes into the AI gateway, asking it to produce a blended tone profile JSON matching the `tone_profiles` table schema (summary, characteristics, example_phrases). The prompt will instruct the AI to:
-   - Take V2 as the baseline tone
-   - Add measured warmth and personality from V3
-   - Strip any GenZ-leaning language patterns
-   - Target 40+ adults: confident, relatable, warm but not trying too hard
-   - Avoid forced metaphors and extreme comparisons
+### 2. `src/components/UniqueAnglesPanel.tsx`
+- Update the `UniqueAngle` interface to include `informationGainGap: string`
+- Display the information gain gap as a new field in the expanded angle details (alongside "Why it works" and "Example hook")
+- Optionally show the top-level gaps summary above the angles list
 
-2. **Insert into database** — Write the resulting profile directly into the `tone_profiles` table with name like "Meet5 Brand Voice (40+ Audience)" so it appears in the Tone of Voice panel.
+## No Database Changes Required
+The angles are generated on-the-fly and passed via state — no schema changes needed.
 
-3. **Verify** — Confirm the profile is queryable and will show up in the UI.
-
-## Technical Detail
-
-- Uses the `lovable_ai.py` script with `--json` flag to get structured output
-- Direct `psql` insert into `tone_profiles` table (or Supabase SDK via a small script)
-- No changes to application code — the existing `ToneProfilePanel` will pick it up automatically
+## No Other Files Affected
+Gap analysis, content generation, tone profiles, and all other flows remain untouched.
 
