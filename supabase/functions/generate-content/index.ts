@@ -309,6 +309,14 @@ Apply the following SEO strategies and rules from the uploaded knowledge documen
 ${rulesToUse.map((rule, i) => `${i + 1}. ${rule}`).join("\n")}`;
     }
 
+    // Add brain insights context to the prompt
+    if (brainInsightsContext) {
+      systemPrompt += `
+
+SEO BRAIN INSIGHTS (apply these strategic insights where relevant):
+${brainInsightsContext}`;
+    }
+
     // Add tone of voice instructions if a profile is selected - placed with HIGH PRIORITY
     if (toneProfile) {
       const chars = Object.entries(toneProfile.characteristics || {})
