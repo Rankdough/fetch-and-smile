@@ -1,13 +1,19 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Loader2, Lightbulb, Check, ChevronDown, ChevronUp } from "lucide-react";
+import { Loader2, Lightbulb, Check, ChevronDown, ChevronUp, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
+interface InformationGainGap {
+  gap: string;
+  whatsOverPublished: string;
+}
+
 interface UniqueAngle {
   title: string;
   description: string;
+  informationGainGap: string;
   whyItWorks: string;
   exampleHook: string;
 }
@@ -30,30 +36,22 @@ export const UniqueAnglesPanel = ({
   const { toast } = useToast();
   const [isGenerating, setIsGenerating] = useState(false);
   const [angles, setAngles] = useState<UniqueAngle[]>([]);
+  const [gaps, setGaps] = useState<InformationGainGap[]>([]);
   const [expandedAngle, setExpandedAngle] = useState<number | null>(null);
+  const [showGaps, setShowGaps] = useState(false);
 
   const handleGenerateAngles = async () => {
     if (!topic.trim()) {
-      toast({
-        title: "Topic required",
-        description: "Enter a topic first to generate unique angles.",
-        variant: "destructive",
-      });
+      toast({ title: "Topic required", description: "Enter a topic first to generate unique angles.", variant: "destructive" });
       return;
     }
-    
     if (!gapAnalysis.trim()) {
-      toast({
-        title: "Gap analysis required",
-        description: "Run gap analysis on competitor URLs first to generate unique angles.",
-        variant: "destructive",
-      });
+      toast({ title: "Gap analysis required", description: "Run gap analysis on competitor URLs first to generate unique angles.", variant: "destructive" });
       return;
     }
     
     setIsGenerating(true);
     try {
-      // Fetch tone profile if selected
       let toneProfile = null;
       if (toneProfileId) {
         const { data: profileData } = await supabase
@@ -61,9 +59,7 @@ export const UniqueAnglesPanel = ({
           .select("summary, characteristics, example_phrases")
           .eq("id", toneProfileId)
           .maybeSingle();
-        if (profileData) {
-          toneProfile = profileData;
-        }
+        if (profileData) toneProfile = profileData;
       }
 
       const { data, error } = await supabase.functions.invoke("generate-unique-angles", {
@@ -73,17 +69,15 @@ export const UniqueAnglesPanel = ({
       if (error) throw error;
       
       setAngles(data.angles || []);
+      setGaps(data.gaps || []);
+      setShowGaps(true);
       toast({
         title: "Unique angles generated!",
-        description: `${data.angles?.length || 0} fresh perspectives to differentiate your content.`,
+        description: `${data.gaps?.length || 0} information gaps identified, ${data.angles?.length || 0} angles to fill them.`,
       });
     } catch (error) {
       console.error("Angle generation error:", error);
-      toast({
-        title: "Generation failed",
-        description: error instanceof Error ? error.message : "Failed to generate angles",
-        variant: "destructive",
-      });
+      toast({ title: "Generation failed", description: error instanceof Error ? error.message : "Failed to generate angles", variant: "destructive" });
     } finally {
       setIsGenerating(false);
     }
@@ -103,9 +97,7 @@ export const UniqueAnglesPanel = ({
     return (
       <div className={cn(
         "rounded-lg border p-4",
-        hasGapAnalysis 
-          ? "bg-gradient-to-r from-amber-500/5 to-orange-500/10" 
-          : "bg-muted/30"
+        hasGapAnalysis ? "bg-gradient-to-r from-amber-500/5 to-orange-500/10" : "bg-muted/30"
       )}>
         <div className="flex items-center justify-between gap-4">
           <div className="flex-1">
@@ -114,28 +106,13 @@ export const UniqueAnglesPanel = ({
               Unique Angle Generator
             </h4>
             <p className="text-xs text-muted-foreground mt-1">
-{hasGapAnalysis 
-                ? "Get 3 strong perspectives based on competitor gaps" 
+              {hasGapAnalysis 
+                ? "Identify information gain gaps & generate angles to fill them" 
                 : "Run gap analysis first to generate unique angles"}
             </p>
           </div>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={handleGenerateAngles}
-            disabled={isGenerating || !topic.trim() || !hasGapAnalysis}
-          >
-            {isGenerating ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Generating...
-              </>
-            ) : (
-              <>
-                <Lightbulb className="h-4 w-4 mr-2" />
-                Generate Angles
-              </>
-            )}
+          <Button size="sm" variant="outline" onClick={handleGenerateAngles} disabled={isGenerating || !topic.trim() || !hasGapAnalysis}>
+            {isGenerating ? (<><Loader2 className="h-4 w-4 mr-2 animate-spin" />Generating...</>) : (<><Lightbulb className="h-4 w-4 mr-2" />Generate Angles</>)}
           </Button>
         </div>
       </div>
@@ -154,19 +131,36 @@ export const UniqueAnglesPanel = ({
             </span>
           )}
         </h4>
-        <Button
-          size="sm"
-          variant="ghost"
-          onClick={handleGenerateAngles}
-          disabled={isGenerating}
-        >
-          {isGenerating ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            "Regenerate"
-          )}
+        <Button size="sm" variant="ghost" onClick={handleGenerateAngles} disabled={isGenerating}>
+          {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : "Regenerate"}
         </Button>
       </div>
+
+      {/* Information Gain Gaps Summary */}
+      {gaps.length > 0 && (
+        <div className="rounded-md border border-amber-500/20 bg-amber-500/5 p-3">
+          <button
+            className="flex items-center gap-2 w-full text-left"
+            onClick={() => setShowGaps(!showGaps)}
+          >
+            <AlertTriangle className="h-3.5 w-3.5 text-amber-600 flex-shrink-0" />
+            <span className="text-xs font-medium text-amber-700 dark:text-amber-400">
+              {gaps.length} Information Gain Gaps Identified
+            </span>
+            {showGaps ? <ChevronUp className="h-3 w-3 ml-auto text-amber-600" /> : <ChevronDown className="h-3 w-3 ml-auto text-amber-600" />}
+          </button>
+          {showGaps && (
+            <div className="mt-2 space-y-2">
+              {gaps.map((g, i) => (
+                <div key={i} className="text-xs pl-5 space-y-0.5">
+                  <p className="font-medium">{g.gap}</p>
+                  <p className="text-muted-foreground italic">Over-published: {g.whatsOverPublished}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       <p className="text-xs text-muted-foreground">
         Select one or more angles to incorporate into your article:
@@ -183,10 +177,7 @@ export const UniqueAnglesPanel = ({
                 : "hover:border-muted-foreground/50"
             )}
           >
-            <div 
-              className="flex items-start gap-3"
-              onClick={() => toggleAngle(angle.title)}
-            >
+            <div className="flex items-start gap-3" onClick={() => toggleAngle(angle.title)}>
               <div className={cn(
                 "flex-shrink-0 w-5 h-5 rounded border flex items-center justify-center mt-0.5",
                 selectedAngles.includes(angle.title) 
@@ -200,24 +191,19 @@ export const UniqueAnglesPanel = ({
                 <p className="text-xs text-muted-foreground mt-0.5">{angle.description}</p>
               </div>
               <Button
-                variant="ghost"
-                size="sm"
-                className="h-6 w-6 p-0 flex-shrink-0"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setExpandedAngle(expandedAngle === index ? null : index);
-                }}
+                variant="ghost" size="sm" className="h-6 w-6 p-0 flex-shrink-0"
+                onClick={(e) => { e.stopPropagation(); setExpandedAngle(expandedAngle === index ? null : index); }}
               >
-                {expandedAngle === index ? (
-                  <ChevronUp className="h-4 w-4" />
-                ) : (
-                  <ChevronDown className="h-4 w-4" />
-                )}
+                {expandedAngle === index ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
               </Button>
             </div>
             
             {expandedAngle === index && (
               <div className="mt-3 pl-8 space-y-2 border-t pt-3">
+                <div>
+                  <p className="text-xs font-medium text-amber-600 dark:text-amber-400">Information gain gap:</p>
+                  <p className="text-xs">{angle.informationGainGap}</p>
+                </div>
                 <div>
                   <p className="text-xs font-medium text-muted-foreground">Why it works:</p>
                   <p className="text-xs">{angle.whyItWorks}</p>

@@ -42,32 +42,45 @@ ${phrases.length > 0 ? `Example phrases from this voice: "${phrases.slice(0, 3).
 The angle titles, descriptions, and example hooks MUST sound like they were written by someone with this voice. Match the energy, vocabulary, and personality exactly. Do NOT default to formal/academic/consultant tone.`;
     }
 
-    const systemPrompt = `You are a content strategist who identifies unique angles that make articles stand out from competitors.
+    const systemPrompt = `You are a content strategist who identifies INFORMATION GAIN GAPS — knowledge that is genuinely missing from the internet on a given topic — and then creates unique angles to fill those gaps.
 
-Your job is to analyze what competitors are covering and suggest 3 FRESH PERSPECTIVES they're ALL missing.${toneBlock}
+Your process has TWO steps:
 
-Focus on:
-1. ANGLE gaps - a different way to frame the same information that feels fresh and human
-2. Reader-first perspectives - what would genuinely help someone making this decision?
-3. Real-world practical angles - going deeper on the "how" when others stay surface level
-4. Honest/transparent takes - challenging marketing fluff with real talk
-5. Actionable tools - checklists, decision frameworks, things readers can actually use
+STEP 1: INFORMATION GAIN GAP IDENTIFICATION
+Analyze what you know about this topic and what is commonly published online. Identify 3 specific "Information Gain Gaps" — areas where:
+- The same surface-level advice gets recycled across every article
+- Real practitioner knowledge, first-hand data, or specific numbers are consistently absent
+- There's a disconnect between what experts actually know and what gets published
+- Practical "how exactly" details are skipped in favor of vague recommendations
+
+Think about: What would someone who actually DOES this for a living know that never makes it into articles? What specific data, processes, costs, timelines, or insider perspectives are missing?
+
+STEP 2: ANGLE GENERATION
+For each identified gap, create a unique angle that specifically targets and fills that gap with genuinely new information.${toneBlock}
 
 IMPORTANT STYLE RULES:
 - Write titles that sound like a real person talking, NOT like a marketing agency
 - Avoid overly clever wordplay, colons in titles, or buzzword-heavy phrasing
 - Keep descriptions conversational and specific
 - Example hooks should feel natural and engaging, not like a TED talk opening
+- NEVER use consultant-speak, academic frameworks, or marketing buzzwords (delve, robust, game-changer, leverage, etc.)
 ${!toneProfile ? "- Default to a warm, helpful, conversational tone" : ""}
 
 Return ONLY valid JSON with no markdown formatting.
 
 Response format:
 {
+  "gaps": [
+    {
+      "gap": "A concise description of the information gain gap",
+      "whatsOverPublished": "What the internet keeps repeating about this"
+    }
+  ],
   "angles": [
     {
       "title": "Short natural title (5-8 words)",
       "description": "One sentence explaining the unique angle in plain language",
+      "informationGainGap": "The specific knowledge gap this angle fills — what's missing from the internet",
       "whyItWorks": "Why this will resonate with real readers",
       "exampleHook": "A compelling, natural-sounding opening line"
     }
@@ -79,9 +92,11 @@ Response format:
 ${gapAnalysis ? `Gap Analysis Results:\n${gapAnalysis}\n\n` : ""}
 ${competitorContent ? `Competitor Content Summary:\n${competitorContent.substring(0, 3000)}\n\n` : ""}
 
-Generate 3 unique angles that will make this article STAND OUT from competitors. These should feel fresh, human, and practical - NOT like they came from a content strategy textbook.`;
+First, identify 3 INFORMATION GAIN GAPS for this topic — what does the internet consistently fail to cover well? What practitioner knowledge, real data, or first-hand experience is missing?
 
-    console.log("Generating unique angles for topic:", topic, "with tone:", toneProfile ? "yes" : "no");
+Then generate 3 unique angles that specifically TARGET those gaps. Each angle should fill a real knowledge void, not just reframe existing information.`;
+
+    console.log("Generating unique angles with information gain gaps for topic:", topic, "with tone:", toneProfile ? "yes" : "no");
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -124,7 +139,7 @@ Generate 3 unique angles that will make this article STAND OUT from competitors.
     const cleanedText = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
     const angles = JSON.parse(cleanedText);
 
-    console.log("Generated", angles.angles?.length || 0, "unique angles");
+    console.log("Generated", angles.gaps?.length || 0, "information gain gaps and", angles.angles?.length || 0, "unique angles");
 
     return new Response(
       JSON.stringify(angles),
