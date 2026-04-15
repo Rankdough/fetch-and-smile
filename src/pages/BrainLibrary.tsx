@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import ReactMarkdown from "react-markdown";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,6 +17,7 @@ interface BrainFile {
   file_type: string;
   status: string;
   uploaded_at: string;
+  file_summary: string | null;
 }
 
 interface BrainInsight {
@@ -176,18 +178,32 @@ const BrainLibrary = () => {
                     </div>
                   </CardHeader>
                   <CollapsibleContent>
-                    <CardContent className="pt-0 pb-4 px-4">
+                    <CardContent className="pt-0 pb-4 px-4 space-y-4">
+                      {/* File Summary */}
+                      {file.file_summary && (
+                        <div className="bg-muted/50 rounded-lg p-4 border">
+                          <h4 className="text-sm font-semibold mb-2">Document Overview</h4>
+                          <div className="text-sm text-muted-foreground prose prose-sm max-w-none dark:prose-invert">
+                            <ReactMarkdown>{file.file_summary}</ReactMarkdown>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Extracted Insights */}
                       {insightsByFile[file.id]?.length ? (
-                        <div className="space-y-2">
-                          {insightsByFile[file.id].map(insight => (
-                            <div key={insight.id} className="border rounded-md p-3">
-                              <div className="flex items-center gap-2 mb-1">
-                                <Badge variant="outline" className="text-xs">{insight.insight_type}</Badge>
-                                <span className="font-medium text-sm">{insight.title}</span>
+                        <div>
+                          <h4 className="text-sm font-semibold mb-2">Extracted Insights ({insightsByFile[file.id].length})</h4>
+                          <div className="space-y-2">
+                            {insightsByFile[file.id].map(insight => (
+                              <div key={insight.id} className="border rounded-md p-3">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <Badge variant="outline" className="text-xs">{insight.insight_type}</Badge>
+                                  <span className="font-medium text-sm">{insight.title}</span>
+                                </div>
+                                {insight.summary && <p className="text-sm text-muted-foreground">{insight.summary}</p>}
                               </div>
-                              {insight.summary && <p className="text-sm text-muted-foreground">{insight.summary}</p>}
-                            </div>
-                          ))}
+                            ))}
+                          </div>
                         </div>
                       ) : (
                         <p className="text-sm text-muted-foreground">No insights extracted yet.</p>
