@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Upload, Brain, FileText, BookOpen, MessageSquare, History, Trash2, ChevronDown, ChevronRight, Zap, Check, X, AlertTriangle, ShieldCheck, ShieldAlert, ShieldX, Crown, Building2, Users, MessageCircle } from "lucide-react";
+import { Loader2, Upload, Brain, FileText, BookOpen, MessageSquare, History, Trash2, ChevronDown, ChevronRight, Zap, Check, X, AlertTriangle, ShieldCheck, ShieldAlert, ShieldX, Crown, Building2, Users, MessageCircle, Star } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -52,6 +52,7 @@ interface BrainStrategy {
   updated_at: string;
   last_change_summary: string | null;
   last_contributing_file_id: string | null;
+  prioritized_points: string[];
 }
 
 // Extract a short preview from strategy content (first 2 bullet points)
@@ -321,9 +322,18 @@ const BrainLibrary = () => {
                 </div>
               ) : (
                 <>
-                  <div className="prose prose-sm max-w-none dark:prose-invert [&_strong]:text-foreground">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{strategy.content}</ReactMarkdown>
-                  </div>
+                  <StrategyWithPriorities
+                    content={strategy.content}
+                    prioritizedPoints={strategy.prioritized_points || []}
+                    onTogglePriority={async (bulletText) => {
+                      const current = strategy.prioritized_points || [];
+                      const updated = current.includes(bulletText)
+                        ? current.filter(p => p !== bulletText)
+                        : [...current, bulletText];
+                      await supabase.from("brain_strategy").update({ prioritized_points: updated }).eq("id", strategy.id);
+                      setStrategy(prev => prev ? { ...prev, prioritized_points: updated } : prev);
+                    }}
+                  />
                   {strategy.key_patterns.length > 0 && (
                     <div>
                       <h4 className="text-sm font-semibold mb-2">Recurring Patterns</h4>
