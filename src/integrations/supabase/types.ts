@@ -125,30 +125,39 @@ export type Database = {
       brain_insights: {
         Row: {
           created_at: string
+          credibility_flag: string | null
+          credibility_note: string | null
           full_text: string | null
           id: string
           insight_type: string
           source_file_id: string | null
+          status: string
           summary: string | null
           title: string
           updated_at: string
         }
         Insert: {
           created_at?: string
+          credibility_flag?: string | null
+          credibility_note?: string | null
           full_text?: string | null
           id?: string
           insight_type?: string
           source_file_id?: string | null
+          status?: string
           summary?: string | null
           title: string
           updated_at?: string
         }
         Update: {
           created_at?: string
+          credibility_flag?: string | null
+          credibility_note?: string | null
           full_text?: string | null
           id?: string
           insight_type?: string
           source_file_id?: string | null
+          status?: string
           summary?: string | null
           title?: string
           updated_at?: string
