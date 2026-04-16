@@ -3607,6 +3607,8 @@ const Index = () => {
                   gapAnalysis={gapAnalysis}
                   selectedAngles={selectedAngles}
                   onAnglesChange={setSelectedAngles}
+                  selectedGaps={selectedAngleGaps}
+                  onGapsChange={setSelectedAngleGaps}
                   toneProfileId={selectedToneProfileId}
                 />
               </CollapsibleSection>
