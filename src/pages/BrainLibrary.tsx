@@ -56,9 +56,20 @@ interface BrainStrategy {
   prioritized_points: string[];
 }
 
+function stripPriorityLabel(text: string): string {
+  return text.replace(/^\s*PRIORITIZED:\s*/i, "").trim();
+}
+
+function sanitizeStrategyContent(content: string): string {
+  return content
+    .split("\n")
+    .map((line) => line.replace(/^(\s*[-*]\s+)PRIORITIZED:\s*/i, "$1"))
+    .join("\n");
+}
+
 // Extract a short preview from strategy content (first 2 bullet points)
 function getStrategyPreview(content: string): string {
-  const lines = content.split("\n").filter(l => l.trim());
+  const lines = sanitizeStrategyContent(content).split("\n").filter(l => l.trim());
   const preview: string[] = [];
   let bulletCount = 0;
   for (const line of lines) {
@@ -96,7 +107,17 @@ const BrainLibrary = () => {
       .select("*")
       .limit(1)
       .maybeSingle();
-    setStrategy((data as any) ?? null);
+
+    if (!data) {
+      setStrategy(null);
+      return;
+    }
+
+    setStrategy({
+      ...(data as any),
+      content: sanitizeStrategyContent((data as any).content || ""),
+      prioritized_points: (((data as any).prioritized_points || []) as string[]).map(stripPriorityLabel),
+    });
   }, []);
 
   const fetchInsightsForFile = useCallback(async (fileId: string) => {

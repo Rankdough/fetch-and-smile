@@ -237,14 +237,22 @@ async function buildStrategy(
   const fileNames = (allFiles || []).map(f => f.title).join(", ");
   const connBlock = (connections || []).map(c => `- ${c.relationship_type}: ${c.explanation}`).join("\n");
 
+  const stripPriorityLabel = (text: string) => text.replace(/^\s*PRIORITIZED:\s*/i, "").trim();
+  const sanitizeStrategyMarkdown = (text: string) =>
+    text
+      .split("\n")
+      .map((line) => line.replace(/^(\s*[-*]\s+)PRIORITIZED:\s*/i, "$1"))
+      .join("\n")
+      .trim();
+
   // Fetch existing strategy to evolve incrementally
   const { data: currentStrategyRow } = await supabase
     .from("brain_strategy")
     .select("content, prioritized_points")
     .limit(1)
     .maybeSingle();
-  const existingStrategy = currentStrategyRow?.content || "";
-  const prioritizedPoints: string[] = (currentStrategyRow as any)?.prioritized_points || [];
+  const existingStrategy = sanitizeStrategyMarkdown(currentStrategyRow?.content || "");
+  const prioritizedPoints: string[] = ((currentStrategyRow as any)?.prioritized_points || []).map(stripPriorityLabel);
 
   const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
@@ -257,53 +265,45 @@ async function buildStrategy(
       messages: [
         {
           role: "system",
-          content: `You are an SEO strategist maintaining a living strategy document. Your job is to EVOLVE the existing strategy — not rewrite it from scratch.
+          content: `You are an SEO strategist maintaining a living strategy document. Your job is to evolve the existing strategy, not rewrite it from scratch.
 
 Rules:
-- PRESERVE all existing points that are still supported by the evidence
-- ADD new points only when new insights provide genuinely new strategic value
-- REFINE existing points if new evidence strengthens, nuances, or updates them
-- REMOVE points only if new evidence directly contradicts them
-- Keep the same structure and tone throughout
-- **PRIORITIZED POINTS ARE SACRED**: Points marked as PRIORITIZED by the user MUST ALWAYS be kept. Never remove, weaken, or significantly alter them. They represent the user's core strategic priorities. You may slightly refine wording for clarity but the substance must remain.
+- Preserve supported points.
+- Add only genuinely new points.
+- Refine points when new evidence strengthens them.
+- Remove points only when evidence directly contradicts them.
+- Keep the same structure and tone throughout.
+- User-prioritized points are sacred and must be preserved in substance.
 - Write in plain British English.
 - Be direct, terse, and actionable.
 - No educational tone, no scene-setting, no abstract strategy waffle.
 - Keep every bullet easy to scan.
 - Prefer commands and hard calls over explanations.
+- Never output the literal label "PRIORITIZED:" in the visible strategy.
 
-Output format — return ONLY valid JSON with these keys:
-
+Return ONLY valid JSON with these keys:
 {
-  "core_principles": ["bullet 1", "bullet 2", ...],
-  "core_tactics": ["bullet 1", "bullet 2", ...],
-  "watch_out": ["bullet 1", "bullet 2", ...],
-  "key_patterns": ["pattern 1", ...],
-  "knowledge_gaps": ["gap 1", ...]
+  "core_principles": ["..."],
+  "core_tactics": ["..."],
+  "watch_out": ["..."],
+  "key_patterns": ["..."],
+  "knowledge_gaps": ["..."]
 }
 
-MANDATORY SECTIONS (all three MUST be present — never omit any):
-
-1. "core_principles" — Array of 3-6 strings. High-level strategic beliefs backed by evidence.
-
-2. "core_tactics" — Array of 3-6 strings. Direct actions or instructions. Start each with a strong verb (e.g., "Audit", "Build", "Target", "Diversify"). These are DOING items, not THINKING items.
-
-3. "watch_out" — Array of 1-3 strings. Contradictions, trade-offs, or risks found across sources.
-
-4. "key_patterns" — Array of 3-6 strings: recurring themes confirmed by multiple sources.
-
-5. "knowledge_gaps" — Array of 2-4 strings: important SEO areas NOT covered by any document.
-
-Bullet rules for ALL arrays:
-- Max 28 words per bullet
-- No filler phrases like "it is important to", "this means", "strategic shift", or "underpins"
-- Use actual concepts from the insights, not generic SEO advice
-
-CRITICAL: You MUST return all five keys. If you omit core_tactics or watch_out, the output is INVALID.`,
+Requirements:
+- core_principles: 3-6 bullets, strategic beliefs backed by evidence.
+- core_tactics: 3-6 bullets, direct actions, start with a strong verb where possible.
+- watch_out: 1-4 bullets, contradictions, trade-offs, or risks.
+- key_patterns: 3-6 short strings.
+- knowledge_gaps: 2-4 short strings.
+- Max 28 words per bullet.
+- No filler phrases.
+- Use actual concepts from the insights, not generic SEO advice.
+- All five keys are mandatory.`,
         },
         {
           role: "user",
-          content: `${existingStrategy ? `CURRENT STRATEGY (preserve and evolve this):\n${existingStrategy}\n\n` : ""}${prioritizedPoints.length > 0 ? `USER-PRIORITIZED POINTS (MUST keep these — they are sacred):\n${prioritizedPoints.map(p => `- ${p}`).join("\n")}\n\n` : ""}LATEST CHANGE: ${latestAdditionName}${newFileId ? ` (${newInsightCount} new insights)` : ""}\n\nSOURCES: ${fileNames}\n\nALL INSIGHTS:\n${insightBlock}\n\nCONNECTIONS:\n${connBlock || "None yet"}`,
+          content: `${existingStrategy ? `CURRENT STRATEGY (preserve and evolve this):\n${existingStrategy}\n\n` : ""}${prioritizedPoints.length > 0 ? `USER-PRIORITIZED POINTS (keep these in substance, but do not print the word PRIORITIZED):\n${prioritizedPoints.map(p => `- ${p}`).join("\n")}\n\n` : ""}LATEST CHANGE: ${latestAdditionName}${newFileId ? ` (${newInsightCount} new insights)` : ""}\n\nSOURCES: ${fileNames}\n\nALL INSIGHTS:\n${insightBlock}\n\nCONNECTIONS:\n${connBlock || "None yet"}`,
         },
       ],
     }),
@@ -325,11 +325,22 @@ CRITICAL: You MUST return all five keys. If you omit core_tactics or watch_out, 
     return;
   }
 
+  const sanitizeList = (items: unknown) =>
+    Array.isArray(items)
+      ? items
+          .map((item) => stripPriorityLabel(String(item || "")))
+          .filter(Boolean)
+      : [];
+
   // Build markdown from structured arrays
   const buildSection = (heading: string, items: string[]) => {
     if (!items || items.length === 0) return "";
-    return `## ${heading}\n${items.map(i => `- ${i}`).join("\n")}\n`;
+    return `## ${heading}\n${items.map(i => `- ${stripPriorityLabel(i)}`).join("\n")}\n`;
   };
+
+  parsed.core_principles = sanitizeList(parsed.core_principles);
+  parsed.core_tactics = sanitizeList(parsed.core_tactics);
+  parsed.watch_out = sanitizeList(parsed.watch_out);
 
   if (parsed.core_principles || parsed.core_tactics || parsed.watch_out) {
     parsed.strategy = [
@@ -342,15 +353,16 @@ CRITICAL: You MUST return all five keys. If you omit core_tactics or watch_out, 
     for (const [heading, items] of Object.entries(parsed.strategy)) {
       sections.push(`## ${heading}`);
       if (Array.isArray(items)) {
-        for (const item of items) sections.push(`- ${item}`);
+        for (const item of items) sections.push(`- ${stripPriorityLabel(String(item || ""))}`);
       } else if (typeof items === "string") {
-        sections.push(String(items));
+        sections.push(stripPriorityLabel(String(items)));
       }
       sections.push("");
     }
     parsed.strategy = sections.join("\n");
   }
 
+  parsed.strategy = sanitizeStrategyMarkdown(parsed.strategy || "");
   const allFileIds = (allFiles || []).map(f => f.id);
 
   // Upsert — keep only one strategy row
@@ -367,6 +379,7 @@ CRITICAL: You MUST return all five keys. If you omit core_tactics or watch_out, 
     contributing_file_ids: allFileIds,
     last_change_summary: changeSummary,
     last_contributing_file_id: newFileId,
+    prioritized_points: prioritizedPoints,
   };
 
   if (existing) {
