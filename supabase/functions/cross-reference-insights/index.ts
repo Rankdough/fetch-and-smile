@@ -155,7 +155,7 @@ Return ONLY valid JSON: { "connections": [...] }`,
 async function buildStrategy(
   supabase: ReturnType<typeof createClient>,
   apiKey: string,
-  newFileId: string,
+  newFileId: string | null,
   connectionCount: number,
   newInsightCount: number
 ) {
@@ -170,32 +170,39 @@ async function buildStrategy(
     .select("id, title")
     .eq("status", "processed");
 
-  if (!allInsights || allInsights.length === 0) return;
+  if (!allInsights || allInsights.length === 0) {
+    // No approved insights left — clear strategy
+    const { data: existing } = await supabase.from("brain_strategy").select("id").limit(1).maybeSingle();
+    if (existing) {
+      await supabase.from("brain_strategy").update({
+        content: "", key_patterns: [], knowledge_gaps: [],
+        contributing_file_ids: [], last_change_summary: "All insights removed — strategy cleared.",
+        last_contributing_file_id: null,
+      }).eq("id", existing.id);
+    }
+    return;
+  }
 
   // Get all connections
   const { data: connections } = await supabase
     .from("brain_connections")
     .select("relationship_type, explanation");
 
-  // Get new file's insights for change summary
-  const newFileInsights = allInsights.filter(i => i.source_file_id === newFileId);
-  const newFileName = (allFiles || []).find(f => f.id === newFileId)?.title || "Unknown file";
-
-  // Get connections involving new insights
-  const { data: newConnections } = await supabase
-    .from("brain_connections")
-    .select("relationship_type, explanation, source_insight_id, related_insight_id")
-    .or(`source_insight_id.in.(${newFileInsights.map(() => newFileId).join(",")})`);
-
   // Build change summary
   const changeParts: string[] = [];
-  changeParts.push(`📄 **${newFileName}** added ${newInsightCount} insight${newInsightCount !== 1 ? "s" : ""}`);
-  if (connectionCount > 0) {
-    changeParts.push(`🔗 Found ${connectionCount} connection${connectionCount !== 1 ? "s" : ""} to existing knowledge`);
-  }
-  if (newFileInsights.length > 0) {
-    const topInsights = newFileInsights.slice(0, 3).map(i => `- ${i.title}`).join("\n");
-    changeParts.push(`**New insights:**\n${topInsights}`);
+  if (newFileId) {
+    const newFileInsights = allInsights.filter(i => i.source_file_id === newFileId);
+    const newFileName = (allFiles || []).find(f => f.id === newFileId)?.title || "Unknown file";
+    changeParts.push(`📄 **${newFileName}** added ${newInsightCount} insight${newInsightCount !== 1 ? "s" : ""}`);
+    if (connectionCount > 0) {
+      changeParts.push(`🔗 Found ${connectionCount} connection${connectionCount !== 1 ? "s" : ""} to existing knowledge`);
+    }
+    if (newFileInsights.length > 0) {
+      const topInsights = newFileInsights.slice(0, 3).map(i => `- ${i.title}`).join("\n");
+      changeParts.push(`**New insights:**\n${topInsights}`);
+    }
+  } else {
+    changeParts.push(`🔄 Strategy rebuilt after file removal`);
   }
   const changeSummary = changeParts.join("\n\n");
 
