@@ -9,6 +9,9 @@ import { Loader2, Upload, Brain, FileText, BookOpen, MessageSquare, History, Tra
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import * as pdfjsLib from "pdfjs-dist";
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.worker.min.mjs`;
 
 interface BrainFile {
   id: string;
@@ -94,16 +97,12 @@ const BrainLibrary = () => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Check if file type is readable as text
-    const readableTypes = ["text/plain", "text/markdown", "text/csv", "application/json"];
-    const readableExtensions = [".txt", ".md", ".csv", ".json"];
+    const supportedExtensions = [".txt", ".md", ".csv", ".json", ".pdf"];
     const ext = file.name.toLowerCase().substring(file.name.lastIndexOf("."));
-    const isReadable = readableTypes.includes(file.type) || readableExtensions.includes(ext);
-
-    if (!isReadable) {
+    if (!supportedExtensions.includes(ext)) {
       toast({
         title: "Unsupported file format",
-        description: `"${file.name}" is a ${ext.toUpperCase()} file. The Brain can only read plain text files (.txt, .md, .csv). PDFs and Word docs need to be converted to text first.`,
+        description: `"${file.name}" is a ${ext.toUpperCase()} file. Supported formats: PDF, TXT, MD, CSV, JSON.`,
         variant: "destructive",
       });
       e.target.value = "";
@@ -113,6 +112,32 @@ const BrainLibrary = () => {
     setIsUploading(true);
 
     try {
+      // Extract text based on file type
+      let text: string;
+      if (ext === ".pdf") {
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        const pages: string[] = [];
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          const content = await page.getTextContent();
+          pages.push(content.items.map((item: any) => item.str).join(" "));
+        }
+        text = pages.join("\n\n");
+        if (text.trim().length < 50) {
+          toast({
+            title: "PDF appears to be scanned/image-based",
+            description: "No readable text was found in this PDF. It may contain only images or scanned pages.",
+            variant: "destructive",
+          });
+          setIsUploading(false);
+          e.target.value = "";
+          return;
+        }
+      } else {
+        text = await file.text();
+      }
+
       const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
       const filePath = `${Date.now()}-${safeName}`;
       const { error: uploadError } = await supabase.storage
@@ -127,7 +152,6 @@ const BrainLibrary = () => {
         .single();
       if (insertError) throw insertError;
 
-      const text = await file.text();
       const { error: fnError } = await supabase.functions.invoke("analyze-brain-file", {
         body: { fileId: fileRecord.id, fileName: file.name, content: text },
       });
@@ -209,7 +233,7 @@ const BrainLibrary = () => {
             <p className="text-muted-foreground">Upload documents and extract structured SEO insights.</p>
           </div>
           <label>
-            <Input type="file" className="hidden" accept=".txt,.md,.csv,.json" onChange={handleUpload} disabled={isUploading} />
+            <Input type="file" className="hidden" accept=".txt,.md,.csv,.json,.pdf" onChange={handleUpload} disabled={isUploading} />
             <Button asChild disabled={isUploading}>
               <span className="cursor-pointer gap-2">
                 {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
