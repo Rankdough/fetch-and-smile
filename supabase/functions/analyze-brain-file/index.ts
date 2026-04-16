@@ -50,7 +50,7 @@ Return ONLY valid JSON with this structure:
    - "heading": Bold actionable claim (max 10 words, e.g. "Brand is now a ranking factor")
    - "detail": Array of 1-2 strings. Each max 20 words. Focus on WHAT TO DO, not theory. Include one stat or quote if available.
 
-4. "bottom_line" — Max 2 sentences. What to do + what happens if you don't.
+4. "bottom_line" — Exactly 4 sentences. What to do + what happens if you don't + why it matters + immediate next step.
 
 5. "insights" — Array of detailed insights. For each:
    - title: concise name
