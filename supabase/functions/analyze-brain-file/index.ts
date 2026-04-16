@@ -60,6 +60,12 @@ serve(async (req) => {
    - credibility: one of "aligned", "debatable", "outdated"
    - credibility_note: 1 sentence explaining why you gave that rating. Reference established SEO consensus, Google documentation, or known best practices. If debatable or outdated, explain what the current consensus actually is.
 
+CREDIBILITY RULES:
+- "aligned" = matches current Google guidelines, widely accepted SEO/AEO practice, or well-evidenced.
+- "debatable" = partially true but oversimplified, context-dependent, or lacks nuance. Explain the caveat.
+- "outdated" = contradicts current best practices or relies on deprecated signals. Say what replaced it.
+- Be honest. If a claim is wrong, say so. Do not soften outdated advice.
+
 RULES:
 - Write in clear, plain British English.
 - Keep it short, sharp, and practical. Never make the response long.
