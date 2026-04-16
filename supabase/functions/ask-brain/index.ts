@@ -32,10 +32,10 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Fetch approved insights with source file weight
+    // Fetch approved insights with source file weight and bookmark status
     const { data: allInsights } = await supabase
       .from("brain_insights")
-      .select("id, title, insight_type, summary, full_text, source_file_id")
+      .select("id, title, insight_type, summary, full_text, source_file_id, is_bookmarked")
       .eq("status", "approved");
 
     // Fetch file weights
@@ -47,13 +47,14 @@ serve(async (req) => {
       fileWeightMap[f.id] = WEIGHT_SCORES[f.source_weight] || 2;
     });
 
-    // Simple relevance scoring with authority weighting
+    // Simple relevance scoring with authority weighting and bookmark boost
     const queryWords = question.toLowerCase().split(/\s+/).filter((w: string) => w.length > 3);
     const scored = (allInsights || []).map((insight: any) => {
       const text = `${insight.title} ${insight.summary || ""} ${insight.full_text || ""}`.toLowerCase();
       const keywordScore = queryWords.reduce((acc: number, word: string) => acc + (text.includes(word) ? 1 : 0), 0);
       const authorityMultiplier = fileWeightMap[insight.source_file_id] || 2;
-      return { ...insight, score: keywordScore * authorityMultiplier };
+      const bookmarkBoost = insight.is_bookmarked ? 2 : 1;
+      return { ...insight, score: keywordScore * authorityMultiplier * bookmarkBoost };
     }).filter((i: any) => i.score > 0).sort((a: any, b: any) => b.score - a.score).slice(0, 10);
 
     // Build context from top insights
