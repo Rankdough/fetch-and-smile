@@ -57,6 +57,8 @@ serve(async (req) => {
    - summary: 1 sentence summary
    - full_text: the relevant passage
    - tags: array of topic tags
+   - credibility: one of "aligned", "debatable", "outdated"
+   - credibility_note: 1 sentence explaining why you gave that rating. Reference established SEO consensus, Google documentation, or known best practices. If debatable or outdated, explain what the current consensus actually is.
 
 RULES:
 - Write in clear, plain British English.
