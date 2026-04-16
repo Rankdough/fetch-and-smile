@@ -56,6 +56,15 @@ const BrainLibrary = () => {
     setIsLoading(false);
   }, []);
 
+  const fetchStrategy = useCallback(async () => {
+    const { data } = await supabase
+      .from("brain_strategy")
+      .select("*")
+      .limit(1)
+      .maybeSingle();
+    if (data) setStrategy(data as any);
+  }, []);
+
   const fetchInsightsForFile = useCallback(async (fileId: string) => {
     if (insightsByFile[fileId]) return;
     const { data } = await supabase
@@ -65,7 +74,7 @@ const BrainLibrary = () => {
     if (data) setInsightsByFile(prev => ({ ...prev, [fileId]: data }));
   }, [insightsByFile]);
 
-  useEffect(() => { fetchFiles(); }, [fetchFiles]);
+  useEffect(() => { fetchFiles(); fetchStrategy(); }, [fetchFiles, fetchStrategy]);
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
