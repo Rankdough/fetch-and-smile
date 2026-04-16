@@ -124,8 +124,8 @@ Return ONLY valid JSON: { "connections": [...] }`,
 
     console.log(`Found ${connectionCount} connections for file ${fileId}`);
 
-    // 5. Update evolving strategy
-    await buildStrategy(supabase, LOVABLE_API_KEY, fileId);
+    // 5. Update evolving strategy with change tracking
+    await buildStrategy(supabase, LOVABLE_API_KEY, fileId, connectionCount, newInsights.length);
 
     return new Response(
       JSON.stringify({ success: true, connections: connectionCount }),
