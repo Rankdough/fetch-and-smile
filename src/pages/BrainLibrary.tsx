@@ -37,6 +37,8 @@ interface BrainStrategy {
   key_patterns: string[];
   knowledge_gaps: string[];
   updated_at: string;
+  last_change_summary: string | null;
+  last_contributing_file_id: string | null;
 }
 
 // Extract a short preview from strategy content (first 2 bullet points)
