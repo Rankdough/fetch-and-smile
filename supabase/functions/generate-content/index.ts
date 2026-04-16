@@ -717,13 +717,21 @@ Place these images throughout the article at logical locations, typically after 
         return initialWords > wordCeiling ? trimToWordCount(current, wordCeiling) : current;
       }
 
+      const isDecisionGuideHeading = (headingLower: string): boolean => {
+        return headingLower.includes("how to choose")
+          || headingLower.includes("how to pick")
+          || headingLower.includes("how to decide")
+          || headingLower.includes("how to find the right")
+          || headingLower.includes("how to select");
+      };
+
       const isStructuralHeading = (heading: string): boolean => {
         const h = heading.toLowerCase();
         return h.includes("tl;dr")
           || h.includes("tldr")
           || h.includes("quick tips")
           || h.includes("in this article")
-          || h.includes("how to choose")
+          || isDecisionGuideHeading(h)
           || h.includes("frequently asked")
           || h === "faq"
           || h.includes("final thoughts")
