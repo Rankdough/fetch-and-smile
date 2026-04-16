@@ -184,7 +184,7 @@ ${formatReference ? `FORMAT REFERENCE MODE: A format reference has been provided
 - Examples of CORRECT question headings:
   - ## What Is Composite Bonding?
   - ## How Much Does It Cost?
-  - ## How to Choose?
+  - ## How to Choose the Right Treatment?
   - ## How Long Do Veneers Last?
   - ## What Are the Risks and Side Effects?
 - Examples of WRONG statement headings (DO NOT USE):
@@ -237,7 +237,15 @@ ${inThisArticleSection}
 5. ${sectionBudgets.bodyH2Count} Main content sections with ## QUESTION headings (~${sectionBudgets.wordsPerBodyH2} words EACH, no more)
    - Each answered with text + bullets + tables${skipSources ? '' : ' + **Sources:** at the end'}
    - Include comparison table(s) where relevant
-6. "## How to Choose" (~${howToChooseWords} words) — practical checklist, 4-6 criteria as bullet points
+6. Decision Guide H2 (~${howToChooseWords} words) — practical checklist of 4-6 criteria as bullet points.
+   - The H2 MUST be a topic-specific decision question, NOT the generic "## How to Choose".
+   - Build the heading from the article's actual subject. Examples by topic type:
+     • Comparing products/services (e.g. dental treatments): "## How to Choose the Right Treatment for You"
+     • Picking a place/destination: "## How to Pick the Right Trail" or "## How to Choose Where to Hike"
+     • Skill-building / lifestyle (e.g. making friends): "## How to Decide Which Approach Works for You" or "## How to Find the Right Friendship Style"
+     • Health / decision-making: "## How to Decide What's Right for Your Situation"
+   - The heading must reference the article's actual topic noun (treatment, trail, approach, plan, etc.). NEVER output the bare phrase "## How to Choose" or "## How to Choose?" with no topic noun.
+   - Keep the section's purpose identical: a short intro line followed by a 4-6 item bulleted checklist of decision criteria.
 ${faqSection}
 8. "## Final Thoughts" (~${finalThoughtsWords} words) — with call-to-action
 ${referencesSection}
