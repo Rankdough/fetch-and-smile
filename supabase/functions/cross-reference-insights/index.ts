@@ -195,10 +195,11 @@ async function buildStrategy(
   // Fetch existing strategy to evolve incrementally
   const { data: currentStrategyRow } = await supabase
     .from("brain_strategy")
-    .select("content")
+    .select("content, prioritized_points")
     .limit(1)
     .maybeSingle();
   const existingStrategy = currentStrategyRow?.content || "";
+  const prioritizedPoints: string[] = (currentStrategyRow as any)?.prioritized_points || [];
 
   const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
@@ -219,6 +220,7 @@ Rules:
 - REFINE existing points if new evidence strengthens, nuances, or updates them
 - REMOVE points only if new evidence directly contradicts them
 - Keep the same structure and tone throughout
+- **PRIORITIZED POINTS ARE SACRED**: Points marked as PRIORITIZED by the user MUST ALWAYS be kept. Never remove, weaken, or significantly alter them. They represent the user's core strategic priorities. You may slightly refine wording for clarity but the substance must remain.
 
 Output format:
 
@@ -237,7 +239,7 @@ Return ONLY valid JSON: { "strategy": "...", "key_patterns": [...], "knowledge_g
         },
         {
           role: "user",
-          content: `${existingStrategy ? `CURRENT STRATEGY (preserve and evolve this):\n${existingStrategy}\n\n` : ""}LATEST ADDITION: ${newFileName} (${newInsightCount} new insights)\n\nSOURCES: ${fileNames}\n\nALL INSIGHTS:\n${insightBlock}\n\nCONNECTIONS:\n${connBlock || "None yet"}`,
+          content: `${existingStrategy ? `CURRENT STRATEGY (preserve and evolve this):\n${existingStrategy}\n\n` : ""}${prioritizedPoints.length > 0 ? `USER-PRIORITIZED POINTS (MUST keep these — they are sacred):\n${prioritizedPoints.map(p => `- ${p}`).join("\n")}\n\n` : ""}LATEST ADDITION: ${newFileName} (${newInsightCount} new insights)\n\nSOURCES: ${fileNames}\n\nALL INSIGHTS:\n${insightBlock}\n\nCONNECTIONS:\n${connBlock || "None yet"}`,
         },
       ],
     }),
