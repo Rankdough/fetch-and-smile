@@ -899,6 +899,10 @@ const Index = () => {
     localStorage.setItem("seo-generator-selectedGapInsights", JSON.stringify(selectedGapInsights));
   }, [selectedGapInsights]);
 
+  useEffect(() => {
+    localStorage.setItem("seo-generator-selectedAngleGaps", JSON.stringify(selectedAngleGaps));
+  }, [selectedAngleGaps]);
+
   // Persist color palette selection
   useEffect(() => {
     if (selectedColorPalette) {
