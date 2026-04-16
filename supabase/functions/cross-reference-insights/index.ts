@@ -259,6 +259,21 @@ Return ONLY valid JSON: { "strategy": "...", "key_patterns": [...], "knowledge_g
     return;
   }
 
+  // If strategy came back as structured JSON instead of markdown string, convert it
+  if (parsed.strategy && typeof parsed.strategy === "object") {
+    const sections: string[] = [];
+    for (const [heading, items] of Object.entries(parsed.strategy)) {
+      sections.push(`## ${heading}`);
+      if (Array.isArray(items)) {
+        for (const item of items) sections.push(`- ${item}`);
+      } else if (typeof items === "string") {
+        sections.push(String(items));
+      }
+      sections.push("");
+    }
+    parsed.strategy = sections.join("\n");
+  }
+
   const allFileIds = (allFiles || []).map(f => f.id);
 
   // Upsert — keep only one strategy row
