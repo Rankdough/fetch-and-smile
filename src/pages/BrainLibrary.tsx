@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Upload, Brain, FileText, BookOpen, MessageSquare, History, Trash2, ChevronDown, ChevronRight } from "lucide-react";
+import { Loader2, Upload, Brain, FileText, BookOpen, MessageSquare, History, Trash2, ChevronDown, ChevronRight, Zap } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
