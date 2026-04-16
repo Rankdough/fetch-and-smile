@@ -184,7 +184,7 @@ ${formatReference ? `FORMAT REFERENCE MODE: A format reference has been provided
 - Examples of CORRECT question headings:
   - ## What Is Composite Bonding?
   - ## How Much Does It Cost?
-  - ## How to Choose?
+  - ## How to Choose the Right Treatment?
   - ## How Long Do Veneers Last?
   - ## What Are the Risks and Side Effects?
 - Examples of WRONG statement headings (DO NOT USE):
@@ -237,7 +237,15 @@ ${inThisArticleSection}
 5. ${sectionBudgets.bodyH2Count} Main content sections with ## QUESTION headings (~${sectionBudgets.wordsPerBodyH2} words EACH, no more)
    - Each answered with text + bullets + tables${skipSources ? '' : ' + **Sources:** at the end'}
    - Include comparison table(s) where relevant
-6. "## How to Choose" (~${howToChooseWords} words) — practical checklist, 4-6 criteria as bullet points
+6. Decision Guide H2 (~${howToChooseWords} words) — practical checklist of 4-6 criteria as bullet points.
+   - The H2 MUST be a topic-specific decision question, NOT the generic "## How to Choose".
+   - Build the heading from the article's actual subject. Examples by topic type:
+     • Comparing products/services (e.g. dental treatments): "## How to Choose the Right Treatment for You"
+     • Picking a place/destination: "## How to Pick the Right Trail" or "## How to Choose Where to Hike"
+     • Skill-building / lifestyle (e.g. making friends): "## How to Decide Which Approach Works for You" or "## How to Find the Right Friendship Style"
+     • Health / decision-making: "## How to Decide What's Right for Your Situation"
+   - The heading must reference the article's actual topic noun (treatment, trail, approach, plan, etc.). NEVER output the bare phrase "## How to Choose" or "## How to Choose?" with no topic noun.
+   - Keep the section's purpose identical: a short intro line followed by a 4-6 item bulleted checklist of decision criteria.
 ${faqSection}
 8. "## Final Thoughts" (~${finalThoughtsWords} words) — with call-to-action
 ${referencesSection}
@@ -709,13 +717,21 @@ Place these images throughout the article at logical locations, typically after 
         return initialWords > wordCeiling ? trimToWordCount(current, wordCeiling) : current;
       }
 
+      const isDecisionGuideHeading = (headingLower: string): boolean => {
+        return headingLower.includes("how to choose")
+          || headingLower.includes("how to pick")
+          || headingLower.includes("how to decide")
+          || headingLower.includes("how to find the right")
+          || headingLower.includes("how to select");
+      };
+
       const isStructuralHeading = (heading: string): boolean => {
         const h = heading.toLowerCase();
         return h.includes("tl;dr")
           || h.includes("tldr")
           || h.includes("quick tips")
           || h.includes("in this article")
-          || h.includes("how to choose")
+          || isDecisionGuideHeading(h)
           || h.includes("frequently asked")
           || h === "faq"
           || h.includes("final thoughts")
@@ -737,7 +753,7 @@ Place these images throughout the article at logical locations, typically after 
         if (headingLower.includes("tl;dr") || headingLower.includes("tldr")) budget = getFixedBudget("TL;DR", 60);
         else if (headingLower.includes("quick tips")) budget = getFixedBudget("Quick Tips", 50);
         else if (headingLower.includes("in this article")) budget = getFixedBudget("In This Article", 80);
-        else if (headingLower.includes("how to choose")) budget = getFixedBudget("How to Choose", Math.round(targetWords * 0.08));
+        else if (isDecisionGuideHeading(headingLower)) budget = getFixedBudget("How to Choose", Math.round(targetWords * 0.08));
         else if (headingLower.includes("frequently asked") || headingLower === "faq") budget = getFixedBudget("FAQ", Math.round(targetWords * 0.12));
         else if (headingLower.includes("final thoughts") || headingLower.includes("conclusion")) budget = getFixedBudget("Final Thoughts", Math.round(targetWords * 0.05));
         else if (headingLower.includes("references")) budget = getFixedBudget("References", 30);

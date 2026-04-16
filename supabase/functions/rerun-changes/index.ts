@@ -247,7 +247,7 @@ MANDATORY FORMAT PRESERVATION - these specific section formats MUST be kept exac
 - "## Quick Tips" must keep each tip on its own line as: > **Tip N:** [text]
 - "## In This Article" must keep the bulleted list format with each item as: - **N. Title** - Description (each item on its own line, separated by blank lines)
 - "## Frequently Asked Questions" must keep each Q&A with ### bold question headings
-- "## How to Choose" must remain as a checklist/bulleted list
+- The decision-guide H2 (a topic-specific "How to Choose / Pick / Decide ..." heading) must remain as a checklist/bulleted list, and its existing topic-specific wording must be preserved exactly
 - All H2 headings that were phrased as questions MUST stay as questions
 - Markdown tables (using |) must be preserved exactly
 - Source/reference links must be preserved exactly
