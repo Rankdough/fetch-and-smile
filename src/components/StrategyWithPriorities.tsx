@@ -1,6 +1,6 @@
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Lock, Star } from "lucide-react";
+import { Star } from "lucide-react";
 import type { ReactNode } from "react";
 import { useRef } from "react";
 
@@ -32,7 +32,6 @@ export function StrategyWithPriorities({
   lockedTactics = [],
   onTogglePriority,
 }: Props) {
-  // Use a ref so the closure always reads the latest value
   const currentSectionRef = useRef("");
 
   return (
@@ -47,36 +46,36 @@ export function StrategyWithPriorities({
           },
           li: ({ children }) => {
             const bulletText = normalizeBullet(extractText(children));
-            // Capture section at render time (not via closure over stale let)
             const section = currentSectionRef.current;
+            const isCoreSection = section === "Core Principles" || section === "Core Tactics";
 
             const lockedList =
-              section === "Core Principles" ? lockedPrinciples :
-              section === "Core Tactics" ? lockedTactics : [];
-            const isLocked = lockedList.some(
+              section === "Core Principles"
+                ? lockedPrinciples
+                : section === "Core Tactics"
+                  ? lockedTactics
+                  : [];
+
+            const isLocked = lockedList.some((point) => normalizeBullet(point) === bulletText);
+            const isPrioritized = !isCoreSection && prioritizedPoints.some(
               (point) => normalizeBullet(point) === bulletText,
             );
-
-            const isPrioritized = !isLocked && prioritizedPoints.some(
-              (point) => normalizeBullet(point) === bulletText,
-            );
-
             const isHighlighted = isLocked || isPrioritized;
 
             return (
-              <li
-                className={`cursor-pointer rounded-md transition-colors ${
-                  isHighlighted ? "bg-accent/40 px-2 py-1" : ""
-                }`}
-                onClick={() => onTogglePriority(bulletText, section)}
-              >
+              <li className={`rounded-md transition-colors ${isHighlighted ? "bg-accent/40 px-2 py-1" : ""}`}>
                 <div className="flex items-start gap-2">
+                  {isCoreSection && (
+                    <button
+                      type="button"
+                      aria-label={isLocked ? "Remove bookmark" : "Bookmark item"}
+                      className="mt-0.5 shrink-0 rounded-sm text-muted-foreground transition-colors hover:text-primary"
+                      onClick={() => onTogglePriority(bulletText, section)}
+                    >
+                      <Star className={`h-4 w-4 ${isLocked ? "fill-primary text-primary" : "text-muted-foreground"}`} />
+                    </button>
+                  )}
                   <div className="min-w-0 flex-1">{children}</div>
-                  {isLocked ? (
-                    <Lock className="mt-1 h-3.5 w-3.5 shrink-0 fill-primary text-primary" />
-                  ) : isPrioritized ? (
-                    <Star className="mt-1 h-3.5 w-3.5 shrink-0 fill-primary text-primary" />
-                  ) : null}
                 </div>
               </li>
             );

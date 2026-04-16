@@ -424,6 +424,9 @@ const BrainLibrary = () => {
                 </div>
               ) : (
                 <>
+                  <p className="text-xs text-muted-foreground">
+                    Star any core principle or core tactic on the left to keep it pinned.
+                  </p>
                   <StrategyWithPriorities
                     content={strategy.content}
                     prioritizedPoints={strategy.prioritized_points || []}
