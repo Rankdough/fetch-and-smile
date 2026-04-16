@@ -182,8 +182,7 @@ const BrainLibrary = () => {
                       {/* File Summary */}
                       {file.file_summary && (
                         <div className="bg-muted/50 rounded-lg p-4 border">
-                          <h4 className="text-sm font-semibold mb-2">Document Overview</h4>
-                          <div className="text-sm text-muted-foreground prose prose-sm max-w-none dark:prose-invert">
+                          <div className="text-sm text-muted-foreground prose prose-sm max-w-none dark:prose-invert [&_strong]:text-foreground">
                             <ReactMarkdown>{file.file_summary}</ReactMarkdown>
                           </div>
                         </div>
