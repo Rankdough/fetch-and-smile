@@ -42,19 +42,26 @@ serve(async (req) => {
 
 Return ONLY valid JSON with this structure:
 
-1. "what_is_it" — One sentence: what is this document about?
-2. "why_it_matters" — One sentence: why should an SEO care about this?
-3. "top_takeaways" — Array of 3-5 short, actionable bullet strings (max 15 words each). Focus on what to DO, not theory.
-4. "insights" — Array of detailed insights extracted from the document. For each:
+1. "what_is_it" — One sentence: what is this document about? Be specific about the source and format (e.g. "A Search Engine Journal article on...").
+
+2. "why_it_matters" — 2-4 bullet points. Each bullet is a bold claim followed by a short supporting statement. Focus on strategic implications, not just facts. Example:
+   - "SEO is shifting from algorithm-first → brand-first"
+   - "AI systems reward consistent, trusted brands"
+
+3. "top_takeaways" — Array of 4-7 objects, each with:
+   - "heading": A bold, opinionated claim (e.g. "Brand is now a ranking factor")
+   - "detail": 1-3 supporting bullet points that are specific and actionable. Include stats, percentages, or concrete examples where available. Use → arrows for cause-effect. Ask rhetorical questions when useful for clarity.
+
+4. "bottom_line" — A punchy 2-4 line conclusion. State what happens if you follow the advice AND what happens if you don't. Use direct language ("You won't rank well", "Clear brand = better rankings").
+
+5. "insights" — Array of detailed insights extracted from the document. For each:
    - title: concise name
    - insight_type: one of "principle", "tactic", "case_study", "framework", "client_note"
    - summary: 1-2 sentence summary
    - full_text: the full relevant passage or elaboration
    - tags: array of topic tags
 
-Example top_takeaways: "Use schema markup to win featured snippets", "Build topical authority before chasing volume"
-
-Extract as many distinct insights as the document supports. Focus on actionable, specific knowledge.`,
+Be opinionated and direct. Avoid generic SEO advice. Extract SPECIFIC stats, percentages, and quotes from the document. Write for a practitioner who needs to act on this, not just understand it.`,
           },
           {
             role: "user",
