@@ -75,7 +75,7 @@ export function StrategyWithPriorities({ content, prioritizedPoints, onTogglePri
               }`}
             />
             <div className="prose prose-sm max-w-none dark:prose-invert [&_strong]:text-foreground [&_p]:m-0">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>{bullet.raw.replace(/^[\s*\-]+/, "")}</ReactMarkdown>
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{bullet.raw.replace(/^(\s*[-*]\s)/, "")}</ReactMarkdown>
             </div>
           </div>
         );
