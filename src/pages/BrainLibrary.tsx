@@ -409,6 +409,15 @@ const BrainLibrary = () => {
             </CardHeader>
             <CardContent className="pt-0 pb-4 px-4 space-y-4">
 
+              {/* Last change notes */}
+              {strategy.last_change_summary && (
+                <div className="rounded-md border border-muted bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]} components={{
+                    p: ({ children }) => <p className="mb-1 last:mb-0">{children}</p>,
+                  }}>{strategy.last_change_summary}</ReactMarkdown>
+                </div>
+              )}
+
               {!strategyExpanded ? (
                 <div className="prose prose-sm max-w-none dark:prose-invert [&_strong]:text-foreground">
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>{getStrategyPreview(strategy.content)}</ReactMarkdown>

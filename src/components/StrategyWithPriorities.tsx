@@ -2,6 +2,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Lock, Star } from "lucide-react";
 import type { ReactNode } from "react";
+import { useRef } from "react";
 
 interface Props {
   content: string;
@@ -31,7 +32,8 @@ export function StrategyWithPriorities({
   lockedTactics = [],
   onTogglePriority,
 }: Props) {
-  let currentSection = "";
+  // Use a ref so the closure always reads the latest value
+  const currentSectionRef = useRef("");
 
   return (
     <div className="prose prose-sm max-w-none dark:prose-invert [&_strong]:text-foreground">
@@ -40,21 +42,21 @@ export function StrategyWithPriorities({
         components={{
           h2: ({ children }) => {
             const text = extractText(children);
-            currentSection = text;
+            currentSectionRef.current = text;
             return <h2>{children}</h2>;
           },
           li: ({ children }) => {
             const bulletText = normalizeBullet(extractText(children));
+            // Capture section at render time (not via closure over stale let)
+            const section = currentSectionRef.current;
 
-            // Determine if this bullet is locked based on current section
             const lockedList =
-              currentSection === "Core Principles" ? lockedPrinciples :
-              currentSection === "Core Tactics" ? lockedTactics : [];
+              section === "Core Principles" ? lockedPrinciples :
+              section === "Core Tactics" ? lockedTactics : [];
             const isLocked = lockedList.some(
               (point) => normalizeBullet(point) === bulletText,
             );
 
-            // Legacy prioritized check for non-locked sections
             const isPrioritized = !isLocked && prioritizedPoints.some(
               (point) => normalizeBullet(point) === bulletText,
             );
@@ -66,7 +68,7 @@ export function StrategyWithPriorities({
                 className={`cursor-pointer rounded-md transition-colors ${
                   isHighlighted ? "bg-accent/40 px-2 py-1" : ""
                 }`}
-                onClick={() => onTogglePriority(bulletText, currentSection)}
+                onClick={() => onTogglePriority(bulletText, section)}
               >
                 <div className="flex items-start gap-2">
                   <div className="min-w-0 flex-1">{children}</div>
