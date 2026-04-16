@@ -28,6 +28,14 @@ interface BrainInsight {
   source_file_id: string | null;
 }
 
+interface BrainStrategy {
+  id: string;
+  content: string;
+  key_patterns: string[];
+  knowledge_gaps: string[];
+  updated_at: string;
+}
+
 const BrainLibrary = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -36,6 +44,8 @@ const BrainLibrary = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
   const [expandedFiles, setExpandedFiles] = useState<Set<string>>(new Set());
+  const [strategy, setStrategy] = useState<BrainStrategy | null>(null);
+  const [isLearning, setIsLearning] = useState(false);
 
   const fetchFiles = useCallback(async () => {
     const { data, error } = await supabase
