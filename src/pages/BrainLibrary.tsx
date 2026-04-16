@@ -96,7 +96,7 @@ const BrainLibrary = () => {
       .select("*")
       .limit(1)
       .maybeSingle();
-    if (data) setStrategy(data as any);
+    setStrategy((data as any) ?? null);
   }, []);
 
   const fetchInsightsForFile = useCallback(async (fileId: string) => {
@@ -192,34 +192,68 @@ const BrainLibrary = () => {
   };
 
   const handleDelete = async (fileId: string) => {
-    // Get insight IDs to clean up connections
-    const { data: fileInsights } = await supabase
-      .from("brain_insights")
-      .select("id")
-      .eq("source_file_id", fileId);
-    const insightIds = (fileInsights || []).map(i => i.id);
-
-    // Delete connections referencing these insights
-    if (insightIds.length > 0) {
-      await supabase.from("brain_connections").delete().in("source_insight_id", insightIds);
-      await supabase.from("brain_connections").delete().in("related_insight_id", insightIds);
-    }
-
-    await supabase.from("brain_insights").delete().eq("source_file_id", fileId);
-    await supabase.from("brain_files").delete().eq("id", fileId);
-    setFiles(prev => prev.filter(f => f.id !== fileId));
-    toast({ title: "File deleted" });
-
-    // Rebuild strategy without this file's knowledge
     setIsLearning(true);
+    let fileDeleted = false;
+
     try {
-      await supabase.functions.invoke("cross-reference-insights", {
+      const { data: fileInsights, error: fileInsightsError } = await supabase
+        .from("brain_insights")
+        .select("id")
+        .eq("source_file_id", fileId);
+
+      if (fileInsightsError) throw fileInsightsError;
+
+      const insightIds = (fileInsights || []).map(i => i.id);
+
+      if (insightIds.length > 0) {
+        const [{ error: sourceDeleteError }, { error: relatedDeleteError }] = await Promise.all([
+          supabase.from("brain_connections").delete().in("source_insight_id", insightIds),
+          supabase.from("brain_connections").delete().in("related_insight_id", insightIds),
+        ]);
+
+        if (sourceDeleteError) throw sourceDeleteError;
+        if (relatedDeleteError) throw relatedDeleteError;
+      }
+
+      const { error: insightsDeleteError } = await supabase
+        .from("brain_insights")
+        .delete()
+        .eq("source_file_id", fileId);
+      if (insightsDeleteError) throw insightsDeleteError;
+
+      const { error: fileDeleteError } = await supabase
+        .from("brain_files")
+        .delete()
+        .eq("id", fileId);
+      if (fileDeleteError) throw fileDeleteError;
+
+      fileDeleted = true;
+      setFiles(prev => prev.filter(f => f.id !== fileId));
+
+      const { data: rebuildData, error: rebuildError } = await supabase.functions.invoke("cross-reference-insights", {
         body: { rebuildOnly: true },
       });
-      fetchStrategy();
-      toast({ title: "Strategy updated", description: "Rebuilt without the removed file's insights" });
-    } catch {
-      // Non-critical
+      if (rebuildError) throw rebuildError;
+
+      setInsightsByFile(prev => {
+        const next = { ...prev };
+        delete next[fileId];
+        return next;
+      });
+
+      await Promise.all([fetchFiles(), fetchStrategy()]);
+
+      toast({
+        title: "File deleted",
+        description: rebuildData?.message || "Strategy rebuilt without the removed file",
+      });
+    } catch (error) {
+      await Promise.all([fetchFiles(), fetchStrategy()]);
+      toast({
+        title: fileDeleted ? "File deleted but strategy refresh failed" : "Delete failed",
+        description: error instanceof Error ? error.message : "Please try again.",
+        variant: "destructive",
+      });
     } finally {
       setIsLearning(false);
     }
@@ -238,16 +272,25 @@ const BrainLibrary = () => {
     const stillPending = updatedInsights.filter(i => i.status === "pending_review");
     if (stillPending.length > 0) return;
 
-    // All reviewed — now cross-reference only approved insights
     setIsLearning(true);
     try {
-      await supabase.functions.invoke("cross-reference-insights", {
+      const { data, error } = await supabase.functions.invoke("cross-reference-insights", {
         body: { fileId },
       });
-      fetchStrategy();
-      toast({ title: "Brain updated", description: "Cross-referenced approved insights and updated strategy" });
-    } catch {
-      // Non-critical
+
+      if (error) throw error;
+
+      await fetchStrategy();
+      toast({
+        title: data?.message === "No insights to cross-reference" ? "Review complete" : "Brain updated",
+        description: data?.message || "Cross-referenced approved insights and updated strategy",
+      });
+    } catch (error) {
+      toast({
+        title: "Brain update failed",
+        description: error instanceof Error ? error.message : "Please try again.",
+        variant: "destructive",
+      });
     } finally {
       setIsLearning(false);
     }
