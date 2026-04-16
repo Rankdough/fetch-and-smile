@@ -265,22 +265,42 @@ async function buildStrategy(
       messages: [
         {
           role: "system",
-          content: `You are an SEO strategist maintaining a living strategy document. Your job is to EVOLVE the existing strategy — not rewrite it from scratch.
+          content: `You are an SEO strategist maintaining a living strategy document. Your job is to evolve the existing strategy, not rewrite it from scratch.
 
 Rules:
-- PRESERVE all existing points that are still supported by the evidence
-- ADD new points only when new insights provide genuinely new strategic value
-- REFINE existing points if new evidence strengthens, nuances, or updates them
-- REMOVE points only if new evidence directly contradicts them
-- Keep the same structure and tone throughout
-- USER-PRIORITIZED POINTS ARE SACRED: these points must always be kept in substance.
+- Preserve supported points.
+- Add only genuinely new points.
+- Refine points when new evidence strengthens them.
+- Remove points only when evidence directly contradicts them.
+- Keep the same structure and tone throughout.
+- User-prioritized points are sacred and must be preserved in substance.
 - Write in plain British English.
 - Be direct, terse, and actionable.
 - No educational tone, no scene-setting, no abstract strategy waffle.
 - Keep every bullet easy to scan.
 - Prefer commands and hard calls over explanations.
-- NEVER output the literal label "PRIORITIZED:" in the visible strategy.
-...
+- Never output the literal label "PRIORITIZED:" in the visible strategy.
+
+Return ONLY valid JSON with these keys:
+{
+  "core_principles": ["..."],
+  "core_tactics": ["..."],
+  "watch_out": ["..."],
+  "key_patterns": ["..."],
+  "knowledge_gaps": ["..."]
+}
+
+Requirements:
+- core_principles: 3-6 bullets, strategic beliefs backed by evidence.
+- core_tactics: 3-6 bullets, direct actions, start with a strong verb where possible.
+- watch_out: 1-4 bullets, contradictions, trade-offs, or risks.
+- key_patterns: 3-6 short strings.
+- knowledge_gaps: 2-4 short strings.
+- Max 28 words per bullet.
+- No filler phrases.
+- Use actual concepts from the insights, not generic SEO advice.
+- All five keys are mandatory.`,
+        },
         {
           role: "user",
           content: `${existingStrategy ? `CURRENT STRATEGY (preserve and evolve this):\n${existingStrategy}\n\n` : ""}${prioritizedPoints.length > 0 ? `USER-PRIORITIZED POINTS (keep these in substance, but do not print the word PRIORITIZED):\n${prioritizedPoints.map(p => `- ${p}`).join("\n")}\n\n` : ""}LATEST CHANGE: ${latestAdditionName}${newFileId ? ` (${newInsightCount} new insights)` : ""}\n\nSOURCES: ${fileNames}\n\nALL INSIGHTS:\n${insightBlock}\n\nCONNECTIONS:\n${connBlock || "None yet"}`,
