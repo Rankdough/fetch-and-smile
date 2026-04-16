@@ -36,6 +36,19 @@ interface BrainStrategy {
   updated_at: string;
 }
 
+// Extract a short preview from strategy content (first 2 bullet points)
+function getStrategyPreview(content: string): string {
+  const lines = content.split("\n").filter(l => l.trim());
+  const preview: string[] = [];
+  let bulletCount = 0;
+  for (const line of lines) {
+    preview.push(line);
+    if (line.trim().startsWith("*") || line.trim().startsWith("-")) bulletCount++;
+    if (bulletCount >= 2) break;
+  }
+  return preview.join("\n");
+}
+
 const BrainLibrary = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -46,6 +59,7 @@ const BrainLibrary = () => {
   const [expandedFiles, setExpandedFiles] = useState<Set<string>>(new Set());
   const [strategy, setStrategy] = useState<BrainStrategy | null>(null);
   const [isLearning, setIsLearning] = useState(false);
+  const [strategyExpanded, setStrategyExpanded] = useState(false);
 
   const fetchFiles = useCallback(async () => {
     const { data, error } = await supabase
@@ -206,32 +220,45 @@ const BrainLibrary = () => {
               <div className="flex items-center gap-2">
                 <Zap className="h-5 w-5 text-primary" />
                 <CardTitle className="text-lg">What the Brain Knows</CardTitle>
-                <span className="text-xs ml-auto">Updated {new Date(strategy.updated_at).toLocaleDateString()}</span>
+                <div className="flex items-center gap-2 ml-auto">
+                  <span className="text-xs">Updated {new Date(strategy.updated_at).toLocaleDateString()}</span>
+                  <Button variant="ghost" size="sm" onClick={() => setStrategyExpanded(!strategyExpanded)}>
+                    {strategyExpanded ? "Show less" : "Read more"}
+                  </Button>
+                </div>
               </div>
             </CardHeader>
             <CardContent className="pt-0 pb-4 px-4 space-y-4">
-              <div className="prose prose-sm max-w-none dark:prose-invert [&_strong]:text-foreground">
-                <ReactMarkdown>{strategy.content}</ReactMarkdown>
-              </div>
-              {strategy.key_patterns.length > 0 && (
-                <div>
-                  <h4 className="text-sm font-semibold mb-2">Recurring Patterns</h4>
-                  <div className="flex flex-wrap gap-2">
-                    {strategy.key_patterns.map((p, i) => (
-                      <Badge key={i} variant="secondary">{p}</Badge>
-                    ))}
-                  </div>
+              {!strategyExpanded ? (
+                <div className="prose prose-sm max-w-none dark:prose-invert [&_strong]:text-foreground">
+                  <ReactMarkdown>{getStrategyPreview(strategy.content)}</ReactMarkdown>
                 </div>
-              )}
-              {strategy.knowledge_gaps.length > 0 && (
-                <div>
-                  <h4 className="text-sm font-semibold mb-2">Knowledge Gaps</h4>
-                  <div className="flex flex-wrap gap-2">
-                    {strategy.knowledge_gaps.map((g, i) => (
-                      <Badge key={i} variant="outline" className="border-orange-300 text-orange-700">{g}</Badge>
-                    ))}
+              ) : (
+                <>
+                  <div className="prose prose-sm max-w-none dark:prose-invert [&_strong]:text-foreground">
+                    <ReactMarkdown>{strategy.content}</ReactMarkdown>
                   </div>
-                </div>
+                  {strategy.key_patterns.length > 0 && (
+                    <div>
+                      <h4 className="text-sm font-semibold mb-2">Recurring Patterns</h4>
+                      <div className="flex flex-wrap gap-2">
+                        {strategy.key_patterns.map((p, i) => (
+                          <Badge key={i} variant="secondary">{p}</Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {strategy.knowledge_gaps.length > 0 && (
+                    <div>
+                      <h4 className="text-sm font-semibold mb-2">Knowledge Gaps</h4>
+                      <div className="flex flex-wrap gap-2">
+                        {strategy.knowledge_gaps.map((g, i) => (
+                          <Badge key={i} variant="outline" className="border-orange-300 text-orange-700">{g}</Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
             </CardContent>
           </Card>
