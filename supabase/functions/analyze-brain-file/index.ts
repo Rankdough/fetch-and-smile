@@ -57,6 +57,14 @@ serve(async (req) => {
    - summary: 1 sentence summary
    - full_text: the relevant passage
    - tags: array of topic tags
+   - credibility: one of "aligned", "debatable", "outdated"
+   - credibility_note: 1 sentence explaining why you gave that rating. Reference established SEO consensus, Google documentation, or known best practices. If debatable or outdated, explain what the current consensus actually is.
+
+CREDIBILITY RULES:
+- "aligned" = matches current Google guidelines, widely accepted SEO/AEO practice, or well-evidenced.
+- "debatable" = partially true but oversimplified, context-dependent, or lacks nuance. Explain the caveat.
+- "outdated" = contradicts current best practices or relies on deprecated signals. Say what replaced it.
+- Be honest. If a claim is wrong, say so. Do not soften outdated advice.
 
 RULES:
 - Write in clear, plain British English.
@@ -126,6 +134,9 @@ RULES:
           summary: insight.summary || null,
           full_text: insight.full_text || null,
           source_file_id: fileId,
+          status: "pending_review",
+          credibility_flag: insight.credibility || "aligned",
+          credibility_note: insight.credibility_note || null,
         })
         .select("id")
         .single();
@@ -205,7 +216,7 @@ RULES:
     console.log(`Processed ${insertedCount} insights from ${fileName}`);
 
     return new Response(
-      JSON.stringify({ success: true, insightsCount: insertedCount, summary: fullSummary }),
+      JSON.stringify({ success: true, insightsCount: insertedCount, pendingReview: insertedCount, summary: fullSummary }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
