@@ -97,8 +97,9 @@ Extract as many distinct insights as the document supports. Focus on actionable,
       throw new Error("Failed to parse AI response");
     }
 
-    const fileSummary = parsed.file_summary || null;
-    const topLearnings = parsed.top_learnings || [];
+    const whatIsIt = parsed.what_is_it || "";
+    const whyItMatters = parsed.why_it_matters || "";
+    const topTakeaways: string[] = parsed.top_takeaways || [];
     const insights = parsed.insights || [];
     let insertedCount = 0;
 
@@ -118,13 +119,11 @@ Extract as many distinct insights as the document supports. Focus on actionable,
       if (insightErr) { console.error("Insert insight error:", insightErr); continue; }
       insertedCount++;
 
-      // Handle tags
       if (insight.tags && Array.isArray(insight.tags)) {
         for (const tagName of insight.tags) {
           const normalized = tagName.toLowerCase().trim();
           if (!normalized) continue;
 
-          // Upsert tag
           let tagId: string;
           const { data: existing } = await supabase
             .from("brain_tags")
@@ -152,12 +151,13 @@ Extract as many distinct insights as the document supports. Focus on actionable,
       }
     }
 
-    // Build full summary with top learnings
-    const fullSummary = fileSummary
-      ? (topLearnings.length > 0
-        ? `${fileSummary}\n\n**Top Learnings:**\n${topLearnings.map((l: string, i: number) => `${i + 1}. ${l}`).join("\n")}`
-        : fileSummary)
-      : null;
+    // Build concise summary
+    let fullSummary = "";
+    if (whatIsIt) fullSummary += `**What:** ${whatIsIt}\n\n`;
+    if (whyItMatters) fullSummary += `**Why it matters:** ${whyItMatters}\n\n`;
+    if (topTakeaways.length > 0) {
+      fullSummary += `**Key Takeaways:**\n${topTakeaways.map((t: string) => `- ${t}`).join("\n")}`;
+    }
 
     // Mark file as processed with summary
     await supabase.from("brain_files").update({ status: "processed", file_summary: fullSummary }).eq("id", fileId);
