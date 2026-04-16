@@ -216,7 +216,7 @@ RULES:
     console.log(`Processed ${insertedCount} insights from ${fileName}`);
 
     return new Response(
-      JSON.stringify({ success: true, insightsCount: insertedCount, summary: fullSummary }),
+      JSON.stringify({ success: true, insightsCount: insertedCount, pendingReview: insertedCount, summary: fullSummary }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
