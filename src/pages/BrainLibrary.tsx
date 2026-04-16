@@ -54,6 +54,8 @@ interface BrainStrategy {
   last_change_summary: string | null;
   last_contributing_file_id: string | null;
   prioritized_points: string[];
+  locked_principles: string[];
+  locked_tactics: string[];
 }
 
 function stripPriorityLabel(text: string): string {
@@ -117,6 +119,8 @@ const BrainLibrary = () => {
       ...(data as any),
       content: sanitizeStrategyContent((data as any).content || ""),
       prioritized_points: (((data as any).prioritized_points || []) as string[]).map(stripPriorityLabel),
+      locked_principles: ((data as any).locked_principles || []) as string[],
+      locked_tactics: ((data as any).locked_tactics || []) as string[],
     });
   }, []);
 
@@ -414,13 +418,32 @@ const BrainLibrary = () => {
                   <StrategyWithPriorities
                     content={strategy.content}
                     prioritizedPoints={strategy.prioritized_points || []}
-                    onTogglePriority={async (bulletText) => {
-                      const current = strategy.prioritized_points || [];
-                      const updated = current.includes(bulletText)
-                        ? current.filter(p => p !== bulletText)
-                        : [...current, bulletText];
-                      await supabase.from("brain_strategy").update({ prioritized_points: updated }).eq("id", strategy.id);
-                      setStrategy(prev => prev ? { ...prev, prioritized_points: updated } : prev);
+                    lockedPrinciples={strategy.locked_principles || []}
+                    lockedTactics={strategy.locked_tactics || []}
+                    onTogglePriority={async (bulletText, section) => {
+                      if (section === "Core Principles") {
+                        const current = strategy.locked_principles || [];
+                        const updated = current.includes(bulletText)
+                          ? current.filter(p => p !== bulletText)
+                          : [...current, bulletText];
+                        await supabase.from("brain_strategy").update({ locked_principles: updated } as any).eq("id", strategy.id);
+                        setStrategy(prev => prev ? { ...prev, locked_principles: updated } : prev);
+                      } else if (section === "Core Tactics") {
+                        const current = strategy.locked_tactics || [];
+                        const updated = current.includes(bulletText)
+                          ? current.filter(p => p !== bulletText)
+                          : [...current, bulletText];
+                        await supabase.from("brain_strategy").update({ locked_tactics: updated } as any).eq("id", strategy.id);
+                        setStrategy(prev => prev ? { ...prev, locked_tactics: updated } : prev);
+                      } else {
+                        // Legacy: still use prioritized_points for Watch Out or other sections
+                        const current = strategy.prioritized_points || [];
+                        const updated = current.includes(bulletText)
+                          ? current.filter(p => p !== bulletText)
+                          : [...current, bulletText];
+                        await supabase.from("brain_strategy").update({ prioritized_points: updated }).eq("id", strategy.id);
+                        setStrategy(prev => prev ? { ...prev, prioritized_points: updated } : prev);
+                      }
                     }}
                   />
                   {strategy.key_patterns.length > 0 && (

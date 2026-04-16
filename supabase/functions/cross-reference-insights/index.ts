@@ -186,7 +186,7 @@ async function buildStrategy(
   // Get ALL approved insights across all files
   const { data: allInsights } = await supabase
     .from("brain_insights")
-    .select("title, summary, insight_type, source_file_id")
+    .select("title, summary, insight_type, source_file_id, is_bookmarked")
     .eq("status", "approved");
 
   const { data: allFiles } = await supabase
@@ -198,15 +198,28 @@ async function buildStrategy(
     ? (allFiles || []).find((file) => file.id === newFileId)?.title || "Unknown file"
     : "File removal";
 
+  // Fetch existing strategy row (including locked fields)
+  const { data: currentStrategyRow } = await supabase
+    .from("brain_strategy")
+    .select("id, content, prioritized_points, locked_principles, locked_tactics")
+    .limit(1)
+    .maybeSingle();
+
+  const lockedPrinciples: string[] = (currentStrategyRow as any)?.locked_principles || [];
+  const lockedTactics: string[] = (currentStrategyRow as any)?.locked_tactics || [];
+
   if (!allInsights || allInsights.length === 0) {
-    // No approved insights left — clear strategy
-    const { data: existing } = await supabase.from("brain_strategy").select("id").limit(1).maybeSingle();
-    if (existing) {
+    // No approved insights left — clear generated strategy but KEEP locked anchors
+    if (currentStrategyRow) {
+      const preservedContent = buildMarkdownFromLocked(lockedPrinciples, lockedTactics, [], [], []);
       await supabase.from("brain_strategy").update({
-        content: "", key_patterns: [], knowledge_gaps: [],
-        contributing_file_ids: [], last_change_summary: "All insights removed — strategy cleared.",
+        content: preservedContent,
+        strategy_snapshot: (currentStrategyRow as any).content || "",
+        key_patterns: [], knowledge_gaps: [],
+        contributing_file_ids: [],
+        last_change_summary: "All insights removed — strategy cleared. Locked points preserved.",
         last_contributing_file_id: null,
-      }).eq("id", existing.id);
+      }).eq("id", currentStrategyRow.id);
     }
     return;
   }
@@ -215,6 +228,10 @@ async function buildStrategy(
   const { data: connections } = await supabase
     .from("brain_connections")
     .select("relationship_type, explanation");
+
+  // Separate bookmarked insights as high-priority evidence
+  const bookmarkedInsights = allInsights.filter((i: any) => i.is_bookmarked);
+  const regularInsights = allInsights.filter((i: any) => !i.is_bookmarked);
 
   // Build change summary
   const changeParts: string[] = [];
@@ -233,7 +250,10 @@ async function buildStrategy(
   }
   const changeSummary = changeParts.join("\n\n");
 
-  const insightBlock = allInsights.map(i => `- [${i.insight_type}] ${i.title}: ${i.summary}`).join("\n");
+  const insightBlock = regularInsights.map(i => `- [${i.insight_type}] ${i.title}: ${i.summary}`).join("\n");
+  const bookmarkedBlock = bookmarkedInsights.length > 0
+    ? bookmarkedInsights.map(i => `- [${i.insight_type}] ${i.title}: ${i.summary}`).join("\n")
+    : "";
   const fileNames = (allFiles || []).map(f => f.title).join(", ");
   const connBlock = (connections || []).map(c => `- ${c.relationship_type}: ${c.explanation}`).join("\n");
 
@@ -245,14 +265,17 @@ async function buildStrategy(
       .join("\n")
       .trim();
 
-  // Fetch existing strategy to evolve incrementally
-  const { data: currentStrategyRow } = await supabase
-    .from("brain_strategy")
-    .select("content, prioritized_points")
-    .limit(1)
-    .maybeSingle();
-  const existingStrategy = sanitizeStrategyMarkdown(currentStrategyRow?.content || "");
+  const existingStrategy = sanitizeStrategyMarkdown((currentStrategyRow as any)?.content || "");
   const prioritizedPoints: string[] = ((currentStrategyRow as any)?.prioritized_points || []).map(stripPriorityLabel);
+
+  // Build locked context for the prompt
+  const lockedContext = [];
+  if (lockedPrinciples.length > 0) {
+    lockedContext.push(`LOCKED CORE PRINCIPLES (these are user-pinned and MUST appear in core_principles verbatim):\n${lockedPrinciples.map(p => `- ${p}`).join("\n")}`);
+  }
+  if (lockedTactics.length > 0) {
+    lockedContext.push(`LOCKED CORE TACTICS (these are user-pinned and MUST appear in core_tactics verbatim):\n${lockedTactics.map(p => `- ${p}`).join("\n")}`);
+  }
 
   const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
@@ -268,12 +291,15 @@ async function buildStrategy(
           content: `You are an SEO strategist maintaining a living strategy document. Your job is to evolve the existing strategy, not rewrite it from scratch.
 
 Rules:
+- LOCKED points are sacred. Include them verbatim in the output. Never modify, rephrase, or omit them.
 - Preserve supported points.
-- Add only genuinely new points.
+- Add only genuinely new points backed by evidence.
 - Refine points when new evidence strengthens them.
-- Remove points only when evidence directly contradicts them.
+- Remove points only when evidence directly contradicts them AND the point is NOT locked.
+- If new evidence contradicts a LOCKED point, add a watch_out entry about the tension instead.
 - Keep the same structure and tone throughout.
-- User-prioritized points are sacred and must be preserved in substance.
+- User-prioritized points should be preserved in substance.
+- Bookmarked insights carry higher weight than regular insights.
 - Write in plain British English.
 - Be direct, terse, and actionable.
 - No educational tone, no scene-setting, no abstract strategy waffle.
@@ -291,8 +317,8 @@ Return ONLY valid JSON with these keys:
 }
 
 Requirements:
-- core_principles: 3-6 bullets, strategic beliefs backed by evidence.
-- core_tactics: 3-6 bullets, direct actions, start with a strong verb where possible.
+- core_principles: 3-8 bullets, strategic beliefs backed by evidence. MUST include all locked principles.
+- core_tactics: 3-8 bullets, direct actions. MUST include all locked tactics.
 - watch_out: 1-4 bullets, contradictions, trade-offs, or risks.
 - key_patterns: 3-6 short strings.
 - knowledge_gaps: 2-4 short strings.
@@ -303,7 +329,7 @@ Requirements:
         },
         {
           role: "user",
-          content: `${existingStrategy ? `CURRENT STRATEGY (preserve and evolve this):\n${existingStrategy}\n\n` : ""}${prioritizedPoints.length > 0 ? `USER-PRIORITIZED POINTS (keep these in substance, but do not print the word PRIORITIZED):\n${prioritizedPoints.map(p => `- ${p}`).join("\n")}\n\n` : ""}LATEST CHANGE: ${latestAdditionName}${newFileId ? ` (${newInsightCount} new insights)` : ""}\n\nSOURCES: ${fileNames}\n\nALL INSIGHTS:\n${insightBlock}\n\nCONNECTIONS:\n${connBlock || "None yet"}`,
+          content: `${lockedContext.length > 0 ? lockedContext.join("\n\n") + "\n\n" : ""}${existingStrategy ? `CURRENT STRATEGY (preserve and evolve this):\n${existingStrategy}\n\n` : ""}${prioritizedPoints.length > 0 ? `USER-PRIORITIZED POINTS (keep these in substance):\n${prioritizedPoints.map(p => `- ${p}`).join("\n")}\n\n` : ""}${bookmarkedBlock ? `HIGH-PRIORITY BOOKMARKED INSIGHTS (weight these above regular insights):\n${bookmarkedBlock}\n\n` : ""}LATEST CHANGE: ${latestAdditionName}${newFileId ? ` (${newInsightCount} new insights)` : ""}\n\nSOURCES: ${fileNames}\n\nALL INSIGHTS:\n${insightBlock}\n\nCONNECTIONS:\n${connBlock || "None yet"}`,
         },
       ],
     }),
@@ -332,48 +358,32 @@ Requirements:
           .filter(Boolean)
       : [];
 
+  parsed.core_principles = sanitizeList(parsed.core_principles);
+  parsed.core_tactics = sanitizeList(parsed.core_tactics);
+  parsed.watch_out = sanitizeList(parsed.watch_out);
+
+  // DETERMINISTIC ENFORCEMENT: Merge locked points back in if the model omitted them
+  parsed.core_principles = enforceLocked(parsed.core_principles, lockedPrinciples);
+  parsed.core_tactics = enforceLocked(parsed.core_tactics, lockedTactics);
+
   // Build markdown from structured arrays
   const buildSection = (heading: string, items: string[]) => {
     if (!items || items.length === 0) return "";
     return `## ${heading}\n${items.map(i => `- ${stripPriorityLabel(i)}`).join("\n")}\n`;
   };
 
-  parsed.core_principles = sanitizeList(parsed.core_principles);
-  parsed.core_tactics = sanitizeList(parsed.core_tactics);
-  parsed.watch_out = sanitizeList(parsed.watch_out);
+  const strategyMarkdown = [
+    buildSection("Core Principles", parsed.core_principles),
+    buildSection("Core Tactics", parsed.core_tactics),
+    buildSection("Watch Out", parsed.watch_out),
+  ].filter(Boolean).join("\n");
 
-  if (parsed.core_principles || parsed.core_tactics || parsed.watch_out) {
-    parsed.strategy = [
-      buildSection("Core Principles", parsed.core_principles),
-      buildSection("Core Tactics", parsed.core_tactics),
-      buildSection("Watch Out", parsed.watch_out),
-    ].filter(Boolean).join("\n");
-  } else if (parsed.strategy && typeof parsed.strategy === "object") {
-    const sections: string[] = [];
-    for (const [heading, items] of Object.entries(parsed.strategy)) {
-      sections.push(`## ${heading}`);
-      if (Array.isArray(items)) {
-        for (const item of items) sections.push(`- ${stripPriorityLabel(String(item || ""))}`);
-      } else if (typeof items === "string") {
-        sections.push(stripPriorityLabel(String(items)));
-      }
-      sections.push("");
-    }
-    parsed.strategy = sections.join("\n");
-  }
-
-  parsed.strategy = sanitizeStrategyMarkdown(parsed.strategy || "");
+  const finalStrategy = sanitizeStrategyMarkdown(strategyMarkdown);
   const allFileIds = (allFiles || []).map(f => f.id);
 
-  // Upsert — keep only one strategy row
-  const { data: existing } = await supabase
-    .from("brain_strategy")
-    .select("id, content")
-    .limit(1)
-    .maybeSingle();
-
-  const strategyPayload = {
-    content: parsed.strategy || "",
+  const strategyPayload: Record<string, unknown> = {
+    content: finalStrategy,
+    strategy_snapshot: existingStrategy || "",
     key_patterns: parsed.key_patterns || [],
     knowledge_gaps: parsed.knowledge_gaps || [],
     contributing_file_ids: allFileIds,
@@ -382,11 +392,39 @@ Requirements:
     prioritized_points: prioritizedPoints,
   };
 
-  if (existing) {
-    await supabase.from("brain_strategy").update(strategyPayload).eq("id", existing.id);
+  if (currentStrategyRow) {
+    await supabase.from("brain_strategy").update(strategyPayload).eq("id", currentStrategyRow.id);
   } else {
-    await supabase.from("brain_strategy").insert(strategyPayload);
+    await supabase.from("brain_strategy").insert({
+      ...strategyPayload,
+      locked_principles: [],
+      locked_tactics: [],
+    });
   }
 
-  console.log("Strategy document updated with change summary");
+  console.log("Strategy document updated with locked point enforcement");
+}
+
+/** Ensure all locked points appear in the output list. Adds missing ones at the top. */
+function enforceLocked(generated: string[], locked: string[]): string[] {
+  if (locked.length === 0) return generated;
+  const normalise = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+  const generatedNorm = new Set(generated.map(normalise));
+  const missing = locked.filter(lp => !generatedNorm.has(normalise(lp)));
+  return [...missing, ...generated];
+}
+
+/** Build minimal markdown from locked points only (used when all insights are removed). */
+function buildMarkdownFromLocked(
+  principles: string[],
+  tactics: string[],
+  watchOut: string[],
+  _keyPatterns: string[],
+  _knowledgeGaps: string[]
+): string {
+  const sections: string[] = [];
+  if (principles.length > 0) sections.push(`## Core Principles\n${principles.map(p => `- ${p}`).join("\n")}`);
+  if (tactics.length > 0) sections.push(`## Core Tactics\n${tactics.map(t => `- ${t}`).join("\n")}`);
+  if (watchOut.length > 0) sections.push(`## Watch Out\n${watchOut.map(w => `- ${w}`).join("\n")}`);
+  return sections.join("\n\n");
 }
