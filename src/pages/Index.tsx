@@ -1470,7 +1470,7 @@ const Index = () => {
         // Use original quick generation
         let enhancedInstructions = formData.instructions || "";
         
-        const allAngles = [...selectedGapInsights, ...selectedAngles];
+        const allAngles = [...selectedGapInsights, ...selectedAngles, ...selectedAngleGaps];
         if (allAngles.length > 0) {
           enhancedInstructions += `\n\nUNIQUE ANGLES TO INCORPORATE:\n${allAngles.map((a, i) => `${i + 1}. ${a}`).join("\n")}\n\nUse these angles to differentiate this content from competitors.`;
         }
