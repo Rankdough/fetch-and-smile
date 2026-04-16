@@ -1,12 +1,14 @@
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Star } from "lucide-react";
+import { Lock, Star } from "lucide-react";
 import type { ReactNode } from "react";
 
 interface Props {
   content: string;
   prioritizedPoints: string[];
-  onTogglePriority: (bulletText: string) => void;
+  lockedPrinciples?: string[];
+  lockedTactics?: string[];
+  onTogglePriority: (bulletText: string, section: string) => void;
 }
 
 function normalizeBullet(line: string): string {
@@ -22,28 +24,55 @@ function extractText(node: ReactNode): string {
   return "";
 }
 
-export function StrategyWithPriorities({ content, prioritizedPoints, onTogglePriority }: Props) {
+export function StrategyWithPriorities({
+  content,
+  prioritizedPoints,
+  lockedPrinciples = [],
+  lockedTactics = [],
+  onTogglePriority,
+}: Props) {
+  let currentSection = "";
+
   return (
     <div className="prose prose-sm max-w-none dark:prose-invert [&_strong]:text-foreground">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
+          h2: ({ children }) => {
+            const text = extractText(children);
+            currentSection = text;
+            return <h2>{children}</h2>;
+          },
           li: ({ children }) => {
             const bulletText = normalizeBullet(extractText(children));
-            const isPrioritized = prioritizedPoints.some(
+
+            // Determine if this bullet is locked based on current section
+            const lockedList =
+              currentSection === "Core Principles" ? lockedPrinciples :
+              currentSection === "Core Tactics" ? lockedTactics : [];
+            const isLocked = lockedList.some(
               (point) => normalizeBullet(point) === bulletText,
             );
+
+            // Legacy prioritized check for non-locked sections
+            const isPrioritized = !isLocked && prioritizedPoints.some(
+              (point) => normalizeBullet(point) === bulletText,
+            );
+
+            const isHighlighted = isLocked || isPrioritized;
 
             return (
               <li
                 className={`cursor-pointer rounded-md transition-colors ${
-                  isPrioritized ? "bg-accent/40 px-2 py-1" : ""
+                  isHighlighted ? "bg-accent/40 px-2 py-1" : ""
                 }`}
-                onClick={() => onTogglePriority(bulletText)}
+                onClick={() => onTogglePriority(bulletText, currentSection)}
               >
                 <div className="flex items-start gap-2">
                   <div className="min-w-0 flex-1">{children}</div>
-                  {isPrioritized ? (
+                  {isLocked ? (
+                    <Lock className="mt-1 h-3.5 w-3.5 shrink-0 fill-primary text-primary" />
+                  ) : isPrioritized ? (
                     <Star className="mt-1 h-3.5 w-3.5 shrink-0 fill-primary text-primary" />
                   ) : null}
                 </div>
