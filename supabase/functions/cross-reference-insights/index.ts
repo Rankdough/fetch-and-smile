@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { z } from "https://esm.sh/zod@3.24.1";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -7,16 +8,39 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+const RequestSchema = z
+  .object({
+    fileId: z.string().uuid().optional(),
+    rebuildOnly: z.boolean().optional().default(false),
+  })
+  .refine((value) => value.rebuildOnly || !!value.fileId, {
+    message: "fileId or rebuildOnly required",
+    path: ["fileId"],
+  });
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { fileId, rebuildOnly } = await req.json();
-    if (!fileId && !rebuildOnly) {
-      return new Response(JSON.stringify({ error: "fileId or rebuildOnly required" }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    let requestBody: unknown;
+    try {
+      requestBody = await req.json();
+    } catch {
+      return new Response(JSON.stringify({ error: "Invalid JSON body" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    const parsedBody = RequestSchema.safeParse(requestBody);
+    if (!parsedBody.success) {
+      return new Response(JSON.stringify({ error: parsedBody.error.flatten().fieldErrors }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const { fileId, rebuildOnly } = parsedBody.data;
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
@@ -170,6 +194,10 @@ async function buildStrategy(
     .select("id, title")
     .eq("status", "processed");
 
+  const latestAdditionName = newFileId
+    ? (allFiles || []).find((file) => file.id === newFileId)?.title || "Unknown file"
+    : "File removal";
+
   if (!allInsights || allInsights.length === 0) {
     // No approved insights left — clear strategy
     const { data: existing } = await supabase.from("brain_strategy").select("id").limit(1).maybeSingle();
@@ -192,8 +220,7 @@ async function buildStrategy(
   const changeParts: string[] = [];
   if (newFileId) {
     const newFileInsights = allInsights.filter(i => i.source_file_id === newFileId);
-    const newFileName = (allFiles || []).find(f => f.id === newFileId)?.title || "Unknown file";
-    changeParts.push(`📄 **${newFileName}** added ${newInsightCount} insight${newInsightCount !== 1 ? "s" : ""}`);
+    changeParts.push(`📄 **${latestAdditionName}** added ${newInsightCount} insight${newInsightCount !== 1 ? "s" : ""}`);
     if (connectionCount > 0) {
       changeParts.push(`🔗 Found ${connectionCount} connection${connectionCount !== 1 ? "s" : ""} to existing knowledge`);
     }
@@ -239,25 +266,45 @@ Rules:
 - REMOVE points only if new evidence directly contradicts them
 - Keep the same structure and tone throughout
 - **PRIORITIZED POINTS ARE SACRED**: Points marked as PRIORITIZED by the user MUST ALWAYS be kept. Never remove, weaken, or significantly alter them. They represent the user's core strategic priorities. You may slightly refine wording for clarity but the substance must remain.
+- Write in plain British English.
+- Be direct, terse, and actionable.
+- No educational tone, no scene-setting, no abstract strategy waffle.
+- Keep every bullet easy to scan.
+- Prefer commands and hard calls over explanations.
 
 Output format:
 
-1. "strategy" — A concise markdown strategy document (max 500 words) structured as:
-   - **Core Principles** (3-6 bullet points — the strongest, most-confirmed ideas)
-   - **Key Tactics** (3-6 actionable steps based on the evidence)
-   - **Watch Out** (1-3 contradictions or tensions to be aware of)
+1. "strategy" — A concise markdown strategy document (max 350 words) structured EXACTLY as:
+   - ## Core Principles
+   - 3-6 bullet points
+   - Each bullet must be short, concrete, and scannable
+   - Prefer one idea per bullet
 
-2. "key_patterns" — Array of 3-6 strings: recurring themes confirmed by multiple sources
+   - ## Core Tactics
+   - 3-6 bullet points
+   - These must read like direct actions or instructions
+   - Start with a strong verb where possible
 
-3. "knowledge_gaps" — Array of 2-4 strings: important SEO areas NOT covered by any document
+   - ## Watch Out
+   - 1-3 short bullets covering contradictions, trade-offs, or risks
 
-Write for a practitioner. Be specific, not generic. Reference actual concepts from the insights.
+2. Bullet rules for all three sections:
+   - Max 28 words per bullet
+   - No paragraphs inside bullets
+   - No filler phrases like "it is important to", "this means", "strategic shift", or "underpins"
+   - Use actual concepts from the insights, not generic SEO advice
+
+3. "key_patterns" — Array of 3-6 strings: recurring themes confirmed by multiple sources
+
+4. "knowledge_gaps" — Array of 2-4 strings: important SEO areas NOT covered by any document
+
+Write for an operator who wants the next move fast. Be specific, not generic. Reference actual concepts from the insights.
 
 Return ONLY valid JSON: { "strategy": "...", "key_patterns": [...], "knowledge_gaps": [...] }`,
         },
         {
           role: "user",
-          content: `${existingStrategy ? `CURRENT STRATEGY (preserve and evolve this):\n${existingStrategy}\n\n` : ""}${prioritizedPoints.length > 0 ? `USER-PRIORITIZED POINTS (MUST keep these — they are sacred):\n${prioritizedPoints.map(p => `- ${p}`).join("\n")}\n\n` : ""}LATEST ADDITION: ${newFileName} (${newInsightCount} new insights)\n\nSOURCES: ${fileNames}\n\nALL INSIGHTS:\n${insightBlock}\n\nCONNECTIONS:\n${connBlock || "None yet"}`,
+          content: `${existingStrategy ? `CURRENT STRATEGY (preserve and evolve this):\n${existingStrategy}\n\n` : ""}${prioritizedPoints.length > 0 ? `USER-PRIORITIZED POINTS (MUST keep these — they are sacred):\n${prioritizedPoints.map(p => `- ${p}`).join("\n")}\n\n` : ""}LATEST CHANGE: ${latestAdditionName}${newFileId ? ` (${newInsightCount} new insights)` : ""}\n\nSOURCES: ${fileNames}\n\nALL INSIGHTS:\n${insightBlock}\n\nCONNECTIONS:\n${connBlock || "None yet"}`,
         },
       ],
     }),
