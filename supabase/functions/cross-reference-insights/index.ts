@@ -25,11 +25,12 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // 1. Get new insights from this file
+    // 1. Get approved insights from this file (only approved, not pending/rejected)
     const { data: newInsights } = await supabase
       .from("brain_insights")
       .select("id, title, summary, insight_type, full_text")
-      .eq("source_file_id", fileId);
+      .eq("source_file_id", fileId)
+      .eq("status", "approved");
 
     if (!newInsights || newInsights.length === 0) {
       return new Response(JSON.stringify({ success: true, connections: 0, message: "No insights to cross-reference" }), {
@@ -37,11 +38,12 @@ serve(async (req) => {
       });
     }
 
-    // 2. Get ALL existing insights from OTHER files
+    // 2. Get ALL existing approved insights from OTHER files
     const { data: existingInsights } = await supabase
       .from("brain_insights")
       .select("id, title, summary, insight_type, source_file_id")
-      .neq("source_file_id", fileId);
+      .neq("source_file_id", fileId)
+      .eq("status", "approved");
 
     if (!existingInsights || existingInsights.length === 0) {
       // First file — no cross-referencing possible, just build initial strategy
@@ -149,10 +151,11 @@ async function buildStrategy(
   connectionCount: number,
   newInsightCount: number
 ) {
-  // Get ALL insights across all files
+  // Get ALL approved insights across all files
   const { data: allInsights } = await supabase
     .from("brain_insights")
-    .select("title, summary, insight_type, source_file_id");
+    .select("title, summary, insight_type, source_file_id")
+    .eq("status", "approved");
 
   const { data: allFiles } = await supabase
     .from("brain_files")
