@@ -179,10 +179,9 @@ WRITING RULES:
     let fullSummary = "";
     if (whatIsIt) fullSummary += `## What it is\n\n${whatIsIt}\n\n`;
     
-    if (typeof whyItMatters === "string" && whyItMatters) {
-      fullSummary += `## Why it matters\n\n${whyItMatters}\n\n`;
-    } else if (Array.isArray(whyItMatters) && whyItMatters.length > 0) {
-      fullSummary += `## Why it matters\n\n${whyItMatters.join(" ")}\n\n`;
+    if (whyItMatters) {
+      const matter = Array.isArray(whyItMatters) ? whyItMatters.join(" ") : whyItMatters;
+      if (matter) fullSummary += `## Why it matters\n\n${matter}\n\n`;
     }
 
     if (topTakeaways.length > 0) {
@@ -193,15 +192,6 @@ WRITING RULES:
         } else if (t.heading) {
           const detail = Array.isArray(t.detail) ? t.detail.join(" ") : (t.detail || "");
           fullSummary += `- **${t.heading}**: ${detail}\n`;
-        }
-        // Render optional table
-        if (t.table && Array.isArray(t.table) && t.table.length > 0) {
-          const keys = Object.keys(t.table[0]);
-          fullSummary += `\n| ${keys.join(" | ")} |\n| ${keys.map(() => "---").join(" | ")} |\n`;
-          for (const row of t.table) {
-            fullSummary += `| ${keys.map(k => row[k] || "").join(" | ")} |\n`;
-          }
-          fullSummary += "\n";
         }
       }
       fullSummary += "\n";
