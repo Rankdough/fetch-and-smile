@@ -36,21 +36,17 @@ export function StrategyWithPriorities({ content, prioritizedPoints, onTogglePri
 
             return (
               <li
-                className={`group rounded-md px-2 py-1 transition-colors ${
-                  isPrioritized ? "bg-accent/50" : ""
+                className={`cursor-pointer rounded-md transition-colors ${
+                  isPrioritized ? "bg-accent/40 px-2 py-1" : ""
                 }`}
                 onClick={() => onTogglePriority(bulletText)}
               >
-                <span className="inline-flex items-start gap-2 cursor-pointer">
-                  <Star
-                    className={`mt-1 h-3.5 w-3.5 shrink-0 transition-colors ${
-                      isPrioritized
-                        ? "fill-primary text-primary"
-                        : "text-muted-foreground/40 group-hover:text-muted-foreground/70"
-                    }`}
-                  />
-                  <span>{children}</span>
-                </span>
+                <div className="flex items-start gap-2">
+                  <div className="min-w-0 flex-1">{children}</div>
+                  {isPrioritized ? (
+                    <Star className="mt-1 h-3.5 w-3.5 shrink-0 fill-primary text-primary" />
+                  ) : null}
+                </div>
               </li>
             );
           },
