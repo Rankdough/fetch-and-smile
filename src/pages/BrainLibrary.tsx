@@ -310,19 +310,19 @@ const BrainLibrary = () => {
                 <div className="bg-accent/50 rounded-lg p-3 border border-accent text-sm">
                   <div className="font-semibold text-xs uppercase tracking-wide text-muted-foreground mb-1">Latest update</div>
                   <div className="prose prose-sm max-w-none dark:prose-invert [&_strong]:text-foreground">
-                    <ReactMarkdown>{strategy.last_change_summary}</ReactMarkdown>
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{strategy.last_change_summary}</ReactMarkdown>
                   </div>
                 </div>
               )}
 
               {!strategyExpanded ? (
                 <div className="prose prose-sm max-w-none dark:prose-invert [&_strong]:text-foreground">
-                  <ReactMarkdown>{getStrategyPreview(strategy.content)}</ReactMarkdown>
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{getStrategyPreview(strategy.content)}</ReactMarkdown>
                 </div>
               ) : (
                 <>
                   <div className="prose prose-sm max-w-none dark:prose-invert [&_strong]:text-foreground">
-                    <ReactMarkdown>{strategy.content}</ReactMarkdown>
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{strategy.content}</ReactMarkdown>
                   </div>
                   {strategy.key_patterns.length > 0 && (
                     <div>
@@ -402,7 +402,7 @@ const BrainLibrary = () => {
                       {file.file_summary && (
                         <div className="bg-muted/50 rounded-lg p-4 border">
                           <div className="text-sm text-muted-foreground prose prose-sm max-w-none dark:prose-invert [&_strong]:text-foreground">
-                            <ReactMarkdown>{file.file_summary}</ReactMarkdown>
+                            <ReactMarkdown remarkPlugins={[remarkGfm]}>{file.file_summary}</ReactMarkdown>
                           </div>
                         </div>
                       )}
