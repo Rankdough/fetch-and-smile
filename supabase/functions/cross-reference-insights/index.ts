@@ -325,8 +325,19 @@ CRITICAL: You MUST return all five keys. If you omit core_tactics or watch_out, 
     return;
   }
 
-  // If strategy came back as structured JSON instead of markdown string, convert it
-  if (parsed.strategy && typeof parsed.strategy === "object") {
+  // Build markdown from structured arrays
+  const buildSection = (heading: string, items: string[]) => {
+    if (!items || items.length === 0) return "";
+    return `## ${heading}\n${items.map(i => `- ${i}`).join("\n")}\n`;
+  };
+
+  if (parsed.core_principles || parsed.core_tactics || parsed.watch_out) {
+    parsed.strategy = [
+      buildSection("Core Principles", parsed.core_principles),
+      buildSection("Core Tactics", parsed.core_tactics),
+      buildSection("Watch Out", parsed.watch_out),
+    ].filter(Boolean).join("\n");
+  } else if (parsed.strategy && typeof parsed.strategy === "object") {
     const sections: string[] = [];
     for (const [heading, items] of Object.entries(parsed.strategy)) {
       sections.push(`## ${heading}`);
