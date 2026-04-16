@@ -100,6 +100,15 @@ CRITICAL RULES:
 - Output ONLY Markdown - no HTML tags, no inline styles, no CSS
 - Every H2 must be phrased as a question
 - Preserve ALL factual content from the source - do not invent information
+
+SENTENCE LENGTH (strict):
+- Target average: 10-12 words per sentence
+- Hard maximum: 20 words. If a sentence runs over 20 words, split it.
+- Mix in punchy 5-8 word sentences for rhythm
+- Allow occasional 16-20 word sentences only for complex technical points
+- Never write 3+ sentences of similar length in a row
+- Tone profile takes priority: if the tone demands a longer signature sentence, the tone wins
+
 - Preserve ALL hyperlinks from the source content using markdown link syntax [text](url)
 - Do NOT include expert quotes or blockquote citations - no fabricated or real quotes from named individuals
 - CRITICAL TABLE RULE: When listing products, brands, options, or items with descriptions/details, ALWAYS use a markdown table (| Name | Details |) instead of nested bullet lists. Any list of items that have a name + description/attribute pair MUST be formatted as a table. Minimum 2 columns and 4+ rows where possible. Do NOT add a "Link" or "Product Link" column - only include columns with actual content data.

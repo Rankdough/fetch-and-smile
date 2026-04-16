@@ -260,9 +260,13 @@ ${useFirstPerson
 
 HUMAN WRITING STYLE (apply to ALL content):
 
-1. SENTENCE RHYTHM:
-   - Mix short punchy sentences (5-8 words), medium sentences (10-15 words), and occasional longer explanations (18-25 words)
+1. SENTENCE LENGTH (strict):
+   - Target average: 10-12 words per sentence
+   - Hard maximum: 20 words. If a sentence runs over 20 words, split it.
+   - Mix in punchy 5-8 word sentences for rhythm
+   - Allow occasional 16-20 word sentences only for complex technical points
    - Never have 3 or more sentences of similar length in a row
+   - Tone profile takes priority: if the tone demands a longer signature sentence, the tone wins
 
 2. BANNED AI PHRASES - NEVER use any of these:
    - Transitions: "Moreover", "Furthermore", "Additionally", "In addition", "Consequently", "Thus", "Hence", "Therefore"
