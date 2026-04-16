@@ -733,6 +733,10 @@ const Index = () => {
     const saved = localStorage.getItem("seo-generator-selectedGapInsights");
     return saved ? JSON.parse(saved) : [];
   });
+  const [selectedAngleGaps, setSelectedAngleGaps] = useState<string[]>(() => {
+    const saved = localStorage.getItem("seo-generator-selectedAngleGaps");
+    return saved ? JSON.parse(saved) : [];
+  });
   const [articleImages, setArticleImages] = useState<ArticleImage[]>(() => {
     const saved = localStorage.getItem("seo-generator-articleImages");
     return saved ? JSON.parse(saved) : [];
