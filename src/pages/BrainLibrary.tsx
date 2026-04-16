@@ -5,13 +5,21 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Upload, Brain, FileText, BookOpen, MessageSquare, History, Trash2, ChevronDown, ChevronRight, Zap, Check, X, AlertTriangle, ShieldCheck, ShieldAlert, ShieldX } from "lucide-react";
+import { Loader2, Upload, Brain, FileText, BookOpen, MessageSquare, History, Trash2, ChevronDown, ChevronRight, Zap, Check, X, AlertTriangle, ShieldCheck, ShieldAlert, ShieldX, Crown, Building2, Users, MessageCircle } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import * as pdfjsLib from "pdfjs-dist";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.worker.min.mjs`;
+
+const SOURCE_WEIGHTS = [
+  { value: "official", label: "Official", icon: Crown, color: "text-amber-500" },
+  { value: "industry", label: "Industry", icon: Building2, color: "text-blue-500" },
+  { value: "opinion", label: "Opinion", icon: Users, color: "text-purple-500" },
+  { value: "anecdotal", label: "Anecdotal", icon: MessageCircle, color: "text-muted-foreground" },
+] as const;
 
 interface BrainFile {
   id: string;
@@ -21,6 +29,7 @@ interface BrainFile {
   status: string;
   uploaded_at: string;
   file_summary: string | null;
+  source_weight: string;
 }
 
 interface BrainInsight {
@@ -357,6 +366,30 @@ const BrainLibrary = () => {
                         <Badge variant="secondary" className={statusColor(file.status)}>{file.status}</Badge>
                       </CollapsibleTrigger>
                       <div className="flex items-center gap-2">
+                        <Select
+                          value={file.source_weight || "industry"}
+                          onValueChange={async (v) => {
+                            await supabase.from("brain_files").update({ source_weight: v }).eq("id", file.id);
+                            setFiles(prev => prev.map(f => f.id === file.id ? { ...f, source_weight: v } : f));
+                          }}
+                        >
+                          <SelectTrigger className="h-7 w-[130px] text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {SOURCE_WEIGHTS.map(sw => {
+                              const Icon = sw.icon;
+                              return (
+                                <SelectItem key={sw.value} value={sw.value}>
+                                  <span className="flex items-center gap-1.5">
+                                    <Icon className={`h-3.5 w-3.5 ${sw.color}`} />
+                                    {sw.label}
+                                  </span>
+                                </SelectItem>
+                              );
+                            })}
+                          </SelectContent>
+                        </Select>
                         <span className="text-xs text-muted-foreground">{new Date(file.uploaded_at).toLocaleDateString()}</span>
                         <Button variant="ghost" size="icon" onClick={() => handleDelete(file.id)} className="h-7 w-7"><Trash2 className="h-3.5 w-3.5" /></Button>
                       </div>
