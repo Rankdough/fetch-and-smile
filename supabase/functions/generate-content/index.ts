@@ -148,7 +148,26 @@ serve(async (req) => {
     const inThisArticleSection = migrationMode
       ? "4. DO NOT include an \"In This Article\" section - this is generated automatically by the client."
       : "4. ## In This Article (~" + inThisArticleWords + " words) — navigation guide:\n   - Format as a BULLETED LIST: - **1. Section Title** - DETAILED description (MINIMUM 150 characters)\n   - List ALL main H2 sections from the article (not TL;DR or References)\n   - DO NOT SKIP THIS SECTION";
-    const faqSection = skipFaqs ? '' : "7. \"## Frequently Asked Questions\" (~" + faqWords + " words) — 4-6 Q&As in bold question format";
+    const faqSection = skipFaqs ? '' : `7. ## Frequently Asked Questions (~${faqWords} words) — MANDATORY SECTION, MUST BE INCLUDED.
+   - Use the EXACT H2 heading: "## Frequently Asked Questions" (do not rename, do not skip)
+   - Include 4-6 Q&A pairs in this EXACT markdown format (the parser depends on it):
+
+\`\`\`
+**What is the typical cost?**
+
+The typical cost ranges from X to Y depending on Z.
+
+**How long does it take?**
+
+Most people complete the process in 2-4 weeks.
+\`\`\`
+
+   - Each question wrapped in **bold** asterisks, ending with a question mark
+   - Blank line after the bolded question
+   - Answer as a plain paragraph (1-3 sentences), NOT bolded, NOT prefixed with "A:" or "Answer:"
+   - Blank line between Q&A pairs
+   - Do NOT use ### headings, > blockquotes, or "Q:" / "A:" prefixes
+   - Questions must be SPECIFIC to the article topic (not generic placeholders)`;
     const referencesSection = skipSources ? '' : "9. \"## References:\" (~" + referencesWords + " words) — list ALL sources as markdown links";
     
     // Build the prompt
