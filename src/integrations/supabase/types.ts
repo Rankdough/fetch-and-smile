@@ -271,6 +271,7 @@ export type Database = {
           knowledge_gaps: string[] | null
           last_change_summary: string | null
           last_contributing_file_id: string | null
+          prioritized_points: string[] | null
           updated_at: string
         }
         Insert: {
@@ -282,6 +283,7 @@ export type Database = {
           knowledge_gaps?: string[] | null
           last_change_summary?: string | null
           last_contributing_file_id?: string | null
+          prioritized_points?: string[] | null
           updated_at?: string
         }
         Update: {
@@ -293,6 +295,7 @@ export type Database = {
           knowledge_gaps?: string[] | null
           last_change_summary?: string | null
           last_contributing_file_id?: string | null
+          prioritized_points?: string[] | null
           updated_at?: string
         }
         Relationships: []

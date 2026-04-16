@@ -1,0 +1,1 @@
+ALTER TABLE public.brain_strategy ADD COLUMN prioritized_points text[] DEFAULT '{}'::text[];
