@@ -40,16 +40,13 @@ serve(async (req) => {
             role: "system",
             content: `You analyse documents and return structured summaries. Return ONLY valid JSON with exactly these keys:
 
-1. "what_is_it" — String. One or two sentences describing what this file is. Be specific about the source and format.
+1. "what_is_it" — String. One sentence: what is this file and who wrote it.
 
-2. "why_it_matters" — String. A brief paragraph (max 2 sentences) explaining why this file matters strategically for SEO, AEO, content strategy, branding, positioning, growth, or marketing.
+2. "why_it_matters" — String. One sentence max. Why should I care? Be specific, not generic.
 
-3. "top_takeaways" — Array of 4-7 objects, each with:
-   - "heading": A short command-style heading (2-6 words). Start with a strong verb where possible. Examples: "Audit weak pages", "Cut AI fluff", "Use entity hubs".
-   - "detail": One short action sentence. It must tell the reader what to do, change, check, stop, or prioritise. Max 18 words. No explanation-first writing.
-   - "table": (optional) If a table would help clarify comparisons or frameworks, include it as an array of objects with consistent keys.
+3. "top_takeaways" — Array of 4-6 strings. Each is a single bullet point: a short, punchy action or fact. Max 15 words each. No sub-bullets, no tables, no headings. Start with a verb or a specific claim. Examples: "Lead with a direct answer — LLMs pull the first clear sentence.", "Post on Reddit and Quora — LLMs scrape UGC heavily.", "Track branded search growth in GSC, not just organic clicks."
 
-4. "bottom_line" — String. 1-2 short sentences max. Write like direct advice to a busy operator. No abstract strategy language. No educational tone. No "the rise of AI necessitates" style phrasing.
+4. "bottom_line" — String. 1 sentence max. Summarise the single most important thing from this file. Write like you're texting a busy colleague. No "this highlights", no "it is crucial", no academic phrasing.
 
 5. "insights" — Array of 4-7 actionable insights for the knowledge base. For each:
    - title: a short command or specific claim (3-8 words). NOT a topic label. BAD: "Impact of Content Structure". GOOD: "Use FAQ sections to get cited". BAD: "LLM Seeding Defined". GOOD: "Publish where LLMs scrape first".
@@ -182,10 +179,9 @@ WRITING RULES:
     let fullSummary = "";
     if (whatIsIt) fullSummary += `## What it is\n\n${whatIsIt}\n\n`;
     
-    if (typeof whyItMatters === "string" && whyItMatters) {
-      fullSummary += `## Why it matters\n\n${whyItMatters}\n\n`;
-    } else if (Array.isArray(whyItMatters) && whyItMatters.length > 0) {
-      fullSummary += `## Why it matters\n\n${whyItMatters.join(" ")}\n\n`;
+    if (whyItMatters) {
+      const matter = Array.isArray(whyItMatters) ? whyItMatters.join(" ") : whyItMatters;
+      if (matter) fullSummary += `## Why it matters\n\n${matter}\n\n`;
     }
 
     if (topTakeaways.length > 0) {
@@ -196,15 +192,6 @@ WRITING RULES:
         } else if (t.heading) {
           const detail = Array.isArray(t.detail) ? t.detail.join(" ") : (t.detail || "");
           fullSummary += `- **${t.heading}**: ${detail}\n`;
-        }
-        // Render optional table
-        if (t.table && Array.isArray(t.table) && t.table.length > 0) {
-          const keys = Object.keys(t.table[0]);
-          fullSummary += `\n| ${keys.join(" | ")} |\n| ${keys.map(() => "---").join(" | ")} |\n`;
-          for (const row of t.table) {
-            fullSummary += `| ${keys.map(k => row[k] || "").join(" | ")} |\n`;
-          }
-          fullSummary += "\n";
         }
       }
       fullSummary += "\n";
