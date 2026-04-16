@@ -1711,6 +1711,7 @@ const Index = () => {
     setValuePromise("");
     setSelectedAngles([]);
     setSelectedGapInsights([]);
+    setSelectedAngleGaps([]);
     setArticleImages([]);
     setInternalLinks([""]);
     
