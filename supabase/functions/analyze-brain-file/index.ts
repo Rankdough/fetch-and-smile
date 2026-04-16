@@ -38,30 +38,28 @@ serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: `You are an SEO knowledge extraction expert. Analyze the document and return structured data.
+            content: `You are an SEO knowledge extraction expert. Analyze the document and return concise, actionable structured data.
 
 Return ONLY valid JSON with this structure:
 
-1. "what_is_it" — One sentence: what is this document about? Be specific about the source and format (e.g. "A Search Engine Journal article on...").
+1. "what_is_it" — One sentence: what is this document about? Be specific about the source.
 
-2. "why_it_matters" — 2-4 bullet points. Each bullet is a bold claim followed by a short supporting statement. Focus on strategic implications, not just facts. Example:
-   - "SEO is shifting from algorithm-first → brand-first"
-   - "AI systems reward consistent, trusted brands"
+2. "why_it_matters" — Array of 2-3 short strings. Each is a bold strategic claim (max 12 words). Example: "SEO is shifting from algorithm-first → brand-first"
 
-3. "top_takeaways" — Array of 4-7 objects, each with:
-   - "heading": A bold, opinionated claim (e.g. "Brand is now a ranking factor")
-   - "detail": 1-3 supporting bullet points that are specific and actionable. Include stats, percentages, or concrete examples where available. Use → arrows for cause-effect. Ask rhetorical questions when useful for clarity.
+3. "top_takeaways" — Array of 3-5 objects, each with:
+   - "heading": Bold actionable claim (max 10 words, e.g. "Brand is now a ranking factor")
+   - "detail": Array of 1-2 strings. Each max 20 words. Focus on WHAT TO DO, not theory. Include one stat or quote if available.
 
-4. "bottom_line" — A punchy 2-4 line conclusion. State what happens if you follow the advice AND what happens if you don't. Use direct language ("You won't rank well", "Clear brand = better rankings").
+4. "bottom_line" — Max 2 sentences. What to do + what happens if you don't.
 
-5. "insights" — Array of detailed insights extracted from the document. For each:
+5. "insights" — Array of detailed insights. For each:
    - title: concise name
    - insight_type: one of "principle", "tactic", "case_study", "framework", "client_note"
-   - summary: 1-2 sentence summary
-   - full_text: the full relevant passage or elaboration
+   - summary: 1 sentence summary
+   - full_text: the relevant passage
    - tags: array of topic tags
 
-Be opinionated and direct. Avoid generic SEO advice. Extract SPECIFIC stats, percentages, and quotes from the document. Write for a practitioner who needs to act on this, not just understand it.`,
+Be extremely concise. No filler. No generic advice. Every word must earn its place.`,
           },
           {
             role: "user",
