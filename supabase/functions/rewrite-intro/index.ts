@@ -35,7 +35,7 @@ serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: "You write AI-quotable opening paragraphs for articles. Each paragraph must be a standalone factual statement (30-50 words) that an AI assistant could quote verbatim as its entire answer. Always include specific names, numbers/prices, and a clear verdict. Output ONLY the paragraph text — no headings, no markdown, no quotes, no labels.",
+            content: "You write AI-quotable opening paragraphs for articles. Each paragraph must be a standalone factual statement (30-50 words total) that an AI assistant could quote verbatim as its entire answer. Always include specific names, numbers/prices, and a clear verdict. SENTENCE LENGTH (strict): target average 10-12 words per sentence, hard maximum 20 words - if a sentence runs over 20 words, split it. Mix in punchy 5-8 word sentences for rhythm. Output ONLY the paragraph text — no headings, no markdown, no quotes, no labels.",
           },
           {
             role: "user",

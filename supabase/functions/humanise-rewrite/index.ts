@@ -117,11 +117,13 @@ PERSPECTIVE: ${perspectiveRule}
 
 TRANSFORMATION RULES:
 
-1. SENTENCE RHYTHM - Vary sentence lengths deliberately:
-   - Mix short punchy sentences (5-8 words)
-   - Medium flowing sentences (10-15 words)  
-   - Occasional longer explanatory sentences (18-25 words)
-   - Never have 3+ sentences of similar length in a row
+1. SENTENCE LENGTH (strict):
+   - Target average: 10-12 words per sentence
+   - Hard maximum: 20 words. If a sentence runs over 20 words, split it.
+   - Mix in punchy 5-8 word sentences for rhythm
+   - Allow occasional 16-20 word sentences only for complex technical points
+   - Never write 3+ sentences of similar length in a row
+   - Tone profile takes priority: if the tone demands a longer signature sentence, the tone wins
 
 2. KILL GENERIC OPENERS - Replace these patterns:
    - "In today's world..." → Start with a specific fact or question

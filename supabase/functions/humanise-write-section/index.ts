@@ -112,7 +112,14 @@ ABSOLUTE RULES:
 - NEVER start with generic phrases like "In today's world", "It's important to note", "When it comes to"
 - NEVER use "Moreover", "Additionally", "Furthermore" as transitions
 - Use British English spelling (optimise, colour, organisation)
-- Vary sentence length: mix short (5-8 words), medium (10-15 words), and longer (18-25 words)
+
+SENTENCE LENGTH (strict):
+- Target average: 10-12 words per sentence
+- Hard maximum: 20 words. If a sentence runs over 20 words, split it.
+- Mix in punchy 5-8 word sentences for rhythm
+- Allow occasional 16-20 word sentences only for complex technical points
+- Never write 3+ sentences of similar length in a row
+- Tone profile takes priority: if the tone demands a longer signature sentence, the tone wins
 
 OUTPUT FORMAT:
 - Start with ## ${section.h2}
