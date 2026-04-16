@@ -753,7 +753,7 @@ Place these images throughout the article at logical locations, typically after 
         if (headingLower.includes("tl;dr") || headingLower.includes("tldr")) budget = getFixedBudget("TL;DR", 60);
         else if (headingLower.includes("quick tips")) budget = getFixedBudget("Quick Tips", 50);
         else if (headingLower.includes("in this article")) budget = getFixedBudget("In This Article", 80);
-        else if (headingLower.includes("how to choose")) budget = getFixedBudget("How to Choose", Math.round(targetWords * 0.08));
+        else if (isDecisionGuideHeading(headingLower)) budget = getFixedBudget("How to Choose", Math.round(targetWords * 0.08));
         else if (headingLower.includes("frequently asked") || headingLower === "faq") budget = getFixedBudget("FAQ", Math.round(targetWords * 0.12));
         else if (headingLower.includes("final thoughts") || headingLower.includes("conclusion")) budget = getFixedBudget("Final Thoughts", Math.round(targetWords * 0.05));
         else if (headingLower.includes("references")) budget = getFixedBudget("References", 30);

@@ -59,7 +59,7 @@ STRUCTURE:
   - ### Sub-sections where needed
 - ## How Do They Compare Side by Side?
   - [Include comparison table with columns: Feature, Option A, Option B]
-- ## How to Choose?
+- ## How to Choose [the right X for you]?  ← REPLACE [the right X for you] with a topic-specific noun phrase from the article (e.g. "the Right Treatment for You", "the Best Trail", "the Right Approach to Making Friends"). NEVER output the bare "## How to Choose?" with no topic noun. If "Choose" doesn't fit (skill/lifestyle topics), use "How to Decide..." or "How to Find the Right..." instead.
   - 4-6 decision criteria as a practical checklist (e.g., "Choose X if you need…")
 - ## Frequently Asked Questions
   - 4-6 Q&As listed as **Q: ...** followed by brief answer guidance
