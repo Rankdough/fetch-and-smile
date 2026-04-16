@@ -233,7 +233,7 @@ const BrainLibrary = () => {
             <p className="text-muted-foreground">Upload documents and extract structured SEO insights.</p>
           </div>
           <label>
-            <Input type="file" className="hidden" accept=".txt,.md,.csv,.json" onChange={handleUpload} disabled={isUploading} />
+            <Input type="file" className="hidden" accept=".txt,.md,.csv,.json,.pdf" onChange={handleUpload} disabled={isUploading} />
             <Button asChild disabled={isUploading}>
               <span className="cursor-pointer gap-2">
                 {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
