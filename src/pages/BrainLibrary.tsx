@@ -192,10 +192,37 @@ const BrainLibrary = () => {
   };
 
   const handleDelete = async (fileId: string) => {
+    // Get insight IDs to clean up connections
+    const { data: fileInsights } = await supabase
+      .from("brain_insights")
+      .select("id")
+      .eq("source_file_id", fileId);
+    const insightIds = (fileInsights || []).map(i => i.id);
+
+    // Delete connections referencing these insights
+    if (insightIds.length > 0) {
+      await supabase.from("brain_connections").delete().in("source_insight_id", insightIds);
+      await supabase.from("brain_connections").delete().in("related_insight_id", insightIds);
+    }
+
     await supabase.from("brain_insights").delete().eq("source_file_id", fileId);
     await supabase.from("brain_files").delete().eq("id", fileId);
     setFiles(prev => prev.filter(f => f.id !== fileId));
     toast({ title: "File deleted" });
+
+    // Rebuild strategy without this file's knowledge
+    setIsLearning(true);
+    try {
+      await supabase.functions.invoke("cross-reference-insights", {
+        body: { rebuildOnly: true },
+      });
+      fetchStrategy();
+      toast({ title: "Strategy updated", description: "Rebuilt without the removed file's insights" });
+    } catch {
+      // Non-critical
+    } finally {
+      setIsLearning(false);
+    }
   };
 
   const toggleExpanded = (fileId: string) => {
