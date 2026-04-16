@@ -4912,14 +4912,35 @@ const Index = () => {
                                     brandColors={selectedColorPalette}
                                   />
                                 ) : part.content ? (
-                                  (() => {
-                                    // Split content by CTA markers and render inline CTAs
-                                    const ctaMarkerRegex = /<!--CTA_MARKER_(\d+)-->/g;
-                                    const segments: { type: 'content' | 'cta'; value: string | number }[] = [];
-                                    let lastIndex = 0;
-                                    let match;
-                                    
-                                    while ((match = ctaMarkerRegex.exec(part.content)) !== null) {
+                                   (() => {
+                                     // Sanitize: remove flattened/broken table fragments where the AI lost pipes & newlines
+                                     // (e.g. "Personality TraitRecommended EnvironmentWhy It WorksIntroverted/Anxious...")
+                                     const sanitizeFlattenedTables = (text: string): string => {
+                                       return text
+                                         .split(/\n{2,}/)
+                                         .filter((para) => {
+                                           const trimmed = para.trim();
+                                           if (!trimmed) return true;
+                                           // Keep proper markdown tables (have pipes)
+                                           if (trimmed.includes("|")) return true;
+                                           // Drop single-line paragraphs with 3+ CamelCase concatenations (e.g. "TraitRecommendedWhy")
+                                           const camelRuns = trimmed.match(/[a-z][A-Z]/g);
+                                           const isSingleLine = !trimmed.includes("\n");
+                                           if (isSingleLine && camelRuns && camelRuns.length >= 3 && trimmed.length < 600) {
+                                             return false;
+                                           }
+                                           return true;
+                                         })
+                                         .join("\n\n");
+                                     };
+                                     const sanitizedContent = sanitizeFlattenedTables(part.content);
+                                     // Split content by CTA markers and render inline CTAs
+                                     const ctaMarkerRegex = /<!--CTA_MARKER_(\d+)-->/g;
+                                     const segments: { type: 'content' | 'cta'; value: string | number }[] = [];
+                                     let lastIndex = 0;
+                                     let match;
+                                     
+                                     while ((match = ctaMarkerRegex.exec(sanitizedContent)) !== null) {
                                       if (match.index > lastIndex) {
                                         segments.push({ type: 'content', value: part.content.slice(lastIndex, match.index) });
                                       }
