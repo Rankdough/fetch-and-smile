@@ -38,33 +38,23 @@ serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: `You are an SEO knowledge extraction expert. Analyze the document and extract structured insights.
+            content: `You are an SEO knowledge extraction expert. Analyze the document and return structured data.
 
-First, provide a file_summary: a 3-5 sentence overview of what this document covers, its main thesis, and the most important takeaways. Write it as a quick briefing for someone who hasn't read the document.
+Return ONLY valid JSON with this structure:
 
-Then, for each distinct insight, principle, tactic, framework, or case study found, extract:
-- title: concise name
-- insight_type: one of "principle", "tactic", "case_study", "framework", "client_note"
-- summary: 1-2 sentence summary
-- full_text: the full relevant passage or elaboration
-- tags: array of topic tags (e.g., "AEO", "internal linking", "content strategy")
+1. "what_is_it" — One sentence: what is this document about?
+2. "why_it_matters" — One sentence: why should an SEO care about this?
+3. "top_takeaways" — Array of 3-5 short, actionable bullet strings (max 15 words each). Focus on what to DO, not theory.
+4. "insights" — Array of detailed insights extracted from the document. For each:
+   - title: concise name
+   - insight_type: one of "principle", "tactic", "case_study", "framework", "client_note"
+   - summary: 1-2 sentence summary
+   - full_text: the full relevant passage or elaboration
+   - tags: array of topic tags
 
-Return ONLY valid JSON:
-{
-  "file_summary": "3-5 sentence overview of the entire document...",
-  "top_learnings": ["Learning 1", "Learning 2", "Learning 3"],
-  "insights": [
-    {
-      "title": "...",
-      "insight_type": "...",
-      "summary": "...",
-      "full_text": "...",
-      "tags": ["..."]
-    }
-  ]
-}
+Example top_takeaways: "Use schema markup to win featured snippets", "Build topical authority before chasing volume"
 
-Extract as many distinct insights as the document supports. Focus on actionable, specific knowledge rather than generic statements.`,
+Extract as many distinct insights as the document supports. Focus on actionable, specific knowledge.`,
           },
           {
             role: "user",
@@ -107,8 +97,9 @@ Extract as many distinct insights as the document supports. Focus on actionable,
       throw new Error("Failed to parse AI response");
     }
 
-    const fileSummary = parsed.file_summary || null;
-    const topLearnings = parsed.top_learnings || [];
+    const whatIsIt = parsed.what_is_it || "";
+    const whyItMatters = parsed.why_it_matters || "";
+    const topTakeaways: string[] = parsed.top_takeaways || [];
     const insights = parsed.insights || [];
     let insertedCount = 0;
 
@@ -128,13 +119,11 @@ Extract as many distinct insights as the document supports. Focus on actionable,
       if (insightErr) { console.error("Insert insight error:", insightErr); continue; }
       insertedCount++;
 
-      // Handle tags
       if (insight.tags && Array.isArray(insight.tags)) {
         for (const tagName of insight.tags) {
           const normalized = tagName.toLowerCase().trim();
           if (!normalized) continue;
 
-          // Upsert tag
           let tagId: string;
           const { data: existing } = await supabase
             .from("brain_tags")
@@ -162,12 +151,13 @@ Extract as many distinct insights as the document supports. Focus on actionable,
       }
     }
 
-    // Build full summary with top learnings
-    const fullSummary = fileSummary
-      ? (topLearnings.length > 0
-        ? `${fileSummary}\n\n**Top Learnings:**\n${topLearnings.map((l: string, i: number) => `${i + 1}. ${l}`).join("\n")}`
-        : fileSummary)
-      : null;
+    // Build concise summary
+    let fullSummary = "";
+    if (whatIsIt) fullSummary += `**What:** ${whatIsIt}\n\n`;
+    if (whyItMatters) fullSummary += `**Why it matters:** ${whyItMatters}\n\n`;
+    if (topTakeaways.length > 0) {
+      fullSummary += `**Key Takeaways:**\n${topTakeaways.map((t: string) => `- ${t}`).join("\n")}`;
+    }
 
     // Mark file as processed with summary
     await supabase.from("brain_files").update({ status: "processed", file_summary: fullSummary }).eq("id", fileId);
