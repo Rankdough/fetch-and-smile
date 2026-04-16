@@ -206,6 +206,27 @@ const BrainLibrary = () => {
     });
   };
 
+  const handleInsightReview = async (insightId: string, fileId: string, newStatus: string) => {
+    await supabase.from("brain_insights").update({ status: newStatus }).eq("id", insightId);
+    setInsightsByFile(prev => ({
+      ...prev,
+      [fileId]: prev[fileId]?.map(i => i.id === insightId ? { ...i, status: newStatus } : i) || [],
+    }));
+    toast({ title: newStatus === "approved" ? "Insight accepted" : "Insight rejected" });
+  };
+
+  const handleBulkReview = async (fileId: string, newStatus: string) => {
+    const pending = insightsByFile[fileId]?.filter(i => i.status === "pending_review") || [];
+    for (const insight of pending) {
+      await supabase.from("brain_insights").update({ status: newStatus }).eq("id", insight.id);
+    }
+    setInsightsByFile(prev => ({
+      ...prev,
+      [fileId]: prev[fileId]?.map(i => i.status === "pending_review" ? { ...i, status: newStatus } : i) || [],
+    }));
+    toast({ title: `${pending.length} insights ${newStatus === "approved" ? "accepted" : "rejected"}` });
+  };
+
   const statusColor = (s: string) =>
     s === "processed" ? "bg-green-100 text-green-800" :
     s === "error" ? "bg-red-100 text-red-800" :
