@@ -451,6 +451,7 @@ const Index = () => {
     valuePromise: string;
     selectedAngles: string[];
     selectedGapInsights: string[];
+    selectedAngleGaps: string[];
     gapAnalysis: string;
     formatReference: string;
     contextFiles: { name: string; content: string }[];
