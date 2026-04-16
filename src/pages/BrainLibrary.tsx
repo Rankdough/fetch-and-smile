@@ -36,6 +36,19 @@ interface BrainStrategy {
   updated_at: string;
 }
 
+// Extract a short preview from strategy content (first 2 bullet points)
+function getStrategyPreview(content: string): string {
+  const lines = content.split("\n").filter(l => l.trim());
+  const preview: string[] = [];
+  let bulletCount = 0;
+  for (const line of lines) {
+    preview.push(line);
+    if (line.trim().startsWith("*") || line.trim().startsWith("-")) bulletCount++;
+    if (bulletCount >= 2) break;
+  }
+  return preview.join("\n");
+}
+
 const BrainLibrary = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
