@@ -192,6 +192,14 @@ async function buildStrategy(
   const fileNames = (allFiles || []).map(f => f.title).join(", ");
   const connBlock = (connections || []).map(c => `- ${c.relationship_type}: ${c.explanation}`).join("\n");
 
+  // Fetch existing strategy to evolve incrementally
+  const { data: currentStrategyRow } = await supabase
+    .from("brain_strategy")
+    .select("content")
+    .limit(1)
+    .maybeSingle();
+  const existingStrategy = currentStrategyRow?.content || "";
+
   const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -203,16 +211,23 @@ async function buildStrategy(
       messages: [
         {
           role: "system",
-          content: `You are an SEO strategist synthesizing all available knowledge into a living strategy document.
+          content: `You are an SEO strategist maintaining a living strategy document. Your job is to EVOLVE the existing strategy — not rewrite it from scratch.
 
-Based on all insights and their connections, produce:
+Rules:
+- PRESERVE all existing points that are still supported by the evidence
+- ADD new points only when new insights provide genuinely new strategic value
+- REFINE existing points if new evidence strengthens, nuances, or updates them
+- REMOVE points only if new evidence directly contradicts them
+- Keep the same structure and tone throughout
 
-1. "strategy" — A concise markdown strategy document (max 400 words) structured as:
-   - **Core Principles** (3-5 bullet points — the strongest, most-confirmed ideas)
-   - **Key Tactics** (3-5 actionable steps based on the evidence)
+Output format:
+
+1. "strategy" — A concise markdown strategy document (max 500 words) structured as:
+   - **Core Principles** (3-6 bullet points — the strongest, most-confirmed ideas)
+   - **Key Tactics** (3-6 actionable steps based on the evidence)
    - **Watch Out** (1-3 contradictions or tensions to be aware of)
 
-2. "key_patterns" — Array of 3-5 strings: recurring themes confirmed by multiple sources
+2. "key_patterns" — Array of 3-6 strings: recurring themes confirmed by multiple sources
 
 3. "knowledge_gaps" — Array of 2-4 strings: important SEO areas NOT covered by any document
 
@@ -222,7 +237,7 @@ Return ONLY valid JSON: { "strategy": "...", "key_patterns": [...], "knowledge_g
         },
         {
           role: "user",
-          content: `SOURCES: ${fileNames}\n\nALL INSIGHTS:\n${insightBlock}\n\nCONNECTIONS:\n${connBlock || "None yet"}`,
+          content: `${existingStrategy ? `CURRENT STRATEGY (preserve and evolve this):\n${existingStrategy}\n\n` : ""}LATEST ADDITION: ${newFileName} (${newInsightCount} new insights)\n\nSOURCES: ${fileNames}\n\nALL INSIGHTS:\n${insightBlock}\n\nCONNECTIONS:\n${connBlock || "None yet"}`,
         },
       ],
     }),
@@ -249,7 +264,7 @@ Return ONLY valid JSON: { "strategy": "...", "key_patterns": [...], "knowledge_g
   // Upsert — keep only one strategy row
   const { data: existing } = await supabase
     .from("brain_strategy")
-    .select("id")
+    .select("id, content")
     .limit(1)
     .maybeSingle();
 
