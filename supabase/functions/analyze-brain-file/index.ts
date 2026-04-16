@@ -165,34 +165,39 @@ RULES:
       }
     }
 
-    // Build rich summary
+    // Build rich summary matching exact section format
     let fullSummary = "";
-    if (whatIsIt) fullSummary += `**What it is**\n\n${whatIsIt}\n\n`;
+    if (whatIsIt) fullSummary += `## What it is\n\n${whatIsIt}\n\n`;
     
-    if (Array.isArray(whyItMatters) && whyItMatters.length > 0) {
-      fullSummary += `**Why it matters**\n\n${whyItMatters.map((b: string) => `- ${b}`).join("\n")}\n\n`;
-    } else if (typeof whyItMatters === "string" && whyItMatters) {
-      fullSummary += `**Why it matters**\n\n${whyItMatters}\n\n`;
+    if (typeof whyItMatters === "string" && whyItMatters) {
+      fullSummary += `## Why it matters\n\n${whyItMatters}\n\n`;
+    } else if (Array.isArray(whyItMatters) && whyItMatters.length > 0) {
+      fullSummary += `## Why it matters\n\n${whyItMatters.join(" ")}\n\n`;
     }
 
     if (topTakeaways.length > 0) {
-      fullSummary += `**Key takeaways**\n\n`;
+      fullSummary += `## Key takeaways\n\n`;
       for (const t of topTakeaways) {
         if (typeof t === "string") {
           fullSummary += `- ${t}\n`;
         } else if (t.heading) {
-          fullSummary += `**${t.heading}**\n`;
-          if (Array.isArray(t.detail)) {
-            fullSummary += t.detail.map((d: string) => `- ${d}`).join("\n") + "\n";
-          } else if (t.detail) {
-            fullSummary += `- ${t.detail}\n`;
+          const detail = Array.isArray(t.detail) ? t.detail.join(" ") : (t.detail || "");
+          fullSummary += `- **${t.heading}**: ${detail}\n`;
+        }
+        // Render optional table
+        if (t.table && Array.isArray(t.table) && t.table.length > 0) {
+          const keys = Object.keys(t.table[0]);
+          fullSummary += `\n| ${keys.join(" | ")} |\n| ${keys.map(() => "---").join(" | ")} |\n`;
+          for (const row of t.table) {
+            fullSummary += `| ${keys.map(k => row[k] || "").join(" | ")} |\n`;
           }
           fullSummary += "\n";
         }
       }
+      fullSummary += "\n";
     }
 
-    if (bottomLine) fullSummary += `**Bottom line**\n\n${bottomLine}`;
+    if (bottomLine) fullSummary += `## Bottom line\n\n${bottomLine}`;
 
     // Mark file as processed with summary
     await supabase.from("brain_files").update({ status: "processed", file_summary: fullSummary }).eq("id", fileId);
