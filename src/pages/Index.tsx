@@ -1204,7 +1204,7 @@ const Index = () => {
         valuePromise: valuePromise || undefined,
         gapAnalysis: gapAnalysis || undefined,
         contextFiles: contextFiles.length > 0 ? contextFiles : undefined,
-        uniqueAngles: [...selectedGapInsights, ...selectedAngles].length > 0 ? [...selectedGapInsights, ...selectedAngles] : undefined,
+        uniqueAngles: [...selectedGapInsights, ...selectedAngles, ...selectedAngleGaps].length > 0 ? [...selectedGapInsights, ...selectedAngles, ...selectedAngleGaps] : undefined,
         targetWords,
         keywords: keywords.length > 0 ? keywords.slice(0, 5) : undefined,
       },
