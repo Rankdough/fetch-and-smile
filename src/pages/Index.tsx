@@ -451,6 +451,7 @@ const Index = () => {
     valuePromise: string;
     selectedAngles: string[];
     selectedGapInsights: string[];
+    selectedAngleGaps: string[];
     gapAnalysis: string;
     formatReference: string;
     contextFiles: { name: string; content: string }[];
@@ -733,6 +734,10 @@ const Index = () => {
     const saved = localStorage.getItem("seo-generator-selectedGapInsights");
     return saved ? JSON.parse(saved) : [];
   });
+  const [selectedAngleGaps, setSelectedAngleGaps] = useState<string[]>(() => {
+    const saved = localStorage.getItem("seo-generator-selectedAngleGaps");
+    return saved ? JSON.parse(saved) : [];
+  });
   const [articleImages, setArticleImages] = useState<ArticleImage[]>(() => {
     const saved = localStorage.getItem("seo-generator-articleImages");
     return saved ? JSON.parse(saved) : [];
@@ -895,6 +900,10 @@ const Index = () => {
     localStorage.setItem("seo-generator-selectedGapInsights", JSON.stringify(selectedGapInsights));
   }, [selectedGapInsights]);
 
+  useEffect(() => {
+    localStorage.setItem("seo-generator-selectedAngleGaps", JSON.stringify(selectedAngleGaps));
+  }, [selectedAngleGaps]);
+
   // Persist color palette selection
   useEffect(() => {
     if (selectedColorPalette) {
@@ -955,27 +964,19 @@ const Index = () => {
     const hasValuePromise = filledClaims > 0;
     const hasSelectedAngles = selectedAngles.length > 0;
     const hasSelectedGapInsights = selectedGapInsights.length > 0;
-    const totalAngles = selectedAngles.length + selectedGapInsights.length;
+    const hasSelectedAngleGaps = selectedAngleGaps.length > 0;
+    const totalAngles = selectedAngles.length + selectedGapInsights.length + selectedAngleGaps.length;
+
+    const angleParts: string[] = [];
+    if (hasSelectedGapInsights) angleParts.push(`${selectedGapInsights.length} from gaps`);
+    if (hasSelectedAngles) angleParts.push(`${selectedAngles.length} unique`);
+    if (hasSelectedAngleGaps) angleParts.push(`${selectedAngleGaps.length} info gaps`);
 
     return [
       {
-        id: "topic",
-        label: "Topic entered",
-        completed: hasTopic,
-        required: true,
-      },
-      {
-        id: "value-promise",
-        label: hasValuePromise 
-          ? `Value promise: ${filledClaims}/5 claims defined`
-          : "Value promise claims (define what the article must deliver)",
-        completed: hasValuePromise,
-        required: true,
-      },
-      {
         id: "unique-angles",
         label: totalAngles > 0
-          ? `Angles selected: ${totalAngles} (${hasSelectedGapInsights ? `${selectedGapInsights.length} from gaps` : ""}${hasSelectedGapInsights && hasSelectedAngles ? " + " : ""}${hasSelectedAngles ? `${selectedAngles.length} unique` : ""})`
+          ? `Angles selected: ${totalAngles} (${angleParts.join(" + ")})`
           : "Angles selected (from gap analysis or unique angles)",
         completed: totalAngles > 0,
         required: false,
@@ -1021,7 +1022,7 @@ const Index = () => {
         required: true,
       },
     ];
-  }, [competitorUrls, gapAnalysis, formatReference, contextFiles, formData.topic, formData.length, keywords, valuePromise, selectedAngles, selectedGapInsights]);
+  }, [competitorUrls, gapAnalysis, formatReference, contextFiles, formData.topic, formData.length, keywords, valuePromise, selectedAngles, selectedGapInsights, selectedAngleGaps]);
 
   const handleAnalyzeUrls = async () => {
     const validUrls = competitorUrls.filter((url) => url.trim());
@@ -1204,7 +1205,7 @@ const Index = () => {
         valuePromise: valuePromise || undefined,
         gapAnalysis: gapAnalysis || undefined,
         contextFiles: contextFiles.length > 0 ? contextFiles : undefined,
-        uniqueAngles: [...selectedGapInsights, ...selectedAngles].length > 0 ? [...selectedGapInsights, ...selectedAngles] : undefined,
+        uniqueAngles: [...selectedGapInsights, ...selectedAngles, ...selectedAngleGaps].length > 0 ? [...selectedGapInsights, ...selectedAngles, ...selectedAngleGaps] : undefined,
         targetWords,
         keywords: keywords.length > 0 ? keywords.slice(0, 5) : undefined,
       },
@@ -1470,7 +1471,7 @@ const Index = () => {
         // Use original quick generation
         let enhancedInstructions = formData.instructions || "";
         
-        const allAngles = [...selectedGapInsights, ...selectedAngles];
+        const allAngles = [...selectedGapInsights, ...selectedAngles, ...selectedAngleGaps];
         if (allAngles.length > 0) {
           enhancedInstructions += `\n\nUNIQUE ANGLES TO INCORPORATE:\n${allAngles.map((a, i) => `${i + 1}. ${a}`).join("\n")}\n\nUse these angles to differentiate this content from competitors.`;
         }
@@ -1576,6 +1577,7 @@ const Index = () => {
         valuePromise,
         selectedAngles: [...selectedAngles],
         selectedGapInsights: [...selectedGapInsights],
+        selectedAngleGaps: [...selectedAngleGaps],
         gapAnalysis,
         formatReference,
         contextFiles: contextFiles.map(f => ({ ...f })),
@@ -1604,6 +1606,7 @@ const Index = () => {
     if (valuePromise !== snapshot.valuePromise) changedSettings.push("valuePromise");
     if (JSON.stringify(selectedAngles) !== JSON.stringify(snapshot.selectedAngles)) changedSettings.push("selectedAngles");
     if (JSON.stringify(selectedGapInsights) !== JSON.stringify(snapshot.selectedGapInsights)) changedSettings.push("selectedGapInsights");
+    if (JSON.stringify(selectedAngleGaps) !== JSON.stringify(snapshot.selectedAngleGaps)) changedSettings.push("selectedAngleGaps");
     if (gapAnalysis !== snapshot.gapAnalysis) changedSettings.push("gapAnalysis");
     if (formatReference !== snapshot.formatReference) changedSettings.push("formatReference");
     if (JSON.stringify(contextFiles.map(f => f.name)) !== JSON.stringify(snapshot.contextFiles.map(f => f.name))) changedSettings.push("contextFiles");
@@ -1631,6 +1634,7 @@ const Index = () => {
           valuePromise,
           selectedAngles,
           selectedGapInsights,
+          selectedAngleGaps,
           gapAnalysis,
           formatReference,
           contextFiles: contextFiles.length > 0 ? contextFiles : undefined,
@@ -1655,6 +1659,7 @@ const Index = () => {
         valuePromise,
         selectedAngles: [...selectedAngles],
         selectedGapInsights: [...selectedGapInsights],
+        selectedAngleGaps: [...selectedAngleGaps],
         gapAnalysis,
         formatReference,
         contextFiles: contextFiles.map(f => ({ ...f })),
@@ -1711,6 +1716,7 @@ const Index = () => {
     setValuePromise("");
     setSelectedAngles([]);
     setSelectedGapInsights([]);
+    setSelectedAngleGaps([]);
     setArticleImages([]);
     setInternalLinks([""]);
     
@@ -1729,6 +1735,7 @@ const Index = () => {
     localStorage.removeItem("seo-generator-valuePromise");
     localStorage.removeItem("seo-generator-selectedAngles");
     localStorage.removeItem("seo-generator-selectedGapInsights");
+    localStorage.removeItem("seo-generator-selectedAngleGaps");
     localStorage.removeItem("seo-generator-articleImages");
     
     toast({
@@ -3607,6 +3614,8 @@ const Index = () => {
                   gapAnalysis={gapAnalysis}
                   selectedAngles={selectedAngles}
                   onAnglesChange={setSelectedAngles}
+                  selectedGaps={selectedAngleGaps}
+                  onGapsChange={setSelectedAngleGaps}
                   toneProfileId={selectedToneProfileId}
                 />
               </CollapsibleSection>
