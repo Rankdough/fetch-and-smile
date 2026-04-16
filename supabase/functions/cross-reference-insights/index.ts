@@ -45,7 +45,7 @@ serve(async (req) => {
 
     if (!existingInsights || existingInsights.length === 0) {
       // First file — no cross-referencing possible, just build initial strategy
-      await buildStrategy(supabase, LOVABLE_API_KEY, fileId);
+      await buildStrategy(supabase, LOVABLE_API_KEY, fileId, 0, newInsights.length);
       return new Response(JSON.stringify({ success: true, connections: 0, message: "First file — strategy initialized" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -89,7 +89,7 @@ Return ONLY valid JSON: { "connections": [...] }`,
     if (!response.ok) {
       console.error("AI cross-ref error:", response.status);
       // Still build strategy even if cross-referencing fails
-      await buildStrategy(supabase, LOVABLE_API_KEY, fileId);
+      await buildStrategy(supabase, LOVABLE_API_KEY, fileId, 0, newInsights.length);
       return new Response(JSON.stringify({ success: true, connections: 0, message: "Cross-referencing skipped, strategy updated" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -124,8 +124,8 @@ Return ONLY valid JSON: { "connections": [...] }`,
 
     console.log(`Found ${connectionCount} connections for file ${fileId}`);
 
-    // 5. Update evolving strategy
-    await buildStrategy(supabase, LOVABLE_API_KEY, fileId);
+    // 5. Update evolving strategy with change tracking
+    await buildStrategy(supabase, LOVABLE_API_KEY, fileId, connectionCount, newInsights.length);
 
     return new Response(
       JSON.stringify({ success: true, connections: connectionCount }),
@@ -143,7 +143,9 @@ Return ONLY valid JSON: { "connections": [...] }`,
 async function buildStrategy(
   supabase: ReturnType<typeof createClient>,
   apiKey: string,
-  newFileId: string
+  newFileId: string,
+  connectionCount: number,
+  newInsightCount: number
 ) {
   // Get ALL insights across all files
   const { data: allInsights } = await supabase
@@ -161,6 +163,28 @@ async function buildStrategy(
   const { data: connections } = await supabase
     .from("brain_connections")
     .select("relationship_type, explanation");
+
+  // Get new file's insights for change summary
+  const newFileInsights = allInsights.filter(i => i.source_file_id === newFileId);
+  const newFileName = (allFiles || []).find(f => f.id === newFileId)?.title || "Unknown file";
+
+  // Get connections involving new insights
+  const { data: newConnections } = await supabase
+    .from("brain_connections")
+    .select("relationship_type, explanation, source_insight_id, related_insight_id")
+    .or(`source_insight_id.in.(${newFileInsights.map(() => newFileId).join(",")})`);
+
+  // Build change summary
+  const changeParts: string[] = [];
+  changeParts.push(`📄 **${newFileName}** added ${newInsightCount} insight${newInsightCount !== 1 ? "s" : ""}`);
+  if (connectionCount > 0) {
+    changeParts.push(`🔗 Found ${connectionCount} connection${connectionCount !== 1 ? "s" : ""} to existing knowledge`);
+  }
+  if (newFileInsights.length > 0) {
+    const topInsights = newFileInsights.slice(0, 3).map(i => `- ${i.title}`).join("\n");
+    changeParts.push(`**New insights:**\n${topInsights}`);
+  }
+  const changeSummary = changeParts.join("\n\n");
 
   const insightBlock = allInsights.map(i => `- [${i.insight_type}] ${i.title}: ${i.summary}`).join("\n");
   const fileNames = (allFiles || []).map(f => f.title).join(", ");
@@ -227,21 +251,20 @@ Return ONLY valid JSON: { "strategy": "...", "key_patterns": [...], "knowledge_g
     .limit(1)
     .maybeSingle();
 
+  const strategyPayload = {
+    content: parsed.strategy || "",
+    key_patterns: parsed.key_patterns || [],
+    knowledge_gaps: parsed.knowledge_gaps || [],
+    contributing_file_ids: allFileIds,
+    last_change_summary: changeSummary,
+    last_contributing_file_id: newFileId,
+  };
+
   if (existing) {
-    await supabase.from("brain_strategy").update({
-      content: parsed.strategy || "",
-      key_patterns: parsed.key_patterns || [],
-      knowledge_gaps: parsed.knowledge_gaps || [],
-      contributing_file_ids: allFileIds,
-    }).eq("id", existing.id);
+    await supabase.from("brain_strategy").update(strategyPayload).eq("id", existing.id);
   } else {
-    await supabase.from("brain_strategy").insert({
-      content: parsed.strategy || "",
-      key_patterns: parsed.key_patterns || [],
-      knowledge_gaps: parsed.knowledge_gaps || [],
-      contributing_file_ids: allFileIds,
-    });
+    await supabase.from("brain_strategy").insert(strategyPayload);
   }
 
-  console.log("Strategy document updated");
+  console.log("Strategy document updated with change summary");
 }

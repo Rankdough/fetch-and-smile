@@ -201,6 +201,8 @@ export type Database = {
           id: string
           key_patterns: string[] | null
           knowledge_gaps: string[] | null
+          last_change_summary: string | null
+          last_contributing_file_id: string | null
           updated_at: string
         }
         Insert: {
@@ -210,6 +212,8 @@ export type Database = {
           id?: string
           key_patterns?: string[] | null
           knowledge_gaps?: string[] | null
+          last_change_summary?: string | null
+          last_contributing_file_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -219,6 +223,8 @@ export type Database = {
           id?: string
           key_patterns?: string[] | null
           knowledge_gaps?: string[] | null
+          last_change_summary?: string | null
+          last_contributing_file_id?: string | null
           updated_at?: string
         }
         Relationships: []
