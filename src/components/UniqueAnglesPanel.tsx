@@ -23,14 +23,18 @@ interface UniqueAnglesPanelProps {
   gapAnalysis: string;
   selectedAngles: string[];
   onAnglesChange: (angles: string[]) => void;
+  selectedGaps: string[];
+  onGapsChange: (gaps: string[]) => void;
   toneProfileId: string | null;
 }
 
-export const UniqueAnglesPanel = ({ 
-  topic, 
-  gapAnalysis, 
-  selectedAngles, 
+export const UniqueAnglesPanel = ({
+  topic,
+  gapAnalysis,
+  selectedAngles,
   onAnglesChange,
+  selectedGaps,
+  onGapsChange,
   toneProfileId,
 }: UniqueAnglesPanelProps) => {
   const { toast } = useToast();
@@ -91,6 +95,14 @@ export const UniqueAnglesPanel = ({
     }
   };
 
+  const toggleGap = (gapText: string) => {
+    if (selectedGaps.includes(gapText)) {
+      onGapsChange(selectedGaps.filter(g => g !== gapText));
+    } else {
+      onGapsChange([...selectedGaps, gapText]);
+    }
+  };
+
   const hasGapAnalysis = gapAnalysis.trim().length > 0;
 
   if (angles.length === 0) {
@@ -136,7 +148,7 @@ export const UniqueAnglesPanel = ({
         </Button>
       </div>
 
-      {/* Information Gain Gaps Summary */}
+      {/* Information Gain Gaps - now selectable */}
       {gaps.length > 0 && (
         <div className="rounded-md border border-amber-500/20 bg-amber-500/5 p-3">
           <button
@@ -147,17 +159,60 @@ export const UniqueAnglesPanel = ({
             <span className="text-xs font-medium text-amber-700 dark:text-amber-400">
               {gaps.length} Information Gain Gaps Identified
             </span>
+            {selectedGaps.length > 0 && (
+              <span className="text-[10px] bg-amber-600 text-white px-1.5 py-0.5 rounded-full">
+                {selectedGaps.length} selected
+              </span>
+            )}
+            {selectedGaps.length > 0 && (
+              <span
+                role="button"
+                tabIndex={0}
+                onClick={(e) => { e.stopPropagation(); onGapsChange([]); }}
+                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); onGapsChange([]); } }}
+                className="text-[10px] text-amber-700 dark:text-amber-400 hover:underline cursor-pointer"
+              >
+                Clear
+              </span>
+            )}
             {showGaps ? <ChevronUp className="h-3 w-3 ml-auto text-amber-600" /> : <ChevronDown className="h-3 w-3 ml-auto text-amber-600" />}
           </button>
           {showGaps && (
-            <div className="mt-2 space-y-2">
-              {gaps.map((g, i) => (
-                <div key={i} className="text-xs pl-5 space-y-0.5">
-                  <p className="font-medium">{g.gap}</p>
-                  <p className="text-muted-foreground italic">Over-published: {g.whatsOverPublished}</p>
-                </div>
-              ))}
-            </div>
+            <>
+              <p className="text-[11px] text-amber-700/80 dark:text-amber-400/80 mt-2 mb-2 pl-5">
+                Pick the gaps you want this article to fill — the AI will commit to covering them.
+              </p>
+              <div className="space-y-1.5">
+                {gaps.map((g, i) => {
+                  const isSelected = selectedGaps.includes(g.gap);
+                  return (
+                    <div
+                      key={i}
+                      onClick={() => toggleGap(g.gap)}
+                      className={cn(
+                        "rounded-md border p-2 cursor-pointer transition-all flex items-start gap-2",
+                        isSelected
+                          ? "border-amber-600 bg-amber-500/10 ring-1 ring-amber-600/40"
+                          : "border-amber-500/20 hover:border-amber-500/40 hover:bg-amber-500/5"
+                      )}
+                    >
+                      <div className={cn(
+                        "flex-shrink-0 w-4 h-4 rounded border flex items-center justify-center mt-0.5",
+                        isSelected
+                          ? "bg-amber-600 border-amber-600 text-white"
+                          : "border-amber-600/40"
+                      )}>
+                        {isSelected && <Check className="h-2.5 w-2.5" />}
+                      </div>
+                      <div className="flex-1 min-w-0 text-xs space-y-0.5">
+                        <p className="font-medium">{g.gap}</p>
+                        <p className="text-muted-foreground italic">Over-published: {g.whatsOverPublished}</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
           )}
         </div>
       )}
