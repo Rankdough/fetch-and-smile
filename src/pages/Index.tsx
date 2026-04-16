@@ -972,9 +972,6 @@ const Index = () => {
     if (hasSelectedAngleGaps) angleParts.push(`${selectedAngleGaps.length} info gaps`);
 
     return [
-      // ... keep existing code (checklist items list)
-      ...(() => { return []; })(),
-    ].concat([
       {
         id: "unique-angles",
         label: totalAngles > 0
@@ -1024,7 +1021,7 @@ const Index = () => {
         required: true,
       },
     ];
-  }, [competitorUrls, gapAnalysis, formatReference, contextFiles, formData.topic, formData.length, keywords, valuePromise, selectedAngles, selectedGapInsights]);
+  }, [competitorUrls, gapAnalysis, formatReference, contextFiles, formData.topic, formData.length, keywords, valuePromise, selectedAngles, selectedGapInsights, selectedAngleGaps]);
 
   const handleAnalyzeUrls = async () => {
     const validUrls = competitorUrls.filter((url) => url.trim());
