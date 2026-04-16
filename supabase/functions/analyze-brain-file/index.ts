@@ -134,6 +134,9 @@ RULES:
           summary: insight.summary || null,
           full_text: insight.full_text || null,
           source_file_id: fileId,
+          status: "pending_review",
+          credibility_flag: insight.credibility || "aligned",
+          credibility_note: insight.credibility_note || null,
         })
         .select("id")
         .single();
