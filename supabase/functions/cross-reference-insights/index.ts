@@ -45,7 +45,7 @@ serve(async (req) => {
 
     if (!existingInsights || existingInsights.length === 0) {
       // First file — no cross-referencing possible, just build initial strategy
-      await buildStrategy(supabase, LOVABLE_API_KEY, fileId);
+      await buildStrategy(supabase, LOVABLE_API_KEY, fileId, 0, newInsights.length);
       return new Response(JSON.stringify({ success: true, connections: 0, message: "First file — strategy initialized" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
