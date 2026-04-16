@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Loader2, Brain, FileText, BookOpen, MessageSquare, History, Search, Pencil, Trash2, Plus } from "lucide-react";
+import { Loader2, Brain, FileText, BookOpen, MessageSquare, History, Search, Pencil, Trash2, Plus, AlertOctagon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -22,12 +22,19 @@ interface Insight {
   full_text: string | null;
   created_at: string;
   tags?: { id: string; name: string; tag_type: string }[];
+  contradictions?: { relatedTitle: string; explanation: string }[];
 }
 
 interface Tag {
   id: string;
   name: string;
   tag_type: string;
+}
+
+interface Contradiction {
+  source_insight_id: string;
+  related_insight_id: string;
+  explanation: string | null;
 }
 
 const BrainInsights = () => {
@@ -44,10 +51,11 @@ const BrainInsights = () => {
   const [newInsight, setNewInsight] = useState({ title: "", insight_type: "principle", summary: "", full_text: "" });
 
   const fetchData = useCallback(async () => {
-    const [insightsRes, tagsRes, junctionRes] = await Promise.all([
+    const [insightsRes, tagsRes, junctionRes, contradictionsRes] = await Promise.all([
       supabase.from("brain_insights").select("*").order("created_at", { ascending: false }),
       supabase.from("brain_tags").select("*").order("name"),
       supabase.from("brain_insight_tags").select("insight_id, tag_id"),
+      supabase.from("brain_connections").select("source_insight_id, related_insight_id, explanation").eq("relationship_type", "contradicts"),
     ]);
 
     const tagMap: Record<string, Tag> = {};
@@ -60,9 +68,27 @@ const BrainInsights = () => {
       if (tagMap[j.tag_id]) insightTagMap[j.insight_id].push(tagMap[j.tag_id]);
     });
 
+    // Build contradiction map
+    const insightTitleMap: Record<string, string> = {};
+    (insightsRes.data || []).forEach((i: any) => { insightTitleMap[i.id] = i.title; });
+    const contradictionMap: Record<string, { relatedTitle: string; explanation: string }[]> = {};
+    (contradictionsRes.data || []).forEach((c: any) => {
+      if (!contradictionMap[c.source_insight_id]) contradictionMap[c.source_insight_id] = [];
+      contradictionMap[c.source_insight_id].push({
+        relatedTitle: insightTitleMap[c.related_insight_id] || "Unknown",
+        explanation: c.explanation || "",
+      });
+      if (!contradictionMap[c.related_insight_id]) contradictionMap[c.related_insight_id] = [];
+      contradictionMap[c.related_insight_id].push({
+        relatedTitle: insightTitleMap[c.source_insight_id] || "Unknown",
+        explanation: c.explanation || "",
+      });
+    });
+
     const enriched = (insightsRes.data || []).map(i => ({
       ...i,
       tags: insightTagMap[i.id] || [],
+      contradictions: contradictionMap[i.id] || [],
     }));
     setInsights(enriched);
     setIsLoading(false);
@@ -179,6 +205,16 @@ const BrainInsights = () => {
                       {insight.tags && insight.tags.length > 0 && (
                         <div className="flex gap-1 flex-wrap">
                           {insight.tags.map(tag => <Badge key={tag.id} variant="secondary" className="text-xs">{tag.name}</Badge>)}
+                        </div>
+                      )}
+                      {insight.contradictions && insight.contradictions.length > 0 && (
+                        <div className="mt-2 space-y-1">
+                          {insight.contradictions.map((c, idx) => (
+                            <div key={idx} className="flex items-start gap-2 text-xs bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded px-2.5 py-1.5">
+                              <AlertOctagon className="h-3.5 w-3.5 text-red-500 mt-0.5 shrink-0" />
+                              <span><strong className="text-red-600 dark:text-red-400">Contradicts:</strong> {c.relatedTitle} — {c.explanation}</span>
+                            </div>
+                          ))}
                         </div>
                       )}
                     </div>
