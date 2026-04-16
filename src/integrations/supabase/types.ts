@@ -14,6 +14,48 @@ export type Database = {
   }
   public: {
     Tables: {
+      brain_connections: {
+        Row: {
+          created_at: string
+          explanation: string | null
+          id: string
+          related_insight_id: string
+          relationship_type: string
+          source_insight_id: string
+        }
+        Insert: {
+          created_at?: string
+          explanation?: string | null
+          id?: string
+          related_insight_id: string
+          relationship_type?: string
+          source_insight_id: string
+        }
+        Update: {
+          created_at?: string
+          explanation?: string | null
+          id?: string
+          related_insight_id?: string
+          relationship_type?: string
+          source_insight_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brain_connections_related_insight_id_fkey"
+            columns: ["related_insight_id"]
+            isOneToOne: false
+            referencedRelation: "brain_insights"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "brain_connections_source_insight_id_fkey"
+            columns: ["source_insight_id"]
+            isOneToOne: false
+            referencedRelation: "brain_insights"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       brain_files: {
         Row: {
           created_at: string
@@ -147,6 +189,36 @@ export type Database = {
           insight_ids?: string[] | null
           output_type?: string
           title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      brain_strategy: {
+        Row: {
+          content: string
+          contributing_file_ids: string[] | null
+          created_at: string
+          id: string
+          key_patterns: string[] | null
+          knowledge_gaps: string[] | null
+          updated_at: string
+        }
+        Insert: {
+          content?: string
+          contributing_file_ids?: string[] | null
+          created_at?: string
+          id?: string
+          key_patterns?: string[] | null
+          knowledge_gaps?: string[] | null
+          updated_at?: string
+        }
+        Update: {
+          content?: string
+          contributing_file_ids?: string[] | null
+          created_at?: string
+          id?: string
+          key_patterns?: string[] | null
+          knowledge_gaps?: string[] | null
           updated_at?: string
         }
         Relationships: []

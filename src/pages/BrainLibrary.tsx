@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Upload, Brain, FileText, BookOpen, MessageSquare, History, Trash2, ChevronDown, ChevronRight } from "lucide-react";
+import { Loader2, Upload, Brain, FileText, BookOpen, MessageSquare, History, Trash2, ChevronDown, ChevronRight, Zap } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -28,6 +28,14 @@ interface BrainInsight {
   source_file_id: string | null;
 }
 
+interface BrainStrategy {
+  id: string;
+  content: string;
+  key_patterns: string[];
+  knowledge_gaps: string[];
+  updated_at: string;
+}
+
 const BrainLibrary = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -36,6 +44,8 @@ const BrainLibrary = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
   const [expandedFiles, setExpandedFiles] = useState<Set<string>>(new Set());
+  const [strategy, setStrategy] = useState<BrainStrategy | null>(null);
+  const [isLearning, setIsLearning] = useState(false);
 
   const fetchFiles = useCallback(async () => {
     const { data, error } = await supabase
@@ -44,6 +54,15 @@ const BrainLibrary = () => {
       .order("uploaded_at", { ascending: false });
     if (!error && data) setFiles(data);
     setIsLoading(false);
+  }, []);
+
+  const fetchStrategy = useCallback(async () => {
+    const { data } = await supabase
+      .from("brain_strategy")
+      .select("*")
+      .limit(1)
+      .maybeSingle();
+    if (data) setStrategy(data as any);
   }, []);
 
   const fetchInsightsForFile = useCallback(async (fileId: string) => {
@@ -55,7 +74,7 @@ const BrainLibrary = () => {
     if (data) setInsightsByFile(prev => ({ ...prev, [fileId]: data }));
   }, [insightsByFile]);
 
-  useEffect(() => { fetchFiles(); }, [fetchFiles]);
+  useEffect(() => { fetchFiles(); fetchStrategy(); }, [fetchFiles, fetchStrategy]);
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -90,6 +109,20 @@ const BrainLibrary = () => {
 
       toast({ title: "File processed", description: `Extracted insights from ${file.name}` });
       fetchFiles();
+
+      // Cross-reference and update strategy
+      setIsLearning(true);
+      try {
+        await supabase.functions.invoke("cross-reference-insights", {
+          body: { fileId: fileRecord.id },
+        });
+        fetchStrategy();
+        toast({ title: "Brain updated", description: "Cross-referenced with existing knowledge and updated strategy" });
+      } catch {
+        // Non-critical — don't fail the upload
+      } finally {
+        setIsLearning(false);
+      }
     } catch (err: any) {
       toast({ title: "Upload failed", description: err.message, variant: "destructive" });
     } finally {
@@ -155,6 +188,54 @@ const BrainLibrary = () => {
             </Button>
           </label>
         </div>
+
+        {/* Learning indicator */}
+        {isLearning && (
+          <Card className="mb-6 border-primary/30 bg-primary/5">
+            <CardContent className="py-4 flex items-center gap-3">
+              <Loader2 className="h-5 w-5 animate-spin text-primary" />
+              <span className="font-medium">Learning — cross-referencing with existing knowledge and updating strategy...</span>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Evolving Strategy */}
+        {strategy && strategy.content && (
+          <Card className="mb-6 border-primary/30">
+            <CardHeader className="py-3 px-4">
+              <div className="flex items-center gap-2">
+                <Zap className="h-5 w-5 text-primary" />
+                <CardTitle className="text-lg">What the Brain Knows</CardTitle>
+                <span className="text-xs ml-auto">Updated {new Date(strategy.updated_at).toLocaleDateString()}</span>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-0 pb-4 px-4 space-y-4">
+              <div className="prose prose-sm max-w-none dark:prose-invert [&_strong]:text-foreground">
+                <ReactMarkdown>{strategy.content}</ReactMarkdown>
+              </div>
+              {strategy.key_patterns.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-semibold mb-2">Recurring Patterns</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {strategy.key_patterns.map((p, i) => (
+                      <Badge key={i} variant="secondary">{p}</Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {strategy.knowledge_gaps.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-semibold mb-2">Knowledge Gaps</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {strategy.knowledge_gaps.map((g, i) => (
+                      <Badge key={i} variant="outline" className="border-orange-300 text-orange-700">{g}</Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {isLoading ? (
           <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
