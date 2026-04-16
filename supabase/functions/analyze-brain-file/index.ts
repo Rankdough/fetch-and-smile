@@ -51,14 +51,14 @@ serve(async (req) => {
 
 4. "bottom_line" — String. 1-2 short sentences max. Write like direct advice to a busy operator. No abstract strategy language. No educational tone. No "the rise of AI necessitates" style phrasing.
 
-5. "insights" — Array of detailed insights for the knowledge base. For each:
-   - title: concise name
+5. "insights" — Array of 4-7 actionable insights for the knowledge base. For each:
+   - title: a short command or specific claim (3-8 words). NOT a topic label. BAD: "Impact of Content Structure". GOOD: "Use FAQ sections to get cited". BAD: "LLM Seeding Defined". GOOD: "Publish where LLMs scrape first".
    - insight_type: one of "principle", "tactic", "case_study", "framework", "client_note"
-   - summary: 1 sentence summary
-   - full_text: the relevant passage
+   - summary: 1 sentence that tells the reader WHAT TO DO or WHAT IS TRUE. No definitions, no "this is important because". BAD: "Content formatted with listicles significantly increases citation likelihood." GOOD: "Format content as comparison tables, FAQs, and best-of lists — LLMs cite these 3x more than plain prose."
+   - full_text: the relevant passage from the source
    - tags: array of topic tags
    - credibility: one of "aligned", "debatable", "outdated"
-   - credibility_note: 1 sentence explaining why you gave that rating. Reference established SEO consensus, Google documentation, or known best practices. If debatable or outdated, explain what the current consensus actually is.
+   - credibility_note: 1 sentence explaining why. Reference Google docs, known consensus, or evidence. If debatable, state the caveat. If outdated, name what replaced it.
 
 CREDIBILITY RULES:
 - "aligned" = matches current Google guidelines, widely accepted SEO/AEO practice, or well-evidenced.
