@@ -352,21 +352,103 @@ const BrainLibrary = () => {
                         </div>
                       )}
 
-                      {/* Extracted Insights */}
+                      {/* Extracted Insights with review */}
                       {insightsByFile[file.id]?.length ? (
                         <div>
-                          <h4 className="text-sm font-semibold mb-2">Extracted Insights ({insightsByFile[file.id].length})</h4>
-                          <div className="space-y-2">
-                            {insightsByFile[file.id].map(insight => (
-                              <div key={insight.id} className="border rounded-md p-3">
-                                <div className="flex items-center gap-2 mb-1">
-                                  <Badge variant="outline" className="text-xs">{insight.insight_type}</Badge>
-                                  <span className="font-medium text-sm">{insight.title}</span>
-                                </div>
-                                {insight.summary && <p className="text-sm text-muted-foreground">{insight.summary}</p>}
-                              </div>
-                            ))}
-                          </div>
+                          {(() => {
+                            const pending = insightsByFile[file.id].filter(i => i.status === "pending_review");
+                            const approved = insightsByFile[file.id].filter(i => i.status === "approved");
+                            const rejected = insightsByFile[file.id].filter(i => i.status === "rejected");
+                            return (
+                              <>
+                                {pending.length > 0 && (
+                                  <div className="mb-4">
+                                    <div className="flex items-center justify-between mb-2">
+                                      <h4 className="text-sm font-semibold flex items-center gap-2">
+                                        <AlertTriangle className="h-4 w-4 text-amber-500" />
+                                        Pending Review ({pending.length})
+                                      </h4>
+                                      <div className="flex gap-2">
+                                        <Button variant="outline" size="sm" onClick={() => handleBulkReview(file.id, "approved")} className="gap-1 text-xs">
+                                          <Check className="h-3 w-3" /> Accept All
+                                        </Button>
+                                        <Button variant="outline" size="sm" onClick={() => handleBulkReview(file.id, "rejected")} className="gap-1 text-xs text-destructive">
+                                          <X className="h-3 w-3" /> Reject All
+                                        </Button>
+                                      </div>
+                                    </div>
+                                    <div className="space-y-2">
+                                      {pending.map(insight => (
+                                        <div key={insight.id} className="border rounded-md p-3 border-amber-200 bg-amber-50/50 dark:bg-amber-950/20 dark:border-amber-800">
+                                          <div className="flex items-center gap-2 mb-1">
+                                            {insight.credibility_flag === "aligned" && <ShieldCheck className="h-4 w-4 text-green-600" />}
+                                            {insight.credibility_flag === "debatable" && <ShieldAlert className="h-4 w-4 text-amber-500" />}
+                                            {insight.credibility_flag === "outdated" && <ShieldX className="h-4 w-4 text-red-500" />}
+                                            <Badge variant="outline" className="text-xs">{insight.insight_type}</Badge>
+                                            <span className="font-medium text-sm flex-1">{insight.title}</span>
+                                            <div className="flex gap-1">
+                                              <Button variant="ghost" size="icon" className="h-7 w-7 text-green-600 hover:bg-green-100" onClick={() => handleInsightReview(insight.id, file.id, "approved")}>
+                                                <Check className="h-4 w-4" />
+                                              </Button>
+                                              <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500 hover:bg-red-100" onClick={() => handleInsightReview(insight.id, file.id, "rejected")}>
+                                                <X className="h-4 w-4" />
+                                              </Button>
+                                            </div>
+                                          </div>
+                                          {insight.summary && <p className="text-sm text-muted-foreground">{insight.summary}</p>}
+                                          {insight.credibility_note && (
+                                            <p className="text-xs mt-1 italic text-muted-foreground">
+                                              {insight.credibility_flag === "aligned" ? "✅" : insight.credibility_flag === "debatable" ? "⚠️" : "❌"} {insight.credibility_note}
+                                            </p>
+                                          )}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {approved.length > 0 && (
+                                  <div className="mb-4">
+                                    <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
+                                      <ShieldCheck className="h-4 w-4 text-green-600" />
+                                      Approved Insights ({approved.length})
+                                    </h4>
+                                    <div className="space-y-2">
+                                      {approved.map(insight => (
+                                        <div key={insight.id} className="border rounded-md p-3">
+                                          <div className="flex items-center gap-2 mb-1">
+                                            <Badge variant="outline" className="text-xs">{insight.insight_type}</Badge>
+                                            <span className="font-medium text-sm">{insight.title}</span>
+                                          </div>
+                                          {insight.summary && <p className="text-sm text-muted-foreground">{insight.summary}</p>}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {rejected.length > 0 && (
+                                  <div>
+                                    <h4 className="text-sm font-semibold mb-2 flex items-center gap-2 text-muted-foreground">
+                                      <ShieldX className="h-4 w-4" />
+                                      Rejected ({rejected.length})
+                                    </h4>
+                                    <div className="space-y-2">
+                                      {rejected.map(insight => (
+                                        <div key={insight.id} className="border rounded-md p-3 opacity-50">
+                                          <div className="flex items-center gap-2 mb-1">
+                                            <Badge variant="outline" className="text-xs">{insight.insight_type}</Badge>
+                                            <span className="font-medium text-sm line-through">{insight.title}</span>
+                                            <Button variant="ghost" size="sm" className="ml-auto text-xs h-6" onClick={() => handleInsightReview(insight.id, file.id, "approved")}>Restore</Button>
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                              </>
+                            );
+                          })()}
                         </div>
                       ) : (
                         <p className="text-sm text-muted-foreground">No insights extracted yet.</p>
