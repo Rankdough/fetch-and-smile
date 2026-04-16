@@ -4942,19 +4942,19 @@ const Index = () => {
                                      
                                      while ((match = ctaMarkerRegex.exec(sanitizedContent)) !== null) {
                                       if (match.index > lastIndex) {
-                                        segments.push({ type: 'content', value: part.content.slice(lastIndex, match.index) });
+                                        segments.push({ type: 'content', value: sanitizedContent.slice(lastIndex, match.index) });
                                       }
                                       segments.push({ type: 'cta', value: parseInt(match[1], 10) });
                                       lastIndex = match.index + match[0].length;
                                     }
                                     
-                                    if (lastIndex < part.content.length) {
-                                      segments.push({ type: 'content', value: part.content.slice(lastIndex) });
+                                    if (lastIndex < sanitizedContent.length) {
+                                      segments.push({ type: 'content', value: sanitizedContent.slice(lastIndex) });
                                     }
                                     
                                     // If no CTA markers, just render normally
                                     if (segments.length === 0) {
-                                      segments.push({ type: 'content', value: part.content });
+                                      segments.push({ type: 'content', value: sanitizedContent });
                                     }
                                     
                                     return (
