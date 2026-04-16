@@ -628,7 +628,9 @@ const Index = () => {
   const [isUploadingFile, setIsUploadingFile] = useState(false);
   const [keywords, setKeywords] = useState<string[]>(() => {
     const saved = localStorage.getItem("seo-generator-keywords");
-    return saved ? JSON.parse(saved) : [];
+    const parsed: string[] = saved ? JSON.parse(saved) : [];
+    // Strip "(volume)" suffixes like "keyword (50)" that may come from keyword research imports
+    return parsed.map((k) => k.replace(/\s*\(\s*[\d,]+\s*\)\s*$/, "").replace(/\s*\(\s*\?\s*\)\s*$/, "").trim()).filter((k) => k.length > 0);
   });
   const [keywordInput, setKeywordInput] = useState("");
   const [ctaUrl, setCtaUrl] = useState(() => {
@@ -3792,7 +3794,7 @@ const Index = () => {
                         e.preventDefault();
                         const newKeywords = keywordInput
                           .split(",")
-                          .map((k) => k.trim())
+                          .map((k) => k.trim().replace(/\s*\(\s*[\d,]+\s*\)\s*$/, "").replace(/\s*\(\s*\?\s*\)\s*$/, "").trim())
                           .filter((k) => k.length > 0);
                         const availableSlots = 10 - keywords.length;
                         const keywordsToAdd = newKeywords.slice(0, availableSlots);
@@ -3811,7 +3813,7 @@ const Index = () => {
                       if (keywordInput.trim()) {
                         const newKeywords = keywordInput
                           .split(",")
-                          .map((k) => k.trim())
+                          .map((k) => k.trim().replace(/\s*\(\s*[\d,]+\s*\)\s*$/, "").replace(/\s*\(\s*\?\s*\)\s*$/, "").trim())
                           .filter((k) => k.length > 0);
                         const availableSlots = 10 - keywords.length;
                         const keywordsToAdd = newKeywords.slice(0, availableSlots);
