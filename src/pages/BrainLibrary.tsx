@@ -166,7 +166,7 @@ const BrainLibrary = () => {
         throw fnError;
       }
 
-      toast({ title: "File processed", description: `Extracted insights from ${file.name}` });
+      toast({ title: "File processed", description: `Extracted insights from ${file.name} — review them before they're added to the Brain` });
       fetchFiles();
 
       // Cross-reference and update strategy
