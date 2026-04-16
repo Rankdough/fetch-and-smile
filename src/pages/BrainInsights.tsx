@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectLabel, SelectGroup, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Loader2, Brain, FileText, BookOpen, MessageSquare, History, Search, Pencil, Trash2, Plus, AlertOctagon } from "lucide-react";
+import { Loader2, Brain, FileText, BookOpen, MessageSquare, History, Search, Pencil, Trash2, Plus, AlertOctagon, Bookmark } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -28,6 +28,7 @@ interface Insight {
   summary: string | null;
   full_text: string | null;
   created_at: string;
+  is_bookmarked: boolean;
   tags?: { id: string; name: string; tag_type: string }[];
   contradictions?: { relatedTitle: string; explanation: string }[];
 }
@@ -316,6 +317,19 @@ const BrainInsights = () => {
                         )}
                       </div>
                       <div className="flex items-center gap-1 ml-3">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className={`h-7 w-7 ${insight.is_bookmarked ? "text-primary" : ""}`}
+                          onClick={async () => {
+                            const newVal = !insight.is_bookmarked;
+                            await supabase.from("brain_insights").update({ is_bookmarked: newVal }).eq("id", insight.id);
+                            setInsights(prev => prev.map(i => i.id === insight.id ? { ...i, is_bookmarked: newVal } : i));
+                            toast({ title: newVal ? "Insight bookmarked" : "Bookmark removed" });
+                          }}
+                        >
+                          <Bookmark className={`h-3.5 w-3.5 ${insight.is_bookmarked ? "fill-primary" : ""}`} />
+                        </Button>
                         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEditingInsight(insight)}><Pencil className="h-3.5 w-3.5" /></Button>
                         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleDelete(insight.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
                       </div>
