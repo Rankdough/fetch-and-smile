@@ -38,28 +38,36 @@ serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: `You are an SEO knowledge extraction expert. Analyze the document and return concise, actionable structured data.
+            content: `You analyse documents and return structured summaries. Return ONLY valid JSON with exactly these keys:
 
-Return ONLY valid JSON with this structure:
+1. "what_is_it" — String. One or two sentences describing what this file is. Be specific about the source and format.
 
-1. "what_is_it" — One sentence: what is this document about? Be specific about the source.
+2. "why_it_matters" — String. A brief paragraph (2-3 sentences max) explaining why this file matters strategically for SEO, AEO, content strategy, branding, positioning, growth, or marketing.
 
-2. "why_it_matters" — Array of 2-3 short strings. Each is a bold strategic claim (max 12 words). Example: "SEO is shifting from algorithm-first → brand-first"
+3. "top_takeaways" — Array of 4-7 objects, each with:
+   - "heading": A bold mini-heading (3-8 words, e.g. "Think in clusters")
+   - "detail": One short practical explanation sentence. Include an important stat if relevant. Max 25 words.
+   - "table": (optional) If a table would help clarify comparisons or frameworks, include it as an array of objects with consistent keys.
 
-3. "top_takeaways" — Array of 3-5 objects, each with:
-   - "heading": Bold actionable claim (max 10 words, e.g. "Brand is now a ranking factor")
-   - "detail": Array of 1-2 strings. Each max 20 words. Focus on WHAT TO DO, not theory. Include one stat or quote if available.
+4. "bottom_line" — String. 2-4 sentences. Say what the file is most useful for. State whether it is foundational, tactical, outdated, incomplete, or high value. If relevant, note how it can be used in SEO or marketing without turning it into a guide.
 
-4. "bottom_line" — Exactly 4 sentences. What to do + what happens if you don't + why it matters + immediate next step.
-
-5. "insights" — Array of detailed insights. For each:
+5. "insights" — Array of detailed insights for the knowledge base. For each:
    - title: concise name
    - insight_type: one of "principle", "tactic", "case_study", "framework", "client_note"
    - summary: 1 sentence summary
    - full_text: the relevant passage
    - tags: array of topic tags
 
-Be extremely concise. No filler. No generic advice. Every word must earn its place.`,
+RULES:
+- Write in clear, plain British English.
+- Keep it short, sharp, and practical. Never make the response long.
+- No fluff, long intros, or generic commentary.
+- Focus on SEO, AEO, content strategy, branding, positioning, or business relevance depending on the file.
+- If the file includes stats, include only the most important ones.
+- If the file is weak, outdated, or incomplete, say so clearly.
+- Do not guess. Only use what is actually in the file.
+- Always make it sound commercially useful, not academic.
+- Every word must earn its place.`,
           },
           {
             role: "user",
@@ -157,34 +165,39 @@ Be extremely concise. No filler. No generic advice. Every word must earn its pla
       }
     }
 
-    // Build rich summary
+    // Build rich summary matching exact section format
     let fullSummary = "";
-    if (whatIsIt) fullSummary += `**What it is**\n\n${whatIsIt}\n\n`;
+    if (whatIsIt) fullSummary += `## What it is\n\n${whatIsIt}\n\n`;
     
-    if (Array.isArray(whyItMatters) && whyItMatters.length > 0) {
-      fullSummary += `**Why it matters**\n\n${whyItMatters.map((b: string) => `- ${b}`).join("\n")}\n\n`;
-    } else if (typeof whyItMatters === "string" && whyItMatters) {
-      fullSummary += `**Why it matters**\n\n${whyItMatters}\n\n`;
+    if (typeof whyItMatters === "string" && whyItMatters) {
+      fullSummary += `## Why it matters\n\n${whyItMatters}\n\n`;
+    } else if (Array.isArray(whyItMatters) && whyItMatters.length > 0) {
+      fullSummary += `## Why it matters\n\n${whyItMatters.join(" ")}\n\n`;
     }
 
     if (topTakeaways.length > 0) {
-      fullSummary += `**Key takeaways**\n\n`;
+      fullSummary += `## Key takeaways\n\n`;
       for (const t of topTakeaways) {
         if (typeof t === "string") {
           fullSummary += `- ${t}\n`;
         } else if (t.heading) {
-          fullSummary += `**${t.heading}**\n`;
-          if (Array.isArray(t.detail)) {
-            fullSummary += t.detail.map((d: string) => `- ${d}`).join("\n") + "\n";
-          } else if (t.detail) {
-            fullSummary += `- ${t.detail}\n`;
+          const detail = Array.isArray(t.detail) ? t.detail.join(" ") : (t.detail || "");
+          fullSummary += `- **${t.heading}**: ${detail}\n`;
+        }
+        // Render optional table
+        if (t.table && Array.isArray(t.table) && t.table.length > 0) {
+          const keys = Object.keys(t.table[0]);
+          fullSummary += `\n| ${keys.join(" | ")} |\n| ${keys.map(() => "---").join(" | ")} |\n`;
+          for (const row of t.table) {
+            fullSummary += `| ${keys.map(k => row[k] || "").join(" | ")} |\n`;
           }
           fullSummary += "\n";
         }
       }
+      fullSummary += "\n";
     }
 
-    if (bottomLine) fullSummary += `**Bottom line**\n\n${bottomLine}`;
+    if (bottomLine) fullSummary += `## Bottom line\n\n${bottomLine}`;
 
     // Mark file as processed with summary
     await supabase.from("brain_files").update({ status: "processed", file_summary: fullSummary }).eq("id", fileId);
