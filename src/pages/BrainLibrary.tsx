@@ -63,7 +63,8 @@ const BrainLibrary = () => {
     setIsUploading(true);
 
     try {
-      const filePath = `${Date.now()}-${file.name}`;
+      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const filePath = `${Date.now()}-${safeName}`;
       const { error: uploadError } = await supabase.storage
         .from("brain-files")
         .upload(filePath, file);
