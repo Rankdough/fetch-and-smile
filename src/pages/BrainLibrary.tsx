@@ -189,6 +189,54 @@ const BrainLibrary = () => {
           </label>
         </div>
 
+        {/* Learning indicator */}
+        {isLearning && (
+          <Card className="mb-6 border-primary/30 bg-primary/5">
+            <CardContent className="py-4 flex items-center gap-3">
+              <Loader2 className="h-5 w-5 animate-spin text-primary" />
+              <span className="font-medium">Learning — cross-referencing with existing knowledge and updating strategy...</span>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Evolving Strategy */}
+        {strategy && strategy.content && (
+          <Card className="mb-6 border-primary/30">
+            <CardHeader className="py-3 px-4">
+              <div className="flex items-center gap-2">
+                <Zap className="h-5 w-5 text-primary" />
+                <CardTitle className="text-lg">What the Brain Knows</CardTitle>
+                <span className="text-xs ml-auto">Updated {new Date(strategy.updated_at).toLocaleDateString()}</span>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-0 pb-4 px-4 space-y-4">
+              <div className="prose prose-sm max-w-none dark:prose-invert [&_strong]:text-foreground">
+                <ReactMarkdown>{strategy.content}</ReactMarkdown>
+              </div>
+              {strategy.key_patterns.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-semibold mb-2">Recurring Patterns</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {strategy.key_patterns.map((p, i) => (
+                      <Badge key={i} variant="secondary">{p}</Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {strategy.knowledge_gaps.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-semibold mb-2">Knowledge Gaps</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {strategy.knowledge_gaps.map((g, i) => (
+                      <Badge key={i} variant="outline" className="border-orange-300 text-orange-700">{g}</Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
         {isLoading ? (
           <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
         ) : files.length === 0 ? (
