@@ -1730,6 +1730,7 @@ const Index = () => {
     localStorage.removeItem("seo-generator-valuePromise");
     localStorage.removeItem("seo-generator-selectedAngles");
     localStorage.removeItem("seo-generator-selectedGapInsights");
+    localStorage.removeItem("seo-generator-selectedAngleGaps");
     localStorage.removeItem("seo-generator-articleImages");
     
     toast({
