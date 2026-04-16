@@ -29,6 +29,9 @@ interface BrainInsight {
   insight_type: string;
   summary: string | null;
   source_file_id: string | null;
+  status: string;
+  credibility_flag: string | null;
+  credibility_note: string | null;
 }
 
 interface BrainStrategy {
