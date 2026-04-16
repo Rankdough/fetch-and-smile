@@ -272,35 +272,34 @@ Rules:
 - Keep every bullet easy to scan.
 - Prefer commands and hard calls over explanations.
 
-Output format:
+Output format — return ONLY valid JSON with these keys:
 
-1. "strategy" — A concise markdown strategy document (max 350 words) structured EXACTLY as:
-   - ## Core Principles
-   - 3-6 bullet points
-   - Each bullet must be short, concrete, and scannable
-   - Prefer one idea per bullet
+{
+  "core_principles": ["bullet 1", "bullet 2", ...],
+  "core_tactics": ["bullet 1", "bullet 2", ...],
+  "watch_out": ["bullet 1", "bullet 2", ...],
+  "key_patterns": ["pattern 1", ...],
+  "knowledge_gaps": ["gap 1", ...]
+}
 
-   - ## Core Tactics
-   - 3-6 bullet points
-   - These must read like direct actions or instructions
-   - Start with a strong verb where possible
+MANDATORY SECTIONS (all three MUST be present — never omit any):
 
-   - ## Watch Out
-   - 1-3 short bullets covering contradictions, trade-offs, or risks
+1. "core_principles" — Array of 3-6 strings. High-level strategic beliefs backed by evidence.
 
-2. Bullet rules for all three sections:
-   - Max 28 words per bullet
-   - No paragraphs inside bullets
-   - No filler phrases like "it is important to", "this means", "strategic shift", or "underpins"
-   - Use actual concepts from the insights, not generic SEO advice
+2. "core_tactics" — Array of 3-6 strings. Direct actions or instructions. Start each with a strong verb (e.g., "Audit", "Build", "Target", "Diversify"). These are DOING items, not THINKING items.
 
-3. "key_patterns" — Array of 3-6 strings: recurring themes confirmed by multiple sources
+3. "watch_out" — Array of 1-3 strings. Contradictions, trade-offs, or risks found across sources.
 
-4. "knowledge_gaps" — Array of 2-4 strings: important SEO areas NOT covered by any document
+4. "key_patterns" — Array of 3-6 strings: recurring themes confirmed by multiple sources.
 
-Write for an operator who wants the next move fast. Be specific, not generic. Reference actual concepts from the insights.
+5. "knowledge_gaps" — Array of 2-4 strings: important SEO areas NOT covered by any document.
 
-Return ONLY valid JSON: { "strategy": "...", "key_patterns": [...], "knowledge_gaps": [...] }`,
+Bullet rules for ALL arrays:
+- Max 28 words per bullet
+- No filler phrases like "it is important to", "this means", "strategic shift", or "underpins"
+- Use actual concepts from the insights, not generic SEO advice
+
+CRITICAL: You MUST return all five keys. If you omit core_tactics or watch_out, the output is INVALID.`,
         },
         {
           role: "user",
@@ -326,8 +325,19 @@ Return ONLY valid JSON: { "strategy": "...", "key_patterns": [...], "knowledge_g
     return;
   }
 
-  // If strategy came back as structured JSON instead of markdown string, convert it
-  if (parsed.strategy && typeof parsed.strategy === "object") {
+  // Build markdown from structured arrays
+  const buildSection = (heading: string, items: string[]) => {
+    if (!items || items.length === 0) return "";
+    return `## ${heading}\n${items.map(i => `- ${i}`).join("\n")}\n`;
+  };
+
+  if (parsed.core_principles || parsed.core_tactics || parsed.watch_out) {
+    parsed.strategy = [
+      buildSection("Core Principles", parsed.core_principles),
+      buildSection("Core Tactics", parsed.core_tactics),
+      buildSection("Watch Out", parsed.watch_out),
+    ].filter(Boolean).join("\n");
+  } else if (parsed.strategy && typeof parsed.strategy === "object") {
     const sections: string[] = [];
     for (const [heading, items] of Object.entries(parsed.strategy)) {
       sections.push(`## ${heading}`);
