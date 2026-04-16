@@ -189,6 +189,7 @@ export type Database = {
           full_text: string | null
           id: string
           insight_type: string
+          is_bookmarked: boolean
           source_file_id: string | null
           status: string
           summary: string | null
@@ -202,6 +203,7 @@ export type Database = {
           full_text?: string | null
           id?: string
           insight_type?: string
+          is_bookmarked?: boolean
           source_file_id?: string | null
           status?: string
           summary?: string | null
@@ -215,6 +217,7 @@ export type Database = {
           full_text?: string | null
           id?: string
           insight_type?: string
+          is_bookmarked?: boolean
           source_file_id?: string | null
           status?: string
           summary?: string | null
