@@ -228,6 +228,7 @@ const BrainLibrary = () => {
       if (fileDeleteError) throw fileDeleteError;
 
       fileDeleted = true;
+      setFiles(prev => prev.filter(f => f.id !== fileId));
 
       const { data: rebuildData, error: rebuildError } = await supabase.functions.invoke("cross-reference-insights", {
         body: { rebuildOnly: true },
