@@ -1606,6 +1606,7 @@ const Index = () => {
     if (valuePromise !== snapshot.valuePromise) changedSettings.push("valuePromise");
     if (JSON.stringify(selectedAngles) !== JSON.stringify(snapshot.selectedAngles)) changedSettings.push("selectedAngles");
     if (JSON.stringify(selectedGapInsights) !== JSON.stringify(snapshot.selectedGapInsights)) changedSettings.push("selectedGapInsights");
+    if (JSON.stringify(selectedAngleGaps) !== JSON.stringify(snapshot.selectedAngleGaps)) changedSettings.push("selectedAngleGaps");
     if (gapAnalysis !== snapshot.gapAnalysis) changedSettings.push("gapAnalysis");
     if (formatReference !== snapshot.formatReference) changedSettings.push("formatReference");
     if (JSON.stringify(contextFiles.map(f => f.name)) !== JSON.stringify(snapshot.contextFiles.map(f => f.name))) changedSettings.push("contextFiles");
