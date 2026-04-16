@@ -1577,6 +1577,7 @@ const Index = () => {
         valuePromise,
         selectedAngles: [...selectedAngles],
         selectedGapInsights: [...selectedGapInsights],
+        selectedAngleGaps: [...selectedAngleGaps],
         gapAnalysis,
         formatReference,
         contextFiles: contextFiles.map(f => ({ ...f })),
