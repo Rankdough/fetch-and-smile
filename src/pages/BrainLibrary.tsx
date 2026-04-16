@@ -271,6 +271,16 @@ const BrainLibrary = () => {
               </div>
             </CardHeader>
             <CardContent className="pt-0 pb-4 px-4 space-y-4">
+              {/* What changed indicator */}
+              {strategy.last_change_summary && (
+                <div className="bg-accent/50 rounded-lg p-3 border border-accent text-sm">
+                  <div className="font-semibold text-xs uppercase tracking-wide text-muted-foreground mb-1">Latest update</div>
+                  <div className="prose prose-sm max-w-none dark:prose-invert [&_strong]:text-foreground">
+                    <ReactMarkdown>{strategy.last_change_summary}</ReactMarkdown>
+                  </div>
+                </div>
+              )}
+
               {!strategyExpanded ? (
                 <div className="prose prose-sm max-w-none dark:prose-invert [&_strong]:text-foreground">
                   <ReactMarkdown>{getStrategyPreview(strategy.content)}</ReactMarkdown>
