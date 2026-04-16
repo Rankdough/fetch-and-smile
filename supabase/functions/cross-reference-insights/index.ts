@@ -89,7 +89,7 @@ Return ONLY valid JSON: { "connections": [...] }`,
     if (!response.ok) {
       console.error("AI cross-ref error:", response.status);
       // Still build strategy even if cross-referencing fails
-      await buildStrategy(supabase, LOVABLE_API_KEY, fileId);
+      await buildStrategy(supabase, LOVABLE_API_KEY, fileId, 0, newInsights.length);
       return new Response(JSON.stringify({ success: true, connections: 0, message: "Cross-referencing skipped, strategy updated" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
