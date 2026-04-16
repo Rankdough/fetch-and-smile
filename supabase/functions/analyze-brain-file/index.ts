@@ -42,14 +42,14 @@ serve(async (req) => {
 
 1. "what_is_it" — String. One or two sentences describing what this file is. Be specific about the source and format.
 
-2. "why_it_matters" — String. A brief paragraph (2-3 sentences max) explaining why this file matters strategically for SEO, AEO, content strategy, branding, positioning, growth, or marketing.
+2. "why_it_matters" — String. A brief paragraph (max 2 sentences) explaining why this file matters strategically for SEO, AEO, content strategy, branding, positioning, growth, or marketing.
 
 3. "top_takeaways" — Array of 4-7 objects, each with:
-   - "heading": A bold mini-heading (3-8 words, e.g. "Think in clusters")
-   - "detail": One short practical explanation sentence. Include an important stat if relevant. Max 25 words.
+   - "heading": A short command-style heading (2-6 words). Start with a strong verb where possible. Examples: "Audit weak pages", "Cut AI fluff", "Use entity hubs".
+   - "detail": One short action sentence. It must tell the reader what to do, change, check, stop, or prioritise. Max 18 words. No explanation-first writing.
    - "table": (optional) If a table would help clarify comparisons or frameworks, include it as an array of objects with consistent keys.
 
-4. "bottom_line" — String. 2-4 sentences. Summarise the core lesson or strategic insight the reader should walk away with. Write it as if advising a colleague: what should they actually do or think differently after reading this? Do NOT describe the document itself (e.g. "this is a high-value piece") — instead distil the knowledge it contains into a practical takeaway.
+4. "bottom_line" — String. 1-2 short sentences max. Write like direct advice to a busy operator. No abstract strategy language. No educational tone. No "the rise of AI necessitates" style phrasing.
 
 5. "insights" — Array of detailed insights for the knowledge base. For each:
    - title: concise name
@@ -66,15 +66,17 @@ CREDIBILITY RULES:
 - "outdated" = contradicts current best practices or relies on deprecated signals. Say what replaced it.
 - Be honest. If a claim is wrong, say so. Do not soften outdated advice.
 
-RULES:
+WRITING RULES:
 - Write in clear, plain British English.
-- Keep it short, sharp, and practical. Never make the response long.
-- No fluff, long intros, or generic commentary.
+- Be brutally practical. Sound like an operator, not a lecturer.
+- No fluff, no scene-setting, no academic tone, no corporate waffle.
+- Every takeaway must feel actionable at a glance.
+- Prefer commands over descriptions.
+- Avoid phrases like "this highlights", "it is crucial", "understanding", "necessitates", "strategic shift", "long-term relevance", or similar filler.
 - Focus on SEO, AEO, content strategy, branding, positioning, or business relevance depending on the file.
 - If the file includes stats, include only the most important ones.
 - If the file is weak, outdated, or incomplete, say so clearly.
 - Do not guess. Only use what is actually in the file.
-- Always make it sound commercially useful, not academic.
 - Every word must earn its place.`,
           },
           {
