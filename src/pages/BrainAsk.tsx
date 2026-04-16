@@ -1,14 +1,14 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Loader2, Brain, FileText, BookOpen, MessageSquare, History, Send, Save } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import ReactMarkdown from "react-markdown";
+import ChatHistorySidebar from "@/components/brain/ChatHistorySidebar";
 
 interface Message {
   role: "user" | "assistant";
@@ -22,11 +22,35 @@ const BrainAsk = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
+  const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
+  const [sidebarRefresh, setSidebarRefresh] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [messages]);
+
+  const loadConversation = useCallback(async (id: string) => {
+    setActiveConversationId(id);
+    const { data } = await supabase
+      .from("brain_chat_messages")
+      .select("*")
+      .eq("conversation_id", id)
+      .order("created_at", { ascending: true });
+    if (data) {
+      setMessages(data.map((m: any) => ({
+        role: m.role as "user" | "assistant",
+        content: m.content,
+        sourceInsights: m.source_insights || undefined,
+      })));
+    }
+  }, []);
+
+  const startNewChat = useCallback(() => {
+    setActiveConversationId(null);
+    setMessages([]);
+    setInput("");
+  }, []);
 
   const handleSend = async () => {
     const question = input.trim();
@@ -37,7 +61,34 @@ const BrainAsk = () => {
     setInput("");
     setIsStreaming(true);
 
+    let convId = activeConversationId;
+
     try {
+      // Create conversation if new
+      if (!convId) {
+        const title = question.length > 60 ? question.slice(0, 57) + "..." : question;
+        const { data: conv } = await supabase
+          .from("brain_conversations")
+          .insert({ title })
+          .select("id")
+          .single();
+        if (conv) {
+          convId = conv.id;
+          setActiveConversationId(conv.id);
+        }
+      } else {
+        await supabase.from("brain_conversations").update({ updated_at: new Date().toISOString() }).eq("id", convId);
+      }
+
+      // Save user message
+      if (convId) {
+        await supabase.from("brain_chat_messages").insert({
+          conversation_id: convId,
+          role: "user",
+          content: question,
+        });
+      }
+
       const resp = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ask-brain`,
         {
@@ -99,6 +150,18 @@ const BrainAsk = () => {
           }
         }
       }
+
+      // Save assistant message
+      if (convId && assistantContent) {
+        await supabase.from("brain_chat_messages").insert({
+          conversation_id: convId,
+          role: "assistant",
+          content: assistantContent,
+          source_insights: sourceInsights || [],
+        });
+      }
+
+      setSidebarRefresh(prev => prev + 1);
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
       setMessages(prev => [...prev, { role: "assistant", content: "Sorry, something went wrong." }]);
@@ -145,65 +208,74 @@ const BrainAsk = () => {
         </div>
       </header>
 
-      <main className="flex-1 max-w-4xl mx-auto w-full px-4 py-6 flex flex-col">
-        <div className="flex items-center justify-between mb-4">
-          <h1 className="text-2xl font-bold">Ask Your SEO Brain</h1>
-          {messages.some(m => m.role === "assistant") && (
-            <Button variant="outline" size="sm" onClick={handleSaveOutput} className="gap-2"><Save className="h-4 w-4" />Save Output</Button>
-          )}
-        </div>
+      <div className="flex-1 flex overflow-hidden">
+        <ChatHistorySidebar
+          activeConversationId={activeConversationId}
+          onSelect={loadConversation}
+          onNew={startNewChat}
+          refreshTrigger={sidebarRefresh}
+        />
 
-        <ScrollArea className="flex-1 mb-4 border rounded-lg p-4 min-h-[400px]" ref={scrollRef}>
-          {messages.length === 0 ? (
-            <div className="text-center text-muted-foreground py-20">
-              <Brain className="h-12 w-12 mx-auto mb-4 opacity-30" />
-              <p>Ask anything about your SEO knowledge base.</p>
-              <p className="text-sm mt-1">Your brain insights will be used as context.</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {messages.map((msg, i) => (
-                <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                  <div className={`max-w-[80%] rounded-lg px-4 py-3 ${msg.role === "user" ? "bg-primary text-primary-foreground" : "bg-muted"}`}>
-                    {msg.role === "assistant" ? (
-                      <div className="prose prose-sm max-w-none dark:prose-invert">
-                        <ReactMarkdown>{msg.content}</ReactMarkdown>
-                        {msg.sourceInsights && msg.sourceInsights.length > 0 && (
-                          <div className="mt-3 pt-2 border-t flex gap-1 flex-wrap">
-                            <span className="text-xs text-muted-foreground mr-1">Sources:</span>
-                            {msg.sourceInsights.map(s => (
-                              <Badge key={s.id} variant="secondary" className="text-xs">{s.title}</Badge>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <p className="text-sm">{msg.content}</p>
-                    )}
+        <main className="flex-1 flex flex-col max-w-4xl mx-auto w-full px-4 py-6">
+          <div className="flex items-center justify-between mb-4">
+            <h1 className="text-2xl font-bold">Ask Your SEO Brain</h1>
+            {messages.some(m => m.role === "assistant") && (
+              <Button variant="outline" size="sm" onClick={handleSaveOutput} className="gap-2"><Save className="h-4 w-4" />Save Output</Button>
+            )}
+          </div>
+
+          <ScrollArea className="flex-1 mb-4 border rounded-lg p-4 min-h-[400px]" ref={scrollRef}>
+            {messages.length === 0 ? (
+              <div className="text-center text-muted-foreground py-20">
+                <Brain className="h-12 w-12 mx-auto mb-4 opacity-30" />
+                <p>Ask anything about your SEO knowledge base.</p>
+                <p className="text-sm mt-1">Your brain insights will be used as context.</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {messages.map((msg, i) => (
+                  <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                    <div className={`max-w-[80%] rounded-lg px-4 py-3 ${msg.role === "user" ? "bg-primary text-primary-foreground" : "bg-muted"}`}>
+                      {msg.role === "assistant" ? (
+                        <div className="prose prose-sm max-w-none dark:prose-invert">
+                          <ReactMarkdown>{msg.content}</ReactMarkdown>
+                          {msg.sourceInsights && msg.sourceInsights.length > 0 && (
+                            <div className="mt-3 pt-2 border-t flex gap-1 flex-wrap">
+                              <span className="text-xs text-muted-foreground mr-1">Sources:</span>
+                              {msg.sourceInsights.map(s => (
+                                <Badge key={s.id} variant="secondary" className="text-xs">{s.title}</Badge>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <p className="text-sm">{msg.content}</p>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
-              {isStreaming && messages[messages.length - 1]?.role === "user" && (
-                <div className="flex justify-start"><div className="bg-muted rounded-lg px-4 py-3"><Loader2 className="h-4 w-4 animate-spin" /></div></div>
-              )}
-            </div>
-          )}
-        </ScrollArea>
+                ))}
+                {isStreaming && messages[messages.length - 1]?.role === "user" && (
+                  <div className="flex justify-start"><div className="bg-muted rounded-lg px-4 py-3"><Loader2 className="h-4 w-4 animate-spin" /></div></div>
+                )}
+              </div>
+            )}
+          </ScrollArea>
 
-        <div className="flex gap-2">
-          <Textarea
-            placeholder="Ask a question about your SEO knowledge..."
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            rows={2}
-            className="resize-none"
-          />
-          <Button onClick={handleSend} disabled={!input.trim() || isStreaming} className="px-4">
-            <Send className="h-4 w-4" />
-          </Button>
-        </div>
-      </main>
+          <div className="flex gap-2">
+            <Textarea
+              placeholder="Ask a question about your SEO knowledge..."
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              rows={2}
+              className="resize-none"
+            />
+            <Button onClick={handleSend} disabled={!input.trim() || isStreaming} className="px-4">
+              <Send className="h-4 w-4" />
+            </Button>
+          </div>
+        </main>
+      </div>
     </div>
   );
 };
