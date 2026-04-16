@@ -74,6 +74,8 @@ For each meaningful connection, return:
 - type: "confirms" | "contradicts" | "extends" (extends = adds new depth/angle)
 - explanation: One sentence explaining the connection (max 20 words)
 
+PAY SPECIAL ATTENTION to contradictions. If a NEW insight directly disagrees with, disproves, or recommends the opposite of an OLD insight, mark it as "contradicts". These are the most valuable connections.
+
 Only return STRONG, meaningful connections. Skip weak or obvious ones. Max 15 connections.
 
 Return ONLY valid JSON: { "connections": [...] }`,

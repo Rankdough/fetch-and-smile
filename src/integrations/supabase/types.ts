@@ -63,6 +63,7 @@ export type Database = {
           file_type: string
           file_url: string
           id: string
+          source_weight: string
           status: string
           title: string
           updated_at: string
@@ -74,6 +75,7 @@ export type Database = {
           file_type?: string
           file_url: string
           id?: string
+          source_weight?: string
           status?: string
           title: string
           updated_at?: string
@@ -85,6 +87,7 @@ export type Database = {
           file_type?: string
           file_url?: string
           id?: string
+          source_weight?: string
           status?: string
           title?: string
           updated_at?: string
