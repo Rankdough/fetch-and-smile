@@ -49,7 +49,7 @@ serve(async (req) => {
    - "detail": One short practical explanation sentence. Include an important stat if relevant. Max 25 words.
    - "table": (optional) If a table would help clarify comparisons or frameworks, include it as an array of objects with consistent keys.
 
-4. "bottom_line" — String. 2-4 sentences. Say what the file is most useful for. State whether it is foundational, tactical, outdated, incomplete, or high value. If relevant, note how it can be used in SEO or marketing without turning it into a guide.
+4. "bottom_line" — String. 2-4 sentences. Summarise the core lesson or strategic insight the reader should walk away with. Write it as if advising a colleague: what should they actually do or think differently after reading this? Do NOT describe the document itself (e.g. "this is a high-value piece") — instead distil the knowledge it contains into a practical takeaway.
 
 5. "insights" — Array of detailed insights for the knowledge base. For each:
    - title: concise name
