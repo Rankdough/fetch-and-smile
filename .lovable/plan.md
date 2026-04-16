@@ -1,55 +1,54 @@
 
+The user wants to be able to **select gaps** (from the amber "Information Gain Gaps" box), not just angles. Currently gaps are read-only context — only angles have checkboxes.
 
-## Calculating the new targets (-20%)
+Let me look at the current UniqueAnglesPanel to understand the structure.
+<lov-tool-use id="toolu_vrtx_015zXGtrVSmzPcjawe6Cds3a" name="code--view" integration-id="code" data="{\"file_path\": \"src/components/UniqueAnglesPanel.tsx\"}">
+</lov-tool-use>
 
-| Style | Current | -20% | New target |
-|---|---|---|---|
-| Conversational | 12-15 words | 9.6-12 | **10-12 words** |
-| Academic/formal | 20-25 words | 16-20 | **16-20 words** |
-| Punchy (Hemingway) | 5-8 words | keep | **5-8 words** |
+<lov-tool-use id="toolu_vrtx_01WfiTgX3geFiDo3Yxa1ZiaC" name="code--view" integration-id="code" data="{\"file_path\": \"src/components/UniqueAnglesPanel.tsx\"}">
+</lov-tool-use>
+The user wants to pick a specific gap (not just an angle) to cover. Currently gaps are read-only. Let me check how angles flow into generation, then plan to make gaps selectable.
+<lov-tool-use id="toolu_vrtx_019pfgGZxDEekqfpep4oafq9" name="code--search_files" integration-id="code" data="{\"query\": \"selectedAngles\", \"include_patterns\": \"*.tsx,*.ts\"}">
+</lov-tool-use>
+Good — there's already a `selectedGapInsights` mechanism (used by `GapAnalysisSelector` for the broader gap analysis output), and it gets merged with `selectedAngles` and passed into generation. So the cleanest path is to make the **Information Gain Gaps** in the Unique Angles panel selectable too, and have the selected gap text feed into the same `selectedGapInsights` (or a new prop) so the generator covers that gap.
 
-## What I'll set as the active rule
+<lov-plan>
 
-- **Average sentence length: 10-12 words**
-- **Hard maximum: 20 words** (down from 25)
-- **Mix in punchy sentences: 5-8 words** for rhythm
-- **No 3+ sentences of similar length in a row**
+## Goal
+Let the user pick one or more **Information Gain Gaps** from the Unique Angles panel (the amber box) — not just the angle cards — so the article specifically commits to filling that gap.
 
-## Effect on tone of voice
+## Current flow (just confirmed in code)
+- `UniqueAnglesPanel` shows gaps in the amber box as **read-only**, and angle cards as selectable.
+- Selected angles flow via `selectedAngles` → merged with `selectedGapInsights` in `Index.tsx` line 1207 & 1473 → passed into `generate-content` and `generate-outline` as "UNIQUE ANGLES TO INCORPORATE".
 
-Honest answer: shortening sentences DOES shift tone slightly. Here's the trade-off:
+## Plan: make gaps selectable in the Unique Angles panel
 
-- **Conversational tone profiles** (warm, casual, friendly) → **gets better**. Shorter sentences = more natural speech rhythm, more like how people actually talk.
-- **Expert/authoritative tone profiles** → **slight risk of sounding less authoritative**. Long sentences signal expertise. We mitigate this by keeping the tone profile as the *highest priority* directive (it already overrides default style) and by allowing 16-20 word sentences for complex points when needed.
-- **Brand voice with signature long sentences** → could feel clipped. Mitigation: the rule says "average" 10-12, not "every sentence", so the AI can still write a longer sentence when the tone demands it.
+### 1. `src/components/UniqueAnglesPanel.tsx`
+- Add a new prop `selectedGaps: string[]` and `onGapsChange: (gaps: string[]) => void`.
+- In the amber "Information Gain Gaps" box (lines 140-163):
+  - Auto-expand when gaps first arrive (already does via `showGaps`).
+  - Replace each read-only gap row with a clickable card containing a checkbox (same pattern as the angle cards below).
+  - Selecting a gap stores its `gap` text (the diagnosis line) in `selectedGaps`.
+  - Show "X selected" pill in the gaps header when any are picked, plus a "Clear" button.
+- Add a one-line helper above the gaps list: *"Pick the gaps you want this article to fill — the AI will commit to covering them."*
 
-Net effect: writing will feel more human and readable across the board, with minimal tone damage because the tone profile block is already marked HIGHEST PRIORITY in the prompts.
+### 2. `src/pages/Index.tsx`
+- Add new state `selectedAngleGaps: string[]` (persisted to localStorage like `selectedAngles`).
+- Pass `selectedGaps={selectedAngleGaps}` and `onGapsChange={setSelectedAngleGaps}` to `<UniqueAnglesPanel>`.
+- Merge into the existing angles payload at the two sites that build `allAngles`:
+  - Line 1207: `uniqueAngles: [...selectedGapInsights, ...selectedAngles, ...selectedAngleGaps]`
+  - Line 1473: same merge in `enhancedInstructions`
+- Include in snapshot save/restore (lines 1577, 1633, 1656) and in reset (line 1712) + localStorage cleanup (line 1730) — same pattern as `selectedAngles`.
+- Update the GenerationChecklist counter (lines 956-980) to also reflect selected gaps in the "Angles selected" label.
 
-## Files I'll change (writing-stage only, nothing else)
+### 3. No edge-function change needed
+The selected gap text is just appended to the existing `uniqueAngles` array, which `generate-content` and `generate-outline` already treat as "MUST be incorporated" instructions. This means each selected gap effectively becomes a directive: "fill this knowledge void in the article."
 
-1. `supabase/functions/humanise-write-section/index.ts` - main per-section writer
-2. `supabase/functions/humanise-rewrite/index.ts` - humanisation pass
-3. `supabase/functions/rewrite-intro/index.ts` - migration intros
-4. `supabase/functions/generate-content/index.ts` - legacy generator
-5. `supabase/functions/migrate-url/index.ts` - migration generator
-6. `mem://style/humanness-writing-rules` - persist the rule for future pipelines
+### 4. Out of scope (not touching)
+- `generate-unique-angles` edge function — gap generation logic stays as-is.
+- `GapAnalysisSelector` (separate component for the bigger Gap Analysis output) — already works.
+- Angle cards, tone logic, prompts, scoring, exports — untouched.
 
-## What I will replace
-
-In each prompt, the existing "Vary sentence length" line (e.g. *"mix short (5-8 words), medium (10-15 words), and longer (18-25 words)"*) becomes:
-
-> **SENTENCE LENGTH (strict):**
-> - Target average: 10-12 words per sentence
-> - Hard maximum: 20 words. If a sentence runs over 20 words, split it.
-> - Mix in punchy 5-8 word sentences for rhythm
-> - Allow occasional 16-20 word sentences only for complex technical points
-> - Never write 3+ sentences of similar length in a row
-> - Tone profile takes priority: if the tone demands a longer signature sentence, the tone wins
-
-## Out of scope (won't touch unless you ask)
-
-- Quality Score humanness calculation (no new sentence-length penalty added)
-- UI - no slider, no per-article override
-- Outline / clustering / classification / scoring functions - they don't write prose
-- Any other writing rule (em dashes, banned phrases, perspective, British English) stays exactly as-is
+## UX result
+The amber box becomes interactive: each gap shows a checkbox + the same "Over-published: ..." context. Picking a gap feeds it into the same generation pipeline as angles, so the article explicitly commits to filling that information gap.
 
