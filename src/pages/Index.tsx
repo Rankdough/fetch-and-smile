@@ -1634,6 +1634,7 @@ const Index = () => {
           valuePromise,
           selectedAngles,
           selectedGapInsights,
+          selectedAngleGaps,
           gapAnalysis,
           formatReference,
           contextFiles: contextFiles.length > 0 ? contextFiles : undefined,
