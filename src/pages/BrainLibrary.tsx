@@ -59,6 +59,7 @@ const BrainLibrary = () => {
   const [expandedFiles, setExpandedFiles] = useState<Set<string>>(new Set());
   const [strategy, setStrategy] = useState<BrainStrategy | null>(null);
   const [isLearning, setIsLearning] = useState(false);
+  const [strategyExpanded, setStrategyExpanded] = useState(false);
 
   const fetchFiles = useCallback(async () => {
     const { data, error } = await supabase
