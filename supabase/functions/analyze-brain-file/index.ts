@@ -105,8 +105,9 @@ Be opinionated and direct. Avoid generic SEO advice. Extract SPECIFIC stats, per
     }
 
     const whatIsIt = parsed.what_is_it || "";
-    const whyItMatters = parsed.why_it_matters || "";
-    const topTakeaways: string[] = parsed.top_takeaways || [];
+    const whyItMatters = parsed.why_it_matters || [];
+    const topTakeaways = parsed.top_takeaways || [];
+    const bottomLine = parsed.bottom_line || "";
     const insights = parsed.insights || [];
     let insertedCount = 0;
 
@@ -158,13 +159,34 @@ Be opinionated and direct. Avoid generic SEO advice. Extract SPECIFIC stats, per
       }
     }
 
-    // Build concise summary
+    // Build rich summary
     let fullSummary = "";
-    if (whatIsIt) fullSummary += `**What:** ${whatIsIt}\n\n`;
-    if (whyItMatters) fullSummary += `**Why it matters:** ${whyItMatters}\n\n`;
-    if (topTakeaways.length > 0) {
-      fullSummary += `**Key Takeaways:**\n${topTakeaways.map((t: string) => `- ${t}`).join("\n")}`;
+    if (whatIsIt) fullSummary += `**What it is**\n\n${whatIsIt}\n\n`;
+    
+    if (Array.isArray(whyItMatters) && whyItMatters.length > 0) {
+      fullSummary += `**Why it matters**\n\n${whyItMatters.map((b: string) => `- ${b}`).join("\n")}\n\n`;
+    } else if (typeof whyItMatters === "string" && whyItMatters) {
+      fullSummary += `**Why it matters**\n\n${whyItMatters}\n\n`;
     }
+
+    if (topTakeaways.length > 0) {
+      fullSummary += `**Key takeaways**\n\n`;
+      for (const t of topTakeaways) {
+        if (typeof t === "string") {
+          fullSummary += `- ${t}\n`;
+        } else if (t.heading) {
+          fullSummary += `**${t.heading}**\n`;
+          if (Array.isArray(t.detail)) {
+            fullSummary += t.detail.map((d: string) => `- ${d}`).join("\n") + "\n";
+          } else if (t.detail) {
+            fullSummary += `- ${t.detail}\n`;
+          }
+          fullSummary += "\n";
+        }
+      }
+    }
+
+    if (bottomLine) fullSummary += `**Bottom line**\n\n${bottomLine}`;
 
     // Mark file as processed with summary
     await supabase.from("brain_files").update({ status: "processed", file_summary: fullSummary }).eq("id", fileId);
