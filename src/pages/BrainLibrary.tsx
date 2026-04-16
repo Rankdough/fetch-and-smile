@@ -180,20 +180,9 @@ const BrainLibrary = () => {
 
       toast({ title: "File processed", description: `Extracted insights from ${file.name} — review them before they're added to the Brain` });
       fetchFiles();
-
-      // Cross-reference and update strategy
-      setIsLearning(true);
-      try {
-        await supabase.functions.invoke("cross-reference-insights", {
-          body: { fileId: fileRecord.id },
-        });
-        fetchStrategy();
-        toast({ title: "Brain updated", description: "Cross-referenced with existing knowledge and updated strategy" });
-      } catch {
-        // Non-critical — don't fail the upload
-      } finally {
-        setIsLearning(false);
-      }
+      // Auto-expand the new file so user can review insights
+      setExpandedFiles(prev => new Set(prev).add(fileRecord.id));
+      fetchInsightsForFile(fileRecord.id);
     } catch (err: any) {
       toast({ title: "Upload failed", description: err.message, variant: "destructive" });
     } finally {
