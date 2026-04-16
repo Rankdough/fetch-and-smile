@@ -11,9 +11,9 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { fileId } = await req.json();
-    if (!fileId) {
-      return new Response(JSON.stringify({ error: "fileId required" }), {
+    const { fileId, rebuildOnly } = await req.json();
+    if (!fileId && !rebuildOnly) {
+      return new Response(JSON.stringify({ error: "fileId or rebuildOnly required" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -24,6 +24,14 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Rebuild-only mode: just regenerate strategy from all approved insights
+    if (rebuildOnly) {
+      await buildStrategy(supabase, LOVABLE_API_KEY, null, 0, 0);
+      return new Response(JSON.stringify({ success: true, connections: 0, message: "Strategy rebuilt" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     // 1. Get approved insights from this file (only approved, not pending/rejected)
     const { data: newInsights } = await supabase
