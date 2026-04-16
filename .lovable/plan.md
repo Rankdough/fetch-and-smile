@@ -1,46 +1,89 @@
 
+What happened
 
-# SEO Brain — Strategic Improvements
+- The Brain is currently built like a destructive rewrite system, not a stable learning system.
+- Every time a file finishes review, `cross-reference-insights` runs and regenerates `brain_strategy.content`.
+- Every time a file is deleted, `BrainLibrary.tsx` calls `cross-reference-insights` with `rebuildOnly: true`, which regenerates the strategy again.
+- That means the visible Core Principles/Core Tactics are not being preserved as fixed knowledge. They are being re-authored by the model from the current approved insight set.
 
-## Assessment Summary
+Why your bookmarked stuff disappeared
 
-The current system is a solid V1: upload → extract → review → query. But to function as a proper SEO knowledge engine for client work, it needs five upgrades ranked by impact.
+- The stars in the strategy UI are not true locked principles.
+- In `src/pages/BrainLibrary.tsx`, clicking a star only saves raw bullet text into `brain_strategy.prioritized_points`.
+- In `src/components/StrategyWithPriorities.tsx`, those stars are only used to highlight bullets that still exist in the current markdown.
+- So if the next rebuild rewrites or removes a bullet, the stored priority still exists as text, but it no longer has anything visible to attach to.
+- In plain English: the app saved “this bullet is important”, but it did not save “this bullet must always remain in the strategy”.
 
-## Proposed Improvements (Priority Order)
+Why uploads changed the whole strategy
 
-### 1. Source Authority Weighting
-Add a `source_weight` field to `brain_files` (e.g., "official" / "industry" / "opinion" / "anecdotal"). Display this in the Library. When Ask Brain retrieves insights, weight official sources higher in the context window.
+- `supabase/functions/cross-reference-insights/index.ts` fetches all approved insights, asks the model to produce fresh `core_principles`, `core_tactics`, and `watch_out`, then overwrites `brain_strategy.content`.
+- The prompt says to preserve prioritised points, but that is only soft instruction. The code does not enforce it after the model answers.
+- So a new upload can shift the whole output because the model is synthesising a new strategy every time.
 
-- **Files**: `brain_files` table (migration), `BrainLibrary.tsx` (UI dropdown), `ask-brain/index.ts` (weighted scoring)
-- **Effort**: Small
+Why bookmarks did not protect anything
 
-### 2. Contradiction Detection
-Extend the cross-reference function to explicitly look for contradictions, not just connections. Add a `relationship_type` of "contradicts" to `brain_connections`. Surface contradictions prominently in the Library and Insights pages so you can resolve them.
+- The new insight bookmark field `brain_insights.is_bookmarked` exists in the database.
+- But it is not wired into:
+  - the Insights UI,
+  - the strategy generator,
+  - or Ask Brain retrieval.
+- So bookmarking insights currently has no real weight in the system.
 
-- **Files**: `cross-reference-insights/index.ts` (prompt update), `BrainLibrary.tsx` or `BrainInsights.tsx` (UI)
-- **Effort**: Small
+Why credits got burned
 
-### 3. Connect Brain to Content Generation
-When generating articles, automatically pull approved Brain insights relevant to the topic/keywords and inject them as additional context for the content generator. This makes the Brain *actively useful* rather than a passive reference.
+- Each upload can trigger at least two expensive AI steps:
+  1. `analyze-brain-file` to summarise and extract insights from the document
+  2. `cross-reference-insights` to rebuild strategy from all approved insights
+- Repeated retries, file changes, and rebuilds multiply that.
+- So the credits were spent on real model calls, but the architecture was wrong, so you paid for repeated rewrites instead of stable learning.
 
-- **Files**: `generate-content/index.ts` (fetch and inject relevant insights), possibly the main generator UI to show which insights were used
-- **Effort**: Medium
+Root cause in one sentence
 
-### 4. Date Awareness & Decay
-Add an optional `published_date` to brain files and a `superseded_by` field to insights. Auto-flag insights older than 18 months for re-review. When Ask Brain retrieves context, prefer newer sources.
+- The system treated your Brain as “regenerate the latest strategy from current inputs” instead of “grow a stable, curated knowledge base with locked foundations”.
 
-- **Files**: `brain_files` and `brain_insights` tables (migration), `analyze-brain-file/index.ts` (extract date if available), `ask-brain/index.ts` (recency weighting)
-- **Effort**: Medium
+What I would build to fix it
 
-### 5. Semantic Search (Embeddings)
-Replace keyword matching in Ask Brain with vector embeddings for proper semantic retrieval. This is the biggest technical lift but the highest long-term value — it means asking "how to handle keyword cannibalisation" will find insights about "consolidating competing pages" even without keyword overlap.
+1. Split the Brain into clear layers
+- Raw files
+- Extracted insights
+- Approved knowledge
+- Bookmarked knowledge
+- Stable strategy anchors
 
-- **Files**: New migration (embedding column), `analyze-brain-file/index.ts` (generate embeddings on insert), `ask-brain/index.ts` (vector similarity search)
-- **Effort**: Large — requires embedding generation and pgvector
+2. Make pinned strategy points real data
+- Add dedicated fields like locked core principles and locked core tactics.
+- Store them separately from generated markdown.
+- Render them back deterministically after every rebuild.
 
-## No Database Changes Yet
-This is a strategic assessment. Implementation would happen one improvement at a time after you choose which to prioritise.
+3. Make uploads additive, not destructive
+- New files should add evidence, suggest refinements, or create contradictions.
+- They should not silently replace pinned foundations.
 
-## Recommendation
-Start with **#1 (Source Weighting)** and **#2 (Contradiction Detection)** — they're small changes with immediate practical value. Then move to **#3 (Brain → Content pipeline)** which is where the real ROI lives.
+4. Make insight bookmarks actually matter
+- Add a bookmark toggle in Insights.
+- Feed bookmarked insights into strategy generation as high-priority evidence.
+- Weight them above normal approved insights.
 
+5. Preserve user curation over AI synthesis
+- If you starred or locked “Visibility Gain”, it stays until you unpin it.
+- If a new file conflicts with it, show that as a contradiction instead of overwriting it.
+
+6. Add recovery safeguards
+- Snapshot previous strategy before rebuilds.
+- Never let file deletion wipe curated anchors.
+- Warn before destructive changes.
+
+Implementation scope once approved
+
+- Update the strategy schema to store locked principles/tactics separately.
+- Refactor `cross-reference-insights` so it merges locked points back in after generation.
+- Wire `brain_insights.is_bookmarked` into `BrainInsights.tsx`, `ask-brain`, and strategy generation.
+- Keep existing strategy stars, but redefine them as hard pins rather than soft highlights.
+- Add a fallback snapshot so future rebuilds are reversible inside the app logic.
+
+Expected result
+
+- Uploading files will enrich the Brain instead of replacing it.
+- Your core principles stop drifting every time new evidence arrives.
+- Bookmarked insights genuinely influence the Brain.
+- Pinned principles and tactics cannot disappear just because the model rewrote the markdown.
