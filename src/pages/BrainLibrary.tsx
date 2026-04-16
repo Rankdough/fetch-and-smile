@@ -239,11 +239,10 @@ const BrainLibrary = () => {
     for (const insight of pending) {
       await supabase.from("brain_insights").update({ status: newStatus }).eq("id", insight.id);
     }
-    setInsightsByFile(prev => ({
-      ...prev,
-      [fileId]: prev[fileId]?.map(i => i.status === "pending_review" ? { ...i, status: newStatus } : i) || [],
-    }));
+    const updated = insightsByFile[fileId]?.map(i => i.status === "pending_review" ? { ...i, status: newStatus } : i) || [];
+    setInsightsByFile(prev => ({ ...prev, [fileId]: updated }));
     toast({ title: `${pending.length} insights ${newStatus === "approved" ? "accepted" : "rejected"}` });
+    await triggerCrossReferenceIfReviewComplete(fileId, updated);
   };
 
   const statusColor = (s: string) =>
