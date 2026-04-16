@@ -192,6 +192,14 @@ async function buildStrategy(
   const fileNames = (allFiles || []).map(f => f.title).join(", ");
   const connBlock = (connections || []).map(c => `- ${c.relationship_type}: ${c.explanation}`).join("\n");
 
+  // Fetch existing strategy to evolve incrementally
+  const { data: currentStrategyRow } = await supabase
+    .from("brain_strategy")
+    .select("content")
+    .limit(1)
+    .maybeSingle();
+  const existingStrategy = currentStrategyRow?.content || "";
+
   const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
     headers: {
