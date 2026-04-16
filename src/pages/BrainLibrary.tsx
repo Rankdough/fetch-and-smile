@@ -91,9 +91,9 @@ const BrainLibrary = () => {
     if (insightsByFile[fileId]) return;
     const { data } = await supabase
       .from("brain_insights")
-      .select("id, title, insight_type, summary, source_file_id")
+      .select("id, title, insight_type, summary, source_file_id, status, credibility_flag, credibility_note")
       .eq("source_file_id", fileId);
-    if (data) setInsightsByFile(prev => ({ ...prev, [fileId]: data }));
+    if (data) setInsightsByFile(prev => ({ ...prev, [fileId]: data as BrainInsight[] }));
   }, [insightsByFile]);
 
   useEffect(() => { fetchFiles(); fetchStrategy(); }, [fetchFiles, fetchStrategy]);
