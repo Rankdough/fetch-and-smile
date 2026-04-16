@@ -1,0 +1,2 @@
+User prefers precise, non-destructive code updates. Do not change anything else unless requested. Validate all feature changes end-to-end before delivery. Explicitly test export formats, word counts, and HTML preservation against known-good references.
+User wants Brain summary language to be direct, action-first, easy to scan, and non-academic. Avoid waffle, educational tone, and abstract strategy phrasing.
