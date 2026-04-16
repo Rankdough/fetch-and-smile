@@ -35,7 +35,7 @@ export function StrategyWithPriorities({
   const currentSectionRef = useRef("");
 
   return (
-    <div className="prose prose-sm max-w-none dark:prose-invert [&_strong]:text-foreground">
+    <div className="prose prose-sm max-w-none dark:prose-invert [&_strong]:text-foreground [&_ul]:list-none [&_ul]:pl-0">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
@@ -57,23 +57,25 @@ export function StrategyWithPriorities({
                   : [];
 
             const isLocked = lockedList.some((point) => normalizeBullet(point) === bulletText);
-            const isPrioritized = !isCoreSection && prioritizedPoints.some(
-              (point) => normalizeBullet(point) === bulletText,
-            );
-            const isHighlighted = isLocked || isPrioritized;
+            const isHighlighted = isLocked;
 
             return (
-              <li className={`rounded-md transition-colors ${isHighlighted ? "bg-accent/40 px-2 py-1" : ""}`}>
+              <li
+                className={`list-none pl-0 rounded-md transition-colors ${isHighlighted ? "bg-accent/40 px-2 py-1" : ""}`}
+                style={{ listStyle: "none" }}
+              >
                 <div className="flex items-start gap-2">
-                  {isCoreSection && (
+                  {isCoreSection ? (
                     <button
                       type="button"
-                      aria-label={isLocked ? "Remove bookmark" : "Bookmark item"}
-                      className="mt-0.5 shrink-0 rounded-sm text-muted-foreground transition-colors hover:text-primary"
+                      aria-label={isLocked ? "Remove bookmark" : "Bookmark this item"}
+                      className="mt-0.5 shrink-0 rounded-sm transition-colors hover:text-primary"
                       onClick={() => onTogglePriority(bulletText, section)}
                     >
-                      <Star className={`h-4 w-4 ${isLocked ? "fill-primary text-primary" : "text-muted-foreground"}`} />
+                      <Star className={`h-4 w-4 ${isLocked ? "fill-primary text-primary" : "text-muted-foreground/40 hover:text-muted-foreground"}`} />
                     </button>
+                  ) : (
+                    <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-foreground/40" />
                   )}
                   <div className="min-w-0 flex-1">{children}</div>
                 </div>
