@@ -540,8 +540,14 @@ const KeywordClustering = () => {
           }
           const merged = Array.from(existingMap.values());
 
+          // Preserve any keywords already pasted/typed in the textarea that aren't in the CSV(s)
+          const textareaKeywords = parseKeywordsFromText(rawInput);
+          const mergedKeySet = new Set(merged.map(m => m.keyword.toLowerCase().trim()));
+          const extraFromTextarea = textareaKeywords.filter(k => !mergedKeySet.has(k));
+
           setKeywordsWithVolume(merged);
-          setRawInput(merged.map(p => p.keyword).join("\n"));
+          const combinedLines = [...merged.map(p => p.keyword), ...extraFromTextarea];
+          setRawInput(combinedLines.join("\n"));
           const hasVolume = merged.some(p => p.volume !== null);
           toast({
             title: `${deduped.length} keywords loaded from ${fileArray.length} file${fileArray.length > 1 ? "s" : ""}`,
