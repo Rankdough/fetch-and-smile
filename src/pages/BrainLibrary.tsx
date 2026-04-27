@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Upload, Brain, FileText, BookOpen, MessageSquare, History, Trash2, ChevronDown, ChevronRight, Zap, Check, X, AlertTriangle, ShieldCheck, ShieldAlert, ShieldX, Crown, Building2, Users, MessageCircle, Star } from "lucide-react";
+import { Loader2, Upload, Brain, FileText, BookOpen, MessageSquare, History, Trash2, ChevronDown, ChevronRight, Zap, Check, X, AlertTriangle, ShieldCheck, ShieldAlert, ShieldX, Crown, Building2, Users, MessageCircle, Star, Download } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -526,6 +526,22 @@ const BrainLibrary = () => {
                           </SelectContent>
                         </Select>
                         <span className="text-xs text-muted-foreground">{new Date(file.uploaded_at).toLocaleDateString()}</span>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          asChild
+                          className="h-7 w-7"
+                          title="Download original file"
+                        >
+                          <a
+                            href={supabase.storage.from("brain-files").getPublicUrl(file.file_url).data.publicUrl}
+                            download={file.title}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            <Download className="h-3.5 w-3.5" />
+                          </a>
+                        </Button>
                         <Button variant="ghost" size="icon" onClick={() => handleDelete(file.id)} className="h-7 w-7"><Trash2 className="h-3.5 w-3.5" /></Button>
                       </div>
                     </div>
