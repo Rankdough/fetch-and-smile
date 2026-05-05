@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import * as XLSX from "xlsx";
 import { Button } from "@/components/ui/button";
@@ -85,21 +85,35 @@ const COLUMNS = [
   "Metafield: custom.subheading [single_line_text_field]",
 ];
 
+const LS_KEY = "shopify-faq-bulk-state-v1";
+const loadLS = () => {
+  try { return JSON.parse(localStorage.getItem(LS_KEY) || "{}"); } catch { return {}; }
+};
+
 export default function ShopifyFaqBulk() {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [questions, setQuestions] = useState("");
-  const [author, setAuthor] = useState("Pro Player Team Inc.");
-  const [sport, setSport] = useState("");
-  const [blogHandle, setBlogHandle] = useState("faq");
-  const [blogTitle, setBlogTitle] = useState("FAQ");
-  const [templateSuffix, setTemplateSuffix] = useState("article-faq");
-  const [handlePrefix, setHandlePrefix] = useState("faq");
+  const init = loadLS();
+  const [questions, setQuestions] = useState<string>(init.questions ?? "");
+  const [author, setAuthor] = useState<string>(init.author ?? "Pro Player Team Inc.");
+  const [sport, setSport] = useState<string>(init.sport ?? "");
+  const [blogHandle, setBlogHandle] = useState<string>(init.blogHandle ?? "faq");
+  const [blogTitle, setBlogTitle] = useState<string>(init.blogTitle ?? "FAQ");
+  const [templateSuffix, setTemplateSuffix] = useState<string>(init.templateSuffix ?? "article-faq");
+  const [handlePrefix, setHandlePrefix] = useState<string>(init.handlePrefix ?? "faq");
   const [progress, setProgress] = useState(0);
   const [running, setRunning] = useState(false);
-  const [wordCount, setWordCount] = useState<300 | 500 | 700>(500);
-  const [rows, setRows] = useState<Record<string, string>[]>([]);
+  const [wordCount, setWordCount] = useState<300 | 500 | 700>(init.wordCount ?? 500);
+  const [rows, setRows] = useState<Record<string, string>[]>(init.rows ?? []);
   const [regenIdx, setRegenIdx] = useState<number | null>(null);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(LS_KEY, JSON.stringify({
+        questions, author, sport, blogHandle, blogTitle, templateSuffix, handlePrefix, wordCount, rows,
+      }));
+    } catch {}
+  }, [questions, author, sport, blogHandle, blogTitle, templateSuffix, handlePrefix, wordCount, rows]);
 
   const formatTitle = (q: string): string => {
     let s = q.trim().replace(/\s+/g, " ");
