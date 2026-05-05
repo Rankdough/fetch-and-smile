@@ -119,6 +119,7 @@ export default function ShopifyFaqBulk() {
   const [includeNav, setIncludeNav] = useState<boolean>(init.includeNav ?? false);
   const [skipQuickTips, setSkipQuickTips] = useState<boolean>(init.skipQuickTips ?? false);
   const [skipSources, setSkipSources] = useState<boolean>(init.skipSources ?? true);
+  const [stripTitle, setStripTitle] = useState<boolean>(init.stripTitle ?? false);
   const [paletteId, setPaletteId] = useState<string | null>(init.paletteId ?? null);
   const [toneProfileId, setToneProfileId] = useState<string | null>(init.toneProfileId ?? null);
   const [toneProfiles, setToneProfiles] = useState<Array<{ id: string; name: string }>>([]);
@@ -145,11 +146,11 @@ export default function ShopifyFaqBulk() {
     try {
       localStorage.setItem(LS_KEY, JSON.stringify({
         questions, author, sport, blogHandle, blogTitle, templateSuffix, handlePrefix, wordCount,
-        includeFaqs, includeNav, skipQuickTips, skipSources, paletteId, toneProfileId, rows,
+        includeFaqs, includeNav, skipQuickTips, skipSources, stripTitle, paletteId, toneProfileId, rows,
       }));
     } catch {}
   }, [questions, author, sport, blogHandle, blogTitle, templateSuffix, handlePrefix, wordCount,
-      includeFaqs, includeNav, skipQuickTips, skipSources, paletteId, toneProfileId, rows]);
+      includeFaqs, includeNav, skipQuickTips, skipSources, stripTitle, paletteId, toneProfileId, rows]);
 
   const formatTitle = (q: string): string => {
     let s = q.trim().replace(/\s+/g, " ");
@@ -235,7 +236,9 @@ export default function ShopifyFaqBulk() {
         extraInstructions: extra,
       });
 
-      const body = result.html;
+      const body = stripTitle
+        ? result.html.replace(/<h1\b[^>]*>[\s\S]*?<\/h1>/i, "").trim()
+        : result.html;
       const summary = truncate(result.subtitle || extractSummary(result.markdown), 300);
       const descriptionTag = truncate(result.seoDescription || summary, 155);
       const handle = `${handlePrefix ? handlePrefix + "-" : ""}${slugify(q) || `q-${idx + 1}`}`;
@@ -385,6 +388,16 @@ export default function ShopifyFaqBulk() {
                 className="h-4 w-4"
               />
               <Label htmlFor="skip-sources" className="cursor-pointer">Skip References / Sources</Label>
+            </div>
+            <div className="flex items-center gap-2 pt-6">
+              <input
+                id="strip-title"
+                type="checkbox"
+                checked={stripTitle}
+                onChange={(e) => setStripTitle(e.target.checked)}
+                className="h-4 w-4"
+              />
+              <Label htmlFor="strip-title" className="cursor-pointer">Remove title (H1) from Body HTML</Label>
             </div>
             <div>
               <Label>Tone profile (optional)</Label>
