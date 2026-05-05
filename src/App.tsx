@@ -9,6 +9,7 @@ import ProductDescriptions from "./pages/ProductDescriptions";
 import KeywordResearch from "./pages/KeywordResearch";
 import OutlineGenerator from "./pages/OutlineGenerator";
 import ContentMigration from "./pages/ContentMigration";
+import ShopifyFaqBulk from "./pages/ShopifyFaqBulk";
 import BrainLibrary from "./pages/BrainLibrary";
 import BrainInsights from "./pages/BrainInsights";
 import BrainAsk from "./pages/BrainAsk";
@@ -30,6 +31,7 @@ const App = () => (
           <Route path="/keyword-research" element={<KeywordResearch />} />
           <Route path="/outline-generator" element={<OutlineGenerator />} />
           <Route path="/content-migration" element={<ContentMigration />} />
+          <Route path="/shopify-faq-bulk" element={<ShopifyFaqBulk />} />
           <Route path="/seo-brain/library" element={<BrainLibrary />} />
           <Route path="/seo-brain/insights" element={<BrainInsights />} />
           <Route path="/seo-brain/ask" element={<BrainAsk />} />
