@@ -167,15 +167,29 @@ EXAMPLES of semantically identical groups:
 - "can you get veneers with missing teeth" = "can you have veneers with missing teeth" (same question rephrased)
 - "how long do veneers take" = "how long does it take to get veneers" (same question)
 
+DEFINITION-EQUIVALENCE RULE (very common — group these aggressively):
+"what is X", "what does X mean", "what does X stand for", "X meaning", "X definition", "X explained" — all answer the SAME definitional question and MUST be grouped.
+Examples:
+- "what is war in baseball" = "what does war mean in baseball" = "what does war stand for in baseball" = "what is war in baseball stats" (trailing "stats"/"explained" doesn't change intent)
+- "what is ops in baseball" = "what does ops mean in baseball" = "ops baseball meaning"
+- "what is era" = "what does era stand for" = "era meaning baseball"
+
+TRAILING MODIFIER RULE:
+A trailing context word that doesn't change the question ("stats", "explained", "definition", "meaning", "term") should NOT prevent grouping. "what is war in baseball" and "what is war in baseball stats" are the same question.
+
 CRITICAL GROUPING RULE:
-When keywords share the SAME core question structure and differ ONLY by a type/material/brand modifier (e.g., "composite", "porcelain", "emax"), they ARE duplicates. The generic version and all type-specific versions belong in ONE group. Examples:
-- "are veneers permanent" = "are porcelain veneers permanent" = "are composite veneers permanent"
-- "how to clean veneers" = "how to clean porcelain veneers" = "how to clean composite veneers"
+When keywords share the SAME core question structure and differ ONLY by a type/material/brand modifier (e.g., "composite", "porcelain", "emax"), they ARE duplicates. The generic version and all type-specific versions belong in ONE group.
+
+DO NOT GROUP (different intents — keep separate):
+- Different metrics/abbreviations: "war" ≠ "fwar" ≠ "bwar" (these are distinct stats)
+- "what is X" ≠ "how to calculate X" (definition vs method)
+- "what is X" ≠ "what is a good X" (definition vs benchmark/evaluation)
+- "veneers cost" ≠ "veneers pain" (different topics)
 
 RULES:
 - Group TRUE semantic duplicates — same intent, same answer
+- Group definition-equivalents (what is / what does X mean / stand for / meaning)
 - Group modifier variants (generic + type-specific versions of the same question)
-- Do NOT group related but genuinely different keywords (e.g., "veneers cost" vs "veneers pain")
 - Each keyword in exactly ONE group
 - Canonical = highest search volume keyword
 - Only output groups with 2+ members${existingContext}
