@@ -10,7 +10,7 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { question, sport } = await req.json();
+    const { question, sport, wordCount: wcRaw } = await req.json();
     if (!question || typeof question !== "string") {
       return new Response(JSON.stringify({ error: "question is required" }), {
         status: 400,
@@ -21,11 +21,73 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
+    const wordCount: number = [300, 500, 700].includes(Number(wcRaw)) ? Number(wcRaw) : 500;
+
+    // Section sizing per target word count
+    const profile = wordCount === 300
+      ? { sectionsMin: 1, sectionsMax: 2, paraWords: "40-60", para2Words: "20-35", bulletsMin: 3, bulletsMax: 3, faqMin: 2, faqMax: 3, includeTable: false, tldrWords: "30-45" }
+      : wordCount === 700
+        ? { sectionsMin: 3, sectionsMax: 3, paraWords: "70-110", para2Words: "30-55", bulletsMin: 3, bulletsMax: 4, faqMin: 3, faqMax: 4, includeTable: true, tldrWords: "50-80" }
+        : { sectionsMin: 2, sectionsMax: 2, paraWords: "60-90", para2Words: "30-50", bulletsMin: 3, bulletsMax: 4, faqMin: 3, faqMax: 3, includeTable: true, tldrWords: "40-70" };
+
     const system = `You write concise, factual FAQ-style answers for a Shopify sports blog. British English. No em/en dashes. No buzzwords. No first-person pronouns. Plain, practical language. Always answer the actual question with specifics.`;
 
     const userPrompt = `Question: "${question}"${sport ? `\nSport context: ${sport}` : ""}
 
-Generate a SHORT FAQ article (~450-550 words total) and return ONLY a JSON object via the provided tool.`;
+Generate an FAQ article of approximately ${wordCount} words total (±10%). Return ONLY a JSON object via the provided tool.`;
+
+    const sectionProps: Record<string, any> = {
+      heading: { type: "string", description: "H2 phrased as a question." },
+      paragraph: { type: "string", description: `${profile.paraWords} words.` },
+      bullets: { type: "array", minItems: profile.bulletsMin, maxItems: profile.bulletsMax, items: { type: "string" } },
+      paragraph2: { type: "string", description: `${profile.para2Words} words follow-up.` }
+    };
+
+    const properties: Record<string, any> = {
+      h1: { type: "string", description: "Article H1 - rephrase question as a clear title." },
+      tldr: { type: "string", description: `1 dense paragraph (${profile.tldrWords} words) directly answering the question with specifics.` },
+      quickTips: {
+        type: "array", minItems: 3, maxItems: 3,
+        items: { type: "string", description: "One actionable sentence, max 15 words." }
+      },
+      sections: {
+        type: "array", minItems: profile.sectionsMin, maxItems: profile.sectionsMax,
+        items: {
+          type: "object",
+          properties: sectionProps,
+          required: ["heading", "paragraph", "bullets", "paragraph2"],
+          additionalProperties: false
+        }
+      },
+      faqs: {
+        type: "array", minItems: profile.faqMin, maxItems: profile.faqMax,
+        items: {
+          type: "object",
+          properties: { q: { type: "string" }, a: { type: "string", description: "1-2 sentences." } },
+          required: ["q", "a"], additionalProperties: false
+        }
+      },
+      summary: { type: "string", description: "1-2 sentence direct answer." },
+      titleTag: { type: "string", description: "SEO title under 60 chars." },
+      descriptionTag: { type: "string", description: "SEO meta description under 160 chars." },
+      tags: { type: "string", description: "Comma-separated 3-5 tags, lowercase." }
+    };
+
+    const required = ["h1","tldr","quickTips","sections","faqs","summary","titleTag","descriptionTag","tags"];
+
+    if (profile.includeTable) {
+      properties.table = {
+        type: "object",
+        properties: {
+          caption: { type: "string" },
+          headers: { type: "array", minItems: 2, maxItems: 4, items: { type: "string" } },
+          rows: { type: "array", minItems: 3, maxItems: 5, items: { type: "array", items: { type: "string" } } }
+        },
+        required: ["caption", "headers", "rows"],
+        additionalProperties: false
+      };
+      required.push("table");
+    }
 
     const tool = {
       type: "function",
@@ -34,51 +96,8 @@ Generate a SHORT FAQ article (~450-550 words total) and return ONLY a JSON objec
         description: "Return all fields needed to populate a Shopify FAQ article row.",
         parameters: {
           type: "object",
-          properties: {
-            h1: { type: "string", description: "Article H1 - rephrase question as a clear title." },
-            tldr: { type: "string", description: "1 dense paragraph (40-70 words) directly answering the question with specifics." },
-            quickTips: {
-              type: "array", minItems: 3, maxItems: 3,
-              items: { type: "string", description: "One actionable sentence, max 15 words." }
-            },
-            sections: {
-              type: "array", minItems: 2, maxItems: 2,
-              items: {
-                type: "object",
-                properties: {
-                  heading: { type: "string", description: "H2 phrased as a question." },
-                  paragraph: { type: "string", description: "60-90 words." },
-                  bullets: { type: "array", minItems: 3, maxItems: 4, items: { type: "string" } },
-                  paragraph2: { type: "string", description: "30-50 words follow-up." }
-                },
-                required: ["heading", "paragraph", "bullets", "paragraph2"],
-                additionalProperties: false
-              }
-            },
-            table: {
-              type: "object",
-              properties: {
-                caption: { type: "string" },
-                headers: { type: "array", minItems: 2, maxItems: 4, items: { type: "string" } },
-                rows: { type: "array", minItems: 3, maxItems: 5, items: { type: "array", items: { type: "string" } } }
-              },
-              required: ["caption", "headers", "rows"],
-              additionalProperties: false
-            },
-            faqs: {
-              type: "array", minItems: 3, maxItems: 3,
-              items: {
-                type: "object",
-                properties: { q: { type: "string" }, a: { type: "string", description: "1-2 sentences." } },
-                required: ["q", "a"], additionalProperties: false
-              }
-            },
-            summary: { type: "string", description: "1-2 sentence direct answer (used as Summary HTML and subheading)." },
-            titleTag: { type: "string", description: "SEO title under 60 chars." },
-            descriptionTag: { type: "string", description: "SEO meta description under 160 chars." },
-            tags: { type: "string", description: "Comma-separated 3-5 tags, lowercase." }
-          },
-          required: ["h1","tldr","quickTips","sections","table","faqs","summary","titleTag","descriptionTag","tags"],
+          properties,
+          required,
           additionalProperties: false
         }
       }
