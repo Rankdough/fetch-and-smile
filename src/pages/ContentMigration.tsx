@@ -129,8 +129,6 @@ export default function ContentMigration() {
   const [skipQuickTips, setSkipQuickTips] = useState(() => localStorage.getItem("migration-skip-tips") === "true");
   const [skipFaqs, setSkipFaqs] = useState(() => localStorage.getItem("migration-skip-faqs") === "true");
   const [skipSources, setSkipSources] = useState(() => localStorage.getItem("migration-skip-sources") === "true");
-  const [englishOnly, setEnglishOnly] = useState(() => localStorage.getItem("migration-english-only") === "true");
-  const [skipTitleInHtml, setSkipTitleInHtml] = useState(() => localStorage.getItem("migration-skip-title-html") === "true");
   const [ctaUrl, setCtaUrl] = useState(() => localStorage.getItem("migration-cta-url") || "");
   const [ctaInstruction, setCtaInstruction] = useState(() => localStorage.getItem("migration-cta-instruction") || "");
   const [colorOpen, setColorOpen] = useState(false);
@@ -198,8 +196,6 @@ export default function ContentMigration() {
     const hasSeoTitle = !!result.seoTitle?.trim();
     const hasSeoDesc = !!result.seoDescription?.trim();
     const hasContent = html.length > 100;
-    const hasNL = englishOnly || !!result.contentNL?.trim();
-    const hasDE = englishOnly || !!result.contentDE?.trim();
     // Internal links check (from HTML)
     if (internalLinkUrls.length > 0) {
       const linkMatches = html.match(/<a\s[^>]*href="[^"]*"[^>]*>/gi) || [];
@@ -216,8 +212,6 @@ export default function ContentMigration() {
 
     const maxContentCellChars = Math.max(
       (result.content || "").length,
-      englishOnly ? 0 : (result.contentNL || "").length,
-      englishOnly ? 0 : (result.contentDE || "").length,
     );
     const cellLimitPassed = maxContentCellChars <= EXCEL_CELL_LIMIT;
     checks.push({
@@ -226,8 +220,8 @@ export default function ContentMigration() {
       detail: `Max content cell: ${maxContentCellChars}/${EXCEL_CELL_LIMIT} chars`,
     });
 
-    const exportPassed = hasTitle && hasSeoTitle && hasSeoDesc && hasContent && hasNL && hasDE && cellLimitPassed;
-    checks.push({ label: "Excel Export Ready", passed: exportPassed, detail: exportPassed ? (englishOnly ? "All fields populated (EN only)" : "All fields populated (EN, NL, DE)") : "Missing fields or over cell limit" });
+    const exportPassed = hasTitle && hasSeoTitle && hasSeoDesc && hasContent && cellLimitPassed;
+    checks.push({ label: "Shopify CSV Export Ready", passed: exportPassed, detail: exportPassed ? "All Shopify FAQ fields can be exported" : "Missing fields or over cell limit" });
 
     return checks;
   };
@@ -388,13 +382,9 @@ export default function ContentMigration() {
     const hasSeoTitle = !!result.seoTitle?.trim();
     const hasSeoDesc = !!result.seoDescription?.trim();
     const hasContent = htmlContent.length > 100;
-    const hasNL = englishOnly || !!result.contentNL?.trim();
-    const hasDE = englishOnly || !!result.contentDE?.trim();
 
     const maxContentCellChars = Math.max(
       htmlContent.length,
-      englishOnly ? 0 : (result.contentNL || "").length,
-      englishOnly ? 0 : (result.contentDE || "").length,
     );
     const cellLimitPassed = maxContentCellChars <= EXCEL_CELL_LIMIT;
     checks.push({
@@ -403,23 +393,21 @@ export default function ContentMigration() {
       detail: `Max content cell: ${maxContentCellChars}/${EXCEL_CELL_LIMIT} chars`,
     });
 
-    const exportPassed = hasTitle && hasSeoTitle && hasSeoDesc && hasContent && hasNL && hasDE && cellLimitPassed;
+    const exportPassed = hasTitle && hasSeoTitle && hasSeoDesc && hasContent && cellLimitPassed;
     checks.push({
-      label: "Excel Export Ready",
+      label: "Shopify CSV Export Ready",
       passed: exportPassed,
-      detail: exportPassed ? (englishOnly ? "All fields populated (EN only)" : "All fields populated (EN, NL, DE)") : `Missing: ${[
+      detail: exportPassed ? "All Shopify FAQ fields can be exported" : `Missing: ${[
         !hasTitle && "Title",
         !hasSeoTitle && "SEO Title",
         !hasSeoDesc && "SEO Description",
         !hasContent && "Content",
-        !hasNL && "NL Translation",
-        !hasDE && "DE Translation",
         !cellLimitPassed && `Cell > ${EXCEL_CELL_LIMIT} chars`,
       ].filter(Boolean).join(", ")}`,
     });
 
     return checks;
-  }, [skipQuickTips, skipFaqs, skipSources, englishOnly, internalLinkUrls]);
+  }, [skipQuickTips, skipFaqs, skipSources, internalLinkUrls]);
 
   const processUrl = useCallback(async (entry: UrlEntry): Promise<UrlEntry> => {
     try {
@@ -627,30 +615,6 @@ export default function ContentMigration() {
     toast({ title: "Shopify FAQ CSV downloaded" });
   };
 
-  const downloadJSON = () => {
-    const data = entries.filter(e => e.status === "done" && e.result).map(e => {
-      const r = e.result!;
-      return {
-        type: r.type ?? "",
-        oldUrl: r.url ?? "",
-        title: { en: r.title ?? "", nl: r.titleNL ?? "", de: r.titleDE ?? "" },
-        subtitle: { en: r.subtitle ?? "", nl: r.subtitleNL ?? "", de: r.subtitleDE ?? "" },
-        content: { en: r.content ?? "", nl: r.contentNL ?? "", de: r.contentDE ?? "" },
-        seoTitle: { en: r.seoTitle ?? "", nl: r.seoTitleNL ?? "", de: r.seoTitleDE ?? "" },
-        seoDescription: { en: r.seoDescription ?? "", nl: r.seoDescriptionNL ?? "", de: r.seoDescriptionDE ?? "" },
-      };
-    });
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `content_migration_${new Date().toISOString().slice(0, 10)}.json`;
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 500);
-    toast({ title: "JSON file downloaded" });
-  };
-
   const doneCount = entries.filter(e => e.status === "done").length;
   const errorCount = entries.filter(e => e.status === "error").length;
   const progress = entries.length > 0 ? ((doneCount + errorCount) / entries.length) * 100 : 0;
@@ -809,11 +773,7 @@ export default function ContentMigration() {
               <SelectContent>
                 <SelectItem value="300">Brief (~300 words)</SelectItem>
                 <SelectItem value="500">Short (~500 words)</SelectItem>
-                <SelectItem value="1000">Medium (~1,000 words)</SelectItem>
-                <SelectItem value="1500">Medium-Long (~1,500 words)</SelectItem>
-                <SelectItem value="2000">Long (~2,000 words)</SelectItem>
-                <SelectItem value="3000">Extended (~3,000 words)</SelectItem>
-                <SelectItem value="3500">Comprehensive (~3,500 words)</SelectItem>
+                <SelectItem value="700">Standard (~700 words)</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -1104,9 +1064,7 @@ function PreviewContent({ result, copiedField, isEditing, onCopy, onFieldChange 
   return (
     <Tabs defaultValue="en" className="w-full">
       <TabsList className="mb-4">
-        <TabsTrigger value="en">English</TabsTrigger>
-        <TabsTrigger value="nl">Dutch (NL)</TabsTrigger>
-        <TabsTrigger value="de">German (DE)</TabsTrigger>
+        <TabsTrigger value="en">Shopify FAQ Row</TabsTrigger>
       </TabsList>
 
       <TabsContent value="en" className="space-y-4">
@@ -1117,26 +1075,6 @@ function PreviewContent({ result, copiedField, isEditing, onCopy, onFieldChange 
           <EditableMetadataField label="SEO Description" value={result.seoDescription} field="seoDesc-en" copiedField={copiedField} isEditing={isEditing} onCopy={onCopy} onChange={(v) => onFieldChange?.("seoDescription", v)} />
         </div>
         <ContentBlock label="Content" content={result.content} field="content-en" copiedField={copiedField} isEditing={isEditing} onCopy={onCopy} onChange={(v) => onFieldChange?.("content", v)} />
-      </TabsContent>
-
-      <TabsContent value="nl" className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <EditableMetadataField label="Title (NL)" value={result.titleNL} field="title-nl" copiedField={copiedField} isEditing={isEditing} onCopy={onCopy} onChange={(v) => onFieldChange?.("titleNL", v)} />
-          <EditableMetadataField label="SEO Title (NL)" value={result.seoTitleNL} field="seoTitle-nl" copiedField={copiedField} isEditing={isEditing} onCopy={onCopy} onChange={(v) => onFieldChange?.("seoTitleNL", v)} />
-          <EditableMetadataField label="Subtitle (NL)" value={result.subtitleNL} field="subtitle-nl" copiedField={copiedField} isEditing={isEditing} onCopy={onCopy} onChange={(v) => onFieldChange?.("subtitleNL", v)} />
-          <EditableMetadataField label="SEO Description (NL)" value={result.seoDescriptionNL} field="seoDesc-nl" copiedField={copiedField} isEditing={isEditing} onCopy={onCopy} onChange={(v) => onFieldChange?.("seoDescriptionNL", v)} />
-        </div>
-        <ContentBlock label="Content (NL)" content={result.contentNL} field="content-nl" copiedField={copiedField} isEditing={isEditing} onCopy={onCopy} onChange={(v) => onFieldChange?.("contentNL", v)} />
-      </TabsContent>
-
-      <TabsContent value="de" className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <EditableMetadataField label="Title (DE)" value={result.titleDE} field="title-de" copiedField={copiedField} isEditing={isEditing} onCopy={onCopy} onChange={(v) => onFieldChange?.("titleDE", v)} />
-          <EditableMetadataField label="SEO Title (DE)" value={result.seoTitleDE} field="seoTitle-de" copiedField={copiedField} isEditing={isEditing} onCopy={onCopy} onChange={(v) => onFieldChange?.("seoTitleDE", v)} />
-          <EditableMetadataField label="Subtitle (DE)" value={result.subtitleDE} field="subtitle-de" copiedField={copiedField} isEditing={isEditing} onCopy={onCopy} onChange={(v) => onFieldChange?.("subtitleDE", v)} />
-          <EditableMetadataField label="SEO Description (DE)" value={result.seoDescriptionDE} field="seoDesc-de" copiedField={copiedField} isEditing={isEditing} onCopy={onCopy} onChange={(v) => onFieldChange?.("seoDescriptionDE", v)} />
-        </div>
-        <ContentBlock label="Content (DE)" content={result.contentDE} field="content-de" copiedField={copiedField} isEditing={isEditing} onCopy={onCopy} onChange={(v) => onFieldChange?.("contentDE", v)} />
       </TabsContent>
     </Tabs>
   );
