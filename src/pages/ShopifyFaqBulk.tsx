@@ -279,6 +279,23 @@ export default function ShopifyFaqBulk() {
     }
   };
 
+  const regenerateAll = async (wc: 300 | 500 | 700) => {
+    if (rows.length === 0) return;
+    bulkCancelRef.current = false;
+    setBulkProgress({ current: 0, total: rows.length });
+    try {
+      for (let i = 0; i < rows.length; i++) {
+        if (bulkCancelRef.current) break;
+        setBulkProgress({ current: i + 1, total: rows.length });
+        await regenerateRow(i, wc);
+      }
+      toast({ title: bulkCancelRef.current ? "Bulk regeneration cancelled" : `Bulk regeneration complete (${wc}w)` });
+    } finally {
+      setBulkProgress(null);
+      bulkCancelRef.current = false;
+    }
+  };
+
   const generate = () => {
     const list = questions
       .split("\n")
