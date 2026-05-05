@@ -217,30 +217,27 @@ export default function ShopifyFaqBulk() {
     const title = formatTitle(q);
     setRegenIdx(idx);
     try {
-      const { data, error } = await supabase.functions.invoke("generate-content", {
-        body: {
-          topic: title,
-          wordCount: wc,
-          length: wc <= 300 ? "short" : wc <= 500 ? "short" : "medium",
-          instructions: sport ? `This is a ${sport} FAQ article. Answer the question directly and concisely.` : "Answer the question directly and concisely.",
+      const extra = sport
+        ? `This is a ${sport} FAQ article. Answer the question directly and concisely. Keep the article close to ${wc} words.`
+        : `This is an FAQ-style article. Answer the question directly and concisely. Keep the article close to ${wc} words.`;
+
+      const result = await generateMigrationArticle({
+        topic: title,
+        targetWordCount: wc,
+        palette: selectedPalette,
+        convertOpts: {
+          skipNavigation: !includeNav,
+          skipQuickTips,
           skipFaqs: !includeFaqs,
-          skipQuickTips: false,
-          skipSources: true,
-          useFirstPerson: false,
+          skipSources,
         },
+        toneProfileId,
+        extraInstructions: extra,
       });
-      if (error) throw error;
-      let markdown: string = data.content || "";
-      // Strip stray wrapping quotes the model sometimes adds around the whole article
-      markdown = markdown.trim();
-      if ((markdown.startsWith('"') && markdown.endsWith('"')) || (markdown.startsWith("'") && markdown.endsWith("'"))) {
-        markdown = markdown.slice(1, -1).trim();
-      }
-      // Remove standalone quote-only lines that produce <p>"</p>
-      markdown = markdown.split("\n").filter((l) => l.trim() !== '"' && l.trim() !== "'").join("\n");
-      const body = markdownToStyledHtml(markdown, null, { skipNavigation: !includeNav, skipFaqs: !includeFaqs });
-      const summary = truncate(extractSummary(markdown), 300);
-      const descriptionTag = truncate(summary, 155);
+
+      const body = result.html;
+      const summary = truncate(result.subtitle || extractSummary(result.markdown), 300);
+      const descriptionTag = truncate(result.seoDescription || summary, 155);
       const handle = `${handlePrefix ? handlePrefix + "-" : ""}${slugify(q) || `q-${idx + 1}`}`;
       const newRow: Record<string, string> = {
         Handle: handle,
@@ -253,7 +250,7 @@ export default function ShopifyFaqBulk() {
         "Template Suffix": templateSuffix,
         "Blog: Handle": blogHandle,
         "Blog: Title": blogTitle,
-        "Metafield: title_tag [string]": title,
+        "Metafield: title_tag [string]": result.seoTitle || title,
         "Metafield: description_tag [string]": descriptionTag,
         "Metafield: custom.sport [single_line_text_field]": sport,
         "Metafield: custom.question [single_line_text_field]": title,
@@ -261,7 +258,15 @@ export default function ShopifyFaqBulk() {
         "Metafield: custom.subheading [single_line_text_field]": summary,
       };
       setRows((prev) => prev.map((r, i) => (i === idx ? newRow : r)));
-      toast({ title: `Generated (${wc} words)` });
+      if (body.length > EXCEL_CELL_LIMIT) {
+        toast({
+          title: `Generated (${wc} words) — over Excel cell limit`,
+          description: `Body HTML is ${body.length} chars (limit ${EXCEL_CELL_LIMIT}). CSV will still download but Excel may reject this row.`,
+          variant: "destructive",
+        });
+      } else {
+        toast({ title: `Generated (${wc} words)` });
+      }
     } catch (e: any) {
       toast({ title: "Generation failed", description: e?.message || "", variant: "destructive" });
     } finally {
