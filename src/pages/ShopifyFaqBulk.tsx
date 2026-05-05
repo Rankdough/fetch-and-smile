@@ -13,6 +13,8 @@ import { ArrowLeft, Download, Loader2, Sparkles, RefreshCw } from "lucide-react"
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { markdownToStyledHtml } from "@/utils/markdownToStyledHtml";
+import { generateMigrationArticle } from "@/utils/generateMigrationArticle";
+import { ColorPaletteSelector, COLOR_PALETTES, type ColorPalette } from "@/components/ColorPaletteSelector";
 
 
 interface ArticleData {
