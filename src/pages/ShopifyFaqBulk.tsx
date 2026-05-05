@@ -11,8 +11,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { ArrowLeft, Download, Loader2, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { markdownToStyledHtml } from "@/utils/markdownToStyledHtml";
 
-const ACCENT = "#0D9488";
 
 interface ArticleData {
   h1: string;
@@ -33,62 +33,37 @@ const escapeHtml = (s: string) =>
 const slugify = (s: string) =>
   s.toLowerCase().replace(/[^a-z0-9\s-]/g, "").trim().replace(/\s+/g, "-").slice(0, 60);
 
-function buildBodyHtml(a: ArticleData): string {
-  const p = (txt: string) =>
-    `<p style="margin: 0 0 16px 0; line-height: 1.7; color: #374151;">${escapeHtml(txt)}</p>`;
-
-  const h2 = (txt: string) =>
-    `<h2 style="background: #f8f4ff; color: #1f2937; border-left: 4px solid ${ACCENT}; padding: 12px 16px; margin: 24px 0 16px 0; border-radius: 0 8px 0 0;">${escapeHtml(txt)}</h2>`;
-
-  const tipBlock = (n: number, txt: string) =>
-    `<blockquote style="display: flex; align-items: center; background: linear-gradient(135deg, ${ACCENT}10 0%, ${ACCENT}20 100%); border: 1px solid ${ACCENT}33; border-radius: 12px; padding: 16px 20px; margin: 12px 0; font-style: normal;"><span style="display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; background: ${ACCENT}; border-radius: 50%; color: white; font-weight: bold; font-size: 14px; margin-right: 12px; flex-shrink: 0;">${n}</span><p style="margin: 0; line-height: 1.7; color: #374151;">${escapeHtml(txt)}</p></blockquote>`;
-
-  const ul = (items: string[]) =>
-    `<ul style="margin: 0 0 16px 20px; padding: 0; line-height: 1.7; color: #374151;">${items
-      .map((i) => `<li style="margin: 0 0 8px 0;">${escapeHtml(i)}</li>`)
-      .join("")}</ul>`;
-
-  const tableHtml = (() => {
-    const head = a.table.headers
-      .map(
-        (h) =>
-          `<th style="text-align:left; padding:10px 12px; background:${ACCENT}; color:white; font-weight:600; border:1px solid ${ACCENT};">${escapeHtml(h)}</th>`
-      )
-      .join("");
-    const body = a.table.rows
-      .map(
-        (r) =>
-          `<tr>${r
-            .map(
-              (c) =>
-                `<td style="padding:10px 12px; border:1px solid #e5e7eb; color:#374151;">${escapeHtml(c)}</td>`
-            )
-            .join("")}</tr>`
-      )
-      .join("");
-    return `<div style="margin: 16px 0 24px 0; overflow-x:auto;"><table style="width:100%; border-collapse:collapse; font-size:14px;"><caption style="caption-side:top; text-align:left; padding:8px 0; font-weight:600; color:#1f2937;">${escapeHtml(a.table.caption)}</caption><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
-  })();
-
-  const faqHtml = a.faqs
-    .map(
-      (f) =>
-        `<details style="margin: 8px 0; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; background: #ffffff;"><summary style="padding: 12px 16px; cursor: pointer; font-weight: 600; color: #1f2937;">${escapeHtml(f.q)}</summary><div style="padding: 0 16px 12px 16px; color:#374151; line-height:1.7;">${escapeHtml(f.a)}</div></details>`
-    )
-    .join("");
-
-  return [
-    `<h1 style="margin: 0 0 16px 0;">${escapeHtml(a.h1)}</h1>`,
-    p(a.tldr),
-    h2("TL;DR"),
-    p(a.tldr),
-    h2("Quick Tips"),
-    a.quickTips.map((t, i) => tipBlock(i + 1, t)).join("\n"),
-    ...a.sections.flatMap((s) => [h2(s.heading), p(s.paragraph), ul(s.bullets), p(s.paragraph2)]),
-    tableHtml,
-    h2("Frequently Asked Questions"),
-    faqHtml,
-  ].join("\n");
+function buildMarkdown(a: ArticleData): string {
+  const lines: string[] = [];
+  lines.push(`# ${a.h1}`, "");
+  lines.push(a.tldr, "");
+  lines.push(`## TL;DR`, "", a.tldr, "");
+  lines.push(`## Quick Tips`, "");
+  a.quickTips.forEach((t, i) => lines.push(`${i + 1}. ${t}`));
+  lines.push("");
+  for (const s of a.sections) {
+    lines.push(`## ${s.heading}`, "", s.paragraph, "");
+    s.bullets.forEach(b => lines.push(`- ${b}`));
+    lines.push("", s.paragraph2, "");
+  }
+  if (a.table?.headers?.length && a.table.rows?.length) {
+    if (a.table.caption) lines.push(`**${a.table.caption}**`, "");
+    lines.push(`| ${a.table.headers.join(" | ")} |`);
+    lines.push(`| ${a.table.headers.map(() => "---").join(" | ")} |`);
+    for (const r of a.table.rows) lines.push(`| ${r.join(" | ")} |`);
+    lines.push("");
+  }
+  lines.push(`## Frequently Asked Questions`, "");
+  for (const f of a.faqs) {
+    lines.push(`### ${f.q}`, "", f.a, "");
+  }
+  return lines.join("\n");
 }
+
+function buildBodyHtml(a: ArticleData): string {
+  return markdownToStyledHtml(buildMarkdown(a));
+}
+
 
 const COLUMNS = [
   "Handle",
