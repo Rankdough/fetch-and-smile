@@ -70,7 +70,10 @@ function buildMarkdown(a: ArticleData, opts: { skipFaqs?: boolean } = {}): strin
 }
 
 function buildBodyHtml(a: ArticleData, opts: { skipFaqs?: boolean } = {}): string {
-  return markdownToStyledHtml(buildMarkdown(a, opts));
+  return markdownToStyledHtml(buildMarkdown(a, opts), null, {
+    skipNavigation: true,
+    skipFaqs: opts.skipFaqs,
+  });
 }
 
 
