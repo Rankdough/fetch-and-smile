@@ -471,7 +471,40 @@ export default function ShopifyFaqBulk() {
         <section className="container mx-auto px-6 pb-10">
           <Card>
             <CardHeader>
-              <CardTitle>Generated rows ({rows.length})</CardTitle>
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <CardTitle>Generated rows ({rows.length})</CardTitle>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs text-muted-foreground">Regenerate all:</span>
+                  {[300, 500, 700].map((wc) => (
+                    <Button
+                      key={wc}
+                      size="sm"
+                      variant="outline"
+                      className="h-7 px-2 text-xs gap-1"
+                      disabled={!!bulkProgress || regenIdx !== null}
+                      onClick={() => regenerateAll(wc as 300 | 500 | 700)}
+                    >
+                      {bulkProgress ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                      All {wc}w
+                    </Button>
+                  ))}
+                  {bulkProgress && (
+                    <>
+                      <span className="text-xs text-muted-foreground">
+                        {bulkProgress.current}/{bulkProgress.total}
+                      </span>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 px-2 text-xs"
+                        onClick={() => { bulkCancelRef.current = true; }}
+                      >
+                        Cancel
+                      </Button>
+                    </>
+                  )}
+                </div>
+              </div>
             </CardHeader>
             <CardContent className="overflow-x-auto">
               <Table>
