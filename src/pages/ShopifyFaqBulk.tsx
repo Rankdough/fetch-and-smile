@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
@@ -125,6 +125,8 @@ export default function ShopifyFaqBulk() {
   const [toneProfiles, setToneProfiles] = useState<Array<{ id: string; name: string }>>([]);
   const [rows, setRows] = useState<Record<string, string>[]>(init.rows ?? []);
   const [regenIdx, setRegenIdx] = useState<number | null>(null);
+  const [bulkProgress, setBulkProgress] = useState<{ current: number; total: number } | null>(null);
+  const bulkCancelRef = useRef<boolean>(false);
 
   const selectedPalette: ColorPalette | null = paletteId
     ? COLOR_PALETTES.find((p) => p.id === paletteId) || null
@@ -274,6 +276,23 @@ export default function ShopifyFaqBulk() {
       toast({ title: "Generation failed", description: e?.message || "", variant: "destructive" });
     } finally {
       setRegenIdx(null);
+    }
+  };
+
+  const regenerateAll = async (wc: 300 | 500 | 700) => {
+    if (rows.length === 0) return;
+    bulkCancelRef.current = false;
+    setBulkProgress({ current: 0, total: rows.length });
+    try {
+      for (let i = 0; i < rows.length; i++) {
+        if (bulkCancelRef.current) break;
+        setBulkProgress({ current: i + 1, total: rows.length });
+        await regenerateRow(i, wc);
+      }
+      toast({ title: bulkCancelRef.current ? "Bulk regeneration cancelled" : `Bulk regeneration complete (${wc}w)` });
+    } finally {
+      setBulkProgress(null);
+      bulkCancelRef.current = false;
     }
   };
 
@@ -452,7 +471,40 @@ export default function ShopifyFaqBulk() {
         <section className="container mx-auto px-6 pb-10">
           <Card>
             <CardHeader>
-              <CardTitle>Generated rows ({rows.length})</CardTitle>
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <CardTitle>Generated rows ({rows.length})</CardTitle>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs text-muted-foreground">Regenerate all:</span>
+                  {[300, 500, 700].map((wc) => (
+                    <Button
+                      key={wc}
+                      size="sm"
+                      variant="outline"
+                      className="h-7 px-2 text-xs gap-1"
+                      disabled={!!bulkProgress || regenIdx !== null}
+                      onClick={() => regenerateAll(wc as 300 | 500 | 700)}
+                    >
+                      {bulkProgress ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                      All {wc}w
+                    </Button>
+                  ))}
+                  {bulkProgress && (
+                    <>
+                      <span className="text-xs text-muted-foreground">
+                        {bulkProgress.current}/{bulkProgress.total}
+                      </span>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 px-2 text-xs"
+                        onClick={() => { bulkCancelRef.current = true; }}
+                      >
+                        Cancel
+                      </Button>
+                    </>
+                  )}
+                </div>
+              </div>
             </CardHeader>
             <CardContent className="overflow-x-auto">
               <Table>
