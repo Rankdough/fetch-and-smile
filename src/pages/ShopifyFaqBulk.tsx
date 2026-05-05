@@ -172,7 +172,7 @@ export default function ShopifyFaqBulk() {
       Author: author,
       "Body HTML": "",
       "Summary HTML": "",
-      Tags: sport,
+      Tags: [sport, globalTags].map((t) => (t || "").trim()).filter(Boolean).join(", "),
       Published: "TRUE",
       "Template Suffix": templateSuffix,
       "Blog: Handle": blogHandle,
