@@ -924,11 +924,22 @@ const KeywordDeduplicator = () => {
                             {kw.volume.toLocaleString()}
                           </td>
                           <td className="text-right py-1.5 px-3">
-                            {kw.merged && (
-                              <Badge variant="secondary" className="text-xs">
-                                +{kw.variantCount} merged
-                              </Badge>
-                            )}
+                            <div className="flex items-center justify-end gap-1.5">
+                              {kw.merged && (
+                                <Badge variant="secondary" className="text-xs">
+                                  +{kw.variantCount} merged
+                                </Badge>
+                              )}
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                                onClick={(e) => { e.stopPropagation(); removeKeyword(kw.keyword); }}
+                                title="Remove this keyword"
+                              >
+                                <X className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
                           </td>
                         </tr>
                       </CollapsibleTrigger>
@@ -943,7 +954,17 @@ const KeywordDeduplicator = () => {
                                 <td className="text-right py-1 px-3 font-mono text-xs text-muted-foreground">
                                   {v.volume.toLocaleString()}
                                 </td>
-                                <td className="py-1 px-3"></td>
+                                <td className="py-1 px-3 text-right">
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-5 w-5 text-muted-foreground hover:text-destructive"
+                                    onClick={(e) => { e.stopPropagation(); removeVariant(kw.keyword, v.keyword); }}
+                                    title="Remove this variant"
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </Button>
+                                </td>
                               </tr>
                             ))}
                           </>
