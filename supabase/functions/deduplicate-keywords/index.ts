@@ -31,9 +31,45 @@ function tokenizeKeyword(kw: string): string[] {
     .filter(Boolean);
 }
 
+// Lightweight English stemmer to collapse singular/plural and common verb forms.
+// Examples: innings→inning, games→game, teams→team, played→play, running→run.
+function stem(w: string): string {
+  if (w.length <= 3) return w;
+  // irregulars / common short forms
+  const irregular: Record<string, string> = {
+    "does": "do", "did": "do", "doing": "do",
+    "is": "be", "are": "be", "was": "be", "were": "be", "been": "be", "being": "be",
+    "has": "have", "had": "have", "having": "have",
+    "men": "man", "women": "woman", "children": "child", "people": "person",
+    "teeth": "tooth", "feet": "foot",
+  };
+  if (irregular[w]) return irregular[w];
+  // -ies → -y (e.g., countries → country)
+  if (w.endsWith("ies") && w.length > 4) return w.slice(0, -3) + "y";
+  // -ing (running → run, playing → play)
+  if (w.endsWith("ing") && w.length > 5) {
+    const base = w.slice(0, -3);
+    // doubled consonant (running → runn → run)
+    if (base.length > 2 && base[base.length - 1] === base[base.length - 2]) return base.slice(0, -1);
+    return base;
+  }
+  // -ed (played → play, watched → watch)
+  if (w.endsWith("ed") && w.length > 4) {
+    const base = w.slice(0, -2);
+    if (base.length > 2 && base[base.length - 1] === base[base.length - 2]) return base.slice(0, -1);
+    return base;
+  }
+  // -es (boxes → box, watches → watch) — only when stripping 'es' leaves a valid stem
+  if (w.endsWith("es") && w.length > 4 && /(s|x|z|ch|sh)es$/.test(w)) return w.slice(0, -2);
+  // -s plural (innings → inning, games → game)
+  if (w.endsWith("s") && !w.endsWith("ss") && !w.endsWith("us") && w.length > 3) return w.slice(0, -1);
+  return w;
+}
+
 function normalizeKeyword(kw: string): string {
   return tokenizeKeyword(kw)
     .filter(w => !STOPWORDS.has(w))
+    .map(stem)
     .sort()
     .join(" ");
 }
@@ -42,6 +78,7 @@ function normalizeCoreKeyword(kw: string): string {
   return tokenizeKeyword(kw)
     .filter(w => !STOPWORDS.has(w))
     .filter(w => !MODIFIER_TOKENS.has(w))
+    .map(stem)
     .join(" ");
 }
 
