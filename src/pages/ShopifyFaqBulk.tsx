@@ -135,8 +135,8 @@ export default function ShopifyFaqBulk() {
   useEffect(() => {
     (async () => {
       try {
-        const { data } = await supabase.from("tone_profiles" as any).select("id, name").order("name");
-        if (Array.isArray(data)) setToneProfiles(data as any);
+        const { data } = await supabase.from("tone_profiles").select("id, name").order("name");
+        if (Array.isArray(data)) setToneProfiles(data as Array<{ id: string; name: string }>);
       } catch {}
     })();
   }, []);
