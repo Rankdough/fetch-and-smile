@@ -319,6 +319,16 @@ export default function ShopifyFaqBulk() {
               />
               <Label htmlFor="include-faqs" className="cursor-pointer">Include FAQ section in body HTML</Label>
             </div>
+            <div className="flex items-center gap-2 pt-6">
+              <input
+                id="include-nav"
+                type="checkbox"
+                checked={includeNav}
+                onChange={(e) => setIncludeNav(e.target.checked)}
+                className="h-4 w-4"
+              />
+              <Label htmlFor="include-nav" className="cursor-pointer">Include "In This Article" section</Label>
+            </div>
           </CardContent>
         </Card>
         <Card>
