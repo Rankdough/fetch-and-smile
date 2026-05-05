@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo, useRef } from "react"; // v2 - 3-step pipeline
+import { useState, useCallback, useEffect, useRef } from "react";
 
 import { markdownToStyledHtml } from "@/utils/markdownToStyledHtml";
 import { Button } from "@/components/ui/button";
@@ -10,7 +10,7 @@ import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, Download, CheckCircle2, XCircle, ArrowLeft, Play, Eye, Trash2, Copy, Check, Palette, Settings2, ChevronDown, ChevronUp, Pencil, Save } from "lucide-react";
+import { Loader2, Download, CheckCircle2, XCircle, ArrowLeft, Play, Eye, Trash2, Copy, Check, Settings2, ChevronDown, ChevronUp, Pencil, Save } from "lucide-react";
 import InternalLinkFileManager, { type LinkEntry } from "@/components/InternalLinkFileManager";
 import { NavLink } from "@/components/NavLink";
 import { ColorPaletteSelector, COLOR_PALETTES, type ColorPalette } from "@/components/ColorPaletteSelector";
@@ -116,7 +116,7 @@ export default function ContentMigration() {
   const [editedResult, setEditedResult] = useState<MigrationResult | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedColorPalette, setSelectedColorPalette] = useState<ColorPalette | null>(() => {
+  const [selectedColorsetSelectedColorPalette] = useState<ColorPalette | null>(() => {
     const saved = localStorage.getItem("migration-color-palette");
     if (saved) {
       try {
@@ -210,12 +210,10 @@ export default function ContentMigration() {
       });
     }
 
-    const maxContentCellChars = Math.max(
-      (result.content || "").length,
-    );
+    const maxContentCellChars = (result.content || "").length;
     const cellLimitPassed = maxContentCellChars <= EXCEL_CELL_LIMIT;
     checks.push({
-      label: "Excel Cell Limit",
+      label: "CSV Cell Limit",
       passed: cellLimitPassed,
       detail: `Max content cell: ${maxContentCellChars}/${EXCEL_CELL_LIMIT} chars`,
     });
@@ -383,12 +381,10 @@ export default function ContentMigration() {
     const hasSeoDesc = !!result.seoDescription?.trim();
     const hasContent = htmlContent.length > 100;
 
-    const maxContentCellChars = Math.max(
-      htmlContent.length,
-    );
+    const maxContentCellChars = htmlContent.length;
     const cellLimitPassed = maxContentCellChars <= EXCEL_CELL_LIMIT;
     checks.push({
-      label: "Excel Cell Limit",
+      label: "CSV Cell Limit",
       passed: cellLimitPassed,
       detail: `Max content cell: ${maxContentCellChars}/${EXCEL_CELL_LIMIT} chars`,
     });
@@ -475,7 +471,7 @@ export default function ContentMigration() {
 
       return { ...entry, status: "error", error: msg };
     }
-  }, [selectedColorPalette, skipNavigation, skipQuickTips, skipFaqs, skipSources, targetWordCount, selectedToneProfileId, runQualityChecks, ctaUrl, ctaInstruction, sport]);
+  }, [selectedColorskipNavigation, skipQuickTips, skipFaqs, skipSources, targetWordCount, selectedToneProfileId, runQualityChecks, ctaUrl, ctaInstruction, sport]);
 
   const startProcessing = async () => {
     setIsProcessing(true);
@@ -803,6 +799,7 @@ export default function ContentMigration() {
         <Card>
           <CardHeader>
             <CardTitle>Questions to Process</CardTitle>
+            <p className="text-sm text-muted-foreground">One question per line. These generate the same Shopify FAQ CSV columns as the bulk generator.</p>
           </CardHeader>
           <CardContent className="space-y-4">
             <Textarea
