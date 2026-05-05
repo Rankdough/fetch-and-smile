@@ -541,7 +541,7 @@ export default function ContentMigration() {
     };
   };
 
-  const downloadXLSX = () => {
+  const downloadShopifyCsv = () => {
     const doneEntries = entries.filter(e => e.status === "done" && e.result);
     if (doneEntries.length === 0) return;
 
@@ -758,7 +758,7 @@ export default function ContentMigration() {
                   </Button>
                   {doneCount > 0 && (
                     <>
-                      <Button variant="outline" onClick={downloadXLSX} className="gap-2">
+                      <Button variant="outline" onClick={downloadShopifyCsv} className="gap-2">
                         <Download className="h-4 w-4" /> Download Shopify CSV ({doneCount})
                       </Button>
 
