@@ -125,10 +125,19 @@ export default function ContentMigration() {
     }
     return COLOR_PALETTES.find(p => p.id === "big-league") || null;
   });
-  const [skipNavigation, setSkipNavigation] = useState(() => localStorage.getItem("migration-skip-nav") === "true");
+  const [skipNavigation, setSkipNavigation] = useState(() => {
+    const saved = localStorage.getItem("migration-skip-nav");
+    return saved === null ? true : saved === "true";
+  });
   const [skipQuickTips, setSkipQuickTips] = useState(() => localStorage.getItem("migration-skip-tips") === "true");
-  const [skipFaqs, setSkipFaqs] = useState(() => localStorage.getItem("migration-skip-faqs") === "true");
-  const [skipSources, setSkipSources] = useState(() => localStorage.getItem("migration-skip-sources") === "true");
+  const [skipFaqs, setSkipFaqs] = useState(() => {
+    const saved = localStorage.getItem("migration-skip-faqs");
+    return saved === null ? true : saved === "true";
+  });
+  const [skipSources, setSkipSources] = useState(() => {
+    const saved = localStorage.getItem("migration-skip-sources");
+    return saved === null ? true : saved === "true";
+  });
   const [ctaUrl, setCtaUrl] = useState(() => localStorage.getItem("migration-cta-url") || "");
   const [ctaInstruction, setCtaInstruction] = useState(() => localStorage.getItem("migration-cta-instruction") || "");
   const [colorOpen, setColorOpen] = useState(false);
