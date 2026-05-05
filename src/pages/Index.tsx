@@ -2284,6 +2284,15 @@ const Index = () => {
             <Button
               variant="ghost"
               size="sm"
+              onClick={() => navigate("/shopify-faq-bulk")}
+              className="gap-2"
+            >
+              <FileUp className="h-4 w-4" />
+              Shopify FAQ Bulk
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => navigate("/seo-brain/library")}
               className="gap-2"
             >
