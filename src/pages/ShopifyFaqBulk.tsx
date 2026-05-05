@@ -212,13 +212,29 @@ export default function ShopifyFaqBulk() {
     toast({ title: `Created ${out.length} rows`, description: "Click 300w / 500w / 700w on each row to generate body content." });
   };
 
-  const downloadXlsx = () => {
+  const downloadCsv = () => {
     if (rows.length === 0) return;
-    const aoa = [COLUMNS, ...rows.map((r) => COLUMNS.map((c) => r[c] ?? ""))];
-    const ws = XLSX.utils.aoa_to_sheet(aoa);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Blog Posts");
-    XLSX.writeFile(wb, `shopify-faq-${Date.now()}.xlsx`);
+    const escapeCsv = (v: string) => {
+      const s = (v ?? "").toString();
+      // Always quote and escape internal quotes by doubling them. Preserve newlines inside quoted fields.
+      return `"${s.replace(/"/g, '""')}"`;
+    };
+    const lines: string[] = [];
+    lines.push(COLUMNS.map(escapeCsv).join(","));
+    for (const r of rows) {
+      lines.push(COLUMNS.map((c) => escapeCsv(r[c] ?? "")).join(","));
+    }
+    // CRLF line endings + UTF-8 BOM for maximum spreadsheet compatibility
+    const csv = "\uFEFF" + lines.join("\r\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `shopify-faq-${Date.now()}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   return (
