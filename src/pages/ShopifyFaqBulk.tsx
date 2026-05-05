@@ -233,6 +233,17 @@ export default function ShopifyFaqBulk() {
           <CardContent className="space-y-3">
             <div><Label>Author</Label><Input value={author} onChange={(e) => setAuthor(e.target.value)} /></div>
             <div><Label>Sport (optional)</Label><Input value={sport} onChange={(e) => setSport(e.target.value)} placeholder="baseball" /></div>
+            <div>
+              <Label>Word count</Label>
+              <Select value={String(wordCount)} onValueChange={(v) => setWordCount(Number(v) as 300 | 500 | 700)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="300">300 words (compact, no table)</SelectItem>
+                  <SelectItem value="500">500 words (1 table, 2 sections)</SelectItem>
+                  <SelectItem value="700">700 words (1 table, 3 sections)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <div><Label>Handle prefix</Label><Input value={handlePrefix} onChange={(e) => setHandlePrefix(e.target.value)} /></div>
             <div><Label>Blog: Handle</Label><Input value={blogHandle} onChange={(e) => setBlogHandle(e.target.value)} /></div>
             <div><Label>Blog: Title</Label><Input value={blogTitle} onChange={(e) => setBlogTitle(e.target.value)} /></div>
