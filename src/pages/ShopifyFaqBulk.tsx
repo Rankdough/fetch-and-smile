@@ -227,42 +227,16 @@ export default function ShopifyFaqBulk() {
           <h1 className="text-lg font-semibold">Shopify FAQ Bulk Generator</h1>
         </div>
       </header>
-      <main className="container mx-auto px-6 py-6 grid gap-6 md:grid-cols-3">
-        <Card className="md:col-span-2">
-          <CardHeader>
-            <CardTitle>Questions</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <Label>One question per line</Label>
-              <Textarea
-                rows={14}
-                value={questions}
-                onChange={(e) => setQuestions(e.target.value)}
-                placeholder={"How do I clean batting gloves?\nWhat is the best wood for a baseball bat?"}
-              />
-            </div>
-            <div className="flex gap-2">
-              <Button onClick={generate} disabled={running} className="gap-2">
-                {running ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-                Generate
-              </Button>
-              <Button variant="outline" onClick={downloadXlsx} disabled={rows.length === 0} className="gap-2">
-                <Download className="h-4 w-4" /> Download XLSX ({rows.length})
-              </Button>
-            </div>
-            {running && <Progress value={progress} />}
-          </CardContent>
-        </Card>
+      <main className="container mx-auto px-6 py-6 space-y-6">
         <Card>
           <CardHeader>
-            <CardTitle>Defaults</CardTitle>
+            <CardTitle>Settings</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="grid gap-3 md:grid-cols-3">
             <div><Label>Author</Label><Input value={author} onChange={(e) => setAuthor(e.target.value)} /></div>
             <div><Label>Sport (optional)</Label><Input value={sport} onChange={(e) => setSport(e.target.value)} placeholder="baseball" /></div>
             <div>
-              <Label>Word count</Label>
+              <Label>Default word count</Label>
               <Select value={String(wordCount)} onValueChange={(v) => setWordCount(Number(v) as 300 | 500 | 700)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -276,6 +250,43 @@ export default function ShopifyFaqBulk() {
             <div><Label>Blog: Handle</Label><Input value={blogHandle} onChange={(e) => setBlogHandle(e.target.value)} /></div>
             <div><Label>Blog: Title</Label><Input value={blogTitle} onChange={(e) => setBlogTitle(e.target.value)} /></div>
             <div><Label>Template Suffix</Label><Input value={templateSuffix} onChange={(e) => setTemplateSuffix(e.target.value)} /></div>
+            <div className="flex items-center gap-2 pt-6">
+              <input
+                id="include-faqs"
+                type="checkbox"
+                checked={includeFaqs}
+                onChange={(e) => setIncludeFaqs(e.target.checked)}
+                className="h-4 w-4"
+              />
+              <Label htmlFor="include-faqs" className="cursor-pointer">Include FAQ section in body HTML</Label>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Questions</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <Label>One question per line</Label>
+              <Textarea
+                rows={10}
+                value={questions}
+                onChange={(e) => setQuestions(e.target.value)}
+                placeholder={"How do I clean batting gloves?\nWhat is the best wood for a baseball bat?"}
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button onClick={generate} className="gap-2">
+                <Sparkles className="h-4 w-4" /> Create rows
+              </Button>
+              <Button variant="outline" onClick={downloadXlsx} disabled={rows.length === 0} className="gap-2">
+                <Download className="h-4 w-4" /> Download XLSX ({rows.length})
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Body HTML is generated per row. Click 300w / 500w / 700w on each row to generate the article content using the content generator pipeline.
+            </p>
           </CardContent>
         </Card>
       </main>
