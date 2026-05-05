@@ -354,6 +354,7 @@ export default function ShopifyFaqBulk() {
           <CardContent className="grid gap-3 md:grid-cols-3">
             <div><Label>Author</Label><Input value={author} onChange={(e) => setAuthor(e.target.value)} /></div>
             <div><Label>Sport (optional)</Label><Input value={sport} onChange={(e) => setSport(e.target.value)} placeholder="baseball" /></div>
+            <div><Label>Global tags (optional)</Label><Input value={globalTags} onChange={(e) => setGlobalTags(e.target.value)} placeholder="faq, evergreen" /></div>
             <div>
               <Label>Default word count</Label>
               <Select value={String(wordCount)} onValueChange={(v) => setWordCount(Number(v) as 300 | 500 | 700)}>
