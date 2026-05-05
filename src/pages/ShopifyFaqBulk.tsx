@@ -251,7 +251,7 @@ export default function ShopifyFaqBulk() {
         Author: author,
         "Body HTML": body,
         "Summary HTML": summary ? `<p>${escapeHtml(summary)}</p>` : "",
-        Tags: sport,
+        Tags: [sport, globalTags].map((t) => (t || "").trim()).filter(Boolean).join(", "),
         Published: "TRUE",
         "Template Suffix": templateSuffix,
         "Blog: Handle": blogHandle,
