@@ -121,10 +121,10 @@ export default function ShopifyFaqBulk() {
   useEffect(() => {
     try {
       localStorage.setItem(LS_KEY, JSON.stringify({
-        questions, author, sport, blogHandle, blogTitle, templateSuffix, handlePrefix, wordCount, includeFaqs, rows,
+        questions, author, sport, blogHandle, blogTitle, templateSuffix, handlePrefix, wordCount, includeFaqs, includeNav, rows,
       }));
     } catch {}
-  }, [questions, author, sport, blogHandle, blogTitle, templateSuffix, handlePrefix, wordCount, includeFaqs, rows]);
+  }, [questions, author, sport, blogHandle, blogTitle, templateSuffix, handlePrefix, wordCount, includeFaqs, includeNav, rows]);
 
   const formatTitle = (q: string): string => {
     let s = q.trim().replace(/\s+/g, " ");
