@@ -110,6 +110,7 @@ export default function ShopifyFaqBulk() {
   const [questions, setQuestions] = useState<string>(init.questions ?? "");
   const [author, setAuthor] = useState<string>(init.author ?? "Pro Player Team Inc.");
   const [sport, setSport] = useState<string>(init.sport ?? "");
+  const [globalTags, setGlobalTags] = useState<string>(init.globalTags ?? "");
   const [blogHandle, setBlogHandle] = useState<string>(init.blogHandle ?? "faq");
   const [blogTitle, setBlogTitle] = useState<string>(init.blogTitle ?? "FAQ");
   const [templateSuffix, setTemplateSuffix] = useState<string>(init.templateSuffix ?? "article-faq");
@@ -147,11 +148,11 @@ export default function ShopifyFaqBulk() {
   useEffect(() => {
     try {
       localStorage.setItem(LS_KEY, JSON.stringify({
-        questions, author, sport, blogHandle, blogTitle, templateSuffix, handlePrefix, wordCount,
+        questions, author, sport, globalTags, blogHandle, blogTitle, templateSuffix, handlePrefix, wordCount,
         includeFaqs, includeNav, skipQuickTips, skipSources, stripTitle, paletteId, toneProfileId, rows,
       }));
     } catch {}
-  }, [questions, author, sport, blogHandle, blogTitle, templateSuffix, handlePrefix, wordCount,
+  }, [questions, author, sport, globalTags, blogHandle, blogTitle, templateSuffix, handlePrefix, wordCount,
       includeFaqs, includeNav, skipQuickTips, skipSources, stripTitle, paletteId, toneProfileId, rows]);
 
   const formatTitle = (q: string): string => {
@@ -171,7 +172,7 @@ export default function ShopifyFaqBulk() {
       Author: author,
       "Body HTML": "",
       "Summary HTML": "",
-      Tags: sport,
+      Tags: [sport, globalTags].map((t) => (t || "").trim()).filter(Boolean).join(", "),
       Published: "TRUE",
       "Template Suffix": templateSuffix,
       "Blog: Handle": blogHandle,
@@ -250,7 +251,7 @@ export default function ShopifyFaqBulk() {
         Author: author,
         "Body HTML": body,
         "Summary HTML": summary ? `<p>${escapeHtml(summary)}</p>` : "",
-        Tags: sport,
+        Tags: [sport, globalTags].map((t) => (t || "").trim()).filter(Boolean).join(", "),
         Published: "TRUE",
         "Template Suffix": templateSuffix,
         "Blog: Handle": blogHandle,
@@ -353,6 +354,7 @@ export default function ShopifyFaqBulk() {
           <CardContent className="grid gap-3 md:grid-cols-3">
             <div><Label>Author</Label><Input value={author} onChange={(e) => setAuthor(e.target.value)} /></div>
             <div><Label>Sport (optional)</Label><Input value={sport} onChange={(e) => setSport(e.target.value)} placeholder="baseball" /></div>
+            <div><Label>Global tags (optional)</Label><Input value={globalTags} onChange={(e) => setGlobalTags(e.target.value)} placeholder="faq, evergreen" /></div>
             <div>
               <Label>Default word count</Label>
               <Select value={String(wordCount)} onValueChange={(v) => setWordCount(Number(v) as 300 | 500 | 700)}>
