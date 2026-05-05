@@ -8,7 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft, Download, Loader2, Sparkles } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ArrowLeft, Download, Loader2, Sparkles, RefreshCw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { markdownToStyledHtml } from "@/utils/markdownToStyledHtml";
@@ -97,7 +98,54 @@ export default function ShopifyFaqBulk() {
   const [handlePrefix, setHandlePrefix] = useState("faq");
   const [progress, setProgress] = useState(0);
   const [running, setRunning] = useState(false);
+  const [wordCount, setWordCount] = useState<300 | 500 | 700>(500);
   const [rows, setRows] = useState<Record<string, string>[]>([]);
+  const [regenIdx, setRegenIdx] = useState<number | null>(null);
+
+  const buildRow = (q: string, a: ArticleData, i: number): Record<string, string> => {
+    const body = buildBodyHtml(a);
+    const handle = `${handlePrefix ? handlePrefix + "-" : ""}${slugify(q) || `q-${i + 1}`}`;
+    return {
+      Handle: handle,
+      Title: q,
+      Author: author,
+      "Body HTML": body,
+      "Summary HTML": `<p>${escapeHtml(a.summary)}</p>`,
+      Tags: sport,
+      Published: "TRUE",
+      "Template Suffix": templateSuffix,
+      "Blog: Handle": blogHandle,
+      "Blog: Title": blogTitle,
+      "Metafield: title_tag [string]": q,
+      "Metafield: description_tag [string]": a.descriptionTag,
+      "Metafield: custom.sport [single_line_text_field]": sport,
+      "Metafield: custom.question [single_line_text_field]": q,
+      "Metafield: custom.answer [rich_text_field]": "",
+      "Metafield: custom.custom_answer_summary [rich_text_field]": `<p>${escapeHtml(a.summary)}</p>`,
+      "Metafield: custom.subheading [single_line_text_field]": a.summary,
+    };
+  };
+
+  const regenerateRow = async (idx: number, wc: 300 | 500 | 700) => {
+    const row = rows[idx];
+    if (!row) return;
+    const q = row.Title;
+    setRegenIdx(idx);
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-faq-article", {
+        body: { question: q, sport, wordCount: wc },
+      });
+      if (error) throw error;
+      const a = data.article as ArticleData;
+      const newRow = buildRow(q, a, idx);
+      setRows((prev) => prev.map((r, i) => (i === idx ? newRow : r)));
+      toast({ title: `Regenerated (${wc} words)` });
+    } catch (e: any) {
+      toast({ title: "Regenerate failed", description: e?.message || "", variant: "destructive" });
+    } finally {
+      setRegenIdx(null);
+    }
+  };
 
   const generate = async () => {
     const list = questions
@@ -116,31 +164,11 @@ export default function ShopifyFaqBulk() {
       const q = list[i];
       try {
         const { data, error } = await supabase.functions.invoke("generate-faq-article", {
-          body: { question: q, sport },
+          body: { question: q, sport, wordCount },
         });
         if (error) throw error;
         const a = data.article as ArticleData;
-        const body = buildBodyHtml(a);
-        const handle = `${handlePrefix ? handlePrefix + "-" : ""}${slugify(q) || `q-${i + 1}`}`;
-        out.push({
-          Handle: handle,
-          Title: q,
-          Author: author,
-          "Body HTML": body,
-          "Summary HTML": `<p>${escapeHtml(a.summary)}</p>`,
-          Tags: sport,
-          Published: "TRUE",
-          "Template Suffix": templateSuffix,
-          "Blog: Handle": blogHandle,
-          "Blog: Title": blogTitle,
-          "Metafield: title_tag [string]": q,
-          "Metafield: description_tag [string]": a.descriptionTag,
-          "Metafield: custom.sport [single_line_text_field]": sport,
-          "Metafield: custom.question [single_line_text_field]": q,
-          "Metafield: custom.answer [rich_text_field]": "",
-          "Metafield: custom.custom_answer_summary [rich_text_field]": `<p>${escapeHtml(a.summary)}</p>`,
-          "Metafield: custom.subheading [single_line_text_field]": a.summary,
-        });
+        out.push(buildRow(q, a, i));
       } catch (e: any) {
         console.error("Failed:", q, e);
         toast({ title: `Failed: ${q.slice(0, 40)}`, description: e?.message || "", variant: "destructive" });
@@ -205,6 +233,17 @@ export default function ShopifyFaqBulk() {
           <CardContent className="space-y-3">
             <div><Label>Author</Label><Input value={author} onChange={(e) => setAuthor(e.target.value)} /></div>
             <div><Label>Sport (optional)</Label><Input value={sport} onChange={(e) => setSport(e.target.value)} placeholder="baseball" /></div>
+            <div>
+              <Label>Word count</Label>
+              <Select value={String(wordCount)} onValueChange={(v) => setWordCount(Number(v) as 300 | 500 | 700)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="300">300 words (compact, no table)</SelectItem>
+                  <SelectItem value="500">500 words (1 table, 2 sections)</SelectItem>
+                  <SelectItem value="700">700 words (1 table, 3 sections)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <div><Label>Handle prefix</Label><Input value={handlePrefix} onChange={(e) => setHandlePrefix(e.target.value)} /></div>
             <div><Label>Blog: Handle</Label><Input value={blogHandle} onChange={(e) => setBlogHandle(e.target.value)} /></div>
             <div><Label>Blog: Title</Label><Input value={blogTitle} onChange={(e) => setBlogTitle(e.target.value)} /></div>
@@ -222,6 +261,7 @@ export default function ShopifyFaqBulk() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="text-xs sticky left-0 bg-background z-10">Regenerate</TableHead>
                     {COLUMNS.map((c) => (
                       <TableHead key={c} className="whitespace-nowrap text-xs">{c}</TableHead>
                     ))}
@@ -230,6 +270,23 @@ export default function ShopifyFaqBulk() {
                 <TableBody>
                   {rows.map((r, i) => (
                     <TableRow key={i}>
+                      <TableCell className="align-top sticky left-0 bg-background z-10">
+                        <div className="flex flex-col gap-1">
+                          {[300, 500, 700].map((wc) => (
+                            <Button
+                              key={wc}
+                              size="sm"
+                              variant="outline"
+                              className="h-6 px-2 text-xs gap-1"
+                              disabled={regenIdx === i}
+                              onClick={() => regenerateRow(i, wc as 300 | 500 | 700)}
+                            >
+                              {regenIdx === i ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                              {wc}w
+                            </Button>
+                          ))}
+                        </div>
+                      </TableCell>
                       {COLUMNS.map((c) => {
                         const v = r[c] ?? "";
                         const isHtml = c === "Body HTML" || c.includes("rich_text_field");
