@@ -389,6 +389,16 @@ export default function ShopifyFaqBulk() {
               />
               <Label htmlFor="skip-sources" className="cursor-pointer">Skip References / Sources</Label>
             </div>
+            <div className="flex items-center gap-2 pt-6">
+              <input
+                id="strip-title"
+                type="checkbox"
+                checked={stripTitle}
+                onChange={(e) => setStripTitle(e.target.checked)}
+                className="h-4 w-4"
+              />
+              <Label htmlFor="strip-title" className="cursor-pointer">Remove title (H1) from Body HTML</Label>
+            </div>
             <div>
               <Label>Tone profile (optional)</Label>
               <Select value={toneProfileId ?? "none"} onValueChange={(v) => setToneProfileId(v === "none" ? null : v)}>
