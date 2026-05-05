@@ -14,7 +14,7 @@ import { Loader2, Download, CheckCircle2, XCircle, ArrowLeft, Play, Eye, Trash2,
 import InternalLinkFileManager, { type LinkEntry } from "@/components/InternalLinkFileManager";
 import { NavLink } from "@/components/NavLink";
 import { ColorPaletteSelector, COLOR_PALETTES, type ColorPalette } from "@/components/ColorPaletteSelector";
-import { generateCTAHtml } from "@/components/CTABanner";
+import { generateMigrationArticle } from "@/utils/generateMigrationArticle";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -63,9 +63,51 @@ interface UrlEntry {
   qualityChecks?: QualityCheck[];
 }
 
+const SHOPIFY_FAQ_COLUMNS = [
+  "Handle",
+  "Title",
+  "Author",
+  "Body HTML",
+  "Summary HTML",
+  "Tags",
+  "Published",
+  "Template Suffix",
+  "Blog: Handle",
+  "Blog: Title",
+  "Metafield: title_tag [string]",
+  "Metafield: description_tag [string]",
+  "Metafield: custom.sport [single_line_text_field]",
+  "Metafield: custom.question [single_line_text_field]",
+  "Metafield: custom.custom_answer_summary [rich_text_field]",
+  "Metafield: custom.subheading [single_line_text_field]",
+];
+
+const escapeHtml = (s: string) =>
+  s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
+const slugify = (s: string) =>
+  s.toLowerCase().replace(/[^a-z0-9\s-]/g, "").trim().replace(/\s+/g, "-").slice(0, 60);
+
+const formatQuestion = (q: string): string => {
+  let s = q.trim().replace(/\s+/g, " ");
+  if (!s) return s;
+  s = s.charAt(0).toUpperCase() + s.slice(1);
+  if (!/[.?!]$/.test(s)) s += "?";
+  return s;
+};
+
+const truncate = (s: string, n: number) =>
+  s.length <= n ? s : s.slice(0, n - 1).replace(/\s+\S*$/, "") + "…";
+
 export default function ContentMigration() {
   const { toast } = useToast();
   const [urlInput, setUrlInput] = useState("");
+  const [author, setAuthor] = useState(() => localStorage.getItem("migration-shopify-author") || "Pro Player Team Inc.");
+  const [sport, setSport] = useState(() => localStorage.getItem("migration-shopify-sport") || "");
+  const [blogHandle, setBlogHandle] = useState(() => localStorage.getItem("migration-shopify-blog-handle") || "faq");
+  const [blogTitle, setBlogTitle] = useState(() => localStorage.getItem("migration-shopify-blog-title") || "FAQ");
+  const [templateSuffix, setTemplateSuffix] = useState(() => localStorage.getItem("migration-shopify-template-suffix") || "article-faq");
+  const [handlePrefix, setHandlePrefix] = useState(() => localStorage.getItem("migration-shopify-handle-prefix") || "faq");
   const [entries, setEntries] = useState<UrlEntry[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [previewResult, setPreviewResult] = useState<MigrationResult | null>(null);
@@ -95,7 +137,7 @@ export default function ContentMigration() {
   const [outputOpen, setOutputOpen] = useState(false);
   const [targetWordCount, setTargetWordCount] = useState<number>(() => {
     const saved = localStorage.getItem("migration-word-count");
-    return saved ? parseInt(saved, 10) : 2000;
+    return saved ? parseInt(saved, 10) : 500;
   });
   const [selectedToneProfileId, setSelectedToneProfileId] = useState<string | null>(() => {
     return localStorage.getItem("migration-tone-profile") || null;
@@ -241,15 +283,14 @@ export default function ContentMigration() {
   }, []);
 
   const parseUrls = async () => {
-    const lines = urlInput.trim().split("\n").filter(l => l.trim());
+    const lines = urlInput.trim().split("\n").map(l => l.trim()).filter(Boolean);
     const newEntries: UrlEntry[] = [];
 
     for (const line of lines) {
-      const url = line.trim();
-      // Insert into DB
+      const question = formatQuestion(line);
       const { data, error } = await supabase
         .from("migration_jobs")
-        .insert({ url, type: "", status: "pending" })
+        .insert({ url: question, type: sport, status: "pending" })
         .select()
         .single();
 
@@ -257,7 +298,7 @@ export default function ContentMigration() {
         newEntries.push({
           id: data.id,
           url: data.url,
-          type: data.type || "",
+          type: data.type || sport,
           status: "pending",
         });
       }
@@ -382,270 +423,60 @@ export default function ContentMigration() {
 
   const processUrl = useCallback(async (entry: UrlEntry): Promise<UrlEntry> => {
     try {
-      // === STEP 1: Scrape URL ===
-      console.log("[Migration] Step 1: Scraping", entry.url);
-      const { data: scrapeData, error: scrapeError } = await supabase.functions.invoke("scrape-format", {
-        body: { url: entry.url },
-      });
-      if (scrapeError) throw new Error(`Scrape failed: ${scrapeError.message}`);
+      const question = formatQuestion(entry.url);
+      const extra = sport
+        ? `This is a ${sport} FAQ article. Answer the question directly and concisely. Keep the article close to ${targetWordCount} words.`
+        : `This is an FAQ-style article. Answer the question directly and concisely. Keep the article close to ${targetWordCount} words.`;
 
-      const sourceMarkdown = scrapeData.markdown || "";
-      const sourceHtml = scrapeData.html || "";
-      const pageTitle = scrapeData.title || "";
-
-      // Extract the first real content image URL from scraped HTML
-      // Filter out icons, avatars, plugins, tracking pixels, logos, and other non-content images
-      const imgRegex = /<img[^>]+src=["']([^"']+)["']/gi;
-      const imageUrls: string[] = [];
-      const excludePatterns = [
-        /data:/i, /svg\+xml/i, /\.svg/i,
-        /avatar/i, /icon/i, /logo/i, /favicon/i, /badge/i, /emoji/i,
-        /gravatar/i, /placeholder/i, /spinner/i, /loading/i,
-        /wp-content\/plugins/i, /wp-content\/themes/i, /wp-includes/i,
-        /intercom/i, /hotjar/i, /analytics/i, /tracking/i, /pixel/i,
-        /assets\/vc/i, /js_composer/i,
-        /-min-\d+x\d+/i, // thumbnails like -min-148x42
-        /1x1/i, /spacer/i, /blank\./i, /transparent\./i,
-      ];
-      const contentImagePattern = /\.(jpg|jpeg|png|webp|gif)(\?|$)/i;
-      let imgMatch;
-      while ((imgMatch = imgRegex.exec(sourceHtml)) !== null) {
-        const src = imgMatch[1];
-        if (!src) continue;
-        // Must be an actual image file
-        if (!contentImagePattern.test(src)) continue;
-        // Must not match any exclude pattern
-        if (excludePatterns.some(p => p.test(src))) continue;
-        // Skip tiny images (width/height attributes < 100)
-        const fullTag = imgMatch[0];
-        const widthMatch = fullTag.match(/width=["']?(\d+)/i);
-        const heightMatch = fullTag.match(/height=["']?(\d+)/i);
-        if (widthMatch && parseInt(widthMatch[1]) < 100) continue;
-        if (heightMatch && parseInt(heightMatch[1]) < 100) continue;
-        if (!imageUrls.includes(src)) {
-          imageUrls.push(src);
-        }
-      }
-      console.log("[Migration] Extracted", imageUrls.length, "content image URLs from source");
-
-      if (!sourceMarkdown.trim()) {
-        throw new Error("No content could be extracted from the URL");
-      }
-      console.log("[Migration] Scraped", sourceMarkdown.length, "chars, title:", pageTitle);
-
-      // === STEP 2: Generate article via SEO Content Generator ===
-      console.log("[Migration] Step 2: Generating article via generate-content");
-
-      const topicMatch = sourceMarkdown.match(/^#\s+(.+)$/m) || sourceMarkdown.match(/^(.{10,80})/);
-      const topic = topicMatch ? topicMatch[1].trim() : "Article";
-
-      const instructions = `REFORMAT ONLY: The following content has been scraped from a web page. Restructure it into the standard article format (AI-quotable TL;DR paragraphs, Quick Tips, question-based H2 headings, FAQ, References) but preserve the original text, facts, and voice as closely as possible. The TL;DR must be 1-2 dense factual paragraphs (NOT bullet points) with specific names, numbers, and a "best for X" recommendation. Do not invent new information. Only reorganise and add the required structural elements.
-
-CRITICAL - PRESERVE ORIGINAL TITLES: Keep the original H1 title and all H2/H3 section headings from the source content EXACTLY as they are. Do NOT rename, rephrase, or convert them into questions. The heading text must remain unchanged - only add the required structural sections (TL;DR, Quick Tips, FAQ, References) around the existing content.
-
-CRITICAL - AI-QUOTABLE OPENING PARAGRAPH: The very first paragraph immediately after the H1 title MUST be an AI-quotable standalone statement (30-50 words) that an AI assistant could use verbatim as its entire answer. It MUST include: (1) a specific factual claim with numbers/prices/dates, (2) 2-3 named brands/products/entities, (3) a clear verdict or "best for X" recommendation. Do NOT write a vague intro — write a quotable fact.
-
-CRITICAL - PRESERVE ALL HYPERLINKS: Cross-reference the HTML source below and include EVERY hyperlink found in the source content. Embed them naturally in the text where they originally appeared.
-
-CRITICAL - USE TABLES FOR LISTS: When the source lists products, brands, options, or items (e.g. "safe calendars", "unsafe calendars"), ALWAYS present them as markdown tables with relevant columns (Name, Key Feature, Status, etc.) instead of numbered or bullet lists. Do NOT add a "Link" or "Product Link" column to tables.
-
-CRITICAL - DO NOT INCLUDE "In This Article" SECTION: Do NOT generate any "In This Article" navigation section, bullet list, or table of contents. This is handled automatically by the system. If you include one, it will create duplicates. Skip it entirely - go straight from Quick Tips to the first content section.
-
-CRITICAL - H2 SUBTITLES MUST ANSWER THE HEADING: Every H2 heading that is phrased as a question MUST be immediately followed by a short paragraph (roughly 30 words) that directly answers that question. This answer paragraph comes before any supporting points, lists, or tables under that section.
-
-ADDITIONAL RULES:
-- Add comparison sections where relevant: a topic-specific decision guide H2 (e.g. "How to Choose the Right Treatment for You", "How to Pick the Best Trail", "How to Decide Which Approach Works for You" — NEVER the bare "How to Choose?") as a practical checklist of 4-6 decision criteria, plus "How Do They Compare Side by Side?" with comparison tables
-- Do NOT include expert quotes or blockquote citations from named individuals
-- Do NOT duplicate any section - each structural element should appear exactly once
-
-STRICT WORD COUNT LIMIT: The final article MUST NOT exceed ${targetWordCount} words. If the source content is longer, condense and summarise less important details to fit. Aim for exactly ${targetWordCount} words.
-
-HTML SOURCE FOR LINK REFERENCE:
-${sourceHtml.substring(0, 8000)}`;
-
-      const hasCtaUrl = ctaUrl.trim().length > 0;
-      const ctaInstructions = hasCtaUrl && ctaInstruction.trim() ? `\n\nCTA INSTRUCTIONS: ${ctaInstruction.trim()}` : "";
-
-      const { data: contentData, error: contentError } = await supabase.functions.invoke("generate-content", {
-        body: {
-          topic,
-          length: "long",
-          wordCount: targetWordCount,
-          instructions: instructions + ctaInstructions,
-          contextFiles: [{ name: "source-content", content: sourceMarkdown.substring(0, 12000) }],
-          toneProfileId: selectedToneProfileId || undefined,
-          skipFaqs,
+      const result = await generateMigrationArticle({
+        topic: question,
+        targetWordCount,
+        palette: selectedColorPalette,
+        convertOpts: {
+          skipNavigation,
           skipQuickTips,
+          skipFaqs,
           skipSources,
-          migrationMode: true,
-          generateCTAs: hasCtaUrl,
-          ctaUrl: hasCtaUrl ? ctaUrl.trim() : undefined,
         },
+        toneProfileId: selectedToneProfileId,
+        cta: ctaUrl.trim() ? { url: ctaUrl.trim(), instruction: ctaInstruction } : null,
+        extraInstructions: extra,
       });
-      if (contentError) throw new Error(`Content generation failed: ${contentError.message}`);
-
-      let generatedMarkdown = contentData.content || contentData.generatedContent || "";
-      if (!generatedMarkdown.trim()) throw new Error("No content returned from generation");
-      console.log("[Migration] Generated", generatedMarkdown.length, "chars markdown");
-
-      console.log("[Migration] Generated", generatedMarkdown.length, "chars markdown");
-
-      // Extract SEO metadata from generated content
-      const h1Match = generatedMarkdown.match(/^#\s+(.+)$/m);
-      const title = h1Match ? h1Match[1].trim() : pageTitle;
-      const firstParagraph = generatedMarkdown.match(/^(?!#)(?!>)(?!\|)(?!-)(.{20,})/m);
-      const subtitle = firstParagraph ? firstParagraph[1].trim() : "";
-      const seoTitle = title.length > 60 ? title.substring(0, 57) + "..." : title;
-      const seoDescription = subtitle.length > 160 ? subtitle.substring(0, 157) + "..." : subtitle;
-
-      // === STEP 2b: Rewrite opening paragraph so it differs from subtitle ===
-      if (subtitle) {
-        console.log("[Migration] Step 2b: Generating distinct opening paragraph");
-        try {
-          const { data: rewriteData, error: rewriteError } = await supabase.functions.invoke("rewrite-intro", {
-            body: { title, subtitle },
-          });
-          
-          if (!rewriteError && rewriteData?.intro && rewriteData.intro.length > 20) {
-            const newIntro = rewriteData.intro.trim();
-            // Replace the first content paragraph in the markdown
-            const lines = generatedMarkdown.split("\n");
-            for (let i = 0; i < lines.length; i++) {
-              if (lines[i].startsWith("#") || lines[i].startsWith(">") || lines[i].startsWith("|") || lines[i].startsWith("-") || lines[i].trim() === "") continue;
-              if (lines[i].trim().length >= 20) {
-                lines[i] = newIntro;
-                generatedMarkdown = lines.join("\n");
-                console.log("[Migration] Replaced duplicated intro with fresh paragraph");
-                break;
-              }
-            }
-          }
-        } catch (rewriteErr) {
-          console.error("[Migration] Intro rewrite failed, keeping original:", rewriteErr);
-        }
-      }
-
-      // === STEP 2c: Auto-insert internal links ===
-      if (internalLinkUrls.length > 0) {
-        console.log("[Migration] Step 2c: Auto-inserting internal links from", internalLinkUrls.length, "candidates");
-        try {
-          const beforeLinkContent = generatedMarkdown;
-          const beforeWords = beforeLinkContent.split(/\s+/).filter(Boolean).length;
-          const beforeH2Count = (beforeLinkContent.match(/^##\s+/gm) || []).length;
-          const beforeHasFinalThoughts = /##\s.*final\s*thoughts|##\s.*conclusion/i.test(beforeLinkContent);
-
-          const { data: linkData, error: linkError } = await supabase.functions.invoke("auto-internal-links", {
-            body: {
-              content: generatedMarkdown,
-              candidates: internalLinkUrls,
-              articleUrl: entry.url,
-            },
-          });
-
-          if (!linkError && linkData?.content) {
-            const linkedCandidate = linkData.content as string;
-            const afterWords = linkedCandidate.split(/\s+/).filter(Boolean).length;
-            const afterH2Count = (linkedCandidate.match(/^##\s+/gm) || []).length;
-            const afterHasFinalThoughts = /##\s.*final\s*thoughts|##\s.*conclusion/i.test(linkedCandidate);
-
-            const tooShort = afterWords < Math.max(Math.floor(beforeWords * 0.85), beforeWords - 80);
-            const lostStructure = afterH2Count + 1 < beforeH2Count || (beforeHasFinalThoughts && !afterHasFinalThoughts);
-
-            if (tooShort || lostStructure) {
-              console.warn(`[Migration] Internal link guardrail triggered. Keeping original markdown. beforeWords=${beforeWords}, afterWords=${afterWords}, beforeH2=${beforeH2Count}, afterH2=${afterH2Count}`);
-            } else {
-              generatedMarkdown = linkedCandidate;
-              console.log(`[Migration] Inserted ${linkData.insertedCount} internal links:`, linkData.insertedUrls);
-            }
-          } else if (linkError) {
-            console.error("[Migration] Internal links failed, continuing without:", linkError);
-          }
-        } catch (linkErr) {
-          console.error("[Migration] Internal links error, continuing:", linkErr);
-        }
-      }
-
-      // === STEP 3: Translate to NL and DE (unless English Only) ===
-      let nl = { title: "", subtitle: "", seoTitle: "", seoDescription: "", content: "" };
-      let de = { title: "", subtitle: "", seoTitle: "", seoDescription: "", content: "" };
-
-      if (!englishOnly) {
-        console.log("[Migration] Step 3: Translating to NL + DE");
-        const { data: translationData, error: translationError } = await supabase.functions.invoke("translate-content", {
-          body: { title, subtitle, seoTitle, seoDescription, content: generatedMarkdown },
-        });
-        if (translationError) {
-          console.error("[Migration] Translation failed, continuing with EN only:", translationError);
-        }
-        nl = translationData?.nl || nl;
-        de = translationData?.de || de;
-      } else {
-        console.log("[Migration] Step 3: Skipping translations (English Only mode)");
-      }
-
-      // === STEP 4: Convert Markdown → styled HTML ===
-      console.log("[Migration] Step 4: Converting markdown to styled HTML");
-      const palette = selectedColorPalette || undefined;
-      const convertOpts = { skipNavigation, skipQuickTips, skipFaqs, skipSources };
-
-      // Generate CTA HTML if CTAs were returned
-      const ctas = contentData.ctas;
-      let endCtaHtml = "";
-      if (ctas?.end && hasCtaUrl) {
-        endCtaHtml = generateCTAHtml(
-          ctas.end.headline,
-          ctas.end.description,
-          ctas.end.buttonText,
-          ctaUrl.trim(),
-          selectedColorPalette,
-          (ctas.end as any).tagline
-        );
-        console.log("[Migration] CTA generated for end of article");
-      }
-
-      const appendCta = (html: string) => endCtaHtml ? html + endCtaHtml : html;
-      const toExportHtml = (markdown: string) => minifyHtmlForExport(appendCta(markdownToStyledHtml(markdown, palette, convertOpts)));
 
       const data: MigrationResult = {
-        url: entry.url,
-        type: entry.type,
-        title,
-        subtitle,
-        seoTitle,
-        seoDescription,
-        content: toExportHtml(generatedMarkdown),
-        titleNL: nl.title,
-        subtitleNL: nl.subtitle,
-        seoTitleNL: nl.seoTitle,
-        seoDescriptionNL: nl.seoDescription,
-        contentNL: nl.content ? toExportHtml(nl.content) : "",
-        titleDE: de.title,
-        subtitleDE: de.subtitle,
-        seoTitleDE: de.seoTitle,
-        seoDescriptionDE: de.seoDescription,
-        contentDE: de.content ? toExportHtml(de.content) : "",
-        imageUrls,
+        url: question,
+        type: sport,
+        title: result.title || question,
+        subtitle: result.subtitle,
+        seoTitle: result.seoTitle || question,
+        seoDescription: result.seoDescription,
+        content: result.html,
+        titleNL: "",
+        subtitleNL: "",
+        seoTitleNL: "",
+        seoDescriptionNL: "",
+        contentNL: "",
+        titleDE: "",
+        subtitleDE: "",
+        seoTitleDE: "",
+        seoDescriptionDE: "",
+        contentDE: "",
+        imageUrls: [],
       };
 
-      console.log("[Migration] Complete. HTML starts with '<':", data.content.startsWith("<"));
+      const qualityChecks = runQualityChecks(data, result.markdown, targetWordCount);
 
-      // === STEP 5: Quality checks ===
-      const qualityChecks = runQualityChecks(data, generatedMarkdown, targetWordCount);
-      const passCount = qualityChecks.filter(c => c.passed).length;
-      console.log(`[Migration] Quality: ${passCount}/${qualityChecks.length} checks passed`);
-
-      // Save result to DB
       if (entry.id) {
         await supabase
           .from("migration_jobs")
-          .update({ status: "done", result: data as any })
+          .update({ status: "done", result: data as any, type: sport })
           .eq("id", entry.id);
       }
 
-      return { ...entry, status: "done", result: sanitizeResult(data), qualityChecks };
+      return { ...entry, url: question, type: sport, status: "done", result: sanitizeResult(data), qualityChecks };
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Unknown error";
-      console.error("[Migration] Error processing", entry.url, msg);
+      console.error("[Migration] Error processing question", entry.url, msg);
 
       if (entry.id) {
         await supabase
@@ -656,7 +487,7 @@ ${sourceHtml.substring(0, 8000)}`;
 
       return { ...entry, status: "error", error: msg };
     }
-  }, [selectedColorPalette, skipNavigation, skipQuickTips, skipFaqs, skipSources, targetWordCount, selectedToneProfileId, runQualityChecks, ctaUrl, ctaInstruction, englishOnly, internalLinkUrls]);
+  }, [selectedColorPalette, skipNavigation, skipQuickTips, skipFaqs, skipSources, targetWordCount, selectedToneProfileId, runQualityChecks, ctaUrl, ctaInstruction, sport]);
 
   const startProcessing = async () => {
     setIsProcessing(true);
@@ -690,7 +521,7 @@ ${sourceHtml.substring(0, 8000)}`;
     const failed = updated.filter(e => e.status === "error").length;
     toast({
       title: "Processing complete",
-      description: `${done} succeeded, ${failed} failed out of ${updated.length} URLs.`,
+      description: `${done} succeeded, ${failed} failed out of ${updated.length} questions.`,
     });
   };
 
@@ -735,85 +566,65 @@ ${sourceHtml.substring(0, 8000)}`;
     seoDescriptionDE: fixDoubledQuotes(r.seoDescriptionDE || ""),
   });
 
+  const buildShopifyFaqRow = (entry: UrlEntry): Record<string, string> => {
+    const r = entry.result!;
+    const title = formatQuestion(r.title || entry.url);
+    const summary = truncate(r.subtitle || r.seoDescription || "", 300);
+    const handle = `${handlePrefix ? handlePrefix + "-" : ""}${slugify(title) || "question"}`;
+
+    return {
+      Handle: handle,
+      Title: title,
+      Author: author,
+      "Body HTML": minifyHtmlForExport(r.content || ""),
+      "Summary HTML": summary ? `<p>${escapeHtml(summary)}</p>` : "",
+      Tags: sport,
+      Published: "TRUE",
+      "Template Suffix": templateSuffix,
+      "Blog: Handle": blogHandle,
+      "Blog: Title": blogTitle,
+      "Metafield: title_tag [string]": r.seoTitle || title,
+      "Metafield: description_tag [string]": truncate(r.seoDescription || summary, 155),
+      "Metafield: custom.sport [single_line_text_field]": sport,
+      "Metafield: custom.question [single_line_text_field]": title,
+      "Metafield: custom.custom_answer_summary [rich_text_field]": summary ? `<p>${escapeHtml(summary)}</p>` : "",
+      "Metafield: custom.subheading [single_line_text_field]": summary,
+    };
+  };
+
   const downloadXLSX = () => {
-    const headers = [
-      "Type", "image", "Old url", "New url",
-      "Title", "Title (EN)", "Title (NL)", "Title (DE)",
-      "subtitle", "subtitle (NL)", "subtitle (DE)",
-      "Content", "Content (EN)", "Content (NL)", "Content (DE)",
-      "SEO Title", "SEO Title (EN)", "SEO Title (NL)", "SEO Title (DE)",
-      "SEO Description", "SEO Description (EN)", "SEO Description (NL)", "SEO Description (DE)",
-    ];
+    const doneEntries = entries.filter(e => e.status === "done" && e.result);
+    if (doneEntries.length === 0) return;
 
-    let maxContentCellChars = 0;
-    let exceedsCellLimit = false;
+    const rows = doneEntries.map(buildShopifyFaqRow);
+    const maxContentCellChars = Math.max(...rows.map(r => (r["Body HTML"] || "").length), 0);
 
-    const rows = entries.filter(e => e.status === "done" && e.result).map(e => {
-      const r = e.result!;
-      const maybeStripH1 = (html: string) => skipTitleInHtml ? stripH1FromHtml(html) : html;
-      const contentEn = minifyHtmlForExport(maybeStripH1(r.content ?? ""));
-      const contentNl = minifyHtmlForExport(maybeStripH1(r.contentNL ?? ""));
-      const contentDe = minifyHtmlForExport(maybeStripH1(r.contentDE ?? ""));
-
-      maxContentCellChars = Math.max(maxContentCellChars, contentEn.length, contentNl.length, contentDe.length);
-      if (maxContentCellChars > EXCEL_CELL_LIMIT) exceedsCellLimit = true;
-
-      return [
-        r.type ?? "", (r.imageUrls || [])[0] || "", r.url ?? "", "",
-        r.title ?? "", r.title ?? "", r.titleNL ?? "", r.titleDE ?? "",
-        r.subtitle ?? "", r.subtitleNL ?? "", r.subtitleDE ?? "",
-        contentEn, contentEn, contentNl, contentDe,
-        r.seoTitle ?? "", r.seoTitle ?? "", r.seoTitleNL ?? "", r.seoTitleDE ?? "",
-        r.seoDescription ?? "", r.seoDescription ?? "", r.seoDescriptionNL ?? "", r.seoDescriptionDE ?? "",
-      ];
-    });
-
-    if (exceedsCellLimit) {
+    if (maxContentCellChars > EXCEL_CELL_LIMIT) {
       toast({
-        title: "Export blocked: content exceeds Excel cell limit",
-        description: `Max content cell is ${maxContentCellChars} chars (limit: ${EXCEL_CELL_LIMIT}). Reduce article size or skip non-essential sections.`,
+        title: "Export warning: content exceeds Excel cell limit",
+        description: `Max Body HTML cell is ${maxContentCellChars} chars (limit: ${EXCEL_CELL_LIMIT}). CSV will download, but Excel may reject that row.`,
         variant: "destructive",
       });
-      return;
     }
 
-    // Build Excel XML (SpreadsheetML) to keep raw HTML in single cells without row-splitting
-    const escapeXml = (val: string): string =>
-      String(val ?? "")
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, ""); // strip control chars
-
-    const buildRow = (cells: string[]) =>
-      "<Row>" + cells.map(c => `<Cell><Data ss:Type="String">${escapeXml(c)}</Data></Cell>`).join("") + "</Row>";
-
-    const xmlRows = [buildRow(headers), ...rows.map(buildRow)].join("\n");
-
-    const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<?mso-application progid="Excel.Sheet"?>
-<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
- xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
-<Worksheet ss:Name="Migration">
-<Table>
-${xmlRows}
-</Table>
-</Worksheet>
-</Workbook>`;
-
-    const blob = new Blob([xml], { type: "application/vnd.ms-excel;charset=utf-8" });
+    const escapeCsv = (v: string) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+    const lines = [
+      SHOPIFY_FAQ_COLUMNS.map(escapeCsv).join(","),
+      ...rows.map(row => SHOPIFY_FAQ_COLUMNS.map(c => escapeCsv(row[c] ?? "")).join(",")),
+    ];
+    const csv = "\uFEFF" + lines.join("\r\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `content_migration_${new Date().toISOString().slice(0, 10)}.xls`;
+    a.download = `shopify-faq-${Date.now()}.csv`;
     document.body.appendChild(a);
     a.click();
     setTimeout(() => {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     }, 500);
-    toast({ title: "Excel file downloaded" });
+    toast({ title: "Shopify FAQ CSV downloaded" });
   };
 
   const downloadJSON = () => {
