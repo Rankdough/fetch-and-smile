@@ -34,7 +34,7 @@ const escapeHtml = (s: string) =>
 const slugify = (s: string) =>
   s.toLowerCase().replace(/[^a-z0-9\s-]/g, "").trim().replace(/\s+/g, "-").slice(0, 60);
 
-function buildMarkdown(a: ArticleData): string {
+function buildMarkdown(a: ArticleData, opts: { skipFaqs?: boolean } = {}): string {
   const lines: string[] = [];
   lines.push(`# ${a.h1}`, "");
   lines.push(a.tldr, "");
@@ -54,15 +54,17 @@ function buildMarkdown(a: ArticleData): string {
     for (const r of a.table.rows) lines.push(`| ${r.join(" | ")} |`);
     lines.push("");
   }
-  lines.push(`## Frequently Asked Questions`, "");
-  for (const f of a.faqs) {
-    lines.push(`### ${f.q}`, "", f.a, "");
+  if (!opts.skipFaqs && a.faqs?.length) {
+    lines.push(`## Frequently Asked Questions`, "");
+    for (const f of a.faqs) {
+      lines.push(`### ${f.q}`, "", f.a, "");
+    }
   }
   return lines.join("\n");
 }
 
-function buildBodyHtml(a: ArticleData): string {
-  return markdownToStyledHtml(buildMarkdown(a));
+function buildBodyHtml(a: ArticleData, opts: { skipFaqs?: boolean } = {}): string {
+  return markdownToStyledHtml(buildMarkdown(a, opts));
 }
 
 
