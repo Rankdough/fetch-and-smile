@@ -43,7 +43,7 @@ function buildMarkdown(a: ArticleData, opts: { skipFaqs?: boolean } = {}): strin
   }
   lines.push(`## TL;DR`, "", a.tldr, "");
   lines.push(`## Quick Tips`, "");
-  a.quickTips.forEach((t) => lines.push(`- ${t.replace(/^\s*\d+[.)]\s*/, "").trim()}`));
+  a.quickTips.forEach((t, i) => lines.push(`${i + 1}. ${t.replace(/^\s*\d+[.)]\s*/, "").trim()}`));
   lines.push("");
   for (const s of a.sections) {
     lines.push(`## ${s.heading}`, "", s.paragraph, "");
@@ -70,7 +70,10 @@ function buildMarkdown(a: ArticleData, opts: { skipFaqs?: boolean } = {}): strin
 }
 
 function buildBodyHtml(a: ArticleData, opts: { skipFaqs?: boolean } = {}): string {
-  return markdownToStyledHtml(buildMarkdown(a, opts));
+  return markdownToStyledHtml(buildMarkdown(a, opts), null, {
+    skipNavigation: true,
+    skipFaqs: opts.skipFaqs,
+  });
 }
 
 
