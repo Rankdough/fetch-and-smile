@@ -116,7 +116,7 @@ export default function ContentMigration() {
   const [editedResult, setEditedResult] = useState<MigrationResult | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedColorsetSelectedColorPalette] = useState<ColorPalette | null>(() => {
+  const [selectedColorPalette, setSelectedColorPalette] = useState<ColorPalette | null>(() => {
     const saved = localStorage.getItem("migration-color-palette");
     if (saved) {
       try {
