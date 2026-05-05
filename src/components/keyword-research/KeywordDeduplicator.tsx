@@ -599,6 +599,27 @@ const KeywordDeduplicator = () => {
     toast({ title: "Copied!", description: `${result.keywords.length} keywords copied` });
   };
 
+  const removeKeyword = (keyword: string) => {
+    setResult(prev => prev ? {
+      ...prev,
+      keywords: prev.keywords.filter(k => k.keyword !== keyword),
+      deduplicatedCount: prev.deduplicatedCount - 1,
+      removedCount: prev.removedCount + 1,
+    } : prev);
+  };
+
+  const removeVariant = (canonical: string, variantKeyword: string) => {
+    setResult(prev => prev ? {
+      ...prev,
+      keywords: prev.keywords.map(k => {
+        if (k.keyword !== canonical) return k;
+        const variants = (k.variants || []).filter(v => v.keyword !== variantKeyword);
+        return { ...k, variants, variantCount: variants.length, merged: variants.length > 0 };
+      }),
+      removedCount: prev.removedCount + 1,
+    } : prev);
+  };
+
   const displayedKeywords = showMergedOnly
     ? result?.keywords.filter(k => k.merged) || []
     : result?.keywords || [];
@@ -903,11 +924,22 @@ const KeywordDeduplicator = () => {
                             {kw.volume.toLocaleString()}
                           </td>
                           <td className="text-right py-1.5 px-3">
-                            {kw.merged && (
-                              <Badge variant="secondary" className="text-xs">
-                                +{kw.variantCount} merged
-                              </Badge>
-                            )}
+                            <div className="flex items-center justify-end gap-1.5">
+                              {kw.merged && (
+                                <Badge variant="secondary" className="text-xs">
+                                  +{kw.variantCount} merged
+                                </Badge>
+                              )}
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                                onClick={(e) => { e.stopPropagation(); removeKeyword(kw.keyword); }}
+                                title="Remove this keyword"
+                              >
+                                <X className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
                           </td>
                         </tr>
                       </CollapsibleTrigger>
@@ -922,7 +954,17 @@ const KeywordDeduplicator = () => {
                                 <td className="text-right py-1 px-3 font-mono text-xs text-muted-foreground">
                                   {v.volume.toLocaleString()}
                                 </td>
-                                <td className="py-1 px-3"></td>
+                                <td className="py-1 px-3 text-right">
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-5 w-5 text-muted-foreground hover:text-destructive"
+                                    onClick={(e) => { e.stopPropagation(); removeVariant(kw.keyword, v.keyword); }}
+                                    title="Remove this variant"
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </Button>
+                                </td>
                               </tr>
                             ))}
                           </>
