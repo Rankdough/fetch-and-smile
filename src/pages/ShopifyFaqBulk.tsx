@@ -97,7 +97,54 @@ export default function ShopifyFaqBulk() {
   const [handlePrefix, setHandlePrefix] = useState("faq");
   const [progress, setProgress] = useState(0);
   const [running, setRunning] = useState(false);
+  const [wordCount, setWordCount] = useState<300 | 500 | 700>(500);
   const [rows, setRows] = useState<Record<string, string>[]>([]);
+  const [regenIdx, setRegenIdx] = useState<number | null>(null);
+
+  const buildRow = (q: string, a: ArticleData, i: number): Record<string, string> => {
+    const body = buildBodyHtml(a);
+    const handle = `${handlePrefix ? handlePrefix + "-" : ""}${slugify(q) || `q-${i + 1}`}`;
+    return {
+      Handle: handle,
+      Title: q,
+      Author: author,
+      "Body HTML": body,
+      "Summary HTML": `<p>${escapeHtml(a.summary)}</p>`,
+      Tags: sport,
+      Published: "TRUE",
+      "Template Suffix": templateSuffix,
+      "Blog: Handle": blogHandle,
+      "Blog: Title": blogTitle,
+      "Metafield: title_tag [string]": q,
+      "Metafield: description_tag [string]": a.descriptionTag,
+      "Metafield: custom.sport [single_line_text_field]": sport,
+      "Metafield: custom.question [single_line_text_field]": q,
+      "Metafield: custom.answer [rich_text_field]": "",
+      "Metafield: custom.custom_answer_summary [rich_text_field]": `<p>${escapeHtml(a.summary)}</p>`,
+      "Metafield: custom.subheading [single_line_text_field]": a.summary,
+    };
+  };
+
+  const regenerateRow = async (idx: number, wc: 300 | 500 | 700) => {
+    const row = rows[idx];
+    if (!row) return;
+    const q = row.Title;
+    setRegenIdx(idx);
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-faq-article", {
+        body: { question: q, sport, wordCount: wc },
+      });
+      if (error) throw error;
+      const a = data.article as ArticleData;
+      const newRow = buildRow(q, a, idx);
+      setRows((prev) => prev.map((r, i) => (i === idx ? newRow : r)));
+      toast({ title: `Regenerated (${wc} words)` });
+    } catch (e: any) {
+      toast({ title: "Regenerate failed", description: e?.message || "", variant: "destructive" });
+    } finally {
+      setRegenIdx(null);
+    }
+  };
 
   const generate = async () => {
     const list = questions
