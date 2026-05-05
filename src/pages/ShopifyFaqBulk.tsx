@@ -11,8 +11,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { ArrowLeft, Download, Loader2, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { markdownToStyledHtml } from "@/utils/markdownToStyledHtml";
 
-const ACCENT = "#0D9488";
 
 interface ArticleData {
   h1: string;
