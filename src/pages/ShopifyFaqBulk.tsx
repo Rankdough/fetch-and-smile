@@ -156,42 +156,77 @@ export default function ShopifyFaqBulk() {
     };
   };
 
-  const buildRow = (q: string, a: ArticleData, i: number): Record<string, string> => {
-    const body = buildBodyHtml(a, { skipFaqs: !includeFaqs });
-    const title = formatTitle(q);
-    const handle = `${handlePrefix ? handlePrefix + "-" : ""}${slugify(q) || `q-${i + 1}`}`;
-    return {
-      Handle: handle,
-      Title: title,
-      Author: author,
-      "Body HTML": body,
-      "Summary HTML": `<p>${escapeHtml(a.summary)}</p>`,
-      Tags: sport,
-      Published: "TRUE",
-      "Template Suffix": templateSuffix,
-      "Blog: Handle": blogHandle,
-      "Blog: Title": blogTitle,
-      "Metafield: title_tag [string]": title,
-      "Metafield: description_tag [string]": a.descriptionTag,
-      "Metafield: custom.sport [single_line_text_field]": sport,
-      "Metafield: custom.question [single_line_text_field]": title,
-      "Metafield: custom.custom_answer_summary [rich_text_field]": `<p>${escapeHtml(a.summary)}</p>`,
-      "Metafield: custom.subheading [single_line_text_field]": a.summary,
-    };
+  // Extract a short summary (first body paragraph after H1) from generated markdown
+  const extractSummary = (md: string): string => {
+    const lines = md.split("\n");
+    let i = 0;
+    // Skip leading H1
+    while (i < lines.length && !lines[i].trim()) i++;
+    if (lines[i]?.startsWith("# ")) i++;
+    // Find first non-empty, non-heading paragraph
+    while (i < lines.length) {
+      const t = lines[i].trim();
+      if (!t || t.startsWith("#") || t.startsWith(">") || t.startsWith("|") || t.startsWith("-") || /^\d+\./.test(t) || t.startsWith("![")) {
+        i++;
+        continue;
+      }
+      // Collect consecutive non-empty lines as the paragraph
+      const buf: string[] = [t];
+      let j = i + 1;
+      while (j < lines.length && lines[j].trim() && !lines[j].startsWith("#")) {
+        buf.push(lines[j].trim());
+        j++;
+      }
+      return buf.join(" ").replace(/\*\*/g, "").replace(/[*_`]/g, "").replace(/\[([^\]]+)\]\([^)]+\)/g, "$1").trim();
+    }
+    return "";
   };
+
+  const truncate = (s: string, n: number) => (s.length <= n ? s : s.slice(0, n - 1).replace(/\s+\S*$/, "") + "…");
 
   const regenerateRow = async (idx: number, wc: 300 | 500 | 700) => {
     const row = rows[idx];
     if (!row) return;
     const q = row.Title;
+    const title = formatTitle(q);
     setRegenIdx(idx);
     try {
-      const { data, error } = await supabase.functions.invoke("generate-faq-article", {
-        body: { question: q, sport, wordCount: wc },
+      const { data, error } = await supabase.functions.invoke("generate-content", {
+        body: {
+          topic: title,
+          wordCount: wc,
+          length: wc <= 300 ? "short" : wc <= 500 ? "short" : "medium",
+          instructions: sport ? `This is a ${sport} FAQ article. Answer the question directly and concisely.` : "Answer the question directly and concisely.",
+          skipFaqs: !includeFaqs,
+          skipQuickTips: false,
+          skipSources: true,
+          useFirstPerson: false,
+        },
       });
       if (error) throw error;
-      const a = data.article as ArticleData;
-      const newRow = buildRow(q, a, idx);
+      const markdown: string = data.content || "";
+      const body = markdownToStyledHtml(markdown, null, { skipNavigation: true, skipFaqs: !includeFaqs });
+      const summary = truncate(extractSummary(markdown), 300);
+      const descriptionTag = truncate(summary, 155);
+      const handle = `${handlePrefix ? handlePrefix + "-" : ""}${slugify(q) || `q-${idx + 1}`}`;
+      const newRow: Record<string, string> = {
+        Handle: handle,
+        Title: title,
+        Author: author,
+        "Body HTML": body,
+        "Summary HTML": summary ? `<p>${escapeHtml(summary)}</p>` : "",
+        Tags: sport,
+        Published: "TRUE",
+        "Template Suffix": templateSuffix,
+        "Blog: Handle": blogHandle,
+        "Blog: Title": blogTitle,
+        "Metafield: title_tag [string]": title,
+        "Metafield: description_tag [string]": descriptionTag,
+        "Metafield: custom.sport [single_line_text_field]": sport,
+        "Metafield: custom.question [single_line_text_field]": title,
+        "Metafield: custom.custom_answer_summary [rich_text_field]": summary ? `<p>${escapeHtml(summary)}</p>` : "",
+        "Metafield: custom.subheading [single_line_text_field]": summary,
+      };
       setRows((prev) => prev.map((r, i) => (i === idx ? newRow : r)));
       toast({ title: `Generated (${wc} words)` });
     } catch (e: any) {
