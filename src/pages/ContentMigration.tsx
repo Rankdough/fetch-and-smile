@@ -224,7 +224,8 @@ export default function ContentMigration() {
         const palette = selectedColorPalette || undefined;
         const convertOpts = { skipNavigation, skipQuickTips, skipFaqs, skipSources };
         
-        const loaded: UrlEntry[] = data.map((row: any) => {
+        const questionRows = data.filter((row: any) => !/^https?:\/\//i.test(row.url || ""));
+        const loaded: UrlEntry[] = questionRows.map((row: any) => {
           let result = row.result ? sanitizeResult(row.result as MigrationResult) : undefined;
           
           // Convert any stale markdown content to styled HTML
