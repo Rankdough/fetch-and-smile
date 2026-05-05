@@ -81,7 +81,6 @@ const COLUMNS = [
   "Metafield: description_tag [string]",
   "Metafield: custom.sport [single_line_text_field]",
   "Metafield: custom.question [single_line_text_field]",
-  "Metafield: custom.answer [rich_text_field]",
   "Metafield: custom.custom_answer_summary [rich_text_field]",
   "Metafield: custom.subheading [single_line_text_field]",
 ];
