@@ -261,6 +261,7 @@ export default function ShopifyFaqBulk() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="text-xs sticky left-0 bg-background z-10">Regenerate</TableHead>
                     {COLUMNS.map((c) => (
                       <TableHead key={c} className="whitespace-nowrap text-xs">{c}</TableHead>
                     ))}
@@ -269,6 +270,23 @@ export default function ShopifyFaqBulk() {
                 <TableBody>
                   {rows.map((r, i) => (
                     <TableRow key={i}>
+                      <TableCell className="align-top sticky left-0 bg-background z-10">
+                        <div className="flex flex-col gap-1">
+                          {[300, 500, 700].map((wc) => (
+                            <Button
+                              key={wc}
+                              size="sm"
+                              variant="outline"
+                              className="h-6 px-2 text-xs gap-1"
+                              disabled={regenIdx === i}
+                              onClick={() => regenerateRow(i, wc as 300 | 500 | 700)}
+                            >
+                              {regenIdx === i ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                              {wc}w
+                            </Button>
+                          ))}
+                        </div>
+                      </TableCell>
                       {COLUMNS.map((c) => {
                         const v = r[c] ?? "";
                         const isHtml = c === "Body HTML" || c.includes("rich_text_field");
