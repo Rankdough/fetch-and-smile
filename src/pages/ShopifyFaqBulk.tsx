@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
+
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ArrowLeft, Download, Loader2, Sparkles, RefreshCw } from "lucide-react";
@@ -34,7 +34,7 @@ const escapeHtml = (s: string) =>
 const slugify = (s: string) =>
   s.toLowerCase().replace(/[^a-z0-9\s-]/g, "").trim().replace(/\s+/g, "-").slice(0, 60);
 
-function buildMarkdown(a: ArticleData): string {
+function buildMarkdown(a: ArticleData, opts: { skipFaqs?: boolean } = {}): string {
   const lines: string[] = [];
   lines.push(`# ${a.h1}`, "");
   lines.push(a.tldr, "");
@@ -54,15 +54,17 @@ function buildMarkdown(a: ArticleData): string {
     for (const r of a.table.rows) lines.push(`| ${r.join(" | ")} |`);
     lines.push("");
   }
-  lines.push(`## Frequently Asked Questions`, "");
-  for (const f of a.faqs) {
-    lines.push(`### ${f.q}`, "", f.a, "");
+  if (!opts.skipFaqs && a.faqs?.length) {
+    lines.push(`## Frequently Asked Questions`, "");
+    for (const f of a.faqs) {
+      lines.push(`### ${f.q}`, "", f.a, "");
+    }
   }
   return lines.join("\n");
 }
 
-function buildBodyHtml(a: ArticleData): string {
-  return markdownToStyledHtml(buildMarkdown(a));
+function buildBodyHtml(a: ArticleData, opts: { skipFaqs?: boolean } = {}): string {
+  return markdownToStyledHtml(buildMarkdown(a, opts));
 }
 
 
@@ -101,19 +103,18 @@ export default function ShopifyFaqBulk() {
   const [blogTitle, setBlogTitle] = useState<string>(init.blogTitle ?? "FAQ");
   const [templateSuffix, setTemplateSuffix] = useState<string>(init.templateSuffix ?? "article-faq");
   const [handlePrefix, setHandlePrefix] = useState<string>(init.handlePrefix ?? "faq");
-  const [progress, setProgress] = useState(0);
-  const [running, setRunning] = useState(false);
   const [wordCount, setWordCount] = useState<300 | 500 | 700>(init.wordCount ?? 500);
+  const [includeFaqs, setIncludeFaqs] = useState<boolean>(init.includeFaqs ?? false);
   const [rows, setRows] = useState<Record<string, string>[]>(init.rows ?? []);
   const [regenIdx, setRegenIdx] = useState<number | null>(null);
 
   useEffect(() => {
     try {
       localStorage.setItem(LS_KEY, JSON.stringify({
-        questions, author, sport, blogHandle, blogTitle, templateSuffix, handlePrefix, wordCount, rows,
+        questions, author, sport, blogHandle, blogTitle, templateSuffix, handlePrefix, wordCount, includeFaqs, rows,
       }));
     } catch {}
-  }, [questions, author, sport, blogHandle, blogTitle, templateSuffix, handlePrefix, wordCount, rows]);
+  }, [questions, author, sport, blogHandle, blogTitle, templateSuffix, handlePrefix, wordCount, includeFaqs, rows]);
 
   const formatTitle = (q: string): string => {
     let s = q.trim().replace(/\s+/g, " ");
@@ -123,8 +124,31 @@ export default function ShopifyFaqBulk() {
     return s;
   };
 
+  const buildSkeletonRow = (q: string, i: number): Record<string, string> => {
+    const title = formatTitle(q);
+    const handle = `${handlePrefix ? handlePrefix + "-" : ""}${slugify(q) || `q-${i + 1}`}`;
+    return {
+      Handle: handle,
+      Title: title,
+      Author: author,
+      "Body HTML": "",
+      "Summary HTML": "",
+      Tags: sport,
+      Published: "TRUE",
+      "Template Suffix": templateSuffix,
+      "Blog: Handle": blogHandle,
+      "Blog: Title": blogTitle,
+      "Metafield: title_tag [string]": title,
+      "Metafield: description_tag [string]": "",
+      "Metafield: custom.sport [single_line_text_field]": sport,
+      "Metafield: custom.question [single_line_text_field]": title,
+      "Metafield: custom.custom_answer_summary [rich_text_field]": "",
+      "Metafield: custom.subheading [single_line_text_field]": "",
+    };
+  };
+
   const buildRow = (q: string, a: ArticleData, i: number): Record<string, string> => {
-    const body = buildBodyHtml(a);
+    const body = buildBodyHtml(a, { skipFaqs: !includeFaqs });
     const title = formatTitle(q);
     const handle = `${handlePrefix ? handlePrefix + "-" : ""}${slugify(q) || `q-${i + 1}`}`;
     return {
@@ -160,15 +184,15 @@ export default function ShopifyFaqBulk() {
       const a = data.article as ArticleData;
       const newRow = buildRow(q, a, idx);
       setRows((prev) => prev.map((r, i) => (i === idx ? newRow : r)));
-      toast({ title: `Regenerated (${wc} words)` });
+      toast({ title: `Generated (${wc} words)` });
     } catch (e: any) {
-      toast({ title: "Regenerate failed", description: e?.message || "", variant: "destructive" });
+      toast({ title: "Generation failed", description: e?.message || "", variant: "destructive" });
     } finally {
       setRegenIdx(null);
     }
   };
 
-  const generate = async () => {
+  const generate = () => {
     const list = questions
       .split("\n")
       .map((q) => q.trim())
@@ -177,28 +201,9 @@ export default function ShopifyFaqBulk() {
       toast({ title: "Add at least one question", variant: "destructive" });
       return;
     }
-    setRunning(true);
-    setProgress(0);
-    setRows([]);
-    const out: Record<string, string>[] = [];
-    for (let i = 0; i < list.length; i++) {
-      const q = list[i];
-      try {
-        const { data, error } = await supabase.functions.invoke("generate-faq-article", {
-          body: { question: q, sport, wordCount },
-        });
-        if (error) throw error;
-        const a = data.article as ArticleData;
-        out.push(buildRow(q, a, i));
-      } catch (e: any) {
-        console.error("Failed:", q, e);
-        toast({ title: `Failed: ${q.slice(0, 40)}`, description: e?.message || "", variant: "destructive" });
-      }
-      setProgress(Math.round(((i + 1) / list.length) * 100));
-      setRows([...out]);
-    }
-    setRunning(false);
-    toast({ title: `Generated ${out.length}/${list.length} articles` });
+    const out = list.map((q, i) => buildSkeletonRow(q, i));
+    setRows(out);
+    toast({ title: `Created ${out.length} rows`, description: "Click 300w / 500w / 700w on each row to generate body content." });
   };
 
   const downloadXlsx = () => {
@@ -220,42 +225,16 @@ export default function ShopifyFaqBulk() {
           <h1 className="text-lg font-semibold">Shopify FAQ Bulk Generator</h1>
         </div>
       </header>
-      <main className="container mx-auto px-6 py-6 grid gap-6 md:grid-cols-3">
-        <Card className="md:col-span-2">
-          <CardHeader>
-            <CardTitle>Questions</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <Label>One question per line</Label>
-              <Textarea
-                rows={14}
-                value={questions}
-                onChange={(e) => setQuestions(e.target.value)}
-                placeholder={"How do I clean batting gloves?\nWhat is the best wood for a baseball bat?"}
-              />
-            </div>
-            <div className="flex gap-2">
-              <Button onClick={generate} disabled={running} className="gap-2">
-                {running ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-                Generate
-              </Button>
-              <Button variant="outline" onClick={downloadXlsx} disabled={rows.length === 0} className="gap-2">
-                <Download className="h-4 w-4" /> Download XLSX ({rows.length})
-              </Button>
-            </div>
-            {running && <Progress value={progress} />}
-          </CardContent>
-        </Card>
+      <main className="container mx-auto px-6 py-6 space-y-6">
         <Card>
           <CardHeader>
-            <CardTitle>Defaults</CardTitle>
+            <CardTitle>Settings</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="grid gap-3 md:grid-cols-3">
             <div><Label>Author</Label><Input value={author} onChange={(e) => setAuthor(e.target.value)} /></div>
             <div><Label>Sport (optional)</Label><Input value={sport} onChange={(e) => setSport(e.target.value)} placeholder="baseball" /></div>
             <div>
-              <Label>Word count</Label>
+              <Label>Default word count</Label>
               <Select value={String(wordCount)} onValueChange={(v) => setWordCount(Number(v) as 300 | 500 | 700)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -269,6 +248,43 @@ export default function ShopifyFaqBulk() {
             <div><Label>Blog: Handle</Label><Input value={blogHandle} onChange={(e) => setBlogHandle(e.target.value)} /></div>
             <div><Label>Blog: Title</Label><Input value={blogTitle} onChange={(e) => setBlogTitle(e.target.value)} /></div>
             <div><Label>Template Suffix</Label><Input value={templateSuffix} onChange={(e) => setTemplateSuffix(e.target.value)} /></div>
+            <div className="flex items-center gap-2 pt-6">
+              <input
+                id="include-faqs"
+                type="checkbox"
+                checked={includeFaqs}
+                onChange={(e) => setIncludeFaqs(e.target.checked)}
+                className="h-4 w-4"
+              />
+              <Label htmlFor="include-faqs" className="cursor-pointer">Include FAQ section in body HTML</Label>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Questions</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <Label>One question per line</Label>
+              <Textarea
+                rows={10}
+                value={questions}
+                onChange={(e) => setQuestions(e.target.value)}
+                placeholder={"How do I clean batting gloves?\nWhat is the best wood for a baseball bat?"}
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button onClick={generate} className="gap-2">
+                <Sparkles className="h-4 w-4" /> Create rows
+              </Button>
+              <Button variant="outline" onClick={downloadXlsx} disabled={rows.length === 0} className="gap-2">
+                <Download className="h-4 w-4" /> Download XLSX ({rows.length})
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Body HTML is generated per row. Click 300w / 500w / 700w on each row to generate the article content using the content generator pipeline.
+            </p>
           </CardContent>
         </Card>
       </main>
