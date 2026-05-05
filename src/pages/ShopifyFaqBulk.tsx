@@ -206,7 +206,7 @@ export default function ShopifyFaqBulk() {
       });
       if (error) throw error;
       const markdown: string = data.content || "";
-      const body = markdownToStyledHtml(markdown, null, { skipNavigation: true, skipFaqs: !includeFaqs });
+      const body = markdownToStyledHtml(markdown, null, { skipNavigation: !includeNav, skipFaqs: !includeFaqs });
       const summary = truncate(extractSummary(markdown), 300);
       const descriptionTag = truncate(summary, 155);
       const handle = `${handlePrefix ? handlePrefix + "-" : ""}${slugify(q) || `q-${idx + 1}`}`;
