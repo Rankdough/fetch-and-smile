@@ -236,7 +236,9 @@ export default function ShopifyFaqBulk() {
         extraInstructions: extra,
       });
 
-      const body = result.html;
+      const body = stripTitle
+        ? result.html.replace(/<h1\b[^>]*>[\s\S]*?<\/h1>/i, "").trim()
+        : result.html;
       const summary = truncate(result.subtitle || extractSummary(result.markdown), 300);
       const descriptionTag = truncate(result.seoDescription || summary, 155);
       const handle = `${handlePrefix ? handlePrefix + "-" : ""}${slugify(q) || `q-${idx + 1}`}`;
