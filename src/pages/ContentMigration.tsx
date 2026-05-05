@@ -293,7 +293,7 @@ export default function ContentMigration() {
     const htmlContent = result.content || "";
     const mdLower = markdown.toLowerCase();
 
-    // 1. Structure check - same sections as Import URL / SEO Generator
+    // 1. Structure check - same sections as the bulk FAQ generator output
     const hasTldr = /##\s.*tl;?\s?dr/i.test(markdown);
     const hasQuickTips = skipQuickTips || /##\s.*quick\s*tips/i.test(markdown);
     const hasFaq = skipFaqs || /##\s.*frequently\s*asked|##\s.*faq/i.test(markdown);
@@ -444,7 +444,7 @@ export default function ContentMigration() {
 
       return { ...entry, status: "error", error: msg };
     }
-  }, [selectedColorskipNavigation, skipQuickTips, skipFaqs, skipSources, targetWordCount, selectedToneProfileId, runQualityChecks, ctaUrl, ctaInstruction, sport]);
+  }, [selectedColorPalette, skipNavigation, skipQuickTips, skipFaqs, skipSources, targetWordCount, selectedToneProfileId, runQualityChecks, sport]);
 
   const startProcessing = async () => {
     setIsProcessing(true);
