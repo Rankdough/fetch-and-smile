@@ -126,8 +126,31 @@ export default function ShopifyFaqBulk() {
     return s;
   };
 
+  const buildSkeletonRow = (q: string, i: number): Record<string, string> => {
+    const title = formatTitle(q);
+    const handle = `${handlePrefix ? handlePrefix + "-" : ""}${slugify(q) || `q-${i + 1}`}`;
+    return {
+      Handle: handle,
+      Title: title,
+      Author: author,
+      "Body HTML": "",
+      "Summary HTML": "",
+      Tags: sport,
+      Published: "TRUE",
+      "Template Suffix": templateSuffix,
+      "Blog: Handle": blogHandle,
+      "Blog: Title": blogTitle,
+      "Metafield: title_tag [string]": title,
+      "Metafield: description_tag [string]": "",
+      "Metafield: custom.sport [single_line_text_field]": sport,
+      "Metafield: custom.question [single_line_text_field]": title,
+      "Metafield: custom.custom_answer_summary [rich_text_field]": "",
+      "Metafield: custom.subheading [single_line_text_field]": "",
+    };
+  };
+
   const buildRow = (q: string, a: ArticleData, i: number): Record<string, string> => {
-    const body = buildBodyHtml(a);
+    const body = buildBodyHtml(a, { skipFaqs: !includeFaqs });
     const title = formatTitle(q);
     const handle = `${handlePrefix ? handlePrefix + "-" : ""}${slugify(q) || `q-${i + 1}`}`;
     return {
@@ -163,15 +186,15 @@ export default function ShopifyFaqBulk() {
       const a = data.article as ArticleData;
       const newRow = buildRow(q, a, idx);
       setRows((prev) => prev.map((r, i) => (i === idx ? newRow : r)));
-      toast({ title: `Regenerated (${wc} words)` });
+      toast({ title: `Generated (${wc} words)` });
     } catch (e: any) {
-      toast({ title: "Regenerate failed", description: e?.message || "", variant: "destructive" });
+      toast({ title: "Generation failed", description: e?.message || "", variant: "destructive" });
     } finally {
       setRegenIdx(null);
     }
   };
 
-  const generate = async () => {
+  const generate = () => {
     const list = questions
       .split("\n")
       .map((q) => q.trim())
@@ -180,28 +203,9 @@ export default function ShopifyFaqBulk() {
       toast({ title: "Add at least one question", variant: "destructive" });
       return;
     }
-    setRunning(true);
-    setProgress(0);
-    setRows([]);
-    const out: Record<string, string>[] = [];
-    for (let i = 0; i < list.length; i++) {
-      const q = list[i];
-      try {
-        const { data, error } = await supabase.functions.invoke("generate-faq-article", {
-          body: { question: q, sport, wordCount },
-        });
-        if (error) throw error;
-        const a = data.article as ArticleData;
-        out.push(buildRow(q, a, i));
-      } catch (e: any) {
-        console.error("Failed:", q, e);
-        toast({ title: `Failed: ${q.slice(0, 40)}`, description: e?.message || "", variant: "destructive" });
-      }
-      setProgress(Math.round(((i + 1) / list.length) * 100));
-      setRows([...out]);
-    }
-    setRunning(false);
-    toast({ title: `Generated ${out.length}/${list.length} articles` });
+    const out = list.map((q, i) => buildSkeletonRow(q, i));
+    setRows(out);
+    toast({ title: `Created ${out.length} rows`, description: "Click 300w / 500w / 700w on each row to generate body content." });
   };
 
   const downloadXlsx = () => {
