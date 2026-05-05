@@ -300,8 +300,8 @@ export default function ShopifyFaqBulk() {
               <Button onClick={generate} className="gap-2">
                 <Sparkles className="h-4 w-4" /> Create rows
               </Button>
-              <Button variant="outline" onClick={downloadXlsx} disabled={rows.length === 0} className="gap-2">
-                <Download className="h-4 w-4" /> Download XLSX ({rows.length})
+              <Button variant="outline" onClick={downloadCsv} disabled={rows.length === 0} className="gap-2">
+                <Download className="h-4 w-4" /> Download CSV ({rows.length})
               </Button>
             </div>
             <p className="text-xs text-muted-foreground">
