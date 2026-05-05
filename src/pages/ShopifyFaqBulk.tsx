@@ -163,31 +163,11 @@ export default function ShopifyFaqBulk() {
       const q = list[i];
       try {
         const { data, error } = await supabase.functions.invoke("generate-faq-article", {
-          body: { question: q, sport },
+          body: { question: q, sport, wordCount },
         });
         if (error) throw error;
         const a = data.article as ArticleData;
-        const body = buildBodyHtml(a);
-        const handle = `${handlePrefix ? handlePrefix + "-" : ""}${slugify(q) || `q-${i + 1}`}`;
-        out.push({
-          Handle: handle,
-          Title: q,
-          Author: author,
-          "Body HTML": body,
-          "Summary HTML": `<p>${escapeHtml(a.summary)}</p>`,
-          Tags: sport,
-          Published: "TRUE",
-          "Template Suffix": templateSuffix,
-          "Blog: Handle": blogHandle,
-          "Blog: Title": blogTitle,
-          "Metafield: title_tag [string]": q,
-          "Metafield: description_tag [string]": a.descriptionTag,
-          "Metafield: custom.sport [single_line_text_field]": sport,
-          "Metafield: custom.question [single_line_text_field]": q,
-          "Metafield: custom.answer [rich_text_field]": "",
-          "Metafield: custom.custom_answer_summary [rich_text_field]": `<p>${escapeHtml(a.summary)}</p>`,
-          "Metafield: custom.subheading [single_line_text_field]": a.summary,
-        });
+        out.push(buildRow(q, a, i));
       } catch (e: any) {
         console.error("Failed:", q, e);
         toast({ title: `Failed: ${q.slice(0, 40)}`, description: e?.message || "", variant: "destructive" });
