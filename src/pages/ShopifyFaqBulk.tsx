@@ -114,16 +114,17 @@ export default function ShopifyFaqBulk() {
   const [handlePrefix, setHandlePrefix] = useState<string>(init.handlePrefix ?? "faq");
   const [wordCount, setWordCount] = useState<300 | 500 | 700>(init.wordCount ?? 500);
   const [includeFaqs, setIncludeFaqs] = useState<boolean>(init.includeFaqs ?? false);
+  const [includeNav, setIncludeNav] = useState<boolean>(init.includeNav ?? false);
   const [rows, setRows] = useState<Record<string, string>[]>(init.rows ?? []);
   const [regenIdx, setRegenIdx] = useState<number | null>(null);
 
   useEffect(() => {
     try {
       localStorage.setItem(LS_KEY, JSON.stringify({
-        questions, author, sport, blogHandle, blogTitle, templateSuffix, handlePrefix, wordCount, includeFaqs, rows,
+        questions, author, sport, blogHandle, blogTitle, templateSuffix, handlePrefix, wordCount, includeFaqs, includeNav, rows,
       }));
     } catch {}
-  }, [questions, author, sport, blogHandle, blogTitle, templateSuffix, handlePrefix, wordCount, includeFaqs, rows]);
+  }, [questions, author, sport, blogHandle, blogTitle, templateSuffix, handlePrefix, wordCount, includeFaqs, includeNav, rows]);
 
   const formatTitle = (q: string): string => {
     let s = q.trim().replace(/\s+/g, " ");
@@ -205,7 +206,7 @@ export default function ShopifyFaqBulk() {
       });
       if (error) throw error;
       const markdown: string = data.content || "";
-      const body = markdownToStyledHtml(markdown, null, { skipNavigation: true, skipFaqs: !includeFaqs });
+      const body = markdownToStyledHtml(markdown, null, { skipNavigation: !includeNav, skipFaqs: !includeFaqs });
       const summary = truncate(extractSummary(markdown), 300);
       const descriptionTag = truncate(summary, 155);
       const handle = `${handlePrefix ? handlePrefix + "-" : ""}${slugify(q) || `q-${idx + 1}`}`;
@@ -317,6 +318,16 @@ export default function ShopifyFaqBulk() {
                 className="h-4 w-4"
               />
               <Label htmlFor="include-faqs" className="cursor-pointer">Include FAQ section in body HTML</Label>
+            </div>
+            <div className="flex items-center gap-2 pt-6">
+              <input
+                id="include-nav"
+                type="checkbox"
+                checked={includeNav}
+                onChange={(e) => setIncludeNav(e.target.checked)}
+                className="h-4 w-4"
+              />
+              <Label htmlFor="include-nav" className="cursor-pointer">Include "In This Article" section</Label>
             </div>
           </CardContent>
         </Card>
