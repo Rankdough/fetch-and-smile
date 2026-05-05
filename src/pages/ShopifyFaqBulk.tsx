@@ -110,6 +110,7 @@ export default function ShopifyFaqBulk() {
   const [questions, setQuestions] = useState<string>(init.questions ?? "");
   const [author, setAuthor] = useState<string>(init.author ?? "Pro Player Team Inc.");
   const [sport, setSport] = useState<string>(init.sport ?? "");
+  const [globalTags, setGlobalTags] = useState<string>(init.globalTags ?? "");
   const [blogHandle, setBlogHandle] = useState<string>(init.blogHandle ?? "faq");
   const [blogTitle, setBlogTitle] = useState<string>(init.blogTitle ?? "FAQ");
   const [templateSuffix, setTemplateSuffix] = useState<string>(init.templateSuffix ?? "article-faq");
