@@ -205,7 +205,14 @@ export default function ShopifyFaqBulk() {
         },
       });
       if (error) throw error;
-      const markdown: string = data.content || "";
+      let markdown: string = data.content || "";
+      // Strip stray wrapping quotes the model sometimes adds around the whole article
+      markdown = markdown.trim();
+      if ((markdown.startsWith('"') && markdown.endsWith('"')) || (markdown.startsWith("'") && markdown.endsWith("'"))) {
+        markdown = markdown.slice(1, -1).trim();
+      }
+      // Remove standalone quote-only lines that produce <p>"</p>
+      markdown = markdown.split("\n").filter((l) => l.trim() !== '"' && l.trim() !== "'").join("\n");
       const body = markdownToStyledHtml(markdown, null, { skipNavigation: !includeNav, skipFaqs: !includeFaqs });
       const summary = truncate(extractSummary(markdown), 300);
       const descriptionTag = truncate(summary, 155);
