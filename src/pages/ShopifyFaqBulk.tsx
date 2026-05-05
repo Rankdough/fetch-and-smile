@@ -125,6 +125,8 @@ export default function ShopifyFaqBulk() {
   const [toneProfiles, setToneProfiles] = useState<Array<{ id: string; name: string }>>([]);
   const [rows, setRows] = useState<Record<string, string>[]>(init.rows ?? []);
   const [regenIdx, setRegenIdx] = useState<number | null>(null);
+  const [bulkProgress, setBulkProgress] = useState<{ current: number; total: number } | null>(null);
+  const bulkCancelRef = useRef<boolean>(false);
 
   const selectedPalette: ColorPalette | null = paletteId
     ? COLOR_PALETTES.find((p) => p.id === paletteId) || null
