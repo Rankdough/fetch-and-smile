@@ -44,11 +44,12 @@ Generate an FAQ article of approximately ${wordCount} words total (±10%). Retur
     };
 
     const properties: Record<string, any> = {
-      h1: { type: "string", description: "Article H1 - rephrase question as a clear title." },
-      tldr: { type: "string", description: `1 dense paragraph (${profile.tldrWords} words) directly answering the question with specifics.` },
+      h1: { type: "string", description: "Article H1 - rephrase question as a clear title using proper Title Case." },
+      opening: { type: "string", description: "1 short paragraph (35-55 words) that hooks the reader and frames the question. Must NOT repeat the TL;DR verbatim. Conversational, no buzzwords." },
+      tldr: { type: "string", description: `1 dense paragraph (${profile.tldrWords} words) directly answering the question with concrete specifics (numbers, names, durations). Different wording than the opening.` },
       quickTips: {
         type: "array", minItems: 3, maxItems: 3,
-        items: { type: "string", description: "One actionable sentence, max 15 words." }
+        items: { type: "string", description: "One actionable sentence, max 15 words. No bold markdown, no leading numbers." }
       },
       sections: {
         type: "array", minItems: profile.sectionsMin, maxItems: profile.sectionsMax,
@@ -67,13 +68,13 @@ Generate an FAQ article of approximately ${wordCount} words total (±10%). Retur
           required: ["q", "a"], additionalProperties: false
         }
       },
-      summary: { type: "string", description: "1-2 sentence direct answer." },
+      summary: { type: "string", description: "1-2 sentence direct answer (used for meta summary)." },
       titleTag: { type: "string", description: "SEO title under 60 chars." },
       descriptionTag: { type: "string", description: "SEO meta description under 160 chars." },
       tags: { type: "string", description: "Comma-separated 3-5 tags, lowercase." }
     };
 
-    const required = ["h1","tldr","quickTips","sections","faqs","summary","titleTag","descriptionTag","tags"];
+    const required = ["h1","opening","tldr","quickTips","sections","faqs","summary","titleTag","descriptionTag","tags"];
 
     if (profile.includeTable) {
       properties.table = {

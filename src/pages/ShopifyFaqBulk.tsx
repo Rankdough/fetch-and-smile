@@ -17,6 +17,7 @@ import { markdownToStyledHtml } from "@/utils/markdownToStyledHtml";
 
 interface ArticleData {
   h1: string;
+  opening?: string;
   tldr: string;
   quickTips: string[];
   sections: { heading: string; paragraph: string; bullets: string[]; paragraph2: string }[];
@@ -37,15 +38,20 @@ const slugify = (s: string) =>
 function buildMarkdown(a: ArticleData, opts: { skipFaqs?: boolean } = {}): string {
   const lines: string[] = [];
   lines.push(`# ${a.h1}`, "");
-  lines.push(a.tldr, "");
+  if (a.opening && a.opening.trim()) {
+    lines.push(a.opening.trim(), "");
+  }
   lines.push(`## TL;DR`, "", a.tldr, "");
   lines.push(`## Quick Tips`, "");
-  a.quickTips.forEach((t, i) => lines.push(`${i + 1}. ${t}`));
+  a.quickTips.forEach((t) => lines.push(`- ${t.replace(/^\s*\d+[.)]\s*/, "").trim()}`));
   lines.push("");
   for (const s of a.sections) {
     lines.push(`## ${s.heading}`, "", s.paragraph, "");
-    s.bullets.forEach(b => lines.push(`- ${b}`));
-    lines.push("", s.paragraph2, "");
+    if (s.bullets?.length) {
+      s.bullets.forEach(b => lines.push(`- ${b}`));
+      lines.push("");
+    }
+    if (s.paragraph2) lines.push(s.paragraph2, "");
   }
   if (a.table?.headers?.length && a.table.rows?.length) {
     if (a.table.caption) lines.push(`**${a.table.caption}**`, "");
