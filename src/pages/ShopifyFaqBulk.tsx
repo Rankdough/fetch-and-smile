@@ -117,8 +117,29 @@ export default function ShopifyFaqBulk() {
   const [wordCount, setWordCount] = useState<300 | 500 | 700>(init.wordCount ?? 500);
   const [includeFaqs, setIncludeFaqs] = useState<boolean>(init.includeFaqs ?? false);
   const [includeNav, setIncludeNav] = useState<boolean>(init.includeNav ?? false);
+  const [skipQuickTips, setSkipQuickTips] = useState<boolean>(init.skipQuickTips ?? false);
+  const [skipSources, setSkipSources] = useState<boolean>(init.skipSources ?? true);
+  const [paletteId, setPaletteId] = useState<string | null>(init.paletteId ?? null);
+  const [toneProfileId, setToneProfileId] = useState<string | null>(init.toneProfileId ?? null);
+  const [toneProfiles, setToneProfiles] = useState<Array<{ id: string; name: string }>>([]);
   const [rows, setRows] = useState<Record<string, string>[]>(init.rows ?? []);
   const [regenIdx, setRegenIdx] = useState<number | null>(null);
+
+  const selectedPalette: ColorPalette | null = paletteId
+    ? COLOR_PALETTES.find((p) => p.id === paletteId) || null
+    : null;
+
+  const EXCEL_CELL_LIMIT = 32767;
+
+  // Load tone profiles
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data } = await supabase.from("tone_profiles" as any).select("id, name").order("name");
+        if (Array.isArray(data)) setToneProfiles(data as any);
+      } catch {}
+    })();
+  }, []);
 
   useEffect(() => {
     try {
