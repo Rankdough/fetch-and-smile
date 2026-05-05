@@ -599,6 +599,27 @@ const KeywordDeduplicator = () => {
     toast({ title: "Copied!", description: `${result.keywords.length} keywords copied` });
   };
 
+  const removeKeyword = (keyword: string) => {
+    setResult(prev => prev ? {
+      ...prev,
+      keywords: prev.keywords.filter(k => k.keyword !== keyword),
+      deduplicatedCount: prev.deduplicatedCount - 1,
+      removedCount: prev.removedCount + 1,
+    } : prev);
+  };
+
+  const removeVariant = (canonical: string, variantKeyword: string) => {
+    setResult(prev => prev ? {
+      ...prev,
+      keywords: prev.keywords.map(k => {
+        if (k.keyword !== canonical) return k;
+        const variants = (k.variants || []).filter(v => v.keyword !== variantKeyword);
+        return { ...k, variants, variantCount: variants.length, merged: variants.length > 0 };
+      }),
+      removedCount: prev.removedCount + 1,
+    } : prev);
+  };
+
   const displayedKeywords = showMergedOnly
     ? result?.keywords.filter(k => k.merged) || []
     : result?.keywords || [];
