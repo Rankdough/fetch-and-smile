@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ArrowLeft, Download, Loader2, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -236,6 +237,43 @@ export default function ShopifyFaqBulk() {
           </CardContent>
         </Card>
       </main>
+      {rows.length > 0 && (
+        <section className="container mx-auto px-6 pb-10">
+          <Card>
+            <CardHeader>
+              <CardTitle>Generated rows ({rows.length})</CardTitle>
+            </CardHeader>
+            <CardContent className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    {COLUMNS.map((c) => (
+                      <TableHead key={c} className="whitespace-nowrap text-xs">{c}</TableHead>
+                    ))}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {rows.map((r, i) => (
+                    <TableRow key={i}>
+                      {COLUMNS.map((c) => {
+                        const v = r[c] ?? "";
+                        const isHtml = c === "Body HTML" || c.includes("rich_text_field");
+                        return (
+                          <TableCell key={c} className="align-top text-xs max-w-[260px]">
+                            <div className="max-h-32 overflow-auto whitespace-pre-wrap break-words text-muted-foreground">
+                              {isHtml ? v.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").slice(0, 400) + (v.length > 400 ? "…" : "") : v}
+                            </div>
+                          </TableCell>
+                        );
+                      })}
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </section>
+      )}
     </div>
   );
 }
