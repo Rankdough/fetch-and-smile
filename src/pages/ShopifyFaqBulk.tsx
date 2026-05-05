@@ -114,6 +114,7 @@ export default function ShopifyFaqBulk() {
   const [handlePrefix, setHandlePrefix] = useState<string>(init.handlePrefix ?? "faq");
   const [wordCount, setWordCount] = useState<300 | 500 | 700>(init.wordCount ?? 500);
   const [includeFaqs, setIncludeFaqs] = useState<boolean>(init.includeFaqs ?? false);
+  const [includeNav, setIncludeNav] = useState<boolean>(init.includeNav ?? false);
   const [rows, setRows] = useState<Record<string, string>[]>(init.rows ?? []);
   const [regenIdx, setRegenIdx] = useState<number | null>(null);
 
