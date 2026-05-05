@@ -366,6 +366,45 @@ export default function ShopifyFaqBulk() {
               />
               <Label htmlFor="include-nav" className="cursor-pointer">Include "In This Article" section</Label>
             </div>
+            <div className="flex items-center gap-2 pt-6">
+              <input
+                id="skip-tips"
+                type="checkbox"
+                checked={skipQuickTips}
+                onChange={(e) => setSkipQuickTips(e.target.checked)}
+                className="h-4 w-4"
+              />
+              <Label htmlFor="skip-tips" className="cursor-pointer">Skip Quick Tips</Label>
+            </div>
+            <div className="flex items-center gap-2 pt-6">
+              <input
+                id="skip-sources"
+                type="checkbox"
+                checked={skipSources}
+                onChange={(e) => setSkipSources(e.target.checked)}
+                className="h-4 w-4"
+              />
+              <Label htmlFor="skip-sources" className="cursor-pointer">Skip References / Sources</Label>
+            </div>
+            <div>
+              <Label>Tone profile (optional)</Label>
+              <Select value={toneProfileId ?? "none"} onValueChange={(v) => setToneProfileId(v === "none" ? null : v)}>
+                <SelectTrigger><SelectValue placeholder="None" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">None</SelectItem>
+                  {toneProfiles.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="md:col-span-3">
+              <Label>Color palette</Label>
+              <ColorPaletteSelector
+                selectedPalette={selectedPalette}
+                onSelectPalette={(p) => setPaletteId(p?.id ?? null)}
+              />
+            </div>
           </CardContent>
         </Card>
         <Card>
