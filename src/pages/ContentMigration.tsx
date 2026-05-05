@@ -720,8 +720,8 @@ export default function ContentMigration() {
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold">Output Options</p>
               <p className="text-xs text-muted-foreground">
-                {[skipNavigation && "Navigation", skipQuickTips && "Quick Tips", skipFaqs && "FAQs", skipSources && "Sources", skipTitleInHtml && "Title in HTML"].filter(Boolean).join(", ") || "All sections included"}
-                {[skipNavigation, skipQuickTips, skipFaqs, skipSources, skipTitleInHtml].some(Boolean) ? " skipped" : ""}
+                {[skipNavigation && "Navigation", skipQuickTips && "Quick Tips", skipFaqs && "FAQs", skipSources && "Sources"].filter(Boolean).join(", ") || "All sections included"}
+                {[skipNavigation, skipQuickTips, skipFaqs, skipSources].some(Boolean) ? " skipped" : ""}
               </p>
             </div>
             {outputOpen ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
@@ -744,16 +744,21 @@ export default function ContentMigration() {
                 <Label htmlFor="skip-sources" className="text-sm cursor-pointer">Skip Sources & References</Label>
                 <Switch id="skip-sources" checked={skipSources} onCheckedChange={(v) => { setSkipSources(v); localStorage.setItem("migration-skip-sources", String(v)); }} />
               </div>
-              <div className="flex items-center justify-between">
-                <Label htmlFor="skip-title-html" className="text-sm cursor-pointer">Skip Title (H1) in HTML Content</Label>
-                <Switch id="skip-title-html" checked={skipTitleInHtml} onCheckedChange={(v) => { setSkipTitleInHtml(v); localStorage.setItem("migration-skip-title-html", String(v)); }} />
-              </div>
-              <div className="flex items-center justify-between">
-                <Label htmlFor="english-only" className="text-sm cursor-pointer">English Only (skip NL/DE translations)</Label>
-                <Switch id="english-only" checked={englishOnly} onCheckedChange={(v) => { setEnglishOnly(v); localStorage.setItem("migration-english-only", String(v)); }} />
-              </div>
+
             </div>
           )}
+        </div>
+
+        <div className="rounded-lg border bg-card px-4 py-3 space-y-4">
+          <Label className="text-sm font-semibold">Shopify FAQ Export Settings</Label>
+          <div className="grid gap-3 md:grid-cols-3">
+            <div><Label>Author</Label><Input value={author} onChange={(e) => { setAuthor(e.target.value); localStorage.setItem("migration-shopify-author", e.target.value); }} /></div>
+            <div><Label>Sport (optional)</Label><Input value={sport} onChange={(e) => { setSport(e.target.value); localStorage.setItem("migration-shopify-sport", e.target.value); }} placeholder="baseball" /></div>
+            <div><Label>Handle prefix</Label><Input value={handlePrefix} onChange={(e) => { setHandlePrefix(e.target.value); localStorage.setItem("migration-shopify-handle-prefix", e.target.value); }} /></div>
+            <div><Label>Blog: Handle</Label><Input value={blogHandle} onChange={(e) => { setBlogHandle(e.target.value); localStorage.setItem("migration-shopify-blog-handle", e.target.value); }} /></div>
+            <div><Label>Blog: Title</Label><Input value={blogTitle} onChange={(e) => { setBlogTitle(e.target.value); localStorage.setItem("migration-shopify-blog-title", e.target.value); }} /></div>
+            <div><Label>Template Suffix</Label><Input value={templateSuffix} onChange={(e) => { setTemplateSuffix(e.target.value); localStorage.setItem("migration-shopify-template-suffix", e.target.value); }} /></div>
+          </div>
         </div>
 
         {/* CTA Banner */}
@@ -837,11 +842,11 @@ export default function ContentMigration() {
         {/* Input */}
         <Card>
           <CardHeader>
-            <CardTitle>URLs to Process</CardTitle>
+            <CardTitle>Questions to Process</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <Textarea
-              placeholder="Paste URLs, one per line..."
+              placeholder={"How long does a professional baseball game last?\nWhat is the best wood for a baseball bat?"}
               value={urlInput}
               onChange={(e) => setUrlInput(e.target.value)}
               rows={6}
@@ -849,7 +854,7 @@ export default function ContentMigration() {
             />
             <div className="flex gap-2 flex-wrap">
               <Button onClick={parseUrls} disabled={isProcessing || !urlInput.trim()}>
-                Add URLs
+                Add Questions
               </Button>
               {entries.length > 0 && (
                 <>
@@ -863,11 +868,9 @@ export default function ContentMigration() {
                   {doneCount > 0 && (
                     <>
                       <Button variant="outline" onClick={downloadXLSX} className="gap-2">
-                        <Download className="h-4 w-4" /> Download Excel ({doneCount})
+                        <Download className="h-4 w-4" /> Download Shopify CSV ({doneCount})
                       </Button>
-                      <Button variant="outline" onClick={downloadJSON} className="gap-2">
-                        <Download className="h-4 w-4" /> Download JSON ({doneCount})
-                      </Button>
+
                     </>
                   )}
                   <Button variant="ghost" onClick={clearAll} disabled={isProcessing} className="gap-2 text-destructive">
