@@ -106,16 +106,17 @@ export default function ShopifyFaqBulk() {
   const [progress, setProgress] = useState(0);
   const [running, setRunning] = useState(false);
   const [wordCount, setWordCount] = useState<300 | 500 | 700>(init.wordCount ?? 500);
+  const [includeFaqs, setIncludeFaqs] = useState<boolean>(init.includeFaqs ?? false);
   const [rows, setRows] = useState<Record<string, string>[]>(init.rows ?? []);
   const [regenIdx, setRegenIdx] = useState<number | null>(null);
 
   useEffect(() => {
     try {
       localStorage.setItem(LS_KEY, JSON.stringify({
-        questions, author, sport, blogHandle, blogTitle, templateSuffix, handlePrefix, wordCount, rows,
+        questions, author, sport, blogHandle, blogTitle, templateSuffix, handlePrefix, wordCount, includeFaqs, rows,
       }));
     } catch {}
-  }, [questions, author, sport, blogHandle, blogTitle, templateSuffix, handlePrefix, wordCount, rows]);
+  }, [questions, author, sport, blogHandle, blogTitle, templateSuffix, handlePrefix, wordCount, includeFaqs, rows]);
 
   const formatTitle = (q: string): string => {
     let s = q.trim().replace(/\s+/g, " ");
