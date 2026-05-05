@@ -13,6 +13,8 @@ import { ArrowLeft, Download, Loader2, Sparkles, RefreshCw } from "lucide-react"
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { markdownToStyledHtml } from "@/utils/markdownToStyledHtml";
+import { generateMigrationArticle } from "@/utils/generateMigrationArticle";
+import { ColorPaletteSelector, COLOR_PALETTES, type ColorPalette } from "@/components/ColorPaletteSelector";
 
 
 interface ArticleData {
@@ -115,16 +117,39 @@ export default function ShopifyFaqBulk() {
   const [wordCount, setWordCount] = useState<300 | 500 | 700>(init.wordCount ?? 500);
   const [includeFaqs, setIncludeFaqs] = useState<boolean>(init.includeFaqs ?? false);
   const [includeNav, setIncludeNav] = useState<boolean>(init.includeNav ?? false);
+  const [skipQuickTips, setSkipQuickTips] = useState<boolean>(init.skipQuickTips ?? false);
+  const [skipSources, setSkipSources] = useState<boolean>(init.skipSources ?? true);
+  const [paletteId, setPaletteId] = useState<string | null>(init.paletteId ?? null);
+  const [toneProfileId, setToneProfileId] = useState<string | null>(init.toneProfileId ?? null);
+  const [toneProfiles, setToneProfiles] = useState<Array<{ id: string; name: string }>>([]);
   const [rows, setRows] = useState<Record<string, string>[]>(init.rows ?? []);
   const [regenIdx, setRegenIdx] = useState<number | null>(null);
+
+  const selectedPalette: ColorPalette | null = paletteId
+    ? COLOR_PALETTES.find((p) => p.id === paletteId) || null
+    : null;
+
+  const EXCEL_CELL_LIMIT = 32767;
+
+  // Load tone profiles
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data } = await supabase.from("tone_profiles").select("id, name").order("name");
+        if (Array.isArray(data)) setToneProfiles(data as Array<{ id: string; name: string }>);
+      } catch {}
+    })();
+  }, []);
 
   useEffect(() => {
     try {
       localStorage.setItem(LS_KEY, JSON.stringify({
-        questions, author, sport, blogHandle, blogTitle, templateSuffix, handlePrefix, wordCount, includeFaqs, includeNav, rows,
+        questions, author, sport, blogHandle, blogTitle, templateSuffix, handlePrefix, wordCount,
+        includeFaqs, includeNav, skipQuickTips, skipSources, paletteId, toneProfileId, rows,
       }));
     } catch {}
-  }, [questions, author, sport, blogHandle, blogTitle, templateSuffix, handlePrefix, wordCount, includeFaqs, includeNav, rows]);
+  }, [questions, author, sport, blogHandle, blogTitle, templateSuffix, handlePrefix, wordCount,
+      includeFaqs, includeNav, skipQuickTips, skipSources, paletteId, toneProfileId, rows]);
 
   const formatTitle = (q: string): string => {
     let s = q.trim().replace(/\s+/g, " ");
@@ -192,30 +217,27 @@ export default function ShopifyFaqBulk() {
     const title = formatTitle(q);
     setRegenIdx(idx);
     try {
-      const { data, error } = await supabase.functions.invoke("generate-content", {
-        body: {
-          topic: title,
-          wordCount: wc,
-          length: wc <= 300 ? "short" : wc <= 500 ? "short" : "medium",
-          instructions: sport ? `This is a ${sport} FAQ article. Answer the question directly and concisely.` : "Answer the question directly and concisely.",
+      const extra = sport
+        ? `This is a ${sport} FAQ article. Answer the question directly and concisely. Keep the article close to ${wc} words.`
+        : `This is an FAQ-style article. Answer the question directly and concisely. Keep the article close to ${wc} words.`;
+
+      const result = await generateMigrationArticle({
+        topic: title,
+        targetWordCount: wc,
+        palette: selectedPalette,
+        convertOpts: {
+          skipNavigation: !includeNav,
+          skipQuickTips,
           skipFaqs: !includeFaqs,
-          skipQuickTips: false,
-          skipSources: true,
-          useFirstPerson: false,
+          skipSources,
         },
+        toneProfileId,
+        extraInstructions: extra,
       });
-      if (error) throw error;
-      let markdown: string = data.content || "";
-      // Strip stray wrapping quotes the model sometimes adds around the whole article
-      markdown = markdown.trim();
-      if ((markdown.startsWith('"') && markdown.endsWith('"')) || (markdown.startsWith("'") && markdown.endsWith("'"))) {
-        markdown = markdown.slice(1, -1).trim();
-      }
-      // Remove standalone quote-only lines that produce <p>"</p>
-      markdown = markdown.split("\n").filter((l) => l.trim() !== '"' && l.trim() !== "'").join("\n");
-      const body = markdownToStyledHtml(markdown, null, { skipNavigation: !includeNav, skipFaqs: !includeFaqs });
-      const summary = truncate(extractSummary(markdown), 300);
-      const descriptionTag = truncate(summary, 155);
+
+      const body = result.html;
+      const summary = truncate(result.subtitle || extractSummary(result.markdown), 300);
+      const descriptionTag = truncate(result.seoDescription || summary, 155);
       const handle = `${handlePrefix ? handlePrefix + "-" : ""}${slugify(q) || `q-${idx + 1}`}`;
       const newRow: Record<string, string> = {
         Handle: handle,
@@ -228,7 +250,7 @@ export default function ShopifyFaqBulk() {
         "Template Suffix": templateSuffix,
         "Blog: Handle": blogHandle,
         "Blog: Title": blogTitle,
-        "Metafield: title_tag [string]": title,
+        "Metafield: title_tag [string]": result.seoTitle || title,
         "Metafield: description_tag [string]": descriptionTag,
         "Metafield: custom.sport [single_line_text_field]": sport,
         "Metafield: custom.question [single_line_text_field]": title,
@@ -236,7 +258,15 @@ export default function ShopifyFaqBulk() {
         "Metafield: custom.subheading [single_line_text_field]": summary,
       };
       setRows((prev) => prev.map((r, i) => (i === idx ? newRow : r)));
-      toast({ title: `Generated (${wc} words)` });
+      if (body.length > EXCEL_CELL_LIMIT) {
+        toast({
+          title: `Generated (${wc} words) — over Excel cell limit`,
+          description: `Body HTML is ${body.length} chars (limit ${EXCEL_CELL_LIMIT}). CSV will still download but Excel may reject this row.`,
+          variant: "destructive",
+        });
+      } else {
+        toast({ title: `Generated (${wc} words)` });
+      }
     } catch (e: any) {
       toast({ title: "Generation failed", description: e?.message || "", variant: "destructive" });
     } finally {
@@ -335,6 +365,45 @@ export default function ShopifyFaqBulk() {
                 className="h-4 w-4"
               />
               <Label htmlFor="include-nav" className="cursor-pointer">Include "In This Article" section</Label>
+            </div>
+            <div className="flex items-center gap-2 pt-6">
+              <input
+                id="skip-tips"
+                type="checkbox"
+                checked={skipQuickTips}
+                onChange={(e) => setSkipQuickTips(e.target.checked)}
+                className="h-4 w-4"
+              />
+              <Label htmlFor="skip-tips" className="cursor-pointer">Skip Quick Tips</Label>
+            </div>
+            <div className="flex items-center gap-2 pt-6">
+              <input
+                id="skip-sources"
+                type="checkbox"
+                checked={skipSources}
+                onChange={(e) => setSkipSources(e.target.checked)}
+                className="h-4 w-4"
+              />
+              <Label htmlFor="skip-sources" className="cursor-pointer">Skip References / Sources</Label>
+            </div>
+            <div>
+              <Label>Tone profile (optional)</Label>
+              <Select value={toneProfileId ?? "none"} onValueChange={(v) => setToneProfileId(v === "none" ? null : v)}>
+                <SelectTrigger><SelectValue placeholder="None" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">None</SelectItem>
+                  {toneProfiles.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="md:col-span-3">
+              <Label>Color palette</Label>
+              <ColorPaletteSelector
+                selectedPalette={selectedPalette}
+                onSelectPalette={(p) => setPaletteId(p?.id ?? null)}
+              />
             </div>
           </CardContent>
         </Card>
