@@ -101,12 +101,21 @@ export default function ShopifyFaqBulk() {
   const [rows, setRows] = useState<Record<string, string>[]>([]);
   const [regenIdx, setRegenIdx] = useState<number | null>(null);
 
+  const formatTitle = (q: string): string => {
+    let s = q.trim().replace(/\s+/g, " ");
+    if (!s) return s;
+    s = s.charAt(0).toUpperCase() + s.slice(1);
+    if (!/[.?!]$/.test(s)) s += "?";
+    return s;
+  };
+
   const buildRow = (q: string, a: ArticleData, i: number): Record<string, string> => {
     const body = buildBodyHtml(a);
+    const title = formatTitle(q);
     const handle = `${handlePrefix ? handlePrefix + "-" : ""}${slugify(q) || `q-${i + 1}`}`;
     return {
       Handle: handle,
-      Title: q,
+      Title: title,
       Author: author,
       "Body HTML": body,
       "Summary HTML": `<p>${escapeHtml(a.summary)}</p>`,
@@ -115,11 +124,10 @@ export default function ShopifyFaqBulk() {
       "Template Suffix": templateSuffix,
       "Blog: Handle": blogHandle,
       "Blog: Title": blogTitle,
-      "Metafield: title_tag [string]": q,
+      "Metafield: title_tag [string]": title,
       "Metafield: description_tag [string]": a.descriptionTag,
       "Metafield: custom.sport [single_line_text_field]": sport,
-      "Metafield: custom.question [single_line_text_field]": q,
-      "Metafield: custom.answer [rich_text_field]": "",
+      "Metafield: custom.question [single_line_text_field]": title,
       "Metafield: custom.custom_answer_summary [rich_text_field]": `<p>${escapeHtml(a.summary)}</p>`,
       "Metafield: custom.subheading [single_line_text_field]": a.summary,
     };
