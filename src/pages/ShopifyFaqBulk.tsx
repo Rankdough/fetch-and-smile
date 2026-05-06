@@ -131,6 +131,11 @@ export default function ShopifyFaqBulk() {
   const [bulkProgress, setBulkProgress] = useState<{ current: number; total: number } | null>(null);
   const bulkCancelRef = useRef<boolean>(false);
 
+  // QA check results, keyed by row index
+  type QaResult = { status: "ok" | "warning" | "error"; issues: string[]; answersTitle: boolean; wordCount: number };
+  const [qa, setQa] = useState<Record<number, QaResult>>({});
+  const [qaLoading, setQaLoading] = useState<Record<number, boolean>>({});
+
   // Filter dialog state
   const [filterOpen, setFilterOpen] = useState(false);
   const [filterRules, setFilterRules] = useState<string>(init.filterRules ?? "");
