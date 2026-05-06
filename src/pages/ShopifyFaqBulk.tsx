@@ -9,7 +9,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Download, Loader2, Sparkles, RefreshCw } from "lucide-react";
+import { ArrowLeft, Download, Loader2, Sparkles, RefreshCw, Filter, Trash2 } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { markdownToStyledHtml } from "@/utils/markdownToStyledHtml";
@@ -129,6 +131,12 @@ export default function ShopifyFaqBulk() {
   const [bulkProgress, setBulkProgress] = useState<{ current: number; total: number } | null>(null);
   const bulkCancelRef = useRef<boolean>(false);
 
+  // Filter dialog state
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [filterRules, setFilterRules] = useState<string>(init.filterRules ?? "");
+  const [filterLoading, setFilterLoading] = useState(false);
+  const [flagged, setFlagged] = useState<Array<{ index: number; reason: string; question: string; selected: boolean }>>([]);
+
   const selectedPalette: ColorPalette | null = paletteId
     ? COLOR_PALETTES.find((p) => p.id === paletteId) || null
     : null;
@@ -149,11 +157,11 @@ export default function ShopifyFaqBulk() {
     try {
       localStorage.setItem(LS_KEY, JSON.stringify({
         questions, author, sport, globalTags, blogHandle, blogTitle, templateSuffix, handlePrefix, wordCount,
-        includeFaqs, includeNav, skipQuickTips, skipSources, stripTitle, paletteId, toneProfileId, rows,
+        includeFaqs, includeNav, skipQuickTips, skipSources, stripTitle, paletteId, toneProfileId, rows, filterRules,
       }));
     } catch {}
   }, [questions, author, sport, globalTags, blogHandle, blogTitle, templateSuffix, handlePrefix, wordCount,
-      includeFaqs, includeNav, skipQuickTips, skipSources, stripTitle, paletteId, toneProfileId, rows]);
+      includeFaqs, includeNav, skipQuickTips, skipSources, stripTitle, paletteId, toneProfileId, rows, filterRules]);
 
   const formatTitle = (q: string): string => {
     let s = q.trim().replace(/\s+/g, " ");
@@ -311,6 +319,51 @@ export default function ShopifyFaqBulk() {
     toast({ title: `Created ${out.length} rows`, description: "Click 300w / 500w / 700w on each row to generate body content." });
   };
 
+  const runFilter = async () => {
+    const list = questions.split("\n").map((q) => q.trim()).filter(Boolean);
+    if (list.length === 0) {
+      toast({ title: "No questions to filter", variant: "destructive" });
+      return;
+    }
+    if (!filterRules.trim()) {
+      toast({ title: "Add filter rules first", variant: "destructive" });
+      return;
+    }
+    setFilterLoading(true);
+    setFlagged([]);
+    try {
+      const { data, error } = await supabase.functions.invoke("filter-faq-questions", {
+        body: { questions: list, rules: filterRules },
+      });
+      if (error) throw error;
+      const items: Array<{ index: number; reason: string; question: string }> = data?.flagged || [];
+      if (items.length === 0) {
+        toast({ title: "No questions matched the filter rules" });
+        setFlagged([]);
+      } else {
+        setFlagged(items.map((f) => ({ ...f, selected: true })));
+      }
+    } catch (e: any) {
+      toast({ title: "Filter failed", description: e?.message || "", variant: "destructive" });
+    } finally {
+      setFilterLoading(false);
+    }
+  };
+
+  const applyFilterRemoval = () => {
+    const toRemove = new Set(flagged.filter((f) => f.selected).map((f) => f.question));
+    if (toRemove.size === 0) {
+      toast({ title: "Nothing selected to remove" });
+      return;
+    }
+    const list = questions.split("\n").map((q) => q.trim()).filter(Boolean);
+    const kept = list.filter((q) => !toRemove.has(q));
+    setQuestions(kept.join("\n"));
+    setFlagged([]);
+    setFilterOpen(false);
+    toast({ title: `Removed ${toRemove.size} question${toRemove.size === 1 ? "" : "s"}` });
+  };
+
   const downloadCsv = () => {
     if (rows.length === 0) return;
     const escapeCsv = (v: string) => {
@@ -455,9 +508,12 @@ export default function ShopifyFaqBulk() {
                 placeholder={"How do I clean batting gloves?\nWhat is the best wood for a baseball bat?"}
               />
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
               <Button onClick={generate} className="gap-2">
                 <Sparkles className="h-4 w-4" /> Create rows
+              </Button>
+              <Button variant="outline" onClick={() => setFilterOpen(true)} className="gap-2">
+                <Filter className="h-4 w-4" /> Filter questions
               </Button>
               <Button variant="outline" onClick={downloadCsv} disabled={rows.length === 0} className="gap-2">
                 <Download className="h-4 w-4" /> Download CSV ({rows.length})
@@ -557,6 +613,73 @@ export default function ShopifyFaqBulk() {
           </Card>
         </section>
       )}
+
+      <Dialog open={filterOpen} onOpenChange={setFilterOpen}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Filter questions by rules</DialogTitle>
+            <DialogDescription>
+              Describe which questions to remove. AI will flag matches for your approval before removal.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Removal rules</Label>
+              <Textarea
+                rows={5}
+                value={filterRules}
+                onChange={(e) => setFilterRules(e.target.value)}
+                placeholder={"Examples:\n- Remove time-sensitive questions (where to watch tonight, tomorrow, this weekend, today)\n- Remove questions mentioning specific dates or scores\n- Remove anything containing the word 'live stream'"}
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button onClick={runFilter} disabled={filterLoading} className="gap-2">
+                {filterLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Filter className="h-4 w-4" />}
+                Find matches
+              </Button>
+              {flagged.length > 0 && (
+                <>
+                  <Button variant="ghost" size="sm" onClick={() => setFlagged((f) => f.map((x) => ({ ...x, selected: true })))}>
+                    Select all
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => setFlagged((f) => f.map((x) => ({ ...x, selected: false })))}>
+                    Deselect all
+                  </Button>
+                </>
+              )}
+            </div>
+            {flagged.length > 0 && (
+              <div className="border rounded-md divide-y max-h-96 overflow-y-auto">
+                {flagged.map((f, i) => (
+                  <label key={i} className="flex items-start gap-3 p-3 hover:bg-muted/50 cursor-pointer">
+                    <Checkbox
+                      checked={f.selected}
+                      onCheckedChange={(v) => setFlagged((prev) => prev.map((x, idx) => idx === i ? { ...x, selected: !!v } : x))}
+                      className="mt-0.5"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium break-words">{f.question}</div>
+                      <div className="text-xs text-muted-foreground mt-0.5">{f.reason}</div>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setFilterOpen(false)}>Close</Button>
+            <Button
+              variant="destructive"
+              onClick={applyFilterRemoval}
+              disabled={flagged.filter((f) => f.selected).length === 0}
+              className="gap-2"
+            >
+              <Trash2 className="h-4 w-4" />
+              Remove selected ({flagged.filter((f) => f.selected).length})
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
