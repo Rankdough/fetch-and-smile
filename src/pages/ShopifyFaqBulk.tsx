@@ -636,6 +636,34 @@ export default function ShopifyFaqBulk() {
                           ))}
                         </div>
                       </TableCell>
+                      <TableCell className="align-top text-xs max-w-[220px]">
+                        {qaLoading[i] ? (
+                          <div className="flex items-center gap-1 text-muted-foreground"><Loader2 className="h-3 w-3 animate-spin" /> Checking…</div>
+                        ) : qa[i] ? (
+                          <div className="space-y-1">
+                            <div className={`flex items-center gap-1 font-medium ${
+                              qa[i].status === "ok" ? "text-green-600" :
+                              qa[i].status === "warning" ? "text-amber-600" : "text-destructive"
+                            }`}>
+                              {qa[i].status === "ok" ? <CheckCircle2 className="h-3.5 w-3.5" /> :
+                               qa[i].status === "warning" ? <AlertTriangle className="h-3.5 w-3.5" /> :
+                               <AlertCircle className="h-3.5 w-3.5" />}
+                              {qa[i].status === "ok" ? "OK" : qa[i].status === "warning" ? "Warning" : "Error"}
+                              <span className="text-muted-foreground font-normal">· {qa[i].wordCount}w</span>
+                            </div>
+                            {!qa[i].answersTitle && (
+                              <div className="text-destructive text-[11px]">Doesn't answer title</div>
+                            )}
+                            {qa[i].issues.length > 0 && (
+                              <ul className="list-disc pl-3 text-muted-foreground text-[11px] space-y-0.5">
+                                {qa[i].issues.slice(0, 4).map((iss, k) => <li key={k}>{iss}</li>)}
+                              </ul>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
                       {COLUMNS.map((c) => {
                         const v = r[c] ?? "";
                         const isHtml = c === "Body HTML" || c.includes("rich_text_field");
