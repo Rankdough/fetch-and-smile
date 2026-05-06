@@ -124,6 +124,9 @@ export default function ShopifyFaqBulk() {
   const [skipSources, setSkipSources] = useState<boolean>(init.skipSources ?? true);
   const [stripTitle, setStripTitle] = useState<boolean>(init.stripTitle ?? false);
   const [paletteId, setPaletteId] = useState<string | null>(init.paletteId ?? null);
+  const [internalLinks, setInternalLinks] = useState<string[]>(
+    Array.isArray(init.internalLinks) ? [...init.internalLinks, "", "", ""].slice(0, 3) : ["", "", ""]
+  );
   const [toneProfileId, setToneProfileId] = useState<string | null>(init.toneProfileId ?? null);
   const [toneProfiles, setToneProfiles] = useState<Array<{ id: string; name: string }>>([]);
   const [rows, setRows] = useState<Record<string, string>[]>(init.rows ?? []);
