@@ -227,6 +227,80 @@ export default function ShopifyFaqBulk() {
 
   const truncate = (s: string, n: number) => (s.length <= n ? s : s.slice(0, n - 1).replace(/\s+\S*$/, "") + "…");
 
+  const markdownWordCount = (md: string) => md
+    .replace(/<[^>]+>/g, " ")
+    .replace(/!\[[^\]]*\]\([^)]+\)/g, " ")
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+    .replace(/[#__>*`|\[\]()]/g, " ")
+    .split(/\s+/)
+    .filter(Boolean).length;
+
+  const trimMarkdownWords = (text: string, maxWords: number) => {
+    const words = text.trim().split(/\s+/).filter(Boolean);
+    if (words.length <= maxWords) return text.trim();
+    const trimmed = words.slice(0, maxWords).join(" ").replace(/[,:;\-]$/, "").trim();
+    return /[.!?]$/.test(trimmed) ? trimmed : `${trimmed}.`;
+  };
+
+  const enforceStrict300Markdown = (markdown: string, title: string): string => {
+    const normalised = markdown.replace(/—|–/g, "-").replace(/^\s*[-*_]{3,}\s*$/gm, "").trim();
+    const h1 = normalised.match(/^#\s+(.+)$/m)?.[1]?.trim() || title;
+    const tableMatch = normalised.match(/(?:^|\n)((?:\|[^\n]+\|\n?){3,})/m);
+    const table = tableMatch?.[1]
+      ?.trim()
+      .split("\n")
+      .slice(0, 6)
+      .join("\n") || `| Point | Short answer | Why it matters |\n| --- | --- | --- |\n| Main answer | See the summary above | Keeps the response direct |\n| Key caveat | Check current details | Avoids outdated assumptions |\n| Next step | Compare the practical options | Helps readers act confidently |`;
+    const withoutTables = normalised.replace(/(?:^|\n)(?:\|[^\n]+\|\n?){3,}/gm, "\n").trim();
+    const h2Regex = /^##\s+(.+)$/gm;
+    const matches = [...withoutTables.matchAll(h2Regex)];
+    const introBlock = matches.length ? withoutTables.slice(0, matches[0].index ?? 0) : withoutTables;
+    const intro = trimMarkdownWords(
+      introBlock.replace(/^#\s+.+$/m, "").split(/\n{2,}/).map((p) => p.trim()).filter(Boolean)[0] || "",
+      35
+    );
+    const sections = matches.map((match, index) => {
+      const start = match.index ?? 0;
+      const end = index + 1 < matches.length ? (matches[index + 1].index ?? withoutTables.length) : withoutTables.length;
+      return { heading: match[1].trim(), body: withoutTables.slice(start + match[0].length, end).trim() };
+    });
+    const isStructural = (heading: string) => /tl;?dr|quick tips|in this article|frequently asked|^faq$|final thoughts|conclusion|references|how to choose|how to pick|how to decide|how to find/i.test(heading);
+    const tldr = sections.find((s) => /tl;?dr/i.test(s.heading));
+    const quickTips = sections.find((s) => /quick tips/i.test(s.heading));
+    const main = sections.find((s) => !isStructural(s.heading)) || sections.find((s) => !/tl;?dr|quick tips/i.test(s.heading));
+    const allBodyText = sections
+      .filter((s) => !/tl;?dr|quick tips/i.test(s.heading))
+      .map((s) => s.body)
+      .join("\n\n")
+      .replace(/^#{1,6}\s+.+$/gm, "")
+      .replace(/^[-*>\s]*\*\*Sources:\*\*[\s\S]*$/gim, "")
+      .trim();
+    const tips = (quickTips?.body || "")
+      .split("\n")
+      .map((line) => line.replace(/^\s*(?:[-*>]|\d+[.)])\s*/, "").replace(/^\*\*Tip\s*\d+:\*\*\s*/i, "").trim())
+      .filter(Boolean)
+      .slice(0, 3)
+      .map((tip, i) => `${i + 1}. ${trimMarkdownWords(tip, 12)}`);
+
+    const fixedBlocks = [
+      `# ${h1}`,
+      intro,
+      `## TL;DR\n${trimMarkdownWords(tldr?.body || intro || allBodyText, 45)}`,
+      !skipQuickTips && tips.length ? `## Quick Tips\n${tips.join("\n")}` : "",
+      `## ${main?.heading || "What is the short answer?"}`,
+    ].filter(Boolean);
+    const fixedWords = markdownWordCount(`${fixedBlocks.join("\n\n")}\n\n${table}`);
+    const bodyBudget = Math.max(60, 325 - fixedWords);
+    let body = trimMarkdownWords((main?.body || allBodyText).replace(table, "").trim(), bodyBudget);
+    let output = `${fixedBlocks.join("\n\n")}\n\n${body}\n\n${table}`.trim();
+
+    if (markdownWordCount(output) > 325) {
+      body = trimMarkdownWords(body, Math.max(35, bodyBudget - (markdownWordCount(output) - 325)));
+      output = `${fixedBlocks.join("\n\n")}\n\n${body}\n\n${table}`.trim();
+    }
+    return output;
+  };
+
   const runQaCheck = async (idx: number, title: string, body: string, targetWordCount: number) => {
     setQaLoading((p) => ({ ...p, [idx]: true }));
     try {
