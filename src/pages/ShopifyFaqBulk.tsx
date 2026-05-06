@@ -131,6 +131,12 @@ export default function ShopifyFaqBulk() {
   const [bulkProgress, setBulkProgress] = useState<{ current: number; total: number } | null>(null);
   const bulkCancelRef = useRef<boolean>(false);
 
+  // Filter dialog state
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [filterRules, setFilterRules] = useState<string>(init.filterRules ?? "");
+  const [filterLoading, setFilterLoading] = useState(false);
+  const [flagged, setFlagged] = useState<Array<{ index: number; reason: string; question: string; selected: boolean }>>([]);
+
   const selectedPalette: ColorPalette | null = paletteId
     ? COLOR_PALETTES.find((p) => p.id === paletteId) || null
     : null;
