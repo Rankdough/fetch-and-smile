@@ -258,6 +258,49 @@ export default function ShopifyFaqBulk() {
     }
   };
 
+  const deleteRow = (idx: number) => {
+    setRows((prev) => prev.filter((_, i) => i !== idx));
+    setQa((prev) => {
+      const next: Record<number, QaResult> = {};
+      Object.entries(prev).forEach(([k, v]) => {
+        const n = Number(k);
+        if (n === idx) return;
+        next[n > idx ? n - 1 : n] = v;
+      });
+      return next;
+    });
+    setQaLoading((prev) => {
+      const next: Record<number, boolean> = {};
+      Object.entries(prev).forEach(([k, v]) => {
+        const n = Number(k);
+        if (n === idx) return;
+        next[n > idx ? n - 1 : n] = v;
+      });
+      return next;
+    });
+  };
+
+  const deleteAllErrorRows = () => {
+    const errorIdxs = new Set(
+      Object.entries(qa).filter(([, v]) => v?.status === "error").map(([k]) => Number(k))
+    );
+    if (errorIdxs.size === 0) return;
+    if (!confirm(`Delete ${errorIdxs.size} row(s) flagged as Error?`)) return;
+    const oldToNew: Record<number, number> = {};
+    let cursor = 0;
+    rows.forEach((_, i) => {
+      if (!errorIdxs.has(i)) oldToNew[i] = cursor++;
+    });
+    const newQa: Record<number, QaResult> = {};
+    Object.entries(qa).forEach(([k, v]) => {
+      const n = Number(k);
+      if (oldToNew[n] !== undefined) newQa[oldToNew[n]] = v;
+    });
+    setRows(rows.filter((_, i) => !errorIdxs.has(i)));
+    setQa(newQa);
+    setQaLoading({});
+    toast({ title: `Deleted ${errorIdxs.size} error row(s)` });
+  };
 
   const regenerateRow = async (idx: number, wc: 300 | 500 | 700) => {
     const row = rows[idx];
@@ -573,6 +616,20 @@ export default function ShopifyFaqBulk() {
               <div className="flex items-center justify-between gap-3 flex-wrap">
                 <CardTitle>Generated rows ({rows.length})</CardTitle>
                 <div className="flex items-center gap-2 flex-wrap">
+                  {(() => {
+                    const errorCount = Object.values(qa).filter((q) => q?.status === "error").length;
+                    return errorCount > 0 ? (
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        className="h-7 px-2 text-xs gap-1"
+                        disabled={!!bulkProgress || regenIdx !== null}
+                        onClick={() => deleteAllErrorRows()}
+                      >
+                        Delete {errorCount} error row{errorCount === 1 ? "" : "s"}
+                      </Button>
+                    ) : null;
+                  })()}
                   <span className="text-xs text-muted-foreground">Regenerate all:</span>
                   {[300, 500, 700].map((wc) => (
                     <Button
@@ -658,6 +715,16 @@ export default function ShopifyFaqBulk() {
                               <ul className="list-disc pl-3 text-muted-foreground text-[11px] space-y-0.5">
                                 {qa[i].issues.slice(0, 4).map((iss, k) => <li key={k}>{iss}</li>)}
                               </ul>
+                            )}
+                            {qa[i].status === "error" && (
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                className="h-6 px-2 text-[11px] mt-1"
+                                onClick={() => deleteRow(i)}
+                              >
+                                Delete row
+                              </Button>
                             )}
                           </div>
                         ) : (
