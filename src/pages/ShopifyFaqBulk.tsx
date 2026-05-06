@@ -157,11 +157,11 @@ export default function ShopifyFaqBulk() {
     try {
       localStorage.setItem(LS_KEY, JSON.stringify({
         questions, author, sport, globalTags, blogHandle, blogTitle, templateSuffix, handlePrefix, wordCount,
-        includeFaqs, includeNav, skipQuickTips, skipSources, stripTitle, paletteId, toneProfileId, rows,
+        includeFaqs, includeNav, skipQuickTips, skipSources, stripTitle, paletteId, toneProfileId, rows, filterRules,
       }));
     } catch {}
   }, [questions, author, sport, globalTags, blogHandle, blogTitle, templateSuffix, handlePrefix, wordCount,
-      includeFaqs, includeNav, skipQuickTips, skipSources, stripTitle, paletteId, toneProfileId, rows]);
+      includeFaqs, includeNav, skipQuickTips, skipSources, stripTitle, paletteId, toneProfileId, rows, filterRules]);
 
   const formatTitle = (q: string): string => {
     let s = q.trim().replace(/\s+/g, " ");
