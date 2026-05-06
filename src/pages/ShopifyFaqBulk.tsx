@@ -298,6 +298,18 @@ export default function ShopifyFaqBulk() {
       body = trimMarkdownWords(body, Math.max(35, bodyBudget - (markdownWordCount(output) - 325)));
       output = `${fixedBlocks.join("\n\n")}\n\n${body}\n\n${table}`.trim();
     }
+    if (markdownWordCount(output) < 275) {
+      const fillers = [
+        `For ${sport || "this topic"}, readers should use the answer as practical guidance, then check the latest rules, availability, or product details before acting.`,
+        `That keeps the decision grounded in the current situation rather than a generic answer that may miss timing, league, or format changes.`,
+        `If the question involves equipment, venues, schedules, or eligibility, confirm the details at the point of purchase or registration.`,
+      ];
+      for (const filler of fillers) {
+        if (markdownWordCount(output) >= 275) break;
+        body = `${body} ${filler}`.trim();
+        output = `${fixedBlocks.join("\n\n")}\n\n${trimMarkdownWords(body, Math.max(35, 325 - markdownWordCount(`${fixedBlocks.join("\n\n")}\n\n${table}`)))}\n\n${table}`.trim();
+      }
+    }
     return output;
   };
 
