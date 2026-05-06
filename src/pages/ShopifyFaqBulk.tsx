@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Download, Loader2, Sparkles, RefreshCw, Filter, Trash2 } from "lucide-react";
+import { ArrowLeft, Download, Loader2, Sparkles, RefreshCw, Filter, Trash2, CheckCircle2, AlertTriangle, AlertCircle } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
@@ -131,6 +131,11 @@ export default function ShopifyFaqBulk() {
   const [bulkProgress, setBulkProgress] = useState<{ current: number; total: number } | null>(null);
   const bulkCancelRef = useRef<boolean>(false);
 
+  // QA check results, keyed by row index
+  type QaResult = { status: "ok" | "warning" | "error"; issues: string[]; answersTitle: boolean; wordCount: number };
+  const [qa, setQa] = useState<Record<number, QaResult>>({});
+  const [qaLoading, setQaLoading] = useState<Record<number, boolean>>({});
+
   // Filter dialog state
   const [filterOpen, setFilterOpen] = useState(false);
   const [filterRules, setFilterRules] = useState<string>(init.filterRules ?? "");
@@ -222,6 +227,38 @@ export default function ShopifyFaqBulk() {
 
   const truncate = (s: string, n: number) => (s.length <= n ? s : s.slice(0, n - 1).replace(/\s+\S*$/, "") + "…");
 
+  const runQaCheck = async (idx: number, title: string, body: string, targetWordCount: number) => {
+    setQaLoading((p) => ({ ...p, [idx]: true }));
+    try {
+      const { data, error } = await supabase.functions.invoke("verify-faq-answer", {
+        body: { title, body, targetWordCount },
+      });
+      if (error) throw error;
+      const result: QaResult = {
+        status: data?.status ?? "warning",
+        issues: Array.isArray(data?.issues) ? data.issues : [],
+        answersTitle: data?.answersTitle !== false,
+        wordCount: data?.wordCount ?? 0,
+      };
+      setQa((p) => ({ ...p, [idx]: result }));
+      if (result.status === "error") {
+        toast({
+          title: `QA: issues found`,
+          description: result.issues.slice(0, 2).join(" • ") || "Body may not answer the title.",
+          variant: "destructive",
+        });
+      } else if (result.status === "warning" && result.issues.length) {
+        toast({ title: `QA: minor issues`, description: result.issues.slice(0, 2).join(" • ") });
+      }
+    } catch (e: any) {
+      // Silent — QA is best-effort
+      console.warn("QA check failed", e);
+    } finally {
+      setQaLoading((p) => ({ ...p, [idx]: false }));
+    }
+  };
+
+
   const regenerateRow = async (idx: number, wc: 300 | 500 | 700) => {
     const row = rows[idx];
     if (!row) return;
@@ -283,6 +320,8 @@ export default function ShopifyFaqBulk() {
       } else {
         toast({ title: `Generated (${wc} words)` });
       }
+      // Run QA check (non-blocking)
+      runQaCheck(idx, title, body, wc);
     } catch (e: any) {
       toast({ title: "Generation failed", description: e?.message || "", variant: "destructive" });
     } finally {
@@ -571,6 +610,7 @@ export default function ShopifyFaqBulk() {
                 <TableHeader>
                   <TableRow>
                     <TableHead className="text-xs sticky left-0 bg-background z-10">Regenerate</TableHead>
+                    <TableHead className="text-xs">QA</TableHead>
                     {COLUMNS.map((c) => (
                       <TableHead key={c} className="whitespace-nowrap text-xs">{c}</TableHead>
                     ))}
@@ -595,6 +635,34 @@ export default function ShopifyFaqBulk() {
                             </Button>
                           ))}
                         </div>
+                      </TableCell>
+                      <TableCell className="align-top text-xs max-w-[220px]">
+                        {qaLoading[i] ? (
+                          <div className="flex items-center gap-1 text-muted-foreground"><Loader2 className="h-3 w-3 animate-spin" /> Checking…</div>
+                        ) : qa[i] ? (
+                          <div className="space-y-1">
+                            <div className={`flex items-center gap-1 font-medium ${
+                              qa[i].status === "ok" ? "text-green-600" :
+                              qa[i].status === "warning" ? "text-amber-600" : "text-destructive"
+                            }`}>
+                              {qa[i].status === "ok" ? <CheckCircle2 className="h-3.5 w-3.5" /> :
+                               qa[i].status === "warning" ? <AlertTriangle className="h-3.5 w-3.5" /> :
+                               <AlertCircle className="h-3.5 w-3.5" />}
+                              {qa[i].status === "ok" ? "OK" : qa[i].status === "warning" ? "Warning" : "Error"}
+                              <span className="text-muted-foreground font-normal">· {qa[i].wordCount}w</span>
+                            </div>
+                            {!qa[i].answersTitle && (
+                              <div className="text-destructive text-[11px]">Doesn't answer title</div>
+                            )}
+                            {qa[i].issues.length > 0 && (
+                              <ul className="list-disc pl-3 text-muted-foreground text-[11px] space-y-0.5">
+                                {qa[i].issues.slice(0, 4).map((iss, k) => <li key={k}>{iss}</li>)}
+                              </ul>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
                       </TableCell>
                       {COLUMNS.map((c) => {
                         const v = r[c] ?? "";
