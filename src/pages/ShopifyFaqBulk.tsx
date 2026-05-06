@@ -573,6 +573,20 @@ export default function ShopifyFaqBulk() {
               <div className="flex items-center justify-between gap-3 flex-wrap">
                 <CardTitle>Generated rows ({rows.length})</CardTitle>
                 <div className="flex items-center gap-2 flex-wrap">
+                  {(() => {
+                    const errorCount = Object.values(qa).filter((q) => q?.status === "error").length;
+                    return errorCount > 0 ? (
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        className="h-7 px-2 text-xs gap-1"
+                        disabled={!!bulkProgress || regenIdx !== null}
+                        onClick={() => deleteAllErrorRows()}
+                      >
+                        Delete {errorCount} error row{errorCount === 1 ? "" : "s"}
+                      </Button>
+                    ) : null;
+                  })()}
                   <span className="text-xs text-muted-foreground">Regenerate all:</span>
                   {[300, 500, 700].map((wc) => (
                     <Button
