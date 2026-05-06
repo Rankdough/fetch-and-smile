@@ -227,6 +227,38 @@ export default function ShopifyFaqBulk() {
 
   const truncate = (s: string, n: number) => (s.length <= n ? s : s.slice(0, n - 1).replace(/\s+\S*$/, "") + "…");
 
+  const runQaCheck = async (idx: number, title: string, body: string, targetWordCount: number) => {
+    setQaLoading((p) => ({ ...p, [idx]: true }));
+    try {
+      const { data, error } = await supabase.functions.invoke("verify-faq-answer", {
+        body: { title, body, targetWordCount },
+      });
+      if (error) throw error;
+      const result: QaResult = {
+        status: data?.status ?? "warning",
+        issues: Array.isArray(data?.issues) ? data.issues : [],
+        answersTitle: data?.answersTitle !== false,
+        wordCount: data?.wordCount ?? 0,
+      };
+      setQa((p) => ({ ...p, [idx]: result }));
+      if (result.status === "error") {
+        toast({
+          title: `QA: issues found`,
+          description: result.issues.slice(0, 2).join(" • ") || "Body may not answer the title.",
+          variant: "destructive",
+        });
+      } else if (result.status === "warning" && result.issues.length) {
+        toast({ title: `QA: minor issues`, description: result.issues.slice(0, 2).join(" • ") });
+      }
+    } catch (e: any) {
+      // Silent — QA is best-effort
+      console.warn("QA check failed", e);
+    } finally {
+      setQaLoading((p) => ({ ...p, [idx]: false }));
+    }
+  };
+
+
   const regenerateRow = async (idx: number, wc: 300 | 500 | 700) => {
     const row = rows[idx];
     if (!row) return;
