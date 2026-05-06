@@ -319,7 +319,51 @@ export default function ShopifyFaqBulk() {
     toast({ title: `Created ${out.length} rows`, description: "Click 300w / 500w / 700w on each row to generate body content." });
   };
 
-  const downloadCsv = () => {
+  const runFilter = async () => {
+    const list = questions.split("\n").map((q) => q.trim()).filter(Boolean);
+    if (list.length === 0) {
+      toast({ title: "No questions to filter", variant: "destructive" });
+      return;
+    }
+    if (!filterRules.trim()) {
+      toast({ title: "Add filter rules first", variant: "destructive" });
+      return;
+    }
+    setFilterLoading(true);
+    setFlagged([]);
+    try {
+      const { data, error } = await supabase.functions.invoke("filter-faq-questions", {
+        body: { questions: list, rules: filterRules },
+      });
+      if (error) throw error;
+      const items: Array<{ index: number; reason: string; question: string }> = data?.flagged || [];
+      if (items.length === 0) {
+        toast({ title: "No questions matched the filter rules" });
+        setFlagged([]);
+      } else {
+        setFlagged(items.map((f) => ({ ...f, selected: true })));
+      }
+    } catch (e: any) {
+      toast({ title: "Filter failed", description: e?.message || "", variant: "destructive" });
+    } finally {
+      setFilterLoading(false);
+    }
+  };
+
+  const applyFilterRemoval = () => {
+    const toRemove = new Set(flagged.filter((f) => f.selected).map((f) => f.question));
+    if (toRemove.size === 0) {
+      toast({ title: "Nothing selected to remove" });
+      return;
+    }
+    const list = questions.split("\n").map((q) => q.trim()).filter(Boolean);
+    const kept = list.filter((q) => !toRemove.has(q));
+    setQuestions(kept.join("\n"));
+    setFlagged([]);
+    setFilterOpen(false);
+    toast({ title: `Removed ${toRemove.size} question${toRemove.size === 1 ? "" : "s"}` });
+  };
+
     if (rows.length === 0) return;
     const escapeCsv = (v: string) => {
       const s = (v ?? "").toString();
