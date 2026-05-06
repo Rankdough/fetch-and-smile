@@ -613,6 +613,73 @@ export default function ShopifyFaqBulk() {
           </Card>
         </section>
       )}
+
+      <Dialog open={filterOpen} onOpenChange={setFilterOpen}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Filter questions by rules</DialogTitle>
+            <DialogDescription>
+              Describe which questions to remove. AI will flag matches for your approval before removal.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Removal rules</Label>
+              <Textarea
+                rows={5}
+                value={filterRules}
+                onChange={(e) => setFilterRules(e.target.value)}
+                placeholder={"Examples:\n- Remove time-sensitive questions (where to watch tonight, tomorrow, this weekend, today)\n- Remove questions mentioning specific dates or scores\n- Remove anything containing the word 'live stream'"}
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button onClick={runFilter} disabled={filterLoading} className="gap-2">
+                {filterLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Filter className="h-4 w-4" />}
+                Find matches
+              </Button>
+              {flagged.length > 0 && (
+                <>
+                  <Button variant="ghost" size="sm" onClick={() => setFlagged((f) => f.map((x) => ({ ...x, selected: true })))}>
+                    Select all
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => setFlagged((f) => f.map((x) => ({ ...x, selected: false })))}>
+                    Deselect all
+                  </Button>
+                </>
+              )}
+            </div>
+            {flagged.length > 0 && (
+              <div className="border rounded-md divide-y max-h-96 overflow-y-auto">
+                {flagged.map((f, i) => (
+                  <label key={i} className="flex items-start gap-3 p-3 hover:bg-muted/50 cursor-pointer">
+                    <Checkbox
+                      checked={f.selected}
+                      onCheckedChange={(v) => setFlagged((prev) => prev.map((x, idx) => idx === i ? { ...x, selected: !!v } : x))}
+                      className="mt-0.5"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium break-words">{f.question}</div>
+                      <div className="text-xs text-muted-foreground mt-0.5">{f.reason}</div>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setFilterOpen(false)}>Close</Button>
+            <Button
+              variant="destructive"
+              onClick={applyFilterRemoval}
+              disabled={flagged.filter((f) => f.selected).length === 0}
+              className="gap-2"
+            >
+              <Trash2 className="h-4 w-4" />
+              Remove selected ({flagged.filter((f) => f.selected).length})
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
