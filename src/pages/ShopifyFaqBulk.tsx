@@ -391,7 +391,8 @@ STRUCTURE FOR 300-WORD ARTICLE (exact):
 - TL;DR (1 dense paragraph, 30-45 words)
 - Quick Tips: exactly 3 short bullets (max 12 words each)
 - EXACTLY 1 H2 section with 1 short paragraph (50-80 words) and EXACTLY 1 markdown table (3-4 rows, 2-3 columns)
-- Do NOT add any additional H2 sections beyond that single one.`;
+- Do NOT add any additional H2 sections beyond that single one.
+- Do NOT include Final Thoughts, FAQ, References, How to Choose, or any extra sections for this 300-word option.`;
       const base = sport
         ? `This is a ${sport} FAQ article. Answer the question directly and concisely. Target ${wc} words total.`
         : `This is an FAQ-style article. Answer the question directly and concisely. Target ${wc} words total.`;
@@ -411,10 +412,17 @@ STRUCTURE FOR 300-WORD ARTICLE (exact):
         extraInstructions: extra,
       });
 
+      const finalMarkdown = wc === 300 ? enforceStrict300Markdown(result.markdown, title) : result.markdown;
+      const finalHtml = wc === 300 ? markdownToStyledHtml(finalMarkdown, selectedPalette || null, {
+        skipNavigation: true,
+        skipQuickTips,
+        skipFaqs: true,
+        skipSources: true,
+      }) : result.html;
       const body = stripTitle
-        ? result.html.replace(/<h1\b[^>]*>[\s\S]*?<\/h1>/i, "").trim()
-        : result.html;
-      const summary = truncate(result.subtitle || extractSummary(result.markdown), 300);
+        ? finalHtml.replace(/<h1\b[^>]*>[\s\S]*?<\/h1>/i, "").trim()
+        : finalHtml;
+      const summary = truncate(result.subtitle || extractSummary(finalMarkdown), 300);
       const descriptionTag = truncate(result.seoDescription || summary, 155);
       const handle = `${handlePrefix ? handlePrefix + "-" : ""}${slugify(q) || `q-${idx + 1}`}`;
       const newRow: Record<string, string> = {
