@@ -229,9 +229,11 @@ export default function ShopifyFaqBulk() {
     const title = formatTitle(q);
     setRegenIdx(idx);
     try {
-      const extra = sport
+      const tableRule = `Include EXACTLY 1 markdown table (3-5 rows, 2-3 columns) summarising key info, and EXACTLY 1 H2 section beyond the TL;DR/Quick Tips. Do NOT skip the table.`;
+      const base = sport
         ? `This is a ${sport} FAQ article. Answer the question directly and concisely. Keep the article close to ${wc} words.`
         : `This is an FAQ-style article. Answer the question directly and concisely. Keep the article close to ${wc} words.`;
+      const extra = wc === 300 ? `${base}\n\n${tableRule}` : base;
 
       const result = await generateMigrationArticle({
         topic: title,
@@ -413,7 +415,7 @@ export default function ShopifyFaqBulk() {
               <Select value={String(wordCount)} onValueChange={(v) => setWordCount(Number(v) as 300 | 500 | 700)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="300">300 words (compact, no table)</SelectItem>
+                  <SelectItem value="300">300 words (1 table, 1 section)</SelectItem>
                   <SelectItem value="500">500 words (1 table, 2 sections)</SelectItem>
                   <SelectItem value="700">700 words (1 table, 3 sections)</SelectItem>
                 </SelectContent>
