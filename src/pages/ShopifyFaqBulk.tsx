@@ -364,6 +364,7 @@ export default function ShopifyFaqBulk() {
     toast({ title: `Removed ${toRemove.size} question${toRemove.size === 1 ? "" : "s"}` });
   };
 
+  const downloadCsv = () => {
     if (rows.length === 0) return;
     const escapeCsv = (v: string) => {
       const s = (v ?? "").toString();
