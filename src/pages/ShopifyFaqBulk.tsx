@@ -227,6 +227,92 @@ export default function ShopifyFaqBulk() {
 
   const truncate = (s: string, n: number) => (s.length <= n ? s : s.slice(0, n - 1).replace(/\s+\S*$/, "") + "…");
 
+  const markdownWordCount = (md: string) => md
+    .replace(/<[^>]+>/g, " ")
+    .replace(/!\[[^\]]*\]\([^)]+\)/g, " ")
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+    .replace(/[#__>*`|\[\]()]/g, " ")
+    .split(/\s+/)
+    .filter(Boolean).length;
+
+  const trimMarkdownWords = (text: string, maxWords: number) => {
+    const words = text.trim().split(/\s+/).filter(Boolean);
+    if (words.length <= maxWords) return text.trim();
+    const trimmed = words.slice(0, maxWords).join(" ").replace(/[,:;\-]$/, "").trim();
+    return /[.!?]$/.test(trimmed) ? trimmed : `${trimmed}.`;
+  };
+
+  const enforceStrict300Markdown = (markdown: string, title: string): string => {
+    const normalised = markdown.replace(/—|–/g, "-").replace(/^\s*[-*_]{3,}\s*$/gm, "").trim();
+    const h1 = normalised.match(/^#\s+(.+)$/m)?.[1]?.trim() || title;
+    const tableMatch = normalised.match(/(?:^|\n)((?:\|[^\n]+\|\n?){3,})/m);
+    const table = tableMatch?.[1]
+      ?.trim()
+      .split("\n")
+      .slice(0, 6)
+      .join("\n") || `| Point | Short answer | Why it matters |\n| --- | --- | --- |\n| Main answer | See the summary above | Keeps the response direct |\n| Key caveat | Check current details | Avoids outdated assumptions |\n| Next step | Compare the practical options | Helps readers act confidently |`;
+    const withoutTables = normalised.replace(/(?:^|\n)(?:\|[^\n]+\|\n?){3,}/gm, "\n").trim();
+    const h2Regex = /^##\s+(.+)$/gm;
+    const matches = [...withoutTables.matchAll(h2Regex)];
+    const introBlock = matches.length ? withoutTables.slice(0, matches[0].index ?? 0) : withoutTables;
+    const intro = trimMarkdownWords(
+      introBlock.replace(/^#\s+.+$/m, "").split(/\n{2,}/).map((p) => p.trim()).filter(Boolean)[0] || "",
+      35
+    );
+    const sections = matches.map((match, index) => {
+      const start = match.index ?? 0;
+      const end = index + 1 < matches.length ? (matches[index + 1].index ?? withoutTables.length) : withoutTables.length;
+      return { heading: match[1].trim(), body: withoutTables.slice(start + match[0].length, end).trim() };
+    });
+    const isStructural = (heading: string) => /tl;?dr|quick tips|in this article|frequently asked|^faq$|final thoughts|conclusion|references|how to choose|how to pick|how to decide|how to find/i.test(heading);
+    const tldr = sections.find((s) => /tl;?dr/i.test(s.heading));
+    const quickTips = sections.find((s) => /quick tips/i.test(s.heading));
+    const main = sections.find((s) => !isStructural(s.heading)) || sections.find((s) => !/tl;?dr|quick tips/i.test(s.heading));
+    const allBodyText = sections
+      .filter((s) => !/tl;?dr|quick tips/i.test(s.heading))
+      .map((s) => s.body)
+      .join("\n\n")
+      .replace(/^#{1,6}\s+.+$/gm, "")
+      .replace(/^[-*>\s]*\*\*Sources:\*\*[\s\S]*$/gim, "")
+      .trim();
+    const tips = (quickTips?.body || "")
+      .split("\n")
+      .map((line) => line.replace(/^\s*(?:[-*>]|\d+[.)])\s*/, "").replace(/^\*\*Tip\s*\d+:\*\*\s*/i, "").trim())
+      .filter(Boolean)
+      .slice(0, 3)
+      .map((tip, i) => `${i + 1}. ${trimMarkdownWords(tip, 12)}`);
+
+    const fixedBlocks = [
+      `# ${h1}`,
+      intro,
+      `## TL;DR\n${trimMarkdownWords(tldr?.body || intro || allBodyText, 45)}`,
+      !skipQuickTips && tips.length ? `## Quick Tips\n${tips.join("\n")}` : "",
+      `## ${main?.heading || "What is the short answer?"}`,
+    ].filter(Boolean);
+    const fixedWords = markdownWordCount(`${fixedBlocks.join("\n\n")}\n\n${table}`);
+    const bodyBudget = Math.max(60, 325 - fixedWords);
+    let body = trimMarkdownWords((main?.body || allBodyText).replace(table, "").trim(), bodyBudget);
+    let output = `${fixedBlocks.join("\n\n")}\n\n${body}\n\n${table}`.trim();
+
+    if (markdownWordCount(output) > 325) {
+      body = trimMarkdownWords(body, Math.max(35, bodyBudget - (markdownWordCount(output) - 325)));
+      output = `${fixedBlocks.join("\n\n")}\n\n${body}\n\n${table}`.trim();
+    }
+    if (markdownWordCount(output) < 275) {
+      const fillers = [
+        `For ${sport || "this topic"}, readers should use the answer as practical guidance, then check the latest rules, availability, or product details before acting.`,
+        `That keeps the decision grounded in the current situation rather than a generic answer that may miss timing, league, or format changes.`,
+        `If the question involves equipment, venues, schedules, or eligibility, confirm the details at the point of purchase or registration.`,
+      ];
+      for (const filler of fillers) {
+        if (markdownWordCount(output) >= 275) break;
+        body = `${body} ${filler}`.trim();
+        output = `${fixedBlocks.join("\n\n")}\n\n${trimMarkdownWords(body, Math.max(35, 325 - markdownWordCount(`${fixedBlocks.join("\n\n")}\n\n${table}`)))}\n\n${table}`.trim();
+      }
+    }
+    return output;
+  };
+
   const runQaCheck = async (idx: number, title: string, body: string, targetWordCount: number) => {
     setQaLoading((p) => ({ ...p, [idx]: true }));
     try {
@@ -317,7 +403,8 @@ STRUCTURE FOR 300-WORD ARTICLE (exact):
 - TL;DR (1 dense paragraph, 30-45 words)
 - Quick Tips: exactly 3 short bullets (max 12 words each)
 - EXACTLY 1 H2 section with 1 short paragraph (50-80 words) and EXACTLY 1 markdown table (3-4 rows, 2-3 columns)
-- Do NOT add any additional H2 sections beyond that single one.`;
+- Do NOT add any additional H2 sections beyond that single one.
+- Do NOT include Final Thoughts, FAQ, References, How to Choose, or any extra sections for this 300-word option.`;
       const base = sport
         ? `This is a ${sport} FAQ article. Answer the question directly and concisely. Target ${wc} words total.`
         : `This is an FAQ-style article. Answer the question directly and concisely. Target ${wc} words total.`;
@@ -337,10 +424,17 @@ STRUCTURE FOR 300-WORD ARTICLE (exact):
         extraInstructions: extra,
       });
 
+      const finalMarkdown = wc === 300 ? enforceStrict300Markdown(result.markdown, title) : result.markdown;
+      const finalHtml = wc === 300 ? markdownToStyledHtml(finalMarkdown, selectedPalette || null, {
+        skipNavigation: true,
+        skipQuickTips,
+        skipFaqs: true,
+        skipSources: true,
+      }) : result.html;
       const body = stripTitle
-        ? result.html.replace(/<h1\b[^>]*>[\s\S]*?<\/h1>/i, "").trim()
-        : result.html;
-      const summary = truncate(result.subtitle || extractSummary(result.markdown), 300);
+        ? finalHtml.replace(/<h1\b[^>]*>[\s\S]*?<\/h1>/i, "").trim()
+        : finalHtml;
+      const summary = truncate(result.subtitle || extractSummary(finalMarkdown), 300);
       const descriptionTag = truncate(result.seoDescription || summary, 155);
       const handle = `${handlePrefix ? handlePrefix + "-" : ""}${slugify(q) || `q-${idx + 1}`}`;
       const newRow: Record<string, string> = {
