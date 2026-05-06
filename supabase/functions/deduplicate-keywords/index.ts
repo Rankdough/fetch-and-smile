@@ -438,94 +438,9 @@ Return ONLY the indices (0-based) of OFF-TOPIC keywords. If unsure, do NOT inclu
               send({ type: "progress", progress: (batchIdx + 1) / totalBatches, message: `Batch ${batchIdx + 1}/${totalBatches} done — ${offTopic.length} off-topic so far` });
             }
 
-            // Strict verification pass to catch residual off-topic terms that slipped through
-            if (onTopic.length > 0) {
-              send({ type: "progress", progress: 0.98, message: "Running strict topic verification..." });
-
-              const verifyBatchSize = 120;
-              const verifiedOnTopic: { keyword: string; volume: number }[] = [];
-
-              for (let i = 0; i < onTopic.length; i += verifyBatchSize) {
-                const verifyBatch = onTopic.slice(i, i + verifyBatchSize);
-                const verifyBatchIdx = Math.floor(i / verifyBatchSize);
-                const verifyTotal = Math.ceil(onTopic.length / verifyBatchSize);
-
-                const verifyIndexedKwList = verifyBatch
-                  .map((k, idx) => `${idx}. ${k.keyword}`)
-                  .join("\n");
-
-                const verifyPrompt = `You are a STRICT topical gatekeeper.
-
-TOPIC: "${topic}"
-
-Mark a keyword OFF-TOPIC unless it is clearly and explicitly about the topic above.
-If there is any doubt, ambiguity, or alternate non-topic interpretation, mark it OFF-TOPIC.
-
-Output valid JSON only:
-{"off_topic_indices":[0,2]}
-
-If all are on-topic:
-{"off_topic_indices":[]}`;
-
-                const verifyResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-                  method: "POST",
-                  headers: {
-                    Authorization: `Bearer ${LOVABLE_API_KEY}`,
-                    "Content-Type": "application/json",
-                  },
-                  body: JSON.stringify({
-                    model: "google/gemini-2.5-flash",
-                    messages: [
-                      { role: "system", content: verifyPrompt },
-                      { role: "user", content: `Re-check these ${verifyBatch.length} keywords. Use the index number before each keyword:\n\n${verifyIndexedKwList}` },
-                    ],
-                    temperature: 0,
-                  }),
-                });
-
-                if (!verifyResponse.ok) {
-                  const t = await verifyResponse.text();
-                  console.error(`Topic verify AI error batch ${verifyBatchIdx + 1}:`, verifyResponse.status, t);
-                  verifiedOnTopic.push(...verifyBatch);
-                  continue;
-                }
-
-                const verifyData = await verifyResponse.json();
-                let verifyContent = verifyData.choices?.[0]?.message?.content || "";
-                verifyContent = verifyContent.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
-
-                let verifyParsed: { off_topic_indices: number[] };
-                try {
-                  verifyParsed = JSON.parse(verifyContent);
-                } catch {
-                  const match = verifyContent.match(/\{[\s\S]*\}/);
-                  if (!match) {
-                    console.error(`Topic verify batch ${verifyBatchIdx + 1} parse failed, keeping all`);
-                    verifiedOnTopic.push(...verifyBatch);
-                    continue;
-                  }
-                  verifyParsed = JSON.parse(match[0]);
-                }
-
-                const verifyOffTopicSet = new Set(verifyParsed.off_topic_indices || []);
-                for (let j = 0; j < verifyBatch.length; j++) {
-                  if (verifyOffTopicSet.has(j)) {
-                    offTopic.push(verifyBatch[j]);
-                  } else {
-                    verifiedOnTopic.push(verifyBatch[j]);
-                  }
-                }
-
-                send({
-                  type: "progress",
-                  progress: 0.98 + ((verifyBatchIdx + 1) / verifyTotal) * 0.02,
-                  message: `Strict verify ${verifyBatchIdx + 1}/${verifyTotal} — ${offTopic.length} off-topic total`,
-                });
-              }
-
-              onTopic.length = 0;
-              onTopic.push(...verifiedOnTopic);
-            }
+            // NOTE: strict verification second-pass removed — it was over-aggressive and
+            // removed legitimate adjacent/related keywords (e.g., "vo2 max", "shin splints"
+            // when topic was "track and field"). The inclusive first pass is sufficient.
 
             send({
               type: "complete",
