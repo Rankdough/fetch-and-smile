@@ -124,6 +124,9 @@ export default function ShopifyFaqBulk() {
   const [skipSources, setSkipSources] = useState<boolean>(init.skipSources ?? true);
   const [stripTitle, setStripTitle] = useState<boolean>(init.stripTitle ?? false);
   const [paletteId, setPaletteId] = useState<string | null>(init.paletteId ?? null);
+  const [internalLinks, setInternalLinks] = useState<string[]>(
+    Array.isArray(init.internalLinks) ? [...init.internalLinks, "", "", ""].slice(0, 3) : ["", "", ""]
+  );
   const [toneProfileId, setToneProfileId] = useState<string | null>(init.toneProfileId ?? null);
   const [toneProfiles, setToneProfiles] = useState<Array<{ id: string; name: string }>>([]);
   const [rows, setRows] = useState<Record<string, string>[]>(init.rows ?? []);
@@ -163,10 +166,11 @@ export default function ShopifyFaqBulk() {
       localStorage.setItem(LS_KEY, JSON.stringify({
         questions, author, sport, globalTags, blogHandle, blogTitle, templateSuffix, handlePrefix, wordCount,
         includeFaqs, includeNav, skipQuickTips, skipSources, stripTitle, paletteId, toneProfileId, rows, filterRules,
+        internalLinks,
       }));
     } catch {}
   }, [questions, author, sport, globalTags, blogHandle, blogTitle, templateSuffix, handlePrefix, wordCount,
-      includeFaqs, includeNav, skipQuickTips, skipSources, stripTitle, paletteId, toneProfileId, rows, filterRules]);
+      includeFaqs, includeNav, skipQuickTips, skipSources, stripTitle, paletteId, toneProfileId, rows, filterRules, internalLinks]);
 
   const formatTitle = (q: string): string => {
     let s = q.trim().replace(/\s+/g, " ");
@@ -424,13 +428,33 @@ STRUCTURE FOR 300-WORD ARTICLE (exact):
         extraInstructions: extra,
       });
 
-      const finalMarkdown = wc === 300 ? enforceStrict300Markdown(result.markdown, title) : result.markdown;
-      const finalHtml = wc === 300 ? markdownToStyledHtml(finalMarkdown, selectedPalette || null, {
-        skipNavigation: true,
-        skipQuickTips,
-        skipFaqs: true,
-        skipSources: true,
-      }) : result.html;
+      let finalMarkdown = wc === 300 ? enforceStrict300Markdown(result.markdown, title) : result.markdown;
+
+      // Inject up to 3 internal links into the markdown
+      const linkUrls = internalLinks.map((u) => u.trim()).filter(Boolean).slice(0, 3);
+      if (linkUrls.length > 0) {
+        try {
+          const { data: linkData, error: linkError } = await supabase.functions.invoke("insert-internal-links", {
+            body: { content: finalMarkdown, urls: linkUrls },
+          });
+          if (!linkError && linkData?.content) {
+            finalMarkdown = linkData.content;
+          } else if (linkError) {
+            console.warn("insert-internal-links error", linkError);
+          }
+        } catch (e) {
+          console.warn("insert-internal-links failed", e);
+        }
+      }
+
+      const finalHtml = (wc === 300 || linkUrls.length > 0)
+        ? markdownToStyledHtml(finalMarkdown, selectedPalette || null, {
+            skipNavigation: !includeNav,
+            skipQuickTips,
+            skipFaqs: wc === 300 ? true : !includeFaqs,
+            skipSources: wc === 300 ? true : skipSources,
+          })
+        : result.html;
       const body = stripTitle
         ? finalHtml.replace(/<h1\b[^>]*>[\s\S]*?<\/h1>/i, "").trim()
         : finalHtml;
@@ -677,6 +701,28 @@ STRUCTURE FOR 300-WORD ARTICLE (exact):
                 selectedPalette={selectedPalette}
                 onSelectPalette={(p) => setPaletteId(p?.id ?? null)}
               />
+            </div>
+            <div className="md:col-span-3">
+              <Label>Internal links (up to 3)</Label>
+              <p className="text-xs text-muted-foreground mb-2">
+                AI will insert each URL once into the Body HTML where the topic naturally fits. Leave blank to skip.
+              </p>
+              <div className="grid gap-2">
+                {[0, 1, 2].map((i) => (
+                  <Input
+                    key={i}
+                    value={internalLinks[i] ?? ""}
+                    onChange={(e) =>
+                      setInternalLinks((prev) => {
+                        const next = [...prev];
+                        next[i] = e.target.value;
+                        return next;
+                      })
+                    }
+                    placeholder={`https://example.com/related-page-${i + 1}`}
+                  />
+                ))}
+              </div>
             </div>
           </CardContent>
         </Card>
