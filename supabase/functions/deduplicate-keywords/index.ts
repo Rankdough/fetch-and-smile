@@ -357,22 +357,30 @@ serve(async (req) => {
                 .map((k: any, idx: number) => `${idx}. ${k.keyword}`)
                 .join("\n");
 
-              const systemPrompt = `You are a strict keyword relevance filter. Given a TOPIC and a numbered list of keywords, determine which keywords are RELEVANT to the topic and which are NOT.
+              const systemPrompt = `You are an INCLUSIVE keyword relevance filter. Given a TOPIC and a numbered list of keywords, mark a keyword OFF-TOPIC ONLY when it is clearly about a completely different subject.
 
 TOPIC: "${topic}"
 
-RULES:
-- A keyword is ON-TOPIC if it's about "${topic}" or closely related to "${topic}" in context
-- A keyword is OFF-TOPIC if it uses similar words but refers to a completely different subject
-- If a keyword is ambiguous or lacks clear context tying it to "${topic}", mark it OFF-TOPIC
-- Examples for topic "dental fillings":
-  - ON-TOPIC: "how long does a filling last", "cavity filling pain", "amalgam filling dangerous"
-  - OFF-TOPIC: "how to make pie filling", "toilet not filling with water", "filling out tax forms", "cream cheese filling recipe"
+CORE PRINCIPLE — KEEP, DON'T CUT:
+- DEFAULT to ON-TOPIC. When in doubt, KEEP the keyword.
+- A keyword is ON-TOPIC if it relates to "${topic}" directly OR to any ADJACENT / RELATED context that someone interested in "${topic}" would also care about (sub-topics, equipment, training, physiology, injuries, events, athletes, techniques, related sports/activities, motivations, outcomes, measurements, etc.).
+- Mark OFF-TOPIC ONLY when the keyword is unambiguously about something unrelated (a different industry, a homonym used in a clearly different sense, spam, etc.).
+
+EXAMPLES for topic "track and field":
+- ON-TOPIC (KEEP): "what is vo2 max", "how to improve vo2 max" (cardiovascular fitness — directly relevant to runners)
+- ON-TOPIC (KEEP): "what are shin splints", "how to treat shin splints" (running injuries)
+- ON-TOPIC (KEEP): "cross country running", "marathon training", "best running shoes"
+- ON-TOPIC (KEEP): "what is a javelin", "decathlon events", "high jump technique"
+- OFF-TOPIC (REMOVE): "how to make pie filling", "best laptop 2024", "iphone repair near me"
+
+EXAMPLES for topic "dental fillings":
+- ON-TOPIC: "how long does a filling last", "cavity pain", "amalgam vs composite"
+- OFF-TOPIC: "how to make pie filling", "toilet not filling with water", "filling out tax forms"
 
 OUTPUT FORMAT (valid JSON only, no markdown):
 {"off_topic_indices":[0,3,7]}
 
-Return ONLY the indices (0-based) of OFF-TOPIC keywords. If all are on-topic: {"off_topic_indices":[]}`;
+Return ONLY the indices (0-based) of OFF-TOPIC keywords. If unsure, do NOT include it. If all are on-topic: {"off_topic_indices":[]}`;
 
               const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
                 method: "POST",
