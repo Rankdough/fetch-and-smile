@@ -428,13 +428,33 @@ STRUCTURE FOR 300-WORD ARTICLE (exact):
         extraInstructions: extra,
       });
 
-      const finalMarkdown = wc === 300 ? enforceStrict300Markdown(result.markdown, title) : result.markdown;
-      const finalHtml = wc === 300 ? markdownToStyledHtml(finalMarkdown, selectedPalette || null, {
-        skipNavigation: true,
-        skipQuickTips,
-        skipFaqs: true,
-        skipSources: true,
-      }) : result.html;
+      let finalMarkdown = wc === 300 ? enforceStrict300Markdown(result.markdown, title) : result.markdown;
+
+      // Inject up to 3 internal links into the markdown
+      const linkUrls = internalLinks.map((u) => u.trim()).filter(Boolean).slice(0, 3);
+      if (linkUrls.length > 0) {
+        try {
+          const { data: linkData, error: linkError } = await supabase.functions.invoke("insert-internal-links", {
+            body: { content: finalMarkdown, urls: linkUrls },
+          });
+          if (!linkError && linkData?.content) {
+            finalMarkdown = linkData.content;
+          } else if (linkError) {
+            console.warn("insert-internal-links error", linkError);
+          }
+        } catch (e) {
+          console.warn("insert-internal-links failed", e);
+        }
+      }
+
+      const finalHtml = (wc === 300 || linkUrls.length > 0)
+        ? markdownToStyledHtml(finalMarkdown, selectedPalette || null, {
+            skipNavigation: !includeNav,
+            skipQuickTips,
+            skipFaqs: wc === 300 ? true : !includeFaqs,
+            skipSources: wc === 300 ? true : skipSources,
+          })
+        : result.html;
       const body = stripTitle
         ? finalHtml.replace(/<h1\b[^>]*>[\s\S]*?<\/h1>/i, "").trim()
         : finalHtml;
