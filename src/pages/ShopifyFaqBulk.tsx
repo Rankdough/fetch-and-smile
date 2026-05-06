@@ -508,9 +508,12 @@ export default function ShopifyFaqBulk() {
                 placeholder={"How do I clean batting gloves?\nWhat is the best wood for a baseball bat?"}
               />
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
               <Button onClick={generate} className="gap-2">
                 <Sparkles className="h-4 w-4" /> Create rows
+              </Button>
+              <Button variant="outline" onClick={() => setFilterOpen(true)} className="gap-2">
+                <Filter className="h-4 w-4" /> Filter questions
               </Button>
               <Button variant="outline" onClick={downloadCsv} disabled={rows.length === 0} className="gap-2">
                 <Download className="h-4 w-4" /> Download CSV ({rows.length})
