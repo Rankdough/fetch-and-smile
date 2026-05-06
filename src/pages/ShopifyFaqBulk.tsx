@@ -415,7 +415,7 @@ export default function ShopifyFaqBulk() {
               <Select value={String(wordCount)} onValueChange={(v) => setWordCount(Number(v) as 300 | 500 | 700)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="300">300 words (compact, no table)</SelectItem>
+                  <SelectItem value="300">300 words (1 table, 1 section)</SelectItem>
                   <SelectItem value="500">500 words (1 table, 2 sections)</SelectItem>
                   <SelectItem value="700">700 words (1 table, 3 sections)</SelectItem>
                 </SelectContent>
