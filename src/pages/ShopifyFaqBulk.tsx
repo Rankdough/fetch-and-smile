@@ -702,6 +702,28 @@ STRUCTURE FOR 300-WORD ARTICLE (exact):
                 onSelectPalette={(p) => setPaletteId(p?.id ?? null)}
               />
             </div>
+            <div className="md:col-span-3">
+              <Label>Internal links (up to 3)</Label>
+              <p className="text-xs text-muted-foreground mb-2">
+                AI will insert each URL once into the Body HTML where the topic naturally fits. Leave blank to skip.
+              </p>
+              <div className="grid gap-2">
+                {[0, 1, 2].map((i) => (
+                  <Input
+                    key={i}
+                    value={internalLinks[i] ?? ""}
+                    onChange={(e) =>
+                      setInternalLinks((prev) => {
+                        const next = [...prev];
+                        next[i] = e.target.value;
+                        return next;
+                      })
+                    }
+                    placeholder={`https://example.com/related-page-${i + 1}`}
+                  />
+                ))}
+              </div>
+            </div>
           </CardContent>
         </Card>
         <Card>
