@@ -716,6 +716,16 @@ export default function ShopifyFaqBulk() {
                                 {qa[i].issues.slice(0, 4).map((iss, k) => <li key={k}>{iss}</li>)}
                               </ul>
                             )}
+                            {qa[i].status === "error" && (
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                className="h-6 px-2 text-[11px] mt-1"
+                                onClick={() => deleteRow(i)}
+                              >
+                                Delete row
+                              </Button>
+                            )}
                           </div>
                         ) : (
                           <span className="text-muted-foreground">—</span>
