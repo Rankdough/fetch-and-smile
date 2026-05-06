@@ -309,11 +309,19 @@ export default function ShopifyFaqBulk() {
     const title = formatTitle(q);
     setRegenIdx(idx);
     try {
-      const tableRule = `Include EXACTLY 1 markdown table (3-5 rows, 2-3 columns) summarising key info, and EXACTLY 1 H2 section beyond the TL;DR/Quick Tips. Do NOT skip the table.`;
+      const strict300 = `STRICT LENGTH: The entire article (including TL;DR, Quick Tips, the single H2 section, table cells, and FAQ if present) MUST total between 275 and 325 words. Do NOT exceed 325 words under any circumstance. Be ruthlessly concise.
+
+STRUCTURE FOR 300-WORD ARTICLE (exact):
+- H1 title
+- 1 short opening paragraph (max 35 words)
+- TL;DR (1 dense paragraph, 30-45 words)
+- Quick Tips: exactly 3 short bullets (max 12 words each)
+- EXACTLY 1 H2 section with 1 short paragraph (50-80 words) and EXACTLY 1 markdown table (3-4 rows, 2-3 columns)
+- Do NOT add any additional H2 sections beyond that single one.`;
       const base = sport
-        ? `This is a ${sport} FAQ article. Answer the question directly and concisely. Keep the article close to ${wc} words.`
-        : `This is an FAQ-style article. Answer the question directly and concisely. Keep the article close to ${wc} words.`;
-      const extra = wc === 300 ? `${base}\n\n${tableRule}` : base;
+        ? `This is a ${sport} FAQ article. Answer the question directly and concisely. Target ${wc} words total.`
+        : `This is an FAQ-style article. Answer the question directly and concisely. Target ${wc} words total.`;
+      const extra = wc === 300 ? `${base}\n\n${strict300}` : base;
 
       const result = await generateMigrationArticle({
         topic: title,
