@@ -258,6 +258,49 @@ export default function ShopifyFaqBulk() {
     }
   };
 
+  const deleteRow = (idx: number) => {
+    setRows((prev) => prev.filter((_, i) => i !== idx));
+    setQa((prev) => {
+      const next: Record<number, QaResult> = {};
+      Object.entries(prev).forEach(([k, v]) => {
+        const n = Number(k);
+        if (n === idx) return;
+        next[n > idx ? n - 1 : n] = v;
+      });
+      return next;
+    });
+    setQaLoading((prev) => {
+      const next: Record<number, boolean> = {};
+      Object.entries(prev).forEach(([k, v]) => {
+        const n = Number(k);
+        if (n === idx) return;
+        next[n > idx ? n - 1 : n] = v;
+      });
+      return next;
+    });
+  };
+
+  const deleteAllErrorRows = () => {
+    const errorIdxs = new Set(
+      Object.entries(qa).filter(([, v]) => v?.status === "error").map(([k]) => Number(k))
+    );
+    if (errorIdxs.size === 0) return;
+    if (!confirm(`Delete ${errorIdxs.size} row(s) flagged as Error?`)) return;
+    const oldToNew: Record<number, number> = {};
+    let cursor = 0;
+    rows.forEach((_, i) => {
+      if (!errorIdxs.has(i)) oldToNew[i] = cursor++;
+    });
+    const newQa: Record<number, QaResult> = {};
+    Object.entries(qa).forEach(([k, v]) => {
+      const n = Number(k);
+      if (oldToNew[n] !== undefined) newQa[oldToNew[n]] = v;
+    });
+    setRows(rows.filter((_, i) => !errorIdxs.has(i)));
+    setQa(newQa);
+    setQaLoading({});
+    toast({ title: `Deleted ${errorIdxs.size} error row(s)` });
+  };
 
   const regenerateRow = async (idx: number, wc: 300 | 500 | 700) => {
     const row = rows[idx];
