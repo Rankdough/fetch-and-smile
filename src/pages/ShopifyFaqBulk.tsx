@@ -610,6 +610,7 @@ export default function ShopifyFaqBulk() {
                 <TableHeader>
                   <TableRow>
                     <TableHead className="text-xs sticky left-0 bg-background z-10">Regenerate</TableHead>
+                    <TableHead className="text-xs">QA</TableHead>
                     {COLUMNS.map((c) => (
                       <TableHead key={c} className="whitespace-nowrap text-xs">{c}</TableHead>
                     ))}
