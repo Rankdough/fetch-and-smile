@@ -288,6 +288,8 @@ export default function ShopifyFaqBulk() {
       } else {
         toast({ title: `Generated (${wc} words)` });
       }
+      // Run QA check (non-blocking)
+      runQaCheck(idx, title, body, wc);
     } catch (e: any) {
       toast({ title: "Generation failed", description: e?.message || "", variant: "destructive" });
     } finally {
