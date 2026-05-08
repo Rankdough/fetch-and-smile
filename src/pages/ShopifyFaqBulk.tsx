@@ -780,14 +780,14 @@ STRUCTURE FOR 300-WORD ARTICLE (exact):
                     ) : null;
                   })()}
                   <span className="text-xs text-muted-foreground">Regenerate all:</span>
-                  {[300, 500, 700].map((wc) => (
+                  {[100, 300, 500, 700].map((wc) => (
                     <Button
                       key={wc}
                       size="sm"
                       variant="outline"
                       className="h-7 px-2 text-xs gap-1"
                       disabled={!!bulkProgress || regenIdx !== null}
-                      onClick={() => regenerateAll(wc as 300 | 500 | 700)}
+                      onClick={() => regenerateAll(wc as 100 | 300 | 500 | 700)}
                     >
                       {bulkProgress ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
                       All {wc}w
