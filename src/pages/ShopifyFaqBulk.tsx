@@ -326,6 +326,36 @@ export default function ShopifyFaqBulk() {
     return output;
   };
 
+  const handleContextFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (contextFiles.some((f) => f.name === file.name)) {
+      toast({ title: "File already added", variant: "destructive" });
+      if (contextFileInputRef.current) contextFileInputRef.current.value = "";
+      return;
+    }
+    setContextParsing(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const { data, error } = await supabase.functions.invoke("parse-context-file", { body: formData });
+      if (error) throw error;
+      const content = data?.content || "";
+      if (!content || content.length < 20) throw new Error("Could not extract text from file.");
+      setContextFiles((prev) => [...prev, { name: file.name, content }]);
+      toast({ title: "Context file added", description: file.name });
+    } catch (err: any) {
+      toast({ title: "Failed to parse file", description: err?.message || "", variant: "destructive" });
+    } finally {
+      setContextParsing(false);
+      if (contextFileInputRef.current) contextFileInputRef.current.value = "";
+    }
+  };
+
+  const removeContextFile = (name: string) => {
+    setContextFiles((prev) => prev.filter((f) => f.name !== name));
+  };
+
   const checkInternalLinks = async () => {
     const urls = internalLinks.map((u) => (u || "").trim());
     const nonEmpty = urls.filter(Boolean);
