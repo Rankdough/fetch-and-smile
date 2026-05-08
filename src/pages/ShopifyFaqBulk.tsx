@@ -118,6 +118,7 @@ export default function ShopifyFaqBulk() {
   const [blogTitle, setBlogTitle] = useState<string>(init.blogTitle ?? "FAQ");
   const [templateSuffix, setTemplateSuffix] = useState<string>(init.templateSuffix ?? "article-faq");
   const [handlePrefix, setHandlePrefix] = useState<string>(init.handlePrefix ?? "");
+  const [siteBaseUrl, setSiteBaseUrl] = useState<string>(init.siteBaseUrl ?? "");
   const [wordCount, setWordCount] = useState<100 | 300 | 500 | 700>(init.wordCount ?? 500);
   const [includeFaqs, setIncludeFaqs] = useState<boolean>(init.includeFaqs ?? false);
   const [includeNav, setIncludeNav] = useState<boolean>(init.includeNav ?? false);
