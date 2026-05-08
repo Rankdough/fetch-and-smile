@@ -138,6 +138,9 @@ export default function ShopifyFaqBulk() {
   const contextFileInputRef = useRef<HTMLInputElement>(null);
   const [toneProfileId, setToneProfileId] = useState<string | null>(init.toneProfileId ?? null);
   const [toneProfiles, setToneProfiles] = useState<Array<{ id: string; name: string }>>([]);
+  const [ctaEnabled, setCtaEnabled] = useState<boolean>(init.ctaEnabled ?? false);
+  const [ctaUrl, setCtaUrl] = useState<string>(init.ctaUrl ?? "");
+  const [ctaInstruction, setCtaInstruction] = useState<string>(init.ctaInstruction ?? "");
   const [rows, setRows] = useState<Record<string, string>[]>(init.rows ?? []);
   const [regenIdx, setRegenIdx] = useState<number | null>(null);
   const [bulkProgress, setBulkProgress] = useState<{ current: number; total: number } | null>(null);
@@ -179,10 +182,12 @@ export default function ShopifyFaqBulk() {
         includeFaqs, includeNav, skipQuickTips, skipSources, stripTitle, paletteId, toneProfileId, rows, filterRules,
         internalLinks,
         contextFiles,
+        ctaEnabled, ctaUrl, ctaInstruction,
       }));
     } catch {}
   }, [questions, author, sport, globalTags, blogHandle, blogTitle, templateSuffix, handlePrefix, siteBaseUrl, wordCount,
-      includeFaqs, includeNav, skipQuickTips, skipSources, stripTitle, paletteId, toneProfileId, rows, filterRules, internalLinks, contextFiles]);
+      includeFaqs, includeNav, skipQuickTips, skipSources, stripTitle, paletteId, toneProfileId, rows, filterRules, internalLinks, contextFiles,
+      ctaEnabled, ctaUrl, ctaInstruction]);
 
   const formatTitle = (q: string): string => {
     let s = q.trim().replace(/\s+/g, " ");
@@ -715,6 +720,9 @@ ${isPricingQuestion
           skipSources: wc === 100 || wc === 300 ? true : skipSources,
         },
         toneProfileId,
+        cta: ctaEnabled && ctaUrl.trim()
+          ? { url: ctaUrl.trim(), instruction: ctaInstruction.trim() || undefined }
+          : undefined,
         extraInstructions: extra + (contextFiles.length > 0
           ? `\n\nCONTEXT FILES PROVIDED: Treat the attached context files as the primary source of truth. Draw facts, statistics, brand details, and source URLs from them. If the context files contain URLs that are relevant references, use those exact URLs in the Sources/References section instead of inventing new ones. Do NOT contradict the context files.`
           : ""),
@@ -768,9 +776,10 @@ ${isPricingQuestion
             skipFaqs: wc === 100 || wc === 300 ? true : !includeFaqs,
             skipSources: wc === 100 || wc === 300 ? true : skipSources,
           });
-      const body = stripTitle
+      const baseHtml = stripTitle
         ? finalHtml.replace(/<h1\b[^>]*>[\s\S]*?<\/h1>/i, "").trim()
         : finalHtml;
+      const body = (result.ctaHtml && result.ctaHtml.trim()) ? `${baseHtml}${result.ctaHtml}` : baseHtml;
       const summary = truncate(result.subtitle || extractSummary(finalMarkdown), 300);
       const descriptionTag = truncate(result.seoDescription || summary, 155);
       const handle = `${handlePrefix ? handlePrefix + "-" : ""}${slugify(q) || `q-${idx + 1}`}`;
@@ -1113,6 +1122,38 @@ ${isPricingQuestion
                   );
                 })}
               </div>
+            </div>
+            <div className="md:col-span-3 border-t pt-4 mt-2">
+              <div className="flex items-center justify-between mb-1">
+                <Label htmlFor="cta-enabled">Call-to-action banner (optional)</Label>
+                <label className="flex items-center gap-2 text-xs">
+                  <input
+                    id="cta-enabled"
+                    type="checkbox"
+                    checked={ctaEnabled}
+                    onChange={(e) => setCtaEnabled(e.target.checked)}
+                  />
+                  <span>Enable CTA</span>
+                </label>
+              </div>
+              <p className="text-xs text-muted-foreground mb-2">
+                When enabled, an end-of-article CTA banner is generated for each row, tailored to the article topic and pointing to the URL below. The CTA HTML is appended to the Body HTML and is excluded from the article word count.
+              </p>
+              {ctaEnabled && (
+                <div className="grid gap-2">
+                  <Input
+                    value={ctaUrl}
+                    onChange={(e) => setCtaUrl(e.target.value)}
+                    placeholder="https://your-website.com/booking"
+                  />
+                  <Textarea
+                    rows={3}
+                    value={ctaInstruction}
+                    onChange={(e) => setCtaInstruction(e.target.value)}
+                    placeholder="What should the CTA promote? e.g. 'Promote our personal training programmes; emphasise expert coaching and free consultation.'"
+                  />
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>

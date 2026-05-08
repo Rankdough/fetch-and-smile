@@ -30,6 +30,7 @@ export interface GenerateMigrationArticleResult {
   subtitle: string;
   seoTitle: string;
   seoDescription: string;
+  ctaHtml?: string;
 }
 
 const minifyHtmlForExport = (html: string) =>
@@ -201,5 +202,5 @@ export async function generateMigrationArticle(
 
   const html = minifyHtmlForExport(styled + endCtaHtml);
 
-  return { markdown, html, title, subtitle, seoTitle, seoDescription };
+  return { markdown, html, title, subtitle, seoTitle, seoDescription, ctaHtml: endCtaHtml ? minifyHtmlForExport(endCtaHtml) : "" };
 }
