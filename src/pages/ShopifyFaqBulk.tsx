@@ -142,6 +142,8 @@ export default function ShopifyFaqBulk() {
   const [ctaUrl, setCtaUrl] = useState<string>(init.ctaUrl ?? "");
   const [ctaInstruction, setCtaInstruction] = useState<string>(init.ctaInstruction ?? "");
   const [rows, setRows] = useState<Record<string, string>[]>(init.rows ?? []);
+  const rowsRef = useRef<Record<string, string>[]>(init.rows ?? []);
+  useEffect(() => { rowsRef.current = rows; }, [rows]);
   const [regenIdx, setRegenIdx] = useState<number | null>(null);
   const [bulkProgress, setBulkProgress] = useState<{ current: number; total: number } | null>(null);
   const bulkCancelRef = useRef<boolean>(false);
