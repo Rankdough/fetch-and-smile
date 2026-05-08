@@ -249,7 +249,7 @@ ${fixedSectionBudgetList}
 
 SECTION DETAILS:
 1. Title (# H1) + Opening paragraph (~${openingWords} words) — AI-quotable factual statement
-2. ## TL;DR (~${tldrWords} words) — exactly 1 dense paragraph, NOT bullet points. Self-contained statement an AI could quote. Include specific names, numbers, clear verdict.
+2. ## TL;DR (~${tldrWords} words) — exactly 1 dense PARAGRAPH of plain prose. NEVER use a table, bullet list, or numbered list for the TL;DR. The paragraph MUST appear IMMEDIATELY after the "## TL;DR" heading on the next line — nothing else may go between them. Do NOT place any opening paragraph above "## TL;DR"; the H1 is followed directly by "## TL;DR" and its paragraph.
 
 ${quickTipsSection}
 ${inThisArticleSection}
