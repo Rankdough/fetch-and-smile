@@ -91,7 +91,7 @@ export const CTABanner = ({ headline, description, buttonText, url, tagline, bra
           fontFamily: "inherit",
           textTransform: "uppercase" as const,
           letterSpacing: "0.06em",
-          boxShadow: `0 8px 24px rgba(255, 107, 107, 0.35), 0 4px 8px rgba(0, 0, 0, 0.2)`,
+          boxShadow: `0 8px 24px rgba(0, 0, 0, 0.35), 0 4px 8px rgba(0, 0, 0, 0.2)`,
           border: "none"
         }}
       >
