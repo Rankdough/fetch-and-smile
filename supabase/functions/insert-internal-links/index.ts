@@ -9,6 +9,7 @@ const corsHeaders = {
 interface InsertLinksRequest {
   content: string;
   urls: string[];
+  articleTopic?: string;
 }
 
 serve(async (req) => {
