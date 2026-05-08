@@ -18,7 +18,7 @@ serve(async (req) => {
   }
 
   try {
-    const { content, urls } = (await req.json()) as InsertLinksRequest;
+    const { content, urls, articleTopic } = (await req.json()) as InsertLinksRequest;
 
     if (!content) {
       return new Response(
