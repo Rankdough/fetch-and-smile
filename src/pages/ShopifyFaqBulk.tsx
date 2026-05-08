@@ -145,6 +145,7 @@ export default function ShopifyFaqBulk() {
   const [regenIdx, setRegenIdx] = useState<number | null>(null);
   const [bulkProgress, setBulkProgress] = useState<{ current: number; total: number } | null>(null);
   const bulkCancelRef = useRef<boolean>(false);
+  const [stopping, setStopping] = useState(false);
 
   // QA check results, keyed by row index
   type QaResult = { status: "ok" | "warning" | "error"; issues: string[]; answersTitle: boolean; wordCount: number; brokenLinks?: string[] };
