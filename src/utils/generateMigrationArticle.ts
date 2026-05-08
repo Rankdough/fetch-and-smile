@@ -86,6 +86,7 @@ export async function generateMigrationArticle(
     extraInstructions,
     sourceMarkdown,
     sourceHtml,
+    contextFiles: extraContextFiles,
   } = input;
 
   const hasSource = !!(sourceMarkdown && sourceMarkdown.trim());
