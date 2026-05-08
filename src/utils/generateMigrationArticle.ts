@@ -106,9 +106,16 @@ export async function generateMigrationArticle(
         length,
         wordCount: targetWordCount,
         instructions: buildInstructions(targetWordCount, hasSource, sourceHtml) + ctaInstructions + extras,
-        contextFiles: hasSource
-          ? [{ name: "source-content", content: sourceMarkdown!.substring(0, 12000) }]
-          : undefined,
+        contextFiles: (() => {
+          const files: Array<{ name: string; content: string }> = [];
+          if (hasSource) files.push({ name: "source-content", content: sourceMarkdown!.substring(0, 12000) });
+          if (Array.isArray(extraContextFiles)) {
+            for (const f of extraContextFiles) {
+              if (f?.content?.trim()) files.push({ name: f.name || "context", content: f.content.substring(0, 12000) });
+            }
+          }
+          return files.length ? files : undefined;
+        })(),
         toneProfileId: toneProfileId || undefined,
         skipFaqs: convertOpts.skipFaqs,
         skipQuickTips: convertOpts.skipQuickTips,
