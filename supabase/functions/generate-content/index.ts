@@ -249,7 +249,7 @@ ${fixedSectionBudgetList}
 
 SECTION DETAILS:
 1. Title (# H1) + Opening paragraph (~${openingWords} words) — AI-quotable factual statement
-2. ## TL;DR (~${tldrWords} words) — exactly 1 dense paragraph, NOT bullet points. Self-contained statement an AI could quote. Include specific names, numbers, clear verdict.
+2. ## TL;DR (~${tldrWords} words) — exactly 1 dense PARAGRAPH of plain prose, on the line directly under the "## TL;DR" heading. NEVER use a table, bullet list, or numbered list for the TL;DR, and never insert a table or list between the "## TL;DR" heading and its paragraph. Self-contained statement an AI could quote. Include specific names, numbers, clear verdict.
 
 ${quickTipsSection}
 ${inThisArticleSection}

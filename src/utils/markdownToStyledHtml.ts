@@ -100,21 +100,38 @@ export function markdownToStyledHtml(
     const isQuickTips = /Quick\s*Tips/i.test(textContent);
 
     if (isTldr) {
-      h.setAttribute("style", `background: ${panelBg}; color: ${panelText}; border-left: 4px solid ${primaryColor}; padding: 12px 16px; margin: 24px 0 0 0; border-radius: 0 8px 0 0;`);
+      // Find the TL;DR body: prefer the first UL or P after the heading,
+      // skipping any stray TABLE the model may have inserted between heading and paragraph.
       let sibling = h.nextElementSibling;
-      if (sibling && sibling.tagName === "UL") {
-        sibling.setAttribute("style", `background: ${panelBg}; color: ${panelText}; border-left: 4px solid ${primaryColor}; padding: 16px 24px 16px 40px; margin: 0 0 24px 0; border-radius: 0 0 8px 0; list-style-type: disc;`);
-        sibling.querySelectorAll("li").forEach((li) => {
-          li.setAttribute("style", `margin: 8px 0; line-height: 1.6; color: ${panelText};`);
-        });
-      } else {
-        // Style all consecutive paragraphs after TL;DR
-        while (sibling && sibling.tagName === "P") {
-          const nextAfter = sibling.nextElementSibling;
-          const isLast = !nextAfter || nextAfter.tagName !== "P";
-          sibling.setAttribute("style", `background: ${panelBg}; color: ${panelText}; border-left: 4px solid ${primaryColor}; padding: 16px 24px; margin: 0 0 ${isLast ? "24px" : "0"} 0; border-radius: ${isLast ? "0 0 8px 0" : "0"}; line-height: 1.7;`);
-          sibling = nextAfter;
+      const skipped: Element[] = [];
+      while (sibling && sibling.tagName !== "UL" && sibling.tagName !== "P" && !/^H[1-6]$/.test(sibling.tagName)) {
+        skipped.push(sibling);
+        sibling = sibling.nextElementSibling;
+      }
+      const hasBody = sibling && (sibling.tagName === "UL" || sibling.tagName === "P");
+      if (hasBody) {
+        // Move the body element to be the immediate next sibling of the H2
+        if (skipped.length > 0 && sibling) {
+          h.parentNode?.insertBefore(sibling, skipped[0]);
         }
+        h.setAttribute("style", `background: ${panelBg}; color: ${panelText}; border-left: 4px solid ${primaryColor}; padding: 12px 16px; margin: 24px 0 0 0; border-radius: 0 8px 0 0;`);
+        if (sibling.tagName === "UL") {
+          sibling.setAttribute("style", `background: ${panelBg}; color: ${panelText}; border-left: 4px solid ${primaryColor}; padding: 16px 24px 16px 40px; margin: 0 0 24px 0; border-radius: 0 0 8px 0; list-style-type: disc;`);
+          sibling.querySelectorAll("li").forEach((li) => {
+            li.setAttribute("style", `margin: 8px 0; line-height: 1.6; color: ${panelText};`);
+          });
+        } else {
+          let p: Element | null = sibling;
+          while (p && p.tagName === "P") {
+            const nextAfter = p.nextElementSibling;
+            const isLast = !nextAfter || nextAfter.tagName !== "P";
+            p.setAttribute("style", `background: ${panelBg}; color: ${panelText}; border-left: 4px solid ${primaryColor}; padding: 16px 24px; margin: 0 0 ${isLast ? "24px" : "0"} 0; border-radius: ${isLast ? "0 0 8px 0" : "0"}; line-height: 1.7;`);
+            p = nextAfter;
+          }
+        }
+      } else {
+        // Fallback: no body found — give the heading a normal style instead of an orphaned panel.
+        h.setAttribute("style", `margin: 32px 0 16px 0; ${headingColor}`);
       }
     } else if (isQuickTips) {
       h.setAttribute("style", `margin: 32px 0 16px 0; ${headingColor}`);
@@ -153,6 +170,31 @@ export function markdownToStyledHtml(
   container.querySelectorAll("ol").forEach((ol) => {
     ol.setAttribute("style", "margin: 0 0 16px 0; padding-left: 24px; list-style-type: decimal;");
     ol.removeAttribute("class");
+  });
+  // Split LIs that contain multiple " - "-joined questions/sentences into separate LIs
+  // (the model sometimes emits all bullets on one line, which markdown collapses into one <li>)
+  container.querySelectorAll("li").forEach((li) => {
+    const html = li.innerHTML;
+    // Look for inline " - " or " — " separators between sentences ending in ? or .
+    if (/[?.!]\s*[-–—]\s+\S/.test(html) && !li.querySelector("ul,ol,p,strong")) {
+      const parts = html
+        .split(/(?<=[?.!])\s*[-–—]\s+/)
+        .map((s) => s.trim())
+        .filter(Boolean);
+      if (parts.length > 1) {
+        const ul = li.parentElement;
+        if (ul && (ul.tagName === "UL" || ul.tagName === "OL")) {
+          li.innerHTML = parts[0];
+          let ref: Element = li;
+          for (let i = 1; i < parts.length; i++) {
+            const n = doc.createElement("li");
+            n.innerHTML = parts[i];
+            ref.after(n);
+            ref = n;
+          }
+        }
+      }
+    }
   });
   container.querySelectorAll("li").forEach((li) => {
     if (!li.getAttribute("style")) {
@@ -277,6 +319,18 @@ export function markdownToStyledHtml(
     const txt = (el.textContent || "").replace(/\s+/g, "").trim();
     if (txt && QUOTE_ONLY_RE.test(txt)) el.remove();
   });
+
+  // If there is a References / Sources H2 section, strip duplicate inline "Sources:" paragraphs
+  // elsewhere in the article so "Sources" doesn't appear three times.
+  const hasReferencesSection = Array.from(container.querySelectorAll("h2")).some((h) =>
+    /^(references|sources)\b/i.test((h.textContent || "").trim())
+  );
+  if (hasReferencesSection) {
+    container.querySelectorAll("p").forEach((p) => {
+      const t = (p.textContent || "").trim();
+      if (/^sources\s*:/i.test(t)) p.remove();
+    });
+  }
 
   // 4. Get the cleaned HTML content
   let finalHtml = container.innerHTML;
