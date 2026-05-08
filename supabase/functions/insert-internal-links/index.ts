@@ -39,28 +39,84 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    const validUrls = urls.filter((u) => u.trim()).slice(0, 12);
+    const allUrls = urls.filter((u) => u.trim()).slice(0, 12);
 
     // Extract slug keywords from each URL to guide anchor text relevance
     const STOP = new Set(["the","a","an","and","or","of","for","to","in","on","with","by","at","is","are","be","this","that","what","how","why","when","where","best","top","guide","blog","post","article","page","html","htm","php","aspx","www","com","org","net","co","uk"]);
-    const urlContexts = validUrls.map((url) => {
-      let slugWords: string[] = [];
+    const extractKeywords = (url: string): string[] => {
       try {
         const u = new URL(url);
         const path = decodeURIComponent(u.pathname).replace(/\.[a-z]+$/i, "");
-        slugWords = path
+        return path
           .split(/[\/\-_]+/)
           .map((s) => s.trim().toLowerCase())
           .filter((s) => s && !/^\d+$/.test(s) && !STOP.has(s) && s.length > 1);
-      } catch {}
-      return { url, keywords: slugWords };
-    });
+      } catch {
+        return [];
+      }
+    };
+
+    // TOPICAL GATING: build a token bag from article topic + body, only keep URLs
+    // whose slug keywords overlap (or are clearly synonymous) with the article.
+    const SYNONYMS: Record<string, string[]> = {
+      bag: ["bag","backpack","gear","kit","luggage","carry"],
+      backpack: ["bag","backpack","gear","kit","carry"],
+      apparel: ["apparel","clothing","clothes","wear","jersey","uniform","kit"],
+      shoe: ["shoe","shoes","footwear","spikes","cleats","trainer","trainers","sneaker","sneakers"],
+      shoes: ["shoe","shoes","footwear","spikes","cleats","trainer","trainers","sneaker","sneakers"],
+    };
+    const expand = (kw: string): string[] => [kw, ...(SYNONYMS[kw] || [])];
+
+    const articleText = `${articleTopic || ""} ${content}`.toLowerCase();
+    const articleTokens = new Set(
+      articleText
+        .replace(/<[^>]+>/g, " ")
+        .split(/[^a-z0-9]+/)
+        .filter((t) => t && t.length > 2 && !STOP.has(t))
+    );
+
+    const urlContexts: { url: string; keywords: string[] }[] = [];
+    const skippedOffTopic: string[] = [];
+    for (const url of allUrls) {
+      const kws = extractKeywords(url);
+      if (kws.length === 0) {
+        // No detectable keywords, allow it (legacy behaviour)
+        urlContexts.push({ url, keywords: kws });
+        continue;
+      }
+      const expanded = new Set(kws.flatMap(expand));
+      const hit = [...expanded].some((k) => articleTokens.has(k));
+      if (hit) {
+        urlContexts.push({ url, keywords: kws });
+      } else {
+        skippedOffTopic.push(url);
+      }
+    }
+
+    const validUrls = urlContexts.map((c) => c.url);
 
     console.log("Inserting internal links", {
       contentLength: content.length,
       urlCount: validUrls.length,
+      skippedOffTopicCount: skippedOffTopic.length,
+      skippedOffTopic,
       urlContexts,
     });
+
+    if (validUrls.length === 0) {
+      return new Response(
+        JSON.stringify({
+          content,
+          insertedCount: 0,
+          totalProvided: allUrls.length,
+          insertedUrls: [],
+          skippedUrls: allUrls,
+          skippedOffTopic,
+          note: "No URLs were topically relevant to the article.",
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     const systemPrompt = `You are an expert SEO editor. Your task is to insert contextual internal links into an existing markdown article.
 
