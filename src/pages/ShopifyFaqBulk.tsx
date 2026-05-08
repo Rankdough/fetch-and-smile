@@ -9,7 +9,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Download, Loader2, Sparkles, RefreshCw, Filter, Trash2, CheckCircle2, AlertTriangle, AlertCircle } from "lucide-react";
+import { ArrowLeft, Download, Loader2, Sparkles, RefreshCw, Filter, Trash2, CheckCircle2, AlertTriangle, AlertCircle, FileText, X } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
