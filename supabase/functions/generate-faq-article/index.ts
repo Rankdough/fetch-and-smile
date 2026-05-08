@@ -45,7 +45,7 @@ Generate an FAQ article of approximately ${wordCount} words total (±10%). Retur
 
     const properties: Record<string, any> = {
       h1: { type: "string", description: "Article H1 - rephrase question as a clear title using proper Title Case." },
-      opening: { type: "string", description: "1 short paragraph (35-55 words) that hooks the reader and frames the question. Must NOT repeat the TL;DR verbatim. Conversational, no buzzwords." },
+      opening: { type: "string", description: "1 short paragraph (35-55 words). CRITICAL: The VERY FIRST SENTENCE must be a complete, standalone, AI-quotable answer to the title question (max 30 words). No throat-clearing, no scene-setting, no context before the answer. Sentence 1 = the answer. Sentences 2-3 = brief expansion or framing. Must NOT repeat the TL;DR verbatim. Conversational, no buzzwords." },
       tldr: { type: "string", description: `1 dense paragraph (${profile.tldrWords} words) directly answering the question with concrete specifics (numbers, names, durations). Different wording than the opening.` },
       quickTips: {
         type: "array", minItems: 3, maxItems: 3,
