@@ -513,29 +513,16 @@ const sanitizeGeneratedMarkdown = (markdown: string, title: string, urls: string
         Array.isArray(linkResp?.data?.results) ? linkResp.data.results : [];
       let brokenUrls = linkResults.filter((r) => !r.ok).map((r) => r.url);
 
-      // Auto-repair broken links: default to the domain root. Only unwrap if the URL is unparseable.
+      // Never replace broken links with a homepage/domain fallback.
+      // If a link is broken, remove that exact anchor so generated HTML cannot drift away from provided URLs.
       let repairedBody = body;
       const stillBroken: string[] = [];
-      let repairedToDomain = 0;
       if (brokenUrls.length > 0) {
         const escapeForRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
         for (const badUrl of brokenUrls) {
-          let domainRoot = "";
-          try {
-            const p = new URL(badUrl);
-            domainRoot = `${p.protocol}//${p.hostname}/`;
-          } catch {}
-          if (domainRoot) {
-            // Always default broken/hallucinated URL to its domain root
-            const re = new RegExp(`href=(["'])${escapeForRegex(badUrl)}\\1`, "g");
-            repairedBody = repairedBody.replace(re, `href="${domainRoot}"`);
-            repairedToDomain++;
-          } else {
-            // Unparseable URL: unwrap the anchor entirely
-            const re = new RegExp(`<a\\b[^>]*href=(["'])${escapeForRegex(badUrl)}\\1[^>]*>([\\s\\S]*?)<\\/a>`, "gi");
-            repairedBody = repairedBody.replace(re, "$2");
-            stillBroken.push(badUrl);
-          }
+          const re = new RegExp(`<a\\b[^>]*href=(["'])${escapeForRegex(badUrl)}\\1[^>]*>([\\s\\S]*?)<\\/a>`, "gi");
+          repairedBody = repairedBody.replace(re, "$2");
+          stillBroken.push(badUrl);
         }
         if (repairedBody !== body) {
           setRows((prev) => prev.map((r, i) => (i === idx ? { ...r, "Body HTML": repairedBody } : r)));
@@ -545,9 +532,6 @@ const sanitizeGeneratedMarkdown = (markdown: string, title: string, urls: string
       const baseStatus = data?.status ?? "warning";
       const status = broken.length > 0 && baseStatus === "ok" ? "warning" : baseStatus;
       const extraIssues: string[] = [];
-      if (repairedToDomain > 0) {
-        extraIssues.push(`${repairedToDomain} link${repairedToDomain === 1 ? "" : "s"} defaulted to domain root`);
-      }
       if (broken.length > 0) {
         extraIssues.push(`${broken.length} broken link${broken.length === 1 ? "" : "s"} removed`);
       }
@@ -738,7 +722,7 @@ ${isPricingQuestion
           ? enforceStrict300Markdown(result.markdown, title)
           : moveTableAfterTldr(result.markdown);
 
-      // Inject up to 3 user-provided internal links + cross-links to previously generated FAQs.
+      // Inject only the internal links explicitly provided in the Internal links fields.
       // Drop bare homepages (no path) and dedupe — each URL must be unique.
       const hasPath = (u: string) => {
         try {
@@ -753,27 +737,10 @@ ${isPricingQuestion
         .filter(Boolean)
         .filter(hasPath)
         .slice(0, 3);
-      const crossLinks: string[] = [];
-      const baseUrl = (siteBaseUrl || "").trim().replace(/\/+$/, "");
-      const blogSeg = (blogHandle || "faq").trim();
-      const latestRows = rowsRef.current;
-      latestRows.forEach((r, i) => {
-        if (i === idx) return;
-        const otherBody = (r?.["Body HTML"] || "").trim();
-        const otherHandle = (r?.Handle || "").trim();
-        const otherTitle = (r?.Title || "").trim();
-        if (otherBody && otherHandle && otherTitle) {
-          const url = baseUrl
-            ? `${baseUrl}/blogs/${blogSeg}/${otherHandle}`
-            : `/blogs/${blogSeg}/${otherHandle}`;
-          crossLinks.push(url);
-        }
-      });
-      // HARD CAP: maximum 3 links total per article. User-provided links come first;
-      // any remaining slots are filled from previously-generated FAQ handles (real, not invented).
+      // HARD CAP: maximum 3 links total per article. No generated cross-links.
       const MAX_LINKS = 3;
       const seen = new Set<string>();
-      const linkUrls = [...userLinks, ...crossLinks]
+      const linkUrls = userLinks
         .filter((u) => {
           const key = u.replace(/\/+$/, "").toLowerCase();
           if (seen.has(key)) return false;
@@ -997,17 +964,6 @@ ${isPricingQuestion
             <div><Label>Blog: Handle</Label><Input value={blogHandle} onChange={(e) => setBlogHandle(e.target.value)} /></div>
             <div><Label>Blog: Title</Label><Input value={blogTitle} onChange={(e) => setBlogTitle(e.target.value)} /></div>
             <div><Label>Template Suffix</Label><Input value={templateSuffix} onChange={(e) => setTemplateSuffix(e.target.value)} /></div>
-            <div className="md:col-span-2">
-              <Label>Site base URL (for cross-linking)</Label>
-              <Input
-                value={siteBaseUrl}
-                onChange={(e) => setSiteBaseUrl(e.target.value)}
-                placeholder="https://yourstore.com"
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                When set, each generated FAQ may link to previously generated FAQs in this batch (e.g. {`{baseUrl}/blogs/${blogHandle || "faq"}/{handle}`}).
-              </p>
-            </div>
             <div className="flex items-center gap-2 pt-6">
               <input
                 id="include-faqs"
