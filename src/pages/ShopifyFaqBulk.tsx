@@ -597,8 +597,24 @@ STRUCTURE FOR 300-WORD ARTICLE (exact):
           ? enforceStrict300Markdown(result.markdown, title)
           : moveTableAfterTldr(result.markdown);
 
-      // Inject up to 3 internal links into the markdown
-      const linkUrls = internalLinks.map((u) => u.trim()).filter(Boolean).slice(0, 3);
+      // Inject up to 3 user-provided internal links + cross-links to previously generated FAQs
+      const userLinks = internalLinks.map((u) => u.trim()).filter(Boolean).slice(0, 3);
+      const crossLinks: string[] = [];
+      const baseUrl = (siteBaseUrl || "").trim().replace(/\/+$/, "");
+      if (baseUrl) {
+        rows.forEach((r, i) => {
+          if (i === idx) return;
+          const otherBody = (r?.["Body HTML"] || "").trim();
+          const otherHandle = (r?.Handle || "").trim();
+          const otherTitle = (r?.Title || "").trim();
+          if (otherBody && otherHandle && otherTitle) {
+            const url = `${baseUrl}/blogs/${blogHandle || "faq"}/${otherHandle}`;
+            crossLinks.push(url);
+          }
+        });
+      }
+      // Cap total links to avoid clutter; prioritise user-provided links
+      const linkUrls = [...userLinks, ...crossLinks].slice(0, Math.max(userLinks.length, Math.min(5, userLinks.length + 2)));
       if (linkUrls.length > 0) {
         try {
           const { data: linkData, error: linkError } = await supabase.functions.invoke("insert-internal-links", {
