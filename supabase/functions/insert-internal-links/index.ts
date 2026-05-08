@@ -207,6 +207,19 @@ ${content}`;
     // Post-process: Remove any em dashes and horizontal rules the AI might have introduced
     linkedContent = linkedContent.replace(/—/g, "-").replace(/–/g, "-");
 
+    // Enforce "each URL linked EXACTLY ONCE": keep the first markdown link to each URL,
+    // unwrap subsequent ones back to plain anchor text.
+    const seenUrls = new Set<string>();
+    linkedContent = linkedContent.replace(
+      /\[([^\]]+)\]\((https?:\/\/[^\s)]+|\/[^\s)]+)\)/g,
+      (_m: string, anchor: string, url: string) => {
+        const key = url.replace(/\/+$/, "").toLowerCase();
+        if (seenUrls.has(key)) return anchor;
+        seenUrls.add(key);
+        return `[${anchor}](${url})`;
+      }
+    );
+
     // Count how many of the provided URLs were actually inserted
     const insertedUrls = validUrls.filter((url) => linkedContent.includes(url));
     console.log(`Inserted ${insertedUrls.length}/${validUrls.length} internal links`);

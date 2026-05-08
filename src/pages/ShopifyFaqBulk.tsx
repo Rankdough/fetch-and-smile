@@ -738,8 +738,21 @@ ${isPricingQuestion
           ? enforceStrict300Markdown(result.markdown, title)
           : moveTableAfterTldr(result.markdown);
 
-      // Inject up to 3 user-provided internal links + cross-links to previously generated FAQs
-      const userLinks = internalLinks.map((u) => u.trim()).filter(Boolean).slice(0, 3);
+      // Inject up to 3 user-provided internal links + cross-links to previously generated FAQs.
+      // Drop bare homepages (no path) and dedupe — each URL must be unique.
+      const hasPath = (u: string) => {
+        try {
+          const url = new URL(u);
+          return url.pathname && url.pathname.replace(/\/+$/, "").length > 0;
+        } catch {
+          return false;
+        }
+      };
+      const userLinks = internalLinks
+        .map((u) => u.trim())
+        .filter(Boolean)
+        .filter(hasPath)
+        .slice(0, 3);
       const crossLinks: string[] = [];
       const baseUrl = (siteBaseUrl || "").trim().replace(/\/+$/, "");
       const blogSeg = (blogHandle || "faq").trim();
@@ -756,8 +769,16 @@ ${isPricingQuestion
           crossLinks.push(url);
         }
       });
-      // Cap total links: user-provided links + up to 5 cross-links to prior FAQs
-      const linkUrls = [...userLinks, ...crossLinks].slice(0, userLinks.length + 5);
+      // Cap total links: user-provided links + up to 5 cross-links to prior FAQs, deduplicated
+      const seen = new Set<string>();
+      const linkUrls = [...userLinks, ...crossLinks]
+        .filter((u) => {
+          const key = u.replace(/\/+$/, "").toLowerCase();
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        })
+        .slice(0, userLinks.length + 5);
       const sanitized = sanitizeGeneratedMarkdown(finalMarkdown, title, userLinks);
       finalMarkdown = sanitized.markdown;
       if (linkUrls.length > 0) {
