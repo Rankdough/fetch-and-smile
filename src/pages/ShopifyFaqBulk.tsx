@@ -827,14 +827,14 @@ STRUCTURE FOR 300-WORD ARTICLE (exact):
                     <TableRow key={i}>
                       <TableCell className="align-top sticky left-0 bg-background z-10">
                         <div className="flex flex-col gap-1">
-                          {[300, 500, 700].map((wc) => (
+                          {[100, 300, 500, 700].map((wc) => (
                             <Button
                               key={wc}
                               size="sm"
                               variant="outline"
                               className="h-6 px-2 text-xs gap-1"
                               disabled={regenIdx === i}
-                              onClick={() => regenerateRow(i, wc as 300 | 500 | 700)}
+                              onClick={() => regenerateRow(i, wc as 100 | 300 | 500 | 700)}
                             >
                               {regenIdx === i ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
                               {wc}w
