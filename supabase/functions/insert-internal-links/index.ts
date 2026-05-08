@@ -207,14 +207,19 @@ ${content}`;
     // Post-process: Remove any em dashes and horizontal rules the AI might have introduced
     linkedContent = linkedContent.replace(/—/g, "-").replace(/–/g, "-");
 
-    // Enforce "each URL linked EXACTLY ONCE": keep the first markdown link to each URL,
-    // unwrap subsequent ones back to plain anchor text.
+    // Enforce strict whitelist + "each URL linked EXACTLY ONCE":
+    // - Any link to a URL NOT in the provided whitelist (i.e. AI hallucination, including
+    //   bare homepages like https://example.com/) is unwrapped back to plain text.
+    // - Any duplicate of a whitelisted URL is also unwrapped.
+    const norm = (u: string) => u.trim().replace(/\/+$/, "").toLowerCase();
+    const allowedUrls = new Set(validUrls.map(norm));
     const seenUrls = new Set<string>();
     linkedContent = linkedContent.replace(
       /\[([^\]]+)\]\((https?:\/\/[^\s)]+|\/[^\s)]+)\)/g,
       (_m: string, anchor: string, url: string) => {
-        const key = url.replace(/\/+$/, "").toLowerCase();
-        if (seenUrls.has(key)) return anchor;
+        const key = norm(url);
+        if (!allowedUrls.has(key)) return anchor; // hallucinated / not whitelisted
+        if (seenUrls.has(key)) return anchor; // duplicate
         seenUrls.add(key);
         return `[${anchor}](${url})`;
       }
