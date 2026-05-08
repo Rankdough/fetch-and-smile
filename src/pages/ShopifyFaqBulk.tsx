@@ -145,6 +145,7 @@ export default function ShopifyFaqBulk() {
   const [regenIdx, setRegenIdx] = useState<number | null>(null);
   const [bulkProgress, setBulkProgress] = useState<{ current: number; total: number } | null>(null);
   const bulkCancelRef = useRef<boolean>(false);
+  const [stopping, setStopping] = useState(false);
 
   // QA check results, keyed by row index
   type QaResult = { status: "ok" | "warning" | "error"; issues: string[]; answersTitle: boolean; wordCount: number; brokenLinks?: string[] };
@@ -823,6 +824,7 @@ ${isPricingQuestion
   const regenerateAll = async (wc: 100 | 300 | 500 | 700) => {
     if (rows.length === 0) return;
     bulkCancelRef.current = false;
+    setStopping(false);
     setBulkProgress({ current: 0, total: rows.length });
     try {
       for (let i = 0; i < rows.length; i++) {
@@ -830,10 +832,11 @@ ${isPricingQuestion
         setBulkProgress({ current: i + 1, total: rows.length });
         await regenerateRow(i, wc);
       }
-      toast({ title: bulkCancelRef.current ? "Bulk regeneration cancelled" : `Bulk regeneration complete (${wc}w)` });
+      toast({ title: bulkCancelRef.current ? "Generation stopped" : `Bulk regeneration complete (${wc}w)` });
     } finally {
       setBulkProgress(null);
       bulkCancelRef.current = false;
+      setStopping(false);
     }
   };
 
@@ -1258,11 +1261,17 @@ ${isPricingQuestion
                       </span>
                       <Button
                         size="sm"
-                        variant="ghost"
-                        className="h-7 px-2 text-xs"
-                        onClick={() => { bulkCancelRef.current = true; }}
+                        variant="destructive"
+                        className="h-7 px-2 text-xs gap-1"
+                        disabled={stopping}
+                        onClick={() => {
+                          bulkCancelRef.current = true;
+                          setStopping(true);
+                          toast({ title: "Stopping after current row…" });
+                        }}
                       >
-                        Cancel
+                        <X className="h-3 w-3" />
+                        {stopping ? "Stopping…" : "Stop generation"}
                       </Button>
                     </>
                   )}
