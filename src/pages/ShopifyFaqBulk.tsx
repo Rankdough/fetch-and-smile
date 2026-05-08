@@ -1123,6 +1123,38 @@ ${isPricingQuestion
                 })}
               </div>
             </div>
+            <div className="md:col-span-3 border-t pt-4 mt-2">
+              <div className="flex items-center justify-between mb-1">
+                <Label htmlFor="cta-enabled">Call-to-action banner (optional)</Label>
+                <label className="flex items-center gap-2 text-xs">
+                  <input
+                    id="cta-enabled"
+                    type="checkbox"
+                    checked={ctaEnabled}
+                    onChange={(e) => setCtaEnabled(e.target.checked)}
+                  />
+                  <span>Enable CTA</span>
+                </label>
+              </div>
+              <p className="text-xs text-muted-foreground mb-2">
+                When enabled, an end-of-article CTA banner is generated for each row, tailored to the article topic and pointing to the URL below. The CTA HTML is appended to the Body HTML and is excluded from the article word count.
+              </p>
+              {ctaEnabled && (
+                <div className="grid gap-2">
+                  <Input
+                    value={ctaUrl}
+                    onChange={(e) => setCtaUrl(e.target.value)}
+                    placeholder="https://your-website.com/booking"
+                  />
+                  <Textarea
+                    rows={3}
+                    value={ctaInstruction}
+                    onChange={(e) => setCtaInstruction(e.target.value)}
+                    placeholder="What should the CTA promote? e.g. 'Promote our personal training programmes; emphasise expert coaching and free consultation.'"
+                  />
+                </div>
+              )}
+            </div>
           </CardContent>
         </Card>
         <Card>
