@@ -620,9 +620,10 @@ STRUCTURE FOR 300-WORD ARTICLE (exact):
             <div><Label>Global tags (optional)</Label><Input value={globalTags} onChange={(e) => setGlobalTags(e.target.value)} placeholder="faq, evergreen" /></div>
             <div>
               <Label>Default word count</Label>
-              <Select value={String(wordCount)} onValueChange={(v) => setWordCount(Number(v) as 300 | 500 | 700)}>
+              <Select value={String(wordCount)} onValueChange={(v) => setWordCount(Number(v) as 100 | 300 | 500 | 700)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="100">100 words (1 small table, 1 section)</SelectItem>
                   <SelectItem value="300">300 words (1 table, 1 section)</SelectItem>
                   <SelectItem value="500">500 words (1 table, 2 sections)</SelectItem>
                   <SelectItem value="700">700 words (1 table, 3 sections)</SelectItem>
