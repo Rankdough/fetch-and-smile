@@ -117,7 +117,7 @@ export default function ShopifyFaqBulk() {
   const [blogTitle, setBlogTitle] = useState<string>(init.blogTitle ?? "FAQ");
   const [templateSuffix, setTemplateSuffix] = useState<string>(init.templateSuffix ?? "article-faq");
   const [handlePrefix, setHandlePrefix] = useState<string>(init.handlePrefix ?? "");
-  const [wordCount, setWordCount] = useState<300 | 500 | 700>(init.wordCount ?? 500);
+  const [wordCount, setWordCount] = useState<100 | 300 | 500 | 700>(init.wordCount ?? 500);
   const [includeFaqs, setIncludeFaqs] = useState<boolean>(init.includeFaqs ?? false);
   const [includeNav, setIncludeNav] = useState<boolean>(init.includeNav ?? false);
   const [skipQuickTips, setSkipQuickTips] = useState<boolean>(init.skipQuickTips ?? false);
@@ -392,13 +392,56 @@ export default function ShopifyFaqBulk() {
     toast({ title: `Deleted ${errorIdxs.size} error row(s)` });
   };
 
-  const regenerateRow = async (idx: number, wc: 300 | 500 | 700) => {
+  const enforceStrict100Markdown = (markdown: string, title: string): string => {
+    const normalised = markdown.replace(/—|–/g, "-").replace(/^\s*[-*_]{3,}\s*$/gm, "").trim();
+    const h1 = normalised.match(/^#\s+(.+)$/m)?.[1]?.trim() || title;
+    const tableMatch = normalised.match(/(?:^|\n)((?:\|[^\n]+\|\n?){3,})/m);
+    const rawTable = tableMatch?.[1]?.trim().split("\n") || [];
+    const table = rawTable.length >= 4
+      ? rawTable.slice(0, 4).join("\n")
+      : `| Point | Short answer |\n| --- | --- |\n| Direct answer | See section above |\n| Next step | Confirm details before acting |`;
+    const withoutTables = normalised.replace(/(?:^|\n)(?:\|[^\n]+\|\n?){3,}/gm, "\n").trim();
+    const h2Regex = /^##\s+(.+)$/gm;
+    const matches = [...withoutTables.matchAll(h2Regex)];
+    const introBlock = matches.length ? withoutTables.slice(0, matches[0].index ?? 0) : withoutTables;
+    const intro = trimMarkdownWords(
+      introBlock.replace(/^#\s+.+$/m, "").split(/\n{2,}/).map((p) => p.trim()).filter(Boolean)[0] || "",
+      25
+    );
+    const isStructural = (heading: string) => /tl;?dr|quick tips|in this article|frequently asked|^faq$|final thoughts|conclusion|references|how to choose|how to pick|how to decide|how to find/i.test(heading);
+    const sections = matches.map((match, index) => {
+      const start = match.index ?? 0;
+      const end = index + 1 < matches.length ? (matches[index + 1].index ?? withoutTables.length) : withoutTables.length;
+      return { heading: match[1].trim(), body: withoutTables.slice(start + match[0].length, end).trim() };
+    });
+    const main = sections.find((s) => !isStructural(s.heading)) || sections[0];
+    const heading = main?.heading || "What is the short answer?";
+    const fixed = [`# ${h1}`, intro, `## ${heading}`].filter(Boolean).join("\n\n");
+    const fixedWords = markdownWordCount(`${fixed}\n\n${table}`);
+    const bodyBudget = Math.max(20, 115 - fixedWords);
+    const bodyText = trimMarkdownWords((main?.body || "").replace(/(?:^|\n)(?:\|[^\n]+\|\n?){3,}/gm, "\n").replace(/^#{1,6}\s+.+$/gm, "").trim(), bodyBudget);
+    let output = `${fixed}\n\n${bodyText}\n\n${table}`.trim();
+    if (markdownWordCount(output) > 115) {
+      const trimmed = trimMarkdownWords(bodyText, Math.max(15, bodyBudget - (markdownWordCount(output) - 115)));
+      output = `${fixed}\n\n${trimmed}\n\n${table}`.trim();
+    }
+    return output;
+  };
+
+  const regenerateRow = async (idx: number, wc: 100 | 300 | 500 | 700) => {
     const row = rows[idx];
     if (!row) return;
     const q = row.Title;
     const title = formatTitle(q);
     setRegenIdx(idx);
     try {
+      const strict100 = `STRICT LENGTH: The entire article (H1, opening, single H2 section, and table cells combined) MUST total between 85 and 115 words. Do NOT exceed 115 words under any circumstance. Be ruthlessly concise.
+
+STRUCTURE FOR 100-WORD ARTICLE (exact):
+- H1 title
+- 1 short opening paragraph (max 25 words) that directly answers the question
+- EXACTLY 1 H2 section with 1 short paragraph (25-40 words) and EXACTLY 1 small markdown table (2-3 data rows, 2 columns)
+- Do NOT include TL;DR, Quick Tips, FAQ, References, Final Thoughts, How to Choose, or any other sections.`;
       const strict300 = `STRICT LENGTH: The entire article (including TL;DR, Quick Tips, the single H2 section, table cells, and FAQ if present) MUST total between 275 and 325 words. Do NOT exceed 325 words under any circumstance. Be ruthlessly concise.
 
 STRUCTURE FOR 300-WORD ARTICLE (exact):
@@ -412,23 +455,30 @@ STRUCTURE FOR 300-WORD ARTICLE (exact):
       const base = sport
         ? `This is a ${sport} FAQ article. Answer the question directly and concisely. Target ${wc} words total.`
         : `This is an FAQ-style article. Answer the question directly and concisely. Target ${wc} words total.`;
-      const extra = wc === 300 ? `${base}\n\n${strict300}` : base;
+      const extra = wc === 100 ? `${base}\n\n${strict100}` : wc === 300 ? `${base}\n\n${strict300}` : base;
+
+      // Underrequest for tight word counts so the deterministic enforcer can clean up
+      const aiTarget = wc === 100 ? 90 : wc === 300 ? 240 : wc;
 
       const result = await generateMigrationArticle({
         topic: title,
-        targetWordCount: wc,
+        targetWordCount: aiTarget,
         palette: selectedPalette,
         convertOpts: {
           skipNavigation: !includeNav,
-          skipQuickTips,
-          skipFaqs: !includeFaqs,
-          skipSources,
+          skipQuickTips: wc === 100 ? true : skipQuickTips,
+          skipFaqs: wc === 100 || wc === 300 ? true : !includeFaqs,
+          skipSources: wc === 100 || wc === 300 ? true : skipSources,
         },
         toneProfileId,
         extraInstructions: extra,
       });
 
-      let finalMarkdown = wc === 300 ? enforceStrict300Markdown(result.markdown, title) : result.markdown;
+      let finalMarkdown = wc === 100
+        ? enforceStrict100Markdown(result.markdown, title)
+        : wc === 300
+          ? enforceStrict300Markdown(result.markdown, title)
+          : result.markdown;
 
       // Inject up to 3 internal links into the markdown
       const linkUrls = internalLinks.map((u) => u.trim()).filter(Boolean).slice(0, 3);
@@ -447,12 +497,12 @@ STRUCTURE FOR 300-WORD ARTICLE (exact):
         }
       }
 
-      const finalHtml = (wc === 300 || linkUrls.length > 0)
+      const finalHtml = (wc === 100 || wc === 300 || linkUrls.length > 0)
         ? markdownToStyledHtml(finalMarkdown, selectedPalette || null, {
             skipNavigation: !includeNav,
-            skipQuickTips,
-            skipFaqs: wc === 300 ? true : !includeFaqs,
-            skipSources: wc === 300 ? true : skipSources,
+            skipQuickTips: wc === 100 ? true : skipQuickTips,
+            skipFaqs: wc === 100 || wc === 300 ? true : !includeFaqs,
+            skipSources: wc === 100 || wc === 300 ? true : skipSources,
           })
         : result.html;
       const body = stripTitle
@@ -498,7 +548,7 @@ STRUCTURE FOR 300-WORD ARTICLE (exact):
     }
   };
 
-  const regenerateAll = async (wc: 300 | 500 | 700) => {
+  const regenerateAll = async (wc: 100 | 300 | 500 | 700) => {
     if (rows.length === 0) return;
     bulkCancelRef.current = false;
     setBulkProgress({ current: 0, total: rows.length });
@@ -620,9 +670,10 @@ STRUCTURE FOR 300-WORD ARTICLE (exact):
             <div><Label>Global tags (optional)</Label><Input value={globalTags} onChange={(e) => setGlobalTags(e.target.value)} placeholder="faq, evergreen" /></div>
             <div>
               <Label>Default word count</Label>
-              <Select value={String(wordCount)} onValueChange={(v) => setWordCount(Number(v) as 300 | 500 | 700)}>
+              <Select value={String(wordCount)} onValueChange={(v) => setWordCount(Number(v) as 100 | 300 | 500 | 700)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="100">100 words (1 small table, 1 section)</SelectItem>
                   <SelectItem value="300">300 words (1 table, 1 section)</SelectItem>
                   <SelectItem value="500">500 words (1 table, 2 sections)</SelectItem>
                   <SelectItem value="700">700 words (1 table, 3 sections)</SelectItem>
@@ -779,14 +830,14 @@ STRUCTURE FOR 300-WORD ARTICLE (exact):
                     ) : null;
                   })()}
                   <span className="text-xs text-muted-foreground">Regenerate all:</span>
-                  {[300, 500, 700].map((wc) => (
+                  {[100, 300, 500, 700].map((wc) => (
                     <Button
                       key={wc}
                       size="sm"
                       variant="outline"
                       className="h-7 px-2 text-xs gap-1"
                       disabled={!!bulkProgress || regenIdx !== null}
-                      onClick={() => regenerateAll(wc as 300 | 500 | 700)}
+                      onClick={() => regenerateAll(wc as 100 | 300 | 500 | 700)}
                     >
                       {bulkProgress ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
                       All {wc}w
@@ -826,14 +877,14 @@ STRUCTURE FOR 300-WORD ARTICLE (exact):
                     <TableRow key={i}>
                       <TableCell className="align-top sticky left-0 bg-background z-10">
                         <div className="flex flex-col gap-1">
-                          {[300, 500, 700].map((wc) => (
+                          {[100, 300, 500, 700].map((wc) => (
                             <Button
                               key={wc}
                               size="sm"
                               variant="outline"
                               className="h-6 px-2 text-xs gap-1"
                               disabled={regenIdx === i}
-                              onClick={() => regenerateRow(i, wc as 300 | 500 | 700)}
+                              onClick={() => regenerateRow(i, wc as 100 | 300 | 500 | 700)}
                             >
                               {regenIdx === i ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
                               {wc}w
