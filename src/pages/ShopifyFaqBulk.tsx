@@ -1168,6 +1168,34 @@ ${isPricingQuestion
                       </Button>
                     ) : null;
                   })()}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 px-2 text-xs gap-1"
+                    disabled={!!bulkProgress || regenIdx !== null || !rows.some((r) => (r["Body HTML"] || "").trim().length > 0)}
+                    onClick={() => {
+                      if (!confirm("Clear all generated Body HTML from the table? This keeps the rows but removes the generated content.")) return;
+                      setRows((prev) => prev.map((r) => ({ ...r, "Body HTML": "" })));
+                      setQa({});
+                      toast({ title: "Cleared generated content", description: "Body HTML has been removed from all rows." });
+                    }}
+                  >
+                    Clear generated content
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    className="h-7 px-2 text-xs gap-1"
+                    disabled={!!bulkProgress || regenIdx !== null}
+                    onClick={() => {
+                      if (!confirm("Remove all rows from the table? This cannot be undone.")) return;
+                      setRows([]);
+                      setQa({});
+                      toast({ title: "Table cleared", description: "All rows have been removed." });
+                    }}
+                  >
+                    Clear table
+                  </Button>
                   <span className="text-xs text-muted-foreground">Regenerate all:</span>
                   {[100, 300, 500, 700].map((wc) => (
                     <Button
