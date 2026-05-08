@@ -271,6 +271,13 @@ export function markdownToStyledHtml(
     el.removeAttribute("class");
   });
 
+  // Remove stray quote-only paragraphs/list items (e.g. a lone " or ')
+  const QUOTE_ONLY_RE = /^["'`’‘”“]+$/;
+  container.querySelectorAll("p, li").forEach((el) => {
+    const txt = (el.textContent || "").replace(/\s+/g, "").trim();
+    if (txt && QUOTE_ONLY_RE.test(txt)) el.remove();
+  });
+
   // 4. Get the cleaned HTML content
   let finalHtml = container.innerHTML;
 
