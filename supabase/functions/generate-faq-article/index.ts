@@ -30,7 +30,9 @@ serve(async (req) => {
         ? { sectionsMin: 3, sectionsMax: 3, paraWords: "70-110", para2Words: "30-55", bulletsMin: 3, bulletsMax: 4, faqMin: 3, faqMax: 4, includeTable: true, tldrWords: "50-80" }
         : { sectionsMin: 2, sectionsMax: 2, paraWords: "60-90", para2Words: "30-50", bulletsMin: 3, bulletsMax: 4, faqMin: 3, faqMax: 3, includeTable: true, tldrWords: "40-70" };
 
-    const system = `You write concise, factual FAQ-style answers for a Shopify sports blog. British English. No em/en dashes. No buzzwords. No first-person pronouns. Plain, practical language. Always answer the actual question with specifics.`;
+    const system = `You write concise, factual FAQ-style answers for a Shopify sports blog. British English. No em/en dashes. No buzzwords. No first-person pronouns. Plain, practical language. Always answer the actual question with specifics.
+
+CRITICAL OPENING RULE: The VERY FIRST SENTENCE of the "opening" paragraph MUST be a complete, standalone, AI-quotable answer to the title question (max 30 words). No throat-clearing. No "When it comes to...", "In the world of...", or scene-setting. The reader (or an AI assistant quoting the article) must get the literal answer in sentence one. Subsequent sentences may add brief context.`;
 
     const userPrompt = `Question: "${question}"${sport ? `\nSport context: ${sport}` : ""}
 
@@ -45,7 +47,7 @@ Generate an FAQ article of approximately ${wordCount} words total (±10%). Retur
 
     const properties: Record<string, any> = {
       h1: { type: "string", description: "Article H1 - rephrase question as a clear title using proper Title Case." },
-      opening: { type: "string", description: "1 short paragraph (35-55 words) that hooks the reader and frames the question. Must NOT repeat the TL;DR verbatim. Conversational, no buzzwords." },
+      opening: { type: "string", description: "1 short paragraph (35-55 words). CRITICAL: The VERY FIRST SENTENCE must be a complete, standalone, AI-quotable answer to the title question (max 30 words). No throat-clearing, no scene-setting, no context before the answer. Sentence 1 = the answer. Sentences 2-3 = brief expansion or framing. Must NOT repeat the TL;DR verbatim. Conversational, no buzzwords." },
       tldr: { type: "string", description: `1 dense paragraph (${profile.tldrWords} words) directly answering the question with concrete specifics (numbers, names, durations). Different wording than the opening.` },
       quickTips: {
         type: "array", minItems: 3, maxItems: 3,

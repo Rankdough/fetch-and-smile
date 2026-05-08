@@ -632,9 +632,10 @@ STRUCTURE FOR 300-WORD ARTICLE (exact):
 - EXACTLY 1 H2 section with 1 short paragraph (50-80 words) and EXACTLY 1 markdown table (3-4 rows, 2-3 columns)
 - Do NOT add any additional H2 sections beyond that single one.
 - Do NOT include Final Thoughts, FAQ, References, How to Choose, or any extra sections for this 300-word option.`;
+      const openingRule = `\n\nCRITICAL OPENING RULE: The VERY FIRST SENTENCE of the opening paragraph MUST be a complete, standalone, AI-quotable answer to the title question (max 30 words). No throat-clearing, no scene-setting, no context before the answer. Sentence 1 = the literal answer to "${title}".`;
       const base = sport
-        ? `This is a ${sport} FAQ article. Answer the question directly and concisely. Target ${wc} words total.`
-        : `This is an FAQ-style article. Answer the question directly and concisely. Target ${wc} words total.`;
+        ? `This is a ${sport} FAQ article. Answer the question directly and concisely. Target ${wc} words total.${openingRule}`
+        : `This is an FAQ-style article. Answer the question directly and concisely. Target ${wc} words total.${openingRule}`;
       const extra = wc === 100 ? `${base}\n\n${strict100}` : wc === 300 ? `${base}\n\n${strict300}` : base;
 
       // Underrequest for tight word counts so the deterministic enforcer can clean up
