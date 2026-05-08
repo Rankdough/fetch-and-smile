@@ -101,3 +101,6 @@ verify_jwt = false
 
 [functions.ask-brain]
 verify_jwt = false
+
+[functions.verify-links]
+verify_jwt = false
