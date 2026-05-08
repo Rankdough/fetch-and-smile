@@ -74,6 +74,11 @@ export function markdownToStyledHtml(
   cleanMarkdown = cleanMarkdown.replace(/([.!?])\s+-\s+\*\*/g, "$1\n- **");
 
   // 2. Convert Markdown → basic HTML
+  // Strip stray standalone quote/apostrophe lines that the AI sometimes emits
+  cleanMarkdown = cleanMarkdown
+    .split("\n")
+    .filter((line) => !/^\s*["'`’‘”“]+\s*$/.test(line))
+    .join("\n");
   const basicHtml = marked.parse(cleanMarkdown, { async: false }) as string;
 
   // 3. Parse into DOM and apply inline styles
@@ -264,6 +269,13 @@ export function markdownToStyledHtml(
   // Remove all remaining class attributes
   container.querySelectorAll("*").forEach((el) => {
     el.removeAttribute("class");
+  });
+
+  // Remove stray quote-only paragraphs/list items (e.g. a lone " or ')
+  const QUOTE_ONLY_RE = /^["'`’‘”“]+$/;
+  container.querySelectorAll("p, li").forEach((el) => {
+    const txt = (el.textContent || "").replace(/\s+/g, "").trim();
+    if (txt && QUOTE_ONLY_RE.test(txt)) el.remove();
   });
 
   // 4. Get the cleaned HTML content
