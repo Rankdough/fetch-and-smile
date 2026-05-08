@@ -515,8 +515,10 @@ export default function ShopifyFaqBulk() {
           });
         }
       } else if (broken.length > 0) {
+        autoRetriedRef.current.delete(idx);
         toast({ title: `QA: ${broken.length} broken link(s)`, description: broken.slice(0, 2).join(" • "), variant: "destructive" });
       } else if (result.status === "warning" && result.issues.length) {
+        autoRetriedRef.current.delete(idx);
         toast({ title: `QA: minor issues`, description: result.issues.slice(0, 2).join(" • ") });
       }
     } catch (e: any) {
