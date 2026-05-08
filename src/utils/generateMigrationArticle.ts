@@ -20,6 +20,7 @@ export interface GenerateMigrationArticleInput {
   extraInstructions?: string;
   sourceMarkdown?: string;
   sourceHtml?: string;
+  contextFiles?: Array<{ name: string; content: string }>;
 }
 
 export interface GenerateMigrationArticleResult {
