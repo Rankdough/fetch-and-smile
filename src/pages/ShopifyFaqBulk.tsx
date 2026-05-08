@@ -317,18 +317,41 @@ export default function ShopifyFaqBulk() {
     return output;
   };
 
+  const extractHrefs = (html: string): string[] => {
+    const urls = new Set<string>();
+    const re = /<a\b[^>]*href=["']([^"']+)["'][^>]*>/gi;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(html)) !== null) {
+      const u = m[1].trim();
+      if (u && !u.startsWith("#") && !/^javascript:/i.test(u) && !/^mailto:/i.test(u)) urls.add(u);
+    }
+    return Array.from(urls);
+  };
+
   const runQaCheck = async (idx: number, title: string, body: string, targetWordCount: number) => {
     setQaLoading((p) => ({ ...p, [idx]: true }));
     try {
-      const { data, error } = await supabase.functions.invoke("verify-faq-answer", {
-        body: { title, body, targetWordCount },
-      });
-      if (error) throw error;
+      const hrefs = extractHrefs(body);
+      const [qaResp, linkResp] = await Promise.all([
+        supabase.functions.invoke("verify-faq-answer", { body: { title, body, targetWordCount } }),
+        hrefs.length > 0
+          ? supabase.functions.invoke("verify-links", { body: { urls: hrefs } })
+          : Promise.resolve({ data: { results: [] }, error: null }),
+      ]);
+      if (qaResp.error) throw qaResp.error;
+      const data = qaResp.data;
+      const linkResults: Array<{ url: string; ok: boolean; status: number; reason?: string }> =
+        Array.isArray(linkResp?.data?.results) ? linkResp.data.results : [];
+      const broken = linkResults.filter((r) => !r.ok).map((r) => r.url);
+      const baseStatus = data?.status ?? "warning";
+      const status = broken.length > 0 && baseStatus === "ok" ? "warning" : baseStatus;
+      const extraIssues = broken.length > 0 ? [`${broken.length} broken link${broken.length === 1 ? "" : "s"}`] : [];
       const result: QaResult = {
-        status: data?.status ?? "warning",
-        issues: Array.isArray(data?.issues) ? data.issues : [],
+        status,
+        issues: [...(Array.isArray(data?.issues) ? data.issues : []), ...extraIssues],
         answersTitle: data?.answersTitle !== false,
         wordCount: data?.wordCount ?? 0,
+        brokenLinks: broken,
       };
       setQa((p) => ({ ...p, [idx]: result }));
       if (result.status === "error") {
@@ -337,11 +360,12 @@ export default function ShopifyFaqBulk() {
           description: result.issues.slice(0, 2).join(" • ") || "Body may not answer the title.",
           variant: "destructive",
         });
+      } else if (broken.length > 0) {
+        toast({ title: `QA: ${broken.length} broken link(s)`, description: broken.slice(0, 2).join(" • "), variant: "destructive" });
       } else if (result.status === "warning" && result.issues.length) {
         toast({ title: `QA: minor issues`, description: result.issues.slice(0, 2).join(" • ") });
       }
     } catch (e: any) {
-      // Silent — QA is best-effort
       console.warn("QA check failed", e);
     } finally {
       setQaLoading((p) => ({ ...p, [idx]: false }));
