@@ -130,6 +130,11 @@ export default function ShopifyFaqBulk() {
   );
   const [internalLinkStatuses, setInternalLinkStatuses] = useState<Array<{ ok: boolean; status: number; reason?: string } | null>>([null, null, null]);
   const [internalLinkCheckLoading, setInternalLinkCheckLoading] = useState(false);
+  const [contextFiles, setContextFiles] = useState<Array<{ name: string; content: string }>>(
+    Array.isArray(init.contextFiles) ? init.contextFiles : []
+  );
+  const [contextParsing, setContextParsing] = useState(false);
+  const contextFileInputRef = useRef<HTMLInputElement>(null);
   const [toneProfileId, setToneProfileId] = useState<string | null>(init.toneProfileId ?? null);
   const [toneProfiles, setToneProfiles] = useState<Array<{ id: string; name: string }>>([]);
   const [rows, setRows] = useState<Record<string, string>[]>(init.rows ?? []);
