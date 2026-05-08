@@ -215,9 +215,10 @@ ${content}`;
       JSON.stringify({
         content: linkedContent,
         insertedCount: insertedUrls.length,
-        totalProvided: validUrls.length,
+        totalProvided: allUrls.length,
         insertedUrls,
-        skippedUrls: validUrls.filter((url) => !linkedContent.includes(url)),
+        skippedUrls: [...validUrls.filter((url) => !linkedContent.includes(url)), ...skippedOffTopic],
+        skippedOffTopic,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
