@@ -147,6 +147,8 @@ export default function ShopifyFaqBulk() {
   type QaResult = { status: "ok" | "warning" | "error"; issues: string[]; answersTitle: boolean; wordCount: number; brokenLinks?: string[] };
   const [qa, setQa] = useState<Record<number, QaResult>>({});
   const [qaLoading, setQaLoading] = useState<Record<number, boolean>>({});
+  // Track auto-retry attempts per row to avoid infinite loops on persistent QA errors
+  const autoRetriedRef = useRef<Set<number>>(new Set());
 
   // Filter dialog state
   const [filterOpen, setFilterOpen] = useState(false);
