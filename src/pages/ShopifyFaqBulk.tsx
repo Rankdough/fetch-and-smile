@@ -127,6 +127,8 @@ export default function ShopifyFaqBulk() {
   const [internalLinks, setInternalLinks] = useState<string[]>(
     Array.isArray(init.internalLinks) ? [...init.internalLinks, "", "", ""].slice(0, 3) : ["", "", ""]
   );
+  const [internalLinkStatuses, setInternalLinkStatuses] = useState<Array<{ ok: boolean; status: number; reason?: string } | null>>([null, null, null]);
+  const [internalLinkCheckLoading, setInternalLinkCheckLoading] = useState(false);
   const [toneProfileId, setToneProfileId] = useState<string | null>(init.toneProfileId ?? null);
   const [toneProfiles, setToneProfiles] = useState<Array<{ id: string; name: string }>>([]);
   const [rows, setRows] = useState<Record<string, string>[]>(init.rows ?? []);
