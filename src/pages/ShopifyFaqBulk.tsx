@@ -1263,14 +1263,15 @@ ${isPricingQuestion
                         size="sm"
                         variant="destructive"
                         className="h-7 px-2 text-xs gap-1"
-                        disabled={bulkCancelRef.current}
+                        disabled={stopping}
                         onClick={() => {
                           bulkCancelRef.current = true;
+                          setStopping(true);
                           toast({ title: "Stopping after current row…" });
                         }}
                       >
                         <X className="h-3 w-3" />
-                        {bulkCancelRef.current ? "Stopping…" : "Stop generation"}
+                        {stopping ? "Stopping…" : "Stop generation"}
                       </Button>
                     </>
                   )}
