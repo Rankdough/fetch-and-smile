@@ -594,7 +594,7 @@ STRUCTURE FOR 300-WORD ARTICLE (exact):
         ? enforceStrict100Markdown(result.markdown, title)
         : wc === 300
           ? enforceStrict300Markdown(result.markdown, title)
-          : result.markdown;
+          : moveTableAfterTldr(result.markdown);
 
       // Inject up to 3 internal links into the markdown
       const linkUrls = internalLinks.map((u) => u.trim()).filter(Boolean).slice(0, 3);
