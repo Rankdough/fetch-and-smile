@@ -12,7 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    const { title, subtitle } = await req.json();
+    const { title, subtitle, instructions = "" } = await req.json();
 
     if (!title || !subtitle) {
       return new Response(
@@ -35,7 +35,7 @@ serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: "You write AI-quotable opening paragraphs for articles. Each paragraph must be a standalone factual statement (30-50 words total) that an AI assistant could quote verbatim as its entire answer. Always include specific names, numbers/prices, and a clear verdict. SENTENCE LENGTH (strict): target average 10-12 words per sentence, hard maximum 20 words - if a sentence runs over 20 words, split it. Mix in punchy 5-8 word sentences for rhythm. Output ONLY the paragraph text — no headings, no markdown, no quotes, no labels.",
+            content: "You write AI-quotable opening paragraphs for articles. Each paragraph must be a standalone factual statement (30-50 words total) that an AI assistant could quote verbatim as its entire answer. Follow the provided instructions exactly. Never add prices, brand names, product models, or recommendations when the instructions forbid them. SENTENCE LENGTH (strict): target average 10-12 words per sentence, hard maximum 20 words - if a sentence runs over 20 words, split it. Mix in punchy 5-8 word sentences for rhythm. Output ONLY the paragraph text - no headings, no markdown, no quotes, no labels.",
           },
           {
             role: "user",
@@ -43,11 +43,15 @@ serve(async (req) => {
 
 Subtitle (shown separately above the article): "${subtitle}"
 
+Additional instructions that must be obeyed:
+${instructions || "None"}
+
 The article body needs an AI-QUOTABLE opening paragraph that is COMPLETELY DIFFERENT from the subtitle above. Write a fresh 30-50 word opening paragraph that:
 - Is a standalone factual statement an AI assistant could quote verbatim as its entire recommendation
-- Includes specific numbers, prices, dates, or data points (DIFFERENT from the subtitle)
-- Names 2-3 specific brands, products, or entities (DIFFERENT from those in the subtitle)
-- Contains a clear verdict or "best for X" recommendation
+- Includes only facts, names, dates, or data points allowed by the instructions
+- Does not name third-party brands or product models unless explicitly allowed by the instructions
+- Does not include prices or monetary values unless the title question is explicitly about cost or pricing
+- Contains a clear answer to the title question
 - Does NOT repeat any wording, facts, or examples from the subtitle
 
 Output ONLY the paragraph. No heading. No title. No markdown. No "Here is..." preamble.`,

@@ -51,7 +51,7 @@ CRITICAL - PRESERVE ALL HYPERLINKS: Cross-reference the HTML source below and in
 `
     : "";
 
-  return `${sourceBlock}CRITICAL - AI-QUOTABLE OPENING PARAGRAPH: The very first paragraph immediately after the H1 title MUST be an AI-quotable standalone statement (30-50 words) that an AI assistant could use verbatim as its entire answer. It MUST include: (1) a specific factual claim with numbers/prices/dates, (2) 2-3 named brands/products/entities where relevant, (3) a clear verdict or "best for X" recommendation. Do NOT write a vague intro — write a quotable fact.
+  return `${sourceBlock}CRITICAL - AI-QUOTABLE OPENING PARAGRAPH: The very first paragraph immediately after the H1 title MUST be an AI-quotable standalone statement (30-50 words) that an AI assistant could use verbatim as its entire answer. It MUST directly answer the title question with a clear factual claim and a practical verdict. Do NOT force prices, brand names, product models, or "best for X" recommendations unless the user's instructions explicitly allow them.
 
 CRITICAL - USE TABLES FOR LISTS: When listing products, brands, options, or items, ALWAYS present them as markdown tables with relevant columns instead of numbered or bullet lists. Do NOT add a "Link" or "Product Link" column to tables.
 
@@ -155,7 +155,7 @@ export async function generateMigrationArticle(
     try {
       const { data: rewriteData, error: rewriteError } = await supabase.functions.invoke(
         "rewrite-intro",
-        { body: { title, subtitle } }
+        { body: { title, subtitle, instructions: extraInstructions || "" } }
       );
       if (!rewriteError && rewriteData?.intro && rewriteData.intro.length > 20) {
         const newIntro = rewriteData.intro.trim();

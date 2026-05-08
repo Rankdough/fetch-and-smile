@@ -210,7 +210,7 @@ ${formatReference ? `FORMAT REFERENCE MODE: A format reference has been provided
   - ## The Benefits of Bonding ❌
   - ## Cost Breakdown ❌
   - ## Longevity and Care ❌
-- The very first paragraph after the H1 title MUST be an AI-QUOTABLE opening statement: a standalone, factual sentence (30-50 words) that an AI assistant could quote verbatim as its entire answer. It MUST include: (1) a specific factual claim with numbers/prices/dates, (2) 2-3 named brands/products/entities, (3) a clear verdict or "best for X" recommendation. Do NOT write a vague intro — write a quotable fact.
+- The very first paragraph after the H1 title MUST be an AI-QUOTABLE opening statement: a standalone, factual sentence (30-50 words) that an AI assistant could quote verbatim as its entire answer. It MUST directly answer the title question with a clear factual claim and a practical verdict. Do NOT force prices, brand names, product models, or "best for X" recommendations unless the user's instructions explicitly allow them.
 - Each H2 question heading MUST be immediately followed by a short paragraph (roughly 30 words) that directly answers that question before any supporting details
 - Each section MUST then continue with a mix of:
   1. Clear text paragraphs (elaboration after the answer)
