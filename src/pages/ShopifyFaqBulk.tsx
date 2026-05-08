@@ -778,25 +778,51 @@ STRUCTURE FOR 300-WORD ARTICLE (exact):
               />
             </div>
             <div className="md:col-span-3">
-              <Label>Internal links (up to 3)</Label>
+              <div className="flex items-center justify-between mb-1">
+                <Label>Internal links (up to 3)</Label>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs"
+                  disabled={internalLinkCheckLoading}
+                  onClick={checkInternalLinks}
+                >
+                  {internalLinkCheckLoading ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
+                  Check links
+                </Button>
+              </div>
               <p className="text-xs text-muted-foreground mb-2">
                 AI will insert each URL once into the Body HTML where the topic naturally fits. Leave blank to skip.
               </p>
               <div className="grid gap-2">
-                {[0, 1, 2].map((i) => (
-                  <Input
-                    key={i}
-                    value={internalLinks[i] ?? ""}
-                    onChange={(e) =>
-                      setInternalLinks((prev) => {
-                        const next = [...prev];
-                        next[i] = e.target.value;
-                        return next;
-                      })
-                    }
-                    placeholder={`https://example.com/related-page-${i + 1}`}
-                  />
-                ))}
+                {[0, 1, 2].map((i) => {
+                  const status = internalLinkStatuses[i];
+                  return (
+                    <div key={i} className="flex items-center gap-2">
+                      <Input
+                        value={internalLinks[i] ?? ""}
+                        onChange={(e) =>
+                          setInternalLinks((prev) => {
+                            const next = [...prev];
+                            next[i] = e.target.value;
+                            return next;
+                          })
+                        }
+                        placeholder={`https://example.com/related-page-${i + 1}`}
+                      />
+                      {status ? (
+                        <span
+                          className={`text-[11px] whitespace-nowrap ${
+                            status.ok ? "text-green-600" : "text-destructive"
+                          }`}
+                        >
+                          {status.ok ? `OK ${status.status}` : `Broken${status.status ? ` ${status.status}` : ""}${status.reason ? ` (${status.reason})` : ""}`}
+                        </span>
+                      ) : null}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </CardContent>
