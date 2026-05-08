@@ -964,17 +964,6 @@ ${isPricingQuestion
             <div><Label>Blog: Handle</Label><Input value={blogHandle} onChange={(e) => setBlogHandle(e.target.value)} /></div>
             <div><Label>Blog: Title</Label><Input value={blogTitle} onChange={(e) => setBlogTitle(e.target.value)} /></div>
             <div><Label>Template Suffix</Label><Input value={templateSuffix} onChange={(e) => setTemplateSuffix(e.target.value)} /></div>
-            <div className="md:col-span-2">
-              <Label>Site base URL (for cross-linking)</Label>
-              <Input
-                value={siteBaseUrl}
-                onChange={(e) => setSiteBaseUrl(e.target.value)}
-                placeholder="https://yourstore.com"
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                When set, each generated FAQ may link to previously generated FAQs in this batch (e.g. {`{baseUrl}/blogs/${blogHandle || "faq"}/{handle}`}).
-              </p>
-            </div>
             <div className="flex items-center gap-2 pt-6">
               <input
                 id="include-faqs"
