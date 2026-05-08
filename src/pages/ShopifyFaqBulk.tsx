@@ -127,6 +127,8 @@ export default function ShopifyFaqBulk() {
   const [internalLinks, setInternalLinks] = useState<string[]>(
     Array.isArray(init.internalLinks) ? [...init.internalLinks, "", "", ""].slice(0, 3) : ["", "", ""]
   );
+  const [internalLinkStatuses, setInternalLinkStatuses] = useState<Array<{ ok: boolean; status: number; reason?: string } | null>>([null, null, null]);
+  const [internalLinkCheckLoading, setInternalLinkCheckLoading] = useState(false);
   const [toneProfileId, setToneProfileId] = useState<string | null>(init.toneProfileId ?? null);
   const [toneProfiles, setToneProfiles] = useState<Array<{ id: string; name: string }>>([]);
   const [rows, setRows] = useState<Record<string, string>[]>(init.rows ?? []);
@@ -135,7 +137,7 @@ export default function ShopifyFaqBulk() {
   const bulkCancelRef = useRef<boolean>(false);
 
   // QA check results, keyed by row index
-  type QaResult = { status: "ok" | "warning" | "error"; issues: string[]; answersTitle: boolean; wordCount: number };
+  type QaResult = { status: "ok" | "warning" | "error"; issues: string[]; answersTitle: boolean; wordCount: number; brokenLinks?: string[] };
   const [qa, setQa] = useState<Record<number, QaResult>>({});
   const [qaLoading, setQaLoading] = useState<Record<number, boolean>>({});
 
@@ -317,18 +319,76 @@ export default function ShopifyFaqBulk() {
     return output;
   };
 
+  const checkInternalLinks = async () => {
+    const urls = internalLinks.map((u) => (u || "").trim());
+    const nonEmpty = urls.filter(Boolean);
+    if (nonEmpty.length === 0) {
+      toast({ title: "No internal links to check" });
+      return;
+    }
+    setInternalLinkCheckLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("verify-links", { body: { urls: nonEmpty } });
+      if (error) throw error;
+      const results: Array<{ url: string; ok: boolean; status: number; reason?: string }> = data?.results || [];
+      const next = urls.map((u) => {
+        if (!u) return null;
+        const r = results.find((x) => x.url === u);
+        return r ? { ok: r.ok, status: r.status, reason: r.reason } : null;
+      });
+      setInternalLinkStatuses(next);
+      const broken = results.filter((r) => !r.ok);
+      if (broken.length === 0) {
+        toast({ title: "All internal links OK" });
+      } else {
+        toast({
+          title: `${broken.length} broken link${broken.length === 1 ? "" : "s"}`,
+          description: broken.map((b) => b.url).slice(0, 2).join(" • "),
+          variant: "destructive",
+        });
+      }
+    } catch (e: any) {
+      toast({ title: "Link check failed", description: e?.message || "", variant: "destructive" });
+    } finally {
+      setInternalLinkCheckLoading(false);
+    }
+  };
+
+  const extractHrefs = (html: string): string[] => {
+    const urls = new Set<string>();
+    const re = /<a\b[^>]*href=["']([^"']+)["'][^>]*>/gi;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(html)) !== null) {
+      const u = m[1].trim();
+      if (u && !u.startsWith("#") && !/^javascript:/i.test(u) && !/^mailto:/i.test(u)) urls.add(u);
+    }
+    return Array.from(urls);
+  };
+
   const runQaCheck = async (idx: number, title: string, body: string, targetWordCount: number) => {
     setQaLoading((p) => ({ ...p, [idx]: true }));
     try {
-      const { data, error } = await supabase.functions.invoke("verify-faq-answer", {
-        body: { title, body, targetWordCount },
-      });
-      if (error) throw error;
+      const hrefs = extractHrefs(body);
+      const [qaResp, linkResp] = await Promise.all([
+        supabase.functions.invoke("verify-faq-answer", { body: { title, body, targetWordCount } }),
+        hrefs.length > 0
+          ? supabase.functions.invoke("verify-links", { body: { urls: hrefs } })
+          : Promise.resolve({ data: { results: [] }, error: null }),
+      ]);
+      if (qaResp.error) throw qaResp.error;
+      const data = qaResp.data;
+      const linkResults: Array<{ url: string; ok: boolean; status: number; reason?: string }> =
+        Array.isArray(linkResp?.data?.results) ? linkResp.data.results : [];
+      const broken = linkResults.filter((r) => !r.ok).map((r) => r.url);
+      const baseStatus = data?.status ?? "warning";
+      const status = broken.length > 0 && baseStatus === "ok" ? "warning" : baseStatus;
+      const extraIssues = broken.length > 0 ? [`${broken.length} broken link${broken.length === 1 ? "" : "s"}`] : [];
       const result: QaResult = {
-        status: data?.status ?? "warning",
-        issues: Array.isArray(data?.issues) ? data.issues : [],
+        status,
+        issues: [...(Array.isArray(data?.issues) ? data.issues : []), ...extraIssues],
         answersTitle: data?.answersTitle !== false,
         wordCount: data?.wordCount ?? 0,
+        brokenLinks: broken,
       };
       setQa((p) => ({ ...p, [idx]: result }));
       if (result.status === "error") {
@@ -337,11 +397,12 @@ export default function ShopifyFaqBulk() {
           description: result.issues.slice(0, 2).join(" • ") || "Body may not answer the title.",
           variant: "destructive",
         });
+      } else if (broken.length > 0) {
+        toast({ title: `QA: ${broken.length} broken link(s)`, description: broken.slice(0, 2).join(" • "), variant: "destructive" });
       } else if (result.status === "warning" && result.issues.length) {
         toast({ title: `QA: minor issues`, description: result.issues.slice(0, 2).join(" • ") });
       }
     } catch (e: any) {
-      // Silent — QA is best-effort
       console.warn("QA check failed", e);
     } finally {
       setQaLoading((p) => ({ ...p, [idx]: false }));
@@ -754,25 +815,51 @@ STRUCTURE FOR 300-WORD ARTICLE (exact):
               />
             </div>
             <div className="md:col-span-3">
-              <Label>Internal links (up to 3)</Label>
+              <div className="flex items-center justify-between mb-1">
+                <Label>Internal links (up to 3)</Label>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs"
+                  disabled={internalLinkCheckLoading}
+                  onClick={checkInternalLinks}
+                >
+                  {internalLinkCheckLoading ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
+                  Check links
+                </Button>
+              </div>
               <p className="text-xs text-muted-foreground mb-2">
                 AI will insert each URL once into the Body HTML where the topic naturally fits. Leave blank to skip.
               </p>
               <div className="grid gap-2">
-                {[0, 1, 2].map((i) => (
-                  <Input
-                    key={i}
-                    value={internalLinks[i] ?? ""}
-                    onChange={(e) =>
-                      setInternalLinks((prev) => {
-                        const next = [...prev];
-                        next[i] = e.target.value;
-                        return next;
-                      })
-                    }
-                    placeholder={`https://example.com/related-page-${i + 1}`}
-                  />
-                ))}
+                {[0, 1, 2].map((i) => {
+                  const status = internalLinkStatuses[i];
+                  return (
+                    <div key={i} className="flex items-center gap-2">
+                      <Input
+                        value={internalLinks[i] ?? ""}
+                        onChange={(e) =>
+                          setInternalLinks((prev) => {
+                            const next = [...prev];
+                            next[i] = e.target.value;
+                            return next;
+                          })
+                        }
+                        placeholder={`https://example.com/related-page-${i + 1}`}
+                      />
+                      {status ? (
+                        <span
+                          className={`text-[11px] whitespace-nowrap ${
+                            status.ok ? "text-green-600" : "text-destructive"
+                          }`}
+                        >
+                          {status.ok ? `OK ${status.status}` : `Broken${status.status ? ` ${status.status}` : ""}${status.reason ? ` (${status.reason})` : ""}`}
+                        </span>
+                      ) : null}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </CardContent>
@@ -914,6 +1001,14 @@ STRUCTURE FOR 300-WORD ARTICLE (exact):
                               <ul className="list-disc pl-3 text-muted-foreground text-[11px] space-y-0.5">
                                 {qa[i].issues.slice(0, 4).map((iss, k) => <li key={k}>{iss}</li>)}
                               </ul>
+                            )}
+                            {qa[i].brokenLinks && qa[i].brokenLinks!.length > 0 && (
+                              <div className="text-destructive text-[11px]">
+                                <div className="font-medium">Broken links:</div>
+                                <ul className="list-disc pl-3 space-y-0.5 break-all">
+                                  {qa[i].brokenLinks!.slice(0, 4).map((u, k) => <li key={k}>{u}</li>)}
+                                </ul>
+                              </div>
                             )}
                             {qa[i].status === "error" && (
                               <Button
