@@ -9,7 +9,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Download, Loader2, Sparkles, RefreshCw, Filter, Trash2, CheckCircle2, AlertTriangle, AlertCircle } from "lucide-react";
+import { ArrowLeft, Download, Loader2, Sparkles, RefreshCw, Filter, Trash2, CheckCircle2, AlertTriangle, AlertCircle, FileText, X } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
@@ -129,6 +130,11 @@ export default function ShopifyFaqBulk() {
   );
   const [internalLinkStatuses, setInternalLinkStatuses] = useState<Array<{ ok: boolean; status: number; reason?: string } | null>>([null, null, null]);
   const [internalLinkCheckLoading, setInternalLinkCheckLoading] = useState(false);
+  const [contextFiles, setContextFiles] = useState<Array<{ name: string; content: string }>>(
+    Array.isArray(init.contextFiles) ? init.contextFiles : []
+  );
+  const [contextParsing, setContextParsing] = useState(false);
+  const contextFileInputRef = useRef<HTMLInputElement>(null);
   const [toneProfileId, setToneProfileId] = useState<string | null>(init.toneProfileId ?? null);
   const [toneProfiles, setToneProfiles] = useState<Array<{ id: string; name: string }>>([]);
   const [rows, setRows] = useState<Record<string, string>[]>(init.rows ?? []);
@@ -169,10 +175,11 @@ export default function ShopifyFaqBulk() {
         questions, author, sport, globalTags, blogHandle, blogTitle, templateSuffix, handlePrefix, wordCount,
         includeFaqs, includeNav, skipQuickTips, skipSources, stripTitle, paletteId, toneProfileId, rows, filterRules,
         internalLinks,
+        contextFiles,
       }));
     } catch {}
   }, [questions, author, sport, globalTags, blogHandle, blogTitle, templateSuffix, handlePrefix, wordCount,
-      includeFaqs, includeNav, skipQuickTips, skipSources, stripTitle, paletteId, toneProfileId, rows, filterRules, internalLinks]);
+      includeFaqs, includeNav, skipQuickTips, skipSources, stripTitle, paletteId, toneProfileId, rows, filterRules, internalLinks, contextFiles]);
 
   const formatTitle = (q: string): string => {
     let s = q.trim().replace(/\s+/g, " ");
@@ -317,6 +324,36 @@ export default function ShopifyFaqBulk() {
       }
     }
     return output;
+  };
+
+  const handleContextFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (contextFiles.some((f) => f.name === file.name)) {
+      toast({ title: "File already added", variant: "destructive" });
+      if (contextFileInputRef.current) contextFileInputRef.current.value = "";
+      return;
+    }
+    setContextParsing(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const { data, error } = await supabase.functions.invoke("parse-context-file", { body: formData });
+      if (error) throw error;
+      const content = data?.content || "";
+      if (!content || content.length < 20) throw new Error("Could not extract text from file.");
+      setContextFiles((prev) => [...prev, { name: file.name, content }]);
+      toast({ title: "Context file added", description: file.name });
+    } catch (err: any) {
+      toast({ title: "Failed to parse file", description: err?.message || "", variant: "destructive" });
+    } finally {
+      setContextParsing(false);
+      if (contextFileInputRef.current) contextFileInputRef.current.value = "";
+    }
+  };
+
+  const removeContextFile = (name: string) => {
+    setContextFiles((prev) => prev.filter((f) => f.name !== name));
   };
 
   const checkInternalLinks = async () => {
@@ -532,7 +569,10 @@ STRUCTURE FOR 300-WORD ARTICLE (exact):
           skipSources: wc === 100 || wc === 300 ? true : skipSources,
         },
         toneProfileId,
-        extraInstructions: extra,
+        extraInstructions: extra + (contextFiles.length > 0
+          ? `\n\nCONTEXT FILES PROVIDED: Treat the attached context files as the primary source of truth. Draw facts, statistics, brand details, and source URLs from them. If the context files contain URLs that are relevant references, use those exact URLs in the Sources/References section instead of inventing new ones. Do NOT contradict the context files.`
+          : ""),
+        contextFiles: contextFiles.length > 0 ? contextFiles : undefined,
       });
 
       let finalMarkdown = wc === 100
@@ -813,6 +853,45 @@ STRUCTURE FOR 300-WORD ARTICLE (exact):
                 selectedPalette={selectedPalette}
                 onSelectPalette={(p) => setPaletteId(p?.id ?? null)}
               />
+            </div>
+            <div className="md:col-span-3">
+              <Label>Context files</Label>
+              <p className="text-xs text-muted-foreground mb-2">
+                Upload reference docs (PDF, DOCX, TXT, MD). The AI will draw facts and source URLs from them instead of inventing them.
+              </p>
+              <input
+                ref={contextFileInputRef}
+                type="file"
+                accept=".docx,.pdf,.txt,.md,.json"
+                className="hidden"
+                onChange={handleContextFileUpload}
+              />
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="gap-2"
+                  disabled={contextParsing}
+                  onClick={() => contextFileInputRef.current?.click()}
+                >
+                  {contextParsing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileText className="h-3.5 w-3.5" />}
+                  {contextParsing ? "Parsing…" : "Add context file"}
+                </Button>
+                {contextFiles.map((f) => (
+                  <Badge key={f.name} variant="secondary" className="gap-1 pr-1">
+                    {f.name}
+                    <button
+                      type="button"
+                      onClick={() => removeContextFile(f.name)}
+                      className="ml-1 rounded-full hover:bg-muted p-0.5"
+                      aria-label={`Remove ${f.name}`}
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                ))}
+              </div>
             </div>
             <div className="md:col-span-3">
               <div className="flex items-center justify-between mb-1">
