@@ -171,6 +171,31 @@ export function markdownToStyledHtml(
     ol.setAttribute("style", "margin: 0 0 16px 0; padding-left: 24px; list-style-type: decimal;");
     ol.removeAttribute("class");
   });
+  // Split LIs that contain multiple " - "-joined questions/sentences into separate LIs
+  // (the model sometimes emits all bullets on one line, which markdown collapses into one <li>)
+  container.querySelectorAll("li").forEach((li) => {
+    const html = li.innerHTML;
+    // Look for inline " - " or " — " separators between sentences ending in ? or .
+    if (/[?.!]\s*[-–—]\s+\S/.test(html) && !li.querySelector("ul,ol,p,strong")) {
+      const parts = html
+        .split(/(?<=[?.!])\s*[-–—]\s+/)
+        .map((s) => s.trim())
+        .filter(Boolean);
+      if (parts.length > 1) {
+        const ul = li.parentElement;
+        if (ul && (ul.tagName === "UL" || ul.tagName === "OL")) {
+          li.innerHTML = parts[0];
+          let ref: Element = li;
+          for (let i = 1; i < parts.length; i++) {
+            const n = doc.createElement("li");
+            n.innerHTML = parts[i];
+            ref.after(n);
+            ref = n;
+          }
+        }
+      }
+    }
+  });
   container.querySelectorAll("li").forEach((li) => {
     if (!li.getAttribute("style")) {
       li.setAttribute("style", `margin: 8px 0; line-height: 1.6; color: ${bodyText};`);
