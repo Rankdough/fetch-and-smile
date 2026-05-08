@@ -74,6 +74,11 @@ export function markdownToStyledHtml(
   cleanMarkdown = cleanMarkdown.replace(/([.!?])\s+-\s+\*\*/g, "$1\n- **");
 
   // 2. Convert Markdown → basic HTML
+  // Strip stray standalone quote/apostrophe lines that the AI sometimes emits
+  cleanMarkdown = cleanMarkdown
+    .split("\n")
+    .filter((line) => !/^\s*["'`’‘”“]+\s*$/.test(line))
+    .join("\n");
   const basicHtml = marked.parse(cleanMarkdown, { async: false }) as string;
 
   // 3. Parse into DOM and apply inline styles
