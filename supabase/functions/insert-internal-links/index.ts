@@ -39,10 +39,26 @@ serve(async (req) => {
     }
 
     const validUrls = urls.filter((u) => u.trim()).slice(0, 12);
+
+    // Extract slug keywords from each URL to guide anchor text relevance
+    const STOP = new Set(["the","a","an","and","or","of","for","to","in","on","with","by","at","is","are","be","this","that","what","how","why","when","where","best","top","guide","blog","post","article","page","html","htm","php","aspx","www","com","org","net","co","uk"]);
+    const urlContexts = validUrls.map((url) => {
+      let slugWords: string[] = [];
+      try {
+        const u = new URL(url);
+        const path = decodeURIComponent(u.pathname).replace(/\.[a-z]+$/i, "");
+        slugWords = path
+          .split(/[\/\-_]+/)
+          .map((s) => s.trim().toLowerCase())
+          .filter((s) => s && !/^\d+$/.test(s) && !STOP.has(s) && s.length > 1);
+      } catch {}
+      return { url, keywords: slugWords };
+    });
+
     console.log("Inserting internal links", {
       contentLength: content.length,
       urlCount: validUrls.length,
-      urls: validUrls,
+      urlContexts,
     });
 
     const systemPrompt = `You are an expert SEO editor. Your task is to insert contextual internal links into an existing markdown article.
@@ -54,35 +70,35 @@ CRITICAL RULES:
 - ONLY convert existing relevant phrases/words into markdown links
 - Return the FULL article with the links inserted
 - Each URL should be linked EXACTLY ONCE (do not repeat the same link)
-- Choose the MOST contextually relevant phrase for each URL
-- Links should feel natural - link phrases that genuinely relate to the URL's topic
 - DO NOT link text inside headings (H1, H2, H3, etc.)
 - DO NOT link text inside existing links
 - DO NOT link text inside bold (**) or italic (*) markers unless the entire phrase is already styled
-- DO NOT link text inside blockquotes (> lines) or CTA banners
+- DO NOT link text inside blockquotes (> lines), CTA banners, or markdown tables
 - Prefer linking phrases in the body paragraphs of the article
-- If a URL's topic doesn't match any phrase in the article, SKIP that URL entirely - do not force it
 
-DISTRIBUTION RULE (CRITICAL):
+ANCHOR TEXT RELEVANCE (MOST IMPORTANT):
+- The anchor text MUST be topically and semantically relevant to the URL's destination page.
+- Use the URL's slug keywords (provided below) as the topic of the destination page.
+- The chosen anchor phrase MUST share clear topical meaning with those slug keywords. The anchor should reasonably describe what a user would find on that page.
+- If NO phrase in the article is genuinely relevant to a URL's slug topic, SKIP that URL entirely. Do not force a link onto an unrelated phrase.
+- Never link generic, off-topic, or filler phrases (e.g. "venues, schedules", "click here", "for example") to a URL whose slug describes a specific product or topic.
+- Prefer noun phrases that contain or are synonyms of the slug keywords.
+
+DISTRIBUTION RULE:
 - Spread links as evenly as possible across the full article.
 - Use different H2 sections whenever possible.
-- Do NOT place the majority of links in the last section.
 - The final section (Final Thoughts, Conclusion, FAQ, References) may contain AT MOST 1 link total.
-- If there are N links and at least N eligible sections, place them in N different sections.
 
 LINK FORMAT:
 Convert: "relevant phrase about the topic"
 To: "[relevant phrase about the topic](URL)"
 
-EXAMPLE:
-If URL is "https://example.com/teeth-whitening" and the article mentions "professional teeth whitening treatments", convert it to "[professional teeth whitening treatments](https://example.com/teeth-whitening)"
-
 Return ONLY the enhanced markdown content with links inserted. No explanations.`;
 
-    const userPrompt = `Here is the article content. Insert contextual internal links for the following URLs where they naturally fit:
+    const userPrompt = `Here is the article content. Insert contextual internal links for the following URLs ONLY where the anchor text is genuinely relevant to the URL's destination topic. Skip any URL that has no relevant phrase in the article.
 
-URLS TO LINK:
-${validUrls.map((url, i) => `${i + 1}. ${url}`).join("\n")}
+URLS TO LINK (with destination topic keywords):
+${urlContexts.map((c, i) => `${i + 1}. ${c.url}\n   Destination topic keywords: ${c.keywords.length ? c.keywords.join(", ") : "(none detectable - infer from URL)"}`).join("\n")}
 
 ARTICLE:
 ${content}`;

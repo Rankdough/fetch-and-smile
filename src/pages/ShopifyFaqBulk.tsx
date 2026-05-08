@@ -299,17 +299,18 @@ export default function ShopifyFaqBulk() {
       `# ${h1}`,
       intro,
       `## TL;DR\n${trimMarkdownWords(tldr?.body || intro || allBodyText, 45)}`,
+      table,
       !skipQuickTips && tips.length ? `## Quick Tips\n${tips.join("\n")}` : "",
       `## ${main?.heading || "What is the short answer?"}`,
     ].filter(Boolean);
-    const fixedWords = markdownWordCount(`${fixedBlocks.join("\n\n")}\n\n${table}`);
+    const fixedWords = markdownWordCount(`${fixedBlocks.join("\n\n")}`);
     const bodyBudget = Math.max(60, 325 - fixedWords);
     let body = trimMarkdownWords((main?.body || allBodyText).replace(table, "").trim(), bodyBudget);
-    let output = `${fixedBlocks.join("\n\n")}\n\n${body}\n\n${table}`.trim();
+    let output = `${fixedBlocks.join("\n\n")}\n\n${body}`.trim();
 
     if (markdownWordCount(output) > 325) {
       body = trimMarkdownWords(body, Math.max(35, bodyBudget - (markdownWordCount(output) - 325)));
-      output = `${fixedBlocks.join("\n\n")}\n\n${body}\n\n${table}`.trim();
+      output = `${fixedBlocks.join("\n\n")}\n\n${body}`.trim();
     }
     if (markdownWordCount(output) < 275) {
       const fillers = [
@@ -320,10 +321,24 @@ export default function ShopifyFaqBulk() {
       for (const filler of fillers) {
         if (markdownWordCount(output) >= 275) break;
         body = `${body} ${filler}`.trim();
-        output = `${fixedBlocks.join("\n\n")}\n\n${trimMarkdownWords(body, Math.max(35, 325 - markdownWordCount(`${fixedBlocks.join("\n\n")}\n\n${table}`)))}\n\n${table}`.trim();
+        output = `${fixedBlocks.join("\n\n")}\n\n${trimMarkdownWords(body, Math.max(35, 325 - fixedWords))}`.trim();
       }
     }
     return output;
+  };
+
+  // Move any markdown table to immediately after the TL;DR section
+  const moveTableAfterTldr = (markdown: string): string => {
+    const tableMatch = markdown.match(/(?:^|\n)((?:\|[^\n]+\|\n?){3,})/m);
+    if (!tableMatch) return markdown;
+    const tableBlock = tableMatch[1].trim();
+    const withoutTable = markdown.replace(/(?:^|\n)(?:\|[^\n]+\|\n?){3,}/m, "\n").trim();
+    // Find TL;DR section end (next H2 after it, or end of doc)
+    const tldrRe = /^##\s+TL;?DR[^\n]*\n([\s\S]*?)(?=\n##\s|\n#\s|$)/im;
+    const m = withoutTable.match(tldrRe);
+    if (!m) return `${withoutTable}\n\n${tableBlock}`.trim();
+    const insertAt = (m.index ?? 0) + m[0].length;
+    return `${withoutTable.slice(0, insertAt).trimEnd()}\n\n${tableBlock}\n\n${withoutTable.slice(insertAt).trimStart()}`.trim();
   };
 
   const handleContextFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -579,7 +594,7 @@ STRUCTURE FOR 300-WORD ARTICLE (exact):
         ? enforceStrict100Markdown(result.markdown, title)
         : wc === 300
           ? enforceStrict300Markdown(result.markdown, title)
-          : result.markdown;
+          : moveTableAfterTldr(result.markdown);
 
       // Inject up to 3 internal links into the markdown
       const linkUrls = internalLinks.map((u) => u.trim()).filter(Boolean).slice(0, 3);
