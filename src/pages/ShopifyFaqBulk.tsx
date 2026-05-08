@@ -497,11 +497,23 @@ export default function ShopifyFaqBulk() {
       };
       setQa((p) => ({ ...p, [idx]: result }));
       if (result.status === "error") {
-        toast({
-          title: `QA: issues found`,
-          description: result.issues.slice(0, 2).join(" • ") || "Body may not answer the title.",
-          variant: "destructive",
-        });
+        const alreadyRetried = autoRetriedRef.current.has(idx);
+        if (!alreadyRetried) {
+          autoRetriedRef.current.add(idx);
+          toast({
+            title: "QA: regenerating to fix issues",
+            description: result.issues.slice(0, 2).join(" • ") || "Body did not answer the title — retrying.",
+          });
+          // Fire-and-forget retry with the same target word count
+          const wcGuess = (targetWordCount as 100 | 300 | 500 | 700) || 500;
+          setTimeout(() => { regenerateRow(idx, wcGuess).catch(() => {}); }, 50);
+        } else {
+          toast({
+            title: `QA: issues persist after retry`,
+            description: result.issues.slice(0, 2).join(" • ") || "Body may not answer the title.",
+            variant: "destructive",
+          });
+        }
       } else if (broken.length > 0) {
         toast({ title: `QA: ${broken.length} broken link(s)`, description: broken.slice(0, 2).join(" • "), variant: "destructive" });
       } else if (result.status === "warning" && result.issues.length) {
