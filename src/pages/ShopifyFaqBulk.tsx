@@ -798,6 +798,17 @@ ${isPricingQuestion
         }
       }
 
+      // Final whitelist guard: unwrap any markdown link whose URL is NOT in linkUrls.
+      // Catches hallucinated links (e.g. bare homepage) introduced at any stage.
+      {
+        const norm = (u: string) => u.trim().replace(/\/+$/, "").toLowerCase();
+        const allowed = new Set(linkUrls.map(norm));
+        finalMarkdown = finalMarkdown.replace(
+          /\[([^\]]+)\]\((https?:\/\/[^\s)]+|\/[^\s)]+)\)/g,
+          (_m, anchor: string, url: string) => (allowed.has(norm(url)) ? `[${anchor}](${url})` : anchor)
+        );
+      }
+
       const finalHtml = markdownToStyledHtml(finalMarkdown, selectedPalette || null, {
             skipNavigation: !includeNav,
             skipQuickTips: wc === 100 ? true : skipQuickTips,
