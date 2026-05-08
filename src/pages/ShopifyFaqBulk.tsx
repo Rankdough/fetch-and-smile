@@ -722,7 +722,7 @@ ${isPricingQuestion
           ? enforceStrict300Markdown(result.markdown, title)
           : moveTableAfterTldr(result.markdown);
 
-      // Inject up to 3 user-provided internal links + cross-links to previously generated FAQs.
+      // Inject only the internal links explicitly provided in the Internal links fields.
       // Drop bare homepages (no path) and dedupe — each URL must be unique.
       const hasPath = (u: string) => {
         try {
@@ -737,27 +737,10 @@ ${isPricingQuestion
         .filter(Boolean)
         .filter(hasPath)
         .slice(0, 3);
-      const crossLinks: string[] = [];
-      const baseUrl = (siteBaseUrl || "").trim().replace(/\/+$/, "");
-      const blogSeg = (blogHandle || "faq").trim();
-      const latestRows = rowsRef.current;
-      latestRows.forEach((r, i) => {
-        if (i === idx) return;
-        const otherBody = (r?.["Body HTML"] || "").trim();
-        const otherHandle = (r?.Handle || "").trim();
-        const otherTitle = (r?.Title || "").trim();
-        if (otherBody && otherHandle && otherTitle) {
-          const url = baseUrl
-            ? `${baseUrl}/blogs/${blogSeg}/${otherHandle}`
-            : `/blogs/${blogSeg}/${otherHandle}`;
-          crossLinks.push(url);
-        }
-      });
-      // HARD CAP: maximum 3 links total per article. User-provided links come first;
-      // any remaining slots are filled from previously-generated FAQ handles (real, not invented).
+      // HARD CAP: maximum 3 links total per article. No generated cross-links.
       const MAX_LINKS = 3;
       const seen = new Set<string>();
-      const linkUrls = [...userLinks, ...crossLinks]
+      const linkUrls = userLinks
         .filter((u) => {
           const key = u.replace(/\/+$/, "").toLowerCase();
           if (seen.has(key)) return false;
