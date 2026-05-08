@@ -77,17 +77,15 @@ CRITICAL RULES:
 - DO NOT link text inside blockquotes (> lines), CTA banners, or markdown tables
 - Prefer linking phrases in the body paragraphs of the article
 
-ANCHOR TEXT RELEVANCE (MOST IMPORTANT):
-- The anchor text MUST be topically and semantically relevant to the URL's destination page.
-- Use the URL's slug keywords (provided below) as the topic of the destination page.
-- The chosen anchor phrase MUST share clear topical meaning with those slug keywords. The anchor should reasonably describe what a user would find on that page.
-- If NO phrase in the article is genuinely relevant to a URL's slug topic, SKIP that URL entirely. Do not force a link onto an unrelated phrase.
-- Never link generic, off-topic, or filler phrases (e.g. "venues, schedules", "click here", "for example") to a URL whose slug describes a specific product or topic.
-- Prefer noun phrases that contain or are synonyms of the slug keywords.
+ANCHOR TEXT RELEVANCE:
+- The anchor text should be topically related to the URL's destination (described by the slug keywords).
+- STRONGLY PREFER noun phrases in the body that contain, are synonyms of, or directly describe the slug keywords (e.g. for slug "track-field-bags-backpacks" prefer phrases like "bag", "backpack", "gear bag", "kit bag").
+- If the article does not literally contain such a phrase, choose the closest reasonable noun phrase that a reader would expect to lead to that destination page given the article's overall topic.
+- DO NOT link clearly unrelated generic phrases like "venues", "schedules", "click here", "for example", or random adjectives.
+- It is BETTER to insert a link on an imperfect-but-plausible noun phrase than to skip the URL. Only skip a URL as an absolute last resort when no plausible anchor exists anywhere in the article.
 
 DISTRIBUTION RULE:
-- Spread links as evenly as possible across the full article.
-- Use different H2 sections whenever possible.
+- Spread links as evenly as possible across the full article. Use different H2 sections when possible.
 - The final section (Final Thoughts, Conclusion, FAQ, References) may contain AT MOST 1 link total.
 
 LINK FORMAT:
@@ -96,7 +94,9 @@ To: "[relevant phrase about the topic](URL)"
 
 Return ONLY the enhanced markdown content with links inserted. No explanations.`;
 
-    const userPrompt = `Here is the article content. Insert contextual internal links for the following URLs ONLY where the anchor text is genuinely relevant to the URL's destination topic. Skip any URL that has no relevant phrase in the article.
+    const userPrompt = `Here is the article. Insert contextual internal links for EACH URL below. You should insert all ${validUrls.length} link(s) unless it is genuinely impossible to find any plausible anchor phrase.
+
+ARTICLE TOPIC: ${articleTopic || "(not provided)"}
 
 URLS TO LINK (with destination topic keywords):
 ${urlContexts.map((c, i) => `${i + 1}. ${c.url}\n   Destination topic keywords: ${c.keywords.length ? c.keywords.join(", ") : "(none detectable - infer from URL)"}`).join("\n")}
