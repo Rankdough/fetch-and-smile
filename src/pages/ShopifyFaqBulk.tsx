@@ -319,6 +319,41 @@ export default function ShopifyFaqBulk() {
     return output;
   };
 
+  const checkInternalLinks = async () => {
+    const urls = internalLinks.map((u) => (u || "").trim());
+    const nonEmpty = urls.filter(Boolean);
+    if (nonEmpty.length === 0) {
+      toast({ title: "No internal links to check" });
+      return;
+    }
+    setInternalLinkCheckLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("verify-links", { body: { urls: nonEmpty } });
+      if (error) throw error;
+      const results: Array<{ url: string; ok: boolean; status: number; reason?: string }> = data?.results || [];
+      const next = urls.map((u) => {
+        if (!u) return null;
+        const r = results.find((x) => x.url === u);
+        return r ? { ok: r.ok, status: r.status, reason: r.reason } : null;
+      });
+      setInternalLinkStatuses(next);
+      const broken = results.filter((r) => !r.ok);
+      if (broken.length === 0) {
+        toast({ title: "All internal links OK" });
+      } else {
+        toast({
+          title: `${broken.length} broken link${broken.length === 1 ? "" : "s"}`,
+          description: broken.map((b) => b.url).slice(0, 2).join(" • "),
+          variant: "destructive",
+        });
+      }
+    } catch (e: any) {
+      toast({ title: "Link check failed", description: e?.message || "", variant: "destructive" });
+    } finally {
+      setInternalLinkCheckLoading(false);
+    }
+  };
+
   const extractHrefs = (html: string): string[] => {
     const urls = new Set<string>();
     const re = /<a\b[^>]*href=["']([^"']+)["'][^>]*>/gi;
