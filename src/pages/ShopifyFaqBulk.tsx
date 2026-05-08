@@ -824,6 +824,7 @@ ${isPricingQuestion
   const regenerateAll = async (wc: 100 | 300 | 500 | 700) => {
     if (rows.length === 0) return;
     bulkCancelRef.current = false;
+    setStopping(false);
     setBulkProgress({ current: 0, total: rows.length });
     try {
       for (let i = 0; i < rows.length; i++) {
@@ -831,10 +832,11 @@ ${isPricingQuestion
         setBulkProgress({ current: i + 1, total: rows.length });
         await regenerateRow(i, wc);
       }
-      toast({ title: bulkCancelRef.current ? "Bulk regeneration cancelled" : `Bulk regeneration complete (${wc}w)` });
+      toast({ title: bulkCancelRef.current ? "Generation stopped" : `Bulk regeneration complete (${wc}w)` });
     } finally {
       setBulkProgress(null);
       bulkCancelRef.current = false;
+      setStopping(false);
     }
   };
 
