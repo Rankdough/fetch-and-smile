@@ -100,21 +100,38 @@ export function markdownToStyledHtml(
     const isQuickTips = /Quick\s*Tips/i.test(textContent);
 
     if (isTldr) {
-      h.setAttribute("style", `background: ${panelBg}; color: ${panelText}; border-left: 4px solid ${primaryColor}; padding: 12px 16px; margin: 24px 0 0 0; border-radius: 0 8px 0 0;`);
+      // Find the TL;DR body: prefer the first UL or P after the heading,
+      // skipping any stray TABLE the model may have inserted between heading and paragraph.
       let sibling = h.nextElementSibling;
-      if (sibling && sibling.tagName === "UL") {
-        sibling.setAttribute("style", `background: ${panelBg}; color: ${panelText}; border-left: 4px solid ${primaryColor}; padding: 16px 24px 16px 40px; margin: 0 0 24px 0; border-radius: 0 0 8px 0; list-style-type: disc;`);
-        sibling.querySelectorAll("li").forEach((li) => {
-          li.setAttribute("style", `margin: 8px 0; line-height: 1.6; color: ${panelText};`);
-        });
-      } else {
-        // Style all consecutive paragraphs after TL;DR
-        while (sibling && sibling.tagName === "P") {
-          const nextAfter = sibling.nextElementSibling;
-          const isLast = !nextAfter || nextAfter.tagName !== "P";
-          sibling.setAttribute("style", `background: ${panelBg}; color: ${panelText}; border-left: 4px solid ${primaryColor}; padding: 16px 24px; margin: 0 0 ${isLast ? "24px" : "0"} 0; border-radius: ${isLast ? "0 0 8px 0" : "0"}; line-height: 1.7;`);
-          sibling = nextAfter;
+      const skipped: Element[] = [];
+      while (sibling && sibling.tagName !== "UL" && sibling.tagName !== "P" && !/^H[1-6]$/.test(sibling.tagName)) {
+        skipped.push(sibling);
+        sibling = sibling.nextElementSibling;
+      }
+      const hasBody = sibling && (sibling.tagName === "UL" || sibling.tagName === "P");
+      if (hasBody) {
+        // Move the body element to be the immediate next sibling of the H2
+        if (skipped.length > 0 && sibling) {
+          h.parentNode?.insertBefore(sibling, skipped[0]);
         }
+        h.setAttribute("style", `background: ${panelBg}; color: ${panelText}; border-left: 4px solid ${primaryColor}; padding: 12px 16px; margin: 24px 0 0 0; border-radius: 0 8px 0 0;`);
+        if (sibling.tagName === "UL") {
+          sibling.setAttribute("style", `background: ${panelBg}; color: ${panelText}; border-left: 4px solid ${primaryColor}; padding: 16px 24px 16px 40px; margin: 0 0 24px 0; border-radius: 0 0 8px 0; list-style-type: disc;`);
+          sibling.querySelectorAll("li").forEach((li) => {
+            li.setAttribute("style", `margin: 8px 0; line-height: 1.6; color: ${panelText};`);
+          });
+        } else {
+          let p: Element | null = sibling;
+          while (p && p.tagName === "P") {
+            const nextAfter = p.nextElementSibling;
+            const isLast = !nextAfter || nextAfter.tagName !== "P";
+            p.setAttribute("style", `background: ${panelBg}; color: ${panelText}; border-left: 4px solid ${primaryColor}; padding: 16px 24px; margin: 0 0 ${isLast ? "24px" : "0"} 0; border-radius: ${isLast ? "0 0 8px 0" : "0"}; line-height: 1.7;`);
+            p = nextAfter;
+          }
+        }
+      } else {
+        // Fallback: no body found — give the heading a normal style instead of an orphaned panel.
+        h.setAttribute("style", `margin: 32px 0 16px 0; ${headingColor}`);
       }
     } else if (isQuickTips) {
       h.setAttribute("style", `margin: 32px 0 16px 0; ${headingColor}`);
