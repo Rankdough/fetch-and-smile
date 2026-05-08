@@ -855,6 +855,45 @@ STRUCTURE FOR 300-WORD ARTICLE (exact):
               />
             </div>
             <div className="md:col-span-3">
+              <Label>Context files</Label>
+              <p className="text-xs text-muted-foreground mb-2">
+                Upload reference docs (PDF, DOCX, TXT, MD). The AI will draw facts and source URLs from them instead of inventing them.
+              </p>
+              <input
+                ref={contextFileInputRef}
+                type="file"
+                accept=".docx,.pdf,.txt,.md,.json"
+                className="hidden"
+                onChange={handleContextFileUpload}
+              />
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="gap-2"
+                  disabled={contextParsing}
+                  onClick={() => contextFileInputRef.current?.click()}
+                >
+                  {contextParsing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileText className="h-3.5 w-3.5" />}
+                  {contextParsing ? "Parsing…" : "Add context file"}
+                </Button>
+                {contextFiles.map((f) => (
+                  <Badge key={f.name} variant="secondary" className="gap-1 pr-1">
+                    {f.name}
+                    <button
+                      type="button"
+                      onClick={() => removeContextFile(f.name)}
+                      className="ml-1 rounded-full hover:bg-muted p-0.5"
+                      aria-label={`Remove ${f.name}`}
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                ))}
+              </div>
+            </div>
+            <div className="md:col-span-3">
               <div className="flex items-center justify-between mb-1">
                 <Label>Internal links (up to 3)</Label>
                 <Button
