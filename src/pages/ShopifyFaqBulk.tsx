@@ -432,10 +432,60 @@ export default function ShopifyFaqBulk() {
       const data = qaResp.data;
       const linkResults: Array<{ url: string; ok: boolean; status: number; reason?: string }> =
         Array.isArray(linkResp?.data?.results) ? linkResp.data.results : [];
-      const broken = linkResults.filter((r) => !r.ok).map((r) => r.url);
+      let brokenUrls = linkResults.filter((r) => !r.ok).map((r) => r.url);
+
+      // Auto-repair broken links: try domain root, otherwise unwrap the anchor.
+      let repairedBody = body;
+      const stillBroken: string[] = [];
+      if (brokenUrls.length > 0) {
+        const domainCandidates = Array.from(
+          new Set(
+            brokenUrls
+              .map((u) => {
+                try {
+                  const p = new URL(u);
+                  return `${p.protocol}//${p.hostname}/`;
+                } catch {
+                  return "";
+                }
+              })
+              .filter(Boolean)
+          )
+        );
+        let domainStatus: Record<string, boolean> = {};
+        if (domainCandidates.length > 0) {
+          try {
+            const { data: dRes } = await supabase.functions.invoke("verify-links", { body: { urls: domainCandidates } });
+            const dResults: Array<{ url: string; ok: boolean }> = Array.isArray(dRes?.results) ? dRes.results : [];
+            domainStatus = Object.fromEntries(dResults.map((r) => [r.url, !!r.ok]));
+          } catch {}
+        }
+        const escapeForRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        for (const badUrl of brokenUrls) {
+          let domainRoot = "";
+          try {
+            const p = new URL(badUrl);
+            domainRoot = `${p.protocol}//${p.hostname}/`;
+          } catch {}
+          if (domainRoot && domainStatus[domainRoot]) {
+            // Replace href with domain root
+            const re = new RegExp(`href=(["'])${escapeForRegex(badUrl)}\\1`, "g");
+            repairedBody = repairedBody.replace(re, `href="${domainRoot}"`);
+          } else {
+            // Unwrap anchor: <a ... href="badUrl"...>TEXT</a> -> TEXT
+            const re = new RegExp(`<a\\b[^>]*href=(["'])${escapeForRegex(badUrl)}\\1[^>]*>([\\s\\S]*?)<\\/a>`, "gi");
+            repairedBody = repairedBody.replace(re, "$2");
+            stillBroken.push(badUrl);
+          }
+        }
+        if (repairedBody !== body) {
+          setRows((prev) => prev.map((r, i) => (i === idx ? { ...r, "Body HTML": repairedBody } : r)));
+        }
+      }
+      const broken = stillBroken;
       const baseStatus = data?.status ?? "warning";
       const status = broken.length > 0 && baseStatus === "ok" ? "warning" : baseStatus;
-      const extraIssues = broken.length > 0 ? [`${broken.length} broken link${broken.length === 1 ? "" : "s"}`] : [];
+      const extraIssues = broken.length > 0 ? [`${broken.length} broken link${broken.length === 1 ? "" : "s"} removed`] : [];
       const result: QaResult = {
         status,
         issues: [...(Array.isArray(data?.issues) ? data.issues : []), ...extraIssues],
