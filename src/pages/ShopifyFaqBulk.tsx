@@ -135,7 +135,7 @@ export default function ShopifyFaqBulk() {
   const bulkCancelRef = useRef<boolean>(false);
 
   // QA check results, keyed by row index
-  type QaResult = { status: "ok" | "warning" | "error"; issues: string[]; answersTitle: boolean; wordCount: number };
+  type QaResult = { status: "ok" | "warning" | "error"; issues: string[]; answersTitle: boolean; wordCount: number; brokenLinks?: string[] };
   const [qa, setQa] = useState<Record<number, QaResult>>({});
   const [qaLoading, setQaLoading] = useState<Record<number, boolean>>({});
 
