@@ -182,10 +182,12 @@ export default function ShopifyFaqBulk() {
         includeFaqs, includeNav, skipQuickTips, skipSources, stripTitle, paletteId, toneProfileId, rows, filterRules,
         internalLinks,
         contextFiles,
+        ctaEnabled, ctaUrl, ctaInstruction,
       }));
     } catch {}
   }, [questions, author, sport, globalTags, blogHandle, blogTitle, templateSuffix, handlePrefix, siteBaseUrl, wordCount,
-      includeFaqs, includeNav, skipQuickTips, skipSources, stripTitle, paletteId, toneProfileId, rows, filterRules, internalLinks, contextFiles]);
+      includeFaqs, includeNav, skipQuickTips, skipSources, stripTitle, paletteId, toneProfileId, rows, filterRules, internalLinks, contextFiles,
+      ctaEnabled, ctaUrl, ctaInstruction]);
 
   const formatTitle = (q: string): string => {
     let s = q.trim().replace(/\s+/g, " ");
