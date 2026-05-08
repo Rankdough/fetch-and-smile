@@ -548,7 +548,7 @@ STRUCTURE FOR 300-WORD ARTICLE (exact):
     }
   };
 
-  const regenerateAll = async (wc: 300 | 500 | 700) => {
+  const regenerateAll = async (wc: 100 | 300 | 500 | 700) => {
     if (rows.length === 0) return;
     bulkCancelRef.current = false;
     setBulkProgress({ current: 0, total: rows.length });
