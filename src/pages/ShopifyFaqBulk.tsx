@@ -1258,11 +1258,16 @@ ${isPricingQuestion
                       </span>
                       <Button
                         size="sm"
-                        variant="ghost"
-                        className="h-7 px-2 text-xs"
-                        onClick={() => { bulkCancelRef.current = true; }}
+                        variant="destructive"
+                        className="h-7 px-2 text-xs gap-1"
+                        disabled={bulkCancelRef.current}
+                        onClick={() => {
+                          bulkCancelRef.current = true;
+                          toast({ title: "Stopping after current row…" });
+                        }}
                       >
-                        Cancel
+                        <X className="h-3 w-3" />
+                        {bulkCancelRef.current ? "Stopping…" : "Stop generation"}
                       </Button>
                     </>
                   )}
