@@ -539,7 +539,10 @@ STRUCTURE FOR 300-WORD ARTICLE (exact):
           skipSources: wc === 100 || wc === 300 ? true : skipSources,
         },
         toneProfileId,
-        extraInstructions: extra,
+        extraInstructions: extra + (contextFiles.length > 0
+          ? `\n\nCONTEXT FILES PROVIDED: Treat the attached context files as the primary source of truth. Draw facts, statistics, brand details, and source URLs from them. If the context files contain URLs that are relevant references, use those exact URLs in the Sources/References section instead of inventing new ones. Do NOT contradict the context files.`
+          : ""),
+        contextFiles: contextFiles.length > 0 ? contextFiles : undefined,
       });
 
       let finalMarkdown = wc === 100
