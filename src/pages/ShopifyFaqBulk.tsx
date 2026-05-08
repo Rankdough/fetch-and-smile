@@ -118,6 +118,7 @@ export default function ShopifyFaqBulk() {
   const [blogTitle, setBlogTitle] = useState<string>(init.blogTitle ?? "FAQ");
   const [templateSuffix, setTemplateSuffix] = useState<string>(init.templateSuffix ?? "article-faq");
   const [handlePrefix, setHandlePrefix] = useState<string>(init.handlePrefix ?? "");
+  const [siteBaseUrl, setSiteBaseUrl] = useState<string>(init.siteBaseUrl ?? "");
   const [wordCount, setWordCount] = useState<100 | 300 | 500 | 700>(init.wordCount ?? 500);
   const [includeFaqs, setIncludeFaqs] = useState<boolean>(init.includeFaqs ?? false);
   const [includeNav, setIncludeNav] = useState<boolean>(init.includeNav ?? false);
@@ -172,13 +173,13 @@ export default function ShopifyFaqBulk() {
   useEffect(() => {
     try {
       localStorage.setItem(LS_KEY, JSON.stringify({
-        questions, author, sport, globalTags, blogHandle, blogTitle, templateSuffix, handlePrefix, wordCount,
+        questions, author, sport, globalTags, blogHandle, blogTitle, templateSuffix, handlePrefix, siteBaseUrl, wordCount,
         includeFaqs, includeNav, skipQuickTips, skipSources, stripTitle, paletteId, toneProfileId, rows, filterRules,
         internalLinks,
         contextFiles,
       }));
     } catch {}
-  }, [questions, author, sport, globalTags, blogHandle, blogTitle, templateSuffix, handlePrefix, wordCount,
+  }, [questions, author, sport, globalTags, blogHandle, blogTitle, templateSuffix, handlePrefix, siteBaseUrl, wordCount,
       includeFaqs, includeNav, skipQuickTips, skipSources, stripTitle, paletteId, toneProfileId, rows, filterRules, internalLinks, contextFiles]);
 
   const formatTitle = (q: string): string => {
@@ -596,8 +597,24 @@ STRUCTURE FOR 300-WORD ARTICLE (exact):
           ? enforceStrict300Markdown(result.markdown, title)
           : moveTableAfterTldr(result.markdown);
 
-      // Inject up to 3 internal links into the markdown
-      const linkUrls = internalLinks.map((u) => u.trim()).filter(Boolean).slice(0, 3);
+      // Inject up to 3 user-provided internal links + cross-links to previously generated FAQs
+      const userLinks = internalLinks.map((u) => u.trim()).filter(Boolean).slice(0, 3);
+      const crossLinks: string[] = [];
+      const baseUrl = (siteBaseUrl || "").trim().replace(/\/+$/, "");
+      if (baseUrl) {
+        rows.forEach((r, i) => {
+          if (i === idx) return;
+          const otherBody = (r?.["Body HTML"] || "").trim();
+          const otherHandle = (r?.Handle || "").trim();
+          const otherTitle = (r?.Title || "").trim();
+          if (otherBody && otherHandle && otherTitle) {
+            const url = `${baseUrl}/blogs/${blogHandle || "faq"}/${otherHandle}`;
+            crossLinks.push(url);
+          }
+        });
+      }
+      // Cap total links to avoid clutter; prioritise user-provided links
+      const linkUrls = [...userLinks, ...crossLinks].slice(0, Math.max(userLinks.length, Math.min(5, userLinks.length + 2)));
       if (linkUrls.length > 0) {
         try {
           const { data: linkData, error: linkError } = await supabase.functions.invoke("insert-internal-links", {
@@ -800,6 +817,17 @@ STRUCTURE FOR 300-WORD ARTICLE (exact):
             <div><Label>Blog: Handle</Label><Input value={blogHandle} onChange={(e) => setBlogHandle(e.target.value)} /></div>
             <div><Label>Blog: Title</Label><Input value={blogTitle} onChange={(e) => setBlogTitle(e.target.value)} /></div>
             <div><Label>Template Suffix</Label><Input value={templateSuffix} onChange={(e) => setTemplateSuffix(e.target.value)} /></div>
+            <div className="md:col-span-2">
+              <Label>Site base URL (for cross-linking)</Label>
+              <Input
+                value={siteBaseUrl}
+                onChange={(e) => setSiteBaseUrl(e.target.value)}
+                placeholder="https://yourstore.com"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                When set, each generated FAQ may link to previously generated FAQs in this batch (e.g. {`{baseUrl}/blogs/${blogHandle || "faq"}/{handle}`}).
+              </p>
+            </div>
             <div className="flex items-center gap-2 pt-6">
               <input
                 id="include-faqs"

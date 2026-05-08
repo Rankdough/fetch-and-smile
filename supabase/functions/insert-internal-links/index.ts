@@ -65,17 +65,16 @@ serve(async (req) => {
     const systemPrompt = `You are an expert SEO editor. Your task is to insert contextual internal links into an existing markdown article.
 
 CRITICAL RULES:
-- DO NOT rewrite, rephrase, or modify ANY existing text
-- DO NOT remove any existing sections, headings, or formatting
-- DO NOT add new paragraphs, sentences, or content
-- ONLY convert existing relevant phrases/words into markdown links
-- Return the FULL article with the links inserted
-- Each URL should be linked EXACTLY ONCE (do not repeat the same link)
-- DO NOT link text inside headings (H1, H2, H3, etc.)
-- DO NOT link text inside existing links
-- DO NOT link text inside bold (**) or italic (*) markers unless the entire phrase is already styled
-- DO NOT link text inside blockquotes (> lines), CTA banners, or markdown tables
-- Prefer linking phrases in the body paragraphs of the article
+- DO NOT rewrite, rephrase, or remove any existing text or sections.
+- You MAY add at most ONE short clause (max 12 words) to an existing body paragraph if — and ONLY if — it is needed to introduce a contextual cross-link to a related FAQ. The added clause must read naturally and must contain the link.
+- Otherwise, only convert existing relevant phrases/words into markdown links.
+- Return the FULL article with the links inserted.
+- Each URL should be linked EXACTLY ONCE (do not repeat the same link).
+- DO NOT link text inside headings (H1, H2, H3, etc.).
+- DO NOT link text inside existing links.
+- DO NOT link text inside bold (**) or italic (*) markers unless the entire phrase is already styled.
+- DO NOT link text inside blockquotes (> lines), CTA banners, or markdown tables.
+- Prefer linking phrases in the body paragraphs of the article.
 
 ANCHOR TEXT RELEVANCE:
 - The anchor text should be topically related to the URL's destination (described by the slug keywords).
