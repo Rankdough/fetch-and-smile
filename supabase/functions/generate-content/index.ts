@@ -841,10 +841,13 @@ Place these images throughout the article at logical locations, typically after 
       let generated = "";
       let finishReason: string | undefined;
 
-      for (let attempt = 1; attempt <= 2; attempt++) {
-        const retryPrompt = attempt > 1
-          ? `\n\n⚠️ Your previous output was cut off. Rewrite the FULL article from scratch and ensure it is complete with a clean ending and within ${wordFloor}-${wordCeiling} words.`
-          : "";
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        let retryPrompt = "";
+        if (attempt === 2) {
+          retryPrompt = `\n\n⚠️ Your previous output was cut off or incomplete. Rewrite the FULL article from scratch and ensure it is complete with a clean ending and within ${wordFloor}-${wordCeiling} words.`;
+        } else if (attempt === 3) {
+          retryPrompt = `\n\n⚠️ Your previous output was TOO SHORT (below ${wordFloor} words). Rewrite the FULL article from scratch. The article MUST be at least ${wordFloor} words and at most ${wordCeiling} words. Expand each section with concrete detail, examples, and direct, substantive answers — do NOT stop short of the floor.`;
+        }
 
         const result = await callModel(retryPrompt);
         generated = result.content;
@@ -853,8 +856,13 @@ Place these images throughout the article at logical locations, typically after 
         const rawWords = countWords(generated);
         console.log(`Attempt ${attempt}: Generated ${rawWords} words (target ${targetWords}, range ${wordFloor}-${wordCeiling}, finish_reason ${finishReason || "unknown"})`);
 
-        if (finishReason === "length" && attempt < 2) {
-          console.warn("Output hit token limit; retrying once with strict full-completion instruction.");
+        if (finishReason === "length" && attempt < 3) {
+          console.warn("Output hit token limit; retrying with strict full-completion instruction.");
+          continue;
+        }
+
+        if (rawWords < wordFloor && attempt < 3) {
+          console.warn(`Output below floor (${rawWords} < ${wordFloor}); retrying with expansion instruction.`);
           continue;
         }
 
