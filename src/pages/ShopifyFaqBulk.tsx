@@ -769,7 +769,9 @@ ${isPricingQuestion
           crossLinks.push(url);
         }
       });
-      // Cap total links: user-provided links + up to 5 cross-links to prior FAQs, deduplicated
+      // HARD CAP: maximum 3 links total per article. User-provided links come first;
+      // any remaining slots are filled from previously-generated FAQ handles (real, not invented).
+      const MAX_LINKS = 3;
       const seen = new Set<string>();
       const linkUrls = [...userLinks, ...crossLinks]
         .filter((u) => {
@@ -778,7 +780,7 @@ ${isPricingQuestion
           seen.add(key);
           return true;
         })
-        .slice(0, userLinks.length + 5);
+        .slice(0, MAX_LINKS);
       const sanitized = sanitizeGeneratedMarkdown(finalMarkdown, title, userLinks);
       finalMarkdown = sanitized.markdown;
       if (linkUrls.length > 0) {
