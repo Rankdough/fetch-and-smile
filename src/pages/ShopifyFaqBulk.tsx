@@ -243,6 +243,75 @@ export default function ShopifyFaqBulk() {
 
   const truncate = (s: string, n: number) => (s.length <= n ? s : s.slice(0, n - 1).replace(/\s+\S*$/, "") + "…");
 
+const isPricingQuestionTitle = (title: string) =>
+  /\b(price|prices|pricing|cost|costs|how much|how many dollars|budget|cheap|expensive|afford|worth)\b/i.test(title || "");
+
+const BLOCKED_THIRD_PARTY_BRANDS = [
+  "New Balance", "Under Armour", "On Running", "Apple Watch", "Nike", "Saucony", "ASICS", "Adidas",
+  "Brooks", "Hoka", "Puma", "Salomon", "Reebok", "Mizuno", "Altra", "Garmin", "Coros", "Polar",
+  "Suunto", "Fitbit", "Wahoo", "Catamount", "Forerunner", "Pegasus", "Vaporfly", "Alphafly",
+  "Endorphin", "Dragonfly", "ZoomX", "Clifton", "Speedgoat",
+];
+
+const getAllowedBrandTerms = (urls: string[]) => {
+  const normalisedLinks = urls.map((url) => {
+    try {
+      const parsed = new URL(url);
+      return `${parsed.hostname} ${decodeURIComponent(parsed.pathname)}`.toLowerCase().replace(/[^a-z0-9]+/g, " ");
+    } catch {
+      return url.toLowerCase().replace(/[^a-z0-9]+/g, " ");
+    }
+  });
+  return new Set(
+    BLOCKED_THIRD_PARTY_BRANDS.filter((brand) => {
+      const needle = brand.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+      return normalisedLinks.some((link) => link.includes(needle));
+    }).map((brand) => brand.toLowerCase())
+  );
+};
+
+const sanitizeGeneratedMarkdown = (markdown: string, title: string, urls: string[]) => {
+  const allowedBrands = getAllowedBrandTerms(urls);
+  const blockedBrands = BLOCKED_THIRD_PARTY_BRANDS.filter((brand) => !allowedBrands.has(brand.toLowerCase()));
+  const brandRe = blockedBrands.length
+    ? new RegExp(`\\b(?:${blockedBrands.map((b) => b.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})\\b`, "i")
+    : null;
+  const moneyRe = /(?:[$€£]\s?\d[\d,]*(?:\.\d{2})?(?:\s?[-–—]\s?[$€£]?\d[\d,]*(?:\.\d{2})?)?|\b\d[\d,]*(?:\.\d{2})?\s?(?:dollars|pounds|euros|usd|gbp|eur)\b)/i;
+  const allowPricing = isPricingQuestionTitle(title);
+  let removedBrands = 0;
+  let removedPrices = 0;
+
+  const cleaned = markdown.split(/\n{2,}/).map((block) => {
+    const trimmed = block.trim();
+    if (!trimmed) return "";
+    if (/^#{1,6}\s/.test(trimmed)) return block;
+    if (/^\|/.test(trimmed)) {
+      return block.split("\n").filter((line) => {
+        const isSeparator = /^\|\s*:?-{3,}:?/.test(line.trim());
+        const hasBlockedBrand = !!brandRe?.test(line);
+        const hasBlockedPrice = !allowPricing && moneyRe.test(line);
+        if (!isSeparator && (hasBlockedBrand || hasBlockedPrice)) {
+          if (hasBlockedBrand) removedBrands++;
+          if (hasBlockedPrice) removedPrices++;
+          return false;
+        }
+        return true;
+      }).join("\n");
+    }
+    const sentences = block.split(/(?<=[.!?])\s+/).filter(Boolean);
+    const kept = sentences.filter((sentence) => {
+      const hasBlockedBrand = !!brandRe?.test(sentence);
+      const hasBlockedPrice = !allowPricing && moneyRe.test(sentence);
+      if (hasBlockedBrand) removedBrands++;
+      if (hasBlockedPrice) removedPrices++;
+      return !hasBlockedBrand && !hasBlockedPrice;
+    });
+    return kept.join(" ").trim();
+  }).filter(Boolean).join("\n\n");
+
+  return { markdown: cleaned || markdown, removedBrands, removedPrices };
+};
+
   const markdownWordCount = (md: string) => md
     .replace(/<[^>]+>/g, " ")
     .replace(/!\[[^\]]*\]\([^)]+\)/g, " ")
@@ -619,7 +688,7 @@ STRUCTURE FOR 300-WORD ARTICLE (exact):
 - Do NOT add any additional H2 sections beyond that single one.
 - Do NOT include Final Thoughts, FAQ, References, How to Choose, or any extra sections for this 300-word option.`;
       const titleLower = (title || "").toLowerCase();
-      const isPricingQuestion = /\b(price|prices|pricing|cost|costs|how much|how many dollars|budget|cheap|expensive|afford|worth)\b/.test(titleLower);
+      const isPricingQuestion = isPricingQuestionTitle(titleLower);
       const openingRule = `\n\nCRITICAL OPENING RULE: The VERY FIRST SENTENCE of the opening paragraph MUST be a complete, standalone, AI-quotable answer to the title question (max 30 words). No throat-clearing, no scene-setting, no context before the answer. Sentence 1 = the literal answer to "${title}".
 
 NO THIRD-PARTY BRAND PROMOTION: Do NOT name, recommend, or reference any third-party brands, manufacturers, products, or models (e.g. Nike, Saucony, Asics, Adidas, New Balance, Brooks, Hoka, Puma, Under Armour, Salomon, Reebok, Mizuno, On, Altra, etc.). Use only generic descriptors ("track spikes", "racing flats", "lightweight trainers"). The ONLY brands that may appear are this store's own brands provided via internal links/context — never invent or insert outside brand names.
@@ -676,6 +745,8 @@ ${isPricingQuestion
       }
       // Cap total links to avoid clutter; prioritise user-provided links
       const linkUrls = [...userLinks, ...crossLinks].slice(0, Math.max(userLinks.length, Math.min(5, userLinks.length + 2)));
+      const sanitized = sanitizeGeneratedMarkdown(finalMarkdown, title, userLinks);
+      finalMarkdown = sanitized.markdown;
       if (linkUrls.length > 0) {
         try {
           const { data: linkData, error: linkError } = await supabase.functions.invoke("insert-internal-links", {
@@ -691,14 +762,12 @@ ${isPricingQuestion
         }
       }
 
-      const finalHtml = (wc === 100 || wc === 300 || linkUrls.length > 0)
-        ? markdownToStyledHtml(finalMarkdown, selectedPalette || null, {
+      const finalHtml = markdownToStyledHtml(finalMarkdown, selectedPalette || null, {
             skipNavigation: !includeNav,
             skipQuickTips: wc === 100 ? true : skipQuickTips,
             skipFaqs: wc === 100 || wc === 300 ? true : !includeFaqs,
             skipSources: wc === 100 || wc === 300 ? true : skipSources,
-          })
-        : result.html;
+          });
       const body = stripTitle
         ? finalHtml.replace(/<h1\b[^>]*>[\s\S]*?<\/h1>/i, "").trim()
         : finalHtml;
