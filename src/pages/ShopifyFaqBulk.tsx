@@ -138,6 +138,9 @@ export default function ShopifyFaqBulk() {
   const contextFileInputRef = useRef<HTMLInputElement>(null);
   const [toneProfileId, setToneProfileId] = useState<string | null>(init.toneProfileId ?? null);
   const [toneProfiles, setToneProfiles] = useState<Array<{ id: string; name: string }>>([]);
+  const [ctaEnabled, setCtaEnabled] = useState<boolean>(init.ctaEnabled ?? false);
+  const [ctaUrl, setCtaUrl] = useState<string>(init.ctaUrl ?? "");
+  const [ctaInstruction, setCtaInstruction] = useState<string>(init.ctaInstruction ?? "");
   const [rows, setRows] = useState<Record<string, string>[]>(init.rows ?? []);
   const [regenIdx, setRegenIdx] = useState<number | null>(null);
   const [bulkProgress, setBulkProgress] = useState<{ current: number; total: number } | null>(null);
