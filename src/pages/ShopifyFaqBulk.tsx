@@ -436,32 +436,11 @@ export default function ShopifyFaqBulk() {
         Array.isArray(linkResp?.data?.results) ? linkResp.data.results : [];
       let brokenUrls = linkResults.filter((r) => !r.ok).map((r) => r.url);
 
-      // Auto-repair broken links: try domain root, otherwise unwrap the anchor.
+      // Auto-repair broken links: default to the domain root. Only unwrap if the URL is unparseable.
       let repairedBody = body;
       const stillBroken: string[] = [];
+      let repairedToDomain = 0;
       if (brokenUrls.length > 0) {
-        const domainCandidates = Array.from(
-          new Set(
-            brokenUrls
-              .map((u) => {
-                try {
-                  const p = new URL(u);
-                  return `${p.protocol}//${p.hostname}/`;
-                } catch {
-                  return "";
-                }
-              })
-              .filter(Boolean)
-          )
-        );
-        let domainStatus: Record<string, boolean> = {};
-        if (domainCandidates.length > 0) {
-          try {
-            const { data: dRes } = await supabase.functions.invoke("verify-links", { body: { urls: domainCandidates } });
-            const dResults: Array<{ url: string; ok: boolean }> = Array.isArray(dRes?.results) ? dRes.results : [];
-            domainStatus = Object.fromEntries(dResults.map((r) => [r.url, !!r.ok]));
-          } catch {}
-        }
         const escapeForRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
         for (const badUrl of brokenUrls) {
           let domainRoot = "";
@@ -469,12 +448,13 @@ export default function ShopifyFaqBulk() {
             const p = new URL(badUrl);
             domainRoot = `${p.protocol}//${p.hostname}/`;
           } catch {}
-          if (domainRoot && domainStatus[domainRoot]) {
-            // Replace href with domain root
+          if (domainRoot) {
+            // Always default broken/hallucinated URL to its domain root
             const re = new RegExp(`href=(["'])${escapeForRegex(badUrl)}\\1`, "g");
             repairedBody = repairedBody.replace(re, `href="${domainRoot}"`);
+            repairedToDomain++;
           } else {
-            // Unwrap anchor: <a ... href="badUrl"...>TEXT</a> -> TEXT
+            // Unparseable URL: unwrap the anchor entirely
             const re = new RegExp(`<a\\b[^>]*href=(["'])${escapeForRegex(badUrl)}\\1[^>]*>([\\s\\S]*?)<\\/a>`, "gi");
             repairedBody = repairedBody.replace(re, "$2");
             stillBroken.push(badUrl);
@@ -487,7 +467,13 @@ export default function ShopifyFaqBulk() {
       const broken = stillBroken;
       const baseStatus = data?.status ?? "warning";
       const status = broken.length > 0 && baseStatus === "ok" ? "warning" : baseStatus;
-      const extraIssues = broken.length > 0 ? [`${broken.length} broken link${broken.length === 1 ? "" : "s"} removed`] : [];
+      const extraIssues: string[] = [];
+      if (repairedToDomain > 0) {
+        extraIssues.push(`${repairedToDomain} link${repairedToDomain === 1 ? "" : "s"} defaulted to domain root`);
+      }
+      if (broken.length > 0) {
+        extraIssues.push(`${broken.length} broken link${broken.length === 1 ? "" : "s"} removed`);
+      }
       const result: QaResult = {
         status,
         issues: [...(Array.isArray(data?.issues) ? data.issues : []), ...extraIssues],
