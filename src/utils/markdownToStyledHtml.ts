@@ -227,8 +227,29 @@ export function markdownToStyledHtml(
     });
   });
 
-  // Style links
+  // Style links + sanitize fake/placeholder hrefs
+  const PLACEHOLDER_HOST_RE = /(?:^|\.)(example\.(?:com|org|net)|yourdomain\.com|placeholder\.com)$/i;
   container.querySelectorAll("a").forEach((a) => {
+    const href = (a.getAttribute("href") || "").trim();
+    let invalid = false;
+    if (!href || href === "#" || /^javascript:/i.test(href)) {
+      invalid = true;
+    } else {
+      try {
+        const u = new URL(href, "https://placeholder.invalid");
+        if (!/^https?:$/.test(u.protocol) && !/^mailto:/i.test(href)) invalid = true;
+        else if (PLACEHOLDER_HOST_RE.test(u.hostname)) invalid = true;
+      } catch {
+        invalid = true;
+      }
+    }
+    if (invalid) {
+      // unwrap the anchor — keep the visible text only
+      const text = a.textContent || "";
+      const span = container.ownerDocument!.createTextNode(text);
+      a.parentNode?.replaceChild(span, a);
+      return;
+    }
     a.setAttribute("style", "color: #2563eb; text-decoration: underline;");
     a.setAttribute("target", "_blank");
     a.setAttribute("rel", "noopener noreferrer");
