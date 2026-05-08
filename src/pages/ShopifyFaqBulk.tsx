@@ -497,12 +497,12 @@ STRUCTURE FOR 300-WORD ARTICLE (exact):
         }
       }
 
-      const finalHtml = (wc === 300 || linkUrls.length > 0)
+      const finalHtml = (wc === 100 || wc === 300 || linkUrls.length > 0)
         ? markdownToStyledHtml(finalMarkdown, selectedPalette || null, {
             skipNavigation: !includeNav,
-            skipQuickTips,
-            skipFaqs: wc === 300 ? true : !includeFaqs,
-            skipSources: wc === 300 ? true : skipSources,
+            skipQuickTips: wc === 100 ? true : skipQuickTips,
+            skipFaqs: wc === 100 || wc === 300 ? true : !includeFaqs,
+            skipSources: wc === 100 || wc === 300 ? true : skipSources,
           })
         : result.html;
       const body = stripTitle
