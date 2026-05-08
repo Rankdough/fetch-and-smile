@@ -30,6 +30,7 @@ export interface GenerateMigrationArticleResult {
   subtitle: string;
   seoTitle: string;
   seoDescription: string;
+  ctaHtml?: string;
 }
 
 const minifyHtmlForExport = (html: string) =>
