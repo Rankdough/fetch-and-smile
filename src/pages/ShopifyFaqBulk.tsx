@@ -776,9 +776,10 @@ ${isPricingQuestion
             skipFaqs: wc === 100 || wc === 300 ? true : !includeFaqs,
             skipSources: wc === 100 || wc === 300 ? true : skipSources,
           });
-      const body = stripTitle
+      const baseHtml = stripTitle
         ? finalHtml.replace(/<h1\b[^>]*>[\s\S]*?<\/h1>/i, "").trim()
         : finalHtml;
+      const body = (result.ctaHtml && result.ctaHtml.trim()) ? `${baseHtml}${result.ctaHtml}` : baseHtml;
       const summary = truncate(result.subtitle || extractSummary(finalMarkdown), 300);
       const descriptionTag = truncate(result.seoDescription || summary, 155);
       const handle = `${handlePrefix ? handlePrefix + "-" : ""}${slugify(q) || `q-${idx + 1}`}`;
