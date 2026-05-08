@@ -742,20 +742,22 @@ ${isPricingQuestion
       const userLinks = internalLinks.map((u) => u.trim()).filter(Boolean).slice(0, 3);
       const crossLinks: string[] = [];
       const baseUrl = (siteBaseUrl || "").trim().replace(/\/+$/, "");
-      if (baseUrl) {
-        rows.forEach((r, i) => {
-          if (i === idx) return;
-          const otherBody = (r?.["Body HTML"] || "").trim();
-          const otherHandle = (r?.Handle || "").trim();
-          const otherTitle = (r?.Title || "").trim();
-          if (otherBody && otherHandle && otherTitle) {
-            const url = `${baseUrl}/blogs/${blogHandle || "faq"}/${otherHandle}`;
-            crossLinks.push(url);
-          }
-        });
-      }
-      // Cap total links to avoid clutter; prioritise user-provided links
-      const linkUrls = [...userLinks, ...crossLinks].slice(0, Math.max(userLinks.length, Math.min(5, userLinks.length + 2)));
+      const blogSeg = (blogHandle || "faq").trim();
+      const latestRows = rowsRef.current;
+      latestRows.forEach((r, i) => {
+        if (i === idx) return;
+        const otherBody = (r?.["Body HTML"] || "").trim();
+        const otherHandle = (r?.Handle || "").trim();
+        const otherTitle = (r?.Title || "").trim();
+        if (otherBody && otherHandle && otherTitle) {
+          const url = baseUrl
+            ? `${baseUrl}/blogs/${blogSeg}/${otherHandle}`
+            : `/blogs/${blogSeg}/${otherHandle}`;
+          crossLinks.push(url);
+        }
+      });
+      // Cap total links: user-provided links + up to 5 cross-links to prior FAQs
+      const linkUrls = [...userLinks, ...crossLinks].slice(0, userLinks.length + 5);
       const sanitized = sanitizeGeneratedMarkdown(finalMarkdown, title, userLinks);
       finalMarkdown = sanitized.markdown;
       if (linkUrls.length > 0) {
