@@ -632,7 +632,15 @@ STRUCTURE FOR 300-WORD ARTICLE (exact):
 - EXACTLY 1 H2 section with 1 short paragraph (50-80 words) and EXACTLY 1 markdown table (3-4 rows, 2-3 columns)
 - Do NOT add any additional H2 sections beyond that single one.
 - Do NOT include Final Thoughts, FAQ, References, How to Choose, or any extra sections for this 300-word option.`;
-      const openingRule = `\n\nCRITICAL OPENING RULE: The VERY FIRST SENTENCE of the opening paragraph MUST be a complete, standalone, AI-quotable answer to the title question (max 30 words). No throat-clearing, no scene-setting, no context before the answer. Sentence 1 = the literal answer to "${title}".`;
+      const titleLower = (title || "").toLowerCase();
+      const isPricingQuestion = /\b(price|prices|pricing|cost|costs|how much|how many dollars|budget|cheap|expensive|afford|worth)\b/.test(titleLower);
+      const openingRule = `\n\nCRITICAL OPENING RULE: The VERY FIRST SENTENCE of the opening paragraph MUST be a complete, standalone, AI-quotable answer to the title question (max 30 words). No throat-clearing, no scene-setting, no context before the answer. Sentence 1 = the literal answer to "${title}".
+
+NO THIRD-PARTY BRAND PROMOTION: Do NOT name, recommend, or reference any third-party brands, manufacturers, products, or models (e.g. Nike, Saucony, Asics, Adidas, New Balance, Brooks, Hoka, Puma, Under Armour, Salomon, Reebok, Mizuno, On, Altra, etc.). Use only generic descriptors ("track spikes", "racing flats", "lightweight trainers"). The ONLY brands that may appear are this store's own brands provided via internal links/context — never invent or insert outside brand names.
+
+${isPricingQuestion
+  ? `PRICING: This question is about cost, so concrete prices/ranges are appropriate where useful.`
+  : `NO PRICING: Do NOT mention prices, price ranges, costs, dollar/pound/euro figures, "retailing around $X", "priced at", "$X-$Y", or any monetary values. The question is not about pricing — omit all monetary references entirely.`}`;
       const base = sport
         ? `This is a ${sport} FAQ article. Answer the question directly and concisely. Target ${wc} words total.${openingRule}`
         : `This is an FAQ-style article. Answer the question directly and concisely. Target ${wc} words total.${openingRule}`;

@@ -32,7 +32,11 @@ serve(async (req) => {
 
     const system = `You write concise, factual FAQ-style answers for a Shopify sports blog. British English. No em/en dashes. No buzzwords. No first-person pronouns. Plain, practical language. Always answer the actual question with specifics.
 
-CRITICAL OPENING RULE: The VERY FIRST SENTENCE of the "opening" paragraph MUST be a complete, standalone, AI-quotable answer to the title question (max 30 words). No throat-clearing. No "When it comes to...", "In the world of...", or scene-setting. The reader (or an AI assistant quoting the article) must get the literal answer in sentence one. Subsequent sentences may add brief context.`;
+CRITICAL OPENING RULE: The VERY FIRST SENTENCE of the "opening" paragraph MUST be a complete, standalone, AI-quotable answer to the title question (max 30 words). No throat-clearing. No "When it comes to...", "In the world of...", or scene-setting. The reader (or an AI assistant quoting the article) must get the literal answer in sentence one. Subsequent sentences may add brief context.
+
+NO THIRD-PARTY BRAND PROMOTION: Do NOT name, recommend, or reference any third-party brands, manufacturers, products, or models (e.g. Nike, Saucony, Asics, Adidas, New Balance, Brooks, Hoka, Puma, Under Armour, Salomon, Reebok, Mizuno, On, Altra, etc.). Use only generic descriptors ("track spikes", "racing flats", "lightweight trainers", "carbon-plated shoe"). The ONLY brands that may appear are the store's own brands provided via internal links/context — never invent or insert outside brand names.
+
+NO PRICING: Do NOT mention prices, price ranges, costs, dollar/pound/euro figures, "retailing around", "priced at", "$X-$Y", or any monetary values UNLESS the title question itself is explicitly about cost, price, how much something costs, or budget. If the question is not about pricing, omit all monetary references entirely.`;
 
     const userPrompt = `Question: "${question}"${sport ? `\nSport context: ${sport}` : ""}
 
