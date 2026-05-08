@@ -1002,6 +1002,14 @@ STRUCTURE FOR 300-WORD ARTICLE (exact):
                                 {qa[i].issues.slice(0, 4).map((iss, k) => <li key={k}>{iss}</li>)}
                               </ul>
                             )}
+                            {qa[i].brokenLinks && qa[i].brokenLinks!.length > 0 && (
+                              <div className="text-destructive text-[11px]">
+                                <div className="font-medium">Broken links:</div>
+                                <ul className="list-disc pl-3 space-y-0.5 break-all">
+                                  {qa[i].brokenLinks!.slice(0, 4).map((u, k) => <li key={k}>{u}</li>)}
+                                </ul>
+                              </div>
+                            )}
                             {qa[i].status === "error" && (
                               <Button
                                 size="sm"
