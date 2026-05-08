@@ -392,13 +392,56 @@ export default function ShopifyFaqBulk() {
     toast({ title: `Deleted ${errorIdxs.size} error row(s)` });
   };
 
-  const regenerateRow = async (idx: number, wc: 300 | 500 | 700) => {
+  const enforceStrict100Markdown = (markdown: string, title: string): string => {
+    const normalised = markdown.replace(/—|–/g, "-").replace(/^\s*[-*_]{3,}\s*$/gm, "").trim();
+    const h1 = normalised.match(/^#\s+(.+)$/m)?.[1]?.trim() || title;
+    const tableMatch = normalised.match(/(?:^|\n)((?:\|[^\n]+\|\n?){3,})/m);
+    const rawTable = tableMatch?.[1]?.trim().split("\n") || [];
+    const table = rawTable.length >= 4
+      ? rawTable.slice(0, 4).join("\n")
+      : `| Point | Short answer |\n| --- | --- |\n| Direct answer | See section above |\n| Next step | Confirm details before acting |`;
+    const withoutTables = normalised.replace(/(?:^|\n)(?:\|[^\n]+\|\n?){3,}/gm, "\n").trim();
+    const h2Regex = /^##\s+(.+)$/gm;
+    const matches = [...withoutTables.matchAll(h2Regex)];
+    const introBlock = matches.length ? withoutTables.slice(0, matches[0].index ?? 0) : withoutTables;
+    const intro = trimMarkdownWords(
+      introBlock.replace(/^#\s+.+$/m, "").split(/\n{2,}/).map((p) => p.trim()).filter(Boolean)[0] || "",
+      25
+    );
+    const isStructural = (heading: string) => /tl;?dr|quick tips|in this article|frequently asked|^faq$|final thoughts|conclusion|references|how to choose|how to pick|how to decide|how to find/i.test(heading);
+    const sections = matches.map((match, index) => {
+      const start = match.index ?? 0;
+      const end = index + 1 < matches.length ? (matches[index + 1].index ?? withoutTables.length) : withoutTables.length;
+      return { heading: match[1].trim(), body: withoutTables.slice(start + match[0].length, end).trim() };
+    });
+    const main = sections.find((s) => !isStructural(s.heading)) || sections[0];
+    const heading = main?.heading || "What is the short answer?";
+    const fixed = [`# ${h1}`, intro, `## ${heading}`].filter(Boolean).join("\n\n");
+    const fixedWords = markdownWordCount(`${fixed}\n\n${table}`);
+    const bodyBudget = Math.max(20, 115 - fixedWords);
+    const bodyText = trimMarkdownWords((main?.body || "").replace(/(?:^|\n)(?:\|[^\n]+\|\n?){3,}/gm, "\n").replace(/^#{1,6}\s+.+$/gm, "").trim(), bodyBudget);
+    let output = `${fixed}\n\n${bodyText}\n\n${table}`.trim();
+    if (markdownWordCount(output) > 115) {
+      const trimmed = trimMarkdownWords(bodyText, Math.max(15, bodyBudget - (markdownWordCount(output) - 115)));
+      output = `${fixed}\n\n${trimmed}\n\n${table}`.trim();
+    }
+    return output;
+  };
+
+  const regenerateRow = async (idx: number, wc: 100 | 300 | 500 | 700) => {
     const row = rows[idx];
     if (!row) return;
     const q = row.Title;
     const title = formatTitle(q);
     setRegenIdx(idx);
     try {
+      const strict100 = `STRICT LENGTH: The entire article (H1, opening, single H2 section, and table cells combined) MUST total between 85 and 115 words. Do NOT exceed 115 words under any circumstance. Be ruthlessly concise.
+
+STRUCTURE FOR 100-WORD ARTICLE (exact):
+- H1 title
+- 1 short opening paragraph (max 25 words) that directly answers the question
+- EXACTLY 1 H2 section with 1 short paragraph (25-40 words) and EXACTLY 1 small markdown table (2-3 data rows, 2 columns)
+- Do NOT include TL;DR, Quick Tips, FAQ, References, Final Thoughts, How to Choose, or any other sections.`;
       const strict300 = `STRICT LENGTH: The entire article (including TL;DR, Quick Tips, the single H2 section, table cells, and FAQ if present) MUST total between 275 and 325 words. Do NOT exceed 325 words under any circumstance. Be ruthlessly concise.
 
 STRUCTURE FOR 300-WORD ARTICLE (exact):
@@ -412,17 +455,20 @@ STRUCTURE FOR 300-WORD ARTICLE (exact):
       const base = sport
         ? `This is a ${sport} FAQ article. Answer the question directly and concisely. Target ${wc} words total.`
         : `This is an FAQ-style article. Answer the question directly and concisely. Target ${wc} words total.`;
-      const extra = wc === 300 ? `${base}\n\n${strict300}` : base;
+      const extra = wc === 100 ? `${base}\n\n${strict100}` : wc === 300 ? `${base}\n\n${strict300}` : base;
+
+      // Underrequest for tight word counts so the deterministic enforcer can clean up
+      const aiTarget = wc === 100 ? 90 : wc === 300 ? 240 : wc;
 
       const result = await generateMigrationArticle({
         topic: title,
-        targetWordCount: wc,
+        targetWordCount: aiTarget,
         palette: selectedPalette,
         convertOpts: {
           skipNavigation: !includeNav,
-          skipQuickTips,
-          skipFaqs: !includeFaqs,
-          skipSources,
+          skipQuickTips: wc === 100 ? true : skipQuickTips,
+          skipFaqs: wc === 100 || wc === 300 ? true : !includeFaqs,
+          skipSources: wc === 100 || wc === 300 ? true : skipSources,
         },
         toneProfileId,
         extraInstructions: extra,
