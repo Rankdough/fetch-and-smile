@@ -601,7 +601,7 @@ STRUCTURE FOR 300-WORD ARTICLE (exact):
       if (linkUrls.length > 0) {
         try {
           const { data: linkData, error: linkError } = await supabase.functions.invoke("insert-internal-links", {
-            body: { content: finalMarkdown, urls: linkUrls },
+            body: { content: finalMarkdown, urls: linkUrls, articleTopic: title },
           });
           if (!linkError && linkData?.content) {
             finalMarkdown = linkData.content;
