@@ -865,6 +865,12 @@ ${isPricingQuestion
       const sanitized = sanitizeGeneratedMarkdown(finalMarkdown, title, userLinks);
       finalMarkdown = sanitized.markdown;
 
+      // Strip "Final Thoughts" / "Conclusion" section entirely (heading + body until next H2 or EOF)
+      finalMarkdown = finalMarkdown.replace(
+        /(^|\n)##\s+(?:final\s*thoughts|conclusion)[^\n]*\n[\s\S]*?(?=\n##\s|$)/gi,
+        "$1"
+      ).trim();
+
       // Deterministic internal-link injector — no AI, no hallucinations.
       // Each user-provided URL is wrapped around the best-matching phrase in body prose.
       const beforeLinkCount = (finalMarkdown.match(/\]\((https?:\/\/[^\s)]+|\/[^\s)]+)\)/g) || []).length;
