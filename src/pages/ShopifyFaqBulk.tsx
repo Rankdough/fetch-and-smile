@@ -188,6 +188,16 @@ const EXPERT_BOX_HTML = `
 </div>
 `;
 
+const TEAM_NAME_PILL_HTML = `<p style="margin: 20px 0; padding: 12px 18px; background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 9999px; display: inline-block; font-size: 0.95em; color: #065f46;">💡 <strong>Stuck on a team name?</strong> Try our free <a href="https://team.bigleagueshirts.com/" target="_blank" rel="noopener" style="color: #047857; font-weight: 600; text-decoration: underline;">Team Name Generator →</a></p>`;
+
+function injectTeamNamePill(html: string): string {
+  // Insert after first closing </p> so it sits below the opening paragraph.
+  const idx = html.search(/<\/p>/i);
+  if (idx === -1) return `${TEAM_NAME_PILL_HTML}${html}`;
+  const cut = idx + "</p>".length;
+  return html.slice(0, cut) + "\n" + TEAM_NAME_PILL_HTML + html.slice(cut);
+}
+
 const COLUMNS = [
   "Handle",
   "Title",
@@ -249,6 +259,7 @@ export default function ShopifyFaqBulk() {
   const [ctaEnabled, setCtaEnabled] = useState<boolean>(init.ctaEnabled ?? false);
   const [ctaUrl, setCtaUrl] = useState<string>(init.ctaUrl ?? "");
   const [ctaInstruction, setCtaInstruction] = useState<string>(init.ctaInstruction ?? "");
+  const [teamNameGenEnabled, setTeamNameGenEnabled] = useState<boolean>(init.teamNameGenEnabled ?? false);
   const [rows, setRows] = useState<Record<string, string>[]>(init.rows ?? []);
   const rowsRef = useRef<Record<string, string>[]>(init.rows ?? []);
   useEffect(() => { rowsRef.current = rows; }, [rows]);
@@ -293,12 +304,12 @@ export default function ShopifyFaqBulk() {
         includeFaqs, includeNav, skipQuickTips, skipSources, stripTitle, paletteId, toneProfileId, rows, filterRules,
         internalLinks,
         contextFiles,
-        ctaEnabled, ctaUrl, ctaInstruction,
+        ctaEnabled, ctaUrl, ctaInstruction, teamNameGenEnabled,
       }));
     } catch {}
   }, [questions, author, sport, globalTags, blogHandle, blogTitle, templateSuffix, handlePrefix, siteBaseUrl, wordCount,
       includeFaqs, includeNav, skipQuickTips, skipSources, stripTitle, paletteId, toneProfileId, rows, filterRules, internalLinks, contextFiles,
-      ctaEnabled, ctaUrl, ctaInstruction]);
+      ctaEnabled, ctaUrl, ctaInstruction, teamNameGenEnabled]);
 
   const formatTitle = (q: string): string => {
     let s = q.trim().replace(/\s+/g, " ");
@@ -885,7 +896,8 @@ ${isPricingQuestion
       const baseHtml = stripTitle
         ? finalHtml.replace(/<h1\b[^>]*>[\s\S]*?<\/h1>/i, "").trim()
         : finalHtml;
-      const withCta = (result.ctaHtml && result.ctaHtml.trim()) ? `${baseHtml}${result.ctaHtml}` : baseHtml;
+      const baseWithPill = teamNameGenEnabled ? injectTeamNamePill(baseHtml) : baseHtml;
+      const withCta = (result.ctaHtml && result.ctaHtml.trim()) ? `${baseWithPill}${result.ctaHtml}` : baseWithPill;
       const body = `${withCta}${EXPERT_BOX_HTML}`;
       const summary = truncate(result.subtitle || extractSummary(finalMarkdown), 300);
       const descriptionTag = truncate(result.seoDescription || summary, 155);
@@ -1252,6 +1264,23 @@ ${isPricingQuestion
                   />
                 </div>
               )}
+            </div>
+            <div className="md:col-span-3 border-t pt-4 mt-2">
+              <div className="flex items-center justify-between mb-1">
+                <Label htmlFor="team-name-gen-enabled">Team Name Generator pill (optional)</Label>
+                <label className="flex items-center gap-2 text-xs">
+                  <input
+                    id="team-name-gen-enabled"
+                    type="checkbox"
+                    checked={teamNameGenEnabled}
+                    onChange={(e) => setTeamNameGenEnabled(e.target.checked)}
+                  />
+                  <span>Enable pill</span>
+                </label>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                When enabled, a small pill linking to <a href="https://team.bigleagueshirts.com/" target="_blank" rel="noopener" className="underline">team.bigleagueshirts.com</a> is inserted near the top of each article (after the opening paragraph). Excluded from word count.
+              </p>
             </div>
           </CardContent>
         </Card>
