@@ -872,9 +872,17 @@ ${isPricingQuestion
 
       // Deterministic internal-link injector — no AI, no hallucinations.
       // Each user-provided URL is wrapped around the best-matching phrase in body prose.
+      const beforeLinkCount = (finalMarkdown.match(/\]\((https?:\/\/[^\s)]+|\/[^\s)]+)\)/g) || []).length;
       if (linkUrls.length > 0) {
         finalMarkdown = injectLinksDeterministic(finalMarkdown, linkUrls);
       }
+      const afterLinkCount = (finalMarkdown.match(/\]\((https?:\/\/[^\s)]+|\/[^\s)]+)\)/g) || []).length;
+      console.log("[InternalLinks]", {
+        provided: internalLinks.filter((u) => u.trim()).length,
+        validWithPath: linkUrls.length,
+        injected: Math.max(0, afterLinkCount - beforeLinkCount),
+        urls: linkUrls,
+      });
 
       // Final whitelist guard: unwrap any markdown link whose URL is NOT in linkUrls.
       // Catches hallucinated links (e.g. bare homepage) introduced at any stage.
