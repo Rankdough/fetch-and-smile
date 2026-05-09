@@ -1189,7 +1189,7 @@ ${isPricingQuestion
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground mb-2">
-                AI will insert each URL once into the Body HTML where the topic naturally fits. Leave blank to skip.
+                Each URL is inserted exactly once into the Body HTML, wrapped around the best-matching phrase derived from the URL slug. Deterministic — no hallucinated links. Leave blank to skip.
               </p>
               <div className="grid gap-2">
                 {[0, 1, 2, 3, 4, 5].map((i) => {
