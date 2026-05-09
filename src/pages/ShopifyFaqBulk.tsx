@@ -126,8 +126,23 @@ function injectLinksDeterministic(markdown: string, urls: string[]): string {
     if (t.length < 40) return false;
     return true;
   };
+  // Identify TL;DR section line range (heading line until next H2/H1) so we never inject links inside it
+  let tldrStart = -1;
+  let tldrEnd = -1;
+  for (let i = 0; i < lines.length; i++) {
+    if (/^##\s+TL;?DR\b/i.test(lines[i].trim())) {
+      tldrStart = i;
+      tldrEnd = lines.length;
+      for (let j = i + 1; j < lines.length; j++) {
+        if (/^#{1,2}\s+/.test(lines[j].trim())) { tldrEnd = j; break; }
+      }
+      break;
+    }
+  }
+  const inTldr = (i: number) => tldrStart !== -1 && i >= tldrStart && i < tldrEnd;
+
   const candidates: number[] = [];
-  for (let i = 0; i < lines.length; i++) if (isContent(lines[i])) candidates.push(i);
+  for (let i = 0; i < lines.length; i++) if (isContent(lines[i]) && !inTldr(i)) candidates.push(i);
   if (!candidates.length) return markdown;
 
   const used = new Set<number>();
