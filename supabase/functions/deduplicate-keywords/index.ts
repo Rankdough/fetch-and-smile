@@ -645,7 +645,7 @@ Return ONLY the indices (0-based) of OFF-TOPIC keywords. If unsure, do NOT inclu
             const remaining = finalRemaining;
 
             // Send final result
-            const mergedResults = aiMerged.map(g => ({
+            const mergedResults = aiMergedFinal.map(g => ({
               keyword: g.canonical,
               volume: g.totalVolume,
               merged: true,
@@ -662,12 +662,12 @@ Return ONLY the indices (0-based) of OFF-TOPIC keywords. If unsure, do NOT inclu
 
             send({
               type: "complete",
-              aiMergedGroups: aiMerged.length,
+              aiMergedGroups: aiMergedFinal.length,
               aiMergedKeywords: mergedResults,
               aiSingles: singles,
             });
 
-            console.log(`AI pass complete: ${aiMerged.length} groups merged`);
+            console.log(`AI pass complete: ${aiMergedFinal.length} groups merged (after consolidation)`);
           } catch (e: any) {
             send({ type: "error", message: e.message || "Unknown error" });
             console.error("SSE error:", e);
