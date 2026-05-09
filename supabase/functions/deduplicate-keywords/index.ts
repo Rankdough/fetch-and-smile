@@ -553,12 +553,12 @@ Return ONLY the indices (0-based) of OFF-TOPIC keywords. If unsure, do NOT inclu
       if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
       // Convert to DedupGroup format
-      const groups: DedupGroup[] = ungroupedKeywords.map((g: any) => ({
+      const groups: DedupGroup[] = sortForSemanticPass(ungroupedKeywords.map((g: any) => ({
         canonical: g.canonical,
         canonicalVolume: g.totalVolume,
         totalVolume: g.totalVolume,
         variants: [],
-      }));
+      })));
 
       const BATCH_SIZE = 400;
       const CONCURRENCY = 4;
@@ -630,7 +630,7 @@ Return ONLY the indices (0-based) of OFF-TOPIC keywords. If unsure, do NOT inclu
             let finalMerged = [...aiMerged];
             let finalRemaining = [...stillUngroupedAll];
 
-            const allCanonicals: DedupGroup[] = [...aiMerged, ...stillUngroupedAll];
+            const allCanonicals: DedupGroup[] = sortForSemanticPass([...aiMerged, ...stillUngroupedAll]);
             if (allCanonicals.length > 1 && allCanonicals.length <= 2000) {
               send({
                 type: "progress",
@@ -644,8 +644,8 @@ Return ONLY the indices (0-based) of OFF-TOPIC keywords. If unsure, do NOT inclu
                 const { merged: consolidatedMerged, stillUngrouped: consolidatedRemaining } =
                   await semanticGroupBatch(allCanonicals, LOVABLE_API_KEY, 0, 1, []);
 
-                finalMerged = consolidatedMerged;
-                finalRemaining = consolidatedRemaining;
+                finalMerged = [...consolidatedMerged, ...consolidatedRemaining.filter(g => g.variants.length > 0)];
+                finalRemaining = consolidatedRemaining.filter(g => g.variants.length === 0);
 
                 send({
                   type: "batch_complete",
@@ -687,9 +687,35 @@ Return ONLY the indices (0-based) of OFF-TOPIC keywords. If unsure, do NOT inclu
                 }
               }
 
-              finalMerged = newMerged;
-              finalRemaining = newRemaining;
-              console.log(`Consolidation merged ${newMerged.length} cross-batch groups`);
+              const needsSecondConsolidation = newRemaining.length > 1 && newRemaining.length !== allCanonicals.length;
+              if (needsSecondConsolidation) {
+                const secondPassInput = sortForSemanticPass([...newMerged, ...newRemaining]);
+                const secondMerged: DedupGroup[] = [];
+                const secondRemaining: DedupGroup[] = [];
+
+                for (let i = 0; i < secondPassInput.length; i += CHUNK) {
+                  const chunk = secondPassInput.slice(i, i + CHUNK);
+                  try {
+                    const { merged, stillUngrouped } = await semanticGroupBatch(
+                      chunk, LOVABLE_API_KEY, i / CHUNK, Math.ceil(secondPassInput.length / CHUNK), []
+                    );
+                    secondMerged.push(...merged);
+                    secondRemaining.push(...stillUngrouped);
+                  } catch (e: any) {
+                    console.error(`Second consolidation chunk failed:`, e.message);
+                    secondRemaining.push(...chunk);
+                  }
+                }
+
+                const split = splitMergedAndRemaining([...secondMerged, ...secondRemaining]);
+                finalMerged = split.merged;
+                finalRemaining = split.remaining;
+              } else {
+                const split = splitMergedAndRemaining([...newMerged, ...newRemaining]);
+                finalMerged = split.merged;
+                finalRemaining = split.remaining;
+              }
+              console.log(`Consolidation merged ${finalMerged.length} total semantic groups`);
             }
 
             const aiMergedFinal = finalMerged;
