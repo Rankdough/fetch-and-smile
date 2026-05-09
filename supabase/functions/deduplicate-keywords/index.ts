@@ -573,10 +573,79 @@ Return ONLY the indices (0-based) of OFF-TOPIC keywords. If unsure, do NOT inclu
               }
             }
 
-            const remaining = stillUngroupedAll;
+            // ── CONSOLIDATION PASS: re-dedupe across batches ──
+            // Combine all canonicals (merged + still-ungrouped) and run another
+            // semantic pass so duplicates that landed in different batches get merged.
+            let finalMerged = [...aiMerged];
+            let finalRemaining = [...stillUngroupedAll];
+
+            const allCanonicals: DedupGroup[] = [...aiMerged, ...stillUngroupedAll];
+            if (allCanonicals.length > 1 && allCanonicals.length <= 2000) {
+              send({
+                type: "progress",
+                batch: totalBatches,
+                totalBatches,
+                message: `Consolidation pass: re-checking ${allCanonicals.length} canonicals across all batches...`,
+              });
+              console.log(`Consolidation pass on ${allCanonicals.length} canonicals...`);
+
+              try {
+                const { merged: consolidatedMerged, stillUngrouped: consolidatedRemaining } =
+                  await semanticGroupBatch(allCanonicals, LOVABLE_API_KEY, 0, 1, []);
+
+                finalMerged = consolidatedMerged;
+                finalRemaining = consolidatedRemaining;
+
+                send({
+                  type: "batch_complete",
+                  batch: completed + 1,
+                  mergedInBatch: consolidatedMerged.length,
+                  totalMergedSoFar: consolidatedMerged.length,
+                });
+                console.log(`Consolidation merged ${consolidatedMerged.length} cross-batch groups`);
+              } catch (e: any) {
+                console.error("Consolidation pass failed, keeping per-batch results:", e.message);
+              }
+            } else if (allCanonicals.length > 2000) {
+              // Too many canonicals for a single pass — chunk it
+              send({
+                type: "progress",
+                batch: totalBatches,
+                totalBatches,
+                message: `Consolidation pass: re-checking ${allCanonicals.length} canonicals in chunks...`,
+              });
+              console.log(`Consolidation pass (chunked) on ${allCanonicals.length} canonicals...`);
+
+              const CHUNK = 800;
+              const newMerged: DedupGroup[] = [];
+              const newRemaining: DedupGroup[] = [];
+              const consolidatedDiscovered: string[] = [];
+
+              for (let i = 0; i < allCanonicals.length; i += CHUNK) {
+                const chunk = allCanonicals.slice(i, i + CHUNK);
+                try {
+                  const { merged, stillUngrouped } = await semanticGroupBatch(
+                    chunk, LOVABLE_API_KEY, i / CHUNK, Math.ceil(allCanonicals.length / CHUNK), consolidatedDiscovered
+                  );
+                  newMerged.push(...merged);
+                  newRemaining.push(...stillUngrouped);
+                  for (const m of merged) consolidatedDiscovered.push(m.canonical);
+                } catch (e: any) {
+                  console.error(`Consolidation chunk failed:`, e.message);
+                  newRemaining.push(...chunk);
+                }
+              }
+
+              finalMerged = newMerged;
+              finalRemaining = newRemaining;
+              console.log(`Consolidation merged ${newMerged.length} cross-batch groups`);
+            }
+
+            const aiMergedFinal = finalMerged;
+            const remaining = finalRemaining;
 
             // Send final result
-            const mergedResults = aiMerged.map(g => ({
+            const mergedResults = aiMergedFinal.map(g => ({
               keyword: g.canonical,
               volume: g.totalVolume,
               merged: true,
@@ -593,12 +662,12 @@ Return ONLY the indices (0-based) of OFF-TOPIC keywords. If unsure, do NOT inclu
 
             send({
               type: "complete",
-              aiMergedGroups: aiMerged.length,
+              aiMergedGroups: aiMergedFinal.length,
               aiMergedKeywords: mergedResults,
               aiSingles: singles,
             });
 
-            console.log(`AI pass complete: ${aiMerged.length} groups merged`);
+            console.log(`AI pass complete: ${aiMergedFinal.length} groups merged (after consolidation)`);
           } catch (e: any) {
             send({ type: "error", message: e.message || "Unknown error" });
             console.error("SSE error:", e);
