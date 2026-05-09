@@ -509,10 +509,17 @@ Return ONLY the indices (0-based) of OFF-TOPIC keywords. If unsure, do NOT inclu
         variants: [],
       }));
 
-      const BATCH_SIZE = 1500;
+      const BATCH_SIZE = 400;
+      const CONCURRENCY = 4;
       const totalBatches = Math.ceil(groups.length / BATCH_SIZE);
 
-      console.log(`AI semantic pass: ${groups.length} keywords in ${totalBatches} batches...`);
+      // Pre-split into batches
+      const batches: DedupGroup[][] = [];
+      for (let i = 0; i < groups.length; i += BATCH_SIZE) {
+        batches.push(groups.slice(i, i + BATCH_SIZE));
+      }
+
+      console.log(`AI semantic pass: ${groups.length} keywords in ${totalBatches} batches (size ${BATCH_SIZE}, concurrency ${CONCURRENCY})...`);
 
       // SSE streaming response
       const encoder = new TextEncoder();
@@ -523,29 +530,50 @@ Return ONLY the indices (0-based) of OFF-TOPIC keywords. If unsure, do NOT inclu
           };
 
           try {
-            let remaining = [...groups];
             const aiMerged: DedupGroup[] = [];
+            const stillUngroupedAll: DedupGroup[] = [];
             const discoveredCanonicals: string[] = [];
+            let completed = 0;
 
-            for (let i = 0; i < groups.length; i += BATCH_SIZE) {
-              const batch = remaining.slice(0, Math.min(BATCH_SIZE, remaining.length));
-              const batchIdx = Math.floor(i / BATCH_SIZE);
+            // Process batches in parallel waves
+            for (let waveStart = 0; waveStart < batches.length; waveStart += CONCURRENCY) {
+              const wave = batches.slice(waveStart, waveStart + CONCURRENCY);
 
-              send({ type: "progress", batch: batchIdx + 1, totalBatches, message: `Processing batch ${batchIdx + 1} of ${totalBatches}...` });
+              send({
+                type: "progress",
+                batch: Math.min(waveStart + CONCURRENCY, batches.length),
+                totalBatches,
+                message: `Processing batches ${waveStart + 1}-${Math.min(waveStart + CONCURRENCY, batches.length)} of ${totalBatches}...`,
+              });
 
-              console.log(`AI batch ${batchIdx + 1}/${totalBatches} (${batch.length} keywords)...`);
-
-              const { merged, stillUngrouped } = await semanticGroupBatch(
-                batch, LOVABLE_API_KEY, batchIdx, totalBatches, discoveredCanonicals
+              const results = await Promise.all(
+                wave.map((batch, idx) => {
+                  const batchIdx = waveStart + idx;
+                  console.log(`AI batch ${batchIdx + 1}/${totalBatches} (${batch.length} keywords)...`);
+                  return semanticGroupBatch(batch, LOVABLE_API_KEY, batchIdx, totalBatches, discoveredCanonicals)
+                    .catch((e) => {
+                      console.error(`Batch ${batchIdx + 1} failed:`, e.message);
+                      return { merged: [], stillUngrouped: batch };
+                    });
+                })
               );
 
-              aiMerged.push(...merged);
-              for (const m of merged) discoveredCanonicals.push(m.canonical);
-
-              remaining = [...stillUngrouped, ...remaining.slice(BATCH_SIZE)];
-
-              send({ type: "batch_complete", batch: batchIdx + 1, mergedInBatch: merged.length, totalMergedSoFar: aiMerged.length });
+              for (let idx = 0; idx < results.length; idx++) {
+                const { merged, stillUngrouped } = results[idx];
+                aiMerged.push(...merged);
+                stillUngroupedAll.push(...stillUngrouped);
+                for (const m of merged) discoveredCanonicals.push(m.canonical);
+                completed++;
+                send({
+                  type: "batch_complete",
+                  batch: completed,
+                  mergedInBatch: merged.length,
+                  totalMergedSoFar: aiMerged.length,
+                });
+              }
             }
+
+            const remaining = stillUngroupedAll;
 
             // Send final result
             const mergedResults = aiMerged.map(g => ({
