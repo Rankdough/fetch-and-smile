@@ -81,6 +81,91 @@ function buildBodyHtml(a: ArticleData, opts: { skipFaqs?: boolean } = {}): strin
   });
 }
 
+// Deterministic internal-link injector. Wraps user-provided URLs around the
+// best-matching phrase in body prose. No AI = no hallucinations.
+function injectLinksDeterministic(markdown: string, urls: string[]): string {
+  if (!urls.length) return markdown;
+  const STOP = new Set([
+    "the","a","an","and","or","of","for","to","in","on","with","by","is","are","at",
+    "from","into","best","top","guide","how","what","why","your","you","our","we",
+    "this","that","these","those","it","its","be","as","vs"
+  ]);
+  const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+  type Plan = { url: string; phrases: string[] };
+  const plans: Plan[] = urls.map((u) => {
+    let path = u;
+    try { path = new URL(u).pathname; } catch { /* relative */ }
+    const last = path.replace(/\/+$/, "").split("/").filter(Boolean).pop() || "";
+    const tokens = last
+      .replace(/\.[a-z0-9]+$/i, "")
+      .split(/[-_]+/)
+      .map((t) => t.toLowerCase())
+      .filter((t) => t && !STOP.has(t) && t.length >= 3);
+    const phrases: string[] = [];
+    if (tokens.length >= 2) phrases.push(tokens.join(" "));
+    for (let i = 0; i < tokens.length - 1; i++) phrases.push(`${tokens[i]} ${tokens[i + 1]}`);
+    for (const t of tokens) if (t.length >= 4) phrases.push(t);
+    return { url: u, phrases: Array.from(new Set(phrases)) };
+  });
+
+  const lines = markdown.split("\n");
+  let inFence = false;
+  const isContent = (raw: string) => {
+    const t = raw.trim();
+    if (!t) return false;
+    if (t.startsWith("```")) { inFence = !inFence; return false; }
+    if (inFence) return false;
+    if (t.startsWith("#") || t.startsWith(">") || t.startsWith("|")) return false;
+    if (/^[-*+]\s/.test(t) || /^\d+\.\s/.test(t)) return false;
+    if (/^!\[/.test(t)) return false;
+    if (t.length < 40) return false;
+    return true;
+  };
+  const candidates: number[] = [];
+  for (let i = 0; i < lines.length; i++) if (isContent(lines[i])) candidates.push(i);
+  if (!candidates.length) return markdown;
+
+  const used = new Set<number>();
+  const buckets = plans.length;
+  for (let b = 0; b < buckets; b++) {
+    const plan = plans[b];
+    const start = Math.floor((b * candidates.length) / buckets);
+    const end = Math.max(start + 1, Math.floor(((b + 1) * candidates.length) / buckets));
+    let injected = false;
+    for (const phrase of plan.phrases) {
+      const re = new RegExp(`\\b(${escapeRe(phrase)})\\b`, "i");
+      const ranges = [candidates.slice(start, end), candidates];
+      for (const range of ranges) {
+        for (const idx of range) {
+          if (used.has(idx)) continue;
+          const line = lines[idx];
+          if (/\]\([^)]*\)/.test(line)) continue;
+          if (re.test(line)) {
+            lines[idx] = line.replace(re, `[$1](${plan.url})`);
+            used.add(idx);
+            injected = true;
+            break;
+          }
+        }
+        if (injected) break;
+      }
+      if (injected) break;
+    }
+    if (!injected) {
+      const remaining = candidates.filter((i) => !used.has(i) && !/\]\([^)]*\)/.test(lines[i]));
+      if (remaining.length) {
+        remaining.sort((a, c) => lines[c].length - lines[a].length);
+        const idx = remaining[0];
+        const anchor = plan.phrases[0] || "related guide";
+        lines[idx] = lines[idx].replace(/\s*$/, ` See more on [${anchor}](${plan.url}).`);
+        used.add(idx);
+      }
+    }
+  }
+  return lines.join("\n");
+}
+
 
 const EXPERT_BOX_HTML = `
 <section aria-labelledby="our-expert" style="margin: 40px 0 0 0; border: 1px solid #d1fae5; border-radius: 16px; background: linear-gradient(180deg, #f0fdfa 0%, #ffffff 100%); overflow: hidden;">
@@ -148,9 +233,11 @@ export default function ShopifyFaqBulk() {
   const [stripTitle, setStripTitle] = useState<boolean>(init.stripTitle ?? false);
   const [paletteId, setPaletteId] = useState<string | null>(init.paletteId ?? null);
   const [internalLinks, setInternalLinks] = useState<string[]>(
-    Array.isArray(init.internalLinks) ? [...init.internalLinks, "", "", ""].slice(0, 3) : ["", "", ""]
+    Array.isArray(init.internalLinks)
+      ? [...init.internalLinks, "", "", "", "", "", ""].slice(0, 6)
+      : ["", "", "", "", "", ""]
   );
-  const [internalLinkStatuses, setInternalLinkStatuses] = useState<Array<{ ok: boolean; status: number; reason?: string } | null>>([null, null, null]);
+  const [internalLinkStatuses, setInternalLinkStatuses] = useState<Array<{ ok: boolean; status: number; reason?: string } | null>>([null, null, null, null, null, null]);
   const [internalLinkCheckLoading, setInternalLinkCheckLoading] = useState(false);
   const [contextFiles, setContextFiles] = useState<Array<{ name: string; content: string }>>(
     Array.isArray(init.contextFiles) ? init.contextFiles : []
@@ -757,9 +844,9 @@ ${isPricingQuestion
         .map((u) => u.trim())
         .filter(Boolean)
         .filter(hasPath)
-        .slice(0, 3);
-      // HARD CAP: maximum 3 links total per article. No generated cross-links.
-      const MAX_LINKS = 3;
+        .slice(0, 6);
+      // HARD CAP: maximum 6 links total per article. No generated cross-links.
+      const MAX_LINKS = 6;
       const seen = new Set<string>();
       const linkUrls = userLinks
         .filter((u) => {
@@ -771,19 +858,11 @@ ${isPricingQuestion
         .slice(0, MAX_LINKS);
       const sanitized = sanitizeGeneratedMarkdown(finalMarkdown, title, userLinks);
       finalMarkdown = sanitized.markdown;
+
+      // Deterministic internal-link injector — no AI, no hallucinations.
+      // Each user-provided URL is wrapped around the best-matching phrase in body prose.
       if (linkUrls.length > 0) {
-        try {
-          const { data: linkData, error: linkError } = await supabase.functions.invoke("insert-internal-links", {
-            body: { content: finalMarkdown, urls: linkUrls, articleTopic: title },
-          });
-          if (!linkError && linkData?.content) {
-            finalMarkdown = linkData.content;
-          } else if (linkError) {
-            console.warn("insert-internal-links error", linkError);
-          }
-        } catch (e) {
-          console.warn("insert-internal-links failed", e);
-        }
+        finalMarkdown = injectLinksDeterministic(finalMarkdown, linkUrls);
       }
 
       // Final whitelist guard: unwrap any markdown link whose URL is NOT in linkUrls.
@@ -1096,7 +1175,7 @@ ${isPricingQuestion
             </div>
             <div className="md:col-span-3">
               <div className="flex items-center justify-between mb-1">
-                <Label>Internal links (up to 3)</Label>
+                <Label>Internal links (up to 6)</Label>
                 <Button
                   type="button"
                   size="sm"
@@ -1110,10 +1189,10 @@ ${isPricingQuestion
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground mb-2">
-                AI will insert each URL once into the Body HTML where the topic naturally fits. Leave blank to skip.
+                Each URL is inserted exactly once into the Body HTML, wrapped around the best-matching phrase derived from the URL slug. Deterministic — no hallucinated links. Leave blank to skip.
               </p>
               <div className="grid gap-2">
-                {[0, 1, 2].map((i) => {
+                {[0, 1, 2, 3, 4, 5].map((i) => {
                   const status = internalLinkStatuses[i];
                   return (
                     <div key={i} className="flex items-center gap-2">
