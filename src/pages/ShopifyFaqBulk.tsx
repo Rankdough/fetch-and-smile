@@ -259,6 +259,7 @@ export default function ShopifyFaqBulk() {
   const [ctaEnabled, setCtaEnabled] = useState<boolean>(init.ctaEnabled ?? false);
   const [ctaUrl, setCtaUrl] = useState<string>(init.ctaUrl ?? "");
   const [ctaInstruction, setCtaInstruction] = useState<string>(init.ctaInstruction ?? "");
+  const [teamNameGenEnabled, setTeamNameGenEnabled] = useState<boolean>(init.teamNameGenEnabled ?? false);
   const [rows, setRows] = useState<Record<string, string>[]>(init.rows ?? []);
   const rowsRef = useRef<Record<string, string>[]>(init.rows ?? []);
   useEffect(() => { rowsRef.current = rows; }, [rows]);
