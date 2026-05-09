@@ -1175,7 +1175,7 @@ ${isPricingQuestion
             </div>
             <div className="md:col-span-3">
               <div className="flex items-center justify-between mb-1">
-                <Label>Internal links (up to 3)</Label>
+                <Label>Internal links (up to 6)</Label>
                 <Button
                   type="button"
                   size="sm"
