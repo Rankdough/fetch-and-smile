@@ -82,6 +82,57 @@ function normalizeCoreKeyword(kw: string): string {
     .join(" ");
 }
 
+function semanticToken(w: string): string {
+  const s = stem(w);
+  const synonyms: Record<string, string> = {
+    painful: "pain", pain: "pain", hurt: "pain", hurts: "pain", sore: "pain", ache: "pain",
+    fast: "speed", faster: "speed", fastest: "speed", speed: "speed", velocity: "speed", mph: "speed",
+    big: "size", bigger: "size", biggest: "size", large: "size", size: "size", sized: "size",
+    old: "age", age: "age", aged: "age", youth: "age", kid: "age", kids: "age", child: "age",
+    price: "cost", prices: "cost", pricing: "cost", cost: "cost", costs: "cost", expensive: "cost", cheap: "cost",
+    mean: "definition", meaning: "definition", definition: "definition", define: "definition", stand: "definition", stands: "definition",
+    cleat: "shoe", cleats: "shoe", shoes: "shoe", shoe: "shoe",
+  };
+  return synonyms[s] || s;
+}
+
+function semanticSortKey(kw: string): string {
+  const raw = tokenizeKeyword(kw);
+  const tokens = raw
+    .filter(w => !STOPWORDS.has(w))
+    .map(semanticToken)
+    .filter(Boolean);
+
+  const tokenSet = new Set(tokens);
+  let intent = "general";
+  if (tokenSet.has("definition") || /\bwhat\s+(is|are|does)|\bmeaning\b|\bstand(s)?\s+for\b/i.test(kw)) intent = "definition";
+  else if (tokenSet.has("cost") || /\bhow\s+much\b/i.test(kw)) intent = "cost";
+  else if (tokenSet.has("pain")) intent = "pain";
+  else if (tokenSet.has("speed")) intent = "speed";
+  else if (tokenSet.has("size")) intent = "size";
+  else if (tokenSet.has("age")) intent = "age";
+  else if (/\bhow\s+long\b|\btake(s)?\b|\bduration\b/i.test(kw)) intent = "duration";
+  else if (/\bhow\s+many\b|\bnumber\s+of\b/i.test(kw)) intent = "quantity";
+
+  return `${intent}:${Array.from(new Set(tokens)).sort().join(" ")}`;
+}
+
+function sortForSemanticPass(groups: DedupGroup[]): DedupGroup[] {
+  return [...groups].sort((a, b) => {
+    const keyA = semanticSortKey(a.canonical);
+    const keyB = semanticSortKey(b.canonical);
+    if (keyA !== keyB) return keyA.localeCompare(keyB);
+    return b.totalVolume - a.totalVolume;
+  });
+}
+
+function splitMergedAndRemaining(groups: DedupGroup[]): { merged: DedupGroup[]; remaining: DedupGroup[] } {
+  return {
+    merged: groups.filter(g => g.variants.length > 0),
+    remaining: groups.filter(g => g.variants.length === 0),
+  };
+}
+
 interface KeywordEntry { keyword: string; volume: number }
 
 interface DedupGroup {
