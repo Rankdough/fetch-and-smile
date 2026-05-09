@@ -82,6 +82,27 @@ function buildBodyHtml(a: ArticleData, opts: { skipFaqs?: boolean } = {}): strin
 }
 
 
+const EXPERT_BOX_HTML = `
+<section aria-labelledby="our-expert" style="margin: 40px 0 0 0; border: 1px solid #d1fae5; border-radius: 16px; background: linear-gradient(180deg, #f0fdfa 0%, #ffffff 100%); overflow: hidden;">
+<div style="padding: 24px;">
+<h2 id="our-expert" style="margin: 0 0 16px 0; color: #0f172a;">Our Expert</h2>
+<div style="display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap;">
+<img style="width: 112px; height: 112px; border-radius: 12px; object-fit: cover; border: 2px solid #99f6e4; flex-shrink: 0;" src="https://cdn.shopify.com/s/files/1/1105/3556/files/nic_reese.avif?v=1775577558" alt="Nic Reese">
+<div style="flex: 1; min-width: 220px;">
+<h3 style="margin: 0 0 6px 0; color: #0f172a;">Nic Reese</h3>
+<p style="margin: 0 0 12px 0; color: #0f766e; font-weight: 600; line-height: 1.5;">Our Sport Expert</p>
+<p style="margin: 0; line-height: 1.7; color: #374151;">Nic Reese is a sports expert and lifelong enthusiast with a deep focus on bowling and competitive team sports. He brings practical insight, real-world experience, and a genuine passion for the game into every piece of content. Nick is driven by a love of sports culture, performance, and helping players and teams perform at their best.</p>
+</div>
+</div>
+</div>
+</section>
+<div style="margin: 40px 0 32px 0;">
+<div style="display: flex; flex-wrap: wrap; gap: 16px;">
+<div style="flex: 1 1 calc(50% - 8px); min-width: 200px; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; transition: box-shadow 0.2s;"></div>
+</div>
+</div>
+`;
+
 const COLUMNS = [
   "Handle",
   "Title",
