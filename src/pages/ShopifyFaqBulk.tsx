@@ -759,9 +759,9 @@ ${isPricingQuestion
         .map((u) => u.trim())
         .filter(Boolean)
         .filter(hasPath)
-        .slice(0, 3);
-      // HARD CAP: maximum 3 links total per article. No generated cross-links.
-      const MAX_LINKS = 3;
+        .slice(0, 6);
+      // HARD CAP: maximum 6 links total per article. No generated cross-links.
+      const MAX_LINKS = 6;
       const seen = new Set<string>();
       const linkUrls = userLinks
         .filter((u) => {
@@ -773,19 +773,11 @@ ${isPricingQuestion
         .slice(0, MAX_LINKS);
       const sanitized = sanitizeGeneratedMarkdown(finalMarkdown, title, userLinks);
       finalMarkdown = sanitized.markdown;
+
+      // Deterministic internal-link injector — no AI, no hallucinations.
+      // Each user-provided URL is wrapped around the best-matching phrase in body prose.
       if (linkUrls.length > 0) {
-        try {
-          const { data: linkData, error: linkError } = await supabase.functions.invoke("insert-internal-links", {
-            body: { content: finalMarkdown, urls: linkUrls, articleTopic: title },
-          });
-          if (!linkError && linkData?.content) {
-            finalMarkdown = linkData.content;
-          } else if (linkError) {
-            console.warn("insert-internal-links error", linkError);
-          }
-        } catch (e) {
-          console.warn("insert-internal-links failed", e);
-        }
+        finalMarkdown = injectLinksDeterministic(finalMarkdown, linkUrls);
       }
 
       // Final whitelist guard: unwrap any markdown link whose URL is NOT in linkUrls.
