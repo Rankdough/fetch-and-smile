@@ -148,9 +148,11 @@ export default function ShopifyFaqBulk() {
   const [stripTitle, setStripTitle] = useState<boolean>(init.stripTitle ?? false);
   const [paletteId, setPaletteId] = useState<string | null>(init.paletteId ?? null);
   const [internalLinks, setInternalLinks] = useState<string[]>(
-    Array.isArray(init.internalLinks) ? [...init.internalLinks, "", "", ""].slice(0, 3) : ["", "", ""]
+    Array.isArray(init.internalLinks)
+      ? [...init.internalLinks, "", "", "", "", "", ""].slice(0, 6)
+      : ["", "", "", "", "", ""]
   );
-  const [internalLinkStatuses, setInternalLinkStatuses] = useState<Array<{ ok: boolean; status: number; reason?: string } | null>>([null, null, null]);
+  const [internalLinkStatuses, setInternalLinkStatuses] = useState<Array<{ ok: boolean; status: number; reason?: string } | null>>([null, null, null, null, null, null]);
   const [internalLinkCheckLoading, setInternalLinkCheckLoading] = useState(false);
   const [contextFiles, setContextFiles] = useState<Array<{ name: string; content: string }>>(
     Array.isArray(init.contextFiles) ? init.contextFiles : []
