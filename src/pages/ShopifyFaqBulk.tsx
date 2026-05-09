@@ -1265,6 +1265,23 @@ ${isPricingQuestion
                 </div>
               )}
             </div>
+            <div className="md:col-span-3 border-t pt-4 mt-2">
+              <div className="flex items-center justify-between mb-1">
+                <Label htmlFor="team-name-gen-enabled">Team Name Generator pill (optional)</Label>
+                <label className="flex items-center gap-2 text-xs">
+                  <input
+                    id="team-name-gen-enabled"
+                    type="checkbox"
+                    checked={teamNameGenEnabled}
+                    onChange={(e) => setTeamNameGenEnabled(e.target.checked)}
+                  />
+                  <span>Enable pill</span>
+                </label>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                When enabled, a small pill linking to <a href="https://team.bigleagueshirts.com/" target="_blank" rel="noopener" className="underline">team.bigleagueshirts.com</a> is inserted near the top of each article (after the opening paragraph). Excluded from word count.
+              </p>
+            </div>
           </CardContent>
         </Card>
         <Card>
