@@ -1192,7 +1192,7 @@ ${isPricingQuestion
                 AI will insert each URL once into the Body HTML where the topic naturally fits. Leave blank to skip.
               </p>
               <div className="grid gap-2">
-                {[0, 1, 2].map((i) => {
+                {[0, 1, 2, 3, 4, 5].map((i) => {
                   const status = internalLinkStatuses[i];
                   return (
                     <div key={i} className="flex items-center gap-2">
