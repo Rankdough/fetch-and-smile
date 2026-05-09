@@ -95,11 +95,15 @@ function injectLinksDeterministic(markdown: string, urls: string[]): string {
   type Plan = { url: string; phrases: string[] };
   const plans: Plan[] = urls.map((u) => {
     let path = u;
+    let host = "";
     try { path = new URL(u).pathname; } catch { /* relative */ }
+    try { host = new URL(u).hostname.replace(/^www\./, "").split(".")[0] || ""; } catch { /* relative */ }
     const last = path.replace(/\/+$/, "").split("/").filter(Boolean).pop() || "";
-    const tokens = last
+    const source = last || host;
+    const tokens = source
       .replace(/\.[a-z0-9]+$/i, "")
-      .split(/[-_]+/)
+      .replace(/([a-z])([A-Z])/g, "$1 $2")
+      .split(/[-_\s]+/)
       .map((t) => t.toLowerCase())
       .filter((t) => t && !STOP.has(t) && t.length >= 3);
     const phrases: string[] = [];
@@ -842,19 +846,10 @@ ${isPricingQuestion
           : moveTableAfterTldr(result.markdown);
 
       // Inject only the internal links explicitly provided in the Internal links fields.
-      // Drop bare homepages (no path) and dedupe — each URL must be unique.
-      const hasPath = (u: string) => {
-        try {
-          const url = new URL(u);
-          return url.pathname && url.pathname.replace(/\/+$/, "").length > 0;
-        } catch {
-          return false;
-        }
-      };
+      // Dedupe — each URL must be unique.
       const userLinks = internalLinks
         .map((u) => u.trim())
         .filter(Boolean)
-        .filter(hasPath)
         .slice(0, 6);
       // HARD CAP: maximum 6 links total per article. No generated cross-links.
       const MAX_LINKS = 6;
