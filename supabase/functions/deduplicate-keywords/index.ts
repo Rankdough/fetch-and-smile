@@ -82,6 +82,57 @@ function normalizeCoreKeyword(kw: string): string {
     .join(" ");
 }
 
+function semanticToken(w: string): string {
+  const s = stem(w);
+  const synonyms: Record<string, string> = {
+    painful: "pain", pain: "pain", hurt: "pain", hurts: "pain", sore: "pain", ache: "pain",
+    fast: "speed", faster: "speed", fastest: "speed", speed: "speed", velocity: "speed", mph: "speed",
+    big: "size", bigger: "size", biggest: "size", large: "size", size: "size", sized: "size",
+    old: "age", age: "age", aged: "age", youth: "age", kid: "age", kids: "age", child: "age",
+    price: "cost", prices: "cost", pricing: "cost", cost: "cost", costs: "cost", expensive: "cost", cheap: "cost",
+    mean: "definition", meaning: "definition", definition: "definition", define: "definition", stand: "definition", stands: "definition",
+    cleat: "shoe", cleats: "shoe", shoes: "shoe", shoe: "shoe",
+  };
+  return synonyms[s] || s;
+}
+
+function semanticSortKey(kw: string): string {
+  const raw = tokenizeKeyword(kw);
+  const tokens = raw
+    .filter(w => !STOPWORDS.has(w))
+    .map(semanticToken)
+    .filter(Boolean);
+
+  const tokenSet = new Set(tokens);
+  let intent = "general";
+  if (tokenSet.has("definition") || /\bwhat\s+(is|are|does)|\bmeaning\b|\bstand(s)?\s+for\b/i.test(kw)) intent = "definition";
+  else if (tokenSet.has("cost") || /\bhow\s+much\b/i.test(kw)) intent = "cost";
+  else if (tokenSet.has("pain")) intent = "pain";
+  else if (tokenSet.has("speed")) intent = "speed";
+  else if (tokenSet.has("size")) intent = "size";
+  else if (tokenSet.has("age")) intent = "age";
+  else if (/\bhow\s+long\b|\btake(s)?\b|\bduration\b/i.test(kw)) intent = "duration";
+  else if (/\bhow\s+many\b|\bnumber\s+of\b/i.test(kw)) intent = "quantity";
+
+  return `${intent}:${Array.from(new Set(tokens)).sort().join(" ")}`;
+}
+
+function sortForSemanticPass(groups: DedupGroup[]): DedupGroup[] {
+  return [...groups].sort((a, b) => {
+    const keyA = semanticSortKey(a.canonical);
+    const keyB = semanticSortKey(b.canonical);
+    if (keyA !== keyB) return keyA.localeCompare(keyB);
+    return b.totalVolume - a.totalVolume;
+  });
+}
+
+function splitMergedAndRemaining(groups: DedupGroup[]): { merged: DedupGroup[]; remaining: DedupGroup[] } {
+  return {
+    merged: groups.filter(g => g.variants.length > 0),
+    remaining: groups.filter(g => g.variants.length === 0),
+  };
+}
+
 interface KeywordEntry { keyword: string; volume: number }
 
 interface DedupGroup {
@@ -502,12 +553,12 @@ Return ONLY the indices (0-based) of OFF-TOPIC keywords. If unsure, do NOT inclu
       if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
       // Convert to DedupGroup format
-      const groups: DedupGroup[] = ungroupedKeywords.map((g: any) => ({
+      const groups: DedupGroup[] = sortForSemanticPass(ungroupedKeywords.map((g: any) => ({
         canonical: g.canonical,
         canonicalVolume: g.totalVolume,
         totalVolume: g.totalVolume,
         variants: [],
-      }));
+      })));
 
       const BATCH_SIZE = 400;
       const CONCURRENCY = 4;
@@ -579,7 +630,7 @@ Return ONLY the indices (0-based) of OFF-TOPIC keywords. If unsure, do NOT inclu
             let finalMerged = [...aiMerged];
             let finalRemaining = [...stillUngroupedAll];
 
-            const allCanonicals: DedupGroup[] = [...aiMerged, ...stillUngroupedAll];
+            const allCanonicals: DedupGroup[] = sortForSemanticPass([...aiMerged, ...stillUngroupedAll]);
             if (allCanonicals.length > 1 && allCanonicals.length <= 2000) {
               send({
                 type: "progress",
@@ -593,8 +644,8 @@ Return ONLY the indices (0-based) of OFF-TOPIC keywords. If unsure, do NOT inclu
                 const { merged: consolidatedMerged, stillUngrouped: consolidatedRemaining } =
                   await semanticGroupBatch(allCanonicals, LOVABLE_API_KEY, 0, 1, []);
 
-                finalMerged = consolidatedMerged;
-                finalRemaining = consolidatedRemaining;
+                finalMerged = [...consolidatedMerged, ...consolidatedRemaining.filter(g => g.variants.length > 0)];
+                finalRemaining = consolidatedRemaining.filter(g => g.variants.length === 0);
 
                 send({
                   type: "batch_complete",
@@ -636,9 +687,35 @@ Return ONLY the indices (0-based) of OFF-TOPIC keywords. If unsure, do NOT inclu
                 }
               }
 
-              finalMerged = newMerged;
-              finalRemaining = newRemaining;
-              console.log(`Consolidation merged ${newMerged.length} cross-batch groups`);
+              const needsSecondConsolidation = newRemaining.length > 1 && newRemaining.length !== allCanonicals.length;
+              if (needsSecondConsolidation) {
+                const secondPassInput = sortForSemanticPass([...newMerged, ...newRemaining]);
+                const secondMerged: DedupGroup[] = [];
+                const secondRemaining: DedupGroup[] = [];
+
+                for (let i = 0; i < secondPassInput.length; i += CHUNK) {
+                  const chunk = secondPassInput.slice(i, i + CHUNK);
+                  try {
+                    const { merged, stillUngrouped } = await semanticGroupBatch(
+                      chunk, LOVABLE_API_KEY, i / CHUNK, Math.ceil(secondPassInput.length / CHUNK), []
+                    );
+                    secondMerged.push(...merged);
+                    secondRemaining.push(...stillUngrouped);
+                  } catch (e: any) {
+                    console.error(`Second consolidation chunk failed:`, e.message);
+                    secondRemaining.push(...chunk);
+                  }
+                }
+
+                const split = splitMergedAndRemaining([...secondMerged, ...secondRemaining]);
+                finalMerged = split.merged;
+                finalRemaining = split.remaining;
+              } else {
+                const split = splitMergedAndRemaining([...newMerged, ...newRemaining]);
+                finalMerged = split.merged;
+                finalRemaining = split.remaining;
+              }
+              console.log(`Consolidation merged ${finalMerged.length} total semantic groups`);
             }
 
             const aiMergedFinal = finalMerged;
