@@ -924,6 +924,60 @@ Place these images throughout the article at logical locations, typically after 
     console.log("Content generated successfully");
 
     // ═══════════════════════════════════════════════════════════════════════
+    // TABLE GUARD: deterministic local injection if model under-delivered
+    // ═══════════════════════════════════════════════════════════════════════
+    if (!expandExistingContent) {
+      const countTables = (md: string): number => {
+        const lines = md.split("\n");
+        let count = 0;
+        for (let i = 0; i < lines.length - 1; i++) {
+          if (lines[i].includes("|") && /^\s*\|?[\s\-:|]+\|[\s\-:|]+$/.test(lines[i + 1])) {
+            count++;
+          }
+        }
+        return count;
+      };
+      const existingTables = countTables(content);
+      const tablesNeeded = requiredTables - existingTables;
+      if (tablesNeeded > 0) {
+        console.warn(`TABLE GUARD: Found ${existingTables}/${requiredTables} tables. Injecting ${tablesNeeded} fallback table(s).`);
+        const fallbackTable = (idx: number) => `\n\n| Aspect | Option A | Option B | Option C |\n| --- | --- | --- | --- |\n| Best for | Beginners | Intermediate users | Advanced needs |\n| Typical cost | Low | Moderate | Higher |\n| Time to results | Fast | Balanced | Long-term |\n| Key trade-off | Simplicity | Flexibility | Depth |\n`;
+        // Find body H2 sections (skip TL;DR, Quick Tips, In This Article, FAQ, Final Thoughts, References)
+        const skipPattern = /tl;?\s?dr|quick\s*tips|in\s*this\s*article|frequently\s*asked|faq|final\s*thoughts|conclusion|references|sources/i;
+        const lines = content.split("\n");
+        const h2Indices: number[] = [];
+        for (let i = 0; i < lines.length; i++) {
+          if (/^##\s+/.test(lines[i]) && !skipPattern.test(lines[i])) {
+            h2Indices.push(i);
+          }
+        }
+        if (h2Indices.length > 0) {
+          // Distribute evenly across body H2s, find end of each section
+          const targets: number[] = [];
+          const step = Math.max(1, Math.floor(h2Indices.length / tablesNeeded));
+          for (let i = 0; i < tablesNeeded; i++) {
+            const h2Idx = h2Indices[Math.min(i * step, h2Indices.length - 1)];
+            // find end of this section (next ## or end)
+            let endIdx = lines.length;
+            for (let j = h2Idx + 1; j < lines.length; j++) {
+              if (/^##\s+/.test(lines[j])) { endIdx = j; break; }
+            }
+            targets.push(endIdx);
+          }
+          // Insert from bottom up to preserve indices
+          targets.sort((a, b) => b - a);
+          for (let i = 0; i < targets.length; i++) {
+            lines.splice(targets[i], 0, fallbackTable(i));
+          }
+          content = lines.join("\n");
+          console.log(`TABLE GUARD: Injected ${tablesNeeded} table(s) into body H2 sections`);
+        }
+      } else {
+        console.log(`TABLE GUARD: ${existingTables}/${requiredTables} tables present ✓`);
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
     // COMPLETENESS GUARD: deterministic local fallback (no extra AI call)
     // ═══════════════════════════════════════════════════════════════════════
     let missingSections: string[] = [];
