@@ -498,7 +498,9 @@ ${instructions}`;
       // Normal generation mode
       userPrompt = `Write a blog post about: ${topic}
 
-WORD COUNT REQUIREMENT (NON-NEGOTIABLE): The article MUST be between ${wordFloor} and ${wordCeiling} words (target: ${targetWords}). HARD CEILING: ${wordCeiling} words - going over this limit is a failure. If you are approaching ${wordCeiling} words and still have sections left, be more concise or drop lower-priority detail. If you finish all planned sections before reaching ${wordFloor} words, expand sections with more detail. Count your words as you write.`;
+WORD COUNT REQUIREMENT (NON-NEGOTIABLE): The article MUST be between ${wordFloor} and ${wordCeiling} words (target: ${targetWords}). HARD CEILING: ${wordCeiling} words - going over this limit is a failure. If you are approaching ${wordCeiling} words and still have sections left, be more concise or drop lower-priority detail. If you finish all planned sections before reaching ${wordFloor} words, expand sections with more detail. Count your words as you write.
+
+🚨 TABLE REQUIREMENT (NON-NEGOTIABLE): You MUST include EXACTLY ${requiredTables} markdown comparison table${requiredTables > 1 ? 's' : ''} (1 per 600 words). Each table needs ≥3 columns and ≥4 data rows, using proper pipe syntax with a "| --- |" separator row. Spread them evenly across body H2 sections. Do NOT replace tables with bullet lists. Count your tables before finishing.`;
 
       // Add keywords if provided
       if (keywords && Array.isArray(keywords) && keywords.length > 0) {
