@@ -320,17 +320,9 @@ export function markdownToStyledHtml(
     if (txt && QUOTE_ONLY_RE.test(txt)) el.remove();
   });
 
-  // If there is a References / Sources H2 section, strip duplicate inline "Sources:" paragraphs
-  // elsewhere in the article so "Sources" doesn't appear three times.
-  const hasReferencesSection = Array.from(container.querySelectorAll("h2")).some((h) =>
-    /^(references|sources)\b/i.test((h.textContent || "").trim())
-  );
-  if (hasReferencesSection) {
-    container.querySelectorAll("p").forEach((p) => {
-      const t = (p.textContent || "").trim();
-      if (/^sources\s*:/i.test(t)) p.remove();
-    });
-  }
+  // NOTE: per-section "**Sources:**" paragraphs are intentionally PRESERVED.
+  // The article spec requires one source line per H2 section, in addition to the
+  // final ## References list. Do not strip them.
 
   // 4. Get the cleaned HTML content
   let finalHtml = container.innerHTML;
