@@ -198,7 +198,7 @@ const KeywordClustering = () => {
   const [projectName, setProjectName] = useState<string>(initialDraft?.projectName ?? "");
   const [clientTag, setClientTag] = useState<string>(initialDraft?.clientTag ?? "");
   const [clientTagFilter, setClientTagFilter] = useState<string | null>(null);
-  const [suggestedSilos, setSuggestedSilos] = useState("");
+  const [suggestedSilos, setSuggestedSilos] = useState<string>(initialDraft?.suggestedSilos ?? "");
   const [savedResults, setSavedResults] = useState<SavedClustering[]>([]);
   const [activeResultId, setActiveResultId] = useState<string | null>(() => searchParams.get("project"));
   const [userSuggestedSilos, setUserSuggestedSilos] = useState<string[]>([]);
