@@ -220,22 +220,19 @@ ${formatReference ? `FORMAT REFERENCE MODE: A format reference has been provided
 
 ${migrationMode ? `TABLE RULE:
 - Use markdown tables where the source content contains list-style comparisons or product listings
-- Do NOT force tables where the source does not warrant them` : `🚨 NON-NEGOTIABLE TABLE REQUIREMENT (THIS IS A HARD RULE - FAILURE TO COMPLY = FAILED OUTPUT):
-- You MUST include EXACTLY ${requiredTables} markdown comparison table${requiredTables > 1 ? 's' : ''} in the article (1 table per 600 words of target length)
-- Target word count is ${targetWords} → ${requiredTables} table${requiredTables > 1 ? 's' : ''} REQUIRED
-- Tables MUST use proper markdown pipe syntax with a header separator row, e.g.:
+- Do NOT force tables where the source does not warrant them` : `TABLE RULE (1 table per 600 words of target length):
+- Include EXACTLY ${requiredTables} markdown comparison table${requiredTables > 1 ? 's' : ''} for ${targetWords} target words
+- Use proper pipe syntax with a header separator row, e.g.:
 
 | Feature | Option A | Option B |
 | --- | --- | --- |
 | Cost | $100 | $200 |
 | Duration | 1 hour | 2 hours |
-| Difficulty | Easy | Hard |
 
-- Each table must have at least 3 columns and at least 4 data rows (excluding header)
-- Spread tables EVENLY throughout the body H2 sections - never cluster them at the end
-- Place a table inside a body H2 section where comparison, options, costs, timeline, or specs are discussed
-- Do NOT replace tables with bullet lists. Do NOT skip them. Do NOT use HTML <table> tags - markdown only.
-- Before finishing, COUNT your tables. If you have fewer than ${requiredTables}, add more before submitting.`}
+- Each table: at least 3 columns and at least 4 data rows
+- Spread tables evenly across body H2 sections; never cluster at the end
+- Markdown only — do NOT use HTML <table> tags
+- Do NOT replace tables with bullet lists`}
 
 ${skipSources ? `SOURCE REFERENCE RULES:
 - DO NOT include any **Sources:** lines after sections
@@ -498,17 +495,12 @@ ${instructions}`;
       // Normal generation mode
       userPrompt = `Write a blog post about: ${topic}
 
-WORD COUNT REQUIREMENT (NON-NEGOTIABLE): The article MUST be between ${wordFloor} and ${wordCeiling} words (target: ${targetWords}). HARD CEILING: ${wordCeiling} words - going over this limit is a failure. If you are approaching ${wordCeiling} words and still have sections left, be more concise or drop lower-priority detail. If you finish all planned sections before reaching ${wordFloor} words, expand sections with more detail. Count your words as you write.
-
-🚨 TABLE REQUIREMENT (NON-NEGOTIABLE): You MUST include EXACTLY ${requiredTables} markdown comparison table${requiredTables > 1 ? 's' : ''} (1 per 600 words). Each table needs ≥3 columns and ≥4 data rows, using proper pipe syntax with a "| --- |" separator row. Spread them evenly across body H2 sections. Do NOT replace tables with bullet lists. Count your tables before finishing.${skipSources ? '' : `
-
-🚨 SOURCES REQUIREMENT (NON-NEGOTIABLE):
-- Add a "**Sources:**" line at the END of EVERY body H2 section, listing 1-2 real markdown links to authoritative sites (NHS, gov, CDC, Wikipedia, official brand sites, reputable news).
-- Format: **Sources:** [Source Title](https://real-domain.com/page)
-- Include a final "## References" section at the end of the article listing ALL sources used as a markdown bullet list of links.
-- Use ONLY real, working URLs to authoritative websites. NEVER use placeholder or made-up links.
-- Do NOT use inline numeric citations like [1], [2]. Sources go inline at section ends and in the References section only.
-- Before finishing, verify EVERY body H2 has a **Sources:** line and the ## References section is present.`}`;
+MUST FOLLOW (in priority order):
+1. STRUCTURE — Follow the AEO layout exactly: H1 → AI-quotable opening paragraph (30-50 words) → ## TL;DR (1 dense paragraph, no list) → ## Quick Tips (3 tips, max 15 words each) → ## In This Article (nav list) → question-based H2 sections (each H2 phrased as a question, immediately followed by a ~30-word direct answer paragraph, then bullets/numbered lists for scannable points, then a comparison table where relevant${skipSources ? '' : ', then a **Sources:** line'}) → ## How to Choose (4-6 criteria as a bullet checklist) → ## Frequently Asked Questions → ## Final Thoughts${skipSources ? '' : ' → ## References (markdown bullet list of all sources)'}.
+2. WORD COUNT — Final article between ${wordFloor} and ${wordCeiling} words (target ${targetWords}). Count as you write.
+3. TABLES — Include exactly ${requiredTables} markdown comparison table${requiredTables > 1 ? 's' : ''} (1 per 600 words), each ≥3 columns and ≥4 data rows, spread evenly across body H2 sections. Markdown pipe syntax only.${skipSources ? '' : `
+4. SOURCES — Every body H2 ends with a "**Sources:**" line listing 1-2 real markdown links to authoritative sites (NHS, gov, CDC, Wikipedia, official brand sites, reputable news). The final ## References section lists all sources as a markdown bullet list. Real working URLs only — no placeholders, no inline [1][2] citations.`}
+5. FORMATTING — Use bullet points (-) and numbered lists (1.) liberally inside body sections for scannability. Use **bold** for key terms. British English. No em/en dashes. No horizontal rules.`;
 
       // Add keywords if provided
       if (keywords && Array.isArray(keywords) && keywords.length > 0) {
@@ -598,7 +590,7 @@ Place these images throughout the article at logical locations, typically after 
     console.log(expandExistingContent ? "Expanding existing content" : "Generating content for topic:", topic);
 
     // Use stronger model for long articles, default flash for shorter ones
-    const model = targetWords >= 2000 ? "google/gemini-2.5-flash" : "google/gemini-3-flash-preview";
+    const model = "google/gemini-2.5-flash";
     // Keep token budget tighter to reduce latency/timeouts and discourage oversized outputs
     const maxTokens = Math.min(Math.max(2048, Math.ceil(wordCeiling * 2.2)), 8192);
 
