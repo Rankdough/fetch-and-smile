@@ -164,7 +164,8 @@ const KeywordClustering = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const abortRef = useRef<AbortController | null>(null);
 
-  const [keywordsWithVolume, setKeywordsWithVolume] = useState<KeywordWithVolume[]>([]);
+  const _initialKwDraft = typeof window !== "undefined" && !searchParams.get("project") ? (() => { try { return JSON.parse(localStorage.getItem("kw-clustering-draft-v1") || "null"); } catch { return null; } })() : null;
+  const [keywordsWithVolume, setKeywordsWithVolume] = useState<KeywordWithVolume[]>(_initialKwDraft?.keywordsWithVolume ?? []);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [enrichingSilo, setEnrichingSilo] = useState<string | null>(null);
   const [generatingLandingPages, setGeneratingLandingPages] = useState<string | null>(null);
@@ -185,11 +186,19 @@ const KeywordClustering = () => {
   const [keywordSearchQuery, setKeywordSearchQuery] = useState("");
   const [favoritedClusters, setFavoritedClusters] = useState<Set<string>>(new Set());
   const [demotedClusters, setDemotedClusters] = useState<Set<string>>(new Set());
-  const [rawInput, setRawInput] = useState("");
-  const [projectName, setProjectName] = useState("");
-  const [clientTag, setClientTag] = useState("");
+  const DRAFT_KEY = "kw-clustering-draft-v1";
+  const loadDraft = (): any => {
+    try {
+      const raw = localStorage.getItem(DRAFT_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch { return null; }
+  };
+  const initialDraft = typeof window !== "undefined" && !searchParams.get("project") ? loadDraft() : null;
+  const [rawInput, setRawInput] = useState<string>(initialDraft?.rawInput ?? "");
+  const [projectName, setProjectName] = useState<string>(initialDraft?.projectName ?? "");
+  const [clientTag, setClientTag] = useState<string>(initialDraft?.clientTag ?? "");
   const [clientTagFilter, setClientTagFilter] = useState<string | null>(null);
-  const [suggestedSilos, setSuggestedSilos] = useState("");
+  const [suggestedSilos, setSuggestedSilos] = useState<string>(initialDraft?.suggestedSilos ?? "");
   const [savedResults, setSavedResults] = useState<SavedClustering[]>([]);
   const [activeResultId, setActiveResultId] = useState<string | null>(() => searchParams.get("project"));
   const [userSuggestedSilos, setUserSuggestedSilos] = useState<string[]>([]);
@@ -234,6 +243,27 @@ const KeywordClustering = () => {
       return p;
     }, { replace: true });
   }, [activeResultId, activeSiloParam, isResultsOpen, setSearchParams]);
+
+  // Persist pre-analysis draft (project name, keywords, etc.) to localStorage
+  useEffect(() => {
+    if (activeResultId) {
+      // Once a project is saved/loaded, draft is no longer relevant
+      try { localStorage.removeItem(DRAFT_KEY); } catch {}
+      return;
+    }
+    try {
+      const draft = {
+        rawInput,
+        projectName,
+        clientTag,
+        suggestedSilos,
+        keywordsWithVolume: keywordsWithVolume.slice(0, 10000),
+      };
+      const hasContent = rawInput || projectName || clientTag || suggestedSilos || keywordsWithVolume.length > 0;
+      if (hasContent) localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+      else localStorage.removeItem(DRAFT_KEY);
+    } catch {}
+  }, [activeResultId, rawInput, projectName, clientTag, suggestedSilos, keywordsWithVolume]);
 
   // Save queue state to DB (debounced via ref)
   const saveQueueStateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
