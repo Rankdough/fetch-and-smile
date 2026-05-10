@@ -397,91 +397,131 @@ JSON FORMAT:
     }
 
     // ═══════════════════════════════════════════════
-    // CONSOLIDATION PASS: Merge down to ≤12 silos if AI over-fragmented
+    // FINAL CROSS-BATCH CONSOLIDATION
+    // Merges thematically overlapping silos created across batches AND
+    // absorbs tiny silos (≤2 keywords or <50 vol) into the closest larger silo.
+    // Loops up to 3 passes until silo count ≤ MAX_SILOS.
     // ═══════════════════════════════════════════════
     const MAX_SILOS = 20;
-    const siloNames = Object.keys(topicKeywords).filter(t => t !== "Other");
-    if (siloNames.length > MAX_SILOS) {
-      console.log(`Too many silos (${siloNames.length}). Consolidating to ≤${MAX_SILOS}...`);
+    const TINY_KEYWORD_THRESHOLD = 2; // silos with ≤2 keywords are forced to merge
+    const TINY_VOLUME_THRESHOLD = 50; // or <50 total volume
 
-      // Build a summary of all silos with keyword counts and volumes
-      const siloSummaries = siloNames.map(name => {
-        const kws = topicKeywords[name];
-        let vol = 0;
-        if (hasVolume) {
-          for (const kw of kws) {
-            if (volumeMap[kw]) vol += volumeMap[kw];
-          }
-        }
-        return { name, count: kws.length, volume: vol };
-      }).sort((a, b) => b.volume - a.volume || b.count - a.count);
+    const siloVolume = (name: string) => {
+      const kws = topicKeywords[name] || [];
+      if (!hasVolume) return 0;
+      let v = 0;
+      for (const kw of kws) if (volumeMap[kw]) v += volumeMap[kw];
+      return v;
+    };
 
-      const siloList = siloSummaries.map(s => `- "${s.name}" (${s.count} kws, ~${s.volume} vol)`).join("\n");
+    const runMergePass = async (passLabel: string, forceMergeTiny: boolean) => {
+      const siloNames = Object.keys(topicKeywords).filter(t => t !== "Other");
+      if (siloNames.length <= MAX_SILOS && !forceMergeTiny) return;
 
-      const mergeSystem = `You are an SEO strategist. You have ${siloNames.length} topic silos but need to consolidate them to at most ${MAX_SILOS}.
+      const siloSummaries = siloNames.map(name => ({
+        name,
+        count: (topicKeywords[name] || []).length,
+        volume: siloVolume(name),
+        sampleKws: (topicKeywords[name] || []).slice(0, 6),
+      })).sort((a, b) => b.volume - a.volume || b.count - a.count);
 
-CURRENT SILOS:
+      const siloList = siloSummaries
+        .map(s => `- "${s.name}" (${s.count} kws, ~${s.volume} vol) e.g. ${s.sampleKws.join(", ")}`)
+        .join("\n");
+
+      const tinyList = siloSummaries.filter(s => s.count <= TINY_KEYWORD_THRESHOLD || s.volume < TINY_VOLUME_THRESHOLD);
+
+      const mergeSystem = `You are a senior SEO strategist consolidating a fragmented topic silo list. The same theme has likely been split across multiple silos by parallel batches (e.g. "what is archery", "archery basics", "introduction to archery" all describing the same beginner-intent theme).
+
+CURRENT SILOS (${siloNames.length} total — must end with at most ${MAX_SILOS}):
 ${siloList}
 
-RULES:
-- Output a merge map: for each silo that should be merged, specify which target silo it merges INTO
-- Keep the largest/highest-volume silos as targets
-- Merge small, thematically similar silos together
-- The merged result must have at most ${MAX_SILOS} silos (not counting "Other")
-- Use EXACT silo names from the list above
-- Output ONLY valid JSON, no markdown fences
+YOUR JOB:
+1. Identify silos that describe the SAME or OVERLAPPING theme — even if the names are worded differently — and merge them into ONE.
+2. Absorb every TINY silo (≤${TINY_KEYWORD_THRESHOLD} keywords OR <${TINY_VOLUME_THRESHOLD} volume) into the closest larger silo. NEVER leave a silo with only 1-2 keywords.
+3. Prefer the largest/highest-volume silo of each theme as the target name.
+4. Final silo count MUST be ≤ ${MAX_SILOS}.
+
+Tiny silos that MUST be merged into something larger:
+${tinyList.length > 0 ? tinyList.map(s => `- "${s.name}" (${s.count} kws, ~${s.volume} vol)`).join("\n") : "(none)"}
+
+OUTPUT RULES:
+- Output a merge map. For every silo to be merged, give source → target.
+- Use EXACT silo names from the list above for sources. Targets MUST also be exact existing names (no inventing new names).
+- Silos NOT mentioned in "merges" will be kept as-is, so make sure your map reduces the total to ≤ ${MAX_SILOS}.
+- Output ONLY valid JSON, no markdown fences.
 
 JSON FORMAT:
-{"merges":{"Small Silo Name":"Target Silo Name","Another Small Silo":"Target Silo Name",...}}
+{"merges":{"Source Silo":"Target Silo", ...}}`;
 
-Silos NOT mentioned in "merges" will be kept as-is.`;
+      console.log(`${passLabel}: ${siloNames.length} silos, ${tinyList.length} tiny — running merge pass...`);
 
       try {
         const mergeResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
           method: "POST",
-          headers: {
-            Authorization: `Bearer ${LOVABLE_API_KEY}`,
-            "Content-Type": "application/json",
-          },
+          headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
           body: JSON.stringify({
-                  model: "google/gemini-2.5-flash-lite",
-                  temperature: 0,
+            model: "google/gemini-2.5-flash",
+            temperature: 0,
             messages: [
               { role: "system", content: mergeSystem },
-              { role: "user", content: `Consolidate these ${siloNames.length} silos down to at most ${MAX_SILOS}.` },
+              { role: "user", content: `Consolidate these ${siloNames.length} silos down to at most ${MAX_SILOS}, absorbing every tiny silo.` },
             ],
           }),
         });
 
-        if (mergeResponse.ok) {
-          const mergeData = await mergeResponse.json();
-          const mergeContent = mergeData.choices?.[0]?.message?.content || "";
-          let mergeParsed: { merges: Record<string, string> };
-          try {
-            mergeParsed = JSON.parse(cleanJson(mergeContent));
-          } catch {
-            console.error("Merge parse failed:", mergeContent.slice(0, 500));
-            mergeParsed = { merges: {} };
-          }
-
-          const merges = mergeParsed.merges || {};
-          let mergeCount = 0;
-          for (const [source, target] of Object.entries(merges)) {
-            if (source === target) continue;
-            if (!topicKeywords[source]) continue;
-            // Ensure target exists (might be a new name from the merge)
-            if (!topicKeywords[target]) topicKeywords[target] = [];
-            topicKeywords[target].push(...topicKeywords[source]);
-            delete topicKeywords[source];
-            mergeCount++;
-          }
-          console.log(`Consolidation: merged ${mergeCount} silos, now ${Object.keys(topicKeywords).filter(t => t !== "Other").length} silos`);
-        } else {
-          console.error("Consolidation AI call failed:", mergeResponse.status);
+        if (!mergeResponse.ok) {
+          console.error(`${passLabel}: merge AI call failed`, mergeResponse.status);
+          return;
         }
+        const mergeData = await mergeResponse.json();
+        const mergeContent = mergeData.choices?.[0]?.message?.content || "";
+        let mergeParsed: { merges: Record<string, string> };
+        try {
+          mergeParsed = JSON.parse(cleanJson(mergeContent));
+        } catch {
+          console.error(`${passLabel}: merge parse failed:`, mergeContent.slice(0, 500));
+          return;
+        }
+
+        const merges = mergeParsed.merges || {};
+        // Resolve transitive merges (A→B, B→C ⇒ A→C)
+        const resolveTarget = (name: string, depth = 0): string => {
+          if (depth > 10) return name;
+          const next = merges[name];
+          if (!next || next === name) return name;
+          return resolveTarget(next, depth + 1);
+        };
+
+        let mergeCount = 0;
+        for (const source of Object.keys(merges)) {
+          const target = resolveTarget(source);
+          if (source === target) continue;
+          if (!topicKeywords[source]) continue;
+          if (!topicKeywords[target]) topicKeywords[target] = [];
+          topicKeywords[target].push(...topicKeywords[source]);
+          delete topicKeywords[source];
+          mergeCount++;
+        }
+        console.log(`${passLabel}: merged ${mergeCount} silos, now ${Object.keys(topicKeywords).filter(t => t !== "Other").length} silos`);
       } catch (mergeErr) {
-        console.error("Consolidation error (non-fatal):", mergeErr);
+        console.error(`${passLabel}: error (non-fatal):`, mergeErr);
       }
+    };
+
+    // Pass 1: always run if we're over the cap OR tiny silos exist
+    const initialSilos = Object.keys(topicKeywords).filter(t => t !== "Other");
+    const hasTiny = initialSilos.some(n => (topicKeywords[n] || []).length <= TINY_KEYWORD_THRESHOLD || siloVolume(n) < TINY_VOLUME_THRESHOLD);
+    if (initialSilos.length > MAX_SILOS || hasTiny) {
+      await runMergePass("Consolidation pass 1", true);
+    }
+    // Pass 2: if still over cap, force another merge round
+    if (Object.keys(topicKeywords).filter(t => t !== "Other").length > MAX_SILOS) {
+      await runMergePass("Consolidation pass 2", true);
+    }
+    // Pass 3: last resort
+    if (Object.keys(topicKeywords).filter(t => t !== "Other").length > MAX_SILOS) {
+      await runMergePass("Consolidation pass 3", true);
     }
 
     // Calculate volumes and build cluster summaries
