@@ -1003,8 +1003,26 @@ Place these images throughout the article at logical locations, typically after 
               return `## Frequently Asked Questions\n**What is the safest way to act on this advice?**\n\nPrioritise evidence-backed options, then validate against your budget, timeline, and constraints.\n\n**How should readers compare alternatives?**\n\nUse consistent criteria, including cost, reliability, and expected results.\n\n**What mistakes should be avoided first?**\n\nAvoid vague claims, missing data, and one-size-fits-all recommendations.\n\n**How often should this be reviewed?**\n\nRe-check assumptions whenever pricing, regulations, or market conditions change.`;
             case "Final Thoughts":
               return `## Final Thoughts\nThe strongest results come from clear criteria, grounded comparisons, and deliberate trade-offs. Use the framework above to choose confidently and execute the next step with evidence, not guesswork.`;
-            case "References":
-              return `## References\n- [OECD](https://www.oecd.org/)\n- [World Bank Data](https://data.worldbank.org/)\n- [Eurostat](https://ec.europa.eu/eurostat)`;
+            case "References": {
+              // Build References from real per-section **Sources:** links found in the body.
+              // Never inject placeholder authority URLs — fake sources are worse than none.
+              const linkRe = /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g;
+              const seen = new Set<string>();
+              const items: string[] = [];
+              const sourceLineRe = /\*\*Sources?:\*\*[^\n]*/gi;
+              const lines = content.match(sourceLineRe) || [];
+              for (const line of lines) {
+                let m: RegExpExecArray | null;
+                while ((m = linkRe.exec(line)) !== null) {
+                  const url = m[2].replace(/[)\]\.,;]+$/, "");
+                  if (seen.has(url)) continue;
+                  seen.add(url);
+                  items.push(`- [${m[1].trim()}](${url})`);
+                }
+              }
+              if (items.length === 0) return ""; // skip injection rather than fake it
+              return `## References\n${items.join("\n")}`;
+            }
             default:
               return "";
           }
