@@ -598,7 +598,7 @@ Place these images throughout the article at logical locations, typically after 
     console.log(expandExistingContent ? "Expanding existing content" : "Generating content for topic:", topic);
 
     // Use stronger model for long articles, default flash for shorter ones
-    const model = targetWords >= 2000 ? "google/gemini-2.5-flash" : "google/gemini-3-flash-preview";
+    const model = "google/gemini-2.5-flash";
     // Keep token budget tighter to reduce latency/timeouts and discourage oversized outputs
     const maxTokens = Math.min(Math.max(2048, Math.ceil(wordCeiling * 2.2)), 8192);
 
