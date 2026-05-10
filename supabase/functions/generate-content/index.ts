@@ -981,6 +981,28 @@ Place these images throughout the article at logical locations, typically after 
       const hasFinalThoughts = /^#{1,3}\s.*final\s*thoughts|^#{1,3}\s.*conclusion/im.test(content);
       const hasReferences = skipSources || /^#{1,3}\s.*references/im.test(content);
 
+      const buildReferencesFromRealLinks = (md: string): string => {
+        const linkRe = /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g;
+        const seen = new Set<string>();
+        const items: string[] = [];
+        let m: RegExpExecArray | null;
+        while ((m = linkRe.exec(md)) !== null) {
+          const title = m[1].trim();
+          const url = m[2].replace(/[)\]\.,;]+$/, "");
+          if (!title || seen.has(url)) continue;
+          seen.add(url);
+          items.push(`- [${title}](${url})`);
+        }
+        return items.length ? `## References\n${items.join("\n")}` : "";
+      };
+
+      const normaliseReferencesSection = (md: string): string => {
+        if (skipSources || !/^#{1,3}\s.*references/im.test(md)) return md;
+        const rebuilt = buildReferencesFromRealLinks(md.replace(/^#{1,3}\s.*references[\s\S]*$/im, ""));
+        if (!rebuilt) return md;
+        return md.replace(/^#{1,3}\s.*references[\s\S]*$/im, rebuilt);
+      };
+
       if (!hasTLDR) missingSections.push("TL;DR");
       if (!hasQuickTips) missingSections.push("Quick Tips");
       if (!hasInThisArticle) missingSections.push("In This Article");
@@ -1004,24 +1026,9 @@ Place these images throughout the article at logical locations, typically after 
             case "Final Thoughts":
               return `## Final Thoughts\nThe strongest results come from clear criteria, grounded comparisons, and deliberate trade-offs. Use the framework above to choose confidently and execute the next step with evidence, not guesswork.`;
             case "References": {
-              // Build References from real per-section **Sources:** links found in the body.
+              // Build References from real markdown links found in the body.
               // Never inject placeholder authority URLs — fake sources are worse than none.
-              const linkRe = /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g;
-              const seen = new Set<string>();
-              const items: string[] = [];
-              const sourceLineRe = /\*\*Sources?:\*\*[^\n]*/gi;
-              const lines = content.match(sourceLineRe) || [];
-              for (const line of lines) {
-                let m: RegExpExecArray | null;
-                while ((m = linkRe.exec(line)) !== null) {
-                  const url = m[2].replace(/[)\]\.,;]+$/, "");
-                  if (seen.has(url)) continue;
-                  seen.add(url);
-                  items.push(`- [${m[1].trim()}](${url})`);
-                }
-              }
-              if (items.length === 0) return ""; // skip injection rather than fake it
-              return `## References\n${items.join("\n")}`;
+              return buildReferencesFromRealLinks(content);
             }
             default:
               return "";
@@ -1051,6 +1058,8 @@ Place these images throughout the article at logical locations, typically after 
       } else {
         console.log("COMPLETENESS GUARD: All required sections present ✓");
       }
+
+      content = normaliseReferencesSection(content);
     }
 
     // Generate CTAs if requested
