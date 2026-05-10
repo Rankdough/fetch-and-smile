@@ -164,7 +164,8 @@ const KeywordClustering = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const abortRef = useRef<AbortController | null>(null);
 
-  const [keywordsWithVolume, setKeywordsWithVolume] = useState<KeywordWithVolume[]>([]);
+  const _initialKwDraft = typeof window !== "undefined" && !searchParams.get("project") ? (() => { try { return JSON.parse(localStorage.getItem("kw-clustering-draft-v1") || "null"); } catch { return null; } })() : null;
+  const [keywordsWithVolume, setKeywordsWithVolume] = useState<KeywordWithVolume[]>(_initialKwDraft?.keywordsWithVolume ?? []);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [enrichingSilo, setEnrichingSilo] = useState<string | null>(null);
   const [generatingLandingPages, setGeneratingLandingPages] = useState<string | null>(null);
