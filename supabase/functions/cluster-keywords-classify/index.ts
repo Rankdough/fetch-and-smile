@@ -6,7 +6,24 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const BATCH_SIZE = 1000;
+const BATCH_SIZE = 250;
+const MAX_PARALLEL_BATCHES = 4;
+const MIN_RETRY_BATCH_SIZE = 25;
+
+async function runWithConcurrency<T>(tasks: (() => Promise<T>)[], limit: number): Promise<T[]> {
+  const results: T[] = new Array(tasks.length);
+  let nextIndex = 0;
+
+  const workers = Array.from({ length: Math.min(limit, tasks.length) }, async () => {
+    while (nextIndex < tasks.length) {
+      const currentIndex = nextIndex++;
+      results[currentIndex] = await tasks[currentIndex]();
+    }
+  });
+
+  await Promise.all(workers);
+  return results;
+}
 
 // Parse JSON — strip markdown fences, inline comments, trailing commas
 const cleanJson = (raw: string): string => {
@@ -99,6 +116,7 @@ JSON FORMAT:
     },
     body: JSON.stringify({
       model: "google/gemini-2.5-flash",
+      temperature: 0,
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
@@ -135,6 +153,40 @@ JSON FORMAT:
   console.log(`Batch ${batchIndex + 1} done: ${assignedCount}/${batchKeywords.length} assigned, ${newTopics.length} topics`);
 
   return { assignments, newTopics };
+}
+
+async function classifyBatchResilient(
+  batchKeywords: string[],
+  volumeMap: Record<string, number> | null,
+  hasVolume: boolean,
+  suggestedTopics: string[] | null,
+  existingSilos: string[],
+  apiKey: string,
+  batchIndex: number,
+  totalBatches: number
+): Promise<{ assignments: Record<string, string>; newTopics: string[] }> {
+  try {
+    return await classifyBatch(batchKeywords, volumeMap, hasVolume, suggestedTopics, existingSilos, apiKey, batchIndex, totalBatches);
+  } catch (err: any) {
+    if (err?.status === 429 || err?.status === 402) throw err;
+
+    if (batchKeywords.length <= MIN_RETRY_BATCH_SIZE) {
+      console.error(`Batch ${batchIndex + 1} failed at minimum retry size; sending ${batchKeywords.length} keywords to Other instead of aborting.`);
+      return { assignments: {}, newTopics: [] };
+    }
+
+    const midpoint = Math.ceil(batchKeywords.length / 2);
+    console.warn(`Batch ${batchIndex + 1} failed; retrying as two smaller batches (${midpoint} + ${batchKeywords.length - midpoint}).`);
+    const [left, right] = await Promise.all([
+      classifyBatchResilient(batchKeywords.slice(0, midpoint), volumeMap, hasVolume, suggestedTopics, existingSilos, apiKey, batchIndex, totalBatches),
+      classifyBatchResilient(batchKeywords.slice(midpoint), volumeMap, hasVolume, suggestedTopics, existingSilos, apiKey, batchIndex, totalBatches),
+    ]);
+
+    return {
+      assignments: { ...left.assignments, ...right.assignments },
+      newTopics: [...new Set([...left.newTopics, ...right.newTopics])],
+    };
+  }
 }
 
 serve(async (req) => {
