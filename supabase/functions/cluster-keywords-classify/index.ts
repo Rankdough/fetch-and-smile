@@ -289,8 +289,8 @@ RULES:
 JSON FORMAT:
 {"assignments":{"keyword1":"Existing or New Silo Name","keyword2":"Existing or New Silo Name",...}}`;
 
-      // Run all re-classification batches in PARALLEL
-      const reclassPromises = [];
+      // Run re-classification with the same bounded concurrency to avoid gateway overload.
+      const reclassTasks = [];
       for (let i = 0; i < reclassBatches; i++) {
         const batchStart = i * BATCH_SIZE;
         const batchKws = otherKeywords.slice(batchStart, batchStart + BATCH_SIZE);
@@ -302,8 +302,8 @@ JSON FORMAT:
 
         const reclassifyUser = `Classify these ${batchKws.length} keywords:\n\n${otherKwLines}`;
 
-        reclassPromises.push(
-          (async () => {
+        reclassTasks.push(
+          async () => {
             try {
               const reclassifyResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
                 method: "POST",
@@ -335,11 +335,11 @@ JSON FORMAT:
               console.error(`Re-classify batch ${i + 1} error (non-fatal):`, reclassifyErr);
               return { batchKws, assignments: {} as Record<string, string>, failed: true };
             }
-          })()
+          }
         );
       }
 
-      const reclassResults = await Promise.all(reclassPromises);
+      const reclassResults = await runWithConcurrency(reclassTasks, MAX_PARALLEL_BATCHES);
       for (const { batchKws, assignments: reAssignments, failed } of reclassResults) {
         if (failed) {
           stillOther.push(...batchKws);
