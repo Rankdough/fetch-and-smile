@@ -6,8 +6,8 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const BATCH_SIZE = 250;
-const MAX_PARALLEL_BATCHES = 6;
+const BATCH_SIZE = 500;
+const MAX_PARALLEL_BATCHES = 6; // still used by re-classification of stragglers
 const MIN_RETRY_BATCH_SIZE = 25;
 
 async function runWithConcurrency<T>(tasks: (() => Promise<T>)[], limit: number): Promise<T[]> {
