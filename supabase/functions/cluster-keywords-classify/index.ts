@@ -219,18 +219,9 @@ serve(async (req) => {
 
       const stillOther: string[] = [];
       let totalRescued = 0;
+      const currentTopics = Object.keys(topicKeywords);
 
-      for (let i = 0; i < reclassBatches; i++) {
-        const batchStart = i * BATCH_SIZE;
-        const batchKws = otherKeywords.slice(batchStart, batchStart + BATCH_SIZE);
-
-        const otherKwLines = batchKws.map(kw => {
-          if (hasVolume && volumeMap[kw] > 0) return `${kw} [${volumeMap[kw]}]`;
-          return kw;
-        }).join("\n");
-
-        const currentTopics = Object.keys(topicKeywords);
-        const reclassifySystem = `You are an expert SEO strategist. These keywords were not properly classified in a first pass. Classify each one into the MOST RELEVANT existing silo, or into a new silo if none fit.
+      const reclassifySystem = `You are an expert SEO strategist. These keywords were not properly classified in a first pass. Classify each one into the MOST RELEVANT existing silo, or into a new silo if none fit.
 
 EXISTING SILOS:
 ${currentTopics.map((t, idx) => `${idx + 1}. ${t}`).join("\n")}
@@ -246,54 +237,70 @@ RULES:
 JSON FORMAT:
 {"assignments":{"keyword1":"Existing or New Silo Name","keyword2":"Existing or New Silo Name",...}}`;
 
+      // Run all re-classification batches in PARALLEL
+      const reclassPromises = [];
+      for (let i = 0; i < reclassBatches; i++) {
+        const batchStart = i * BATCH_SIZE;
+        const batchKws = otherKeywords.slice(batchStart, batchStart + BATCH_SIZE);
+
+        const otherKwLines = batchKws.map(kw => {
+          if (hasVolume && volumeMap[kw] > 0) return `${kw} [${volumeMap[kw]}]`;
+          return kw;
+        }).join("\n");
+
         const reclassifyUser = `Classify these ${batchKws.length} keywords:\n\n${otherKwLines}`;
 
-        try {
-          const reclassifyResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${LOVABLE_API_KEY}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              model: "google/gemini-2.5-flash",
-              messages: [
-                { role: "system", content: reclassifySystem },
-                { role: "user", content: reclassifyUser },
-              ],
-            }),
-          });
-
-          if (reclassifyResponse.ok) {
-            const reclassifyData = await reclassifyResponse.json();
-            const reclassifyContent = reclassifyData.choices?.[0]?.message?.content || "";
-            let reclassified: { assignments: Record<string, string> };
+        reclassPromises.push(
+          (async () => {
             try {
-              reclassified = JSON.parse(cleanJson(reclassifyContent));
-            } catch {
-              console.error(`Re-classify batch ${i + 1} parse failed:`, reclassifyContent.slice(0, 300));
-              reclassified = { assignments: {} };
-            }
+              const reclassifyResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+                method: "POST",
+                headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  model: "google/gemini-2.5-flash",
+                  messages: [
+                    { role: "system", content: reclassifySystem },
+                    { role: "user", content: reclassifyUser },
+                  ],
+                }),
+              });
 
-            const reAssignments = reclassified.assignments || {};
-
-            for (const kw of batchKws) {
-              const topic = reAssignments[kw]?.trim() || reAssignments[kw.toLowerCase()]?.trim();
-              if (topic && !otherAliases.includes(topic.toLowerCase().trim())) {
-                if (!topicKeywords[topic]) topicKeywords[topic] = [];
-                topicKeywords[topic].push(kw);
-                totalRescued++;
-              } else {
-                stillOther.push(kw);
+              if (!reclassifyResponse.ok) {
+                console.error(`Re-classify batch ${i + 1} failed:`, reclassifyResponse.status);
+                return { batchKws, assignments: {} as Record<string, string>, failed: true };
               }
+              const reclassifyData = await reclassifyResponse.json();
+              const reclassifyContent = reclassifyData.choices?.[0]?.message?.content || "";
+              try {
+                const parsed = JSON.parse(cleanJson(reclassifyContent));
+                return { batchKws, assignments: parsed.assignments || {}, failed: false };
+              } catch {
+                console.error(`Re-classify batch ${i + 1} parse failed:`, reclassifyContent.slice(0, 300));
+                return { batchKws, assignments: {} as Record<string, string>, failed: false };
+              }
+            } catch (reclassifyErr) {
+              console.error(`Re-classify batch ${i + 1} error (non-fatal):`, reclassifyErr);
+              return { batchKws, assignments: {} as Record<string, string>, failed: true };
             }
-          } else {
-            console.error(`Re-classify batch ${i + 1} failed:`, reclassifyResponse.status);
-            stillOther.push(...batchKws);
-          }
-        } catch (reclassifyErr) {
-          console.error(`Re-classify batch ${i + 1} error (non-fatal):`, reclassifyErr);
+          })()
+        );
+      }
+
+      const reclassResults = await Promise.all(reclassPromises);
+      for (const { batchKws, assignments: reAssignments, failed } of reclassResults) {
+        if (failed) {
           stillOther.push(...batchKws);
+          continue;
+        }
+        for (const kw of batchKws) {
+          const topic = reAssignments[kw]?.trim() || reAssignments[kw.toLowerCase()]?.trim();
+          if (topic && !otherAliases.includes(topic.toLowerCase().trim())) {
+            if (!topicKeywords[topic]) topicKeywords[topic] = [];
+            topicKeywords[topic].push(kw);
+            totalRescued++;
+          } else {
+            stillOther.push(kw);
+          }
         }
       }
 
