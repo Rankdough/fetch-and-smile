@@ -219,14 +219,14 @@ serve(async (req) => {
     const topicKeywords: Record<string, string[]> = {};
     const allAssignedSet = new Set<string>();
 
-    // Run all batches in PARALLEL — sequential execution exceeds edge function timeout for large keyword sets.
+    // Run batches with bounded concurrency. Smaller batches prevent truncated JSON; bounded parallelism avoids timeouts without overwhelming the AI gateway.
     // The consolidation pass at the end will merge any duplicate/similar silos that emerge across batches.
-    const batchPromises: Promise<{ assignments: Record<string, string>; newTopics: string[] }>[] = [];
+    const batchTasks: (() => Promise<{ assignments: Record<string, string>; newTopics: string[] }>)[] = [];
     for (let i = 0; i < totalBatches; i++) {
       const batchStart = i * BATCH_SIZE;
       const batchKws = uniqueKeywords.slice(batchStart, batchStart + BATCH_SIZE);
-      batchPromises.push(
-        classifyBatch(
+      batchTasks.push(
+        () => classifyBatchResilient(
           batchKws,
           volumeMap,
           hasVolume,
@@ -239,7 +239,7 @@ serve(async (req) => {
       );
     }
 
-    const batchResults = await Promise.all(batchPromises);
+    const batchResults = await runWithConcurrency(batchTasks, MAX_PARALLEL_BATCHES);
 
     for (const { assignments } of batchResults) {
       for (const [kw, topic] of Object.entries(assignments)) {
@@ -310,6 +310,7 @@ JSON FORMAT:
                 headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
                 body: JSON.stringify({
                   model: "google/gemini-2.5-flash",
+                  temperature: 0,
                   messages: [
                     { role: "system", content: reclassifySystem },
                     { role: "user", content: reclassifyUser },
@@ -414,7 +415,8 @@ Silos NOT mentioned in "merges" will be kept as-is.`;
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            model: "google/gemini-2.5-flash-lite",
+                  model: "google/gemini-2.5-flash-lite",
+                  temperature: 0,
             messages: [
               { role: "system", content: mergeSystem },
               { role: "user", content: `Consolidate these ${siloNames.length} silos down to at most ${MAX_SILOS}.` },
