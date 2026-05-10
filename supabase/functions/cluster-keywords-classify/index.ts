@@ -35,6 +35,26 @@ const cleanJson = (raw: string): string => {
   return s;
 };
 
+const salvageAssignments = (raw: string, batchKeywords: string[]): Record<string, string> => {
+  const validKeywords = new Set(batchKeywords.map(kw => kw.toLowerCase().trim()));
+  const assignments: Record<string, string> = {};
+  const body = raw.replace(/^```(?:json)?\s*\n?/i, "").replace(/\n?```[\s\S]*$/i, "");
+  const pairRegex = /"((?:\\.|[^"\\])+)"\s*:\s*"((?:\\.|[^"\\])*)"/g;
+  let match: RegExpExecArray | null;
+
+  while ((match = pairRegex.exec(body)) !== null) {
+    try {
+      const keyword = JSON.parse(`"${match[1]}"`).toLowerCase().trim();
+      const topic = JSON.parse(`"${match[2]}"`).trim();
+      if (validKeywords.has(keyword) && topic) assignments[keyword] = topic;
+    } catch {
+      // Ignore malformed pairs; complete missing keywords are handled by the re-classification pass.
+    }
+  }
+
+  return assignments;
+};
+
 const otherAliases = ["other", "others", "miscellaneous", "uncategorized", "general"];
 
 async function classifyBatch(
@@ -140,7 +160,13 @@ JSON FORMAT:
     parsed = JSON.parse(cleanJson(content));
   } catch {
     console.error(`Batch ${batchIndex + 1} parse failed:`, content.slice(0, 500));
-    throw new Error(`Failed to parse batch ${batchIndex + 1} results`);
+    const salvaged = salvageAssignments(content, batchKeywords);
+    if (Object.keys(salvaged).length > 0) {
+      console.warn(`Batch ${batchIndex + 1}: salvaged ${Object.keys(salvaged).length}/${batchKeywords.length} assignments from malformed JSON.`);
+      parsed = { assignments: salvaged };
+    } else {
+      throw new Error(`Failed to parse batch ${batchIndex + 1} results`);
+    }
   }
 
   const assignments = parsed.assignments || {};
