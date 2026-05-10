@@ -500,7 +500,15 @@ ${instructions}`;
 
 WORD COUNT REQUIREMENT (NON-NEGOTIABLE): The article MUST be between ${wordFloor} and ${wordCeiling} words (target: ${targetWords}). HARD CEILING: ${wordCeiling} words - going over this limit is a failure. If you are approaching ${wordCeiling} words and still have sections left, be more concise or drop lower-priority detail. If you finish all planned sections before reaching ${wordFloor} words, expand sections with more detail. Count your words as you write.
 
-🚨 TABLE REQUIREMENT (NON-NEGOTIABLE): You MUST include EXACTLY ${requiredTables} markdown comparison table${requiredTables > 1 ? 's' : ''} (1 per 600 words). Each table needs ≥3 columns and ≥4 data rows, using proper pipe syntax with a "| --- |" separator row. Spread them evenly across body H2 sections. Do NOT replace tables with bullet lists. Count your tables before finishing.`;
+🚨 TABLE REQUIREMENT (NON-NEGOTIABLE): You MUST include EXACTLY ${requiredTables} markdown comparison table${requiredTables > 1 ? 's' : ''} (1 per 600 words). Each table needs ≥3 columns and ≥4 data rows, using proper pipe syntax with a "| --- |" separator row. Spread them evenly across body H2 sections. Do NOT replace tables with bullet lists. Count your tables before finishing.${skipSources ? '' : `
+
+🚨 SOURCES REQUIREMENT (NON-NEGOTIABLE):
+- Add a "**Sources:**" line at the END of EVERY body H2 section, listing 1-2 real markdown links to authoritative sites (NHS, gov, CDC, Wikipedia, official brand sites, reputable news).
+- Format: **Sources:** [Source Title](https://real-domain.com/page)
+- Include a final "## References" section at the end of the article listing ALL sources used as a markdown bullet list of links.
+- Use ONLY real, working URLs to authoritative websites. NEVER use placeholder or made-up links.
+- Do NOT use inline numeric citations like [1], [2]. Sources go inline at section ends and in the References section only.
+- Before finishing, verify EVERY body H2 has a **Sources:** line and the ## References section is present.`}`;
 
       // Add keywords if provided
       if (keywords && Array.isArray(keywords) && keywords.length > 0) {
