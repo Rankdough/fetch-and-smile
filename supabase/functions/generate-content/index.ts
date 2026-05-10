@@ -220,22 +220,19 @@ ${formatReference ? `FORMAT REFERENCE MODE: A format reference has been provided
 
 ${migrationMode ? `TABLE RULE:
 - Use markdown tables where the source content contains list-style comparisons or product listings
-- Do NOT force tables where the source does not warrant them` : `🚨 NON-NEGOTIABLE TABLE REQUIREMENT (THIS IS A HARD RULE - FAILURE TO COMPLY = FAILED OUTPUT):
-- You MUST include EXACTLY ${requiredTables} markdown comparison table${requiredTables > 1 ? 's' : ''} in the article (1 table per 600 words of target length)
-- Target word count is ${targetWords} → ${requiredTables} table${requiredTables > 1 ? 's' : ''} REQUIRED
-- Tables MUST use proper markdown pipe syntax with a header separator row, e.g.:
+- Do NOT force tables where the source does not warrant them` : `TABLE RULE (1 table per 600 words of target length):
+- Include EXACTLY ${requiredTables} markdown comparison table${requiredTables > 1 ? 's' : ''} for ${targetWords} target words
+- Use proper pipe syntax with a header separator row, e.g.:
 
 | Feature | Option A | Option B |
 | --- | --- | --- |
 | Cost | $100 | $200 |
 | Duration | 1 hour | 2 hours |
-| Difficulty | Easy | Hard |
 
-- Each table must have at least 3 columns and at least 4 data rows (excluding header)
-- Spread tables EVENLY throughout the body H2 sections - never cluster them at the end
-- Place a table inside a body H2 section where comparison, options, costs, timeline, or specs are discussed
-- Do NOT replace tables with bullet lists. Do NOT skip them. Do NOT use HTML <table> tags - markdown only.
-- Before finishing, COUNT your tables. If you have fewer than ${requiredTables}, add more before submitting.`}
+- Each table: at least 3 columns and at least 4 data rows
+- Spread tables evenly across body H2 sections; never cluster at the end
+- Markdown only — do NOT use HTML <table> tags
+- Do NOT replace tables with bullet lists`}
 
 ${skipSources ? `SOURCE REFERENCE RULES:
 - DO NOT include any **Sources:** lines after sections
