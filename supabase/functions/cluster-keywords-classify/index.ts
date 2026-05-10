@@ -237,55 +237,54 @@ serve(async (req) => {
     const suggestedList: string[] = hasSuggested ? suggestedTopics : [];
 
     // ═══════════════════════════════════════════════
-    // BATCHED CLASSIFICATION
+    // SEQUENTIAL BATCHED CLASSIFICATION
+    // Each batch sees the silos discovered by previous batches so it reuses
+    // existing names instead of inventing parallel duplicates.
     // ═══════════════════════════════════════════════
     const totalBatches = Math.ceil(uniqueKeywords.length / BATCH_SIZE);
-    console.log(`Starting classification: ${uniqueKeywords.length} keywords in ${totalBatches} batch(es)`);
+    console.log(`Starting sequential classification: ${uniqueKeywords.length} keywords in ${totalBatches} batch(es) of up to ${BATCH_SIZE}`);
 
     const topicKeywords: Record<string, string[]> = {};
     const allAssignedSet = new Set<string>();
+    const discoveredSilos: string[] = []; // accumulated across batches
 
-    // Run batches with bounded concurrency. Smaller batches prevent truncated JSON; bounded parallelism avoids timeouts without overwhelming the AI gateway.
-    // The consolidation pass at the end will merge any duplicate/similar silos that emerge across batches.
-    const batchTasks: (() => Promise<{ assignments: Record<string, string>; newTopics: string[] }>)[] = [];
     for (let i = 0; i < totalBatches; i++) {
       const batchStart = i * BATCH_SIZE;
       const batchKws = uniqueKeywords.slice(batchStart, batchStart + BATCH_SIZE);
-      batchTasks.push(
-        () => classifyBatchResilient(
-          batchKws,
-          volumeMap,
-          hasVolume,
-          suggestedList.length > 0 ? suggestedList : null,
-          [], // no accumulated silos — batches run independently in parallel
-          LOVABLE_API_KEY,
-          i,
-          totalBatches
-        )
+
+      const { assignments } = await classifyBatchResilient(
+        batchKws,
+        volumeMap,
+        hasVolume,
+        suggestedList.length > 0 ? suggestedList : null,
+        discoveredSilos, // pass forward what's already been built
+        LOVABLE_API_KEY,
+        i,
+        totalBatches
       );
-    }
 
-    const batchResults = await runWithConcurrency(batchTasks, MAX_PARALLEL_BATCHES);
-
-    for (const { assignments } of batchResults) {
       for (const [kw, topic] of Object.entries(assignments)) {
         const t = topic.trim();
         const kwLower = kw.toLowerCase();
-        if (otherAliases.includes(t.toLowerCase().trim())) continue; // skip "Other" — handle later
-        if (!topicKeywords[t]) topicKeywords[t] = [];
+        if (otherAliases.includes(t.toLowerCase().trim())) continue;
+        if (!topicKeywords[t]) {
+          topicKeywords[t] = [];
+          if (!discoveredSilos.includes(t)) discoveredSilos.push(t);
+        }
         topicKeywords[t].push(kwLower);
         allAssignedSet.add(kwLower);
       }
+      console.log(`After batch ${i + 1}: ${discoveredSilos.length} silos accumulated, ${allAssignedSet.size} keywords assigned`);
     }
 
     // Find all unassigned keywords across all batches
     let otherKeywords = uniqueKeywords.filter(kw => !allAssignedSet.has(kw));
-    // Deduplicate
     otherKeywords = [...new Set(otherKeywords.map(k => k.toLowerCase().trim()))];
 
     const existingTopics = Object.keys(topicKeywords);
 
     console.log(`All batches done: ${existingTopics.length} topics, ${allAssignedSet.size} assigned, ${otherKeywords.length} unassigned`);
+
 
     // ═══════════════════════════════════════════════
     // RE-CLASSIFICATION PASS: Give "Other" keywords a second chance
