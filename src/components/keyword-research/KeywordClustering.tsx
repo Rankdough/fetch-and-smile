@@ -244,6 +244,27 @@ const KeywordClustering = () => {
     }, { replace: true });
   }, [activeResultId, activeSiloParam, isResultsOpen, setSearchParams]);
 
+  // Persist pre-analysis draft (project name, keywords, etc.) to localStorage
+  useEffect(() => {
+    if (activeResultId) {
+      // Once a project is saved/loaded, draft is no longer relevant
+      try { localStorage.removeItem(DRAFT_KEY); } catch {}
+      return;
+    }
+    try {
+      const draft = {
+        rawInput,
+        projectName,
+        clientTag,
+        suggestedSilos,
+        keywordsWithVolume: keywordsWithVolume.slice(0, 10000),
+      };
+      const hasContent = rawInput || projectName || clientTag || suggestedSilos || keywordsWithVolume.length > 0;
+      if (hasContent) localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+      else localStorage.removeItem(DRAFT_KEY);
+    } catch {}
+  }, [activeResultId, rawInput, projectName, clientTag, suggestedSilos, keywordsWithVolume]);
+
   // Save queue state to DB (debounced via ref)
   const saveQueueStateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const saveQueueStateToDB = useCallback((state: ContentQueueState, projectId?: string | null) => {
