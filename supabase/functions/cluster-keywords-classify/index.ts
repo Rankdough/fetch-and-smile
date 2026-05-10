@@ -298,21 +298,25 @@ serve(async (req) => {
       let totalRescued = 0;
       const currentTopics = Object.keys(topicKeywords);
 
-      const reclassifySystem = `You are an expert SEO strategist. These keywords were not properly classified in a first pass. Classify each one into the MOST RELEVANT existing silo, or into a new silo if none fit.
+      // If only a handful of stragglers remain, force them into existing silos — never create new ones.
+      const allowNewSilos = otherKeywords.length >= 10;
+      const reclassifySystem = `You are an expert SEO strategist. These keywords were not properly classified in a first pass. Classify each one into the MOST RELEVANT existing silo.
 
 EXISTING SILOS:
 ${currentTopics.map((t, idx) => `${idx + 1}. ${t}`).join("\n")}
 
 RULES:
-- Assign EVERY keyword to one of the existing silos above, OR create at most 3 new silos for genuinely distinct topics
-- Only create a new silo if a keyword truly doesn't fit any existing silo
-- Only use "Other" as an absolute last resort for keywords that genuinely have no thematic connection to anything else
-- Look at the CORE SUBJECT of each keyword
-- Numbers in brackets are search volumes — don't output them
-- Output ONLY valid JSON, no markdown fences
+- Assign EVERY keyword to one of the existing silos above. Be generous — even loose thematic overlap counts.
+${allowNewSilos
+  ? "- You may create AT MOST 1 new silo, ONLY if at least 5 keywords share a clearly distinct theme that no existing silo covers."
+  : "- DO NOT create new silos. There are too few stragglers to justify any new silo. Force every keyword into the closest existing silo."}
+- Never put a single keyword into its own silo.
+- Only use "Other" as an absolute last resort.
+- Numbers in brackets are search volumes — don't output them.
+- Output ONLY valid JSON, no markdown fences.
 
 JSON FORMAT:
-{"assignments":{"keyword1":"Existing or New Silo Name","keyword2":"Existing or New Silo Name",...}}`;
+{"assignments":{"keyword1":"Existing Silo Name","keyword2":"Existing Silo Name",...}}`;
 
       // Run re-classification with the same bounded concurrency to avoid gateway overload.
       const reclassTasks = [];
