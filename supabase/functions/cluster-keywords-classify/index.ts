@@ -6,7 +6,24 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const BATCH_SIZE = 1000;
+const BATCH_SIZE = 250;
+const MAX_PARALLEL_BATCHES = 6;
+const MIN_RETRY_BATCH_SIZE = 25;
+
+async function runWithConcurrency<T>(tasks: (() => Promise<T>)[], limit: number): Promise<T[]> {
+  const results: T[] = new Array(tasks.length);
+  let nextIndex = 0;
+
+  const workers = Array.from({ length: Math.min(limit, tasks.length) }, async () => {
+    while (nextIndex < tasks.length) {
+      const currentIndex = nextIndex++;
+      results[currentIndex] = await tasks[currentIndex]();
+    }
+  });
+
+  await Promise.all(workers);
+  return results;
+}
 
 // Parse JSON — strip markdown fences, inline comments, trailing commas
 const cleanJson = (raw: string): string => {
@@ -16,6 +33,26 @@ const cleanJson = (raw: string): string => {
   s = s.replace(/\/\/[^\n]*/g, "");
   s = s.replace(/,\s*([}\]])/g, "$1");
   return s;
+};
+
+const salvageAssignments = (raw: string, batchKeywords: string[]): Record<string, string> => {
+  const validKeywords = new Set(batchKeywords.map(kw => kw.toLowerCase().trim()));
+  const assignments: Record<string, string> = {};
+  const body = raw.replace(/^```(?:json)?\s*\n?/i, "").replace(/\n?```[\s\S]*$/i, "");
+  const pairRegex = /"((?:\\.|[^"\\])+)"\s*:\s*"((?:\\.|[^"\\])*)"/g;
+  let match: RegExpExecArray | null;
+
+  while ((match = pairRegex.exec(body)) !== null) {
+    try {
+      const keyword = JSON.parse(`"${match[1]}"`).toLowerCase().trim();
+      const topic = JSON.parse(`"${match[2]}"`).trim();
+      if (validKeywords.has(keyword) && topic) assignments[keyword] = topic;
+    } catch {
+      // Ignore malformed pairs; complete missing keywords are handled by the re-classification pass.
+    }
+  }
+
+  return assignments;
 };
 
 const otherAliases = ["other", "others", "miscellaneous", "uncategorized", "general"];
@@ -99,6 +136,7 @@ JSON FORMAT:
     },
     body: JSON.stringify({
       model: "google/gemini-2.5-flash",
+      temperature: 0,
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
@@ -122,7 +160,13 @@ JSON FORMAT:
     parsed = JSON.parse(cleanJson(content));
   } catch {
     console.error(`Batch ${batchIndex + 1} parse failed:`, content.slice(0, 500));
-    throw new Error(`Failed to parse batch ${batchIndex + 1} results`);
+    const salvaged = salvageAssignments(content, batchKeywords);
+    if (Object.keys(salvaged).length > 0) {
+      console.warn(`Batch ${batchIndex + 1}: salvaged ${Object.keys(salvaged).length}/${batchKeywords.length} assignments from malformed JSON.`);
+      parsed = { assignments: salvaged };
+    } else {
+      throw new Error(`Failed to parse batch ${batchIndex + 1} results`);
+    }
   }
 
   const assignments = parsed.assignments || {};
@@ -135,6 +179,40 @@ JSON FORMAT:
   console.log(`Batch ${batchIndex + 1} done: ${assignedCount}/${batchKeywords.length} assigned, ${newTopics.length} topics`);
 
   return { assignments, newTopics };
+}
+
+async function classifyBatchResilient(
+  batchKeywords: string[],
+  volumeMap: Record<string, number> | null,
+  hasVolume: boolean,
+  suggestedTopics: string[] | null,
+  existingSilos: string[],
+  apiKey: string,
+  batchIndex: number,
+  totalBatches: number
+): Promise<{ assignments: Record<string, string>; newTopics: string[] }> {
+  try {
+    return await classifyBatch(batchKeywords, volumeMap, hasVolume, suggestedTopics, existingSilos, apiKey, batchIndex, totalBatches);
+  } catch (err: any) {
+    if (err?.status === 429 || err?.status === 402) throw err;
+
+    if (batchKeywords.length <= MIN_RETRY_BATCH_SIZE) {
+      console.error(`Batch ${batchIndex + 1} failed at minimum retry size; sending ${batchKeywords.length} keywords to Other instead of aborting.`);
+      return { assignments: {}, newTopics: [] };
+    }
+
+    const midpoint = Math.ceil(batchKeywords.length / 2);
+    console.warn(`Batch ${batchIndex + 1} failed; retrying as two smaller batches (${midpoint} + ${batchKeywords.length - midpoint}).`);
+    const [left, right] = await Promise.all([
+      classifyBatchResilient(batchKeywords.slice(0, midpoint), volumeMap, hasVolume, suggestedTopics, existingSilos, apiKey, batchIndex, totalBatches),
+      classifyBatchResilient(batchKeywords.slice(midpoint), volumeMap, hasVolume, suggestedTopics, existingSilos, apiKey, batchIndex, totalBatches),
+    ]);
+
+    return {
+      assignments: { ...left.assignments, ...right.assignments },
+      newTopics: [...new Set([...left.newTopics, ...right.newTopics])],
+    };
+  }
 }
 
 serve(async (req) => {
@@ -167,14 +245,14 @@ serve(async (req) => {
     const topicKeywords: Record<string, string[]> = {};
     const allAssignedSet = new Set<string>();
 
-    // Run all batches in PARALLEL — sequential execution exceeds edge function timeout for large keyword sets.
+    // Run batches with bounded concurrency. Smaller batches prevent truncated JSON; bounded parallelism avoids timeouts without overwhelming the AI gateway.
     // The consolidation pass at the end will merge any duplicate/similar silos that emerge across batches.
-    const batchPromises: Promise<{ assignments: Record<string, string>; newTopics: string[] }>[] = [];
+    const batchTasks: (() => Promise<{ assignments: Record<string, string>; newTopics: string[] }>)[] = [];
     for (let i = 0; i < totalBatches; i++) {
       const batchStart = i * BATCH_SIZE;
       const batchKws = uniqueKeywords.slice(batchStart, batchStart + BATCH_SIZE);
-      batchPromises.push(
-        classifyBatch(
+      batchTasks.push(
+        () => classifyBatchResilient(
           batchKws,
           volumeMap,
           hasVolume,
@@ -187,7 +265,7 @@ serve(async (req) => {
       );
     }
 
-    const batchResults = await Promise.all(batchPromises);
+    const batchResults = await runWithConcurrency(batchTasks, MAX_PARALLEL_BATCHES);
 
     for (const { assignments } of batchResults) {
       for (const [kw, topic] of Object.entries(assignments)) {
@@ -237,8 +315,8 @@ RULES:
 JSON FORMAT:
 {"assignments":{"keyword1":"Existing or New Silo Name","keyword2":"Existing or New Silo Name",...}}`;
 
-      // Run all re-classification batches in PARALLEL
-      const reclassPromises = [];
+      // Run re-classification with the same bounded concurrency to avoid gateway overload.
+      const reclassTasks = [];
       for (let i = 0; i < reclassBatches; i++) {
         const batchStart = i * BATCH_SIZE;
         const batchKws = otherKeywords.slice(batchStart, batchStart + BATCH_SIZE);
@@ -250,14 +328,15 @@ JSON FORMAT:
 
         const reclassifyUser = `Classify these ${batchKws.length} keywords:\n\n${otherKwLines}`;
 
-        reclassPromises.push(
-          (async () => {
+        reclassTasks.push(
+          async () => {
             try {
               const reclassifyResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
                 method: "POST",
                 headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
                 body: JSON.stringify({
                   model: "google/gemini-2.5-flash",
+                  temperature: 0,
                   messages: [
                     { role: "system", content: reclassifySystem },
                     { role: "user", content: reclassifyUser },
@@ -282,11 +361,11 @@ JSON FORMAT:
               console.error(`Re-classify batch ${i + 1} error (non-fatal):`, reclassifyErr);
               return { batchKws, assignments: {} as Record<string, string>, failed: true };
             }
-          })()
+          }
         );
       }
 
-      const reclassResults = await Promise.all(reclassPromises);
+      const reclassResults = await runWithConcurrency(reclassTasks, MAX_PARALLEL_BATCHES);
       for (const { batchKws, assignments: reAssignments, failed } of reclassResults) {
         if (failed) {
           stillOther.push(...batchKws);
@@ -362,7 +441,8 @@ Silos NOT mentioned in "merges" will be kept as-is.`;
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            model: "google/gemini-2.5-flash-lite",
+                  model: "google/gemini-2.5-flash-lite",
+                  temperature: 0,
             messages: [
               { role: "system", content: mergeSystem },
               { role: "user", content: `Consolidate these ${siloNames.length} silos down to at most ${MAX_SILOS}.` },
