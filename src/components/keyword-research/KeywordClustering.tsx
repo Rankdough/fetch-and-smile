@@ -185,9 +185,17 @@ const KeywordClustering = () => {
   const [keywordSearchQuery, setKeywordSearchQuery] = useState("");
   const [favoritedClusters, setFavoritedClusters] = useState<Set<string>>(new Set());
   const [demotedClusters, setDemotedClusters] = useState<Set<string>>(new Set());
-  const [rawInput, setRawInput] = useState("");
-  const [projectName, setProjectName] = useState("");
-  const [clientTag, setClientTag] = useState("");
+  const DRAFT_KEY = "kw-clustering-draft-v1";
+  const loadDraft = (): any => {
+    try {
+      const raw = localStorage.getItem(DRAFT_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch { return null; }
+  };
+  const initialDraft = typeof window !== "undefined" && !searchParams.get("project") ? loadDraft() : null;
+  const [rawInput, setRawInput] = useState<string>(initialDraft?.rawInput ?? "");
+  const [projectName, setProjectName] = useState<string>(initialDraft?.projectName ?? "");
+  const [clientTag, setClientTag] = useState<string>(initialDraft?.clientTag ?? "");
   const [clientTagFilter, setClientTagFilter] = useState<string | null>(null);
   const [suggestedSilos, setSuggestedSilos] = useState("");
   const [savedResults, setSavedResults] = useState<SavedClustering[]>([]);
