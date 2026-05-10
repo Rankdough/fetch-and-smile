@@ -166,24 +166,30 @@ serve(async (req) => {
 
     const topicKeywords: Record<string, string[]> = {};
     const allAssignedSet = new Set<string>();
-    let accumulatedSilos: string[] = [];
 
+    // Run all batches in PARALLEL — sequential execution exceeds edge function timeout for large keyword sets.
+    // The consolidation pass at the end will merge any duplicate/similar silos that emerge across batches.
+    const batchPromises: Promise<{ assignments: Record<string, string>; newTopics: string[] }>[] = [];
     for (let i = 0; i < totalBatches; i++) {
       const batchStart = i * BATCH_SIZE;
       const batchKws = uniqueKeywords.slice(batchStart, batchStart + BATCH_SIZE);
-
-      const { assignments, newTopics } = await classifyBatch(
-        batchKws,
-        volumeMap,
-        hasVolume,
-        suggestedList.length > 0 ? suggestedList : null,
-        accumulatedSilos,
-        LOVABLE_API_KEY,
-        i,
-        totalBatches
+      batchPromises.push(
+        classifyBatch(
+          batchKws,
+          volumeMap,
+          hasVolume,
+          suggestedList.length > 0 ? suggestedList : null,
+          [], // no accumulated silos — batches run independently in parallel
+          LOVABLE_API_KEY,
+          i,
+          totalBatches
+        )
       );
+    }
 
-      // Merge assignments into topicKeywords
+    const batchResults = await Promise.all(batchPromises);
+
+    for (const { assignments } of batchResults) {
       for (const [kw, topic] of Object.entries(assignments)) {
         const t = topic.trim();
         const kwLower = kw.toLowerCase();
@@ -192,11 +198,6 @@ serve(async (req) => {
         topicKeywords[t].push(kwLower);
         allAssignedSet.add(kwLower);
       }
-
-      // Update accumulated silos for next batch
-      accumulatedSilos = [...new Set([...accumulatedSilos, ...newTopics])].filter(
-        t => !otherAliases.includes(t.toLowerCase().trim())
-      );
     }
 
     // Find all unassigned keywords across all batches
