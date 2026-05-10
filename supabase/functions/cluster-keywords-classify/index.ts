@@ -7,7 +7,7 @@ const corsHeaders = {
 };
 
 const BATCH_SIZE = 250;
-const MAX_PARALLEL_BATCHES = 4;
+const MAX_PARALLEL_BATCHES = 6;
 const MIN_RETRY_BATCH_SIZE = 25;
 
 async function runWithConcurrency<T>(tasks: (() => Promise<T>)[], limit: number): Promise<T[]> {
