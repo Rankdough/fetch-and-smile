@@ -249,7 +249,7 @@ const Articles = () => {
   const grouped = useMemo(() => {
     const map = new Map<string, SavedArticle[]>();
     for (const a of articles) {
-      const brand = brandFromUrl(a.cta_url);
+      const brand = brandOf(a);
       if (!map.has(brand)) map.set(brand, []);
       map.get(brand)!.push(a);
     }
