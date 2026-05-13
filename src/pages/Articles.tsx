@@ -64,6 +64,17 @@ interface SavedArticle {
 }
 
 const UNASSIGNED = "Unassigned";
+const BRAND_OVERRIDES_KEY = "seo-generator-articleBrandOverrides";
+
+const loadOverrides = (): Record<string, string> => {
+  try {
+    return JSON.parse(localStorage.getItem(BRAND_OVERRIDES_KEY) || "{}");
+  } catch {
+    return {};
+  }
+};
+
+const titleCase = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 const brandFromUrl = (url: string | null | undefined): string => {
   if (!url || !url.trim()) return UNASSIGNED;
@@ -71,9 +82,8 @@ const brandFromUrl = (url: string | null | undefined): string => {
     const u = new URL(url.trim().startsWith("http") ? url.trim() : `https://${url.trim()}`);
     const host = u.hostname.replace(/^www\./i, "");
     const parts = host.split(".");
-    // take the registrable label (e.g. meet5 from meet5.com, shopify from shop.shopify.com)
     const label = parts.length >= 2 ? parts[parts.length - 2] : host;
-    return label.charAt(0).toUpperCase() + label.slice(1);
+    return titleCase(label);
   } catch {
     return UNASSIGNED;
   }
