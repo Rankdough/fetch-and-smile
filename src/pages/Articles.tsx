@@ -1,9 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -16,6 +15,9 @@ import {
   Hash,
   Tag,
   Eye,
+  ChevronDown,
+  ChevronRight,
+  Folder,
 } from "lucide-react";
 import {
   AlertDialog,
@@ -58,11 +60,29 @@ interface SavedArticle {
   updated_at: string;
 }
 
+const UNASSIGNED = "Unassigned";
+
+const brandFromUrl = (url: string | null | undefined): string => {
+  if (!url || !url.trim()) return UNASSIGNED;
+  try {
+    const u = new URL(url.trim().startsWith("http") ? url.trim() : `https://${url.trim()}`);
+    const host = u.hostname.replace(/^www\./i, "");
+    const parts = host.split(".");
+    // take the registrable label (e.g. meet5 from meet5.com, shopify from shop.shopify.com)
+    const label = parts.length >= 2 ? parts[parts.length - 2] : host;
+    return label.charAt(0).toUpperCase() + label.slice(1);
+  } catch {
+    return UNASSIGNED;
+  }
+};
+
 const Articles = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [articles, setArticles] = useState<SavedArticle[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [activeBrand, setActiveBrand] = useState<string | "ALL">("ALL");
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     fetchArticles();
@@ -126,7 +146,6 @@ const Articles = () => {
     }));
 
     if (article.value_promise) {
-      // Store as claims array (first slot) for new format compatibility
       const claims = [article.value_promise, "", "", "", ""];
       localStorage.setItem("seo-generator-valuePromiseClaims", JSON.stringify(claims));
     } else {
@@ -182,48 +201,51 @@ const Articles = () => {
 
   const handleLoad = (article: SavedArticle) => {
     restoreSettings(article);
-    // Remove any pending rerun flag
     localStorage.removeItem("seo-generator-autoRerun");
-
-    toast({
-      title: "Article loaded",
-      description: `"${article.title}" loaded with all settings. Make any changes and regenerate when ready.`,
-    });
-
+    toast({ title: "Article loaded", description: `"${article.title}" loaded with all settings.` });
     window.location.href = "/";
   };
 
   const handleRerun = (article: SavedArticle) => {
     restoreSettings(article);
-    // Set flag so the generator auto-triggers generation on load
     localStorage.setItem("seo-generator-autoRerun", "true");
-
-    toast({
-      title: "Rerunning article",
-      description: `"${article.title}" will regenerate with current settings.`,
-    });
-
+    toast({ title: "Rerunning article", description: `"${article.title}" will regenerate.` });
     window.location.href = "/";
   };
 
-  const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString("en-GB", {
-      day: "numeric",
-      month: "short",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
+  const formatDate = (dateStr: string) =>
+    new Date(dateStr).toLocaleDateString("en-GB", {
+      day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit",
     });
-  };
 
-  const getWordCount = (content: string) => {
-    return content.split(/\s+/).filter(Boolean).length;
-  };
+  const getWordCount = (content: string) => content.split(/\s+/).filter(Boolean).length;
+
+  // Group by brand
+  const grouped = useMemo(() => {
+    const map = new Map<string, SavedArticle[]>();
+    for (const a of articles) {
+      const brand = brandFromUrl(a.cta_url);
+      if (!map.has(brand)) map.set(brand, []);
+      map.get(brand)!.push(a);
+    }
+    // Sort: brands by count desc, Unassigned last
+    return Array.from(map.entries()).sort((a, b) => {
+      if (a[0] === UNASSIGNED) return 1;
+      if (b[0] === UNASSIGNED) return -1;
+      return b[1].length - a[1].length;
+    });
+  }, [articles]);
+
+  const visibleGroups = activeBrand === "ALL" ? grouped : grouped.filter(([b]) => b === activeBrand);
+
+  const toggle = (brand: string) =>
+    setExpanded((prev) => ({ ...prev, [brand]: !(prev[brand] ?? true) }));
+
+  const isOpen = (brand: string) => expanded[brand] ?? true;
 
   return (
     <div className="min-h-screen bg-background">
       <div className="max-w-4xl mx-auto p-6 space-y-6">
-        {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Button variant="ghost" size="icon" onClick={() => navigate("/")}>
@@ -232,13 +254,35 @@ const Articles = () => {
             <div>
               <h1 className="text-2xl font-bold">Saved Articles</h1>
               <p className="text-sm text-muted-foreground">
-                {articles.length} article{articles.length !== 1 ? "s" : ""} saved
+                {articles.length} article{articles.length !== 1 ? "s" : ""} saved · {grouped.length} brand{grouped.length !== 1 ? "s" : ""}
               </p>
             </div>
           </div>
         </div>
 
-        {/* Articles List */}
+        {/* Brand filter chips */}
+        {!isLoading && articles.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            <Badge
+              variant={activeBrand === "ALL" ? "default" : "outline"}
+              className="cursor-pointer"
+              onClick={() => setActiveBrand("ALL")}
+            >
+              All ({articles.length})
+            </Badge>
+            {grouped.map(([brand, items]) => (
+              <Badge
+                key={brand}
+                variant={activeBrand === brand ? "default" : "outline"}
+                className="cursor-pointer"
+                onClick={() => setActiveBrand(brand)}
+              >
+                {brand} ({items.length})
+              </Badge>
+            ))}
+          </div>
+        )}
+
         {isLoading ? (
           <div className="flex items-center justify-center py-16">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -250,98 +294,108 @@ const Articles = () => {
             <p className="text-muted-foreground mb-4">
               Generate an article and click "Save Article" to store it here
             </p>
-            <Button onClick={() => navigate("/")}>
-              Go to Generator
-            </Button>
+            <Button onClick={() => navigate("/")}>Go to Generator</Button>
           </Card>
         ) : (
-          <div className="space-y-3">
-            {articles.map((article) => (
-              <Card key={article.id} className="p-4 hover:shadow-md transition-shadow">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1 min-w-0 space-y-2">
-                    <h3 className="font-semibold text-lg truncate">{article.title}</h3>
-                    <p className="text-sm text-muted-foreground truncate">
-                      Topic: {article.topic}
-                    </p>
-                    
-                    {/* Metadata badges */}
-                    <div className="flex flex-wrap gap-1.5">
-                      <Badge variant="secondary" className="text-xs">
-                        <Calendar className="h-3 w-3 mr-1" />
-                        {formatDate(article.created_at)}
-                      </Badge>
-                      <Badge variant="secondary" className="text-xs">
-                        <Hash className="h-3 w-3 mr-1" />
-                        {article.word_count || getWordCount(article.generated_content)} words
-                      </Badge>
-                      {article.keywords && article.keywords.length > 0 && (
-                        <Badge variant="outline" className="text-xs">
-                          <Tag className="h-3 w-3 mr-1" />
-                          {article.keywords.slice(0, 3).join(", ")}
-                          {article.keywords.length > 3 ? ` +${article.keywords.length - 3}` : ""}
-                        </Badge>
-                      )}
-                      {article.tone_profile_id && (
-                        <Badge variant="outline" className="text-xs">Tone applied</Badge>
-                      )}
-                      {article.gap_analysis && (
-                        <Badge variant="outline" className="text-xs">Gap analysis</Badge>
-                      )}
-                    </div>
+          <div className="space-y-6">
+            {visibleGroups.map(([brand, items]) => (
+              <div key={brand} className="space-y-2">
+                <button
+                  onClick={() => toggle(brand)}
+                  className="w-full flex items-center gap-2 px-3 py-2 bg-muted/50 hover:bg-muted rounded-md transition-colors"
+                >
+                  {isOpen(brand) ? (
+                    <ChevronDown className="h-4 w-4" />
+                  ) : (
+                    <ChevronRight className="h-4 w-4" />
+                  )}
+                  <Folder className="h-4 w-4 text-primary" />
+                  <span className="font-semibold">{brand}</span>
+                  <Badge variant="secondary" className="ml-auto">
+                    {items.length} article{items.length !== 1 ? "s" : ""}
+                  </Badge>
+                </button>
 
-                    {/* Content preview */}
-                    <p className="text-xs text-muted-foreground line-clamp-2">
-                      {article.generated_content
-                        .replace(/[#*_\[\]()]/g, "")
-                        .replace(/\n+/g, " ")
-                        .slice(0, 200)}
-                      ...
-                    </p>
-                  </div>
+                {isOpen(brand) && (
+                  <div className="space-y-3 pl-2">
+                    {items.map((article) => (
+                      <Card key={article.id} className="p-4 hover:shadow-md transition-shadow">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex-1 min-w-0 space-y-2">
+                            <h3 className="font-semibold text-lg truncate">{article.title}</h3>
+                            <p className="text-sm text-muted-foreground truncate">
+                              Topic: {article.topic}
+                            </p>
+                            <div className="flex flex-wrap gap-1.5">
+                              <Badge variant="secondary" className="text-xs">
+                                <Calendar className="h-3 w-3 mr-1" />
+                                {formatDate(article.created_at)}
+                              </Badge>
+                              <Badge variant="secondary" className="text-xs">
+                                <Hash className="h-3 w-3 mr-1" />
+                                {article.word_count || getWordCount(article.generated_content)} words
+                              </Badge>
+                              {article.keywords && article.keywords.length > 0 && (
+                                <Badge variant="outline" className="text-xs">
+                                  <Tag className="h-3 w-3 mr-1" />
+                                  {article.keywords.slice(0, 3).join(", ")}
+                                  {article.keywords.length > 3 ? ` +${article.keywords.length - 3}` : ""}
+                                </Badge>
+                              )}
+                              {article.tone_profile_id && (
+                                <Badge variant="outline" className="text-xs">Tone applied</Badge>
+                              )}
+                              {article.gap_analysis && (
+                                <Badge variant="outline" className="text-xs">Gap analysis</Badge>
+                              )}
+                            </div>
+                            <p className="text-xs text-muted-foreground line-clamp-2">
+                              {article.generated_content
+                                .replace(/[#*_\[\]()]/g, "")
+                                .replace(/\n+/g, " ")
+                                .slice(0, 200)}
+                              ...
+                            </p>
+                          </div>
 
-                  {/* Actions */}
-                  <div className="flex flex-col gap-2 flex-shrink-0">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleLoad(article)}
-                    >
-                      <Eye className="h-3.5 w-3.5 mr-1" />
-                      Load
-                    </Button>
-                    <Button
-                      size="sm"
-                      onClick={() => handleRerun(article)}
-                    >
-                      <RotateCcw className="h-3.5 w-3.5 mr-1" />
-                      Rerun
-                    </Button>
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-destructive">
-                          <Trash2 className="h-3.5 w-3.5 mr-1" />
-                          Delete
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Delete article?</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            This will permanently delete "{article.title}" and all its saved settings.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction onClick={() => handleDelete(article.id, article.title)}>
-                            Delete
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
+                          <div className="flex flex-col gap-2 flex-shrink-0">
+                            <Button size="sm" variant="outline" onClick={() => handleLoad(article)}>
+                              <Eye className="h-3.5 w-3.5 mr-1" />
+                              Load
+                            </Button>
+                            <Button size="sm" onClick={() => handleRerun(article)}>
+                              <RotateCcw className="h-3.5 w-3.5 mr-1" />
+                              Rerun
+                            </Button>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-destructive">
+                                  <Trash2 className="h-3.5 w-3.5 mr-1" />
+                                  Delete
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Delete article?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    This will permanently delete "{article.title}" and all its saved settings.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                  <AlertDialogAction onClick={() => handleDelete(article.id, article.title)}>
+                                    Delete
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </div>
+                        </div>
+                      </Card>
+                    ))}
                   </div>
-                </div>
-              </Card>
+                )}
+              </div>
             ))}
           </div>
         )}
