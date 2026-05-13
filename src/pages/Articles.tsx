@@ -259,7 +259,12 @@ const Articles = () => {
       if (b[0] === UNASSIGNED) return -1;
       return b[1].length - a[1].length;
     });
-  }, [articles]);
+  }, [articles, overrides]);
+
+  const allBrands = useMemo(
+    () => Array.from(new Set(grouped.map(([b]) => b).filter((b) => b !== UNASSIGNED))).sort(),
+    [grouped]
+  );
 
   const visibleGroups = activeBrand === "ALL" ? grouped : grouped.filter(([b]) => b === activeBrand);
 
