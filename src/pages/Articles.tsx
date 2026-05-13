@@ -96,6 +96,18 @@ const Articles = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [activeBrand, setActiveBrand] = useState<string | "ALL">("ALL");
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [overrides, setOverrides] = useState<Record<string, string>>(() => loadOverrides());
+
+  const setBrandOverride = (id: string, brand: string) => {
+    const next = { ...overrides };
+    const trimmed = brand.trim();
+    if (!trimmed) delete next[id];
+    else next[id] = titleCase(trimmed);
+    setOverrides(next);
+    localStorage.setItem(BRAND_OVERRIDES_KEY, JSON.stringify(next));
+  };
+
+  const brandOf = (a: SavedArticle) => overrides[a.id] || brandFromUrl(a.cta_url);
 
   useEffect(() => {
     fetchArticles();
