@@ -18,7 +18,10 @@ import {
   ChevronDown,
   ChevronRight,
   Folder,
+  Pencil,
 } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Input } from "@/components/ui/input";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -61,6 +64,17 @@ interface SavedArticle {
 }
 
 const UNASSIGNED = "Unassigned";
+const BRAND_OVERRIDES_KEY = "seo-generator-articleBrandOverrides";
+
+const loadOverrides = (): Record<string, string> => {
+  try {
+    return JSON.parse(localStorage.getItem(BRAND_OVERRIDES_KEY) || "{}");
+  } catch {
+    return {};
+  }
+};
+
+const titleCase = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 const brandFromUrl = (url: string | null | undefined): string => {
   if (!url || !url.trim()) return UNASSIGNED;
@@ -68,9 +82,8 @@ const brandFromUrl = (url: string | null | undefined): string => {
     const u = new URL(url.trim().startsWith("http") ? url.trim() : `https://${url.trim()}`);
     const host = u.hostname.replace(/^www\./i, "");
     const parts = host.split(".");
-    // take the registrable label (e.g. meet5 from meet5.com, shopify from shop.shopify.com)
     const label = parts.length >= 2 ? parts[parts.length - 2] : host;
-    return label.charAt(0).toUpperCase() + label.slice(1);
+    return titleCase(label);
   } catch {
     return UNASSIGNED;
   }
@@ -83,6 +96,18 @@ const Articles = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [activeBrand, setActiveBrand] = useState<string | "ALL">("ALL");
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [overrides, setOverrides] = useState<Record<string, string>>(() => loadOverrides());
+
+  const setBrandOverride = (id: string, brand: string) => {
+    const next = { ...overrides };
+    const trimmed = brand.trim();
+    if (!trimmed) delete next[id];
+    else next[id] = titleCase(trimmed);
+    setOverrides(next);
+    localStorage.setItem(BRAND_OVERRIDES_KEY, JSON.stringify(next));
+  };
+
+  const brandOf = (a: SavedArticle) => overrides[a.id] || brandFromUrl(a.cta_url);
 
   useEffect(() => {
     fetchArticles();
@@ -224,7 +249,7 @@ const Articles = () => {
   const grouped = useMemo(() => {
     const map = new Map<string, SavedArticle[]>();
     for (const a of articles) {
-      const brand = brandFromUrl(a.cta_url);
+      const brand = brandOf(a);
       if (!map.has(brand)) map.set(brand, []);
       map.get(brand)!.push(a);
     }
@@ -234,7 +259,12 @@ const Articles = () => {
       if (b[0] === UNASSIGNED) return -1;
       return b[1].length - a[1].length;
     });
-  }, [articles]);
+  }, [articles, overrides]);
+
+  const allBrands = useMemo(
+    () => Array.from(new Set(grouped.map(([b]) => b).filter((b) => b !== UNASSIGNED))).sort(),
+    [grouped]
+  );
 
   const visibleGroups = activeBrand === "ALL" ? grouped : grouped.filter(([b]) => b === activeBrand);
 
@@ -348,6 +378,54 @@ const Articles = () => {
                               {article.gap_analysis && (
                                 <Badge variant="outline" className="text-xs">Gap analysis</Badge>
                               )}
+                              <Popover>
+                                <PopoverTrigger asChild>
+                                  <Badge
+                                    variant="outline"
+                                    className="text-xs cursor-pointer hover:bg-accent"
+                                  >
+                                    <Pencil className="h-3 w-3 mr-1" />
+                                    Brand: {brandOf(article)}
+                                  </Badge>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-64 space-y-2">
+                                  <p className="text-xs font-medium">Assign brand</p>
+                                  {allBrands.length > 0 && (
+                                    <div className="flex flex-wrap gap-1">
+                                      {allBrands.map((b) => (
+                                        <Badge
+                                          key={b}
+                                          variant="secondary"
+                                          className="cursor-pointer"
+                                          onClick={() => setBrandOverride(article.id, b)}
+                                        >
+                                          {b}
+                                        </Badge>
+                                      ))}
+                                    </div>
+                                  )}
+                                  <Input
+                                    placeholder="New brand name"
+                                    defaultValue={overrides[article.id] || ""}
+                                    onKeyDown={(e) => {
+                                      if (e.key === "Enter") {
+                                        setBrandOverride(article.id, (e.target as HTMLInputElement).value);
+                                      }
+                                    }}
+                                    className="h-8 text-xs"
+                                  />
+                                  {overrides[article.id] && (
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      className="w-full h-7 text-xs"
+                                      onClick={() => setBrandOverride(article.id, "")}
+                                    >
+                                      Clear override
+                                    </Button>
+                                  )}
+                                </PopoverContent>
+                              </Popover>
                             </div>
                             <p className="text-xs text-muted-foreground line-clamp-2">
                               {article.generated_content
