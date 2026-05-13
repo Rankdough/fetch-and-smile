@@ -378,6 +378,54 @@ const Articles = () => {
                               {article.gap_analysis && (
                                 <Badge variant="outline" className="text-xs">Gap analysis</Badge>
                               )}
+                              <Popover>
+                                <PopoverTrigger asChild>
+                                  <Badge
+                                    variant="outline"
+                                    className="text-xs cursor-pointer hover:bg-accent"
+                                  >
+                                    <Pencil className="h-3 w-3 mr-1" />
+                                    Brand: {brandOf(article)}
+                                  </Badge>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-64 space-y-2">
+                                  <p className="text-xs font-medium">Assign brand</p>
+                                  {allBrands.length > 0 && (
+                                    <div className="flex flex-wrap gap-1">
+                                      {allBrands.map((b) => (
+                                        <Badge
+                                          key={b}
+                                          variant="secondary"
+                                          className="cursor-pointer"
+                                          onClick={() => setBrandOverride(article.id, b)}
+                                        >
+                                          {b}
+                                        </Badge>
+                                      ))}
+                                    </div>
+                                  )}
+                                  <Input
+                                    placeholder="New brand name"
+                                    defaultValue={overrides[article.id] || ""}
+                                    onKeyDown={(e) => {
+                                      if (e.key === "Enter") {
+                                        setBrandOverride(article.id, (e.target as HTMLInputElement).value);
+                                      }
+                                    }}
+                                    className="h-8 text-xs"
+                                  />
+                                  {overrides[article.id] && (
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      className="w-full h-7 text-xs"
+                                      onClick={() => setBrandOverride(article.id, "")}
+                                    >
+                                      Clear override
+                                    </Button>
+                                  )}
+                                </PopoverContent>
+                              </Popover>
                             </div>
                             <p className="text-xs text-muted-foreground line-clamp-2">
                               {article.generated_content
