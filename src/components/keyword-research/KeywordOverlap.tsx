@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import * as XLSX from "xlsx";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -15,6 +15,7 @@ interface LoadedFile {
   fileName: string;
   workbook: XLSX.WorkBook;
   sheetNames: string[];
+  data: ArrayBuffer;
 }
 
 interface SidePick {
@@ -24,21 +25,102 @@ interface SidePick {
   rows: Record<string, any>[];
 }
 
+type Mode = "two-files" | "one-file";
+type StoredFileKey = "two-a" | "two-b" | "one";
+
+interface PersistedPick {
+  fileName: string;
+  sheet: string;
+  keywordCol: string;
+}
+
+interface PersistedKeywordOverlapState {
+  version: 1;
+  mode: Mode;
+  twoFiles: {
+    a: PersistedPick | null;
+    b: PersistedPick | null;
+  };
+  oneFile: {
+    fileName: string;
+    sideA: { sheet: string; keywordCol: string };
+    sideB: { sheet: string; keywordCol: string };
+  } | null;
+}
+
+const STORAGE_META_KEY = "keyword-overlap-persisted-state-v1";
+const STORAGE_DB_NAME = "keyword-overlap-files";
+const STORAGE_DB_STORE = "uploads";
+
+function loadWorkbookFromBuffer(fileName: string, buffer: ArrayBuffer): LoadedFile {
+  const workbook = XLSX.read(new Uint8Array(buffer), { type: "array" });
+  return { fileName, workbook, sheetNames: workbook.SheetNames, data: buffer };
+}
+
 function loadFile(file: File): Promise<LoadedFile> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onerror = () => reject(reader.error);
     reader.onload = (e) => {
       try {
-        const data = new Uint8Array(e.target?.result as ArrayBuffer);
-        const wb = XLSX.read(data, { type: "array" });
-        resolve({ fileName: file.name, workbook: wb, sheetNames: wb.SheetNames });
+        resolve(loadWorkbookFromBuffer(file.name, e.target?.result as ArrayBuffer));
       } catch (err) {
         reject(err);
       }
     };
     reader.readAsArrayBuffer(file);
   });
+}
+
+function openKeywordOverlapDb(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    if (typeof indexedDB === "undefined") {
+      reject(new Error("Browser storage is unavailable."));
+      return;
+    }
+    const request = indexedDB.open(STORAGE_DB_NAME, 1);
+    request.onupgradeneeded = () => {
+      if (!request.result.objectStoreNames.contains(STORAGE_DB_STORE)) {
+        request.result.createObjectStore(STORAGE_DB_STORE);
+      }
+    };
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve(request.result);
+  });
+}
+
+async function putStoredFile(key: StoredFileKey, data: ArrayBuffer) {
+  const db = await openKeywordOverlapDb();
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(STORAGE_DB_STORE, "readwrite");
+    tx.objectStore(STORAGE_DB_STORE).put(data, key);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+  db.close();
+}
+
+async function getStoredFile(key: StoredFileKey): Promise<ArrayBuffer | null> {
+  const db = await openKeywordOverlapDb();
+  const value = await new Promise<ArrayBuffer | null>((resolve, reject) => {
+    const tx = db.transaction(STORAGE_DB_STORE, "readonly");
+    const request = tx.objectStore(STORAGE_DB_STORE).get(key);
+    request.onsuccess = () => resolve((request.result as ArrayBuffer | undefined) ?? null);
+    request.onerror = () => reject(request.error);
+  });
+  db.close();
+  return value;
+}
+
+async function deleteStoredFile(key: StoredFileKey) {
+  const db = await openKeywordOverlapDb();
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(STORAGE_DB_STORE, "readwrite");
+    tx.objectStore(STORAGE_DB_STORE).delete(key);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+  db.close();
 }
 
 function pickFromSheet(wb: XLSX.WorkBook, sheet: string): SidePick {
@@ -56,8 +138,6 @@ function pickFromSheet(wb: XLSX.WorkBook, sheet: string): SidePick {
 }
 
 const norm = (v: any) => String(v ?? "").trim().toLowerCase().replace(/\s+/g, " ");
-
-type Mode = "two-files" | "one-file";
 
 const KeywordOverlap = () => {
   const { toast } = useToast();
