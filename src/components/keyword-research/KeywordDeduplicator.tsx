@@ -598,8 +598,20 @@ const KeywordDeduplicator = () => {
                   return !consumedByAI.has(k.keyword.toLowerCase());
                 });
 
-                const allKeywords = [...filteredKeywords, ...event.aiMergedKeywords]
+                // Filter out AI-merged groups that touch the reference (File B) set.
+                const refSetLocal = new Set(referenceKeywords.map(k => k.keyword.toLowerCase()));
+                const hasRef = refSetLocal.size > 0;
+                const aiMerged = hasRef
+                  ? (event.aiMergedKeywords as DedupKeyword[]).filter(k => !groupTouchesReference(k, refSetLocal))
+                  : (event.aiMergedKeywords as DedupKeyword[]);
+                const aiRefRemoved = hasRef ? event.aiMergedKeywords.length - aiMerged.length : 0;
+
+                const allKeywords = [...filteredKeywords, ...aiMerged]
                   .sort((a: DedupKeyword, b: DedupKeyword) => b.volume - a.volume);
+
+                if (hasRef && aiRefRemoved > 0) {
+                  setReferenceRemovedCount(c => c + aiRefRemoved);
+                }
 
                 return {
                   ...prev,
