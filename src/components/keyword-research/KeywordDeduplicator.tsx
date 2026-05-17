@@ -150,6 +150,13 @@ const KeywordDeduplicator = () => {
   const [showSaveInput, setShowSaveInput] = useState(false);
   const [topicFilter, setTopicFilter] = useState("");
 
+  // Optional reference file (File B): keywords in File A that match (fuzzy or semantic) any
+  // keyword in File B will be removed, leaving only the keywords unique to File A.
+  const referenceFileInputRef = useRef<HTMLInputElement>(null);
+  const [referenceFileName, setReferenceFileName] = useState<string | null>(null);
+  const [referenceKeywords, setReferenceKeywords] = useState<{ keyword: string; volume: number }[]>([]);
+  const [referenceRemovedCount, setReferenceRemovedCount] = useState(0);
+
   // Load saved results on mount
   useEffect(() => {
     loadSavedResults();
@@ -294,6 +301,54 @@ const KeywordDeduplicator = () => {
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
+  const handleReferenceUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const text = ev.target?.result as string;
+        const rows = parseCSV(text);
+        if (rows.length < 2) throw new Error("Reference file has no data rows");
+        const headers = rows[0].map(h => h.toLowerCase().replace(/^"|"$/g, ""));
+        let kwIdx = headers.findIndex(h => h === "keyword" || h === "term");
+        if (kwIdx === -1) kwIdx = headers.findIndex(h => h.includes("keyword") || h.includes("term"));
+        if (kwIdx === -1) kwIdx = 0;
+        let volIdx = headers.findIndex(h => h === "volume" || h === "search volume");
+        if (volIdx === -1) volIdx = headers.findIndex(h => h.includes("volume"));
+        const kws: { keyword: string; volume: number }[] = [];
+        for (let i = 1; i < rows.length; i++) {
+          const kw = rows[i][kwIdx]?.trim();
+          if (!kw || kw.length < 2) continue;
+          const vol = volIdx >= 0 ? parseVolume(rows[i][volIdx] || "0") : 0;
+          kws.push({ keyword: kw.toLowerCase(), volume: vol });
+        }
+        setReferenceKeywords(kws);
+        setReferenceFileName(file.name);
+        setResult(null);
+        setUngroupedForAI([]);
+        setReferenceRemovedCount(0);
+        toast({ title: `Reference loaded: ${kws.length} keywords`, description: file.name });
+      } catch (err: any) {
+        toast({ title: "Failed to parse reference CSV", description: err.message, variant: "destructive" });
+      }
+    };
+    reader.readAsText(file);
+    if (referenceFileInputRef.current) referenceFileInputRef.current.value = "";
+  };
+
+  // Helper: return true if a dedup group "touches" any reference (File B) keyword.
+  // A group touches B if its canonical OR any variant matches (case-insensitive) a B keyword.
+  const groupTouchesReference = (kw: DedupKeyword, refSet: Set<string>): boolean => {
+    if (refSet.has(kw.keyword.toLowerCase())) return true;
+    if (kw.variants) {
+      for (const v of kw.variants) {
+        if (refSet.has(v.keyword.toLowerCase())) return true;
+      }
+    }
+    return false;
+  };
+
   const runFuzzyDedup = async () => {
     if (rawKeywords.length === 0) return;
     setIsProcessing(true);
@@ -302,7 +357,14 @@ const KeywordDeduplicator = () => {
 
     try {
       // If topic filter is set, first filter off-topic keywords via AI
-      let keywordsToDedup = rawKeywords;
+      // If a reference (File B) is provided, combine A + B so the dedup engine groups
+      // semantically similar pairs across both lists. We filter out any group touching B
+      // from the final output, leaving only keywords unique to File A.
+      const refSet = new Set(referenceKeywords.map(k => k.keyword.toLowerCase()));
+      const hasReference = referenceKeywords.length > 0;
+      let keywordsToDedup = hasReference
+        ? [...rawKeywords, ...referenceKeywords]
+        : rawKeywords;
       let removedOffTopic: { keyword: string; volume: number }[] = [];
 
       if (topicFilter.trim()) {
@@ -388,8 +450,14 @@ const KeywordDeduplicator = () => {
         }
       }
 
+      // Re-combine with reference (File B) after topic-filter trimmed A. This way the
+      // dedup engine sees both lists and can match A keywords against B variants.
+      if (hasReference && topicFilter.trim()) {
+        keywordsToDedup = [...keywordsToDedup, ...referenceKeywords];
+      }
+
       setProgress(40);
-      setProgressLabel("Running fuzzy matching...");
+      setProgressLabel(hasReference ? "Running fuzzy matching across both files..." : "Running fuzzy matching...");
 
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/deduplicate-keywords`,
@@ -411,28 +479,47 @@ const KeywordDeduplicator = () => {
       setProgress(100);
       const data = await response.json();
 
-      const offTopicCount = rawKeywords.length - keywordsToDedup.length;
+      const offTopicCount = rawKeywords.length - (hasReference
+        ? (keywordsToDedup.length - referenceKeywords.length)
+        : keywordsToDedup.length);
+
+      // If reference (File B) is set, strip any group that touches a B keyword.
+      // The remaining canonicals are keywords unique to File A.
+      let finalKeywords: DedupKeyword[] = data.keywords;
+      let finalUngrouped: UngroupedEntry[] = data.ungroupedForAI || [];
+      let refRemoved = 0;
+      if (hasReference) {
+        const beforeCount = finalKeywords.length;
+        finalKeywords = finalKeywords.filter(k => !groupTouchesReference(k, refSet));
+        refRemoved += beforeCount - finalKeywords.length;
+        finalUngrouped = finalUngrouped.filter(u => !refSet.has(u.canonical.toLowerCase()));
+      }
+      setReferenceRemovedCount(refRemoved);
+
+      const deduplicatedCount = finalKeywords.length;
       setResult({
         originalCount: rawKeywords.length,
         offTopicCount,
-        deduplicatedCount: data.deduplicatedCount,
-        removedCount: data.removedCount + offTopicCount,
+        deduplicatedCount,
+        removedCount: rawKeywords.length - deduplicatedCount,
         fuzzyMergedGroups: data.fuzzyMergedGroups,
         aiMergedGroups: 0,
-        keywords: data.keywords,
+        keywords: finalKeywords,
       });
-      setUngroupedForAI(data.ungroupedForAI || []);
+      setUngroupedForAI(finalUngrouped);
       setLoadedResultId(null);
 
       toast({
         title: "Fuzzy deduplication complete!",
-        description: `${data.removedCount} exact duplicates merged. Starting AI semantic pass...`,
+        description: hasReference
+          ? `${refRemoved} keywords matched the reference list and were removed.`
+          : `${data.removedCount} exact duplicates merged. Starting AI semantic pass...`,
       });
 
       // Auto-run AI semantic pass if there are ungrouped keywords
-      if (data.ungroupedForAI && data.ungroupedForAI.length > 0) {
+      if (finalUngrouped.length > 0) {
         setIsProcessing(false);
-        await runAISemanticPassWithKeywords(data.ungroupedForAI);
+        await runAISemanticPassWithKeywords(finalUngrouped);
       }
     } catch (err: any) {
       console.error(err);
@@ -511,8 +598,20 @@ const KeywordDeduplicator = () => {
                   return !consumedByAI.has(k.keyword.toLowerCase());
                 });
 
-                const allKeywords = [...filteredKeywords, ...event.aiMergedKeywords]
+                // Filter out AI-merged groups that touch the reference (File B) set.
+                const refSetLocal = new Set(referenceKeywords.map(k => k.keyword.toLowerCase()));
+                const hasRef = refSetLocal.size > 0;
+                const aiMerged = hasRef
+                  ? (event.aiMergedKeywords as DedupKeyword[]).filter(k => !groupTouchesReference(k, refSetLocal))
+                  : (event.aiMergedKeywords as DedupKeyword[]);
+                const aiRefRemoved = hasRef ? event.aiMergedKeywords.length - aiMerged.length : 0;
+
+                const allKeywords = [...filteredKeywords, ...aiMerged]
                   .sort((a: DedupKeyword, b: DedupKeyword) => b.volume - a.volume);
+
+                if (hasRef && aiRefRemoved > 0) {
+                  setReferenceRemovedCount(c => c + aiRefRemoved);
+                }
 
                 return {
                   ...prev,
@@ -731,6 +830,54 @@ const KeywordDeduplicator = () => {
         )}
       </div>
 
+      {/* Optional reference file (File B) */}
+      {rawKeywords.length > 0 && !result && (
+        <div className="border border-dashed rounded-md p-3 space-y-2 bg-muted/20">
+          <p className="text-xs font-medium flex items-center gap-1.5">
+            <Filter className="h-3.5 w-3.5" />
+            Reference list (optional) — keep only keywords unique to File A
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Upload a second CSV (File B) of keywords you already have. Any keyword in File A that
+            fuzzy- or semantically-matches a keyword in File B will be removed.
+          </p>
+          <div className="flex items-center gap-2 flex-wrap">
+            <input
+              ref={referenceFileInputRef}
+              type="file"
+              accept=".csv"
+              className="hidden"
+              onChange={handleReferenceUpload}
+            />
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              onClick={() => referenceFileInputRef.current?.click()}
+            >
+              <Upload className="h-3.5 w-3.5" />
+              Upload Reference CSV (File B)
+            </Button>
+            {referenceFileName && (
+              <div className="flex items-center gap-2">
+                <Badge variant="secondary" className="text-xs gap-1.5">
+                  <FileText className="h-3 w-3" />
+                  {referenceFileName} — {referenceKeywords.length.toLocaleString()} keywords
+                </Badge>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6"
+                  onClick={() => { setReferenceFileName(null); setReferenceKeywords([]); setReferenceRemovedCount(0); }}
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Topic filter + Step 1 button */}
       {rawKeywords.length > 0 && !result && (
         <div className="space-y-3">
@@ -759,7 +906,9 @@ const KeywordDeduplicator = () => {
             className="gap-2"
           >
             {isProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
-            {isProcessing ? "Matching..." : `Step 1: Fuzzy Deduplicate ${rawKeywords.length.toLocaleString()} Keywords`}
+            {isProcessing ? "Matching..." : referenceKeywords.length > 0
+              ? `Find ${rawKeywords.length.toLocaleString()} Unique Keywords (vs ${referenceKeywords.length.toLocaleString()} in File B)`
+              : `Step 1: Fuzzy Deduplicate ${rawKeywords.length.toLocaleString()} Keywords`}
           </Button>
         </div>
       )}
@@ -776,7 +925,7 @@ const KeywordDeduplicator = () => {
       {result && (
         <div className="space-y-4">
           {/* Summary */}
-          <div className={`grid grid-cols-2 ${result.offTopicCount > 0 ? 'sm:grid-cols-5' : 'sm:grid-cols-4'} gap-3`}>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
             <Card className="border-muted">
               <CardContent className="py-3 px-4 text-center">
                 <p className="text-2xl font-bold">{result.originalCount.toLocaleString()}</p>
@@ -788,6 +937,14 @@ const KeywordDeduplicator = () => {
                 <CardContent className="py-3 px-4 text-center">
                   <p className="text-2xl font-bold text-orange-600">{result.offTopicCount.toLocaleString()}</p>
                   <p className="text-xs text-muted-foreground">Off-topic removed</p>
+                </CardContent>
+              </Card>
+            )}
+            {referenceRemovedCount > 0 && (
+              <Card className="border-blue-300/50">
+                <CardContent className="py-3 px-4 text-center">
+                  <p className="text-2xl font-bold text-blue-600">{referenceRemovedCount.toLocaleString()}</p>
+                  <p className="text-xs text-muted-foreground">Matched reference (removed)</p>
                 </CardContent>
               </Card>
             )}
