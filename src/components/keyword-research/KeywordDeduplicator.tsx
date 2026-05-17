@@ -296,7 +296,55 @@ const KeywordDeduplicator = () => {
       } catch (err: any) {
         toast({ title: "Failed to parse CSV", description: err.message, variant: "destructive" });
       }
+  };
+
+  const handleReferenceUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const text = ev.target?.result as string;
+        const rows = parseCSV(text);
+        if (rows.length < 2) throw new Error("Reference file has no data rows");
+        const headers = rows[0].map(h => h.toLowerCase().replace(/^"|"$/g, ""));
+        let kwIdx = headers.findIndex(h => h === "keyword" || h === "term");
+        if (kwIdx === -1) kwIdx = headers.findIndex(h => h.includes("keyword") || h.includes("term"));
+        if (kwIdx === -1) kwIdx = 0;
+        let volIdx = headers.findIndex(h => h === "volume" || h === "search volume");
+        if (volIdx === -1) volIdx = headers.findIndex(h => h.includes("volume"));
+        const kws: { keyword: string; volume: number }[] = [];
+        for (let i = 1; i < rows.length; i++) {
+          const kw = rows[i][kwIdx]?.trim();
+          if (!kw || kw.length < 2) continue;
+          const vol = volIdx >= 0 ? parseVolume(rows[i][volIdx] || "0") : 0;
+          kws.push({ keyword: kw.toLowerCase(), volume: vol });
+        }
+        setReferenceKeywords(kws);
+        setReferenceFileName(file.name);
+        setResult(null);
+        setUngroupedForAI([]);
+        setReferenceRemovedCount(0);
+        toast({ title: `Reference loaded: ${kws.length} keywords`, description: file.name });
+      } catch (err: any) {
+        toast({ title: "Failed to parse reference CSV", description: err.message, variant: "destructive" });
+      }
     };
+    reader.readAsText(file);
+    if (referenceFileInputRef.current) referenceFileInputRef.current.value = "";
+  };
+
+  // Helper: return true if a dedup group "touches" any reference (File B) keyword.
+  // A group touches B if its canonical OR any variant matches (case-insensitive) a B keyword.
+  const groupTouchesReference = (kw: DedupKeyword, refSet: Set<string>): boolean => {
+    if (refSet.has(kw.keyword.toLowerCase())) return true;
+    if (kw.variants) {
+      for (const v of kw.variants) {
+        if (refSet.has(v.keyword.toLowerCase())) return true;
+      }
+    }
+    return false;
+  };
     reader.readAsText(file);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
