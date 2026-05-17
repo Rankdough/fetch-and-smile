@@ -1674,6 +1674,28 @@ const KeywordResearch = () => {
           </Card>
         </Collapsible>
 
+        {/* Keyword Overlap — collapsible */}
+        <Collapsible open={isOverlapOpen} onOpenChange={setIsOverlapOpen}>
+          <Card className="border-[3px] border-primary/30">
+            <CollapsibleTrigger className="w-full">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Layers className="h-4 w-4 text-primary" />
+                    Keyword Overlap (Two Sheets)
+                  </CardTitle>
+                  {isOverlapOpen ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+                </div>
+              </CardHeader>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent className="pt-0">
+                <KeywordOverlap />
+              </CardContent>
+            </CollapsibleContent>
+          </Card>
+        </Collapsible>
+
         {isLoadingSaved && !savedResearch.length && (
           <Skeleton className="h-24 w-full" />
         )}
