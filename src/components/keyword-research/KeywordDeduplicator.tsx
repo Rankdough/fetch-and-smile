@@ -830,6 +830,54 @@ const KeywordDeduplicator = () => {
         )}
       </div>
 
+      {/* Optional reference file (File B) */}
+      {rawKeywords.length > 0 && !result && (
+        <div className="border border-dashed rounded-md p-3 space-y-2 bg-muted/20">
+          <p className="text-xs font-medium flex items-center gap-1.5">
+            <Filter className="h-3.5 w-3.5" />
+            Reference list (optional) — keep only keywords unique to File A
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Upload a second CSV (File B) of keywords you already have. Any keyword in File A that
+            fuzzy- or semantically-matches a keyword in File B will be removed.
+          </p>
+          <div className="flex items-center gap-2 flex-wrap">
+            <input
+              ref={referenceFileInputRef}
+              type="file"
+              accept=".csv"
+              className="hidden"
+              onChange={handleReferenceUpload}
+            />
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              onClick={() => referenceFileInputRef.current?.click()}
+            >
+              <Upload className="h-3.5 w-3.5" />
+              Upload Reference CSV (File B)
+            </Button>
+            {referenceFileName && (
+              <div className="flex items-center gap-2">
+                <Badge variant="secondary" className="text-xs gap-1.5">
+                  <FileText className="h-3 w-3" />
+                  {referenceFileName} — {referenceKeywords.length.toLocaleString()} keywords
+                </Badge>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6"
+                  onClick={() => { setReferenceFileName(null); setReferenceKeywords([]); setReferenceRemovedCount(0); }}
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Topic filter + Step 1 button */}
       {rawKeywords.length > 0 && !result && (
         <div className="space-y-3">
