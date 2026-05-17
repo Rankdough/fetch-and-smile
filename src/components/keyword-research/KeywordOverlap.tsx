@@ -537,7 +537,7 @@ const KeywordOverlap = () => {
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        Compare keyword columns between two spreadsheets, or between two tabs of the same spreadsheet. All original columns (volume, difficulty, category, etc.) are carried through into the results and exports.
+        Compare keyword columns between two spreadsheets, or between two tabs of the same spreadsheet. Uploads and selected columns are saved in this browser, and all original columns are carried through into the results and exports.
       </p>
 
       <Tabs value={mode} onValueChange={(v) => setMode(v as Mode)}>
