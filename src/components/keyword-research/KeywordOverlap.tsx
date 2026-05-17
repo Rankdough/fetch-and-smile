@@ -384,7 +384,7 @@ const KeywordOverlap = () => {
         <div className="flex items-center justify-between">
           <div className="text-sm font-semibold">{label}</div>
           {lf && (
-            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { setLf(null); setPick(null); }}>
+            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { void deleteStoredFile(side === "a" ? "two-a" : "two-b"); setLf(null); setPick(null); }}>
               <X className="h-3.5 w-3.5" />
             </Button>
           )}
@@ -559,7 +559,7 @@ const KeywordOverlap = () => {
               <div className="flex items-center justify-between">
                 <div className="text-sm font-semibold">Spreadsheet</div>
                 {fileOne && (
-                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { setFileOne(null); setPickOneA(null); setPickOneB(null); }}>
+                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { void deleteStoredFile("one"); setFileOne(null); setPickOneA(null); setPickOneB(null); }}>
                     <X className="h-3.5 w-3.5" />
                   </Button>
                 )}
