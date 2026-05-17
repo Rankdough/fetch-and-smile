@@ -938,6 +938,14 @@ const KeywordDeduplicator = () => {
                 </CardContent>
               </Card>
             )}
+            {referenceRemovedCount > 0 && (
+              <Card className="border-blue-300/50">
+                <CardContent className="py-3 px-4 text-center">
+                  <p className="text-2xl font-bold text-blue-600">{referenceRemovedCount.toLocaleString()}</p>
+                  <p className="text-xs text-muted-foreground">Matched reference (removed)</p>
+                </CardContent>
+              </Card>
+            )}
             <Card className="border-primary/30">
               <CardContent className="py-3 px-4 text-center">
                 <p className="text-2xl font-bold text-primary">{result.deduplicatedCount.toLocaleString()}</p>
