@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import KeywordClustering from "@/components/keyword-research/KeywordClustering";
 import KeywordDeduplicator from "@/components/keyword-research/KeywordDeduplicator";
+import KeywordOverlap from "@/components/keyword-research/KeywordOverlap";
 
 interface ScanSite {
   url: string;
