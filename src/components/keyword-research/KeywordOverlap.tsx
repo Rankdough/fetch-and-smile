@@ -43,7 +43,10 @@ function loadFile(file: File): Promise<LoadedFile> {
 
 function pickFromSheet(wb: XLSX.WorkBook, sheet: string): SidePick {
   const rows = XLSX.utils.sheet_to_json<Record<string, any>>(wb.Sheets[sheet], { defval: "" });
-  const headers = rows.length ? Object.keys(rows[0]) : [];
+  // Collect headers across all rows (some rows may have additional keys)
+  const headerSet = new Set<string>();
+  rows.forEach((r) => Object.keys(r).forEach((k) => headerSet.add(k)));
+  const headers = Array.from(headerSet);
   const kw = headers.find((h) => h.toLowerCase() === "keyword")
     || headers.find((h) => h.toLowerCase().includes("keyword"))
     || headers.find((h) => h.toLowerCase().includes("query"))
@@ -104,20 +107,85 @@ const KeywordOverlap = () => {
   const a = mode === "two-files" ? pickA : pickOneA;
   const b = mode === "two-files" ? pickB : pickOneB;
 
-  const { overlap, onlyA, onlyB, sizeA, sizeB } = useMemo(() => {
-    if (!a || !b) return { overlap: [] as string[], onlyA: [] as string[], onlyB: [] as string[], sizeA: 0, sizeB: 0 };
-    const sA = new Set(a.rows.map((r) => norm(r[a.keywordCol])).filter(Boolean));
-    const sB = new Set(b.rows.map((r) => norm(r[b.keywordCol])).filter(Boolean));
-    const overlap: string[] = [];
-    const onlyA: string[] = [];
-    const onlyB: string[] = [];
-    sA.forEach((k) => (sB.has(k) ? overlap : onlyA).push(k));
-    sB.forEach((k) => { if (!sA.has(k)) onlyB.push(k); });
-    return { overlap: overlap.sort(), onlyA: onlyA.sort(), onlyB: onlyB.sort(), sizeA: sA.size, sizeB: sB.size };
+  const { overlapRows, onlyARows, onlyBRows, sizeA, sizeB, overlapHeaders, onlyAHeaders, onlyBHeaders } = useMemo(() => {
+    const empty = {
+      overlapRows: [] as Record<string, any>[],
+      onlyARows: [] as Record<string, any>[],
+      onlyBRows: [] as Record<string, any>[],
+      sizeA: 0, sizeB: 0,
+      overlapHeaders: [] as string[],
+      onlyAHeaders: [] as string[],
+      onlyBHeaders: [] as string[],
+    };
+    if (!a || !b) return empty;
+
+    // Build keyword -> first matching row map for each side (dedup by normalized keyword)
+    const mapA = new Map<string, Record<string, any>>();
+    for (const r of a.rows) {
+      const k = norm(r[a.keywordCol]);
+      if (k && !mapA.has(k)) mapA.set(k, r);
+    }
+    const mapB = new Map<string, Record<string, any>>();
+    for (const r of b.rows) {
+      const k = norm(r[b.keywordCol]);
+      if (k && !mapB.has(k)) mapB.set(k, r);
+    }
+
+    const onlyAHeaders = ["keyword", ...a.headers.filter((h) => h !== a.keywordCol)];
+    const onlyBHeaders = ["keyword", ...b.headers.filter((h) => h !== b.keywordCol)];
+    // Overlap: keyword + A_* cols + B_* cols
+    const overlapHeaders = [
+      "keyword",
+      ...a.headers.filter((h) => h !== a.keywordCol).map((h) => `A_${h}`),
+      ...b.headers.filter((h) => h !== b.keywordCol).map((h) => `B_${h}`),
+    ];
+
+    const onlyARows: Record<string, any>[] = [];
+    const onlyBRows: Record<string, any>[] = [];
+    const overlapRows: Record<string, any>[] = [];
+
+    mapA.forEach((rowA, k) => {
+      if (mapB.has(k)) {
+        const rowB = mapB.get(k)!;
+        const merged: Record<string, any> = { keyword: rowA[a.keywordCol] };
+        a.headers.forEach((h) => { if (h !== a.keywordCol) merged[`A_${h}`] = rowA[h]; });
+        b.headers.forEach((h) => { if (h !== b.keywordCol) merged[`B_${h}`] = rowB[h]; });
+        overlapRows.push(merged);
+      } else {
+        const row: Record<string, any> = { keyword: rowA[a.keywordCol] };
+        a.headers.forEach((h) => { if (h !== a.keywordCol) row[h] = rowA[h]; });
+        onlyARows.push(row);
+      }
+    });
+    mapB.forEach((rowB, k) => {
+      if (!mapA.has(k)) {
+        const row: Record<string, any> = { keyword: rowB[b.keywordCol] };
+        b.headers.forEach((h) => { if (h !== b.keywordCol) row[h] = rowB[h]; });
+        onlyBRows.push(row);
+      }
+    });
+
+    const byKw = (x: Record<string, any>, y: Record<string, any>) =>
+      String(x.keyword ?? "").localeCompare(String(y.keyword ?? ""));
+    onlyARows.sort(byKw); onlyBRows.sort(byKw); overlapRows.sort(byKw);
+
+    return {
+      overlapRows, onlyARows, onlyBRows,
+      sizeA: mapA.size, sizeB: mapB.size,
+      overlapHeaders, onlyAHeaders, onlyBHeaders,
+    };
   }, [a, b]);
 
-  const downloadCSV = (rows: string[], name: string) => {
-    const csv = "keyword\n" + rows.map((r) => `"${r.replace(/"/g, '""')}"`).join("\n");
+  const csvCell = (v: any) => {
+    const s = v === null || v === undefined ? "" : String(v);
+    return `"${s.replace(/"/g, '""')}"`;
+  };
+
+  const downloadCSV = (rows: Record<string, any>[], headers: string[], name: string) => {
+    const csv = [
+      headers.map(csvCell).join(","),
+      ...rows.map((r) => headers.map((h) => csvCell(r[h])).join(",")),
+    ].join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -127,9 +195,14 @@ const KeywordOverlap = () => {
     URL.revokeObjectURL(url);
   };
 
-  const copyAll = (rows: string[]) => {
-    navigator.clipboard.writeText(rows.join("\n"));
-    toast({ title: "Copied", description: `${rows.length} keywords copied to clipboard` });
+  const copyAll = (rows: Record<string, any>[], headers: string[]) => {
+    // TSV so it pastes nicely into Sheets/Excel
+    const tsv = [
+      headers.join("\t"),
+      ...rows.map((r) => headers.map((h) => String(r[h] ?? "").replace(/\t/g, " ").replace(/\n/g, " ")).join("\t")),
+    ].join("\n");
+    navigator.clipboard.writeText(tsv);
+    toast({ title: "Copied", description: `${rows.length} rows copied (with all columns) — paste into Sheets/Excel` });
   };
 
   // ---------- Renderers ----------
@@ -200,6 +273,11 @@ const KeywordOverlap = () => {
                 </SelectContent>
               </Select>
             </div>
+            {pick.headers.length > 1 && (
+              <div className="text-[11px] text-muted-foreground">
+                Carrying over {pick.headers.length} columns: {pick.headers.join(", ")}
+              </div>
+            )}
           </div>
         )}
       </CardContent>
@@ -238,19 +316,24 @@ const KeywordOverlap = () => {
           </Select>
         </div>
         <div className="text-xs text-muted-foreground">{pick.rows.length} rows</div>
+        {pick.headers.length > 1 && (
+          <div className="text-[11px] text-muted-foreground">
+            Carrying over {pick.headers.length} columns: {pick.headers.join(", ")}
+          </div>
+        )}
       </CardContent>
     </Card>
   );
 
-  const renderList = (rows: string[], emptyMsg: string, baseName: string) => (
+  const renderTable = (rows: Record<string, any>[], headers: string[], emptyMsg: string, baseName: string) => (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
-        <Badge variant="secondary">{rows.length} keywords</Badge>
+        <Badge variant="secondary">{rows.length} rows · {headers.length} columns</Badge>
         <div className="flex gap-2">
-          <Button size="sm" variant="outline" className="gap-1.5" disabled={!rows.length} onClick={() => copyAll(rows)}>
-            <Copy className="h-3.5 w-3.5" /> Copy
+          <Button size="sm" variant="outline" className="gap-1.5" disabled={!rows.length} onClick={() => copyAll(rows, headers)}>
+            <Copy className="h-3.5 w-3.5" /> Copy (TSV)
           </Button>
-          <Button size="sm" variant="outline" className="gap-1.5" disabled={!rows.length} onClick={() => downloadCSV(rows, baseName)}>
+          <Button size="sm" variant="outline" className="gap-1.5" disabled={!rows.length} onClick={() => downloadCSV(rows, headers, baseName)}>
             <Download className="h-3.5 w-3.5" /> CSV
           </Button>
         </div>
@@ -258,10 +341,27 @@ const KeywordOverlap = () => {
       {rows.length === 0 ? (
         <p className="text-xs text-muted-foreground py-6 text-center">{emptyMsg}</p>
       ) : (
-        <div className="max-h-[420px] overflow-y-auto border rounded-md divide-y">
-          {rows.map((k, i) => (
-            <div key={i} className="px-3 py-1.5 text-sm">{k}</div>
-          ))}
+        <div className="max-h-[480px] overflow-auto border rounded-md">
+          <table className="w-full text-xs">
+            <thead className="bg-muted/50 sticky top-0">
+              <tr>
+                {headers.map((h) => (
+                  <th key={h} className="text-left font-semibold px-2 py-1.5 whitespace-nowrap border-b">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r, i) => (
+                <tr key={i} className="border-b last:border-b-0 hover:bg-muted/30">
+                  {headers.map((h) => (
+                    <td key={h} className="px-2 py-1 align-top whitespace-nowrap">
+                      {String(r[h] ?? "")}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
     </div>
@@ -274,7 +374,7 @@ const KeywordOverlap = () => {
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        Compare keyword columns between two spreadsheets, or between two tabs of the same spreadsheet. See overlap and keywords unique to each side — useful for finding gaps (e.g. master list keywords you don't yet have a page for).
+        Compare keyword columns between two spreadsheets, or between two tabs of the same spreadsheet. All original columns (volume, difficulty, category, etc.) are carried through into the results and exports.
       </p>
 
       <Tabs value={mode} onValueChange={(v) => setMode(v as Mode)}>
@@ -342,9 +442,9 @@ const KeywordOverlap = () => {
             <div className="flex flex-wrap gap-2 text-xs">
               <Badge variant="outline">{labelA}: {sizeA} unique</Badge>
               <Badge variant="outline">{labelB}: {sizeB} unique</Badge>
-              <Badge variant="secondary">Overlap: {overlap.length}</Badge>
-              <Badge variant="secondary">Only in A: {onlyA.length}</Badge>
-              <Badge variant="secondary">Only in B: {onlyB.length}</Badge>
+              <Badge variant="secondary">Overlap: {overlapRows.length}</Badge>
+              <Badge variant="secondary">Only in A: {onlyARows.length}</Badge>
+              <Badge variant="secondary">Only in B: {onlyBRows.length}</Badge>
             </div>
 
             <Tabs defaultValue="onlyA">
@@ -354,13 +454,13 @@ const KeywordOverlap = () => {
                 <TabsTrigger value="onlyB" className="text-xs">Only in B</TabsTrigger>
               </TabsList>
               <TabsContent value="onlyA">
-                {renderList(onlyA, "No keywords unique to Side A.", "only-in-A")}
+                {renderTable(onlyARows, onlyAHeaders, "No keywords unique to Side A.", "only-in-A")}
               </TabsContent>
               <TabsContent value="overlap">
-                {renderList(overlap, "No overlapping keywords.", "overlap")}
+                {renderTable(overlapRows, overlapHeaders, "No overlapping keywords.", "overlap")}
               </TabsContent>
               <TabsContent value="onlyB">
-                {renderList(onlyB, "No keywords unique to Side B.", "only-in-B")}
+                {renderTable(onlyBRows, onlyBHeaders, "No keywords unique to Side B.", "only-in-B")}
               </TabsContent>
             </Tabs>
           </CardContent>
