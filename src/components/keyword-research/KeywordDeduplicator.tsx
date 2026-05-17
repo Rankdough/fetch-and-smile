@@ -150,6 +150,13 @@ const KeywordDeduplicator = () => {
   const [showSaveInput, setShowSaveInput] = useState(false);
   const [topicFilter, setTopicFilter] = useState("");
 
+  // Optional reference file (File B): keywords in File A that match (fuzzy or semantic) any
+  // keyword in File B will be removed, leaving only the keywords unique to File A.
+  const referenceFileInputRef = useRef<HTMLInputElement>(null);
+  const [referenceFileName, setReferenceFileName] = useState<string | null>(null);
+  const [referenceKeywords, setReferenceKeywords] = useState<{ keyword: string; volume: number }[]>([]);
+  const [referenceRemovedCount, setReferenceRemovedCount] = useState(0);
+
   // Load saved results on mount
   useEffect(() => {
     loadSavedResults();
