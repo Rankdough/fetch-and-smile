@@ -906,7 +906,9 @@ const KeywordDeduplicator = () => {
             className="gap-2"
           >
             {isProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
-            {isProcessing ? "Matching..." : `Step 1: Fuzzy Deduplicate ${rawKeywords.length.toLocaleString()} Keywords`}
+            {isProcessing ? "Matching..." : referenceKeywords.length > 0
+              ? `Find ${rawKeywords.length.toLocaleString()} Unique Keywords (vs ${referenceKeywords.length.toLocaleString()} in File B)`
+              : `Step 1: Fuzzy Deduplicate ${rawKeywords.length.toLocaleString()} Keywords`}
           </Button>
         </div>
       )}
