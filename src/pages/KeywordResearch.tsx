@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import KeywordClustering from "@/components/keyword-research/KeywordClustering";
 import KeywordDeduplicator from "@/components/keyword-research/KeywordDeduplicator";
+import KeywordOverlap from "@/components/keyword-research/KeywordOverlap";
 
 interface ScanSite {
   url: string;
@@ -115,6 +116,7 @@ const KeywordResearch = () => {
   const [isGeneratorOpen, setIsGeneratorOpen] = useState(false);
   const [isClusteringOpen, setIsClusteringOpen] = useState(() => hasClusteringStateInUrl);
   const [isDedupOpen, setIsDedupOpen] = useState(false);
+  const [isOverlapOpen, setIsOverlapOpen] = useState(false);
   const [universeClientTag, setUniverseClientTag] = useState("");
   const [universeClientTagFilter, setUniverseClientTagFilter] = useState<string | null>(null);
   const [activeResearchId, setActiveResearchId] = useState<string | null>(null);
@@ -1667,6 +1669,28 @@ const KeywordResearch = () => {
             <CollapsibleContent>
               <CardContent className="pt-0">
                 <KeywordDeduplicator />
+              </CardContent>
+            </CollapsibleContent>
+          </Card>
+        </Collapsible>
+
+        {/* Keyword Overlap — collapsible */}
+        <Collapsible open={isOverlapOpen} onOpenChange={setIsOverlapOpen}>
+          <Card className="border-[3px] border-primary/30">
+            <CollapsibleTrigger className="w-full">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Layers className="h-4 w-4 text-primary" />
+                    Keyword Overlap (Two Sheets)
+                  </CardTitle>
+                  {isOverlapOpen ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+                </div>
+              </CardHeader>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent className="pt-0">
+                <KeywordOverlap />
               </CardContent>
             </CollapsibleContent>
           </Card>
