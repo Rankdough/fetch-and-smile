@@ -357,7 +357,14 @@ const KeywordDeduplicator = () => {
 
     try {
       // If topic filter is set, first filter off-topic keywords via AI
-      let keywordsToDedup = rawKeywords;
+      // If a reference (File B) is provided, combine A + B so the dedup engine groups
+      // semantically similar pairs across both lists. We filter out any group touching B
+      // from the final output, leaving only keywords unique to File A.
+      const refSet = new Set(referenceKeywords.map(k => k.keyword.toLowerCase()));
+      const hasReference = referenceKeywords.length > 0;
+      let keywordsToDedup = hasReference
+        ? [...rawKeywords, ...referenceKeywords]
+        : rawKeywords;
       let removedOffTopic: { keyword: string; volume: number }[] = [];
 
       if (topicFilter.trim()) {
