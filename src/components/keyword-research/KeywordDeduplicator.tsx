@@ -296,6 +296,9 @@ const KeywordDeduplicator = () => {
       } catch (err: any) {
         toast({ title: "Failed to parse CSV", description: err.message, variant: "destructive" });
       }
+    };
+    reader.readAsText(file);
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const handleReferenceUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -344,9 +347,6 @@ const KeywordDeduplicator = () => {
       }
     }
     return false;
-  };
-    reader.readAsText(file);
-    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const runFuzzyDedup = async () => {
