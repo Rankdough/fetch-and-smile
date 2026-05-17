@@ -923,7 +923,7 @@ const KeywordDeduplicator = () => {
       {result && (
         <div className="space-y-4">
           {/* Summary */}
-          <div className={`grid grid-cols-2 ${result.offTopicCount > 0 ? 'sm:grid-cols-5' : 'sm:grid-cols-4'} gap-3`}>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
             <Card className="border-muted">
               <CardContent className="py-3 px-4 text-center">
                 <p className="text-2xl font-bold">{result.originalCount.toLocaleString()}</p>
