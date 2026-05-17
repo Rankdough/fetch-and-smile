@@ -156,12 +156,94 @@ const KeywordOverlap = () => {
   const [fileOne, setFileOne] = useState<LoadedFile | null>(null);
   const [pickOneA, setPickOneA] = useState<SidePick | null>(null);
   const [pickOneB, setPickOneB] = useState<SidePick | null>(null);
+  const [hasHydrated, setHasHydrated] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const restore = async () => {
+      try {
+        const raw = localStorage.getItem(STORAGE_META_KEY);
+        if (!raw) return;
+
+        const saved = JSON.parse(raw) as PersistedKeywordOverlapState;
+        if (saved.version !== 1) return;
+
+        if (!cancelled) setMode(saved.mode ?? "two-files");
+
+        const restoreTwoFile = async (key: StoredFileKey, savedPick: PersistedPick | null) => {
+          if (!savedPick) return null;
+          const data = await getStoredFile(key);
+          if (!data) return null;
+          const loaded = loadWorkbookFromBuffer(savedPick.fileName, data);
+          const sheet = loaded.sheetNames.includes(savedPick.sheet) ? savedPick.sheet : loaded.sheetNames[0];
+          const detectedPick = pickFromSheet(loaded.workbook, sheet);
+          const pick = detectedPick.headers.includes(savedPick.keywordCol)
+            ? { ...detectedPick, keywordCol: savedPick.keywordCol }
+            : detectedPick;
+          return { loaded, pick };
+        };
+
+        const [restoredA, restoredB] = await Promise.all([
+          restoreTwoFile("two-a", saved.twoFiles?.a ?? null),
+          restoreTwoFile("two-b", saved.twoFiles?.b ?? null),
+        ]);
+
+        const oneData = saved.oneFile ? await getStoredFile("one") : null;
+        const restoredOne = saved.oneFile && oneData
+          ? loadWorkbookFromBuffer(saved.oneFile.fileName, oneData)
+          : null;
+
+        if (cancelled) return;
+
+        if (restoredA) { setFileA(restoredA.loaded); setPickA(restoredA.pick); }
+        if (restoredB) { setFileB(restoredB.loaded); setPickB(restoredB.pick); }
+        if (restoredOne && saved.oneFile) {
+          const sideASheet = restoredOne.sheetNames.includes(saved.oneFile.sideA.sheet) ? saved.oneFile.sideA.sheet : restoredOne.sheetNames[0];
+          const sideBSheet = restoredOne.sheetNames.includes(saved.oneFile.sideB.sheet) ? saved.oneFile.sideB.sheet : restoredOne.sheetNames[1] ?? restoredOne.sheetNames[0];
+          const detectedA = pickFromSheet(restoredOne.workbook, sideASheet);
+          const detectedB = pickFromSheet(restoredOne.workbook, sideBSheet);
+          setFileOne(restoredOne);
+          setPickOneA(detectedA.headers.includes(saved.oneFile.sideA.keywordCol) ? { ...detectedA, keywordCol: saved.oneFile.sideA.keywordCol } : detectedA);
+          setPickOneB(detectedB.headers.includes(saved.oneFile.sideB.keywordCol) ? { ...detectedB, keywordCol: saved.oneFile.sideB.keywordCol } : detectedB);
+        }
+      } catch (err: any) {
+        toast({ title: "Could not restore saved files", description: err.message, variant: "destructive" });
+      } finally {
+        if (!cancelled) setHasHydrated(true);
+      }
+    };
+
+    restore();
+    return () => { cancelled = true; };
+  }, [toast]);
+
+  useEffect(() => {
+    if (!hasHydrated) return;
+
+    const saved: PersistedKeywordOverlapState = {
+      version: 1,
+      mode,
+      twoFiles: {
+        a: fileA && pickA ? { fileName: fileA.fileName, sheet: pickA.sheet, keywordCol: pickA.keywordCol } : null,
+        b: fileB && pickB ? { fileName: fileB.fileName, sheet: pickB.sheet, keywordCol: pickB.keywordCol } : null,
+      },
+      oneFile: fileOne && pickOneA && pickOneB ? {
+        fileName: fileOne.fileName,
+        sideA: { sheet: pickOneA.sheet, keywordCol: pickOneA.keywordCol },
+        sideB: { sheet: pickOneB.sheet, keywordCol: pickOneB.keywordCol },
+      } : null,
+    };
+
+    localStorage.setItem(STORAGE_META_KEY, JSON.stringify(saved));
+  }, [fileA, fileB, fileOne, hasHydrated, mode, pickA, pickB, pickOneA, pickOneB]);
 
   const handleUploadTwo = async (file: File, side: "a" | "b") => {
     try {
       const lf = await loadFile(file);
       const first = lf.sheetNames[0];
       const pick = pickFromSheet(lf.workbook, first);
+      await putStoredFile(side === "a" ? "two-a" : "two-b", lf.data);
       if (side === "a") { setFileA(lf); setPickA(pick); }
       else { setFileB(lf); setPickB(pick); }
     } catch (err: any) {
@@ -176,6 +258,7 @@ const KeywordOverlap = () => {
         toast({ title: "Only one sheet found", description: "This file has a single sheet. Use Two files mode or upload a multi-sheet workbook.", variant: "destructive" });
         return;
       }
+      await putStoredFile("one", lf.data);
       setFileOne(lf);
       setPickOneA(pickFromSheet(lf.workbook, lf.sheetNames[0]));
       setPickOneB(pickFromSheet(lf.workbook, lf.sheetNames[1]));
