@@ -479,28 +479,47 @@ const KeywordDeduplicator = () => {
       setProgress(100);
       const data = await response.json();
 
-      const offTopicCount = rawKeywords.length - keywordsToDedup.length;
+      const offTopicCount = rawKeywords.length - (hasReference
+        ? (keywordsToDedup.length - referenceKeywords.length)
+        : keywordsToDedup.length);
+
+      // If reference (File B) is set, strip any group that touches a B keyword.
+      // The remaining canonicals are keywords unique to File A.
+      let finalKeywords: DedupKeyword[] = data.keywords;
+      let finalUngrouped: UngroupedEntry[] = data.ungroupedForAI || [];
+      let refRemoved = 0;
+      if (hasReference) {
+        const beforeCount = finalKeywords.length;
+        finalKeywords = finalKeywords.filter(k => !groupTouchesReference(k, refSet));
+        refRemoved += beforeCount - finalKeywords.length;
+        finalUngrouped = finalUngrouped.filter(u => !refSet.has(u.canonical.toLowerCase()));
+      }
+      setReferenceRemovedCount(refRemoved);
+
+      const deduplicatedCount = finalKeywords.length;
       setResult({
         originalCount: rawKeywords.length,
         offTopicCount,
-        deduplicatedCount: data.deduplicatedCount,
-        removedCount: data.removedCount + offTopicCount,
+        deduplicatedCount,
+        removedCount: rawKeywords.length - deduplicatedCount,
         fuzzyMergedGroups: data.fuzzyMergedGroups,
         aiMergedGroups: 0,
-        keywords: data.keywords,
+        keywords: finalKeywords,
       });
-      setUngroupedForAI(data.ungroupedForAI || []);
+      setUngroupedForAI(finalUngrouped);
       setLoadedResultId(null);
 
       toast({
         title: "Fuzzy deduplication complete!",
-        description: `${data.removedCount} exact duplicates merged. Starting AI semantic pass...`,
+        description: hasReference
+          ? `${refRemoved} keywords matched the reference list and were removed.`
+          : `${data.removedCount} exact duplicates merged. Starting AI semantic pass...`,
       });
 
       // Auto-run AI semantic pass if there are ungrouped keywords
-      if (data.ungroupedForAI && data.ungroupedForAI.length > 0) {
+      if (finalUngrouped.length > 0) {
         setIsProcessing(false);
-        await runAISemanticPassWithKeywords(data.ungroupedForAI);
+        await runAISemanticPassWithKeywords(finalUngrouped);
       }
     } catch (err: any) {
       console.error(err);
