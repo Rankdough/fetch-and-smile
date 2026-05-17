@@ -450,8 +450,14 @@ const KeywordDeduplicator = () => {
         }
       }
 
+      // Re-combine with reference (File B) after topic-filter trimmed A. This way the
+      // dedup engine sees both lists and can match A keywords against B variants.
+      if (hasReference && topicFilter.trim()) {
+        keywordsToDedup = [...keywordsToDedup, ...referenceKeywords];
+      }
+
       setProgress(40);
-      setProgressLabel("Running fuzzy matching...");
+      setProgressLabel(hasReference ? "Running fuzzy matching across both files..." : "Running fuzzy matching...");
 
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/deduplicate-keywords`,
