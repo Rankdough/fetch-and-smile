@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import * as XLSX from "xlsx";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -15,6 +15,7 @@ interface LoadedFile {
   fileName: string;
   workbook: XLSX.WorkBook;
   sheetNames: string[];
+  data: ArrayBuffer;
 }
 
 interface SidePick {
@@ -24,21 +25,102 @@ interface SidePick {
   rows: Record<string, any>[];
 }
 
+type Mode = "two-files" | "one-file";
+type StoredFileKey = "two-a" | "two-b" | "one";
+
+interface PersistedPick {
+  fileName: string;
+  sheet: string;
+  keywordCol: string;
+}
+
+interface PersistedKeywordOverlapState {
+  version: 1;
+  mode: Mode;
+  twoFiles: {
+    a: PersistedPick | null;
+    b: PersistedPick | null;
+  };
+  oneFile: {
+    fileName: string;
+    sideA: { sheet: string; keywordCol: string };
+    sideB: { sheet: string; keywordCol: string };
+  } | null;
+}
+
+const STORAGE_META_KEY = "keyword-overlap-persisted-state-v1";
+const STORAGE_DB_NAME = "keyword-overlap-files";
+const STORAGE_DB_STORE = "uploads";
+
+function loadWorkbookFromBuffer(fileName: string, buffer: ArrayBuffer): LoadedFile {
+  const workbook = XLSX.read(new Uint8Array(buffer), { type: "array" });
+  return { fileName, workbook, sheetNames: workbook.SheetNames, data: buffer };
+}
+
 function loadFile(file: File): Promise<LoadedFile> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onerror = () => reject(reader.error);
     reader.onload = (e) => {
       try {
-        const data = new Uint8Array(e.target?.result as ArrayBuffer);
-        const wb = XLSX.read(data, { type: "array" });
-        resolve({ fileName: file.name, workbook: wb, sheetNames: wb.SheetNames });
+        resolve(loadWorkbookFromBuffer(file.name, e.target?.result as ArrayBuffer));
       } catch (err) {
         reject(err);
       }
     };
     reader.readAsArrayBuffer(file);
   });
+}
+
+function openKeywordOverlapDb(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    if (typeof indexedDB === "undefined") {
+      reject(new Error("Browser storage is unavailable."));
+      return;
+    }
+    const request = indexedDB.open(STORAGE_DB_NAME, 1);
+    request.onupgradeneeded = () => {
+      if (!request.result.objectStoreNames.contains(STORAGE_DB_STORE)) {
+        request.result.createObjectStore(STORAGE_DB_STORE);
+      }
+    };
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve(request.result);
+  });
+}
+
+async function putStoredFile(key: StoredFileKey, data: ArrayBuffer) {
+  const db = await openKeywordOverlapDb();
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(STORAGE_DB_STORE, "readwrite");
+    tx.objectStore(STORAGE_DB_STORE).put(data, key);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+  db.close();
+}
+
+async function getStoredFile(key: StoredFileKey): Promise<ArrayBuffer | null> {
+  const db = await openKeywordOverlapDb();
+  const value = await new Promise<ArrayBuffer | null>((resolve, reject) => {
+    const tx = db.transaction(STORAGE_DB_STORE, "readonly");
+    const request = tx.objectStore(STORAGE_DB_STORE).get(key);
+    request.onsuccess = () => resolve((request.result as ArrayBuffer | undefined) ?? null);
+    request.onerror = () => reject(request.error);
+  });
+  db.close();
+  return value;
+}
+
+async function deleteStoredFile(key: StoredFileKey) {
+  const db = await openKeywordOverlapDb();
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(STORAGE_DB_STORE, "readwrite");
+    tx.objectStore(STORAGE_DB_STORE).delete(key);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+  db.close();
 }
 
 function pickFromSheet(wb: XLSX.WorkBook, sheet: string): SidePick {
@@ -57,8 +139,6 @@ function pickFromSheet(wb: XLSX.WorkBook, sheet: string): SidePick {
 
 const norm = (v: any) => String(v ?? "").trim().toLowerCase().replace(/\s+/g, " ");
 
-type Mode = "two-files" | "one-file";
-
 const KeywordOverlap = () => {
   const { toast } = useToast();
   const [mode, setMode] = useState<Mode>("two-files");
@@ -76,12 +156,94 @@ const KeywordOverlap = () => {
   const [fileOne, setFileOne] = useState<LoadedFile | null>(null);
   const [pickOneA, setPickOneA] = useState<SidePick | null>(null);
   const [pickOneB, setPickOneB] = useState<SidePick | null>(null);
+  const [hasHydrated, setHasHydrated] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const restore = async () => {
+      try {
+        const raw = localStorage.getItem(STORAGE_META_KEY);
+        if (!raw) return;
+
+        const saved = JSON.parse(raw) as PersistedKeywordOverlapState;
+        if (saved.version !== 1) return;
+
+        if (!cancelled) setMode(saved.mode ?? "two-files");
+
+        const restoreTwoFile = async (key: StoredFileKey, savedPick: PersistedPick | null) => {
+          if (!savedPick) return null;
+          const data = await getStoredFile(key);
+          if (!data) return null;
+          const loaded = loadWorkbookFromBuffer(savedPick.fileName, data);
+          const sheet = loaded.sheetNames.includes(savedPick.sheet) ? savedPick.sheet : loaded.sheetNames[0];
+          const detectedPick = pickFromSheet(loaded.workbook, sheet);
+          const pick = detectedPick.headers.includes(savedPick.keywordCol)
+            ? { ...detectedPick, keywordCol: savedPick.keywordCol }
+            : detectedPick;
+          return { loaded, pick };
+        };
+
+        const [restoredA, restoredB] = await Promise.all([
+          restoreTwoFile("two-a", saved.twoFiles?.a ?? null),
+          restoreTwoFile("two-b", saved.twoFiles?.b ?? null),
+        ]);
+
+        const oneData = saved.oneFile ? await getStoredFile("one") : null;
+        const restoredOne = saved.oneFile && oneData
+          ? loadWorkbookFromBuffer(saved.oneFile.fileName, oneData)
+          : null;
+
+        if (cancelled) return;
+
+        if (restoredA) { setFileA(restoredA.loaded); setPickA(restoredA.pick); }
+        if (restoredB) { setFileB(restoredB.loaded); setPickB(restoredB.pick); }
+        if (restoredOne && saved.oneFile) {
+          const sideASheet = restoredOne.sheetNames.includes(saved.oneFile.sideA.sheet) ? saved.oneFile.sideA.sheet : restoredOne.sheetNames[0];
+          const sideBSheet = restoredOne.sheetNames.includes(saved.oneFile.sideB.sheet) ? saved.oneFile.sideB.sheet : restoredOne.sheetNames[1] ?? restoredOne.sheetNames[0];
+          const detectedA = pickFromSheet(restoredOne.workbook, sideASheet);
+          const detectedB = pickFromSheet(restoredOne.workbook, sideBSheet);
+          setFileOne(restoredOne);
+          setPickOneA(detectedA.headers.includes(saved.oneFile.sideA.keywordCol) ? { ...detectedA, keywordCol: saved.oneFile.sideA.keywordCol } : detectedA);
+          setPickOneB(detectedB.headers.includes(saved.oneFile.sideB.keywordCol) ? { ...detectedB, keywordCol: saved.oneFile.sideB.keywordCol } : detectedB);
+        }
+      } catch (err: any) {
+        toast({ title: "Could not restore saved files", description: err.message, variant: "destructive" });
+      } finally {
+        if (!cancelled) setHasHydrated(true);
+      }
+    };
+
+    restore();
+    return () => { cancelled = true; };
+  }, [toast]);
+
+  useEffect(() => {
+    if (!hasHydrated) return;
+
+    const saved: PersistedKeywordOverlapState = {
+      version: 1,
+      mode,
+      twoFiles: {
+        a: fileA && pickA ? { fileName: fileA.fileName, sheet: pickA.sheet, keywordCol: pickA.keywordCol } : null,
+        b: fileB && pickB ? { fileName: fileB.fileName, sheet: pickB.sheet, keywordCol: pickB.keywordCol } : null,
+      },
+      oneFile: fileOne && pickOneA && pickOneB ? {
+        fileName: fileOne.fileName,
+        sideA: { sheet: pickOneA.sheet, keywordCol: pickOneA.keywordCol },
+        sideB: { sheet: pickOneB.sheet, keywordCol: pickOneB.keywordCol },
+      } : null,
+    };
+
+    localStorage.setItem(STORAGE_META_KEY, JSON.stringify(saved));
+  }, [fileA, fileB, fileOne, hasHydrated, mode, pickA, pickB, pickOneA, pickOneB]);
 
   const handleUploadTwo = async (file: File, side: "a" | "b") => {
     try {
       const lf = await loadFile(file);
       const first = lf.sheetNames[0];
       const pick = pickFromSheet(lf.workbook, first);
+      await putStoredFile(side === "a" ? "two-a" : "two-b", lf.data);
       if (side === "a") { setFileA(lf); setPickA(pick); }
       else { setFileB(lf); setPickB(pick); }
     } catch (err: any) {
@@ -96,6 +258,7 @@ const KeywordOverlap = () => {
         toast({ title: "Only one sheet found", description: "This file has a single sheet. Use Two files mode or upload a multi-sheet workbook.", variant: "destructive" });
         return;
       }
+      await putStoredFile("one", lf.data);
       setFileOne(lf);
       setPickOneA(pickFromSheet(lf.workbook, lf.sheetNames[0]));
       setPickOneB(pickFromSheet(lf.workbook, lf.sheetNames[1]));
@@ -221,7 +384,7 @@ const KeywordOverlap = () => {
         <div className="flex items-center justify-between">
           <div className="text-sm font-semibold">{label}</div>
           {lf && (
-            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { setLf(null); setPick(null); }}>
+            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { void deleteStoredFile(side === "a" ? "two-a" : "two-b"); setLf(null); setPick(null); }}>
               <X className="h-3.5 w-3.5" />
             </Button>
           )}
@@ -374,7 +537,7 @@ const KeywordOverlap = () => {
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        Compare keyword columns between two spreadsheets, or between two tabs of the same spreadsheet. All original columns (volume, difficulty, category, etc.) are carried through into the results and exports.
+        Compare keyword columns between two spreadsheets, or between two tabs of the same spreadsheet. Uploads and selected columns are saved in this browser, and all original columns are carried through into the results and exports.
       </p>
 
       <Tabs value={mode} onValueChange={(v) => setMode(v as Mode)}>
@@ -396,7 +559,7 @@ const KeywordOverlap = () => {
               <div className="flex items-center justify-between">
                 <div className="text-sm font-semibold">Spreadsheet</div>
                 {fileOne && (
-                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { setFileOne(null); setPickOneA(null); setPickOneB(null); }}>
+                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { void deleteStoredFile("one"); setFileOne(null); setPickOneA(null); setPickOneB(null); }}>
                     <X className="h-3.5 w-3.5" />
                   </Button>
                 )}
