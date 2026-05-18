@@ -107,3 +107,6 @@ verify_jwt = false
 
 [functions.seo-brain-export]
 verify_jwt = false
+
+[functions.suggest-evidence]
+verify_jwt = false
