@@ -7,8 +7,9 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import {
   Upload, Loader2, Download, Copy, Trash2, ChevronDown, ChevronRight,
-  FileText, Sparkles, X, Filter, Zap, BrainCircuit, Save, Clock, FolderOpen
+  FileText, Sparkles, X, Filter, Zap, BrainCircuit, Save, Clock, FolderOpen, Link2
 } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { supabase } from "@/integrations/supabase/client";
 import { Pencil } from "lucide-react";
@@ -156,6 +157,19 @@ const KeywordDeduplicator = () => {
   const [referenceFileName, setReferenceFileName] = useState<string | null>(null);
   const [referenceKeywords, setReferenceKeywords] = useState<{ keyword: string; volume: number }[]>([]);
   const [referenceRemovedCount, setReferenceRemovedCount] = useState(0);
+
+  // URL Coverage mode: derive keywords/phrases from existing page URLs and find
+  // which target keywords are covered vs which are gaps (no semantic match on any URL).
+  const urlsFileInputRef = useRef<HTMLInputElement>(null);
+  const [urlsInput, setUrlsInput] = useState("");
+  const [urlSources, setUrlSources] = useState<{ url: string; phrases: string[] }[]>([]);
+  const [isDerivingUrls, setIsDerivingUrls] = useState(false);
+  const [urlProgress, setUrlProgress] = useState(0);
+  const [urlProgressLabel, setUrlProgressLabel] = useState("");
+  const [coverage, setCoverage] = useState<{
+    covered: { keyword: string; volume: number; urls: string[] }[];
+    gaps: { keyword: string; volume: number }[];
+  } | null>(null);
 
   // Load saved results on mount
   useEffect(() => {
@@ -337,6 +351,202 @@ const KeywordDeduplicator = () => {
     if (referenceFileInputRef.current) referenceFileInputRef.current.value = "";
   };
 
+  // === URL Coverage mode ===
+  const parseUrlsFromText = (text: string): string[] => {
+    return text
+      .split(/[\s,]+/)
+      .map((s) => s.trim())
+      .filter((s) => /^https?:\/\//i.test(s) || /\./.test(s));
+  };
+
+  const handleUrlsFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const text = ev.target?.result as string;
+        // Accept CSV (one URL per row, first column) OR plain text
+        const rows = parseCSV(text);
+        let urls: string[] = [];
+        if (rows.length && rows[0].length) {
+          // If header looks like url/link, skip it
+          const headerLooksLikeHeader = /url|link|address/i.test(rows[0][0]);
+          const start = headerLooksLikeHeader ? 1 : 0;
+          urls = rows.slice(start).map((r) => (r[0] || "").trim()).filter(Boolean);
+        }
+        if (urls.length === 0) urls = parseUrlsFromText(text);
+        if (urls.length === 0) throw new Error("No URLs found in file");
+        setUrlsInput(urls.join("\n"));
+        toast({ title: `Loaded ${urls.length} URLs`, description: file.name });
+      } catch (err: any) {
+        toast({ title: "Failed to parse URLs file", description: err.message, variant: "destructive" });
+      }
+    };
+    reader.readAsText(file);
+    if (urlsFileInputRef.current) urlsFileInputRef.current.value = "";
+  };
+
+  const deriveKeywordsFromUrls = async () => {
+    const urls = [...new Set(parseUrlsFromText(urlsInput))];
+    if (urls.length === 0) {
+      toast({ title: "No URLs", description: "Paste or upload URLs first.", variant: "destructive" });
+      return;
+    }
+    setIsDerivingUrls(true);
+    setUrlProgress(2);
+    setUrlProgressLabel(`Scraping ${urls.length} URLs...`);
+    try {
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/derive-keywords-from-urls`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({ urls }),
+        }
+      );
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `Request failed: ${res.status}`);
+      }
+      const reader = res.body?.getReader();
+      if (!reader) throw new Error("No stream");
+      const decoder = new TextDecoder();
+      let buf = "";
+      let finalResults: { url: string; phrases: string[] }[] = [];
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        let idx: number;
+        while ((idx = buf.indexOf("\n\n")) !== -1) {
+          const msg = buf.slice(0, idx);
+          buf = buf.slice(idx + 2);
+          for (const line of msg.split("\n")) {
+            if (!line.startsWith("data: ")) continue;
+            try {
+              const ev = JSON.parse(line.slice(6));
+              if (ev.type === "progress") {
+                setUrlProgress(Math.round((ev.done / ev.total) * 90));
+                setUrlProgressLabel(ev.message);
+              } else if (ev.type === "complete") {
+                finalResults = (ev.results || []).map((r: any) => ({
+                  url: r.url,
+                  phrases: r.phrases || [],
+                }));
+                setUrlProgress(100);
+              }
+            } catch { /* ignore */ }
+          }
+        }
+      }
+
+      setUrlSources(finalResults);
+      // Feed the flat list of derived phrases into referenceKeywords so the existing
+      // dedup engine (fuzzy + AI semantic) groups them with target keywords.
+      const flatPhrases = [...new Set(finalResults.flatMap((r) => r.phrases))]
+        .map((p) => ({ keyword: p.toLowerCase(), volume: 0 }));
+      setReferenceKeywords(flatPhrases);
+      setReferenceFileName(`${finalResults.length} URLs (derived)`);
+      setCoverage(null);
+      toast({
+        title: "Keywords derived",
+        description: `${finalResults.length} URLs → ${flatPhrases.length} unique terms. Now run Step 1 to compute coverage.`,
+      });
+    } catch (err: any) {
+      toast({ title: "URL derivation failed", description: err.message, variant: "destructive" });
+    } finally {
+      setIsDerivingUrls(false);
+    }
+  };
+
+  const clearUrlMode = () => {
+    setUrlSources([]);
+    setUrlsInput("");
+    setCoverage(null);
+    // Only clear reference if it was set by URL mode
+    if (referenceFileName?.endsWith("(derived)")) {
+      setReferenceKeywords([]);
+      setReferenceFileName(null);
+    }
+  };
+
+  // Compute coverage tables: for each original target keyword, find the group it
+  // landed in across the merged A+B dedup output; if that group contains any
+  // URL-derived phrase, it's covered (mapped to that URL). Otherwise it's a gap.
+  const computeCoverage = (groups: DedupKeyword[]) => {
+    const targetVolumes = new Map<string, number>();
+    for (const k of rawKeywords) targetVolumes.set(k.keyword.toLowerCase(), k.volume);
+
+    // phrase → urls
+    const phraseToUrls = new Map<string, Set<string>>();
+    for (const src of urlSources) {
+      for (const p of src.phrases) {
+        const key = p.toLowerCase();
+        if (!phraseToUrls.has(key)) phraseToUrls.set(key, new Set());
+        phraseToUrls.get(key)!.add(src.url);
+      }
+    }
+
+    const coveredMap = new Map<string, Set<string>>(); // target kw → urls
+    for (const g of groups) {
+      const members = [g.keyword.toLowerCase(), ...(g.variants || []).map((v) => v.keyword.toLowerCase())];
+      const targetMembers = members.filter((m) => targetVolumes.has(m));
+      if (targetMembers.length === 0) continue;
+      const urlsHit = new Set<string>();
+      for (const m of members) {
+        const urls = phraseToUrls.get(m);
+        if (urls) for (const u of urls) urlsHit.add(u);
+      }
+      if (urlsHit.size > 0) {
+        for (const t of targetMembers) {
+          if (!coveredMap.has(t)) coveredMap.set(t, new Set());
+          for (const u of urlsHit) coveredMap.get(t)!.add(u);
+        }
+      }
+    }
+
+    const covered = [...coveredMap.entries()]
+      .map(([keyword, urls]) => ({
+        keyword,
+        volume: targetVolumes.get(keyword) || 0,
+        urls: [...urls],
+      }))
+      .sort((a, b) => b.volume - a.volume);
+
+    const coveredSet = new Set(covered.map((c) => c.keyword));
+    const gaps = rawKeywords
+      .filter((k) => !coveredSet.has(k.keyword.toLowerCase()))
+      .map((k) => ({ keyword: k.keyword.toLowerCase(), volume: k.volume }))
+      .sort((a, b) => b.volume - a.volume);
+
+    setCoverage({ covered, gaps });
+  };
+
+  const exportCoverageCSV = (which: "covered" | "gaps") => {
+    if (!coverage) return;
+    let rows: string[][];
+    if (which === "covered") {
+      rows = [["Keyword", "Volume", "Covered By URL(s)"]];
+      for (const c of coverage.covered) rows.push([c.keyword, String(c.volume), c.urls.join(" | ")]);
+    } else {
+      rows = [["Keyword", "Volume"]];
+      for (const g of coverage.gaps) rows.push([g.keyword, String(g.volume)]);
+    }
+    const csv = rows.map((r) => r.map((v) => `"${v.replace(/"/g, '""')}"`).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${which}-keywords-${Date.now()}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   // Helper: return true if a dedup group "touches" any reference (File B) keyword.
   // A group touches B if its canonical OR any variant matches (case-insensitive) a B keyword.
   const groupTouchesReference = (kw: DedupKeyword, refSet: Set<string>): boolean => {
@@ -483,18 +693,20 @@ const KeywordDeduplicator = () => {
         ? (keywordsToDedup.length - referenceKeywords.length)
         : keywordsToDedup.length);
 
-      // If reference (File B) is set, strip any group that touches a B keyword.
-      // The remaining canonicals are keywords unique to File A.
+      // URL Coverage mode: keep all groups visible; compute coverage tables instead of stripping.
+      // Plain reference mode (CSV File B): strip any group that touches a B keyword.
       let finalKeywords: DedupKeyword[] = data.keywords;
       let finalUngrouped: UngroupedEntry[] = data.ungroupedForAI || [];
       let refRemoved = 0;
-      if (hasReference) {
+      const urlMode = urlSources.length > 0;
+      if (hasReference && !urlMode) {
         const beforeCount = finalKeywords.length;
         finalKeywords = finalKeywords.filter(k => !groupTouchesReference(k, refSet));
         refRemoved += beforeCount - finalKeywords.length;
         finalUngrouped = finalUngrouped.filter(u => !refSet.has(u.canonical.toLowerCase()));
       }
       setReferenceRemovedCount(refRemoved);
+      if (urlMode) computeCoverage(data.keywords);
 
       const deduplicatedCount = finalKeywords.length;
       setResult({
@@ -598,9 +810,11 @@ const KeywordDeduplicator = () => {
                   return !consumedByAI.has(k.keyword.toLowerCase());
                 });
 
-                // Filter out AI-merged groups that touch the reference (File B) set.
+                // In URL coverage mode, keep all AI-merged groups (don't strip) so
+                // coverage can be recomputed against the full merged graph.
+                const urlModeLocal = urlSources.length > 0;
                 const refSetLocal = new Set(referenceKeywords.map(k => k.keyword.toLowerCase()));
-                const hasRef = refSetLocal.size > 0;
+                const hasRef = refSetLocal.size > 0 && !urlModeLocal;
                 const aiMerged = hasRef
                   ? (event.aiMergedKeywords as DedupKeyword[]).filter(k => !groupTouchesReference(k, refSetLocal))
                   : (event.aiMergedKeywords as DedupKeyword[]);
@@ -611,6 +825,11 @@ const KeywordDeduplicator = () => {
 
                 if (hasRef && aiRefRemoved > 0) {
                   setReferenceRemovedCount(c => c + aiRefRemoved);
+                }
+
+                if (urlModeLocal) {
+                  // Recompute coverage against full post-AI merged group list
+                  setTimeout(() => computeCoverage(allKeywords), 0);
                 }
 
                 return {
@@ -878,6 +1097,76 @@ const KeywordDeduplicator = () => {
         </div>
       )}
 
+      {/* URL Coverage mode — derive keywords from existing page URLs */}
+      {rawKeywords.length > 0 && !result && (
+        <div className="border border-dashed rounded-md p-3 space-y-2 bg-muted/20">
+          <p className="text-xs font-medium flex items-center gap-1.5">
+            <Link2 className="h-3.5 w-3.5" />
+            URL Coverage (optional) — find which keywords your existing pages already cover
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Paste URLs (one per line) or upload a CSV of URLs. We'll scrape each page's title, meta description, H1
+            and H2s, then match those against your keyword list using the same fuzzy + AI nuance logic
+            (e.g. <em>"are implants painful"</em> ≈ <em>"do implants hurt"</em>). Output: <strong>Covered</strong> (keyword → URL)
+            and <strong>Gaps</strong> (unique terms with no matching page).
+          </p>
+          <div className="flex items-center gap-2 flex-wrap">
+            <input
+              ref={urlsFileInputRef}
+              type="file"
+              accept=".csv,.txt"
+              className="hidden"
+              onChange={handleUrlsFileUpload}
+            />
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              onClick={() => urlsFileInputRef.current?.click()}
+              disabled={isDerivingUrls}
+            >
+              <Upload className="h-3.5 w-3.5" />
+              Upload URLs CSV
+            </Button>
+            {urlSources.length > 0 && (
+              <Badge variant="secondary" className="text-xs gap-1.5">
+                <Link2 className="h-3 w-3" />
+                {urlSources.length} URLs derived → {referenceKeywords.length.toLocaleString()} terms
+                <button
+                  className="ml-1 text-muted-foreground hover:text-destructive"
+                  onClick={clearUrlMode}
+                  title="Clear URL mode"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </Badge>
+            )}
+          </div>
+          <Textarea
+            value={urlsInput}
+            onChange={(e) => setUrlsInput(e.target.value)}
+            placeholder="https://example.com/page-1&#10;https://example.com/page-2&#10;..."
+            className="text-xs font-mono min-h-[80px]"
+            disabled={isDerivingUrls}
+          />
+          <div className="flex items-center gap-2 flex-wrap">
+            <Button
+              size="sm"
+              className="gap-2"
+              onClick={deriveKeywordsFromUrls}
+              disabled={isDerivingUrls || urlsInput.trim().length === 0}
+            >
+              {isDerivingUrls ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Link2 className="h-3.5 w-3.5" />}
+              {isDerivingUrls ? "Scraping..." : "Derive Keywords from URLs"}
+            </Button>
+            {isDerivingUrls && (
+              <span className="text-xs text-muted-foreground">{urlProgressLabel}</span>
+            )}
+          </div>
+          {isDerivingUrls && <Progress value={urlProgress} className="h-1.5" />}
+        </div>
+      )}
+
       {/* Topic filter + Step 1 button */}
       {rawKeywords.length > 0 && !result && (
         <div className="space-y-3">
@@ -1048,6 +1337,104 @@ const KeywordDeduplicator = () => {
               <Button variant="ghost" size="sm" onClick={() => setShowSaveInput(false)}>
                 Cancel
               </Button>
+            </div>
+          )}
+
+          {/* URL Coverage tables */}
+          {coverage && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <Card className="border-green-300/50">
+                  <CardContent className="py-3 px-4 text-center">
+                    <p className="text-2xl font-bold text-green-600">{coverage.covered.length.toLocaleString()}</p>
+                    <p className="text-xs text-muted-foreground">Covered by existing URLs</p>
+                  </CardContent>
+                </Card>
+                <Card className="border-amber-300/50">
+                  <CardContent className="py-3 px-4 text-center">
+                    <p className="text-2xl font-bold text-amber-600">{coverage.gaps.length.toLocaleString()}</p>
+                    <p className="text-xs text-muted-foreground">Gaps — no matching page</p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Covered table */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm font-medium flex items-center gap-2">
+                    <Link2 className="h-4 w-4 text-green-600" />
+                    Covered ({coverage.covered.length.toLocaleString()})
+                  </p>
+                  <Button variant="outline" size="sm" className="gap-1.5" onClick={() => exportCoverageCSV("covered")}>
+                    <Download className="h-3.5 w-3.5" /> Export Covered CSV
+                  </Button>
+                </div>
+                <div className="border rounded-md max-h-[360px] overflow-y-auto">
+                  <table className="w-full text-sm">
+                    <thead className="sticky top-0 bg-card border-b">
+                      <tr>
+                        <th className="text-left py-2 px-3 font-medium">Keyword</th>
+                        <th className="text-right py-2 px-3 font-medium w-24">Volume</th>
+                        <th className="text-left py-2 px-3 font-medium">Covered By</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {coverage.covered.map((c) => (
+                        <tr key={c.keyword} className="border-b hover:bg-accent/30">
+                          <td className="py-1.5 px-3">{c.keyword}</td>
+                          <td className="text-right py-1.5 px-3 font-mono text-xs">{c.volume.toLocaleString()}</td>
+                          <td className="py-1.5 px-3 text-xs">
+                            <div className="flex flex-col gap-0.5">
+                              {c.urls.map((u) => (
+                                <a key={u} href={u} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline truncate max-w-md">
+                                  {u}
+                                </a>
+                              ))}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                      {coverage.covered.length === 0 && (
+                        <tr><td colSpan={3} className="text-center py-6 text-muted-foreground text-sm">No keywords matched any URL yet.</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Gaps table */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm font-medium flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 text-amber-600" />
+                    Gaps — candidates for new pages ({coverage.gaps.length.toLocaleString()})
+                  </p>
+                  <Button variant="outline" size="sm" className="gap-1.5" onClick={() => exportCoverageCSV("gaps")}>
+                    <Download className="h-3.5 w-3.5" /> Export Gaps CSV
+                  </Button>
+                </div>
+                <div className="border rounded-md max-h-[360px] overflow-y-auto">
+                  <table className="w-full text-sm">
+                    <thead className="sticky top-0 bg-card border-b">
+                      <tr>
+                        <th className="text-left py-2 px-3 font-medium">Keyword</th>
+                        <th className="text-right py-2 px-3 font-medium w-24">Volume</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {coverage.gaps.map((g) => (
+                        <tr key={g.keyword} className="border-b hover:bg-accent/30">
+                          <td className="py-1.5 px-3">{g.keyword}</td>
+                          <td className="text-right py-1.5 px-3 font-mono text-xs">{g.volume.toLocaleString()}</td>
+                        </tr>
+                      ))}
+                      {coverage.gaps.length === 0 && (
+                        <tr><td colSpan={2} className="text-center py-6 text-muted-foreground text-sm">No gaps — every keyword is covered.</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             </div>
           )}
 

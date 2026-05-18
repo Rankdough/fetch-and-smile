@@ -110,3 +110,6 @@ verify_jwt = false
 
 [functions.suggest-evidence]
 verify_jwt = false
+
+[functions.derive-keywords-from-urls]
+verify_jwt = false
