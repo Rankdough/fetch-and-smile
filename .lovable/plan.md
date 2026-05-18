@@ -1,32 +1,73 @@
-## Goal
 
-When a generated article contains a URL that fails verification, replace it with the domain root (e.g. `https://website.com/broken-article` → `https://website.com/`) instead of unwrapping the link. This keeps attribution to the source while avoiding broken-link clicks.
+## What's changing (and what isn't)
 
-## Current behaviour (`src/pages/ShopifyFaqBulk.tsx`, `runQaCheck`, lines ~423–490)
+Three precise additions inspired by Google's GenAI Search guide. **No changes** to the AEO layout, word-count rules, export format, CTA/table cadence, tone enforcement, or anything not listed below.
 
-After generation, broken hrefs are detected via `verify-links`. The code then:
-1. Builds candidate domain roots for each broken URL.
-2. Re-verifies each domain root via `verify-links`.
-3. **Only if the domain root is reachable** → replaces the href with the domain root.
-4. **Otherwise** → unwraps the `<a>` tag, removing the link entirely and counting it as "still broken".
+---
 
-## Change
+### 1. First-Hand Evidence input — SEO Content Generator settings
 
-Simplify the repair flow so the domain root is always used as the fallback:
+**Goal:** Let the user paste a first-person anecdote, case study, internal data, or expert observation that the writer must weave into the article. This is the single biggest GenAI-visibility signal Google calls out ("non-commodity, first-hand experience").
 
-1. For every broken URL, compute its domain root (`protocol + hostname + /`).
-2. If the domain root can be parsed, replace the `href` with the domain root unconditionally — skip the second `verify-links` round-trip on the domain.
-3. Only unwrap the anchor when the URL cannot be parsed at all (malformed / not a URL).
-4. Keep a single repair pass; update the row's `Body HTML` and the QA report:
-   - If a URL was repaired to its domain → log it as "repaired to domain root", not as broken.
-   - If a URL was unwrapped because it was unparseable → still report as broken/removed.
-5. Leave the rest of `runQaCheck` (status calculation, toasts, issue list) intact, just adjusting the message wording so the user sees how many URLs were defaulted to domain.
+**Where:** `src/pages/Articles.tsx` — add a new optional collapsible field in the generator settings panel, labelled **"First-Hand Evidence (optional)"** with helper text: *"Anecdote, case study, internal data, or expert observation. The writer will weave this into the article as a concrete, citable detail."*
 
-## Files to edit
+**How it flows:**
+- New state `firstHandEvidence: string`, persisted alongside other generator inputs.
+- Passed through to `supabase/functions/generate-content/index.ts` in the request body.
+- Injected into the system prompt as a dedicated block: *"FIRST-HAND EVIDENCE TO INCORPORATE — weave this naturally into at least one body section. Do not invent facts beyond what is stated here. Do not quote it verbatim if the tone profile forbids first-person; paraphrase into the allowed perspective."*
+- Respects existing 3rd-person rule (paraphrases away "I/we" if that perspective is active).
+- Empty string = no behavioural change (fully backward compatible).
 
-- `src/pages/ShopifyFaqBulk.tsx` — `runQaCheck` only. No edge-function or prompt changes; this is a pure post-processing / presentation-layer fix.
+**Not changed:** article structure, word count, sections, exports.
 
-## Out of scope
+---
 
-- No changes to `generate-faq-article` / `generate-content` system prompts.
-- No changes to internal-link allowlisting or the upstream URL-hallucination prevention; this plan is purely the safety net you asked for.
+### 2. Commodity-content guardrails — writer prompt only (copy, not format)
+
+**Goal:** Push the writer away from generic listicle phrasing ("7 Tips for…", "In today's world…", "It is important to…") toward specific, experiential, non-commodity copy. Per your confirmation: **prompt-side only**, the AEO skeleton stays identical.
+
+**Where:**
+- `supabase/functions/generate-content/index.ts` system prompt — add a "NON-COMMODITY WRITING RULES" block.
+- `supabase/functions/humanise-write-section/index.ts` — mirror the same rules so section rewrites don't regress.
+
+**Rules added to the prompt:**
+- Avoid generic openers: "In today's world", "When it comes to", "It is important to", "Many people".
+- Prefer specific over generic: named examples, concrete numbers, scenarios over abstractions.
+- Each H2 body should contain at least one concrete element (a number, named example, scenario, or direct quote) — not just abstract advice.
+- Don't restate common knowledge as if it's insight.
+- If First-Hand Evidence is provided, anchor at least one section to it.
+
+**Not changed:** No new sections, no new word-count rules, no structural validators. The existing humanness/quality scorer already covers detection on the back end — we're just steering the front-end of generation.
+
+---
+
+### 3. Consolidation Suggester — Keyword Research
+
+**Goal:** When two blog ideas in the same silo are semantically near-duplicates, flag them and offer a one-click merge. This prevents users from triggering Google's "scaled content abuse" pattern by producing multiple thin articles for keyword variants.
+
+**Where:** `src/components/keyword-research/KeywordClustering.tsx` (or the ideas list view within it).
+
+**How it works:**
+- Reuse the existing fuzzy/core-question normalization from `KeywordDeduplicator` (already deterministic, no AI cost).
+- On idea list render, compute pairwise similarity within each silo. Pairs above threshold (e.g. ≥0.85) get a subtle **"Similar to: [other idea title]"** chip on the idea card with a **"Review & Merge"** action.
+- Clicking opens the existing **Combine Ideas** flow (already implemented per memory) pre-populated with the two ideas.
+- Pure UI/UX surface — no changes to data model, generation, or export.
+- A small dismiss-per-pair state (localStorage) so users can ignore a suggestion permanently.
+
+**Not changed:** silo logic, classification, value-promise generation, queue, exports.
+
+---
+
+### Out of scope (per your instructions)
+
+- ❌ #3 Image/video enforcement
+- ❌ #4 Page-experience export lint
+- ❌ #6 Author/E-E-A-T metadata
+
+---
+
+### Validation plan
+
+- **#1**: generate with and without evidence; confirm output structure identical, evidence appears woven in when provided, no first-person leakage in 3rd-person mode.
+- **#2**: generate same topic before/after; confirm word count, section list, table count, CTA count, FAQ count all unchanged; confirm opener and abstract-phrase usage drops.
+- **#3**: load a project with known near-duplicate ideas; confirm chip appears, Combine flow opens pre-populated, dismiss persists across reload.
