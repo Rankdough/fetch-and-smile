@@ -810,9 +810,11 @@ const KeywordDeduplicator = () => {
                   return !consumedByAI.has(k.keyword.toLowerCase());
                 });
 
-                // Filter out AI-merged groups that touch the reference (File B) set.
+                // In URL coverage mode, keep all AI-merged groups (don't strip) so
+                // coverage can be recomputed against the full merged graph.
+                const urlModeLocal = urlSources.length > 0;
                 const refSetLocal = new Set(referenceKeywords.map(k => k.keyword.toLowerCase()));
-                const hasRef = refSetLocal.size > 0;
+                const hasRef = refSetLocal.size > 0 && !urlModeLocal;
                 const aiMerged = hasRef
                   ? (event.aiMergedKeywords as DedupKeyword[]).filter(k => !groupTouchesReference(k, refSetLocal))
                   : (event.aiMergedKeywords as DedupKeyword[]);
@@ -823,6 +825,11 @@ const KeywordDeduplicator = () => {
 
                 if (hasRef && aiRefRemoved > 0) {
                   setReferenceRemovedCount(c => c + aiRefRemoved);
+                }
+
+                if (urlModeLocal) {
+                  // Recompute coverage against full post-AI merged group list
+                  setTimeout(() => computeCoverage(allKeywords), 0);
                 }
 
                 return {
