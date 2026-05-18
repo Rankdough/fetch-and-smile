@@ -10,11 +10,19 @@ const STOP = new Set([
   "the","a","an","and","or","of","for","to","in","on","at","by","with","from","is","are","was","were","be","been","being","this","that","these","those","it","its","as","but","not","you","your","our","we","they","their","i","my","me","do","does","did","how","what","when","where","why","which","who","whom","whose","can","will","just","than","then","so","if","into","over","about","more","most","best","top","new","get","got","go","goes","up","down","out","off","one","two","three","page","home","read","learn","click","here","menu","close","open","next","previous","skip","privacy","terms","cookie","cookies","login","signup","contact","blog","faq","help","support",
 ]);
 
-const cleanText = (s: string): string =>
+const decodeEntities = (s: string): string =>
   s
-    .toLowerCase()
     .replace(/&nbsp;/g, " ")
     .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&#(\d+);/g, (_m, n) => String.fromCharCode(parseInt(n, 10)));
+
+const cleanText = (s: string): string =>
+  decodeEntities(s)
+    .toLowerCase()
     .replace(/[“”"]/g, "")
     .replace(/[‘’']/g, "'")
     .replace(/[^a-z0-9\s'\-]/g, " ")
@@ -22,65 +30,66 @@ const cleanText = (s: string): string =>
     .trim();
 
 const tokenize = (s: string): string[] =>
-  cleanText(s)
-    .split(/\s+/)
-    .filter((w) => w.length >= 3 && !STOP.has(w));
+  cleanText(s).split(/\s+/).filter((w) => w.length >= 3 && !STOP.has(w));
 
-const extractFromMarkdown = (md: string) => {
+const stripTags = (s: string): string => s.replace(/<[^>]+>/g, " ");
+
+const extractFromHtml = (html: string) => {
   const phrases = new Set<string>();
-  // H1
-  for (const m of md.matchAll(/^\s*#\s+(.+)$/gm)) {
-    const t = cleanText(m[1]);
+
+  const title = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1];
+  if (title) {
+    const t = cleanText(stripTags(title));
     if (t.length >= 3) phrases.add(t);
   }
-  // H2
-  for (const m of md.matchAll(/^\s*##\s+(.+)$/gm)) {
-    const t = cleanText(m[1]);
+
+  const metaDesc = html.match(
+    /<meta[^>]+name=["']description["'][^>]*content=["']([^"']+)["']/i,
+  )?.[1] ||
+    html.match(
+      /<meta[^>]+content=["']([^"']+)["'][^>]*name=["']description["']/i,
+    )?.[1] ||
+    html.match(
+      /<meta[^>]+property=["']og:description["'][^>]*content=["']([^"']+)["']/i,
+    )?.[1];
+  if (metaDesc) {
+    const t = cleanText(metaDesc);
     if (t.length >= 3) phrases.add(t);
   }
+
+  for (const m of html.matchAll(/<h1[^>]*>([\s\S]*?)<\/h1>/gi)) {
+    const t = cleanText(stripTags(m[1]));
+    if (t.length >= 3 && t.length <= 200) phrases.add(t);
+  }
+  for (const m of html.matchAll(/<h2[^>]*>([\s\S]*?)<\/h2>/gi)) {
+    const t = cleanText(stripTags(m[1]));
+    if (t.length >= 3 && t.length <= 200) phrases.add(t);
+  }
+
   return [...phrases];
 };
 
-const extractFromMetadata = (meta: Record<string, unknown> | undefined) => {
-  const out = new Set<string>();
-  if (!meta) return out;
-  const title = (meta.title as string) || (meta.ogTitle as string) || "";
-  const desc = (meta.description as string) || (meta.ogDescription as string) || "";
-  if (title) out.add(cleanText(title));
-  if (desc) out.add(cleanText(desc));
-  return out;
-};
-
-const scrapeOne = async (url: string, apiKey: string) => {
+const scrapeOne = async (url: string): Promise<{ url: string; keywords: string[]; phrases: string[]; error?: string }> => {
   try {
-    const res = await fetch("https://api.firecrawl.dev/v1/scrape", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        url,
-        formats: ["markdown"],
-        onlyMainContent: true,
-        waitFor: 1500,
-      }),
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+    const res = await fetch(url, {
+      signal: controller.signal,
+      headers: {
+        "User-Agent": "Mozilla/5.0 (compatible; LovableBot/1.0; +https://lovable.dev)",
+        "Accept": "text/html,application/xhtml+xml",
+      },
+      redirect: "follow",
     });
-    const data = await res.json();
-    if (!res.ok) return { url, keywords: [] as string[], phrases: [] as string[], error: data.error || `HTTP ${res.status}` };
-    const md: string = data.data?.markdown || data.markdown || "";
-    const meta = data.data?.metadata || data.metadata;
-
-    const phrases = new Set<string>([...extractFromMarkdown(md), ...extractFromMetadata(meta)]);
-    // Filter out massive boilerplate phrases
-    const cleanPhrases = [...phrases].filter((p) => p.length >= 3 && p.length <= 120 && /[a-z]/.test(p));
-
-    // Build a word-bag from phrases (used to seed semantic match against keyword list)
+    clearTimeout(timeout);
+    if (!res.ok) return { url, keywords: [], phrases: [], error: `HTTP ${res.status}` };
+    const html = await res.text();
+    const phrases = extractFromHtml(html);
     const wordBag = new Set<string>();
-    for (const p of cleanPhrases) {
-      for (const t of tokenize(p)) wordBag.add(t);
-    }
-
-    return { url, keywords: [...wordBag], phrases: cleanPhrases };
+    for (const p of phrases) for (const t of tokenize(p)) wordBag.add(t);
+    return { url, keywords: [...wordBag], phrases };
   } catch (e) {
-    return { url, keywords: [] as string[], phrases: [] as string[], error: (e as Error).message };
+    return { url, keywords: [], phrases: [], error: (e as Error).message };
   }
 };
 
@@ -94,43 +103,57 @@ serve(async (req) => {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-    const apiKey = Deno.env.get("FIRECRAWL_API_KEY");
-    if (!apiKey) {
-      return new Response(JSON.stringify({ error: "FIRECRAWL_API_KEY not configured" }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
 
-    // Normalise + dedupe URLs
     const cleaned: string[] = [...new Set(
       urls
         .map((u: string) => (u || "").trim())
-        .filter((u: string) => !!u)
+        .filter((u: string) => u.length >= 4 && u.includes("."))
         .map((u: string) => (u.startsWith("http://") || u.startsWith("https://")) ? u : `https://${u}`)
     )];
 
-    // SSE stream so the UI can show progress on large URL lists
+    if (cleaned.length === 0) {
+      return new Response(JSON.stringify({ error: "No valid URLs found" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const encoder = new TextEncoder();
     const stream = new ReadableStream({
       async start(controller) {
-        const send = (obj: unknown) =>
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify(obj)}\n\n`));
+        const send = (obj: unknown) => {
+          try { controller.enqueue(encoder.encode(`data: ${JSON.stringify(obj)}\n\n`)); } catch { /* closed */ }
+        };
 
-        const BATCH = 10;
+        // Heartbeat to keep proxies from closing the connection
+        const hb = setInterval(() => {
+          try { controller.enqueue(encoder.encode(`: ping\n\n`)); } catch { /* closed */ }
+        }, 10000);
+
+        const CONCURRENCY = 25;
         const results: { url: string; keywords: string[]; phrases: string[]; error?: string }[] = [];
+        let cursor = 0;
 
-        for (let i = 0; i < cleaned.length; i += BATCH) {
-          const batch = cleaned.slice(i, i + BATCH);
-          const batchResults = await Promise.all(batch.map((u) => scrapeOne(u, apiKey)));
-          results.push(...batchResults);
-          send({
-            type: "progress",
-            done: results.length,
-            total: cleaned.length,
-            message: `Scraped ${results.length} / ${cleaned.length} URLs`,
-          });
-        }
+        send({ type: "progress", done: 0, total: cleaned.length, message: `Starting ${cleaned.length} URLs...` });
 
+        const worker = async () => {
+          while (cursor < cleaned.length) {
+            const i = cursor++;
+            const r = await scrapeOne(cleaned[i]);
+            results.push(r);
+            if (results.length % 5 === 0 || results.length === cleaned.length) {
+              send({
+                type: "progress",
+                done: results.length,
+                total: cleaned.length,
+                message: `Scraped ${results.length} / ${cleaned.length}`,
+              });
+            }
+          }
+        };
+
+        await Promise.all(Array.from({ length: Math.min(CONCURRENCY, cleaned.length) }, worker));
+
+        clearInterval(hb);
         send({
           type: "complete",
           results,
@@ -142,7 +165,7 @@ serve(async (req) => {
     });
 
     return new Response(stream, {
-      headers: { ...corsHeaders, "Content-Type": "text/event-stream", "Cache-Control": "no-cache" },
+      headers: { ...corsHeaders, "Content-Type": "text/event-stream", "Cache-Control": "no-cache", "X-Accel-Buffering": "no" },
     });
   } catch (e) {
     return new Response(JSON.stringify({ error: (e as Error).message }), {
