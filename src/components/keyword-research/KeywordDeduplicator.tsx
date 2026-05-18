@@ -1340,6 +1340,104 @@ const KeywordDeduplicator = () => {
             </div>
           )}
 
+          {/* URL Coverage tables */}
+          {coverage && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <Card className="border-green-300/50">
+                  <CardContent className="py-3 px-4 text-center">
+                    <p className="text-2xl font-bold text-green-600">{coverage.covered.length.toLocaleString()}</p>
+                    <p className="text-xs text-muted-foreground">Covered by existing URLs</p>
+                  </CardContent>
+                </Card>
+                <Card className="border-amber-300/50">
+                  <CardContent className="py-3 px-4 text-center">
+                    <p className="text-2xl font-bold text-amber-600">{coverage.gaps.length.toLocaleString()}</p>
+                    <p className="text-xs text-muted-foreground">Gaps — no matching page</p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Covered table */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm font-medium flex items-center gap-2">
+                    <Link2 className="h-4 w-4 text-green-600" />
+                    Covered ({coverage.covered.length.toLocaleString()})
+                  </p>
+                  <Button variant="outline" size="sm" className="gap-1.5" onClick={() => exportCoverageCSV("covered")}>
+                    <Download className="h-3.5 w-3.5" /> Export Covered CSV
+                  </Button>
+                </div>
+                <div className="border rounded-md max-h-[360px] overflow-y-auto">
+                  <table className="w-full text-sm">
+                    <thead className="sticky top-0 bg-card border-b">
+                      <tr>
+                        <th className="text-left py-2 px-3 font-medium">Keyword</th>
+                        <th className="text-right py-2 px-3 font-medium w-24">Volume</th>
+                        <th className="text-left py-2 px-3 font-medium">Covered By</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {coverage.covered.map((c) => (
+                        <tr key={c.keyword} className="border-b hover:bg-accent/30">
+                          <td className="py-1.5 px-3">{c.keyword}</td>
+                          <td className="text-right py-1.5 px-3 font-mono text-xs">{c.volume.toLocaleString()}</td>
+                          <td className="py-1.5 px-3 text-xs">
+                            <div className="flex flex-col gap-0.5">
+                              {c.urls.map((u) => (
+                                <a key={u} href={u} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline truncate max-w-md">
+                                  {u}
+                                </a>
+                              ))}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                      {coverage.covered.length === 0 && (
+                        <tr><td colSpan={3} className="text-center py-6 text-muted-foreground text-sm">No keywords matched any URL yet.</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Gaps table */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm font-medium flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 text-amber-600" />
+                    Gaps — candidates for new pages ({coverage.gaps.length.toLocaleString()})
+                  </p>
+                  <Button variant="outline" size="sm" className="gap-1.5" onClick={() => exportCoverageCSV("gaps")}>
+                    <Download className="h-3.5 w-3.5" /> Export Gaps CSV
+                  </Button>
+                </div>
+                <div className="border rounded-md max-h-[360px] overflow-y-auto">
+                  <table className="w-full text-sm">
+                    <thead className="sticky top-0 bg-card border-b">
+                      <tr>
+                        <th className="text-left py-2 px-3 font-medium">Keyword</th>
+                        <th className="text-right py-2 px-3 font-medium w-24">Volume</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {coverage.gaps.map((g) => (
+                        <tr key={g.keyword} className="border-b hover:bg-accent/30">
+                          <td className="py-1.5 px-3">{g.keyword}</td>
+                          <td className="text-right py-1.5 px-3 font-mono text-xs">{g.volume.toLocaleString()}</td>
+                        </tr>
+                      ))}
+                      {coverage.gaps.length === 0 && (
+                        <tr><td colSpan={2} className="text-center py-6 text-muted-foreground text-sm">No gaps — every keyword is covered.</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Keyword list */}
           <div className="border rounded-md max-h-[500px] overflow-y-auto">
             <table className="w-full text-sm">
