@@ -551,21 +551,41 @@ const KeywordDeduplicator = () => {
       }))
       .sort((a, b) => b.volume - a.volume);
 
+    const intentUrlMap = new Map<string, string[]>();
+    for (const c of covered) {
+      const intent = getCoverageIntent(c.keyword);
+      if (!intent || intentUrlMap.has(intent)) continue;
+      intentUrlMap.set(intent, c.urls);
+    }
+
     const coveredSet = new Set(covered.map((c) => c.keyword));
-    const gaps = rawKeywords
+    const initialGaps = rawKeywords
       .filter((k) => !coveredSet.has(k.keyword.toLowerCase()))
       .map((k) => ({ keyword: k.keyword.toLowerCase(), volume: k.volume }))
       .sort((a, b) => b.volume - a.volume);
 
-    setCoverage({ covered, gaps });
+    const deterministicPromoted: { keyword: string; volume: number; urls: string[] }[] = [];
+    const deterministicMoved = new Set<string>();
+    for (const gap of initialGaps) {
+      const intent = getCoverageIntent(gap.keyword);
+      const urls = intent ? intentUrlMap.get(intent) : undefined;
+      if (!urls?.length) continue;
+      deterministicPromoted.push({ ...gap, urls: [...urls] });
+      deterministicMoved.add(gap.keyword);
+    }
+
+    const baseCovered = [...covered, ...deterministicPromoted].sort((a, b) => b.volume - a.volume);
+    const gaps = initialGaps.filter((g) => !deterministicMoved.has(g.keyword));
+
+    setCoverage({ covered: baseCovered, gaps });
 
     // Final AI intent-matching pass: catch gaps that share search intent
     // with an already-covered keyword (e.g. "how much does dental implants
     // cost" vs covered "how much are dental implants").
-    if (covered.length > 0 && gaps.length > 0) {
+    if (baseCovered.length > 0 && gaps.length > 0) {
       (async () => {
         try {
-          setProgressLabel(`Intent-matching ${gaps.length} gaps against ${covered.length} covered topics...`);
+          setProgressLabel(`Intent-matching ${gaps.length} gaps against ${baseCovered.length} covered topics...`);
           const resp = await fetch(
             `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/match-gaps-to-covered`,
             {
@@ -575,7 +595,7 @@ const KeywordDeduplicator = () => {
                 Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
               },
               body: JSON.stringify({
-                covered: covered.map((c) => ({ keyword: c.keyword, urls: c.urls })),
+                covered: baseCovered.map((c) => ({ keyword: c.keyword, urls: c.urls })),
                 gaps: gaps.map((g) => ({ keyword: g.keyword, volume: g.volume })),
               }),
             }
@@ -588,7 +608,7 @@ const KeywordDeduplicator = () => {
             return;
           }
           const coveredUrlMap = new Map<string, string[]>();
-          for (const c of covered) coveredUrlMap.set(c.keyword.toLowerCase(), c.urls);
+          for (const c of baseCovered) coveredUrlMap.set(c.keyword.toLowerCase(), c.urls);
           const movedKeywords = new Set<string>();
           const promoted: { keyword: string; volume: number; urls: string[] }[] = [];
           for (const g of gaps) {
@@ -600,7 +620,7 @@ const KeywordDeduplicator = () => {
             movedKeywords.add(g.keyword.toLowerCase());
           }
           if (promoted.length === 0) return;
-          const newCovered = [...covered, ...promoted].sort((a, b) => b.volume - a.volume);
+          const newCovered = [...baseCovered, ...promoted].sort((a, b) => b.volume - a.volume);
           const newGaps = gaps.filter((g) => !movedKeywords.has(g.keyword.toLowerCase()));
           setCoverage({ covered: newCovered, gaps: newGaps });
           setProgressLabel(`Intent match: moved ${promoted.length} gap(s) to covered.`);
