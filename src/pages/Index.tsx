@@ -4359,15 +4359,15 @@ const Index = () => {
                 />
               </CollapsibleSection>
 
-              {/* First-Hand Evidence (Optional) — Google flags first-hand experience as the #1 non-commodity signal for GenAI surfaces */}
+              {/* First-Hand Evidence (Optional) - Google flags first-hand experience as the #1 non-commodity signal for GenAI surfaces */}
               <CollapsibleSection
-                number={11}
+                number={17}
                 title="First-Hand Evidence (Optional)"
                 isComplete={!!(formData.firstHandEvidence || "").trim()}
                 summary={formData.firstHandEvidence}
               >
                 <p className="text-xs text-muted-foreground">
-                  Anecdote, case study, internal data, or expert observation. The writer will weave this into the article as a concrete, citable detail. Format stays the same — this only affects the copy. Leave blank to disable.
+                  Anecdote, case study, internal data, or expert observation. The writer will weave this into the article as a concrete, citable detail. Format stays the same - this only affects the copy. Leave blank to disable.
                 </p>
                 <Textarea
                   id="first-hand-evidence"
