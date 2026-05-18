@@ -113,3 +113,6 @@ verify_jwt = false
 
 [functions.derive-keywords-from-urls]
 verify_jwt = false
+
+[functions.match-gaps-to-covered]
+verify_jwt = false
