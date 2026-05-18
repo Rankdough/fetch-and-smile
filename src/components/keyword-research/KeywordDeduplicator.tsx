@@ -693,18 +693,20 @@ const KeywordDeduplicator = () => {
         ? (keywordsToDedup.length - referenceKeywords.length)
         : keywordsToDedup.length);
 
-      // If reference (File B) is set, strip any group that touches a B keyword.
-      // The remaining canonicals are keywords unique to File A.
+      // URL Coverage mode: keep all groups visible; compute coverage tables instead of stripping.
+      // Plain reference mode (CSV File B): strip any group that touches a B keyword.
       let finalKeywords: DedupKeyword[] = data.keywords;
       let finalUngrouped: UngroupedEntry[] = data.ungroupedForAI || [];
       let refRemoved = 0;
-      if (hasReference) {
+      const urlMode = urlSources.length > 0;
+      if (hasReference && !urlMode) {
         const beforeCount = finalKeywords.length;
         finalKeywords = finalKeywords.filter(k => !groupTouchesReference(k, refSet));
         refRemoved += beforeCount - finalKeywords.length;
         finalUngrouped = finalUngrouped.filter(u => !refSet.has(u.canonical.toLowerCase()));
       }
       setReferenceRemovedCount(refRemoved);
+      if (urlMode) computeCoverage(data.keywords);
 
       const deduplicatedCount = finalKeywords.length;
       setResult({
