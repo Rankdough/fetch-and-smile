@@ -64,6 +64,7 @@ import { GenerationProgress, PipelineStage } from "@/components/GenerationProgre
 import { ValuePromiseVerification } from "@/components/ValuePromiseVerification";
 import { ApplyFormatProgress, FormatStep, DEFAULT_FORMAT_STEPS } from "@/components/ApplyFormatProgress";
 import ContextHubPanel from "@/components/ContextHubPanel";
+import { EvidenceSuggestionsPanel } from "@/components/EvidenceSuggestionsPanel";
 
 const SAMPLE_CONTENT = `# Composite Bonding vs Veneers: Which Smile Transformation is Right for You?
 
@@ -4377,6 +4378,12 @@ const Index = () => {
                   onChange={(e) =>
                     setFormData((prev) => ({ ...prev, firstHandEvidence: e.target.value }))
                   }
+                />
+                <EvidenceSuggestionsPanel
+                  article={generatedContent}
+                  ctaUrl={ctaUrl}
+                  topic={formData.topic}
+                  onInsert={(updated) => setGeneratedContent(updated)}
                 />
               </CollapsibleSection>
 
