@@ -158,6 +158,19 @@ const KeywordDeduplicator = () => {
   const [referenceKeywords, setReferenceKeywords] = useState<{ keyword: string; volume: number }[]>([]);
   const [referenceRemovedCount, setReferenceRemovedCount] = useState(0);
 
+  // URL Coverage mode: derive keywords/phrases from existing page URLs and find
+  // which target keywords are covered vs which are gaps (no semantic match on any URL).
+  const urlsFileInputRef = useRef<HTMLInputElement>(null);
+  const [urlsInput, setUrlsInput] = useState("");
+  const [urlSources, setUrlSources] = useState<{ url: string; phrases: string[] }[]>([]);
+  const [isDerivingUrls, setIsDerivingUrls] = useState(false);
+  const [urlProgress, setUrlProgress] = useState(0);
+  const [urlProgressLabel, setUrlProgressLabel] = useState("");
+  const [coverage, setCoverage] = useState<{
+    covered: { keyword: string; volume: number; urls: string[] }[];
+    gaps: { keyword: string; volume: number }[];
+  } | null>(null);
+
   // Load saved results on mount
   useEffect(() => {
     loadSavedResults();
