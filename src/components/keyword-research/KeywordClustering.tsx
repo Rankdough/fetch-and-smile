@@ -3096,7 +3096,8 @@ const KeywordClustering = () => {
                               )}
                             </div>
                             {!collapsedBlogIdeas.has(cluster.topic) && <div className="space-y-2">
-                              {[...cluster.blog_ideas]
+                              {(() => { const similarMap = computeSimilarIdeaMap(cluster.topic, cluster.blog_ideas || []); return (
+                              [...cluster.blog_ideas]
                                 .map((idea, origIdx) => ({ idea, origIdx, totalVol: (idea.target_keywords || []).reduce((sum, kw) => { const clean = kw.replace(/\s*\(\d+\)\s*$/, "").trim(); return sum + (cluster.keyword_volumes?.[kw] ?? cluster.keyword_volumes?.[kw.toLowerCase()] ?? cluster.keyword_volumes?.[clean] ?? cluster.keyword_volumes?.[clean.toLowerCase()] ?? 0); }, 0) }))
                                 .sort((a, b) => b.totalVol - a.totalVol)
                                 .map(({ idea, origIdx: i }) => {
