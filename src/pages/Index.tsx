@@ -602,12 +602,19 @@ const Index = () => {
   
   const [formData, setFormData] = useState(() => {
     const saved = localStorage.getItem("seo-generator-formData");
-    return saved ? JSON.parse(saved) : {
+    const defaults = {
       topic: "",
       length: "medium",
       outline: "",
       instructions: "",
+      firstHandEvidence: "",
     };
+    if (!saved) return defaults;
+    try {
+      return { ...defaults, ...JSON.parse(saved) };
+    } catch {
+      return defaults;
+    }
   });
 
   const [competitorUrls, setCompetitorUrls] = useState<string[]>(() => {
@@ -1495,6 +1502,7 @@ const Index = () => {
             skipFaqs,
             skipQuickTips,
             skipSources,
+            firstHandEvidence: formData.firstHandEvidence?.trim() || undefined,
           },
         });
 
@@ -1703,6 +1711,7 @@ const Index = () => {
       length: "medium",
       outline: "",
       instructions: "",
+      firstHandEvidence: "",
     });
     setCompetitorUrls(["", "", ""]);
     setFormatUrl("");
@@ -1770,6 +1779,7 @@ const Index = () => {
       length: "medium",
       outline: "",
       instructions: "",
+      firstHandEvidence: "",
     });
     setCompetitorUrls(["", "", ""]);
     setFormatUrl("");
@@ -3238,6 +3248,7 @@ const Index = () => {
                       ctaUrl: ctaUrl.trim() || undefined,
                       useKnowledgeBase: useKnowledgeBase,
                       toneProfileId: selectedToneProfileId || undefined,
+                      firstHandEvidence: formData.firstHandEvidence?.trim() || undefined,
                     },
                   });
                   if (error) throw error;
@@ -4345,6 +4356,27 @@ const Index = () => {
                   onAllocateLogically={handleAllocateImagesLogically}
                   isAllocating={isAllocatingImages}
                   hasContent={!!generatedContent}
+                />
+              </CollapsibleSection>
+
+              {/* First-Hand Evidence (Optional) - Google flags first-hand experience as the #1 non-commodity signal for GenAI surfaces */}
+              <CollapsibleSection
+                number={17}
+                title="First-Hand Evidence (Optional)"
+                isComplete={!!(formData.firstHandEvidence || "").trim()}
+                summary={formData.firstHandEvidence}
+              >
+                <p className="text-xs text-muted-foreground">
+                  Anecdote, case study, internal data, or expert observation. The writer will weave this into the article as a concrete, citable detail. Format stays the same - this only affects the copy. Leave blank to disable.
+                </p>
+                <Textarea
+                  id="first-hand-evidence"
+                  placeholder={`e.g. "Last March we surveyed 240 readers and 68% said they tried at least one new hobby after age 50…" or "A practitioner in Hamburg observed that group walks consistently outperform 1:1 meetups for first-time users."`}
+                  className="min-h-[90px] resize-none bg-input border-2 border-input-border"
+                  value={formData.firstHandEvidence || ""}
+                  onChange={(e) =>
+                    setFormData((prev) => ({ ...prev, firstHandEvidence: e.target.value }))
+                  }
                 />
               </CollapsibleSection>
 

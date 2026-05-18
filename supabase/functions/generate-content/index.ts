@@ -17,7 +17,7 @@ serve(async (req) => {
   }
 
   try {
-    const { topic, length, outline, instructions, gapAnalysis, valuePromiseClaims, formatReference, contextFiles, keywords, generateCTAs, ctaUrl, useKnowledgeBase, toneProfileId, articleImages, expandExistingContent, existingContent, wordsToAdd, wordCount, useFirstPerson, skipFaqs, skipQuickTips, skipSources, migrationMode, useBrainInsights } = await req.json();
+    const { topic, length, outline, instructions, gapAnalysis, valuePromiseClaims, formatReference, contextFiles, keywords, generateCTAs, ctaUrl, useKnowledgeBase, toneProfileId, articleImages, expandExistingContent, existingContent, wordsToAdd, wordCount, useFirstPerson, skipFaqs, skipQuickTips, skipSources, migrationMode, useBrainInsights, firstHandEvidence } = await req.json();
 
     // Handle expand mode - different validation
     if (expandExistingContent) {
@@ -184,6 +184,14 @@ ABSOLUTE RULE - NO HORIZONTAL LINES:
 - NEVER use horizontal rules/lines (--- or *** or ___) anywhere in the content
 - Do NOT add separators between sections - headings provide enough visual separation
 - This rule has NO exceptions
+
+NON-COMMODITY WRITING RULES (apply to body prose only — do NOT change the article structure, section list, word count, table count, FAQ count, or any other format requirement):
+- NEVER open a section with generic filler: "In today's world", "When it comes to", "It is important to", "Many people", "In the modern era", "In recent years".
+- Avoid stating common knowledge as if it were insight. If a sentence could appear unchanged in any article on any related topic, rewrite it with something specific to THIS topic.
+- Prefer specifics over abstractions in every body section: at least ONE concrete element per H2 body — a real number, a named example, a named scenario, a named tool/brand/place (only if the user's instructions, context files, or first-hand evidence permit naming it), or a direct quote from the references.
+- Do NOT pad with summarising transitions ("Moreover", "Furthermore", "Additionally", "In conclusion"). Move the argument forward instead.
+- Do NOT inflate the article with keyword-variant restatements; each idea is said once, clearly.
+- These rules apply to COPY only. The AEO layout (H1, opening, TL;DR, Quick Tips, In This Article, question H2s, How to Choose, FAQ, Final Thoughts, References), exact section list, word count target, table cadence, and CTA placement are UNCHANGED.
 
 CRITICAL MARKDOWN FORMATTING RULES:
 - Title: Use # for the main title (H1) - only one per article
@@ -553,6 +561,21 @@ ${outline}`;
 
 Additional instructions:
 ${instructions}`;
+      }
+
+      if (firstHandEvidence && typeof firstHandEvidence === "string" && firstHandEvidence.trim()) {
+        userPrompt += `
+
+🟢 FIRST-HAND EVIDENCE TO INCORPORATE (use as a non-commodity differentiator):
+The following is first-hand material from the author — an anecdote, case study, internal data point, or expert observation. Weave it naturally into AT LEAST ONE body H2 section as a concrete, citable detail (e.g. "In one case…", "A reader reported…", "Internal data showed…", "One practitioner observed…").
+RULES:
+- Do NOT invent facts beyond what is stated below.
+- Do NOT quote it verbatim if the perspective rules forbid first person; paraphrase into the allowed perspective (third person if first-person is disabled — never introduce "I", "we", "our", "my", "us").
+- Do NOT dump it as a wall of text; integrate it as supporting evidence around the relevant argument.
+- This evidence ADDS to the article; it does not replace any required section, table, FAQ, or word-count target.
+
+FIRST-HAND EVIDENCE:
+${firstHandEvidence.trim()}`;
       }
 
       if (contextFiles && Array.isArray(contextFiles) && contextFiles.length > 0) {
