@@ -229,6 +229,7 @@ const getCoverageIntent = (keyword: string): string | null => {
 
   const subjectTokens = text
     .split(" ")
+    .filter(t => t && !INTENT_STOPWORDS.has(t) && !QUESTION_WORDS.has(t))
     .map(stripPluralS)
     .map(t => SYNONYMS[t] ?? t)
     .filter(t => t && !INTENT_STOPWORDS.has(t) && !QUESTION_WORDS.has(t));
