@@ -171,6 +171,9 @@ const KeywordDeduplicator = () => {
     gaps: { keyword: string; volume: number }[];
   } | null>(null);
 
+  // Which "compare against" mode is active in the UI: none | csv (File B) | urls (URL coverage)
+  const [compareMode, setCompareMode] = useState<"none" | "csv" | "urls">("none");
+
   // Load saved results on mount
   useEffect(() => {
     loadSavedResults();
