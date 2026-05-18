@@ -171,6 +171,9 @@ const KeywordDeduplicator = () => {
     gaps: { keyword: string; volume: number }[];
   } | null>(null);
 
+  // Which "compare against" mode is active in the UI: none | csv (File B) | urls (URL coverage)
+  const [compareMode, setCompareMode] = useState<"none" | "csv" | "urls">("none");
+
   // Load saved results on mount
   useEffect(() => {
     loadSavedResults();
@@ -1049,123 +1052,168 @@ const KeywordDeduplicator = () => {
         )}
       </div>
 
-      {/* Optional reference file (File B) */}
+      {/* Compare against (optional) — single, unified section */}
       {rawKeywords.length > 0 && !result && (
-        <div className="border border-dashed rounded-md p-3 space-y-2 bg-muted/20">
-          <p className="text-xs font-medium flex items-center gap-1.5">
-            <Filter className="h-3.5 w-3.5" />
-            Reference list (optional) — keep only keywords unique to File A
-          </p>
-          <p className="text-xs text-muted-foreground">
-            Upload a second CSV (File B) of keywords you already have. Any keyword in File A that
-            fuzzy- or semantically-matches a keyword in File B will be removed.
-          </p>
-          <div className="flex items-center gap-2 flex-wrap">
-            <input
-              ref={referenceFileInputRef}
-              type="file"
-              accept=".csv"
-              className="hidden"
-              onChange={handleReferenceUpload}
-            />
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-2"
-              onClick={() => referenceFileInputRef.current?.click()}
-            >
-              <Upload className="h-3.5 w-3.5" />
-              Upload Reference CSV (File B)
-            </Button>
-            {referenceFileName && (
-              <div className="flex items-center gap-2">
-                <Badge variant="secondary" className="text-xs gap-1.5">
-                  <FileText className="h-3 w-3" />
-                  {referenceFileName} — {referenceKeywords.length.toLocaleString()} keywords
-                </Badge>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6"
-                  onClick={() => { setReferenceFileName(null); setReferenceKeywords([]); setReferenceRemovedCount(0); }}
-                >
-                  <X className="h-3 w-3" />
-                </Button>
-              </div>
-            )}
+        <div className="border border-dashed rounded-md p-3 space-y-3 bg-muted/20">
+          <div>
+            <p className="text-xs font-medium mb-1">Compare against (optional)</p>
+            <p className="text-xs text-muted-foreground">
+              Find which keywords from your list are <strong>already covered</strong> elsewhere, and which are
+              still <strong>gaps</strong>. Pick one source to compare against — leave on "None" to just deduplicate.
+            </p>
           </div>
+
+          {/* Segmented mode selector */}
+          <div className="inline-flex rounded-md border bg-background p-0.5 text-xs">
+            {([
+              { id: "none", label: "None" },
+              { id: "csv", label: "Another keyword list (CSV)" },
+              { id: "urls", label: "Existing pages (URLs)" },
+            ] as const).map((opt) => (
+              <button
+                key={opt.id}
+                type="button"
+                onClick={() => {
+                  setCompareMode(opt.id);
+                  if (opt.id !== "csv") {
+                    // Only clear CSV-loaded reference if we're not in URL-derived mode either
+                    if (opt.id === "none") {
+                      setReferenceFileName(null);
+                      setReferenceKeywords([]);
+                      setReferenceRemovedCount(0);
+                    }
+                  }
+                  if (opt.id !== "urls") {
+                    clearUrlMode();
+                  }
+                  if (opt.id === "urls") {
+                    // Reset any CSV-loaded reference so they don't mix
+                    setReferenceFileName(null);
+                    setReferenceRemovedCount(0);
+                  }
+                }}
+                className={`px-3 py-1.5 rounded-sm transition-colors ${
+                  compareMode === opt.id
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+
+          {/* CSV reference mode */}
+          {compareMode === "csv" && (
+            <div className="space-y-2 pt-1">
+              <p className="text-xs text-muted-foreground">
+                Upload a second CSV of keywords you already have. Any keyword in your main list that fuzzy- or
+                semantically-matches one in this list will be removed.
+              </p>
+              <div className="flex items-center gap-2 flex-wrap">
+                <input
+                  ref={referenceFileInputRef}
+                  type="file"
+                  accept=".csv"
+                  className="hidden"
+                  onChange={handleReferenceUpload}
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                  onClick={() => referenceFileInputRef.current?.click()}
+                >
+                  <Upload className="h-3.5 w-3.5" />
+                  Upload Reference CSV
+                </Button>
+                {referenceFileName && (
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary" className="text-xs gap-1.5">
+                      <FileText className="h-3 w-3" />
+                      {referenceFileName} — {referenceKeywords.length.toLocaleString()} keywords
+                    </Badge>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6"
+                      onClick={() => { setReferenceFileName(null); setReferenceKeywords([]); setReferenceRemovedCount(0); }}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* URL coverage mode */}
+          {compareMode === "urls" && (
+            <div className="space-y-2 pt-1">
+              <p className="text-xs text-muted-foreground">
+                Paste URLs (one per line) or upload a CSV. We'll grab each page's title, meta description, H1 and H2s,
+                then match them against your keyword list using fuzzy + AI nuance logic (e.g.{" "}
+                <em>"are implants painful"</em> ≈ <em>"do implants hurt"</em>).
+              </p>
+              <div className="flex items-center gap-2 flex-wrap">
+                <input
+                  ref={urlsFileInputRef}
+                  type="file"
+                  accept=".csv,.txt"
+                  className="hidden"
+                  onChange={handleUrlsFileUpload}
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                  onClick={() => urlsFileInputRef.current?.click()}
+                  disabled={isDerivingUrls}
+                >
+                  <Upload className="h-3.5 w-3.5" />
+                  Upload URLs CSV
+                </Button>
+                {urlSources.length > 0 && (
+                  <Badge variant="secondary" className="text-xs gap-1.5">
+                    <Link2 className="h-3 w-3" />
+                    {urlSources.length} URLs derived → {referenceKeywords.length.toLocaleString()} terms
+                    <button
+                      className="ml-1 text-muted-foreground hover:text-destructive"
+                      onClick={clearUrlMode}
+                      title="Clear URLs"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                )}
+              </div>
+              <Textarea
+                value={urlsInput}
+                onChange={(e) => setUrlsInput(e.target.value)}
+                placeholder="https://example.com/page-1&#10;https://example.com/page-2&#10;..."
+                className="text-xs font-mono min-h-[80px]"
+                disabled={isDerivingUrls}
+              />
+              <div className="flex items-center gap-2 flex-wrap">
+                <Button
+                  size="sm"
+                  className="gap-2"
+                  onClick={deriveKeywordsFromUrls}
+                  disabled={isDerivingUrls || urlsInput.trim().length === 0}
+                >
+                  {isDerivingUrls ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Link2 className="h-3.5 w-3.5" />}
+                  {isDerivingUrls ? "Scraping..." : "Derive Keywords from URLs"}
+                </Button>
+                {isDerivingUrls && (
+                  <span className="text-xs text-muted-foreground">{urlProgressLabel}</span>
+                )}
+              </div>
+              {isDerivingUrls && <Progress value={urlProgress} className="h-1.5" />}
+            </div>
+          )}
         </div>
       )}
 
-      {/* URL Coverage mode — derive keywords from existing page URLs */}
-      {rawKeywords.length > 0 && !result && (
-        <div className="border border-dashed rounded-md p-3 space-y-2 bg-muted/20">
-          <p className="text-xs font-medium flex items-center gap-1.5">
-            <Link2 className="h-3.5 w-3.5" />
-            URL Coverage (optional) — find which keywords your existing pages already cover
-          </p>
-          <p className="text-xs text-muted-foreground">
-            Paste URLs (one per line) or upload a CSV of URLs. We'll scrape each page's title, meta description, H1
-            and H2s, then match those against your keyword list using the same fuzzy + AI nuance logic
-            (e.g. <em>"are implants painful"</em> ≈ <em>"do implants hurt"</em>). Output: <strong>Covered</strong> (keyword → URL)
-            and <strong>Gaps</strong> (unique terms with no matching page).
-          </p>
-          <div className="flex items-center gap-2 flex-wrap">
-            <input
-              ref={urlsFileInputRef}
-              type="file"
-              accept=".csv,.txt"
-              className="hidden"
-              onChange={handleUrlsFileUpload}
-            />
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-2"
-              onClick={() => urlsFileInputRef.current?.click()}
-              disabled={isDerivingUrls}
-            >
-              <Upload className="h-3.5 w-3.5" />
-              Upload URLs CSV
-            </Button>
-            {urlSources.length > 0 && (
-              <Badge variant="secondary" className="text-xs gap-1.5">
-                <Link2 className="h-3 w-3" />
-                {urlSources.length} URLs derived → {referenceKeywords.length.toLocaleString()} terms
-                <button
-                  className="ml-1 text-muted-foreground hover:text-destructive"
-                  onClick={clearUrlMode}
-                  title="Clear URL mode"
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              </Badge>
-            )}
-          </div>
-          <Textarea
-            value={urlsInput}
-            onChange={(e) => setUrlsInput(e.target.value)}
-            placeholder="https://example.com/page-1&#10;https://example.com/page-2&#10;..."
-            className="text-xs font-mono min-h-[80px]"
-            disabled={isDerivingUrls}
-          />
-          <div className="flex items-center gap-2 flex-wrap">
-            <Button
-              size="sm"
-              className="gap-2"
-              onClick={deriveKeywordsFromUrls}
-              disabled={isDerivingUrls || urlsInput.trim().length === 0}
-            >
-              {isDerivingUrls ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Link2 className="h-3.5 w-3.5" />}
-              {isDerivingUrls ? "Scraping..." : "Derive Keywords from URLs"}
-            </Button>
-            {isDerivingUrls && (
-              <span className="text-xs text-muted-foreground">{urlProgressLabel}</span>
-            )}
-          </div>
-          {isDerivingUrls && <Progress value={urlProgress} className="h-1.5" />}
-        </div>
-      )}
 
       {/* Topic filter + Step 1 button */}
       {rawKeywords.length > 0 && !result && (
