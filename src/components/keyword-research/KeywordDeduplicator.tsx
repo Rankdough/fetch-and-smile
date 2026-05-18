@@ -351,6 +351,202 @@ const KeywordDeduplicator = () => {
     if (referenceFileInputRef.current) referenceFileInputRef.current.value = "";
   };
 
+  // === URL Coverage mode ===
+  const parseUrlsFromText = (text: string): string[] => {
+    return text
+      .split(/[\s,]+/)
+      .map((s) => s.trim())
+      .filter((s) => /^https?:\/\//i.test(s) || /\./.test(s));
+  };
+
+  const handleUrlsFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const text = ev.target?.result as string;
+        // Accept CSV (one URL per row, first column) OR plain text
+        const rows = parseCSV(text);
+        let urls: string[] = [];
+        if (rows.length && rows[0].length) {
+          // If header looks like url/link, skip it
+          const headerLooksLikeHeader = /url|link|address/i.test(rows[0][0]);
+          const start = headerLooksLikeHeader ? 1 : 0;
+          urls = rows.slice(start).map((r) => (r[0] || "").trim()).filter(Boolean);
+        }
+        if (urls.length === 0) urls = parseUrlsFromText(text);
+        if (urls.length === 0) throw new Error("No URLs found in file");
+        setUrlsInput(urls.join("\n"));
+        toast({ title: `Loaded ${urls.length} URLs`, description: file.name });
+      } catch (err: any) {
+        toast({ title: "Failed to parse URLs file", description: err.message, variant: "destructive" });
+      }
+    };
+    reader.readAsText(file);
+    if (urlsFileInputRef.current) urlsFileInputRef.current.value = "";
+  };
+
+  const deriveKeywordsFromUrls = async () => {
+    const urls = [...new Set(parseUrlsFromText(urlsInput))];
+    if (urls.length === 0) {
+      toast({ title: "No URLs", description: "Paste or upload URLs first.", variant: "destructive" });
+      return;
+    }
+    setIsDerivingUrls(true);
+    setUrlProgress(2);
+    setUrlProgressLabel(`Scraping ${urls.length} URLs...`);
+    try {
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/derive-keywords-from-urls`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({ urls }),
+        }
+      );
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `Request failed: ${res.status}`);
+      }
+      const reader = res.body?.getReader();
+      if (!reader) throw new Error("No stream");
+      const decoder = new TextDecoder();
+      let buf = "";
+      let finalResults: { url: string; phrases: string[] }[] = [];
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        let idx: number;
+        while ((idx = buf.indexOf("\n\n")) !== -1) {
+          const msg = buf.slice(0, idx);
+          buf = buf.slice(idx + 2);
+          for (const line of msg.split("\n")) {
+            if (!line.startsWith("data: ")) continue;
+            try {
+              const ev = JSON.parse(line.slice(6));
+              if (ev.type === "progress") {
+                setUrlProgress(Math.round((ev.done / ev.total) * 90));
+                setUrlProgressLabel(ev.message);
+              } else if (ev.type === "complete") {
+                finalResults = (ev.results || []).map((r: any) => ({
+                  url: r.url,
+                  phrases: r.phrases || [],
+                }));
+                setUrlProgress(100);
+              }
+            } catch { /* ignore */ }
+          }
+        }
+      }
+
+      setUrlSources(finalResults);
+      // Feed the flat list of derived phrases into referenceKeywords so the existing
+      // dedup engine (fuzzy + AI semantic) groups them with target keywords.
+      const flatPhrases = [...new Set(finalResults.flatMap((r) => r.phrases))]
+        .map((p) => ({ keyword: p.toLowerCase(), volume: 0 }));
+      setReferenceKeywords(flatPhrases);
+      setReferenceFileName(`${finalResults.length} URLs (derived)`);
+      setCoverage(null);
+      toast({
+        title: "Keywords derived",
+        description: `${finalResults.length} URLs → ${flatPhrases.length} unique terms. Now run Step 1 to compute coverage.`,
+      });
+    } catch (err: any) {
+      toast({ title: "URL derivation failed", description: err.message, variant: "destructive" });
+    } finally {
+      setIsDerivingUrls(false);
+    }
+  };
+
+  const clearUrlMode = () => {
+    setUrlSources([]);
+    setUrlsInput("");
+    setCoverage(null);
+    // Only clear reference if it was set by URL mode
+    if (referenceFileName?.endsWith("(derived)")) {
+      setReferenceKeywords([]);
+      setReferenceFileName(null);
+    }
+  };
+
+  // Compute coverage tables: for each original target keyword, find the group it
+  // landed in across the merged A+B dedup output; if that group contains any
+  // URL-derived phrase, it's covered (mapped to that URL). Otherwise it's a gap.
+  const computeCoverage = (groups: DedupKeyword[]) => {
+    const targetVolumes = new Map<string, number>();
+    for (const k of rawKeywords) targetVolumes.set(k.keyword.toLowerCase(), k.volume);
+
+    // phrase → urls
+    const phraseToUrls = new Map<string, Set<string>>();
+    for (const src of urlSources) {
+      for (const p of src.phrases) {
+        const key = p.toLowerCase();
+        if (!phraseToUrls.has(key)) phraseToUrls.set(key, new Set());
+        phraseToUrls.get(key)!.add(src.url);
+      }
+    }
+
+    const coveredMap = new Map<string, Set<string>>(); // target kw → urls
+    for (const g of groups) {
+      const members = [g.keyword.toLowerCase(), ...(g.variants || []).map((v) => v.keyword.toLowerCase())];
+      const targetMembers = members.filter((m) => targetVolumes.has(m));
+      if (targetMembers.length === 0) continue;
+      const urlsHit = new Set<string>();
+      for (const m of members) {
+        const urls = phraseToUrls.get(m);
+        if (urls) for (const u of urls) urlsHit.add(u);
+      }
+      if (urlsHit.size > 0) {
+        for (const t of targetMembers) {
+          if (!coveredMap.has(t)) coveredMap.set(t, new Set());
+          for (const u of urlsHit) coveredMap.get(t)!.add(u);
+        }
+      }
+    }
+
+    const covered = [...coveredMap.entries()]
+      .map(([keyword, urls]) => ({
+        keyword,
+        volume: targetVolumes.get(keyword) || 0,
+        urls: [...urls],
+      }))
+      .sort((a, b) => b.volume - a.volume);
+
+    const coveredSet = new Set(covered.map((c) => c.keyword));
+    const gaps = rawKeywords
+      .filter((k) => !coveredSet.has(k.keyword.toLowerCase()))
+      .map((k) => ({ keyword: k.keyword.toLowerCase(), volume: k.volume }))
+      .sort((a, b) => b.volume - a.volume);
+
+    setCoverage({ covered, gaps });
+  };
+
+  const exportCoverageCSV = (which: "covered" | "gaps") => {
+    if (!coverage) return;
+    let rows: string[][];
+    if (which === "covered") {
+      rows = [["Keyword", "Volume", "Covered By URL(s)"]];
+      for (const c of coverage.covered) rows.push([c.keyword, String(c.volume), c.urls.join(" | ")]);
+    } else {
+      rows = [["Keyword", "Volume"]];
+      for (const g of coverage.gaps) rows.push([g.keyword, String(g.volume)]);
+    }
+    const csv = rows.map((r) => r.map((v) => `"${v.replace(/"/g, '""')}"`).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${which}-keywords-${Date.now()}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   // Helper: return true if a dedup group "touches" any reference (File B) keyword.
   // A group touches B if its canonical OR any variant matches (case-insensitive) a B keyword.
   const groupTouchesReference = (kw: DedupKeyword, refSet: Set<string>): boolean => {
