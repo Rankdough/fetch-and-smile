@@ -220,6 +220,78 @@ const KeywordClustering = () => {
   const [customIdeaSilo, setCustomIdeaSilo] = useState<string | null>(null);
   const [customIdeaTitle, setCustomIdeaTitle] = useState("");
   const [isCreatingCustomIdea, setIsCreatingCustomIdea] = useState(false);
+
+  // Consolidation Suggester: flag near-duplicate ideas in the same silo so users can merge them
+  // (helps avoid Google's "scaled content abuse" pattern of multiple thin articles for keyword variants)
+  const DISMISSED_PAIRS_KEY = "kw-research-dismissedSimilarPairs";
+  const [dismissedSimilarPairs, setDismissedSimilarPairs] = useState<Set<string>>(() => {
+    try {
+      const raw = localStorage.getItem(DISMISSED_PAIRS_KEY);
+      return new Set(raw ? (JSON.parse(raw) as string[]) : []);
+    } catch {
+      return new Set();
+    }
+  });
+  const dismissSimilarPair = (key: string) => {
+    setDismissedSimilarPairs(prev => {
+      const next = new Set(prev);
+      next.add(key);
+      try { localStorage.setItem(DISMISSED_PAIRS_KEY, JSON.stringify(Array.from(next))); } catch {}
+      return next;
+    });
+  };
+  const SIMILARITY_STOPWORDS = new Set([
+    "a","an","the","of","for","to","in","on","at","with","by","and","or","but","is","are","was","were","be","been","being",
+    "do","does","did","how","what","why","when","where","which","who","whom","whose","can","could","should","would","will",
+    "your","you","yours","my","me","mine","our","ours","we","us","i","they","them","their","this","that","these","those",
+    "best","top","good","great","easy","quick","simple","ultimate","complete","guide","guides","tips","tricks","ideas",
+    "vs","versus","over","under","about","into","from"
+  ]);
+  const normaliseIdeaTitle = (t: string): string[] =>
+    t.toLowerCase()
+      .replace(/[^\p{L}\p{N}\s]/gu, " ")
+      .split(/\s+/)
+      .filter(w => w && !SIMILARITY_STOPWORDS.has(w))
+      .map(w => w.replace(/(s|es|ing|ed)$/u, ""))
+      .filter(Boolean);
+  const ideaSimilarity = (a: string, b: string): number => {
+    const A = new Set(normaliseIdeaTitle(a));
+    const B = new Set(normaliseIdeaTitle(b));
+    if (A.size === 0 || B.size === 0) return 0;
+    let inter = 0;
+    A.forEach(w => { if (B.has(w)) inter++; });
+    const union = A.size + B.size - inter;
+    return union === 0 ? 0 : inter / union;
+  };
+  const pairKey = (clusterTopic: string, a: string, b: string) => {
+    const sorted = [a.toLowerCase().trim(), b.toLowerCase().trim()].sort();
+    return `${clusterTopic}|${sorted[0]}|${sorted[1]}`;
+  };
+  // Returns, for the given silo, a map: ideaTitle -> { otherTitle, otherIndex, pairKey } (best match above threshold)
+  const computeSimilarIdeaMap = (clusterTopic: string, ideas: BlogIdea[]) => {
+    const map = new Map<string, { otherTitle: string; otherIndex: number; pairKey: string }>();
+    const THRESHOLD = 0.6;
+    for (let i = 0; i < ideas.length; i++) {
+      let bestScore = THRESHOLD;
+      let bestJ = -1;
+      for (let j = 0; j < ideas.length; j++) {
+        if (i === j) continue;
+        const s = ideaSimilarity(ideas[i].title, ideas[j].title);
+        if (s > bestScore) {
+          bestScore = s;
+          bestJ = j;
+        }
+      }
+      if (bestJ >= 0) {
+        const pk = pairKey(clusterTopic, ideas[i].title, ideas[bestJ].title);
+        if (!dismissedSimilarPairs.has(pk)) {
+          map.set(ideas[i].title, { otherTitle: ideas[bestJ].title, otherIndex: bestJ, pairKey: pk });
+        }
+      }
+    }
+    return map;
+  };
+
   const expandedClusterTopics = [...expandedClusters];
   const activeSiloParam = isResultsOpen && expandedClusterTopics.length > 0
     ? expandedClusterTopics[expandedClusterTopics.length - 1]
