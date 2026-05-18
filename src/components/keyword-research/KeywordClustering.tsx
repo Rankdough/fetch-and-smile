@@ -3103,6 +3103,7 @@ const KeywordClustering = () => {
                                 .map(({ idea, origIdx: i }) => {
                                 const ideaKey = makeIdeaKey(cluster.topic, idea.title);
                                 const isUsed = usedIdeas.has(ideaKey);
+                                const similar = similarMap.get(idea.title);
                                 return (
                                 <div key={i} className={`border rounded-md p-3 space-y-1 transition-colors ${isUsed ? "border-green-500 bg-green-50 dark:bg-green-950/30" : ""} ${combiningIdea && combiningIdea.clusterTopic === cluster.topic && combiningIdea.ideaIndex !== i ? "border-dashed border-primary/50 cursor-pointer hover:border-primary hover:bg-primary/5" : ""} ${combiningIdea && combiningIdea.clusterTopic === cluster.topic && combiningIdea.ideaIndex === i ? "ring-2 ring-primary/30 border-primary" : ""}`}>
                                   {combiningIdea && combiningIdea.clusterTopic === cluster.topic && combiningIdea.ideaIndex !== i && (
@@ -3113,6 +3114,28 @@ const KeywordClustering = () => {
                                       <Merge className="h-3 w-3" />
                                       Combine into this idea
                                     </button>
+                                  )}
+                                  {similar && !combiningIdea && !isUsed && (
+                                    <div className="flex items-center gap-1.5 flex-wrap text-[11px] bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 text-amber-900 dark:text-amber-200 rounded px-2 py-1">
+                                      <span className="font-medium">Similar to:</span>
+                                      <span className="italic truncate max-w-[260px]" title={similar.otherTitle}>"{similar.otherTitle}"</span>
+                                      <button
+                                        type="button"
+                                        className="ml-auto inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/50 hover:bg-amber-200 dark:hover:bg-amber-900 text-amber-900 dark:text-amber-100 font-medium"
+                                        onClick={(e) => { e.stopPropagation(); setCombiningIdea({ clusterTopic: cluster.topic, ideaIndex: i }); }}
+                                        title="Start merging this idea into the similar one"
+                                      >
+                                        <Merge className="h-3 w-3" /> Review & Merge
+                                      </button>
+                                      <button
+                                        type="button"
+                                        className="px-1.5 py-0.5 rounded hover:bg-amber-100 dark:hover:bg-amber-900/50 text-amber-700 dark:text-amber-300"
+                                        onClick={(e) => { e.stopPropagation(); dismissSimilarPair(similar.pairKey); }}
+                                        title="Dismiss this suggestion"
+                                      >
+                                        Dismiss
+                                      </button>
+                                    </div>
                                   )}
                                   <div className="flex items-start gap-2">
                                     <button
