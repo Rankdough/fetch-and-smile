@@ -528,6 +528,61 @@ const KeywordDeduplicator = () => {
       .sort((a, b) => b.volume - a.volume);
 
     setCoverage({ covered, gaps });
+
+    // Final AI intent-matching pass: catch gaps that share search intent
+    // with an already-covered keyword (e.g. "how much does dental implants
+    // cost" vs covered "how much are dental implants").
+    if (covered.length > 0 && gaps.length > 0) {
+      (async () => {
+        try {
+          setProgressLabel(`Intent-matching ${gaps.length} gaps against ${covered.length} covered topics...`);
+          const resp = await fetch(
+            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/match-gaps-to-covered`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+              },
+              body: JSON.stringify({
+                covered: covered.map((c) => ({ keyword: c.keyword, urls: c.urls })),
+                gaps: gaps.map((g) => ({ keyword: g.keyword, volume: g.volume })),
+              }),
+            }
+          );
+          if (!resp.ok) return;
+          const data = await resp.json();
+          const matches: Record<string, string> = data.matches || {};
+          if (Object.keys(matches).length === 0) {
+            setProgressLabel("Intent match complete — no extra matches found.");
+            return;
+          }
+          const coveredUrlMap = new Map<string, string[]>();
+          for (const c of covered) coveredUrlMap.set(c.keyword.toLowerCase(), c.urls);
+          const movedKeywords = new Set<string>();
+          const promoted: { keyword: string; volume: number; urls: string[] }[] = [];
+          for (const g of gaps) {
+            const matchedTo = matches[g.keyword.toLowerCase()];
+            if (!matchedTo) continue;
+            const urls = coveredUrlMap.get(matchedTo.toLowerCase());
+            if (!urls || urls.length === 0) continue;
+            promoted.push({ keyword: g.keyword, volume: g.volume, urls: [...urls] });
+            movedKeywords.add(g.keyword.toLowerCase());
+          }
+          if (promoted.length === 0) return;
+          const newCovered = [...covered, ...promoted].sort((a, b) => b.volume - a.volume);
+          const newGaps = gaps.filter((g) => !movedKeywords.has(g.keyword.toLowerCase()));
+          setCoverage({ covered: newCovered, gaps: newGaps });
+          setProgressLabel(`Intent match: moved ${promoted.length} gap(s) to covered.`);
+          toast({
+            title: "Intent matching complete",
+            description: `${promoted.length} additional gap keyword(s) recognised as already covered.`,
+          });
+        } catch (err: any) {
+          console.error("Intent match failed:", err);
+        }
+      })();
+    }
   };
 
   const exportCoverageCSV = (which: "covered" | "gaps") => {
