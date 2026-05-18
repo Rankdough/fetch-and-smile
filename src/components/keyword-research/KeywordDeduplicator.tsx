@@ -136,26 +136,112 @@ const normaliseIntentText = (value: string): string =>
     .replace(/\s+/g, " ")
     .trim();
 
+// Topic-agnostic intent matcher.
+// Intent tag = "<subject-token-set>:<question-type>".
+// Subject = the remaining content words after stripping stopwords, modifiers,
+// and folding synonyms. Two keywords with the same subject set + same
+// question-type are treated as the same intent (e.g. "how much are dental
+// implants" == "how much do tooth implants cost uk").
+
+// Words that don't change intent and should be dropped from the subject.
+const INTENT_STOPWORDS = new Set([
+  "a","an","the","is","are","was","were","be","being","been","am",
+  "do","does","did","done","doing","of","for","to","in","on","at","by",
+  "with","from","as","or","and","my","your","you","i","we","us","our",
+  "it","its","this","that","these","those","there","here","get","getting",
+  "got","have","has","had","having","can","could","should","would","will",
+  "really","very","actually","still","just","much","many","any","some","all",
+  // generic geo/audience/time modifiers - same intent regardless
+  "uk","usa","us","america","american","britain","british","england","english",
+  "turkey","turkish","europe","european","mexico","india","australia","canada",
+  "near","me","local","online","2020","2021","2022","2023","2024","2025","2026",
+  "today","now","latest","new","best","top","cheap","cheapest","affordable",
+  "senior","seniors","elderly","adult","adults","kid","kids","child","children",
+  "men","women","man","woman","male","female","full","whole","single","one","two",
+  "set","sets","mouth","upper","lower","front","back","permanent","temporary",
+]);
+
+// Synonym folding: map many surface forms to one canonical token.
+// Add new pairs liberally; over-folding inside the subject is fine because
+// the question-type tag still distinguishes price vs pain vs duration etc.
+const SYNONYMS: Record<string, string> = {
+  // body / dental
+  tooth: "dental", teeth: "dental", dentist: "dental", dentists: "dental",
+  implant: "implant", implants: "implant",
+  crown: "crown", crowns: "crown",
+  veneer: "veneer", veneers: "veneer",
+  denture: "denture", dentures: "denture",
+  bridge: "bridge", bridges: "bridge",
+  // generic pluralisation handled by stripping trailing s below
+};
+
+// Question-type detection. First match wins (price beats generic "what is").
+const QUESTION_TYPES: { type: string; re: RegExp }[] = [
+  { type: "price",        re: /\b(how much|cost|costs|costing|price|prices|pricing|priced|fee|fees|charge|charges|expensive|cheap|cheapest|afford|affordable|worth)\b/ },
+  { type: "pain",         re: /\b(hurt|hurts|hurting|pain|painful|painless|sore|soreness|ache|aches|aching|discomfort)\b/ },
+  { type: "duration",     re: /\b(how long|last|lasts|lasting|lifespan|lifetime|durable|durability|years|forever)\b/ },
+  { type: "time-process", re: /\b(how long does .* take|recovery time|healing time|takes to|procedure time)\b/ },
+  { type: "safety",       re: /\b(safe|safety|risk|risks|risky|danger|dangerous|side effect|side effects|complication|complications)\b/ },
+  { type: "candidacy",    re: /\b(can i|am i|eligible|eligibility|candidate|suitable|qualify|who can|who should)\b/ },
+  { type: "process",      re: /\b(how (is|are|do|does) .* (done|made|fitted|placed|performed)|procedure|process|steps|what happens)\b/ },
+  { type: "alternatives", re: /\b(alternative|alternatives|instead of|vs|versus|or)\b/ },
+  { type: "reviews",      re: /\b(review|reviews|rating|ratings|experience|experiences|testimonial|testimonials)\b/ },
+  { type: "definition",   re: /\b(what (is|are)|what s|meaning|definition|explained)\b/ },
+  { type: "benefits",     re: /\b(benefit|benefits|advantage|advantages|pros|why)\b/ },
+  { type: "drawbacks",    re: /\b(drawback|drawbacks|disadvantage|disadvantages|cons|problem|problems|issue|issues)\b/ },
+];
+
+const stripPluralS = (token: string): string => {
+  if (token.length > 3 && token.endsWith("s") && !token.endsWith("ss")) {
+    return token.slice(0, -1);
+  }
+  return token;
+};
+
 const getCoverageIntent = (keyword: string): string | null => {
   const text = normaliseIntentText(keyword);
-  const implantSubject = /\bimplants?\b/.test(text) && /\b(dental|tooth|teeth|mouth)\b/.test(text);
-  if (!implantSubject) return null;
+  if (!text) return null;
 
-  if (/\b(free|grant|grants|funding|finance|financing|nhs)\b/.test(text) && !/\b(how much|cost|costs|price|prices|pricing)\b/.test(text)) {
-    return null;
-  }
-
-  if (/\b(how much|cost|costs|costing|price|prices|pricing|fee|fees|charge|charges)\b/.test(text)) {
-    return "dental-implants:price";
-  }
-  if (/\b(hurt|hurts|pain|painful|painless|sore|ache|aches|aching)\b/.test(text)) {
-    return "dental-implants:pain";
-  }
-  if (/\b(how long|last|lasts|lasting|lifespan|lifetime|durable|durability)\b/.test(text)) {
-    return "dental-implants:lifespan";
+  // 1. Detect question-type by scanning the original normalised text.
+  let questionType = "info";
+  for (const qt of QUESTION_TYPES) {
+    if (qt.re.test(text)) { questionType = qt.type; break; }
   }
 
-  return null;
+  // 2. Build the subject: drop stopwords + question-type signal words, fold synonyms.
+  const QUESTION_WORDS = new Set([
+    "how","what","when","where","why","who","which","much","many","long",
+    "cost","costs","costing","price","prices","pricing","priced","fee","fees",
+    "charge","charges","expensive","cheap","cheapest","afford","affordable","worth",
+    "hurt","hurts","hurting","pain","painful","painless","sore","soreness",
+    "ache","aches","aching","discomfort",
+    "last","lasts","lasting","lifespan","lifetime","durable","durability","forever","years",
+    "safe","safety","risk","risks","risky","danger","dangerous","complication","complications",
+    "eligible","eligibility","candidate","suitable","qualify",
+    "procedure","process","steps","happens","done","made","fitted","placed","performed",
+    "alternative","alternatives","instead","vs","versus",
+    "review","reviews","rating","ratings","experience","experiences","testimonial","testimonials",
+    "meaning","definition","explained",
+    "benefit","benefits","advantage","advantages","pros",
+    "drawback","drawbacks","disadvantage","disadvantages","cons","problem","problems","issue","issues",
+    "side","effect","effects","recovery","healing","take","takes","taking",
+  ]);
+
+  const subjectTokens = text
+    .split(" ")
+    .filter(t => t && !INTENT_STOPWORDS.has(t) && !QUESTION_WORDS.has(t))
+    .map(stripPluralS)
+    .map(t => SYNONYMS[t] ?? t)
+    .filter(t => t && !INTENT_STOPWORDS.has(t) && !QUESTION_WORDS.has(t));
+
+  if (subjectTokens.length === 0) return null;
+
+  // Sort + dedupe so token order doesn't matter
+  // ("tooth implants" == "implants tooth" once folded).
+  const subjectKey = Array.from(new Set(subjectTokens)).sort().join("-");
+  if (!subjectKey) return null;
+
+  return `${subjectKey}:${questionType}`;
 };
 
 const KeywordDeduplicator = () => {
