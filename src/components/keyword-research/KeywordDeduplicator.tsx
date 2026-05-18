@@ -1097,6 +1097,76 @@ const KeywordDeduplicator = () => {
         </div>
       )}
 
+      {/* URL Coverage mode — derive keywords from existing page URLs */}
+      {rawKeywords.length > 0 && !result && (
+        <div className="border border-dashed rounded-md p-3 space-y-2 bg-muted/20">
+          <p className="text-xs font-medium flex items-center gap-1.5">
+            <Link2 className="h-3.5 w-3.5" />
+            URL Coverage (optional) — find which keywords your existing pages already cover
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Paste URLs (one per line) or upload a CSV of URLs. We'll scrape each page's title, meta description, H1
+            and H2s, then match those against your keyword list using the same fuzzy + AI nuance logic
+            (e.g. <em>"are implants painful"</em> ≈ <em>"do implants hurt"</em>). Output: <strong>Covered</strong> (keyword → URL)
+            and <strong>Gaps</strong> (unique terms with no matching page).
+          </p>
+          <div className="flex items-center gap-2 flex-wrap">
+            <input
+              ref={urlsFileInputRef}
+              type="file"
+              accept=".csv,.txt"
+              className="hidden"
+              onChange={handleUrlsFileUpload}
+            />
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              onClick={() => urlsFileInputRef.current?.click()}
+              disabled={isDerivingUrls}
+            >
+              <Upload className="h-3.5 w-3.5" />
+              Upload URLs CSV
+            </Button>
+            {urlSources.length > 0 && (
+              <Badge variant="secondary" className="text-xs gap-1.5">
+                <Link2 className="h-3 w-3" />
+                {urlSources.length} URLs derived → {referenceKeywords.length.toLocaleString()} terms
+                <button
+                  className="ml-1 text-muted-foreground hover:text-destructive"
+                  onClick={clearUrlMode}
+                  title="Clear URL mode"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </Badge>
+            )}
+          </div>
+          <Textarea
+            value={urlsInput}
+            onChange={(e) => setUrlsInput(e.target.value)}
+            placeholder="https://example.com/page-1&#10;https://example.com/page-2&#10;..."
+            className="text-xs font-mono min-h-[80px]"
+            disabled={isDerivingUrls}
+          />
+          <div className="flex items-center gap-2 flex-wrap">
+            <Button
+              size="sm"
+              className="gap-2"
+              onClick={deriveKeywordsFromUrls}
+              disabled={isDerivingUrls || urlsInput.trim().length === 0}
+            >
+              {isDerivingUrls ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Link2 className="h-3.5 w-3.5" />}
+              {isDerivingUrls ? "Scraping..." : "Derive Keywords from URLs"}
+            </Button>
+            {isDerivingUrls && (
+              <span className="text-xs text-muted-foreground">{urlProgressLabel}</span>
+            )}
+          </div>
+          {isDerivingUrls && <Progress value={urlProgress} className="h-1.5" />}
+        </div>
+      )}
+
       {/* Topic filter + Step 1 button */}
       {rawKeywords.length > 0 && !result && (
         <div className="space-y-3">
