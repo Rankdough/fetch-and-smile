@@ -128,6 +128,36 @@ function parseVolume(val: string): number {
   return isNaN(num) ? 0 : num;
 }
 
+const normaliseIntentText = (value: string): string =>
+  value
+    .toLowerCase()
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const getCoverageIntent = (keyword: string): string | null => {
+  const text = normaliseIntentText(keyword);
+  const implantSubject = /\bimplants?\b/.test(text) && /\b(dental|tooth|teeth|mouth)\b/.test(text);
+  if (!implantSubject) return null;
+
+  if (/\b(free|grant|grants|funding|finance|financing|nhs)\b/.test(text) && !/\b(how much|cost|costs|price|prices|pricing)\b/.test(text)) {
+    return null;
+  }
+
+  if (/\b(how much|cost|costs|costing|price|prices|pricing|fee|fees|charge|charges)\b/.test(text)) {
+    return "dental-implants:price";
+  }
+  if (/\b(hurt|hurts|pain|painful|painless|sore|ache|aches|aching)\b/.test(text)) {
+    return "dental-implants:pain";
+  }
+  if (/\b(how long|last|lasts|lasting|lifespan|lifetime|durable|durability)\b/.test(text)) {
+    return "dental-implants:lifespan";
+  }
+
+  return null;
+};
+
 const KeywordDeduplicator = () => {
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
