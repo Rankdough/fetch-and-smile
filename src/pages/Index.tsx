@@ -602,12 +602,19 @@ const Index = () => {
   
   const [formData, setFormData] = useState(() => {
     const saved = localStorage.getItem("seo-generator-formData");
-    return saved ? JSON.parse(saved) : {
+    const defaults = {
       topic: "",
       length: "medium",
       outline: "",
       instructions: "",
+      firstHandEvidence: "",
     };
+    if (!saved) return defaults;
+    try {
+      return { ...defaults, ...JSON.parse(saved) };
+    } catch {
+      return defaults;
+    }
   });
 
   const [competitorUrls, setCompetitorUrls] = useState<string[]>(() => {
@@ -1495,6 +1502,7 @@ const Index = () => {
             skipFaqs,
             skipQuickTips,
             skipSources,
+            firstHandEvidence: formData.firstHandEvidence?.trim() || undefined,
           },
         });
 
@@ -1703,6 +1711,7 @@ const Index = () => {
       length: "medium",
       outline: "",
       instructions: "",
+      firstHandEvidence: "",
     });
     setCompetitorUrls(["", "", ""]);
     setFormatUrl("");
@@ -1770,6 +1779,7 @@ const Index = () => {
       length: "medium",
       outline: "",
       instructions: "",
+      firstHandEvidence: "",
     });
     setCompetitorUrls(["", "", ""]);
     setFormatUrl("");
@@ -3238,6 +3248,7 @@ const Index = () => {
                       ctaUrl: ctaUrl.trim() || undefined,
                       useKnowledgeBase: useKnowledgeBase,
                       toneProfileId: selectedToneProfileId || undefined,
+                      firstHandEvidence: formData.firstHandEvidence?.trim() || undefined,
                     },
                   });
                   if (error) throw error;
