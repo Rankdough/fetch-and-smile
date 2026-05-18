@@ -7,8 +7,9 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import {
   Upload, Loader2, Download, Copy, Trash2, ChevronDown, ChevronRight,
-  FileText, Sparkles, X, Filter, Zap, BrainCircuit, Save, Clock, FolderOpen
+  FileText, Sparkles, X, Filter, Zap, BrainCircuit, Save, Clock, FolderOpen, Link2
 } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { supabase } from "@/integrations/supabase/client";
 import { Pencil } from "lucide-react";
