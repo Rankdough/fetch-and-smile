@@ -4359,6 +4359,27 @@ const Index = () => {
                 />
               </CollapsibleSection>
 
+              {/* First-Hand Evidence (Optional) — Google flags first-hand experience as the #1 non-commodity signal for GenAI surfaces */}
+              <CollapsibleSection
+                number={11}
+                title="First-Hand Evidence (Optional)"
+                isComplete={!!(formData.firstHandEvidence || "").trim()}
+                summary={formData.firstHandEvidence}
+              >
+                <p className="text-xs text-muted-foreground">
+                  Anecdote, case study, internal data, or expert observation. The writer will weave this into the article as a concrete, citable detail. Format stays the same — this only affects the copy. Leave blank to disable.
+                </p>
+                <Textarea
+                  id="first-hand-evidence"
+                  placeholder={`e.g. "Last March we surveyed 240 readers and 68% said they tried at least one new hobby after age 50…" or "A practitioner in Hamburg observed that group walks consistently outperform 1:1 meetups for first-time users."`}
+                  className="min-h-[90px] resize-none bg-input border-2 border-input-border"
+                  value={formData.firstHandEvidence || ""}
+                  onChange={(e) =>
+                    setFormData((prev) => ({ ...prev, firstHandEvidence: e.target.value }))
+                  }
+                />
+              </CollapsibleSection>
+
 
               {/* Pre-Generation Checklist */}
               <GenerationChecklist items={checklistItems} />
