@@ -1134,7 +1134,7 @@ Place these images throughout the article at logical locations, typically after 
           const resp = await fetch("https://api.firecrawl.dev/v2/search", {
             method: "POST",
             headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-            body: JSON.stringify({ query, limit: 6 }),
+            body: JSON.stringify({ query, limit: 10 }),
           });
           if (!resp.ok) {
             console.warn(`Firecrawl source search failed: ${resp.status}`);
@@ -1142,16 +1142,78 @@ Place these images throughout the article at logical locations, typically after 
           }
           const data = await resp.json();
           const results: any[] = data?.data?.web || (Array.isArray(data?.data) ? data.data : null) || data?.web || [];
-          const candidates: SourceCandidate[] = [];
+
+          // Low-authority host patterns: user-generated, social, Q&A, content farms, personal blog hosts.
+          // Pinned: rejected unless nothing higher-quality is available.
+          const lowAuthorityHostPatterns = [
+            /(^|\.)reddit\.com$/i,
+            /(^|\.)quora\.com$/i,
+            /(^|\.)pinterest\.[a-z.]+$/i,
+            /(^|\.)medium\.com$/i,
+            /(^|\.)substack\.com$/i,
+            /(^|\.)tumblr\.com$/i,
+            /(^|\.)blogspot\.com$/i,
+            /(^|\.)wordpress\.com$/i,
+            /(^|\.)wixsite\.com$/i,
+            /(^|\.)weebly\.com$/i,
+            /(^|\.)squarespace\.com$/i,
+            /(^|\.)yahoo\.com\/answers/i,
+            /(^|\.)answers\.com$/i,
+            /(^|\.)ehow\.com$/i,
+            /(^|\.)wikihow\.com$/i,
+            /(^|\.)tripadvisor\.[a-z.]+$/i,
+            /(^|\.)yelp\.com$/i,
+            /(^|\.)stackexchange\.com$/i,
+            /(^|\.)stackoverflow\.com$/i,
+            /(^|\.)facebook\.com$/i,
+            /(^|\.)instagram\.com$/i,
+            /(^|\.)tiktok\.com$/i,
+            /(^|\.)x\.com$/i,
+            /(^|\.)twitter\.com$/i,
+          ];
+          const isLowAuthority = (url: string): boolean => {
+            try { return lowAuthorityHostPatterns.some((re) => re.test(new URL(url).hostname)); }
+            catch { return true; }
+          };
+
+          // Bucket by rank: prefer Firecrawl's top 3 (search-position authority signal).
+          type Ranked = { url: string; title: string; rank: number; lowAuth: boolean };
+          const ranked: Ranked[] = [];
           const seen = new Set<string>();
-          for (const result of results) {
+          for (let i = 0; i < results.length; i++) {
+            const result = results[i];
             const url = cleanSourceUrl(result?.url || result?.link || "");
             if (!url || seen.has(url)) continue;
             seen.add(url);
             if (isJunkUrl(url)) continue;
             const title = String(result?.title || sourceTitleFromUrl(url)).trim();
-            if (await isWorkingSourceUrl(url)) candidates.push({ title, url, origin: "web" });
+            ranked.push({ url, title, rank: i, lowAuth: isLowAuthority(url) });
+          }
+
+          // Pass 1: top-3 high-authority. Pass 2: any high-authority. Pass 3: top-3 low-authority. Pass 4: any low-authority.
+          const passes: Ranked[][] = [
+            ranked.filter((r) => r.rank < 3 && !r.lowAuth),
+            ranked.filter((r) => r.rank >= 3 && !r.lowAuth),
+            ranked.filter((r) => r.rank < 3 && r.lowAuth),
+            ranked.filter((r) => r.rank >= 3 && r.lowAuth),
+          ];
+          const candidates: SourceCandidate[] = [];
+          const picked = new Set<string>();
+          for (const pass of passes) {
+            for (const r of pass) {
+              if (picked.has(r.url)) continue;
+              if (await isWorkingSourceUrl(r.url)) {
+                candidates.push({ title: r.title, url: r.url, origin: "web" });
+                picked.add(r.url);
+              }
+              if (candidates.length >= 2) break;
+            }
             if (candidates.length >= 2) break;
+          }
+          if (candidates.length) {
+            console.log(`SOURCE WEB: query="${query.slice(0, 80)}" -> ${candidates.map((c) => `${c.url}${ranked.find((r) => r.url === c.url)?.lowAuth ? " [low-auth]" : ""}`).join(" | ")}`);
+          } else {
+            console.warn(`SOURCE WEB: no working source for query="${query.slice(0, 80)}"`);
           }
           return candidates;
         } catch (error) {
