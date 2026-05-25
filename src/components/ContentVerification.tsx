@@ -1,7 +1,8 @@
-import { CheckCircle2, XCircle, AlertCircle, Wand2 } from "lucide-react";
+import { CheckCircle2, XCircle, AlertCircle, Wand2, LinkIcon, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
+
 
 interface AppliedRules {
   gapAnalysisUsed: boolean;
@@ -24,6 +25,15 @@ interface CTAData {
   end?: { headline: string; description: string; buttonText: string };
 }
 
+export interface LinkFixReport {
+  totalLinks: number;
+  brokenCount: number;
+  fixedCount: number;
+  removedCount: number;
+  fixed: { from: string; to: string; anchor: string }[];
+  removed: { url: string; anchor: string }[];
+}
+
 interface ContentVerificationProps {
   content: string;
   appliedRules: AppliedRules | null;
@@ -37,7 +47,9 @@ interface ContentVerificationProps {
   internalLinks?: string[];
   selectedGapInsights?: string[];
   valuePromiseClaims?: string[];
+  onCheckAndFixLinks?: () => Promise<LinkFixReport | null>;
 }
+
 
 interface VerificationItem {
   id: string;
@@ -61,9 +73,20 @@ export const ContentVerification = ({
   generatedCTAs,
   internalLinks,
   selectedGapInsights,
-  valuePromiseClaims
+  valuePromiseClaims,
+  onCheckAndFixLinks,
 }: ContentVerificationProps) => {
+  const [linkBusy, setLinkBusy] = useState(false);
+  const [linkReport, setLinkReport] = useState<LinkFixReport | null>(null);
+
+  // Count external markdown links in current content (used for the live status)
+  const externalLinkCount = useMemo(() => {
+    const re = /\[[^\]]+\]\(https?:\/\/[^)\s]+\)/g;
+    return (content.match(re) || []).length;
+  }, [content]);
+
   const verificationResults = useMemo(() => {
+
     const results: VerificationItem[] = [];
 
     // Count words - excluding FAQ and References sections
@@ -666,6 +689,86 @@ export const ContentVerification = ({
           </div>
         ))}
       </div>
+
+      {onCheckAndFixLinks && (
+        <div className="rounded-md border border-border bg-background/60 p-3 space-y-2">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 text-sm font-medium">
+              <LinkIcon className="h-4 w-4" />
+              Broken link checker
+              <span className="text-xs font-normal text-muted-foreground">
+                ({externalLinkCount} external link{externalLinkCount === 1 ? "" : "s"})
+              </span>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 px-2 text-xs"
+              disabled={linkBusy || externalLinkCount === 0}
+              onClick={async () => {
+                setLinkBusy(true);
+                setLinkReport(null);
+                try {
+                  const r = await onCheckAndFixLinks();
+                  if (r) setLinkReport(r);
+                } finally {
+                  setLinkBusy(false);
+                }
+              }}
+            >
+              {linkBusy ? (
+                <><Loader2 className="h-3 w-3 mr-1 animate-spin" />Checking…</>
+              ) : (
+                <><Wand2 className="h-3 w-3 mr-1" />Check &amp; Fix Links</>
+              )}
+            </Button>
+          </div>
+          {linkReport && (
+            <div className="text-xs text-muted-foreground space-y-1">
+              <p>
+                Checked <strong>{linkReport.totalLinks}</strong> link{linkReport.totalLinks === 1 ? "" : "s"} •{" "}
+                <span className="text-red-600 dark:text-red-400">{linkReport.brokenCount} broken</span> •{" "}
+                <span className="text-green-700 dark:text-green-400">{linkReport.fixedCount} replaced</span> •{" "}
+                <span className="text-amber-600 dark:text-amber-400">{linkReport.removedCount} removed</span>
+              </p>
+              {linkReport.fixed.length > 0 && (
+                <details className="text-xs">
+                  <summary className="cursor-pointer text-green-700 dark:text-green-400">
+                    Replaced ({linkReport.fixed.length})
+                  </summary>
+                  <ul className="mt-1 space-y-0.5 pl-3 list-disc">
+                    {linkReport.fixed.map((f, i) => (
+                      <li key={i} className="break-all">
+                        <span className="font-medium">{f.anchor}</span>:{" "}
+                        <span className="line-through opacity-60">{f.from}</span> → <span>{f.to}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              )}
+              {linkReport.removed.length > 0 && (
+                <details className="text-xs">
+                  <summary className="cursor-pointer text-amber-600 dark:text-amber-400">
+                    Removed (no replacement found) ({linkReport.removed.length})
+                  </summary>
+                  <ul className="mt-1 space-y-0.5 pl-3 list-disc">
+                    {linkReport.removed.map((r, i) => (
+                      <li key={i} className="break-all">
+                        <span className="font-medium">{r.anchor}</span>:{" "}
+                        <span className="line-through opacity-60">{r.url}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              )}
+              {linkReport.brokenCount === 0 && (
+                <p className="text-green-700 dark:text-green-400">All links working ✓</p>
+              )}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };
+
