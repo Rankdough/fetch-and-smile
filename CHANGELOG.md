@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-05-25 - Remove bold text from article output
+
+- **What:** Removed article-body bolding at all three layers. `generate-content` no longer instructs the model to bold key terms and no longer seeds Quick Tips or In This Article with bold labels. `regenerate-section` fallback bullets no longer inject bold prefixes. `markdownToStyledHtml` now unwraps all `<strong>` and `<b>` tags in article HTML so legacy stored markdown with `**...**` also renders as plain text.
+- **Why:** User explicitly asked multiple times for no bolded words in generated article content, but bold text was still being introduced by prompt templates, fallback content, and previously saved markdown.
+- **Verified broken:** Nothing verified broken. Checked: article-generation prompt no longer contains a “Use **bold**” instruction; Quick Tips and In This Article fallback templates are plain text; regenerate-section fallback bullets are plain text; renderer now replaces `<strong>/<b>` with text nodes only, affecting article content rendering without touching the rest of the app UI.
+- **Files:** `supabase/functions/generate-content/index.ts`, `supabase/functions/regenerate-section/index.ts`, `src/utils/markdownToStyledHtml.ts`, `CHANGELOG.md`.
+- **Verify:** Generate or regenerate an article section that previously bolded words. In preview, Quick Tips, navigation items, bullets, and body copy should render with no bold text.
+
 ## 2026-05-25 - One-click "Fix all sections" + "Remove inline Sources" in verification
 
 - **What:** Content Verification now exposes (1) a deterministic "Remove" button on the "Inline Sources blocks removed" row that strips every legacy `Sources:` heading and its adjacent link list/bullets from the current article in one click, with a toast confirming how many lines were cleaned, and (2) a "Fix all N sections" primary button on the atomic-sections row that runs `regenerate-section` sequentially against every failing H2, applies each result to the latest content snapshot, and shows a single completion toast (success count or per-section failures). Per-section buttons remain for targeted reruns and are disabled while the batch is running. `regenerateOneSection` is now a shared helper so the single and batch paths cannot diverge.
