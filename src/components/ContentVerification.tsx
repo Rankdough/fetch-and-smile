@@ -41,7 +41,10 @@ interface ContentVerificationProps {
   onFixHorizontalLines?: () => void;
   onRegenerateForWordCount?: () => void;
   onRegenerateSection?: (sectionTitle: string) => Promise<void> | void;
+  onRegenerateAllSections?: (sectionTitles: string[]) => Promise<void> | void;
+  onStripInlineSources?: () => void;
   regeneratingSectionTitle?: string | null;
+  regeneratingAllSections?: boolean;
   ctaUrl?: string;
   generatedCTAs?: CTAData | null;
   internalLinks?: string[];
@@ -57,7 +60,7 @@ interface VerificationItem {
   status: "passed" | "failed" | "warning";
   details?: string;
   fixable?: boolean;
-  fixType?: "em-dash" | "word-count" | "horizontal-line";
+  fixType?: "em-dash" | "word-count" | "horizontal-line" | "inline-sources";
   failingSections?: string[];
 }
 
@@ -68,7 +71,10 @@ export const ContentVerification = ({
   onFixHorizontalLines,
   onRegenerateForWordCount,
   onRegenerateSection,
+  onRegenerateAllSections,
+  onStripInlineSources,
   regeneratingSectionTitle,
+  regeneratingAllSections,
   ctaUrl,
   generatedCTAs,
   internalLinks,
