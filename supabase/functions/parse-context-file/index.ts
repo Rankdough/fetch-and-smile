@@ -213,9 +213,9 @@ serve(async (req) => {
 
     return new Response(
       JSON.stringify({
-        content: textContent.substring(0, 10000), // Limit to 10k chars
+        content: textContent.substring(0, 30000), // Keep source catalogues and enough body context for generation
         fileName,
-        truncated: textContent.length > 10000,
+        truncated: textContent.length > 30000,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
