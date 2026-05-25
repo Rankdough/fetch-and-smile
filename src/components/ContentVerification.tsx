@@ -110,6 +110,42 @@ export const ContentVerification = ({
     });
 
 
+    // Atomic sections check: every body H2 must have a list/table AND avoid dependency phrases
+    {
+      const lines = content.split("\n");
+      const skipPattern = /tl;?\s?dr|quick\s*tips|in\s*this\s*article|frequently\s*asked|faq|final\s*thoughts|conclusion|references|sources/i;
+      const bannedRegex = /\b(as\s+(mentioned|we\s+(saw|discussed|noted))\s+(above|earlier|previously)|continuing\s+from\s+(earlier|above)|in\s+the\s+previous\s+section|the\s+following\s+point|building\s+on\s+(what\s+we\s+covered|the\s+above|the\s+previous))\b/i;
+      const failing: string[] = [];
+      let totalBody = 0;
+      let bannedHits = 0;
+      for (let i = 0; i < lines.length; i++) {
+        if (/^##\s+/.test(lines[i]) && !skipPattern.test(lines[i])) {
+          totalBody++;
+          let endIdx = lines.length;
+          for (let j = i + 1; j < lines.length; j++) {
+            if (/^##\s+/.test(lines[j])) { endIdx = j; break; }
+          }
+          const body = lines.slice(i + 1, endIdx).join("\n");
+          const hasList = /^\s*([-*+]|\d+\.)\s+/m.test(body) || /\n\|[^\n]+\|/.test(body);
+          if (!hasList) failing.push(lines[i].replace(/^##\s+/, "").slice(0, 50));
+          if (bannedRegex.test(body)) bannedHits++;
+        }
+      }
+      const allHaveLists = totalBody > 0 && failing.length === 0;
+      results.push({
+        id: "atomic-sections",
+        label: "Atomic sections (bullets + standalone answer)",
+        status: allHaveLists && bannedHits === 0 ? "passed" : failing.length > 0 ? "failed" : "warning",
+        details: totalBody === 0
+          ? "No body H2 sections detected"
+          : failing.length > 0
+            ? `${failing.length}/${totalBody} sections missing bullets/lists: ${failing.slice(0, 3).join("; ")}${failing.length > 3 ? "…" : ""}`
+            : bannedHits > 0
+              ? `Found ${bannedHits} dependency phrase(s) (e.g., "as mentioned above") — atomic sections must be self-contained`
+              : `All ${totalBody} body sections are atomic (have lists, no back-references)`,
+      });
+    }
+
     // Check for tables - count them based on word count requirements
     const tableMatches = content.match(/\n\|[^\n]+\|[^\n]+\|\n\|[-:| ]+\|/g) || [];
     const tableCount = tableMatches.length;

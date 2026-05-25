@@ -508,7 +508,15 @@ MUST FOLLOW (in priority order):
 2. WORD COUNT — Final article between ${wordFloor} and ${wordCeiling} words (target ${targetWords}). Count as you write.
 3. TABLES — Include exactly ${requiredTables} markdown comparison table${requiredTables > 1 ? 's' : ''} (1 per 600 words), each ≥3 columns and ≥4 data rows, spread evenly across body H2 sections. Markdown pipe syntax only.${skipSources ? '' : `
 4. SOURCES — Every body H2 ends with a "**Sources:**" line listing 1-2 real markdown links to authoritative sites (NHS, gov, CDC, Wikipedia, official brand sites, reputable news). The final ## References section lists all sources as a markdown bullet list. Real working URLs only — no placeholders, no inline [1][2] citations.`}
-5. FORMATTING — Use bullet points (-) and numbered lists (1.) liberally inside body sections for scannability. Use **bold** for key terms. British English. No em/en dashes. No horizontal rules.`;
+5. FORMATTING — Use bullet points (-) and numbered lists (1.) liberally inside body sections for scannability. Use **bold** for key terms. British English. No em/en dashes. No horizontal rules.
+6. ATOMIC SECTION CONTRACT (NON-NEGOTIABLE) — Every body H2 and H3 must be a standalone answer block that works alone if extracted by Google AI Overviews, ChatGPT, Gemini or Perplexity. For EACH body H2/H3 you MUST:
+   (a) Open with ONE direct sentence that fully answers the heading question on its own (no preamble, no "Dental implants are popular…" style intros).
+   (b) Follow with a supporting explanation (1–2 short paragraphs) AND at least one of: a bullet list (3+ items), a numbered list, or a comparison table.
+   (c) Keep the section roughly 75–200 words (100–300 tokens). No one-line sections, no 800-word walls.
+   (d) Be self-contained: NEVER use dependency phrases like "as mentioned above", "as we saw", "continuing from earlier", "this is why", "the following point", "in the previous section". Each section must make sense on its own.
+   (e) Include at least one concrete specific (number, %, named example, timeframe, or named tool/brand from the context files) — no vague filler.
+   (f) Vary sentence length. No robotic cadence, no repeated sentence structures.
+   Before finishing each section ask: "If an AI engine extracted ONLY this section, would it fully answer the question?" If no, rewrite it.`;
 
       // Add keywords if provided
       if (keywords && Array.isArray(keywords) && keywords.length > 0) {
@@ -991,6 +999,57 @@ Place these images throughout the article at logical locations, typically after 
         }
       } else {
         console.log(`TABLE GUARD: ${existingTables}/${requiredTables} tables present ✓`);
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // ATOMIC SECTION GUARD: strip banned dependency phrases + log gaps
+    // (non-destructive: only removes/replaces banned transitions, never rewrites prose)
+    // ═══════════════════════════════════════════════════════════════════════
+    if (!expandExistingContent && !migrationMode && !formatReference) {
+      const bannedPhrases: { pattern: RegExp; replacement: string }[] = [
+        { pattern: /\bas\s+mentioned\s+(above|earlier|previously)\b[,]?\s*/gi, replacement: "" },
+        { pattern: /\bas\s+(we\s+)?(saw|discussed|noted)\s+(above|earlier|previously)\b[,]?\s*/gi, replacement: "" },
+        { pattern: /\bcontinuing\s+from\s+(earlier|above|the\s+previous\s+section)\b[,]?\s*/gi, replacement: "" },
+        { pattern: /\bin\s+the\s+previous\s+section\b[,]?\s*/gi, replacement: "" },
+        { pattern: /\bthe\s+following\s+point\b[,]?\s*/gi, replacement: "" },
+        { pattern: /\bbuilding\s+on\s+(what\s+we\s+covered|the\s+above|the\s+previous)\b[,]?\s*/gi, replacement: "" },
+      ];
+      let strippedCount = 0;
+      bannedPhrases.forEach(({ pattern, replacement }) => {
+        const matches = content.match(pattern);
+        if (matches) {
+          strippedCount += matches.length;
+          content = content.replace(pattern, replacement);
+        }
+      });
+      // Tidy: capitalize first letter after a stripped phrase at sentence start
+      content = content.replace(/(^|\n|\. )([a-z])/g, (_m, p1, p2) => p1 + p2.toUpperCase());
+      if (strippedCount > 0) {
+        console.log(`ATOMIC GUARD: Stripped ${strippedCount} banned dependency phrase(s)`);
+      }
+
+      // Log H2 sections missing any bullet/numbered list/table (no auto-injection)
+      const atomicSkip = /tl;?\s?dr|quick\s*tips|in\s*this\s*article|frequently\s*asked|faq|final\s*thoughts|conclusion|references|sources/i;
+      const atomicLines = content.split("\n");
+      const sectionsMissingLists: string[] = [];
+      for (let i = 0; i < atomicLines.length; i++) {
+        if (/^##\s+/.test(atomicLines[i]) && !atomicSkip.test(atomicLines[i])) {
+          let endIdx = atomicLines.length;
+          for (let j = i + 1; j < atomicLines.length; j++) {
+            if (/^##\s+/.test(atomicLines[j])) { endIdx = j; break; }
+          }
+          const body = atomicLines.slice(i + 1, endIdx).join("\n");
+          const hasList = /^\s*([-*+]|\d+\.)\s+/m.test(body) || /\n\|[^\n]+\|/.test(body);
+          if (!hasList) {
+            sectionsMissingLists.push(atomicLines[i].replace(/^##\s+/, "").slice(0, 60));
+          }
+        }
+      }
+      if (sectionsMissingLists.length > 0) {
+        console.warn(`ATOMIC GUARD: ${sectionsMissingLists.length} body section(s) missing bullets/lists: ${sectionsMissingLists.join(" | ")}`);
+      } else {
+        console.log(`ATOMIC GUARD: All body sections contain bullets/lists ✓`);
       }
     }
 
