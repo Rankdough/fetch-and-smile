@@ -5,6 +5,30 @@ Newest entries on top. Append-only — never edit or delete past entries.
 
 ---
 
+## 2026-05-25 — No back-to-back tables
+
+**What changed**
+- TABLE GUARD in `generate-content` now only injects fallback tables into body H2 sections that **do not already contain a table**. If every eligible section already has one, injection is skipped entirely (warning logged) rather than producing duplicates.
+- Added a final `removeAdjacentTables` pass that scans the finished markdown and deletes the second of any two tables separated only by blank lines.
+- Prompt now explicitly forbids placing two tables back-to-back; if two comparisons belong together they must be merged into one wider table.
+
+**Why**
+- User saw a real comparison table immediately followed by the generic "Aspect / Option A / B / C" fallback. TABLE GUARD was blindly counting tables and adding more to hit the cadence target, with no check for adjacency.
+
+**What may break / side effects**
+- If the model writes one real table and the article still needs more, TABLE GUARD will now skip injection in any H2 that already has a table. Total table count can therefore fall short of `requiredTables` when most body sections already contain a table. This is a deliberate trade-off: the back-to-back rule wins over the cadence rule.
+- `removeAdjacentTables` runs after injection, so a model-produced pair of adjacent tables will also be collapsed (second one removed). If the model intentionally puts two related tables next to each other, the second is lost — the prompt now tells it to merge instead.
+- Detection requires standard markdown pipe syntax with a `| --- |` separator. Tables written as HTML `<table>` (already forbidden by the prompt) are not detected.
+- `regenerate-section` does not run this pass — regenerating a single section adjacent to an existing table could re-introduce adjacency until that function is updated.
+
+**Files touched**
+- `supabase/functions/generate-content/index.ts` (prompt line ~335, TABLE GUARD ~1383–1470)
+
+**How to verify**
+- Generate a 1,500-word article. Search the output markdown for the pattern of one table's last `|...|` row followed (after blank lines only) by another `|...|` header row + `| --- |` separator. Should not occur. Check logs for `TABLE GUARD: Removed N back-to-back duplicate table(s)` or `No table-free body H2 sections available; skipping injection`.
+
+---
+
 ## 2026-05-25 — Strip single-row tables
 
 **What changed**

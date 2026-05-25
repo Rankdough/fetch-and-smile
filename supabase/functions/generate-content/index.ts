@@ -333,6 +333,7 @@ ${migrationMode ? `TABLE RULE:
 
 - Each table: at least 3 columns and at least 4 data rows
 - NEVER produce a table with only one data row. If you only have one row of data to show, write it as a sentence or bullet instead — do not wrap it in a table.
+- NEVER place two tables back-to-back. Every table must be separated from the next by at least one paragraph of body prose. If two comparisons belong together, merge them into a single wider table.
 - Spread tables evenly across body H2 sections; never cluster at the end
 - Markdown only — do NOT use HTML <table> tags
 - Do NOT replace tables with bullet lists`}
@@ -1382,28 +1383,35 @@ Place these images throughout the article at logical locations, typically after 
       const existingTables = countTables(content);
       const tablesNeeded = requiredTables - existingTables;
       if (tablesNeeded > 0) {
-        console.warn(`TABLE GUARD: Found ${existingTables}/${requiredTables} tables. Injecting ${tablesNeeded} fallback table(s).`);
-        const fallbackTable = (idx: number) => `\n\n| Aspect | Option A | Option B | Option C |\n| --- | --- | --- | --- |\n| Best for | Beginners | Intermediate users | Advanced needs |\n| Typical cost | Low | Moderate | Higher |\n| Time to results | Fast | Balanced | Long-term |\n| Key trade-off | Simplicity | Flexibility | Depth |\n`;
-        // Find body H2 sections (skip TL;DR, Quick Tips, In This Article, FAQ, Final Thoughts, References)
+        console.warn(`TABLE GUARD: Found ${existingTables}/${requiredTables} tables. Attempting to inject ${tablesNeeded} fallback table(s).`);
+        const fallbackTable = (_idx: number) => `\n\n| Aspect | Option A | Option B | Option C |\n| --- | --- | --- | --- |\n| Best for | Beginners | Intermediate users | Advanced needs |\n| Typical cost | Low | Moderate | Higher |\n| Time to results | Fast | Balanced | Long-term |\n| Key trade-off | Simplicity | Flexibility | Depth |\n`;
         const lines = content.split("\n");
-        const h2Indices: number[] = [];
+        const isPipe = (s: string) => s.includes("|");
+        const isSep = (s: string) => /^\s*\|?[\s\-:|]+\|[\s\-:|]+\|?\s*$/.test(s);
+        // Find body H2 sections (skip TL;DR, Quick Tips, In This Article, FAQ, Final Thoughts, References)
+        // AND that do NOT already contain a markdown table.
+        const eligibleH2: { start: number; end: number }[] = [];
         for (let i = 0; i < lines.length; i++) {
           if (/^##\s+/.test(lines[i]) && !bodySectionSkipPattern.test(lines[i])) {
-            h2Indices.push(i);
+            let end = lines.length;
+            for (let j = i + 1; j < lines.length; j++) {
+              if (/^##\s+/.test(lines[j])) { end = j; break; }
+            }
+            let hasTable = false;
+            for (let k = i + 1; k < end - 1; k++) {
+              if (isPipe(lines[k]) && isSep(lines[k + 1])) { hasTable = true; break; }
+            }
+            if (!hasTable) eligibleH2.push({ start: i, end });
           }
         }
-        if (h2Indices.length > 0) {
-          // Distribute evenly across body H2s, find end of each section
+        if (eligibleH2.length > 0) {
+          // Distribute evenly across eligible (table-free) H2 sections
+          const inject = Math.min(tablesNeeded, eligibleH2.length);
           const targets: number[] = [];
-          const step = Math.max(1, Math.floor(h2Indices.length / tablesNeeded));
-          for (let i = 0; i < tablesNeeded; i++) {
-            const h2Idx = h2Indices[Math.min(i * step, h2Indices.length - 1)];
-            // find end of this section (next ## or end)
-            let endIdx = lines.length;
-            for (let j = h2Idx + 1; j < lines.length; j++) {
-              if (/^##\s+/.test(lines[j])) { endIdx = j; break; }
-            }
-            targets.push(endIdx);
+          const step = Math.max(1, Math.floor(eligibleH2.length / inject));
+          for (let i = 0; i < inject; i++) {
+            const sec = eligibleH2[Math.min(i * step, eligibleH2.length - 1)];
+            targets.push(sec.end);
           }
           // Insert from bottom up to preserve indices
           targets.sort((a, b) => b - a);
@@ -1411,12 +1419,57 @@ Place these images throughout the article at logical locations, typically after 
             lines.splice(targets[i], 0, fallbackTable(i));
           }
           content = lines.join("\n");
-          console.log(`TABLE GUARD: Injected ${tablesNeeded} table(s) into body H2 sections`);
+          console.log(`TABLE GUARD: Injected ${inject} table(s) into table-free body H2 sections (requested ${tablesNeeded})`);
+        } else {
+          console.warn(`TABLE GUARD: No table-free body H2 sections available; skipping injection to avoid back-to-back tables`);
         }
       } else {
         console.log(`TABLE GUARD: ${existingTables}/${requiredTables} tables present ✓`);
       }
+
+      // Final pass: collapse any back-to-back markdown tables (separated only by blank lines)
+      // by removing the second (generic) table. Real tables earned their place; duplicates go.
+      const removeAdjacentTables = (md: string): { md: string; removed: number } => {
+        const lines2 = md.split("\n");
+        const isPipe = (s: string) => s.includes("|");
+        const isSep = (s: string) => /^\s*\|?[\s\-:|]+\|[\s\-:|]+\|?\s*$/.test(s);
+        // Find table ranges: [headerIdx, lastDataRowIdx]
+        const tables: { start: number; end: number }[] = [];
+        let i = 0;
+        while (i < lines2.length - 1) {
+          if (isPipe(lines2[i]) && isSep(lines2[i + 1])) {
+            let j = i + 2;
+            while (j < lines2.length && isPipe(lines2[j]) && lines2[j].trim() !== "") j++;
+            tables.push({ start: i, end: j - 1 });
+            i = j;
+          } else {
+            i++;
+          }
+        }
+        // Mark second table for removal if only blank lines (or nothing) lie between prev.end and next.start
+        const toRemove = new Set<number>();
+        for (let t = 1; t < tables.length; t++) {
+          const prev = tables[t - 1];
+          const next = tables[t];
+          let onlyBlank = true;
+          for (let k = prev.end + 1; k < next.start; k++) {
+            if (lines2[k].trim() !== "") { onlyBlank = false; break; }
+          }
+          if (onlyBlank) {
+            for (let k = next.start; k <= next.end; k++) toRemove.add(k);
+          }
+        }
+        if (toRemove.size === 0) return { md, removed: 0 };
+        const out = lines2.filter((_, idx) => !toRemove.has(idx));
+        return { md: out.join("\n"), removed: tables.filter((_, idx) => idx > 0 && toRemove.has(tables[idx].start)).length };
+      };
+      const adj = removeAdjacentTables(content);
+      if (adj.removed > 0) {
+        console.warn(`TABLE GUARD: Removed ${adj.removed} back-to-back duplicate table(s)`);
+        content = adj.md;
+      }
     }
+
 
     // ═══════════════════════════════════════════════════════════════════════
     // ATOMIC SECTION GUARD: strip banned dependency phrases + log gaps
