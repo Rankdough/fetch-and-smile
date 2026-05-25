@@ -136,13 +136,17 @@ serve(async (req) => {
         // Unzip the docx file
         const unzipped = unzipSync(uint8Array);
         
-        // Find and read document.xml (main content)
+        // Find and read document.xml (main content) plus relationships (embedded hyperlinks)
         let documentXml = "";
+        let relationshipsXml = "";
         for (const [path, content] of Object.entries(unzipped)) {
           if (path === "word/document.xml") {
             const decoder = new TextDecoder("utf-8");
             documentXml = decoder.decode(content as Uint8Array);
-            break;
+          }
+          if (path === "word/_rels/document.xml.rels") {
+            const decoder = new TextDecoder("utf-8");
+            relationshipsXml = decoder.decode(content as Uint8Array);
           }
         }
         
@@ -158,7 +162,7 @@ serve(async (req) => {
               const paragraphText = sectionTextMatches
                 .map(match => {
                   const textMatch = match.match(/<w:t[^>]*>([^<]*)<\/w:t>/);
-                  return textMatch ? textMatch[1] : "";
+                  return textMatch ? decodeXmlText(textMatch[1]) : "";
                 })
                 .join("");
               if (paragraphText.trim()) {
@@ -167,8 +171,9 @@ serve(async (req) => {
             }
           }
           
-          textContent = paragraphs.join("\n\n");
-          console.log("Extracted text from docx using fflate, length:", textContent.length);
+          const sourceCatalogue = extractDocxSourceCatalogue(documentXml, relationshipsXml);
+          textContent = [sourceCatalogue, paragraphs.join("\n\n")].filter(Boolean).join("\n\n");
+          console.log("Extracted text and hyperlink catalogue from docx using fflate, length:", textContent.length);
         }
         
         if (!textContent || textContent.length < 20) {
