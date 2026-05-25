@@ -150,6 +150,37 @@ export const ContentVerification = ({
           ? `${referenceLines.length} reference link${referenceLines.length === 1 ? "" : "s"} verified`
           : `${nonClickableReferenceLines.length} non-clickable reference line(s) found`,
       });
+    } else {
+      results.push({
+        id: "clickable-references",
+        label: "References are clickable",
+        status: "failed",
+        details: "Missing ## References section with working markdown links",
+      });
+    }
+
+    {
+      const sectionMatches = [...content.matchAll(/^##\s+(.+)$/gm)];
+      const missingSourceSections: string[] = [];
+      const skipSourceCheck = /in\s+this\s+article|references|sources|bibliography/i;
+      sectionMatches.forEach((match, index) => {
+        const title = match[1].trim();
+        if (skipSourceCheck.test(title)) return;
+        const start = (match.index ?? 0) + match[0].length;
+        const end = index + 1 < sectionMatches.length ? (sectionMatches[index + 1].index ?? content.length) : content.length;
+        const body = content.slice(start, end);
+        const sourceLines = body.split("\n").filter((line) => /^\s*\*\*Sources?:\*\*/i.test(line) || /^\s*Sources?:\s*/i.test(line));
+        const hasClickableSource = sourceLines.some((line) => /\[[^\]]+\]\(https?:\/\/[^)\s]+\)/i.test(line));
+        if (!hasClickableSource) missingSourceSections.push(title);
+      });
+      results.push({
+        id: "per-section-sources",
+        label: "Source link in every section",
+        status: missingSourceSections.length === 0 ? "passed" : "failed",
+        details: missingSourceSections.length === 0
+          ? `${Math.max(0, sectionMatches.length - 2)} section(s) have clickable Sources lines`
+          : `Missing clickable Sources in: ${missingSourceSections.slice(0, 5).join(", ")}${missingSourceSections.length > 5 ? "…" : ""}`,
+      });
     }
 
 
@@ -176,14 +207,15 @@ export const ContentVerification = ({
           const banned = bannedRegex.test(body);
           // Detect any "Sources: ..." line that is not clickable on that exact line
           const sourceLines = body.split("\n").filter((line) => /^\s*\*?\*?Sources?:\*?\*?/i.test(line));
+          const missingSource = sourceLines.length === 0;
           const brokenSource = sourceLines.some((line) => !/\[[^\]]+\]\(https?:\/\/[^)\s]+\)/i.test(line));
           const fullTitle = lines[i].replace(/^##\s+/, "").trim();
-          if (bulletCount !== 3 || banned || brokenSource) {
+          if (bulletCount !== 3 || banned || missingSource || brokenSource) {
             failingTitles.push(fullTitle.slice(0, 60));
             failingFull.push(fullTitle);
           }
           if (banned) bannedHits++;
-          if (brokenSource) brokenSourceHits++;
+          if (missingSource || brokenSource) brokenSourceHits++;
         }
       }
       const failedCount = failingFull.length;
