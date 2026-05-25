@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-05-25 - Preserve References through internal-link insertion
+
+- **What:** Added a shared References-section helper and updated `insert-internal-links` to exclude the trailing `## References` block from AI rewriting, then restore the original References section verbatim after internal links are inserted. Added regression tests covering split/restore behaviour so post-processing cannot strip or regenerate final source references again.
+- **Why:** Fresh sample generation logs showed `generate-content` successfully rebuilt References, but the sample flow runs `insert-internal-links` immediately afterwards. That downstream AI rewrite path was able to drop or rewrite the final References section, so users saw generated content with no final source references even though generation itself had rebuilt them.
+- **Verified broken:** The sample-generation flow in `src/pages/Index.tsx` automatically invoked `insert-internal-links` after `generate-content`. Before this fix, `insert-internal-links` sent the full article, including `## References`, back through an AI rewrite step with no preservation guard, so the final References block could disappear or be replaced.
+- **Files:** `supabase/functions/_shared/referencesSection.ts`, `supabase/functions/insert-internal-links/index.ts`, `src/test/referencesPreservation.test.ts`, `CHANGELOG.md`.
+- **Verify:** Generate a sample with internal links enabled. The article body may gain internal links, but the final `## References` section must still be present and must keep the original source links intact.
+
 ## 2026-05-25 - Real regression verification for article pipeline
 
 - **What:** Added a shared article-section budget helper so the generator’s deterministic trim logic is testable and no longer keeps malformed one-row markdown tables. Added an end-to-end regression test file covering the exact breakages the user called out: inline `Sources:` blocks leaking into rendered sections, missing clickable final references, bold text leaking into article output, and single-row table regressions. Also fixed a live contradiction in `generate-content`: its normal-generation instructions were still telling the model to end every body H2 with `**Sources:**`, which directly conflicted with the newer references-only rule.
