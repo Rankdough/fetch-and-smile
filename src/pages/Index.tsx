@@ -662,7 +662,7 @@ const Index = () => {
     const saved = localStorage.getItem("seo-generator-formatUrlHistory");
     return saved ? JSON.parse(saved) : [];
   });
-  const [contextFiles, setContextFiles] = useState<{ name: string; content: string }[]>(() => {
+  const [contextFiles, setContextFiles] = useState<{ name: string; content: string; filePath?: string }[]>(() => {
     const saved = localStorage.getItem("seo-generator-contextFiles");
     return saved ? JSON.parse(saved) : [];
   });
@@ -1170,7 +1170,7 @@ const Index = () => {
 
         setContextFiles((prev) => [
           ...prev,
-          { name: file.name, content: data.content },
+          { name: file.name, content: data.content, filePath },
         ]);
 
         toast({

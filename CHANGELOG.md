@@ -5,6 +5,30 @@ Newest entries on top. Append-only — never edit or delete past entries.
 
 ---
 
+## 2026-05-25 — Force source links on every body section
+
+**What changed**
+- `generate-content` now runs a deterministic source-line guard after AI generation: every body H2 section gets a clickable `**Sources:**` line when context-file URLs are available and sources are not skipped.
+- Existing broken or non-clickable source lines are replaced with a clickable URL from the verified context source catalogue.
+- The final `## References` section is still rebuilt from the source lines actually present in the article, falling back to the verified context catalogue if needed.
+- New main-generator uploads now retain the uploaded storage path in local state so future debugging and source recovery can identify the original context file, while preserving the existing `name` + `content` shape.
+
+**Why**
+- The model was still allowed to omit per-section source lines when it decided no catalogue URL supported a section. That made sources probabilistic instead of guaranteed, even when context files contained links.
+- Recent logs showed the generated sample used stale 10,000-character context snippets with `SOURCE CATALOGUE: 0 accepted, 0 rejected`, so no final references could be built from that run. Newly uploaded files parse to 30,000 characters, but the generator also now forces source lines whenever any catalogue URLs are present.
+
+**Verified broken**
+- Nothing verified broken. Checked: code search showed the sample reached `generate-content` with three 10,000-character context files and zero accepted URLs; patched only `generate-content/index.ts` source enforcement and `Index.tsx` context-file metadata. Existing `name` and `content` fields are unchanged, and reference rebuilding still uses only allowed context URLs.
+
+**Files touched**
+- `supabase/functions/generate-content/index.ts`
+- `src/pages/Index.tsx`
+
+**How to verify**
+- Re-upload the context DOCX files, generate a new article with sources enabled, then confirm edge logs show `SOURCE CATALOGUE: N accepted` with `N > 0` and the output contains `**Sources:** [..](..)` after every body H2 plus a final `## References` section.
+
+---
+
 ## 2026-05-25 — Diagnostic log for source catalogue extraction
 
 **What changed**

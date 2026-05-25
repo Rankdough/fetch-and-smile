@@ -345,10 +345,10 @@ ${skipSources ? `SOURCE REFERENCE RULES:
 - DO NOT use inline numeric citations like [1], [2], [3]
 - Write all claims as general knowledge without citation` : contextSourceLinks.length > 0 ? `SOURCE REFERENCE RULES:
 - DO NOT use inline numeric citations like [1], [2], [3] in the text
-- Add a "**Sources:**" line at the END of EACH major section only when one of the provided context source URLs supports that section
+- Add a "**Sources:**" line at the END of EVERY body H2 section using the closest matching context source URL
 - Use ONLY URLs from the CONTEXT SOURCE URL CATALOGUE supplied below. Do not use Google search URLs, generic authority URLs, remembered URLs, placeholder URLs, or any URL that is not in that catalogue
 - Format: **Sources:** [Source Title](https://provided-context-url)
-- If no catalogue URL supports a section, omit that section's source line rather than inventing one
+- If the fit is imperfect, still use the closest catalogue URL rather than inventing or omitting a source line
 - The final ## References section must list ONLY catalogue URLs actually cited in the article` : `SOURCE REFERENCE RULES:
 - DO NOT use inline numeric citations like [1], [2], [3] in the text
 - No context-file source URLs were provided, so DO NOT add any **Sources:** lines or a ## References section
@@ -1325,6 +1325,52 @@ Place these images throughout the article at logical locations, typically after 
       return { markdown: fixedLines.join("\n").trim(), repairedSections: [...repairedSections], brokenSections: [...brokenSections] };
     };
 
+    const enforceSourceLineOnEveryBodySection = (markdown: string): { markdown: string; addedSections: string[]; replacedSections: string[] } => {
+      if (skipSources || contextSourceLinks.length === 0) return { markdown, addedSections: [], replacedSections: [] };
+
+      const headingRegex = /^##\s+.+$/gm;
+      const matches = [...markdown.matchAll(headingRegex)];
+      if (matches.length === 0) return { markdown, addedSections: [], replacedSections: [] };
+
+      const addedSections: string[] = [];
+      const replacedSections: string[] = [];
+      const intro = markdown.slice(0, matches[0].index ?? 0).trim();
+      const rebuilt = matches.map((match, index) => {
+        const start = match.index ?? 0;
+        const end = index + 1 < matches.length ? (matches[index + 1].index ?? markdown.length) : markdown.length;
+        const headingLine = match[0];
+        const heading = headingLine.replace(/^##\s+/, "").replace(/:$/, "").trim();
+        const headingKey = heading.toLowerCase();
+        const blockBody = markdown.slice(start + headingLine.length, end).trim();
+
+        if (bodySectionSkipPattern.test(headingKey)) return `${headingLine}\n${blockBody}`.trim();
+
+        const sectionText = `${heading}\n${blockBody}`;
+        const sectionTokens = tokeniseSourceText(sectionText);
+        let bestLink = contextSourceLinks[index % contextSourceLinks.length];
+        let bestScore = -1;
+        for (const link of contextSourceLinks) {
+          let overlap = 0;
+          sectionTokens.forEach(token => { if (link.tokens.has(token)) overlap++; });
+          const score = overlap / Math.max(1, Math.min(sectionTokens.size || 1, link.tokens.size || 1));
+          if (score > bestScore) {
+            bestScore = score;
+            bestLink = link;
+          }
+        }
+
+        const lines = blockBody.split("\n");
+        const hadSourceLine = lines.some(line => /^\s*\*?\*?Sources?:\*?\*?/i.test(line));
+        const bodyWithoutSourceLines = lines.filter(line => !/^\s*\*?\*?Sources?:\*?\*?/i.test(line)).join("\n").trim();
+        if (hadSourceLine) replacedSections.push(heading.slice(0, 60));
+        else addedSections.push(heading.slice(0, 60));
+
+        return `${headingLine}\n${bodyWithoutSourceLines}\n\n**Sources:** ${bestLink.markdown}`.trim();
+      });
+
+      return { markdown: [intro, ...rebuilt].filter(Boolean).join("\n\n").trim(), addedSections, replacedSections };
+    };
+
     // ═══════════════════════════════════════════════════════════════════════
     // TABLE GUARD: deterministic local injection if model under-delivered
     // ═══════════════════════════════════════════════════════════════════════
@@ -1650,6 +1696,15 @@ Place these images throughout the article at logical locations, typically after 
       }
       if (sourceRepairResult.brokenSections.length > 0) {
         const message = `SOURCE GUARD: Could not repair non-clickable source references in ${sourceRepairResult.brokenSections.length} section(s): ${sourceRepairResult.brokenSections.join(" | ")}`;
+        console.warn(message);
+        contentIntegrityWarnings.push(message);
+      }
+    }
+    if (!skipSources && contextSourceLinks.length > 0) {
+      const sourceLineResult = enforceSourceLineOnEveryBodySection(content);
+      content = sourceLineResult.markdown;
+      if (sourceLineResult.addedSections.length > 0 || sourceLineResult.replacedSections.length > 0) {
+        const message = `SOURCE GUARD: Enforced clickable source lines on body sections. Added ${sourceLineResult.addedSections.length}, replaced ${sourceLineResult.replacedSections.length}.`;
         console.warn(message);
         contentIntegrityWarnings.push(message);
       }
