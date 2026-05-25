@@ -115,14 +115,17 @@ export const ContentVerification = ({
     });
 
 
-    // Atomic sections check: every body H2 must have a list/table AND avoid dependency phrases
+    // Atomic sections check: every body H2 must have a list/table, avoid dependency phrases,
+    // and have any "Sources:" line rendered as clickable markdown links.
     {
       const lines = content.split("\n");
       const skipPattern = /tl;?\s?dr|quick\s*tips|in\s*this\s*article|frequently\s*asked|faq|final\s*thoughts|conclusion|references|sources/i;
       const bannedRegex = /\b(as\s+(mentioned|we\s+(saw|discussed|noted))\s+(above|earlier|previously)|continuing\s+from\s+(earlier|above)|in\s+the\s+previous\s+section|the\s+following\s+point|building\s+on\s+(what\s+we\s+covered|the\s+above|the\s+previous))\b/i;
-      const failing: string[] = [];
+      const failingTitles: string[] = [];
+      const failingFull: string[] = []; // full heading text for regen lookup
       let totalBody = 0;
       let bannedHits = 0;
+      let brokenSourceHits = 0;
       for (let i = 0; i < lines.length; i++) {
         if (/^##\s+/.test(lines[i]) && !skipPattern.test(lines[i])) {
           totalBody++;
@@ -132,22 +135,33 @@ export const ContentVerification = ({
           }
           const body = lines.slice(i + 1, endIdx).join("\n");
           const hasList = /^\s*([-*+]|\d+\.)\s+/m.test(body) || /\n\|[^\n]+\|/.test(body);
-          if (!hasList) failing.push(lines[i].replace(/^##\s+/, "").slice(0, 50));
-          if (bannedRegex.test(body)) bannedHits++;
+          const banned = bannedRegex.test(body);
+          // Detect "Sources: ..." lines that contain no markdown link
+          const brokenSource = /^\s*\*?\*?Sources?:\*?\*?\s+[^\n]*$/im.test(body) && !/\[[^\]]+\]\([^)]+\)/.test(body);
+          const fullTitle = lines[i].replace(/^##\s+/, "").trim();
+          if (!hasList || banned || brokenSource) {
+            failingTitles.push(fullTitle.slice(0, 60));
+            failingFull.push(fullTitle);
+          }
+          if (banned) bannedHits++;
+          if (brokenSource) brokenSourceHits++;
         }
       }
-      const allHaveLists = totalBody > 0 && failing.length === 0;
+      const failedCount = failingFull.length;
+      const reasons: string[] = [];
+      if (failingTitles.length > 0) reasons.push(`${failingTitles.length} section(s) need bullets/clickable sources`);
+      if (bannedHits > 0) reasons.push(`${bannedHits} dependency phrase(s)`);
+      if (brokenSourceHits > 0) reasons.push(`${brokenSourceHits} non-clickable Sources line(s)`);
       results.push({
         id: "atomic-sections",
-        label: "Atomic sections (bullets + standalone answer)",
-        status: allHaveLists && bannedHits === 0 ? "passed" : failing.length > 0 ? "failed" : "warning",
+        label: "Atomic sections (bullets + standalone answer + clickable sources)",
+        status: failedCount === 0 ? "passed" : "failed",
         details: totalBody === 0
           ? "No body H2 sections detected"
-          : failing.length > 0
-            ? `${failing.length}/${totalBody} sections missing bullets/lists: ${failing.slice(0, 3).join("; ")}${failing.length > 3 ? "…" : ""}`
-            : bannedHits > 0
-              ? `Found ${bannedHits} dependency phrase(s) (e.g., "as mentioned above") — atomic sections must be self-contained`
-              : `All ${totalBody} body sections are atomic (have lists, no back-references)`,
+          : failedCount === 0
+            ? `All ${totalBody} body sections are atomic`
+            : reasons.join(" • "),
+        failingSections: failingFull,
       });
     }
 
