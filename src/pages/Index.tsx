@@ -430,6 +430,7 @@ const Index = () => {
   const { toast } = useToast();
   const { trackUsage, getVoiceEditCredits, getQualityAnalysisCredits, getQualityAnalysisBreakdown, clearHistory: clearCreditHistory } = useCreditTracking();
   const [isGenerating, setIsGenerating] = useState(false);
+  const [regeneratingSectionTitle, setRegeneratingSectionTitle] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isEnhancingImport, setIsEnhancingImport] = useState(false);
   const [isApplyingFormat, setIsApplyingFormat] = useState(false);
