@@ -100,17 +100,20 @@ serve(async (req) => {
           resp = await fetch(url, { method: "GET", redirect: "follow", signal: ctrl.signal, headers: { "User-Agent": "Mozilla/5.0 (compatible; LinkChecker/1.0)" } }).catch(() => null);
         }
         clearTimeout(timer);
-        if (!resp) return { ok: true, status: 0, reason: "network-unreachable-trusted" };
-        // Only hard-fail on 404/410 (definitively gone)
+        if (!resp) return { ok: false, status: 0, reason: "network-unreachable" };
+        // Hard-fail definitively broken responses
         if (resp.status === 404 || resp.status === 410) return { ok: false, status: resp.status, reason: "not found" };
-        // Everything else (200s, 3xx that didn't follow, 401/403/405/429/5xx) is trusted
+        if (resp.status >= 500 && resp.status <= 599) return { ok: false, status: resp.status, reason: "server error" };
+        if (resp.status === 400 || resp.status === 451) return { ok: false, status: resp.status, reason: "bad/blocked request" };
+        // 200/3xx and auth-gated 401/403/405/429 are trusted (publishers often block bots)
         return { ok: true, status: resp.status };
       } catch (e: any) {
         clearTimeout(timer);
-        // Timeouts and network errors are NOT treated as broken — context URLs are trusted
-        return { ok: true, status: 0, reason: e?.name === "AbortError" ? "timeout-trusted" : "fetch-failed-trusted" };
+        // Timeouts and network errors → reject so we don't keep dead links
+        return { ok: false, status: 0, reason: e?.name === "AbortError" ? "timeout" : "fetch-failed" };
       }
     };
+
     // OOXML / XML namespace declarations leak into raw .docx text but are never citable sources.
     const NAMESPACE_HOST_RE = /^https?:\/\/(?:schemas\.openxmlformats\.org|schemas\.microsoft\.com|purl\.oclc\.org|www\.w3\.org|schemas\.xmlsoap\.org)\b/i;
     const addContextSourceLink = (title: string, url: string) => {
