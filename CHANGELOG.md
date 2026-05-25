@@ -5,6 +5,25 @@ Newest entries on top. Append-only — never edit or delete past entries.
 
 ---
 
+## 2026-05-25 — Diagnostic log for source catalogue extraction
+
+**What changed**
+- `generate-content` now logs `SOURCE CATALOGUE: N accepted, M rejected. contextFiles=… First 5 accepted: … First 5 rejected: …` immediately after URL extraction + verification, so we can see exactly why References/links are missing from a generated article (zero URLs extracted vs. all rejected by the link checker vs. context file content empty).
+
+**Why**
+- A generation ran with a DOCX brief containing many URLs and produced no References/inline links. Logs gave no visibility into whether `contextSourceLinks` was empty after extraction, after verification, or whether `contextFiles` arrived empty at the function. Cannot fix what we cannot see.
+
+**Verified broken**
+- Nothing. Checked: only added a single `console.log` line inside `generate-content/index.ts` between existing statements. No control flow, no variables, no exports, no other functions touched. The line uses only variables already in scope (`contextSourceLinks`, `rejectedContextSourceUrls`, `contextFiles`).
+
+**Files touched**
+- `supabase/functions/generate-content/index.ts` (1 added log line at line ~150)
+
+**How to verify**
+- Generate an article with the same DOCX brief. Open `edge-function-logs-generate-content` and read the `SOURCE CATALOGUE:` line. Report the numbers — that tells us exactly where the pipeline drops the URLs.
+
+---
+
 ## 2026-05-25 — Extract DOCX hyperlink sources from context files
 
 **What changed**
