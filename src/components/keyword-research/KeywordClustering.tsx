@@ -19,6 +19,8 @@ import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/comp
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { buildDeepResearchPrompt } from "@/lib/deepResearchPrompt";
+
 
 export interface ContentQueueState {
   bookmarked: string[];
@@ -3173,33 +3175,19 @@ const KeywordClustering = () => {
                                         className="gap-1 text-xs h-7 px-2 text-muted-foreground w-fit"
                                         onClick={(e) => {
                                           e.stopPropagation();
-                                          const prompt = `Act as an expert SEO content researcher. I'm planning to write an article titled "${idea.title}".
-
-Topic cluster: ${cluster.topic} — ${cluster.description}
-
-Article concept: ${idea.description}
-Strategic angle: ${idea.reason}
-
-Target keywords: ${idea.target_keywords?.join(", ") || "N/A"}
-
-Value promises this article must deliver:
-${idea.value_promises?.map((vp, vi) => `${vi+1}. ${vp}`).join("\n") || "N/A"}
-
-Please conduct deep research on this topic and provide:
-
-1. **Key facts & statistics** — Recent, citable data points relevant to this article
-2. **Expert perspectives** — Notable opinions or frameworks from authorities in this space
-3. **Common misconceptions** — What do people get wrong about this topic?
-4. **Unique angles** — Underexplored subtopics or fresh perspectives not covered by top-ranking content
-5. **Competitor content gaps** — What are the top-ranking articles missing?
-6. **Real-world examples & case studies** — Specific examples that would strengthen the article
-7. **Questions people ask** — Related questions from forums, PAA boxes, and communities
-8. **Recommended structure** — Suggested H2/H3 outline based on search intent and content depth
-
-Focus on providing actionable research that will help create a comprehensive, differentiated article.`;
+                                          const prompt = buildDeepResearchPrompt({
+                                            title: idea.title,
+                                            topic: cluster.topic,
+                                            topicDescription: cluster.description,
+                                            ideaDescription: idea.description,
+                                            strategicAngle: idea.reason,
+                                            targetKeywords: idea.target_keywords,
+                                            valuePromises: idea.value_promises,
+                                          });
                                           navigator.clipboard.writeText(prompt);
                                           toast({ title: "Research prompt copied!", description: "Paste into ChatGPT, Perplexity, or any AI research tool." });
                                         }}
+
                                       >
                                         <Search className="h-3 w-3" />
                                         Deep Research
@@ -3404,33 +3392,19 @@ Focus on providing actionable research that will help create a comprehensive, di
                                               size="sm"
                                               className="gap-1 text-xs h-7 px-2 text-muted-foreground"
                                               onClick={() => {
-                                                const prompt = `Act as an expert SEO content researcher. I'm planning to write an article titled "${idea.title}".
-
-Topic cluster: ${cluster.topic} — ${cluster.description}
-
-Article concept: ${idea.description}
-Strategic angle: ${idea.reason}
-
-Target keywords: ${idea.target_keywords?.join(", ") || "N/A"}
-
-Value promises this article must deliver:
-${idea.value_promises?.map((vp, i) => `${i+1}. ${vp}`).join("\n") || "N/A"}
-
-Please conduct deep research on this topic and provide:
-
-1. **Key facts & statistics** — Recent, citable data points relevant to this article
-2. **Expert perspectives** — Notable opinions or frameworks from authorities in this space
-3. **Common misconceptions** — What do people get wrong about this topic?
-4. **Unique angles** — Underexplored subtopics or fresh perspectives not covered by top-ranking content
-5. **Competitor content gaps** — What are the top-ranking articles missing?
-6. **Real-world examples & case studies** — Specific examples that would strengthen the article
-7. **Questions people ask** — Related questions from forums, PAA boxes, and communities
-8. **Recommended structure** — Suggested H2/H3 outline based on search intent and content depth
-
-Focus on providing actionable research that will help create a comprehensive, differentiated article.`;
+                                                const prompt = buildDeepResearchPrompt({
+                                                  title: idea.title,
+                                                  topic: cluster.topic,
+                                                  topicDescription: cluster.description,
+                                                  ideaDescription: idea.description,
+                                                  strategicAngle: idea.reason,
+                                                  targetKeywords: idea.target_keywords,
+                                                  valuePromises: idea.value_promises,
+                                                });
                                                 navigator.clipboard.writeText(prompt);
                                                 toast({ title: "Research prompt copied!", description: "Paste into ChatGPT, Perplexity, or any AI research tool." });
                                               }}
+
                                             >
                                               <Search className="h-3 w-3" />
                                               Deep Research
