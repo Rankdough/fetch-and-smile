@@ -289,7 +289,8 @@ ${sectionMarkdown}`;
         if (candidateLinks.length > 0) {
           const lowerSource = sourceText.toLowerCase();
           const matched = bestLinkFor(sourceText) || candidateLinks.find((link) => lowerSource.includes(link.title.toLowerCase()) || link.title.toLowerCase().includes(lowerSource));
-          return `**Sources:** ${(matched || candidateLinks[0]).markdown}`;
+          if (matched) return `**Sources:** ${matched.markdown}`;
+          if (contextSourceLinks.length === 0) return `**Sources:** ${candidateLinks[0].markdown}`;
         }
 
         warnings.push(`SOURCE GUARD: Could not repair non-clickable source reference in section: ${sectionTitle}`);
@@ -297,7 +298,7 @@ ${sectionMarkdown}`;
       }).join("\n").trim();
 
       if (originalHadSourceLine && !/^\s*\*?\*?Sources?:\*?\*?/im.test(repaired)) {
-        if (candidateLinks.length > 0) {
+        if (candidateLinks.length > 0 && contextSourceLinks.length === 0) {
           return { content: `${repaired}\n\n**Sources:** ${candidateLinks[0].markdown}`, warnings };
         }
         warnings.push(`SOURCE GUARD: Could not restore missing source reference in section: ${sectionTitle}`);
