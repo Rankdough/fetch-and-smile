@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { restoreTrailingReferencesSection, splitTrailingReferencesSection } from "../_shared/referencesSection.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -118,6 +119,8 @@ serve(async (req) => {
       );
     }
 
+    const { body: contentWithoutReferences, references: trailingReferences } = splitTrailingReferencesSection(content);
+
     const systemPrompt = `You are an expert SEO editor. Your task is to insert contextual internal links into an existing markdown article.
 
 CRITICAL RULES:
@@ -130,6 +133,7 @@ CRITICAL RULES:
 - DO NOT link text inside existing links.
 - DO NOT link text inside bold (**) or italic (*) markers unless the entire phrase is already styled.
 - DO NOT link text inside blockquotes (> lines), CTA banners, or markdown tables.
+- DO NOT modify, remove, rewrite, or regenerate the final References section.
 - Prefer linking phrases in the body paragraphs of the article.
 
 ANCHOR TEXT RELEVANCE:
@@ -157,7 +161,7 @@ URLS TO LINK (with destination topic keywords):
 ${urlContexts.map((c, i) => `${i + 1}. ${c.url}\n   Destination topic keywords: ${c.keywords.length ? c.keywords.join(", ") : "(none detectable - infer from URL)"}`).join("\n")}
 
 ARTICLE:
-${content}`;
+${contentWithoutReferences}`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -229,6 +233,8 @@ ${content}`;
         return `[${anchor}](${url})`;
       }
     );
+
+    linkedContent = restoreTrailingReferencesSection(linkedContent, trailingReferences);
 
     // Count how many of the provided URLs were actually inserted
     const insertedUrls = validUrls.filter((url) => linkedContent.includes(url));
