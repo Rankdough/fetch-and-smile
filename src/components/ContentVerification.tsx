@@ -730,7 +730,7 @@ export const ContentVerification = ({
                   {item.details}
                 </p>
               )}
-              {item.id === "atomic-sections" && item.failingSections && item.failingSections.length > 0 && onRegenerateSection && (
+              {(item.id === "atomic-sections" || item.id === "section-sources") && item.failingSections && item.failingSections.length > 0 && onRegenerateSection && (
                 <div className="mt-2 space-y-2">
                   {onRegenerateAllSections && item.failingSections.length > 1 && (
                     <Button
