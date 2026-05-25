@@ -19,6 +19,8 @@ import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/comp
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { buildDeepResearchPrompt } from "@/lib/deepResearchPrompt";
+
 
 export interface ContentQueueState {
   bookmarked: string[];
