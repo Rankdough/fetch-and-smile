@@ -313,8 +313,8 @@ ${formatReference ? `FORMAT REFERENCE MODE: A format reference has been provided
 
 ${migrationMode ? `TABLE RULE:
 - Use markdown tables where the source content contains list-style comparisons or product listings
-- Do NOT force tables where the source does not warrant them` : `TABLE RULE (1 table per 600 words of target length):
-- Include EXACTLY ${requiredTables} markdown comparison table${requiredTables > 1 ? 's' : ''} for ${targetWords} target words
+- Do NOT force tables where the source does not warrant them` : `TABLE RULE (minimum cadence: ≥2 tables per 1,000 words, ≥3 tables per 1,500 words — 1 table per 500 words of target length):
+- Include AT LEAST ${requiredTables} markdown comparison table${requiredTables > 1 ? 's' : ''} for ${targetWords} target words
 - Use proper pipe syntax with a header separator row, e.g.:
 
 | Feature | Option A | Option B |
