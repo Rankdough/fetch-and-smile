@@ -300,14 +300,8 @@ ${skipSources ? `SOURCE REFERENCE RULES:
 - If no catalogue URL supports a section, omit that section's source line rather than inventing one
 - The final ## References section must list ONLY catalogue URLs actually cited in the article` : `SOURCE REFERENCE RULES:
 - DO NOT use inline numeric citations like [1], [2], [3] in the text
-- Add a "**Sources:**" line at the END of EACH major section (after ## headings)
-- List 1-2 relevant sources as simple markdown links directly under that section
-- CRITICAL: All source links MUST be real, valid, working URLs to authoritative websites
-- Format: **Sources:** [Source Title](https://example.com/actual-page-url)
-- Use real domains like gov sites, NHS, CDC, Wikipedia, official brand sites, reputable news outlets
-- Example: [NHS Food Safety Guidelines](https://www.nhs.uk/live-well/eat-well/food-guidelines-and-food-labels/)
-- NEVER use placeholder URLs or made-up links - only include sources you know exist
-- Sources should be relevant to that specific section's content`}
+- No context-file source URLs were provided, so DO NOT add any **Sources:** lines or a ## References section
+- Do not invent, remember, search for, or guess reference URLs`}
 
 ARTICLE STRUCTURE (in this order) — WORD BUDGET PER SECTION:
 Total target: ${targetWords} words. Each section has a strict word budget. Do NOT exceed individual section budgets.
