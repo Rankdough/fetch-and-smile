@@ -220,9 +220,9 @@ ${formatReference ? `FORMAT REFERENCE MODE: A format reference has been provided
   - ## Longevity and Care ❌
 - The very first paragraph after the H1 title MUST be an AI-QUOTABLE opening statement: a standalone, factual sentence (30-50 words) that an AI assistant could quote verbatim as its entire answer. It MUST directly answer the title question with a clear factual claim and a practical verdict. Do NOT force prices, brand names, product models, or "best for X" recommendations unless the user's instructions explicitly allow them.
 - Each H2 question heading MUST be immediately followed by a short paragraph (roughly 30 words) that directly answers that question before any supporting details
-- Each section MUST then continue with a mix of:
+- Each body H2 section MUST then continue with:
   1. Clear text paragraphs (elaboration after the answer)
-  2. Bullet points or numbered lists for scannable takeaways
+  2. EXACTLY THREE markdown bullet points using "- " (no more, no fewer; numbered lists do not count)
   3. A comparison table where relevant (at least ${requiredTables} tables total across the article)
   4. Source references at the end of the section
 
@@ -270,7 +270,7 @@ SECTION DETAILS:
 ${quickTipsSection}
 ${inThisArticleSection}
 5. ${sectionBudgets.bodyH2Count} Main content sections with ## QUESTION headings (~${sectionBudgets.wordsPerBodyH2} words EACH, no more)
-   - Each answered with text + bullets + tables${skipSources ? '' : ' + **Sources:** at the end'}
+   - Each answered with text + EXACTLY THREE "- " bullet points + tables${skipSources ? '' : ' + **Sources:** at the end'}
    - Include comparison table(s) where relevant
 6. Decision Guide H2 (~${howToChooseWords} words) — practical checklist of 4-6 criteria as bullet points.
    - The H2 MUST be a topic-specific decision question, NOT the generic "## How to Choose".
@@ -504,14 +504,14 @@ ${instructions}`;
       userPrompt = `Write a blog post about: ${topic}
 
 MUST FOLLOW (in priority order):
-1. STRUCTURE — Follow the AEO layout exactly: H1 → AI-quotable opening paragraph (30-50 words) → ## TL;DR (1 dense paragraph, no list) → ## Quick Tips (3 tips, max 15 words each) → ## In This Article (nav list) → question-based H2 sections (each H2 phrased as a question, immediately followed by a ~30-word direct answer paragraph, then bullets/numbered lists for scannable points, then a comparison table where relevant${skipSources ? '' : ', then a **Sources:** line'}) → ## How to Choose (4-6 criteria as a bullet checklist) → ## Frequently Asked Questions → ## Final Thoughts${skipSources ? '' : ' → ## References (markdown bullet list of all sources)'}.
+1. STRUCTURE — Follow the AEO layout exactly: H1 → AI-quotable opening paragraph (30-50 words) → ## TL;DR (1 dense paragraph, no list) → ## Quick Tips (3 tips, max 15 words each) → ## In This Article (nav list) → question-based H2 sections (each H2 phrased as a question, immediately followed by a ~30-word direct answer paragraph, then EXACTLY THREE markdown bullet points using "- ", then a comparison table where relevant${skipSources ? '' : ', then a **Sources:** line'}) → ## How to Choose (4-6 criteria as a bullet checklist) → ## Frequently Asked Questions → ## Final Thoughts${skipSources ? '' : ' → ## References (markdown bullet list of all sources)'}.
 2. WORD COUNT — Final article between ${wordFloor} and ${wordCeiling} words (target ${targetWords}). Count as you write.
 3. TABLES — Include exactly ${requiredTables} markdown comparison table${requiredTables > 1 ? 's' : ''} (1 per 600 words), each ≥3 columns and ≥4 data rows, spread evenly across body H2 sections. Markdown pipe syntax only.${skipSources ? '' : `
 4. SOURCES — Every body H2 ends with a "**Sources:**" line listing 1-2 real markdown links to authoritative sites (NHS, gov, CDC, Wikipedia, official brand sites, reputable news). The final ## References section lists all sources as a markdown bullet list. Real working URLs only — no placeholders, no inline [1][2] citations.`}
-5. FORMATTING — Use bullet points (-) and numbered lists (1.) liberally inside body sections for scannability. Use **bold** for key terms. British English. No em/en dashes. No horizontal rules.
+5. FORMATTING — Every body H2 section must contain EXACTLY THREE markdown bullet points using "- ". Do not use numbered lists as the required bullets. Use **bold** for key terms. British English. No em/en dashes. No horizontal rules.
 6. ATOMIC SECTION CONTRACT (NON-NEGOTIABLE) — Every body H2 and H3 must be a standalone answer block that works alone if extracted by Google AI Overviews, ChatGPT, Gemini or Perplexity. For EACH body H2/H3 you MUST:
    (a) Open with ONE direct sentence that fully answers the heading question on its own (no preamble, no "Dental implants are popular…" style intros).
-   (b) Follow with a supporting explanation (1–2 short paragraphs) AND at least one of: a bullet list (3+ items), a numbered list, or a comparison table.
+   (b) Follow with a supporting explanation (1–2 short paragraphs) AND EXACTLY THREE markdown bullet points using "- ". No section may have 0, 1, 2, 4, or more bullet points.
    (c) Keep the section roughly 75–200 words (100–300 tokens). No one-line sections, no 800-word walls.
    (d) Be self-contained: NEVER use dependency phrases like "as mentioned above", "as we saw", "continuing from earlier", "this is why", "the following point", "in the previous section". Each section must make sense on its own.
    (e) Include at least one concrete specific (number, %, named example, timeframe, or named tool/brand from the context files) — no vague filler.
@@ -948,6 +948,93 @@ Place these images throughout the article at logical locations, typically after 
 
     console.log("Content generated successfully");
 
+    const bodySectionSkipPattern = /tl;?\s?dr|quick\s*tips|in\s*this\s*article|frequently\s*asked|faq|final\s*thoughts|conclusion|references|sources/i;
+
+    const buildFallbackBullets = (heading: string, body: string): string[] => {
+      const plain = body
+        .split("\n")
+        .filter(line => !/^\s*[-*+]\s+/.test(line) && !/^\s*\d+\.\s+/.test(line) && !line.includes("|") && !/^\s*\*\*Sources?:\*\*/i.test(line) && !/^\s*Sources?:/i.test(line))
+        .join(" ")
+        .replace(/\[[^\]]+\]\([^)]+\)/g, "")
+        .replace(/[*_`>#]/g, "")
+        .replace(/\s+/g, " ")
+        .trim();
+      const sentences = plain.split(/(?<=[.!?])\s+/).map(s => s.trim()).filter(s => s.length > 24);
+      const seeds = [...sentences.slice(1), ...sentences.slice(0, 1)];
+      const bullets: string[] = [];
+      const seen = new Set<string>();
+      for (const seed of seeds) {
+        if (bullets.length >= 3) break;
+        const cleaned = seed.replace(/^[-*+]\s+/, "").replace(/^\d+\.\s+/, "").replace(/\s+/g, " ").trim();
+        const key = cleaned.toLowerCase().replace(/\W+/g, " ").trim();
+        if (!key || seen.has(key)) continue;
+        seen.add(key);
+        bullets.push(`- ${cleaned}`);
+      }
+      const fallbacks = [0, 1, 2].map((_, index) => {
+        const fallback = index === 0
+          ? `${heading.replace(/\?$/, "")} depends on the mechanism, clinical use, and maintenance expectations.`
+          : index === 1
+            ? `Concrete numbers, examples, or timeframes make this section useful when read alone.`
+            : `The practical takeaway should stay specific to ${topic || "the topic"}.`;
+        return `- ${fallback}`;
+      });
+      for (const fallback of fallbacks) {
+        if (bullets.length >= 3) break;
+        const key = fallback.toLowerCase().replace(/^[-*+]\s+/, "").replace(/\W+/g, " ").trim();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        bullets.push(fallback);
+      }
+      return bullets.slice(0, 3);
+    };
+
+    const enforceThreeBulletsPerBodySection = (markdown: string): { markdown: string; changedSections: string[] } => {
+      const headingRegex = /^#{2,3}\s+.+$/gm;
+      const matches = [...markdown.matchAll(headingRegex)];
+      if (matches.length === 0) return { markdown: markdown.trim(), changedSections: [] };
+
+      const intro = markdown.slice(0, matches[0].index ?? 0).trim();
+      const changedSections: string[] = [];
+      const rebuiltSections = matches.map((match, index) => {
+        const start = match.index ?? 0;
+        const end = index + 1 < matches.length ? (matches[index + 1].index ?? markdown.length) : markdown.length;
+        const headingLine = match[0];
+        const heading = headingLine.replace(/^#{2,3}\s+/, "").trim();
+        const bodyText = markdown.slice(start + headingLine.length, end).trim();
+
+        if (bodySectionSkipPattern.test(heading)) return `${headingLine}\n${bodyText}`.trim();
+
+        const lines = bodyText.split("\n");
+        const seenBullets = new Set<string>();
+        const existingBullets = lines.filter(line => /^\s*-\s+/.test(line)).map(line => line.trim()).filter(line => {
+          const key = line.toLowerCase().replace(/^[-*+]\s+/, "").replace(/\W+/g, " ").trim();
+          if (!key || seenBullets.has(key)) return false;
+          seenBullets.add(key);
+          return true;
+        });
+        if (lines.filter(line => /^\s*-\s+/.test(line)).length === 3 && existingBullets.length === 3) return `${headingLine}\n${bodyText}`.trim();
+
+        changedSections.push(heading.slice(0, 60));
+        const keptBulletSet = new Set(existingBullets.slice(0, 3));
+        const nonBulletLines = lines.filter(line => !/^\s*([-*+]|\d+\.)\s+/.test(line) || keptBulletSet.has(line.trim()));
+        const sourceIndex = nonBulletLines.findIndex(line => /^\s*\*\*Sources?:\*\*/i.test(line) || /^\s*Sources?:/i.test(line));
+        const beforeSources = sourceIndex >= 0 ? nonBulletLines.slice(0, sourceIndex) : nonBulletLines;
+        const sourceLines = sourceIndex >= 0 ? nonBulletLines.slice(sourceIndex) : [];
+        const bullets = existingBullets.slice(0, 3);
+        for (const fallback of buildFallbackBullets(heading, bodyText)) {
+          if (bullets.length >= 3) break;
+          bullets.push(fallback);
+        }
+
+        const cleanedBeforeSources = beforeSources.filter(line => !keptBulletSet.has(line.trim()));
+        const body = [cleanedBeforeSources.join("\n").trim(), bullets.slice(0, 3).join("\n"), sourceLines.join("\n").trim()].filter(Boolean).join("\n\n");
+        return `${headingLine}\n${body}`.trim();
+      });
+
+      return { markdown: [intro, ...rebuiltSections].filter(Boolean).join("\n\n").trim(), changedSections };
+    };
+
     // ═══════════════════════════════════════════════════════════════════════
     // TABLE GUARD: deterministic local injection if model under-delivered
     // ═══════════════════════════════════════════════════════════════════════
@@ -968,11 +1055,10 @@ Place these images throughout the article at logical locations, typically after 
         console.warn(`TABLE GUARD: Found ${existingTables}/${requiredTables} tables. Injecting ${tablesNeeded} fallback table(s).`);
         const fallbackTable = (idx: number) => `\n\n| Aspect | Option A | Option B | Option C |\n| --- | --- | --- | --- |\n| Best for | Beginners | Intermediate users | Advanced needs |\n| Typical cost | Low | Moderate | Higher |\n| Time to results | Fast | Balanced | Long-term |\n| Key trade-off | Simplicity | Flexibility | Depth |\n`;
         // Find body H2 sections (skip TL;DR, Quick Tips, In This Article, FAQ, Final Thoughts, References)
-        const skipPattern = /tl;?\s?dr|quick\s*tips|in\s*this\s*article|frequently\s*asked|faq|final\s*thoughts|conclusion|references|sources/i;
         const lines = content.split("\n");
         const h2Indices: number[] = [];
         for (let i = 0; i < lines.length; i++) {
-          if (/^##\s+/.test(lines[i]) && !skipPattern.test(lines[i])) {
+          if (/^##\s+/.test(lines[i]) && !bodySectionSkipPattern.test(lines[i])) {
             h2Indices.push(i);
           }
         }
@@ -1029,27 +1115,32 @@ Place these images throughout the article at logical locations, typically after 
         console.log(`ATOMIC GUARD: Stripped ${strippedCount} banned dependency phrase(s)`);
       }
 
-      // Log H2 sections missing any bullet/numbered list/table (no auto-injection)
-      const atomicSkip = /tl;?\s?dr|quick\s*tips|in\s*this\s*article|frequently\s*asked|faq|final\s*thoughts|conclusion|references|sources/i;
+      const bulletResult = enforceThreeBulletsPerBodySection(content);
+      content = bulletResult.markdown;
+      if (bulletResult.changedSections.length > 0) {
+        console.warn(`ATOMIC GUARD: Enforced exactly 3 bullets in ${bulletResult.changedSections.length} body section(s): ${bulletResult.changedSections.join(" | ")}`);
+      }
+
+      // Verify H2 sections have exactly three markdown bullets after deterministic enforcement
       const atomicLines = content.split("\n");
-      const sectionsMissingLists: string[] = [];
+      const sectionsWithWrongBulletCount: string[] = [];
       for (let i = 0; i < atomicLines.length; i++) {
-        if (/^##\s+/.test(atomicLines[i]) && !atomicSkip.test(atomicLines[i])) {
+        if (/^##\s+/.test(atomicLines[i]) && !bodySectionSkipPattern.test(atomicLines[i])) {
           let endIdx = atomicLines.length;
           for (let j = i + 1; j < atomicLines.length; j++) {
             if (/^##\s+/.test(atomicLines[j])) { endIdx = j; break; }
           }
           const body = atomicLines.slice(i + 1, endIdx).join("\n");
-          const hasList = /^\s*([-*+]|\d+\.)\s+/m.test(body) || /\n\|[^\n]+\|/.test(body);
-          if (!hasList) {
-            sectionsMissingLists.push(atomicLines[i].replace(/^##\s+/, "").slice(0, 60));
+          const bulletCount = body.split("\n").filter(line => /^\s*-\s+/.test(line)).length;
+          if (bulletCount !== 3) {
+            sectionsWithWrongBulletCount.push(`${atomicLines[i].replace(/^##\s+/, "").slice(0, 60)} (${bulletCount})`);
           }
         }
       }
-      if (sectionsMissingLists.length > 0) {
-        console.warn(`ATOMIC GUARD: ${sectionsMissingLists.length} body section(s) missing bullets/lists: ${sectionsMissingLists.join(" | ")}`);
+      if (sectionsWithWrongBulletCount.length > 0) {
+        console.warn(`ATOMIC GUARD: ${sectionsWithWrongBulletCount.length} body section(s) still have wrong bullet count: ${sectionsWithWrongBulletCount.join(" | ")}`);
       } else {
-        console.log(`ATOMIC GUARD: All body sections contain bullets/lists ✓`);
+        console.log(`ATOMIC GUARD: All body sections contain exactly 3 bullets ✓`);
       }
     }
 
@@ -1144,6 +1235,14 @@ Place these images throughout the article at logical locations, typically after 
       }
 
       content = normaliseReferencesSection(content);
+    }
+
+    if (!expandExistingContent && !migrationMode && !formatReference) {
+      const finalBulletResult = enforceThreeBulletsPerBodySection(content);
+      content = finalBulletResult.markdown;
+      if (finalBulletResult.changedSections.length > 0) {
+        console.warn(`FINAL ATOMIC GUARD: Enforced exactly 3 bullets in ${finalBulletResult.changedSections.length} section(s): ${finalBulletResult.changedSections.join(" | ")}`);
+      }
     }
 
     // Generate CTAs if requested
