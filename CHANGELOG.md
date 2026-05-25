@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-05-25 - Real regression verification for article pipeline
+
+- **What:** Added a shared article-section budget helper so the generator’s deterministic trim logic is testable and no longer keeps malformed one-row markdown tables. Added an end-to-end regression test file covering the exact breakages the user called out: inline `Sources:` blocks leaking into rendered sections, missing clickable final references, bold text leaking into article output, and single-row table regressions. Also fixed a live contradiction in `generate-content`: its normal-generation instructions were still telling the model to end every body H2 with `**Sources:**`, which directly conflicted with the newer references-only rule.
+- **Why:** File reads and spot checks were not enough. They missed backend/runtime regressions and even allowed contradictory prompt rules to survive, which is why earlier replies falsely claimed nothing was broken.
+- **Verified broken:** The normal-generation prompt in `supabase/functions/generate-content/index.ts` was still instructing the model to add inline `**Sources:**` blocks to every body H2, contradicting the references-only requirement. The deterministic section trimmer still allowed markdown tables to be sliced down to a header, separator, and one data row.
+- **Files:** `supabase/functions/_shared/articleSectionBudget.ts`, `supabase/functions/generate-content/index.ts`, `src/test/articleRegressionVerification.test.ts`, `CHANGELOG.md`.
+- **Verify:** Run the article regression tests. They must confirm: no rendered inline `Sources:` blocks, final references remain clickable, article bold tags are stripped, generator instructions do not reintroduce inline `Sources:`, and kept markdown tables have at least two data rows.
+
 ## 2026-05-25 - Remove bold text from article output
 
 - **What:** Removed article-body bolding at all three layers. `generate-content` no longer instructs the model to bold key terms and no longer seeds Quick Tips or In This Article with bold labels. `regenerate-section` fallback bullets no longer inject bold prefixes. `markdownToStyledHtml` now unwraps all `<strong>` and `<b>` tags in article HTML so legacy stored markdown with `**...**` also renders as plain text.
