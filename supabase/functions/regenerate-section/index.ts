@@ -152,7 +152,23 @@ ${sectionMarkdown}`;
       const bullets = [...existing];
       for (const seed of fallbackSeeds) {
         if (bullets.length >= 3) break;
-        bullets.push(`- ${seed.replace(/^[-*+]\s+/, "").replace(/^\d+\.\s+/, "").replace(/\s+/g, " ").trim()}`);
+        const cleaned = seed.replace(/^[-*+]\s+/, "").replace(/^\d+\.\s+/, "").replace(/\s+/g, " ").trim();
+        const key = cleaned.toLowerCase().replace(/\W+/g, " ").trim();
+        if (!key || seen.has(key)) continue;
+        seen.add(key);
+        bullets.push(`- ${cleaned}`);
+      }
+      const hardFallbacks = [
+        `- **Connection term:** ${sectionTitle.replace(/\?$/, "")} describes the retention method, not a separate dental category.`,
+        `- **Clinical meaning:** The name usually points to friction fit, taper lock, Morse taper, or cement retention.`,
+        `- **Practical check:** Ask which mechanism is being used and how it affects repair, cost, and maintenance.`,
+      ];
+      for (const fallback of hardFallbacks) {
+        if (bullets.length >= 3) break;
+        const key = fallback.toLowerCase().replace(/^[-*+]\s+/, "").replace(/\W+/g, " ").trim();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        bullets.push(fallback);
       }
 
       return [heading, prose, bullets.slice(0, 3).join("\n"), sourceLines.join("\n").trim()].filter(Boolean).join("\n\n").trim();
