@@ -160,32 +160,19 @@ export const ContentVerification = ({
     }
 
     {
-      const sectionMatches = [...content.matchAll(/^##\s+(.+)$/gm)];
-      const missingSourceSections: string[] = [];
-      const skipSourceCheck = /in\s+this\s+article|references|sources|bibliography/i;
-      sectionMatches.forEach((match, index) => {
-        const title = match[1].trim();
-        if (skipSourceCheck.test(title)) return;
-        const start = (match.index ?? 0) + match[0].length;
-        const end = index + 1 < sectionMatches.length ? (sectionMatches[index + 1].index ?? content.length) : content.length;
-        const body = content.slice(start, end);
-        const sourceLines = body.split("\n").filter((line) => /^\s*\*\*Sources?:\*\*/i.test(line) || /^\s*Sources?:\s*/i.test(line));
-        const hasClickableSource = sourceLines.some((line) => /\[[^\]]+\]\(https?:\/\/[^)\s]+\)/i.test(line));
-        if (!hasClickableSource) missingSourceSections.push(title);
-      });
+      const legacySourceMatches = content.match(/^\s*(\*\*Sources?:\*\*|Sources?:)\s*$/gim) || [];
       results.push({
-        id: "per-section-sources",
-        label: "Source link in every section",
-        status: missingSourceSections.length === 0 ? "passed" : "failed",
-        details: missingSourceSections.length === 0
-          ? `${Math.max(0, sectionMatches.length - 2)} section(s) have clickable Sources lines`
-          : `Missing clickable Sources in: ${missingSourceSections.slice(0, 5).join(", ")}${missingSourceSections.length > 5 ? "…" : ""}`,
+        id: "inline-sources-removed",
+        label: "Inline Sources blocks removed",
+        status: legacySourceMatches.length === 0 ? "passed" : "failed",
+        details: legacySourceMatches.length === 0
+          ? "Only the final References section is present"
+          : `${legacySourceMatches.length} legacy inline Sources block(s) still present`,
       });
     }
 
 
-    // Atomic sections check: every body H2 must have exactly three bullets, avoid dependency phrases,
-    // and have any "Sources:" line rendered as clickable markdown links.
+    // Atomic sections check: every body H2 must have exactly three bullets and avoid dependency phrases.
     {
       const lines = content.split("\n");
       const skipPattern = /tl;?\s?dr|quick\s*tips|in\s*this\s*article|frequently\s*asked|faq|final\s*thoughts|conclusion|references|sources/i;
@@ -194,7 +181,6 @@ export const ContentVerification = ({
       const failingFull: string[] = []; // full heading text for regen lookup
       let totalBody = 0;
       let bannedHits = 0;
-      let brokenSourceHits = 0;
       for (let i = 0; i < lines.length; i++) {
         if (/^##\s+/.test(lines[i]) && !skipPattern.test(lines[i])) {
           totalBody++;
@@ -205,27 +191,21 @@ export const ContentVerification = ({
           const body = lines.slice(i + 1, endIdx).join("\n");
           const bulletCount = body.split("\n").filter((line) => /^\s*-\s+/.test(line)).length;
           const banned = bannedRegex.test(body);
-          // Detect any "Sources: ..." line that is not clickable on that exact line
-          const sourceLines = body.split("\n").filter((line) => /^\s*\*?\*?Sources?:\*?\*?/i.test(line));
-          const missingSource = sourceLines.length === 0;
-          const brokenSource = sourceLines.some((line) => !/\[[^\]]+\]\(https?:\/\/[^)\s]+\)/i.test(line));
           const fullTitle = lines[i].replace(/^##\s+/, "").trim();
-          if (bulletCount !== 3 || banned || missingSource || brokenSource) {
+          if (bulletCount !== 3 || banned) {
             failingTitles.push(fullTitle.slice(0, 60));
             failingFull.push(fullTitle);
           }
           if (banned) bannedHits++;
-          if (missingSource || brokenSource) brokenSourceHits++;
         }
       }
       const failedCount = failingFull.length;
       const reasons: string[] = [];
-      if (failingTitles.length > 0) reasons.push(`${failingTitles.length} section(s) need exactly 3 bullets/clickable sources`);
+      if (failingTitles.length > 0) reasons.push(`${failingTitles.length} section(s) need exactly 3 bullets`);
       if (bannedHits > 0) reasons.push(`${bannedHits} dependency phrase(s)`);
-      if (brokenSourceHits > 0) reasons.push(`${brokenSourceHits} non-clickable Sources line(s)`);
       results.push({
         id: "atomic-sections",
-        label: "Atomic sections (exactly 3 bullets + standalone answer + clickable sources)",
+        label: "Atomic sections (exactly 3 bullets + standalone answer)",
         status: failedCount === 0 ? "passed" : "failed",
         details: totalBody === 0
           ? "No body H2 sections detected"

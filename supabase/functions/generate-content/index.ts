@@ -1281,14 +1281,24 @@ Place these images throughout the article at logical locations, typically after 
       return promise;
     };
 
-    const formatSourcesLine = (sources: SourceCandidate[]): string => {
-      const seen = new Set<string>();
-      const links = sources.filter((source) => {
-        if (seen.has(source.url)) return false;
-        seen.add(source.url);
-        return true;
-      }).slice(0, 2).map((source) => `[${source.title}](${source.url})`);
-      return links.length ? `**Sources:**\n${links.map((l) => `- ${l}`).join("\n")}` : "";
+    const buildReferencesFromCandidates = (sources: SourceCandidate[]): string => {
+      const seenUrl = new Set<string>();
+      const seenTitle = new Set<string>();
+      const items: string[] = [];
+      const normTitle = (title: string) => title.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+
+      for (const source of sources) {
+        const title = source.title.trim().replace(/[*_`]/g, "") || sourceTitleFromUrl(source.url);
+        const url = cleanSourceUrl(source.url);
+        if (!title || seenUrl.has(url)) continue;
+        const titleKey = normTitle(title);
+        if (titleKey && seenTitle.has(titleKey)) continue;
+        seenUrl.add(url);
+        if (titleKey) seenTitle.add(titleKey);
+        items.push(`- [${title}](${url})`);
+      }
+
+      return items.length ? `## References\n${items.join("\n")}` : "";
     };
 
     const sourcesForSection = async (heading: string, body: string): Promise<SourceCandidate[]> => {
@@ -1324,28 +1334,6 @@ Place these images throughout the article at logical locations, typically after 
     };
 
 
-    const rebuildReferencesFromLinks = (md: string): string => {
-      const linkRe = /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g;
-      const seenUrl = new Set<string>();
-      const seenTitle = new Set<string>();
-      const items: string[] = [];
-      const normTitle = (t: string) => t.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
-      let m: RegExpExecArray | null;
-      while ((m = linkRe.exec(md)) !== null) {
-        if (m.index > 0 && md[m.index - 1] === "!") continue;
-        const title = m[1].trim().replace(/[*_`]/g, "") || sourceTitleFromUrl(m[2]);
-        const url = cleanSourceUrl(m[2]);
-        if (!title || seenUrl.has(url)) continue;
-        const tKey = normTitle(title);
-        if (tKey && seenTitle.has(tKey)) continue; // suppress near-duplicate titles
-        seenUrl.add(url);
-        if (tKey) seenTitle.add(tKey);
-        items.push(`- [${title}](${url})`);
-      }
-      return items.length ? `## References\n${items.join("\n")}` : "";
-    };
-
-
     const enforceSourcesAndReferences = async (markdown: string): Promise<string> => {
       if (skipSources) return markdown;
       const withoutReferences = markdown.replace(/^#{2,3}\s+References:?\s*[\s\S]*$/im, "").trimEnd();
@@ -1355,7 +1343,7 @@ Place these images throughout the article at logical locations, typically after 
 
       const intro = withoutReferences.slice(0, matches[0].index ?? 0).trim();
       const rebuiltSections: string[] = [];
-      let addedSourceLines = 0;
+      const selectedSources: SourceCandidate[] = [];
 
       for (let index = 0; index < matches.length; index++) {
         const match = matches[index];
@@ -1368,16 +1356,33 @@ Place these images throughout the article at logical locations, typically after 
         const shouldSource = !/references|bibliography|sources|in\s+this\s+article/i.test(headingLower);
 
         if (shouldSource) {
-          body = body
-            .split("\n")
-            .filter((line) => !/^\s*\*\*Sources?:\*\*/i.test(line) && !/^\s*Sources?:\s*/i.test(line))
-            .join("\n")
-            .trim();
+          const bodyLines = body.split("\n");
+          const cleanedBody: string[] = [];
+          let skippingSourcesBlock = false;
+          for (const line of bodyLines) {
+            const trimmed = line.trim();
+            const isSourcesHeading = /^\*?\*?Sources?:\*?\*?/i.test(trimmed);
+            const isSourceBullet = /^[-*+]\s+\[[^\]]+\]\(https?:\/\/[^)\s]+\)/i.test(trimmed);
+            const isBareSourceLink = /^\[[^\]]+\]\(https?:\/\/[^)\s]+\)$/i.test(trimmed);
+
+            if (isSourcesHeading) {
+              skippingSourcesBlock = true;
+              continue;
+            }
+
+            if (skippingSourcesBlock) {
+              if (!trimmed || isSourceBullet || isBareSourceLink) continue;
+              skippingSourcesBlock = false;
+            }
+
+            cleanedBody.push(line);
+          }
+
+          body = cleanedBody.join("\n").trim();
           const sources = await sourcesForSection(heading, body);
-          const sourceLine = formatSourcesLine(sources);
-          if (sourceLine) {
-            body = [body, sourceLine].filter(Boolean).join("\n\n");
-            addedSourceLines += 1;
+          const selected = sources[0];
+          if (selected) {
+            selectedSources.push(selected);
           } else {
             console.warn(`SOURCE GUARD: No working source found for section: ${heading}`);
           }
@@ -1386,10 +1391,10 @@ Place these images throughout the article at logical locations, typically after 
         rebuiltSections.push(`${headingLine}\n${body}`.trim());
       }
 
-      const bodyWithSources = [intro, ...rebuiltSections].filter(Boolean).join("\n\n").trim();
-      const references = rebuildReferencesFromLinks(bodyWithSources);
-      console.log(`SOURCE GUARD: Added/validated source lines for ${addedSourceLines} section(s); references ${references ? "rebuilt" : "not available"}`);
-      return references ? `${bodyWithSources}\n\n${references}` : bodyWithSources;
+      const rebuiltBody = [intro, ...rebuiltSections].filter(Boolean).join("\n\n").trim();
+      const references = buildReferencesFromCandidates(selectedSources);
+      console.log(`SOURCE GUARD: Selected 1 source for ${selectedSources.length} section(s); references ${references ? "rebuilt" : "not available"}`);
+      return references ? `${rebuiltBody}\n\n${references}` : rebuiltBody;
     };
 
     const buildFallbackBullets = (heading: string, body: string): string[] => {

@@ -84,8 +84,7 @@ export function markdownToStyledHtml(
     cleanMarkdown = out.join('\n');
   }
 
-  // Reformat "**Sources:** [a](u) | [b](u)" into a heading + one link per line
-  // so anchor-text sources render line by line instead of mushed with "|".
+  // Reformat legacy inline source lines before stripping them from rendered HTML.
   cleanMarkdown = cleanMarkdown.replace(
     /^[ \t>*-]*\*\*Sources:\*\*[ \t]*(.+)$/gim,
     (_m, rest: string) => {
@@ -350,9 +349,19 @@ export function markdownToStyledHtml(
     if (txt && QUOTE_ONLY_RE.test(txt)) el.remove();
   });
 
-  // NOTE: per-section "**Sources:**" paragraphs are intentionally PRESERVED.
-  // The article spec requires one source line per H2 section, in addition to the
-  // final ## References list. Do not strip them.
+  // Remove any legacy per-section "Sources" blocks from rendered output.
+  // Only the final ## References section should remain visible.
+  container.querySelectorAll("p, li").forEach((el) => {
+    const text = (el.textContent || "").trim();
+    if (/^Sources:?$/i.test(text)) el.remove();
+  });
+
+  container.querySelectorAll("ul, ol").forEach((list) => {
+    const previous = list.previousElementSibling;
+    if (previous && previous.tagName === "P" && /^Sources:?$/i.test((previous.textContent || "").trim())) {
+      list.remove();
+    }
+  });
 
   // 4. Get the cleaned HTML content
   let finalHtml = container.innerHTML;

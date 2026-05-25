@@ -6,94 +6,33 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const placeholderHosts = ["example.com", "example.org", "example.net", "yourdomain.com", "your-domain.com", "placeholder.com"];
-
-const cleanUrl = (rawUrl: string): string => rawUrl.replace(/[)\]\.,;]+$/, "").trim();
-
-const titleFromUrl = (url: string): string => {
-  try {
-    return new URL(url).hostname.replace(/^www\./, "");
-  } catch {
-    return "Source";
-  }
-};
-
-async function isWorkingUrl(rawUrl: string): Promise<boolean> {
-  const url = cleanUrl(rawUrl);
-  let parsed: URL;
-  try { parsed = new URL(url); } catch { return false; }
-  if (!/^https?:$/.test(parsed.protocol)) return false;
-  if (placeholderHosts.some((host) => parsed.hostname.toLowerCase().endsWith(host))) return false;
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 7000);
-  try {
-    let resp = await fetch(url, {
-      method: "HEAD",
-      redirect: "follow",
-      signal: ctrl.signal,
-      headers: { "User-Agent": "Mozilla/5.0 (SourceVerifier)" },
-    }).catch(() => null);
-    if (!resp || resp.status === 405 || resp.status === 403 || resp.status === 0 || resp.status >= 500) {
-      resp = await fetch(url, {
-        method: "GET",
-        redirect: "follow",
-        signal: ctrl.signal,
-        headers: { "User-Agent": "Mozilla/5.0 (SourceVerifier)" },
-      });
-    }
-    return resp.ok;
-  } catch {
-    return false;
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
-async function findWorkingSource(sectionTitle: string, sectionBody: string): Promise<{ title: string; url: string } | null> {
-  const existingLinks = [...sectionBody.matchAll(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g)]
-    .filter((match) => match.index === undefined || sectionBody[match.index - 1] !== "!")
-    .map((match) => ({ title: match[1].trim().replace(/[*_`]/g, "") || titleFromUrl(match[2]), url: cleanUrl(match[2]) }));
-  for (const link of existingLinks) {
-    if (await isWorkingUrl(link.url)) return link;
-  }
-
-  const apiKey = Deno.env.get("FIRECRAWL_API_KEY");
-  if (!apiKey) return null;
-  const query = `${sectionTitle} ${sectionBody.replace(/\[[^\]]+\]\([^)]+\)/g, "").replace(/[#*_`|>\n]/g, " ").slice(0, 180)}`.replace(/\s+/g, " ").trim().slice(0, 260);
-  try {
-    const resp = await fetch("https://api.firecrawl.dev/v2/search", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ query, limit: 6 }),
-    });
-    if (!resp.ok) return null;
-    const data = await resp.json();
-    const results: any[] = data?.data?.web || (Array.isArray(data?.data) ? data.data : null) || data?.web || [];
-    for (const result of results) {
-      const url = cleanUrl(result?.url || result?.link || "");
-      if (!url) continue;
-      if (await isWorkingUrl(url)) return { title: String(result?.title || titleFromUrl(url)).trim(), url };
-    }
-  } catch (error) {
-    console.error("source search error", error);
-  }
-  return null;
-}
-
-async function ensureSourceLine(section: string, sectionTitle: string): Promise<string> {
+async function stripInlineSources(section: string): Promise<string> {
   const lines = section.split("\n");
-  const heading = lines[0] || `## ${sectionTitle}`;
-  const body = lines.slice(1)
-    .filter((line) => !/^\s*\*\*Sources?:\*\*/i.test(line) && !/^\s*Sources?:\s*/i.test(line))
-    .join("\n")
-    .trim();
-  const source = await findWorkingSource(sectionTitle, `${sectionMarkdownSafe(section)}\n${body}`);
-  const sourceLine = source ? `**Sources:**\n- [${source.title}](${source.url})` : "";
-  return [heading, body, sourceLine].filter(Boolean).join("\n\n").trim();
-}
+  const heading = lines[0] || "## Section";
+  const bodyLines = lines.slice(1);
+  const cleanedBody: string[] = [];
+  let skippingSourcesBlock = false;
 
-function sectionMarkdownSafe(section: string): string {
-  return section.replace(/^##\s+.+$/m, "").slice(0, 1200);
+  for (const line of bodyLines) {
+    const trimmed = line.trim();
+    const isSourcesHeading = /^\*?\*?Sources?:\*?\*?/i.test(trimmed);
+    const isSourceBullet = /^[-*+]\s+\[[^\]]+\]\(https?:\/\/[^)\s]+\)/i.test(trimmed);
+    const isBareSourceLink = /^\[[^\]]+\]\(https?:\/\/[^)\s]+\)$/i.test(trimmed);
+
+    if (isSourcesHeading) {
+      skippingSourcesBlock = true;
+      continue;
+    }
+
+    if (skippingSourcesBlock) {
+      if (!trimmed || isSourceBullet || isBareSourceLink) continue;
+      skippingSourcesBlock = false;
+    }
+
+    cleanedBody.push(line);
+  }
+
+  return [heading, cleanedBody.join("\n").trim()].filter(Boolean).join("\n\n").trim();
 }
 
 interface ToneProfile {
@@ -155,7 +94,7 @@ ATOMIC SECTION CONTRACT (MANDATORY — output is REJECTED if any rule fails):
 3. 90-180 words total in the section body (excluding the H2 line).
 4. No back-reference phrases: never say "as mentioned above", "as we saw earlier", "continuing from", "in the previous section", "building on the above", "the following point".
 5. Include at least one concrete specific (number, price, timeframe, name, or example).
-6. If you cite a source, render it as a clickable markdown link [Source Name](https://url). NEVER write plain-text "Sources: ..." without links. If you don't have a real URL, omit the source line entirely.
+6. Do NOT add a "Sources:" block to this section. Source links belong only in the final References section handled elsewhere.
 7. Preserve the EXACT H2 heading line from the input. Do not change the heading wording.
 8. ${perspective}
 9. British English. No em dashes or en dashes. No AI buzzwords ("delve", "in today's", "in the realm of", "moreover", "furthermore" as transitions).
@@ -165,7 +104,7 @@ Output ONLY the rewritten section in markdown, starting with the same ## heading
     const user = `Topic: ${topic || "(not provided)"}
 Section heading: ${sectionTitle}
 
-Original section markdown (rewrite this to satisfy the atomic contract; keep the same factual substance, add exactly three bullet points, tighten the opener into a direct answer, fix any broken sources):
+Original section markdown (rewrite this to satisfy the atomic contract; keep the same factual substance, add exactly three bullet points, tighten the opener into a direct answer, and remove any inline Sources block):
 
 ${sectionMarkdown}`;
 
@@ -266,7 +205,7 @@ ${sectionMarkdown}`;
 
 
     content = ensureExactlyThreeBullets(content);
-    content = await ensureSourceLine(content, sectionTitle);
+    content = await stripInlineSources(content);
 
     return new Response(
       JSON.stringify({ content }),

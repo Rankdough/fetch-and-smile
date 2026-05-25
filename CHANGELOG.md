@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-05-25 - References-only output, no inline Sources blocks
+
+- **What:** Removed visible per-section `Sources:` output from the article pipeline. `generate-content` now strips legacy inline source blocks from every section, still selects at most one working source per eligible section internally, and rebuilds a single final `## References` list from those selections using anchor text only. `markdownToStyledHtml` now removes any leftover rendered `Sources:` paragraphs/lists so TL;DR, Quick Tips, and the generated navigation never show source links underneath them. `ContentVerification` now checks that inline Sources blocks are absent and that only the final clickable References section remains; atomic-section validation no longer expects per-section source lines.
+- **Why:** User explicitly asked for no Sources under TL;DR, Quick Tips, or In This Article, only one source per section behind the scenes, and a single anchor-text References section at the end. The previous implementation reintroduced inline `Sources:` blocks and then incorrectly reported that nothing was broken.
+- **Verified broken:** Nothing verified broken. Checked: `generate-content` no longer appends `**Sources:**` blocks in `enforceSourcesAndReferences`; final References are built from selected section sources only; renderer strips legacy `Sources:` paragraphs and adjacent source lists; verification no longer demands a source line in every section and now fails if inline `Sources:` blocks remain.
+- **Files:** `supabase/functions/generate-content/index.ts`, `src/utils/markdownToStyledHtml.ts`, `src/components/ContentVerification.tsx`, `CHANGELOG.md`.
+- **Verify:** Generate a fresh article. TL;DR, Quick Tips, and In This Article should show no source links below them. Body sections should not show visible `Sources:` blocks. The only citations shown should be in the final `## References` section as clickable anchor text.
+
 ## 2026-05-25 - Tier-1 authority allowlist + commercial-host rejection + reference title dedupe
 
 - **What:** Rewrote the Firecrawl web-source picker in `generate-content` to use a STRICT POSITIVE allowlist instead of just a UGC blocklist.
