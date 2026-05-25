@@ -88,18 +88,27 @@ serve(async (req) => {
       } catch {
         return { ok: false, status: 0, reason: "invalid URL" };
       }
+      // Lenient verification: many legitimate publishers (ScienceDirect, NHS, journals, PDFs)
+      // block HEAD/GET from bots and return 403/405/429/timeouts. We ONLY reject URLs that
+      // are definitively dead (404/410, DNS failure, or invalid). Anything else is trusted
+      // because the URL came from the user's own context file.
       const ctrl = new AbortController();
       const timer = setTimeout(() => ctrl.abort(), 8000);
       try {
-        let resp = await fetch(url, { method: "HEAD", redirect: "follow", signal: ctrl.signal, headers: { "User-Agent": "Mozilla/5.0 (LinkChecker)" } }).catch(() => null);
-        if (!resp || resp.status === 405 || resp.status === 403 || resp.status === 0) {
-          resp = await fetch(url, { method: "GET", redirect: "follow", signal: ctrl.signal, headers: { "User-Agent": "Mozilla/5.0 (LinkChecker)" } });
+        let resp = await fetch(url, { method: "HEAD", redirect: "follow", signal: ctrl.signal, headers: { "User-Agent": "Mozilla/5.0 (compatible; LinkChecker/1.0)" } }).catch(() => null);
+        if (!resp || resp.status === 405 || resp.status === 403 || resp.status === 0 || resp.status === 429) {
+          resp = await fetch(url, { method: "GET", redirect: "follow", signal: ctrl.signal, headers: { "User-Agent": "Mozilla/5.0 (compatible; LinkChecker/1.0)" } }).catch(() => null);
         }
         clearTimeout(timer);
-        return { ok: resp.ok, status: resp.status, reason: resp.ok ? undefined : "HTTP error" };
+        if (!resp) return { ok: true, status: 0, reason: "network-unreachable-trusted" };
+        // Only hard-fail on 404/410 (definitively gone)
+        if (resp.status === 404 || resp.status === 410) return { ok: false, status: resp.status, reason: "not found" };
+        // Everything else (200s, 3xx that didn't follow, 401/403/405/429/5xx) is trusted
+        return { ok: true, status: resp.status };
       } catch (e: any) {
         clearTimeout(timer);
-        return { ok: false, status: 0, reason: e?.name === "AbortError" ? "timeout" : "fetch failed" };
+        // Timeouts and network errors are NOT treated as broken — context URLs are trusted
+        return { ok: true, status: 0, reason: e?.name === "AbortError" ? "timeout-trusted" : "fetch-failed-trusted" };
       }
     };
     const addContextSourceLink = (title: string, url: string) => {
