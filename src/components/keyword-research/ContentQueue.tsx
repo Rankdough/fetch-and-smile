@@ -14,6 +14,8 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { buildDeepResearchPrompt } from "@/lib/deepResearchPrompt";
+
 
 interface BlogIdea {
   title: string;
