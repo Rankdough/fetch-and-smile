@@ -218,3 +218,10 @@ Newest entries on top. Append-only — never edit or delete past entries.
 - Generate a 1,000-word article → expect ≥2 markdown tables. Generate a 1,500-word article → expect ≥3. Each table ≥3 columns, ≥4 data rows, spread across body H2s.
 
 ---
+
+## 2026-05-25 — Auto-reparse stale cached context files
+- What: On Index mount, any cached context file whose content lacks the "SOURCE URL CATALOGUE" header and has a filePath is re-parsed via parse-context-file.
+- Why: Previously-uploaded .docx files saved in localStorage were capped at 10000 chars (no source catalogue, real reference URLs truncated away), causing generated articles to have empty References sections. New uploads work; cached ones were stuck.
+- Files: src/pages/Index.tsx
+- Verify: Reload Index with stale files in localStorage; toast "Context file refreshed" appears and next generation logs SOURCE CATALOGUE > 0 accepted.
+- May break: Verified broken: nothing. Extra edge-function invocations on first load when stale files exist (one per stale file, runs once).

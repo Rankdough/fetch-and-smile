@@ -1191,6 +1191,40 @@ const Index = () => {
     }
   };
 
+  // Auto-refresh stale cached context files (older uploads were capped at 10k chars
+  // and missing the SOURCE URL CATALOGUE header — re-parse them from storage).
+  useEffect(() => {
+    const stale = contextFiles.filter(
+      (f) => f.filePath && !/SOURCE URL CATALOGUE/i.test(f.content || "")
+    );
+    if (stale.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      for (const f of stale) {
+        try {
+          const { data, error } = await supabase.functions.invoke(
+            "parse-context-file",
+            { body: { filePath: f.filePath, fileName: f.name } }
+          );
+          if (error || cancelled || !data?.content) continue;
+          setContextFiles((prev) =>
+            prev.map((x) => (x.filePath === f.filePath ? { ...x, content: data.content } : x))
+          );
+          toast({
+            title: "Context file refreshed",
+            description: `${f.name} re-parsed with full source list`,
+          });
+        } catch {
+          // ignore — user can re-upload manually
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+
+
   // Human mode pipeline generation
   const handleHumanModeGenerate = async () => {
     // Initialize pipeline stages
