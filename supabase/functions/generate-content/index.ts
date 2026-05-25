@@ -681,15 +681,37 @@ Place these images throughout the article at logical locations, typically after 
       return trimmed.endsWith(".") || trimmed.endsWith("!") || trimmed.endsWith("?") ? trimmed : `${trimmed}.`;
     };
 
+    const extractSourcesBlock = (body: string): { body: string; sources: string } => {
+      const lines = body.split("\n");
+      const idx = lines.findIndex((line) => /^\s*\*\*Sources?:\*\*/i.test(line) || /^\s*Sources?:\s/i.test(line));
+      if (idx < 0) return { body, sources: "" };
+      const before = lines.slice(0, idx).join("\n").trim();
+      const sources = lines.slice(idx).join("\n").trim();
+      return { body: before, sources };
+    };
+
     const trimSectionToBudget = (body: string, budget: number): string => {
       const cleaned = body.trim();
       if (!cleaned) return "";
       if (budget <= 0) return "";
-      if (countWords(cleaned) <= budget) return cleaned;
 
-      const paragraphs = cleaned.split(/\n{2,}/).map(p => p.trim()).filter(Boolean);
+      // ALWAYS preserve the **Sources:** line — never let the trimmer drop it.
+      const { body: bodyWithoutSources, sources } = extractSourcesBlock(cleaned);
+      const sourceWords = sources ? countWords(sources) : 0;
+      const effectiveBudget = Math.max(0, budget - sourceWords);
+
+      const appendSources = (trimmed: string): string => {
+        if (!sources) return trimmed;
+        return trimmed ? `${trimmed}\n\n${sources}` : sources;
+      };
+
+      if (countWords(bodyWithoutSources) <= effectiveBudget) {
+        return appendSources(bodyWithoutSources.trim());
+      }
+
+      const paragraphs = bodyWithoutSources.split(/\n{2,}/).map(p => p.trim()).filter(Boolean);
       const kept: string[] = [];
-      let remaining = budget;
+      let remaining = effectiveBudget;
 
       for (const paragraph of paragraphs) {
         if (remaining <= 0) break;
@@ -739,8 +761,8 @@ Place these images throughout the article at logical locations, typically after 
         break;
       }
 
-      if (!kept.length) return trimToWordCount(cleaned, Math.max(12, budget));
-      return kept.join("\n\n").trim();
+      if (!kept.length) return appendSources(trimToWordCount(bodyWithoutSources, Math.max(12, effectiveBudget)));
+      return appendSources(kept.join("\n\n").trim());
     };
 
     const splitByH2Sections = (markdown: string): { intro: string; sections: { heading: string; body: string }[] } => {
