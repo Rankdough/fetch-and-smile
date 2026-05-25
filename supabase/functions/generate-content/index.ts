@@ -207,7 +207,7 @@ serve(async (req) => {
         { name: "How to Choose", words: Math.round(targetWords * 0.08), included: true },
         { name: "FAQ", words: skipFaqs ? 0 : Math.round(targetWords * 0.12), included: !skipFaqs },
         { name: "Final Thoughts", words: Math.round(targetWords * 0.05), included: true },
-        { name: "References", words: skipSources ? 0 : 30, included: !skipSources },
+        { name: "References", words: skipSources || contextSourceLinks.length === 0 ? 0 : 30, included: !skipSources && contextSourceLinks.length > 0 },
       ];
       const fixedTotal = fixedSections.filter(s => s.included).reduce((sum, s) => sum + s.words, 0);
       const remainingWords = targetWords - fixedTotal;
@@ -252,7 +252,7 @@ Most people complete the process in 2-4 weeks.
    - Blank line between Q&A pairs
    - Do NOT use ### headings, > blockquotes, or "Q:" / "A:" prefixes
    - Questions must be SPECIFIC to the article topic (not generic placeholders)`;
-    const referencesSection = skipSources ? '' : "9. \"## References:\" (~" + referencesWords + " words) — list ALL sources as markdown links";
+    const referencesSection = skipSources || contextSourceLinks.length === 0 ? '' : "9. \"## References:\" (~" + referencesWords + " words) — list ALL sources as markdown links";
     
     // Build the prompt
     let systemPrompt = `You are an expert SEO content writer. Write high-quality, engaging blog posts optimized for search engines while remaining valuable and readable.
