@@ -188,9 +188,9 @@ ${sectionMarkdown}`;
         bullets.push(`- ${cleaned}`);
       }
       const hardFallbacks = [
-        `- **Connection term:** ${sectionTitle.replace(/\?$/, "")} describes the retention method, not a separate dental category.`,
-        `- **Clinical meaning:** The name usually points to friction fit, taper lock, Morse taper, or cement retention.`,
-        `- **Practical check:** Ask which mechanism is being used and how it affects repair, cost, and maintenance.`,
+        `- ${sectionTitle.replace(/\?$/, "")} describes the retention method, not a separate dental category.`,
+        `- The name usually points to friction fit, taper lock, Morse taper, or cement retention.`,
+        `- Ask which mechanism is being used and how it affects repair, cost, and maintenance.`,
       ];
       for (const fallback of hardFallbacks) {
         if (bullets.length >= 3) break;
