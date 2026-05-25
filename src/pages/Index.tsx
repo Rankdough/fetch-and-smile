@@ -3266,6 +3266,8 @@ const Index = () => {
                   if (error) throw error;
                   let finalContent = data.content;
                   setAppliedRules(data.appliedRules || null);
+                  const warnings = Array.isArray(data.contentIntegrityWarnings) ? data.contentIntegrityWarnings : [];
+                  setContentIntegrityWarnings(warnings);
                   if (data.ctas) {
                     setGeneratedCTAs(data.ctas);
                   } else {
@@ -3303,10 +3305,18 @@ const Index = () => {
                    }
 
                   setGeneratedContent(finalContent, true);
-                  toast({
-                    title: "Sample generated!",
-                    description: "Generated with all current settings applied.",
-                  });
+                  if (warnings.length > 0) {
+                    toast({
+                      title: "Generation integrity warning",
+                      description: warnings.join(" • "),
+                      variant: "destructive",
+                    });
+                  } else {
+                    toast({
+                      title: "Sample generated!",
+                      description: "Generated with all current settings applied.",
+                    });
+                  }
                 } catch (error) {
                   console.error("Generation error:", error);
                   toast({
