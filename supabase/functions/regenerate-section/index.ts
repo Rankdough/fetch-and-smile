@@ -88,7 +88,7 @@ async function ensureSourceLine(section: string, sectionTitle: string): Promise<
     .join("\n")
     .trim();
   const source = await findWorkingSource(sectionTitle, `${sectionMarkdownSafe(section)}\n${body}`);
-  const sourceLine = source ? `**Sources:** [${source.title}](${source.url})` : "";
+  const sourceLine = source ? `**Sources:**\n- [${source.title}](${source.url})` : "";
   return [heading, body, sourceLine].filter(Boolean).join("\n\n").trim();
 }
 
