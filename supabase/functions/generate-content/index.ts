@@ -282,7 +282,7 @@ CRITICAL MARKDOWN FORMATTING RULES:
 - Major sections: Use ## for H2 headings${!formatReference ? ' - ALL H2 headings MUST be phrased as QUESTIONS (see rule below)' : ''}
 - Subsections: Use ### for H3 headings
 - DO NOT use numbered headings like "1. Section Name" - use proper markdown ## syntax
-- Use **bold** for emphasis on key terms and important points
+- Do NOT use markdown bold for emphasis in normal article prose, bullet text, table cells, or keyword phrases. Write plain text instead.
 - Use bullet points (-) for lists - write the text directly after the dash, NO additional dashes or punctuation
 - WRONG: "- - Text here" or "- — Text here" 
 - CORRECT: "- Text here"
@@ -592,7 +592,7 @@ MUST FOLLOW (in priority order):
 2. WORD COUNT — Final article between ${wordFloor} and ${wordCeiling} words (target ${targetWords}). Count as you write.
 3. TABLES — Include exactly ${requiredTables} markdown comparison table${requiredTables > 1 ? 's' : ''} (1 per 600 words), each ≥3 columns and ≥4 data rows, spread evenly across body H2 sections. Markdown pipe syntax only.${skipSources ? '' : `
 4. SOURCES — ${contextSourceLinks.length > 0 ? `Use ONLY URLs from the provided context source catalogue for "**Sources:**" lines and ## References. Never invent or remember outside URLs. If no catalogue URL supports a section, omit that section's source line.` : `No verified context source URLs are available. Do NOT add "**Sources:**" lines. Do NOT add a ## References section. Do not cite outside URLs, remembered URLs, authority URLs, Google URLs, PDFs, or placeholders.`}`}
-5. FORMATTING — Every body H2 section must contain EXACTLY THREE markdown bullet points using "- ". Do not use numbered lists as the required bullets. Use **bold** for key terms. British English. No em/en dashes. No horizontal rules.
+5. FORMATTING — Every body H2 section must contain EXACTLY THREE markdown bullet points using "- ". Do not use numbered lists as the required bullets. Do not bold key terms or keyword phrases in the article prose. British English. No em/en dashes. No horizontal rules.
 6. ATOMIC SECTION CONTRACT (NON-NEGOTIABLE) — Every body H2 and H3 must be a standalone answer block that works alone if extracted by Google AI Overviews, ChatGPT, Gemini or Perplexity. For EACH body H2/H3 you MUST:
    (a) Open with ONE direct sentence that fully answers the heading question on its own (no preamble, no "Dental implants are popular…" style intros).
    (b) Follow with a supporting explanation (1–2 short paragraphs) AND EXACTLY THREE markdown bullet points using "- ". No section may have 0, 1, 2, 4, or more bullet points.
@@ -1156,6 +1156,17 @@ Place these images throughout the article at logical locations, typically after 
       .replace(/\n{3,}/g, "\n\n")
       .trim();
 
+    const stripInlineBoldEmphasis = (markdown: string): string => markdown
+      .split("\n")
+      .map((line) => {
+        if (/^#{1,6}\s+/.test(line)) return line;
+        if (/^\s*\*\*Sources?:\*\*/i.test(line)) return line;
+        if (/^>\s*\*\*Tip\s+\d+:\*\*/i.test(line)) return line;
+        if (/^\s*\*\*[^*]+\?\*\*\s*$/i.test(line)) return line;
+        return line.replace(/\*\*([^*]+)\*\*/g, "$1");
+      })
+      .join("\n");
+
     const stripDisallowedArticleLinks = (markdown: string): { markdown: string; removedUrls: string[] } => {
       const removed = new Set<string>();
       const withoutMarkdownLinks = markdown.replace(/(!?)\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, (full, bang, label, rawUrl) => {
@@ -1532,6 +1543,7 @@ Place these images throughout the article at logical locations, typically after 
     }
     const disallowedLinkResult = stripDisallowedArticleLinks(content);
     content = disallowedLinkResult.markdown;
+    content = stripInlineBoldEmphasis(content);
     if (disallowedLinkResult.removedUrls.length > 0) {
       const message = `SOURCE GUARD: Removed ${disallowedLinkResult.removedUrls.length} non-context URL(s) from generated content: ${disallowedLinkResult.removedUrls.join(" | ")}`;
       console.warn(message);

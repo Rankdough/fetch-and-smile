@@ -142,6 +142,7 @@ ATOMIC SECTION CONTRACT (MANDATORY — output is REJECTED if any rule fails):
 7. Preserve the EXACT H2 heading line from the input. Do not change the heading wording.
 8. ${perspective}
 9. British English. No em dashes or en dashes. No AI buzzwords ("delve", "in today's", "in the realm of", "moreover", "furthermore" as transitions).
+10. Do NOT use markdown bold for emphasis in normal prose, bullet text, or keyword phrases. Write plain text instead.
 
 Output ONLY the rewritten section in markdown, starting with the same ## heading. No preamble, no code fences, no commentary.${toneBlock}${contextSourceCatalogue ? `
 
@@ -345,11 +346,23 @@ ${sectionMarkdown}`;
       };
     };
 
+    const stripInlineBoldEmphasis = (section: string): string => section
+      .split("\n")
+      .map((line) => {
+        if (/^#{1,6}\s+/.test(line)) return line;
+        if (/^\s*\*\*Sources?:\*\*/i.test(line)) return line;
+        if (/^>\s*\*\*Tip\s+\d+:\*\*/i.test(line)) return line;
+        if (/^\s*\*\*[^*]+\?\*\*\s*$/i.test(line)) return line;
+        return line.replace(/\*\*([^*]+)\*\*/g, "$1");
+      })
+      .join("\n");
+
     content = ensureExactlyThreeBullets(content);
     const sourceRepair = repairNonClickableSources(content);
     content = sourceRepair.content;
     const disallowedLinkRepair = stripDisallowedSectionLinks(content);
     content = disallowedLinkRepair.content;
+    content = stripInlineBoldEmphasis(content);
     const rejectedSourceWarnings = rejectedContextSourceUrls.map((item) => `SOURCE GUARD: Removed broken or unreachable context source URL before regeneration: ${item.url} (${item.reason})`);
 
     return new Response(
