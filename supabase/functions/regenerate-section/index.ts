@@ -188,6 +188,7 @@ ${sectionMarkdown}`;
       }
 
       const warnings: string[] = [];
+      const originalHadSourceLine = /^\s*\*?\*?Sources?:\*?\*?/im.test(sectionMarkdown);
       const repaired = section.split("\n").map((line) => {
         const sourceMatch = line.match(/^\s*\*?\*?Sources?:\*?\*?\s*(.*)$/i);
         if (!sourceMatch) return line;
@@ -210,6 +211,13 @@ ${sectionMarkdown}`;
         warnings.push(`SOURCE GUARD: Could not repair non-clickable source reference in section: ${sectionTitle}`);
         return line;
       }).join("\n").trim();
+
+      if (originalHadSourceLine && !/^\s*\*?\*?Sources?:\*?\*?/im.test(repaired)) {
+        if (existingLinks.length > 0) {
+          return { content: `${repaired}\n\n**Sources:** ${existingLinks[0].markdown}`, warnings };
+        }
+        warnings.push(`SOURCE GUARD: Could not restore missing source reference in section: ${sectionTitle}`);
+      }
 
       return { content: repaired, warnings };
     };
