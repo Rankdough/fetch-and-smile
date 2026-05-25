@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-05-25 - Sources line: line-by-line, never inside TL;DR
+
+- **What:** (1) `markdownToStyledHtml` now strips any `**Sources:**` line that falls inside the `## TL;DR` section (between the TL;DR heading and the next H1-H3), so the TL;DR panel renders as a single clean paragraph. (2) Any remaining `**Sources:** [a](u) | [b](u)` paragraph is reformatted to a `**Sources:**` heading followed by one `- [link](url)` bullet per line (also splits on `•` and `·`). (3) Generator prompt updated: forbids Sources inside TL;DR/Quick Tips/nav/How-to-Choose/FAQ/Final Thoughts and mandates bullet-per-line format. (4) Deterministic `formatSourcesLine` in `generate-content` and the `sourceLine` builder in `regenerate-section` now emit bullets instead of `|`-joined links.
+- **Why:** User screenshot showed Sources mushed inline with `|` separators inside the TL;DR panel; sources must sit only in body H2 sections and render as a readable vertical list.
+- **Verified broken:** Nothing verified broken. Checked: file reads of all three edited files; regex preserves bare `**Sources:**` lines with no links; TL;DR strip only fires between `## TL;DR` and next heading; bullet reformat is idempotent (already-bulleted Sources lines won't match the single-line regex); `markdownToStyledHtml.ts` paragraph styling unaffected; export/copy paths reuse the same renderer.
+- **Files:** `src/utils/markdownToStyledHtml.ts`, `supabase/functions/generate-content/index.ts`, `supabase/functions/regenerate-section/index.ts`, `CHANGELOG.md`.
+- **Verify:** Generate a new article. TL;DR panel should contain only the summary paragraph — no Sources line. Each body H2 should end with a `Sources:` label followed by one link per line (anchor text only, no `|` separators).
+
+
+
 ## 2026-05-25 - Authority-tiered web source fallback
 
 - **What:** When per-section context URLs don't clear the relevance floor, the Firecrawl fallback now requests 10 results (up from 6) and selects them in four authority passes: (1) top-3 search-rank + high-authority, (2) any rank + high-authority, (3) top-3 + low-authority, (4) any low-authority. Low-authority hosts include Reddit, Quora, Pinterest, Medium, Substack, Tumblr, Blogspot, WordPress.com, Wix, Weebly, Squarespace, TripAdvisor, Yelp, StackExchange/Overflow, Facebook, Instagram, TikTok, X/Twitter, eHow, WikiHow, Answers.com. They're only picked when no working high-authority page exists for the query. Added `SOURCE WEB:` logs naming each pick and tagging `[low-auth]` when applicable.
