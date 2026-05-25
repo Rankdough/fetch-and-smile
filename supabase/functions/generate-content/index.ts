@@ -972,7 +972,25 @@ Place these images throughout the article at logical locations, typically after 
 
     const bodySectionSkipPattern = /tl;?\s?dr|quick\s*tips|in\s*this\s*article|frequently\s*asked|faq|final\s*thoughts|conclusion|references|sources/i;
 
-    type SourceCandidate = { title: string; url: string; origin: "context" | "web" | "existing" };
+    type SourceCandidate = { title: string; url: string; origin: "context" | "web" | "existing"; snippet?: string; fileName?: string };
+
+    // Junk URL patterns: navigation, legal, social, tracking, assets - NOT real citations.
+    const junkUrlPatterns = [
+      /\/(privacy|cookies?|terms|legal|gdpr|imprint|impressum|disclaimer|accessibility|sitemap|login|signin|signup|register|account|cart|checkout|unsubscribe|preferences|consent)(\/|$|\?|#)/i,
+      /\/(share|tweet|facebook|linkedin|whatsapp|pinterest|reddit|email[-_]?friend)(\/|$|\?|#)/i,
+      /(twitter\.com\/intent|facebook\.com\/sharer|linkedin\.com\/share|t\.co\/|bit\.ly\/|goo\.gl\/|lnkd\.in\/|fb\.me\/|youtu\.be\/share)/i,
+      /\.(png|jpe?g|gif|svg|webp|ico|css|js|woff2?|ttf|eot|pdf\?|mp4|mp3|zip|xml|rss)(\?|$)/i,
+      /\/(wp-content|wp-includes|assets|static|cdn|fonts|images?|img|media)\//i,
+      /(googletagmanager|google-analytics|doubleclick|hotjar|segment\.io|mixpanel|amplitude|facebook\.net|connect\.facebook)/i,
+      /^https?:\/\/(www\.)?(twitter|x|facebook|instagram|tiktok|youtube|pinterest|linkedin|reddit)\.com\/?$/i,
+    ];
+    const isJunkUrl = (url: string): boolean => {
+      try {
+        const u = new URL(url);
+        if (u.hostname.length < 4) return true;
+        return junkUrlPatterns.some((re) => re.test(url));
+      } catch { return true; }
+    };
 
     const placeholderHosts = ["example.com", "example.org", "example.net", "yourdomain.com", "your-domain.com", "placeholder.com"];
     const urlStatusCache = new Map<string, Promise<boolean>>();
@@ -1033,7 +1051,10 @@ Place these images throughout the article at logical locations, typically after 
         if (m.index > 0 && md[m.index - 1] === "!") continue;
         const title = m[1].trim().replace(/[*_`]/g, "") || sourceTitleFromUrl(m[2]);
         const url = cleanSourceUrl(m[2]);
-        links.push({ title, url, origin });
+        const snipStart = Math.max(0, m.index - 280);
+        const snipEnd = Math.min(md.length, m.index + m[0].length + 280);
+        const snippet = md.slice(snipStart, snipEnd).replace(/\s+/g, " ").trim();
+        links.push({ title, url, origin, snippet });
       }
       return links;
     };
@@ -1042,35 +1063,60 @@ Place these images throughout the article at logical locations, typically after 
       if (!contextFiles || !Array.isArray(contextFiles)) return [];
       const candidates: SourceCandidate[] = [];
       const seen = new Set<string>();
+      const push = (cand: SourceCandidate) => {
+        if (seen.has(cand.url)) return;
+        if (isJunkUrl(cand.url)) return;
+        seen.add(cand.url);
+        candidates.push(cand);
+      };
       for (const file of contextFiles as { name: string; content: string }[]) {
-        const fileText = `${file.name}\n${file.content || ""}`;
+        const fileText = file.content || "";
+        const fileName = file.name || "";
+        // 1) Markdown-style links with anchor text — strongest signal.
         for (const link of extractMarkdownLinks(fileText, "context")) {
-          if (seen.has(link.url)) continue;
-          seen.add(link.url);
-          candidates.push(link);
+          push({ ...link, fileName });
         }
-        const rawUrlRe = /https?:\/\/[^\s)\],;]+/g;
+        // 2) Bare URLs — capture surrounding paragraph as snippet.
+        const rawUrlRe = /https?:\/\/[^\s)\],;<>"']+/g;
         let raw: RegExpExecArray | null;
         while ((raw = rawUrlRe.exec(fileText)) !== null) {
           const url = cleanSourceUrl(raw[0]);
           if (seen.has(url)) continue;
-          seen.add(url);
-          candidates.push({ title: sourceTitleFromUrl(url), url, origin: "context" });
+          const snipStart = Math.max(0, raw.index - 320);
+          const snipEnd = Math.min(fileText.length, raw.index + url.length + 320);
+          const snippet = fileText.slice(snipStart, snipEnd).replace(/\s+/g, " ").trim();
+          push({ title: sourceTitleFromUrl(url), url, origin: "context", snippet, fileName });
         }
       }
-      return candidates.slice(0, 40);
+      return candidates.slice(0, 80);
     };
 
     const contextSourceCandidates = extractContextSourceCandidates();
-    console.log(`SOURCE CATALOGUE: ${contextSourceCandidates.length} context URL candidate(s) from ${Array.isArray(contextFiles) ? contextFiles.length : 0} context file(s)`);
+    console.log(`SOURCE CATALOGUE: ${contextSourceCandidates.length} context URL candidate(s) (junk filtered) from ${Array.isArray(contextFiles) ? contextFiles.length : 0} context file(s)`);
 
-    const tokenise = (text: string): Set<string> => new Set(text.toLowerCase().match(/[a-z0-9]{4,}/g) || []);
+    const tokenise = (text: string): Set<string> => {
+      const stop = new Set(["this","that","with","from","about","what","when","where","which","their","there","they","have","been","will","would","could","should","into","than","then","your","also","more","most","some","such","other","over","under","between","during","while","just","like","make","made","does","doing","because","through","against","both","each","every","very","much","many","only","upon","onto","these","those","being","after","before","still"]);
+      const tokens = (text.toLowerCase().match(/[a-z0-9]{4,}/g) || []).filter((t) => !stop.has(t));
+      return new Set(tokens);
+    };
 
     const scoreSource = (source: SourceCandidate, heading: string, body: string): number => {
-      const wanted = tokenise(`${topic || ""} ${heading} ${body.slice(0, 700)}`);
-      const haystack = `${source.title} ${source.url}`.toLowerCase();
-      let score = source.origin === "context" ? 2 : 1;
-      for (const token of wanted) if (haystack.includes(token)) score += 1;
+      const wanted = tokenise(`${topic || ""} ${heading} ${body.slice(0, 900)}`);
+      if (wanted.size === 0) return source.origin === "context" ? 2 : 1;
+      const haystackUrl = `${source.title} ${source.url} ${source.fileName || ""}`.toLowerCase();
+      const snippet = (source.snippet || "").toLowerCase();
+      let score = source.origin === "context" ? 3 : 1;
+      let snippetHits = 0;
+      let urlHits = 0;
+      for (const token of wanted) {
+        if (snippet.includes(token)) { score += 3; snippetHits += 1; } // snippet match is the real signal
+        if (haystackUrl.includes(token)) { score += 1; urlHits += 1; }
+      }
+      // Bonus when snippet has multiple distinct hits — means URL truly relates to claim.
+      if (snippetHits >= 3) score += 4;
+      if (snippetHits >= 5) score += 4;
+      // Penalty for context URLs with zero snippet overlap (likely footer/nav link).
+      if (source.origin === "context" && snippetHits === 0 && urlHits === 0) score -= 5;
       return score;
     };
 
@@ -1102,6 +1148,7 @@ Place these images throughout the article at logical locations, typically after 
             const url = cleanSourceUrl(result?.url || result?.link || "");
             if (!url || seen.has(url)) continue;
             seen.add(url);
+            if (isJunkUrl(url)) continue;
             const title = String(result?.title || sourceTitleFromUrl(url)).trim();
             if (await isWorkingSourceUrl(url)) candidates.push({ title, url, origin: "web" });
             if (candidates.length >= 2) break;
@@ -1127,24 +1174,37 @@ Place these images throughout the article at logical locations, typically after 
     };
 
     const sourcesForSection = async (heading: string, body: string): Promise<SourceCandidate[]> => {
-      const existing = extractMarkdownLinks(body, "existing");
+      const existing = extractMarkdownLinks(body, "existing").filter((l) => !isJunkUrl(l.url));
       const existingWorking: SourceCandidate[] = [];
       for (const link of existing) {
         if (await isWorkingSourceUrl(link.url)) existingWorking.push(link);
         if (existingWorking.length >= 2) return existingWorking;
       }
 
-      const rankedContext = [...contextSourceCandidates]
-        .sort((a, b) => scoreSource(b, heading, body) - scoreSource(a, heading, body))
-        .slice(0, 8);
-      const contextWorking: SourceCandidate[] = [];
-      for (const link of rankedContext) {
+      // Score every context URL against this section; only accept ones with real snippet relevance.
+      const scored = contextSourceCandidates
+        .map((c) => ({ cand: c, score: scoreSource(c, heading, body) }))
+        .sort((a, b) => b.score - a.score);
+      const RELEVANCE_FLOOR = 6; // require multiple snippet hits, not just "context" bonus
+      const relevantContext = scored.filter((s) => s.score >= RELEVANCE_FLOOR).slice(0, 10).map((s) => s.cand);
+
+      const contextWorking: SourceCandidate[] = [...existingWorking];
+      for (const link of relevantContext) {
+        if (contextWorking.some((c) => c.url === link.url)) continue;
         if (await isWorkingSourceUrl(link.url)) contextWorking.push(link);
-        if (contextWorking.length >= 2) return contextWorking;
+        if (contextWorking.length >= 2) {
+          console.log(`SOURCE PICK [context]: "${heading.slice(0, 60)}" -> ${contextWorking.map((c) => c.url).join(" | ")}`);
+          return contextWorking;
+        }
       }
 
-      return searchWebSources(heading, body);
+      // Not enough relevant context URLs — fall back to web search.
+      const web = await searchWebSources(heading, body);
+      const combined = [...contextWorking, ...web.filter((w) => !contextWorking.some((c) => c.url === w.url))].slice(0, 2);
+      console.log(`SOURCE PICK [mixed]: "${heading.slice(0, 60)}" -> context=${contextWorking.length} web=${web.length}`);
+      return combined.length ? combined : web;
     };
+
 
     const rebuildReferencesFromLinks = (md: string): string => {
       const linkRe = /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g;

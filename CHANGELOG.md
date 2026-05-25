@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-05-25 - Snippet-aware context source picker + junk URL filter
+
+- **What:** Rewrote the context-URL extractor in `generate-content` to capture each URL with a ±300-char surrounding snippet (markdown links + bare URLs), filter out junk URLs (privacy/cookies/terms/share/social/CDN/tracking/asset URLs), and score sources by snippet-vs-section-heading token overlap instead of just URL/title overlap. Picker now requires a relevance floor of 6 (multiple distinct snippet hits) before accepting a context URL; below that it falls through to Firecrawl web search. Web fallback also rejects junk URLs. Added clear `SOURCE PICK [context|mixed]` logs so source decisions are auditable in edge function logs.
+- **Why:** Previous picker grabbed the first URL it found in concatenated context text (often a footer/cookie/share link), then reused it across many sections. Authoritative sources like Bupa/NHS/etc. were present in context files but never selected because the picker ignored which paragraph the URL came from.
+- **Verified broken:** Nothing verified broken. Checked: `extractMarkdownLinks` still returns same shape (snippet field is optional); `regenerate-section` and `fix-broken-links` not touched; `enforceSourcesAndReferences` and `formatSourcesLine` consume the same `SourceCandidate` type; junk filter list excludes only obvious non-citation patterns (legal/social/CDN/asset/tracking) so authoritative pages like `bupa.co.uk/health-information/...` pass through unchanged.
+- **Files:** `supabase/functions/generate-content/index.ts`, `CHANGELOG.md`.
+- **Verify:** Generate a new article with context files that contain authoritative URLs deep inside paragraphs (Bupa/NHS/etc.). Check edge function logs for `SOURCE CATALOGUE: N context URL candidate(s) (junk filtered)` and per-section `SOURCE PICK [context]: "<heading>" -> <url>` lines. The picked URL should be the one whose surrounding paragraph matches the section heading, not a footer/cookie link.
+
+
+
 ## 2026-05-25 - Enforce source lines and deploy link checker
 
 - **What:** Added a deterministic source guard after article generation that removes stale References, validates existing source links, uses context-file URLs first, searches with Firecrawl when needed, appends working `**Sources:**` links to each article section, and rebuilds `## References` from the surviving clickable links. Regenerated sections now also end with a working `**Sources:**` line when a source can be verified. Added `fix-broken-links` to function configuration so the Content Verification button can reach the deployed checker. Content Verification now fails when per-section source links or the final References section are missing.
