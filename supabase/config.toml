@@ -105,6 +105,9 @@ verify_jwt = false
 [functions.verify-links]
 verify_jwt = false
 
+[functions.fix-broken-links]
+verify_jwt = false
+
 [functions.seo-brain-export]
 verify_jwt = false
 
