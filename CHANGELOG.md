@@ -3,6 +3,19 @@
 Every entry must list: **What changed**, **Why**, **What may break / side effects**, **Files touched**, **How to verify**.
 Newest entries on top. Append-only — never edit or delete past entries.
 
+## 2026-05-25 — Fix: References section showing OOXML namespace URLs instead of real hyperlinks
+
+**What changed:** `supabase/functions/parse-context-file/index.ts` source-catalogue extractor now (1) excludes OOXML namespace hosts (`schemas.openxmlformats.org`, `schemas.microsoft.com`, etc.) from both relationship targets and the fallback URL scan, (2) runs the fallback inline-URL regex against the **extracted paragraph text** instead of raw `document.xml` (raw XML contains namespace declarations that were being treated as citable sources), and (3) adds an unreferenced-relationship pass so external rels not inline in `<w:hyperlink>` still flow through. Catalogue header now explicitly instructs the LLM to use ONLY these URLs.
+
+**Why:** User uploaded `Screwless_Dental_Implants_Research_Brief-2.docx` (39 valid hyperlinks). The generated article's References section listed only `http://schemas.openxmlformats.org/...` URLs because the fallback regex was matching `xmlns:w="http://schemas..."` attribute values from the raw XML and the LLM surfaced those instead of the real sources.
+
+**Verified broken:** Nothing. Re-ran the new extractor logic against the user's uploaded brief in a Node script: 39 unique sources extracted, 0 namespace URLs leaked, first/last entries match the document's Works Cited list exactly. No other callers of `extractDocxSourceCatalogue` exist (function is local to this file).
+
+**Files touched:** `supabase/functions/parse-context-file/index.ts`, `CHANGELOG.md`.
+
+**How to verify:** Re-upload the brief, regenerate the article, confirm References section shows pubmed/bicon/aspendental URLs (not openxmlformats schema URLs).
+
+
 ---
 
 ## 2026-05-25 — Force source links on every body section
