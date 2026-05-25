@@ -978,8 +978,14 @@ Place these images throughout the article at logical locations, typically after 
         if (bodySectionSkipPattern.test(section.heading)) return `## ${section.heading}\n${section.body}`.trim();
 
         const lines = section.body.split("\n");
-        const existingBullets = lines.filter(line => /^\s*-\s+/.test(line)).map(line => line.trim());
-        if (existingBullets.length === 3) return `## ${section.heading}\n${section.body}`.trim();
+        const seenBullets = new Set<string>();
+        const existingBullets = lines.filter(line => /^\s*-\s+/.test(line)).map(line => line.trim()).filter(line => {
+          const key = line.toLowerCase().replace(/^[-*+]\s+/, "").replace(/\W+/g, " ").trim();
+          if (!key || seenBullets.has(key)) return false;
+          seenBullets.add(key);
+          return true;
+        });
+        if (lines.filter(line => /^\s*-\s+/.test(line)).length === 3 && existingBullets.length === 3) return `## ${section.heading}\n${section.body}`.trim();
 
         changedSections.push(section.heading.slice(0, 60));
         const keptBulletSet = new Set(existingBullets.slice(0, 3));
