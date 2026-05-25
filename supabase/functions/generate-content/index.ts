@@ -144,10 +144,10 @@ serve(async (req) => {
     const howToChooseWords = sectionBudgets.fixedSections.find(s => s.name === "How to Choose")?.words || 80;
     const finalThoughtsWords = sectionBudgets.fixedSections.find(s => s.name === "Final Thoughts")?.words || 50;
     
-    const quickTipsSection = skipQuickTips ? '' : "3. ## Quick Tips (~" + quickTipsWords + " words) — exactly 3 tips:\n   > **Tip 1:** [One short sentence - max 15 words]\n   > **Tip 2:** [One short sentence - max 15 words]\n   > **Tip 3:** [One short sentence - max 15 words]\n";
+    const quickTipsSection = skipQuickTips ? '' : "3. ## Quick Tips (~" + quickTipsWords + " words) — exactly 3 tips:\n   > [One short sentence - max 15 words]\n   > [One short sentence - max 15 words]\n   > [One short sentence - max 15 words]\n";
     const inThisArticleSection = migrationMode
       ? "4. DO NOT include an \"In This Article\" section - this is generated automatically by the client."
-      : "4. ## In This Article (~" + inThisArticleWords + " words) — navigation guide:\n   - Format as a BULLETED LIST: - **1. Section Title** - DETAILED description (MINIMUM 150 characters)\n   - List ALL main H2 sections from the article (not TL;DR or References)\n   - DO NOT SKIP THIS SECTION";
+      : "4. ## In This Article (~" + inThisArticleWords + " words) — navigation guide:\n   - Format as a BULLETED LIST: - 1. Section Title - DETAILED description (MINIMUM 150 characters)\n   - List ALL main H2 sections from the article (not TL;DR or References)\n   - DO NOT SKIP THIS SECTION";
     const faqSection = skipFaqs ? '' : `7. ## Frequently Asked Questions (~${faqWords} words) — MANDATORY SECTION, MUST BE INCLUDED.
    - Use the EXACT H2 heading: "## Frequently Asked Questions" (do not rename, do not skip)
    - Include 4-6 Q&A pairs in this EXACT markdown format (the parser depends on it):
@@ -198,7 +198,7 @@ CRITICAL MARKDOWN FORMATTING RULES:
 - Major sections: Use ## for H2 headings${!formatReference ? ' - ALL H2 headings MUST be phrased as QUESTIONS (see rule below)' : ''}
 - Subsections: Use ### for H3 headings
 - DO NOT use numbered headings like "1. Section Name" - use proper markdown ## syntax
-- Use **bold** for emphasis on key terms and important points
+- Do NOT use bold formatting in article prose, bullets, quick tips, navigation items, or labels
 - Use bullet points (-) for lists - write the text directly after the dash, NO additional dashes or punctuation
 - WRONG: "- - Text here" or "- — Text here" 
 - CORRECT: "- Text here"
