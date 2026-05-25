@@ -508,7 +508,15 @@ MUST FOLLOW (in priority order):
 2. WORD COUNT — Final article between ${wordFloor} and ${wordCeiling} words (target ${targetWords}). Count as you write.
 3. TABLES — Include exactly ${requiredTables} markdown comparison table${requiredTables > 1 ? 's' : ''} (1 per 600 words), each ≥3 columns and ≥4 data rows, spread evenly across body H2 sections. Markdown pipe syntax only.${skipSources ? '' : `
 4. SOURCES — Every body H2 ends with a "**Sources:**" line listing 1-2 real markdown links to authoritative sites (NHS, gov, CDC, Wikipedia, official brand sites, reputable news). The final ## References section lists all sources as a markdown bullet list. Real working URLs only — no placeholders, no inline [1][2] citations.`}
-5. FORMATTING — Use bullet points (-) and numbered lists (1.) liberally inside body sections for scannability. Use **bold** for key terms. British English. No em/en dashes. No horizontal rules.`;
+5. FORMATTING — Use bullet points (-) and numbered lists (1.) liberally inside body sections for scannability. Use **bold** for key terms. British English. No em/en dashes. No horizontal rules.
+6. ATOMIC SECTION CONTRACT (NON-NEGOTIABLE) — Every body H2 and H3 must be a standalone answer block that works alone if extracted by Google AI Overviews, ChatGPT, Gemini or Perplexity. For EACH body H2/H3 you MUST:
+   (a) Open with ONE direct sentence that fully answers the heading question on its own (no preamble, no "Dental implants are popular…" style intros).
+   (b) Follow with a supporting explanation (1–2 short paragraphs) AND at least one of: a bullet list (3+ items), a numbered list, or a comparison table.
+   (c) Keep the section roughly 75–200 words (100–300 tokens). No one-line sections, no 800-word walls.
+   (d) Be self-contained: NEVER use dependency phrases like "as mentioned above", "as we saw", "continuing from earlier", "this is why", "the following point", "in the previous section". Each section must make sense on its own.
+   (e) Include at least one concrete specific (number, %, named example, timeframe, or named tool/brand from the context files) — no vague filler.
+   (f) Vary sentence length. No robotic cadence, no repeated sentence structures.
+   Before finishing each section ask: "If an AI engine extracted ONLY this section, would it fully answer the question?" If no, rewrite it.`;
 
       // Add keywords if provided
       if (keywords && Array.isArray(keywords) && keywords.length > 0) {
