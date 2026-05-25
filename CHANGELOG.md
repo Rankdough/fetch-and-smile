@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-05-25 - Restore visible per-section source links in articles
+
+- **What:** Re-enabled visible `**Sources:**` blocks for eligible body H2 sections in `generate-content`, stopped the HTML renderer from stripping those source labels and lists out of article output, and stopped `regenerate-section` from deleting inline sources during section rewrites. Updated the regression test so it now fails if body-section source links disappear again.
+- **Why:** Fresh sample generation still produced articles with no visible source link under each body section because the pipeline was still removing them in three places after generation.
+- **Verified broken:** `supabase/functions/generate-content/index.ts` still told the model not to output inline `**Sources:**` blocks during normal generation, then `enforceSourcesAndReferences()` removed any existing section source block and rebuilt only the final `## References` section. `src/utils/markdownToStyledHtml.ts` then stripped any remaining rendered `Sources:` label and adjacent list from the article HTML. `supabase/functions/regenerate-section/index.ts` also removed inline sources from rewritten sections.
+- **Files:** `supabase/functions/generate-content/index.ts`, `supabase/functions/regenerate-section/index.ts`, `src/utils/markdownToStyledHtml.ts`, `src/test/articleRegressionVerification.test.ts`, `CHANGELOG.md`.
+- **Verify:** Generate a sample article and confirm each eligible body H2 shows a visible `Sources:` block with clickable links, while the final `## References` section still remains intact.
+
 ## 2026-05-25 - Preserve References through internal-link insertion
 
 - **What:** Added a shared References-section helper and updated `insert-internal-links` to exclude the trailing `## References` block from AI rewriting, then restore the original References section verbatim after internal links are inserted. Added regression tests covering split/restore behaviour so post-processing cannot strip or regenerate final source references again.
