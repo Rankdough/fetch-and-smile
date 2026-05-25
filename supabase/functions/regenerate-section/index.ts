@@ -24,12 +24,14 @@ serve(async (req) => {
       topic,
       toneProfile,
       useFirstPerson,
+      contextFiles,
     }: {
       sectionMarkdown: string;
       sectionTitle: string;
       topic?: string;
       toneProfile?: ToneProfile | null;
       useFirstPerson?: boolean;
+      contextFiles?: { name: string; content: string }[];
     } = await req.json();
 
     if (!sectionMarkdown || !sectionTitle) {
@@ -57,6 +59,42 @@ serve(async (req) => {
       ? "Use first person plural (we/our) where natural."
       : "Strictly third person. Never use I, we, our, us.";
 
+    const normaliseSourceText = (value: string) => value
+      .toLowerCase()
+      .replace(/https?:\/\/\S+/g, " ")
+      .replace(/\[[^\]]+\]\([^)]+\)/g, " ")
+      .replace(/[^a-z0-9\s]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+    const tokeniseSourceText = (value: string) => new Set(normaliseSourceText(value).split(" ").filter(token => token.length > 2));
+    const titleFromUrl = (url: string): string => {
+      try {
+        const parsed = new URL(url);
+        const pathName = decodeURIComponent(parsed.pathname.split("/").filter(Boolean).pop() || "").replace(/[-_]+/g, " ").replace(/\.pdf$/i, " PDF").trim();
+        return pathName ? `${parsed.hostname.replace(/^www\./, "")} - ${pathName}` : parsed.hostname.replace(/^www\./, "");
+      } catch {
+        return url;
+      }
+    };
+    const contextSourceLinks: { title: string; url: string; markdown: string; key: string; tokens: Set<string> }[] = [];
+    const seenContextSourceUrls = new Set<string>();
+    const addContextSourceLink = (title: string, url: string) => {
+      const cleanedUrl = url.replace(/[)\]\.,;]+$/, "").trim();
+      if (!/^https?:\/\//i.test(cleanedUrl) || seenContextSourceUrls.has(cleanedUrl)) return;
+      const cleanedTitle = title.replace(/\s+/g, " ").replace(/^[-*+\d.\s]+/, "").trim() || titleFromUrl(cleanedUrl);
+      seenContextSourceUrls.add(cleanedUrl);
+      contextSourceLinks.push({ title: cleanedTitle, url: cleanedUrl, markdown: `[${cleanedTitle}](${cleanedUrl})`, key: normaliseSourceText(cleanedTitle), tokens: tokeniseSourceText(`${cleanedTitle} ${cleanedUrl}`) });
+    };
+    if (Array.isArray(contextFiles)) {
+      for (const file of contextFiles) {
+        const fileContent = `${file.name}\n${file.content || ""}`;
+        for (const match of fileContent.matchAll(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g)) addContextSourceLink(match[1], match[2]);
+        for (const match of fileContent.matchAll(/https?:\/\/[^\s)\]>"']+/g)) addContextSourceLink(titleFromUrl(match[0]), match[0]);
+      }
+    }
+    const contextSourceCatalogue = contextSourceLinks.map((link, index) => `${index + 1}. ${link.markdown}`).join("\n");
+    const allowedContextSourceUrls = new Set(contextSourceLinks.map(link => link.url));
+
     const system = `You are rewriting ONE section of an SEO article to make it ATOMIC and self-contained.
 
 ATOMIC SECTION CONTRACT (MANDATORY — output is REJECTED if any rule fails):
@@ -65,12 +103,15 @@ ATOMIC SECTION CONTRACT (MANDATORY — output is REJECTED if any rule fails):
 3. 90-180 words total in the section body (excluding the H2 line).
 4. No back-reference phrases: never say "as mentioned above", "as we saw earlier", "continuing from", "in the previous section", "building on the above", "the following point".
 5. Include at least one concrete specific (number, price, timeframe, name, or example).
-6. If you cite a source, render it as a clickable markdown link [Source Name](https://url). NEVER write plain-text "Sources: ..." without links. If you don't have a real URL, omit the source line entirely.
+6. If you cite a source, render it as a clickable markdown link [Source Name](https://url). ${contextSourceLinks.length > 0 ? "Use ONLY URLs from the context source catalogue. If no catalogue URL supports this section, omit the source line entirely." : "NEVER write plain-text \"Sources: ...\" without links. If you don't have a real URL, omit the source line entirely."}
 7. Preserve the EXACT H2 heading line from the input. Do not change the heading wording.
 8. ${perspective}
 9. British English. No em dashes or en dashes. No AI buzzwords ("delve", "in today's", "in the realm of", "moreover", "furthermore" as transitions).
 
-Output ONLY the rewritten section in markdown, starting with the same ## heading. No preamble, no code fences, no commentary.${toneBlock}`;
+Output ONLY the rewritten section in markdown, starting with the same ## heading. No preamble, no code fences, no commentary.${toneBlock}${contextSourceCatalogue ? `
+
+CONTEXT SOURCE URL CATALOGUE (ONLY THESE URLS MAY BE USED IN SOURCES):
+${contextSourceCatalogue}` : ""}`;
 
     const user = `Topic: ${topic || "(not provided)"}
 Section heading: ${sectionTitle}
