@@ -147,6 +147,7 @@ serve(async (req) => {
       }
       contextSourceLinks.splice(0, contextSourceLinks.length, ...checkedLinks);
     }
+    console.log(`SOURCE CATALOGUE: ${contextSourceLinks.length} accepted, ${rejectedContextSourceUrls.length} rejected. contextFiles=${Array.isArray(contextFiles) ? contextFiles.length : 0} (${(contextFiles || []).map((f: any) => `${f?.name}:${(f?.content || "").length}c`).join(", ")}). First 5 accepted: ${contextSourceLinks.slice(0, 5).map(l => l.url).join(" | ")}. First 5 rejected: ${rejectedContextSourceUrls.slice(0, 5).map(r => `${r.url} [${r.reason}]`).join(" | ")}`);
     const contextSourceCatalogue = contextSourceLinks.map((link, index) => `${index + 1}. ${link.markdown}`).join("\n");
     const allowedContextSourceUrls = new Set(contextSourceLinks.map(link => link.url));
 
