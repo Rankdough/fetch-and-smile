@@ -115,7 +115,7 @@ export const ContentVerification = ({
     });
 
 
-    // Atomic sections check: every body H2 must have a list/table, avoid dependency phrases,
+    // Atomic sections check: every body H2 must have exactly three bullets, avoid dependency phrases,
     // and have any "Sources:" line rendered as clickable markdown links.
     {
       const lines = content.split("\n");
@@ -134,12 +134,12 @@ export const ContentVerification = ({
             if (/^##\s+/.test(lines[j])) { endIdx = j; break; }
           }
           const body = lines.slice(i + 1, endIdx).join("\n");
-          const hasList = /^\s*([-*+]|\d+\.)\s+/m.test(body) || /\n\|[^\n]+\|/.test(body);
+          const bulletCount = body.split("\n").filter((line) => /^\s*-\s+/.test(line)).length;
           const banned = bannedRegex.test(body);
           // Detect "Sources: ..." lines that contain no markdown link
           const brokenSource = /^\s*\*?\*?Sources?:\*?\*?\s+[^\n]*$/im.test(body) && !/\[[^\]]+\]\([^)]+\)/.test(body);
           const fullTitle = lines[i].replace(/^##\s+/, "").trim();
-          if (!hasList || banned || brokenSource) {
+          if (bulletCount !== 3 || banned || brokenSource) {
             failingTitles.push(fullTitle.slice(0, 60));
             failingFull.push(fullTitle);
           }
@@ -149,12 +149,12 @@ export const ContentVerification = ({
       }
       const failedCount = failingFull.length;
       const reasons: string[] = [];
-      if (failingTitles.length > 0) reasons.push(`${failingTitles.length} section(s) need bullets/clickable sources`);
+      if (failingTitles.length > 0) reasons.push(`${failingTitles.length} section(s) need exactly 3 bullets/clickable sources`);
       if (bannedHits > 0) reasons.push(`${bannedHits} dependency phrase(s)`);
       if (brokenSourceHits > 0) reasons.push(`${brokenSourceHits} non-clickable Sources line(s)`);
       results.push({
         id: "atomic-sections",
-        label: "Atomic sections (bullets + standalone answer + clickable sources)",
+        label: "Atomic sections (exactly 3 bullets + standalone answer + clickable sources)",
         status: failedCount === 0 ? "passed" : "failed",
         details: totalBody === 0
           ? "No body H2 sections detected"
