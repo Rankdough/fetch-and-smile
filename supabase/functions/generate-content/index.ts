@@ -1700,6 +1700,15 @@ Place these images throughout the article at logical locations, typically after 
         contentIntegrityWarnings.push(message);
       }
     }
+    if (!skipSources && contextSourceLinks.length > 0) {
+      const sourceLineResult = enforceSourceLineOnEveryBodySection(content);
+      content = sourceLineResult.markdown;
+      if (sourceLineResult.addedSections.length > 0 || sourceLineResult.replacedSections.length > 0) {
+        const message = `SOURCE GUARD: Enforced clickable source lines on body sections. Added ${sourceLineResult.addedSections.length}, replaced ${sourceLineResult.replacedSections.length}.`;
+        console.warn(message);
+        contentIntegrityWarnings.push(message);
+      }
+    }
     const disallowedLinkResult = stripDisallowedArticleLinks(content);
     content = disallowedLinkResult.markdown;
     if (!skipSources && contextSourceLinks.length > 0) {
