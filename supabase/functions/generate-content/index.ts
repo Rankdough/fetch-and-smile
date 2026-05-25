@@ -1156,6 +1156,17 @@ Place these images throughout the article at logical locations, typically after 
       .replace(/\n{3,}/g, "\n\n")
       .trim();
 
+    const stripInlineBoldEmphasis = (markdown: string): string => markdown
+      .split("\n")
+      .map((line) => {
+        if (/^#{1,6}\s+/.test(line)) return line;
+        if (/^\s*\*\*Sources?:\*\*/i.test(line)) return line;
+        if (/^>\s*\*\*Tip\s+\d+:\*\*/i.test(line)) return line;
+        if (/^\s*\*\*[^*]+\?\*\*\s*$/i.test(line)) return line;
+        return line.replace(/\*\*([^*]+)\*\*/g, "$1");
+      })
+      .join("\n");
+
     const stripDisallowedArticleLinks = (markdown: string): { markdown: string; removedUrls: string[] } => {
       const removed = new Set<string>();
       const withoutMarkdownLinks = markdown.replace(/(!?)\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, (full, bang, label, rawUrl) => {
@@ -1532,6 +1543,7 @@ Place these images throughout the article at logical locations, typically after 
     }
     const disallowedLinkResult = stripDisallowedArticleLinks(content);
     content = disallowedLinkResult.markdown;
+    content = stripInlineBoldEmphasis(content);
     if (disallowedLinkResult.removedUrls.length > 0) {
       const message = `SOURCE GUARD: Removed ${disallowedLinkResult.removedUrls.length} non-context URL(s) from generated content: ${disallowedLinkResult.removedUrls.join(" | ")}`;
       console.warn(message);
