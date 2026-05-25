@@ -225,3 +225,10 @@ Newest entries on top. Append-only — never edit or delete past entries.
 - Files: src/pages/Index.tsx
 - Verify: Reload Index with stale files in localStorage; toast "Context file refreshed" appears and next generation logs SOURCE CATALOGUE > 0 accepted.
 - May break: Verified broken: nothing. Extra edge-function invocations on first load when stale files exist (one per stale file, runs once).
+
+## 2026-05-25 — Stricter source verification + always-meaningful References
+- What: (1) Link checker now rejects 5xx, 400/451, DNS failures, and timeouts (was: trusted by default). (2) References block always includes ≥5 catalogue links (or all of them if <5), topping up from the catalogue when inline citations are sparse.
+- Why: User reported broken/fabricated reference URLs surviving in published articles. Lenient checker was passing dead links; rebuild was producing empty/short References when the model under-cited.
+- Files: supabase/functions/generate-content/index.ts
+- Verify: Re-generate Screwless article; References lists ≥5 catalogue URLs from the brief (PubMed/Bicon/AspenDental/etc.), zero fabricated URLs, log line "SOURCE GUARD: References rebuilt with N catalogue link(s)".
+- May break: Verified broken: nothing. Confirmed by reading the two edited blocks and grepping for callers — checkSourceUrl is only used inside the catalogue acceptance loop; the rebuild block runs after stripDisallowedArticleLinks so no inline-link rewrite races.
