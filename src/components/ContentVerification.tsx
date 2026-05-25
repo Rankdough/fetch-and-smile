@@ -625,6 +625,27 @@ export const ContentVerification = ({
                   {item.details}
                 </p>
               )}
+              {item.id === "atomic-sections" && item.failingSections && item.failingSections.length > 0 && onRegenerateSection && (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {item.failingSections.map((title) => {
+                    const busy = regeneratingSectionTitle === title;
+                    return (
+                      <Button
+                        key={title}
+                        variant="outline"
+                        size="sm"
+                        disabled={!!regeneratingSectionTitle}
+                        className="h-6 px-2 text-xs max-w-full"
+                        onClick={() => onRegenerateSection(title)}
+                        title={`Regenerate section: ${title}`}
+                      >
+                        <Wand2 className="h-3 w-3 mr-1 flex-shrink-0" />
+                        <span className="truncate">{busy ? "Regenerating…" : title}</span>
+                      </Button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
         ))}
