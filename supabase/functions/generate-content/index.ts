@@ -948,6 +948,59 @@ Place these images throughout the article at logical locations, typically after 
 
     console.log("Content generated successfully");
 
+    const bodySectionSkipPattern = /tl;?\s?dr|quick\s*tips|in\s*this\s*article|frequently\s*asked|faq|final\s*thoughts|conclusion|references|sources/i;
+
+    const buildFallbackBullets = (heading: string, body: string): string[] => {
+      const plain = body
+        .split("\n")
+        .filter(line => !/^\s*[-*+]\s+/.test(line) && !/^\s*\d+\.\s+/.test(line) && !line.includes("|") && !/^\s*\*\*Sources?:\*\*/i.test(line) && !/^\s*Sources?:/i.test(line))
+        .join(" ")
+        .replace(/\[[^\]]+\]\([^)]+\)/g, "")
+        .replace(/[*_`>#]/g, "")
+        .replace(/\s+/g, " ")
+        .trim();
+      const sentences = plain.split(/(?<=[.!?])\s+/).map(s => s.trim()).filter(s => s.length > 24);
+      const seeds = [sentences[1] || sentences[0], sentences[2] || sentences[0], sentences[3] || sentences[0]];
+      return seeds.map((seed, index) => {
+        const fallback = index === 0
+          ? `${heading.replace(/\?$/, "")} depends on the mechanism, clinical use, and maintenance expectations.`
+          : index === 1
+            ? `Concrete numbers, examples, or timeframes make this section useful when read alone.`
+            : `The practical takeaway should stay specific to ${topic || "the topic"}.`;
+        return `- ${(seed || fallback).replace(/^[-*+]\s+/, "").replace(/^\d+\.\s+/, "").replace(/\s+/g, " ").trim()}`;
+      });
+    };
+
+    const enforceThreeBulletsPerBodySection = (markdown: string): { markdown: string; changedSections: string[] } => {
+      const { intro, sections } = splitByH2Sections(markdown);
+      const changedSections: string[] = [];
+      const rebuiltSections = sections.map(section => {
+        if (bodySectionSkipPattern.test(section.heading)) return `## ${section.heading}\n${section.body}`.trim();
+
+        const lines = section.body.split("\n");
+        const existingBullets = lines.filter(line => /^\s*-\s+/.test(line)).map(line => line.trim());
+        if (existingBullets.length === 3) return `## ${section.heading}\n${section.body}`.trim();
+
+        changedSections.push(section.heading.slice(0, 60));
+        const keptBulletSet = new Set(existingBullets.slice(0, 3));
+        const nonBulletLines = lines.filter(line => !/^\s*-\s+/.test(line) || keptBulletSet.has(line.trim()));
+        const sourceIndex = nonBulletLines.findIndex(line => /^\s*\*\*Sources?:\*\*/i.test(line) || /^\s*Sources?:/i.test(line));
+        const beforeSources = sourceIndex >= 0 ? nonBulletLines.slice(0, sourceIndex) : nonBulletLines;
+        const sourceLines = sourceIndex >= 0 ? nonBulletLines.slice(sourceIndex) : [];
+        const bullets = existingBullets.slice(0, 3);
+        for (const fallback of buildFallbackBullets(section.heading, section.body)) {
+          if (bullets.length >= 3) break;
+          bullets.push(fallback);
+        }
+
+        const cleanedBeforeSources = beforeSources.filter(line => !keptBulletSet.has(line.trim()));
+        const body = [cleanedBeforeSources.join("\n").trim(), bullets.slice(0, 3).join("\n"), sourceLines.join("\n").trim()].filter(Boolean).join("\n\n");
+        return `## ${section.heading}\n${body}`.trim();
+      });
+
+      return { markdown: [intro, ...rebuiltSections].filter(Boolean).join("\n\n").trim(), changedSections };
+    };
+
     // ═══════════════════════════════════════════════════════════════════════
     // TABLE GUARD: deterministic local injection if model under-delivered
     // ═══════════════════════════════════════════════════════════════════════
