@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-05-25 - Enforce source lines and deploy link checker
+
+- **What:** Added a deterministic source guard after article generation that removes stale References, validates existing source links, uses context-file URLs first, searches with Firecrawl when needed, appends working `**Sources:**` links to each article section, and rebuilds `## References` from the surviving clickable links. Regenerated sections now also end with a working `**Sources:**` line when a source can be verified. Added `fix-broken-links` to function configuration so the Content Verification button can reach the deployed checker. Content Verification now fails when per-section source links or the final References section are missing.
+- **Why:** The generated sample had no per-section source lines or final References section, and the checker failed before reaching the backend function.
+- **Verified broken:** The generated sample at 15:41 had no context files and no final source enforcement, so the model could omit source lines and References. The `fix-broken-links` function had no deployed call logs and was missing from `supabase/config.toml`, causing the UI request to fail before function execution.
+- **Files:** `supabase/functions/generate-content/index.ts`, `supabase/functions/regenerate-section/index.ts`, `supabase/functions/fix-broken-links/index.ts`, `supabase/config.toml`, `src/components/ContentVerification.tsx`, `CHANGELOG.md`.
+- **Verify:** Deploy `generate-content`, `regenerate-section`, and `fix-broken-links`; call `fix-broken-links` with a known broken link; generate a new sample and confirm each section has `**Sources:**` and the article ends with `## References`; confirm Content Verification flags missing source sections.
+
 ## 2026-05-25 - Broken-link checker with Firecrawl auto-fix
 
 - **What:** New `fix-broken-links` edge function scans every external markdown link in the article (HEAD then GET, 8s timeout), and for each broken URL queries Firecrawl `/v2/search` using the link's anchor text + nearest heading; the first candidate that returns HTTP 200 replaces the broken URL in-place. If no working replacement is found, the link is removed and the anchor text is kept as plain prose. Afterwards the `## References` section is rebuilt deterministically from the remaining real markdown links so it never includes stale URLs. UI: new "Broken link checker" block in the Content Verification panel with a "Check & Fix Links" button and a results summary listing replaced/removed URLs.
