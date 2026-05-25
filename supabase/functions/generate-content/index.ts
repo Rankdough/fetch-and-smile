@@ -195,7 +195,8 @@ serve(async (req) => {
     }
 
     // Calculate required tables based on word count (relaxed for migration)
-    const requiredTables = migrationMode ? 1 : Math.max(1, Math.floor(targetWords / 600));
+    // Rule: ≥2 tables for 1,000-word articles, ≥3 tables for 1,500-word articles (1 per 500 words)
+    const requiredTables = migrationMode ? 1 : Math.max(1, Math.floor(targetWords / 500));
 
     // Calculate per-section word budgets so the AI knows exactly how much to write per section
     const sectionBudgets = (() => {
@@ -312,8 +313,8 @@ ${formatReference ? `FORMAT REFERENCE MODE: A format reference has been provided
 
 ${migrationMode ? `TABLE RULE:
 - Use markdown tables where the source content contains list-style comparisons or product listings
-- Do NOT force tables where the source does not warrant them` : `TABLE RULE (1 table per 600 words of target length):
-- Include EXACTLY ${requiredTables} markdown comparison table${requiredTables > 1 ? 's' : ''} for ${targetWords} target words
+- Do NOT force tables where the source does not warrant them` : `TABLE RULE (minimum cadence: ≥2 tables per 1,000 words, ≥3 tables per 1,500 words — 1 table per 500 words of target length):
+- Include AT LEAST ${requiredTables} markdown comparison table${requiredTables > 1 ? 's' : ''} for ${targetWords} target words
 - Use proper pipe syntax with a header separator row, e.g.:
 
 | Feature | Option A | Option B |
@@ -590,7 +591,7 @@ ${instructions}`;
 MUST FOLLOW (in priority order):
 1. STRUCTURE — Follow the AEO layout exactly: H1 → AI-quotable opening paragraph (30-50 words) → ## TL;DR (1 dense paragraph, no list) → ## Quick Tips (3 tips, max 15 words each) → ## In This Article (nav list) → question-based H2 sections (each H2 phrased as a question, immediately followed by a ~30-word direct answer paragraph, then EXACTLY THREE markdown bullet points using "- ", then a comparison table where relevant${skipSources || contextSourceLinks.length === 0 ? '' : ', then a **Sources:** line'}) → ## How to Choose (4-6 criteria as a bullet checklist) → ## Frequently Asked Questions → ## Final Thoughts${skipSources || contextSourceLinks.length === 0 ? '' : ' → ## References (markdown bullet list of all sources)'}.
 2. WORD COUNT — Final article between ${wordFloor} and ${wordCeiling} words (target ${targetWords}). Count as you write.
-3. TABLES — Include exactly ${requiredTables} markdown comparison table${requiredTables > 1 ? 's' : ''} (1 per 600 words), each ≥3 columns and ≥4 data rows, spread evenly across body H2 sections. Markdown pipe syntax only.${skipSources ? '' : `
+3. TABLES — Include AT LEAST ${requiredTables} markdown comparison table${requiredTables > 1 ? 's' : ''} (≥2 per 1,000 words, ≥3 per 1,500 words; 1 per 500 words), each ≥3 columns and ≥4 data rows, spread evenly across body H2 sections. Markdown pipe syntax only.${skipSources ? '' : `
 4. SOURCES — ${contextSourceLinks.length > 0 ? `Use ONLY URLs from the provided context source catalogue for "**Sources:**" lines and ## References. Never invent or remember outside URLs. If no catalogue URL supports a section, omit that section's source line.` : `No verified context source URLs are available. Do NOT add "**Sources:**" lines. Do NOT add a ## References section. Do not cite outside URLs, remembered URLs, authority URLs, Google URLs, PDFs, or placeholders.`}`}
 5. FORMATTING — Every body H2 section must contain EXACTLY THREE markdown bullet points using "- ". Do not use numbered lists as the required bullets. Do not bold key terms or keyword phrases in the article prose. British English. No em/en dashes. No horizontal rules.
 6. ATOMIC SECTION CONTRACT (NON-NEGOTIABLE) — Every body H2 and H3 must be a standalone answer block that works alone if extracted by Google AI Overviews, ChatGPT, Gemini or Perplexity. For EACH body H2/H3 you MUST:
