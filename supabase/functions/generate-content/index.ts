@@ -144,10 +144,10 @@ serve(async (req) => {
     const howToChooseWords = sectionBudgets.fixedSections.find(s => s.name === "How to Choose")?.words || 80;
     const finalThoughtsWords = sectionBudgets.fixedSections.find(s => s.name === "Final Thoughts")?.words || 50;
     
-    const quickTipsSection = skipQuickTips ? '' : "3. ## Quick Tips (~" + quickTipsWords + " words) — exactly 3 tips:\n   > **Tip 1:** [One short sentence - max 15 words]\n   > **Tip 2:** [One short sentence - max 15 words]\n   > **Tip 3:** [One short sentence - max 15 words]\n";
+    const quickTipsSection = skipQuickTips ? '' : "3. ## Quick Tips (~" + quickTipsWords + " words) — exactly 3 tips:\n   > [One short sentence - max 15 words]\n   > [One short sentence - max 15 words]\n   > [One short sentence - max 15 words]\n";
     const inThisArticleSection = migrationMode
       ? "4. DO NOT include an \"In This Article\" section - this is generated automatically by the client."
-      : "4. ## In This Article (~" + inThisArticleWords + " words) — navigation guide:\n   - Format as a BULLETED LIST: - **1. Section Title** - DETAILED description (MINIMUM 150 characters)\n   - List ALL main H2 sections from the article (not TL;DR or References)\n   - DO NOT SKIP THIS SECTION";
+      : "4. ## In This Article (~" + inThisArticleWords + " words) — navigation guide:\n   - Format as a BULLETED LIST: - 1. Section Title - DETAILED description (MINIMUM 150 characters)\n   - List ALL main H2 sections from the article (not TL;DR or References)\n   - DO NOT SKIP THIS SECTION";
     const faqSection = skipFaqs ? '' : `7. ## Frequently Asked Questions (~${faqWords} words) — MANDATORY SECTION, MUST BE INCLUDED.
    - Use the EXACT H2 heading: "## Frequently Asked Questions" (do not rename, do not skip)
    - Include 4-6 Q&A pairs in this EXACT markdown format (the parser depends on it):
@@ -198,7 +198,7 @@ CRITICAL MARKDOWN FORMATTING RULES:
 - Major sections: Use ## for H2 headings${!formatReference ? ' - ALL H2 headings MUST be phrased as QUESTIONS (see rule below)' : ''}
 - Subsections: Use ### for H3 headings
 - DO NOT use numbered headings like "1. Section Name" - use proper markdown ## syntax
-- Use **bold** for emphasis on key terms and important points
+- Do NOT use bold formatting in article prose, bullets, quick tips, navigation items, or labels
 - Use bullet points (-) for lists - write the text directly after the dash, NO additional dashes or punctuation
 - WRONG: "- - Text here" or "- — Text here" 
 - CORRECT: "- Text here"
@@ -508,11 +508,11 @@ ${instructions}`;
       userPrompt = `Write a blog post about: ${topic}
 
 MUST FOLLOW (in priority order):
-1. STRUCTURE — Follow the AEO layout exactly: H1 → AI-quotable opening paragraph (30-50 words) → ## TL;DR (1 dense paragraph, no list) → ## Quick Tips (3 tips, max 15 words each) → ## In This Article (nav list) → question-based H2 sections (each H2 phrased as a question, immediately followed by a ~30-word direct answer paragraph, then EXACTLY THREE markdown bullet points using "- ", then a comparison table where relevant${skipSources ? '' : ', then a **Sources:** line'}) → ## How to Choose (4-6 criteria as a bullet checklist) → ## Frequently Asked Questions → ## Final Thoughts${skipSources ? '' : ' → ## References (markdown bullet list of all sources)'}.
+1. STRUCTURE — Follow the AEO layout exactly: H1 → AI-quotable opening paragraph (30-50 words) → ## TL;DR (1 dense paragraph, no list) → ## Quick Tips (3 tips, max 15 words each) → ## In This Article (nav list) → question-based H2 sections (each H2 phrased as a question, immediately followed by a ~30-word direct answer paragraph, then EXACTLY THREE markdown bullet points using "- ", then a comparison table where relevant${skipSources ? '' : ', with references preserved only for the final References section'}) → ## How to Choose (4-6 criteria as a bullet checklist) → ## Frequently Asked Questions → ## Final Thoughts${skipSources ? '' : ' → ## References (markdown bullet list of all sources)'}.
 2. WORD COUNT — Final article between ${wordFloor} and ${wordCeiling} words (target ${targetWords}). Count as you write.
 3. TABLES — Include exactly ${requiredTables} markdown comparison table${requiredTables > 1 ? 's' : ''} (1 per 600 words), each ≥3 columns and ≥4 data rows, spread evenly across body H2 sections. Markdown pipe syntax only.${skipSources ? '' : `
 4. SOURCES — Every body H2 ends with a "**Sources:**" line listing 1-2 real markdown links to authoritative sites (NHS, gov, CDC, Wikipedia, official brand sites, reputable news). The final ## References section lists all sources as a markdown bullet list. Real working URLs only — no placeholders, no inline [1][2] citations.`}
-5. FORMATTING — Every body H2 section must contain EXACTLY THREE markdown bullet points using "- ". Do not use numbered lists as the required bullets. Use **bold** for key terms. British English. No em/en dashes. No horizontal rules.
+5. FORMATTING — Every body H2 section must contain EXACTLY THREE markdown bullet points using "- ". Do not use numbered lists as the required bullets. Do not use bold formatting in the article body. British English. No em/en dashes. No horizontal rules.
 6. ATOMIC SECTION CONTRACT (NON-NEGOTIABLE) — Every body H2 and H3 must be a standalone answer block that works alone if extracted by Google AI Overviews, ChatGPT, Gemini or Perplexity. For EACH body H2/H3 you MUST:
    (a) Open with ONE direct sentence that fully answers the heading question on its own (no preamble, no "Dental implants are popular…" style intros).
    (b) Follow with a supporting explanation (1–2 short paragraphs) AND EXACTLY THREE markdown bullet points using "- ". No section may have 0, 1, 2, 4, or more bullet points.
@@ -1641,9 +1641,9 @@ Place these images throughout the article at logical locations, typically after 
             case "TL;DR":
               return `## TL;DR\nThis article covers everything you need to know about ${topic}, including key considerations, practical comparisons, and actionable recommendations to help you make an informed decision.`;
             case "Quick Tips":
-              return `## Quick Tips\n> **Tip 1:** Start with verified figures, not generic claims.\n> **Tip 2:** Compare at least two realistic options before deciding.\n> **Tip 3:** Match every recommendation to your exact use case.`;
+              return `## Quick Tips\n> Start with verified figures, not generic claims.\n> Compare at least two realistic options before deciding.\n> Match every recommendation to your exact use case.`;
             case "In This Article":
-              return `## In This Article\n- **1. Core topic questions** - direct answers and key context\n- **2. Side-by-side comparison** - practical differences that affect outcomes\n- **3. Decision framework** - how to choose based on constraints\n- **4. FAQ and references** - quick clarifications and credible sources`;
+              return `## In This Article\n- 1. Core topic questions - direct answers and key context\n- 2. Side-by-side comparison - practical differences that affect outcomes\n- 3. Decision framework - how to choose based on constraints\n- 4. FAQ and references - quick clarifications and credible sources`;
             case "FAQ":
               return `## Frequently Asked Questions\n**What is the safest way to act on this advice?**\n\nPrioritise evidence-backed options, then validate against your budget, timeline, and constraints.\n\n**How should readers compare alternatives?**\n\nUse consistent criteria, including cost, reliability, and expected results.\n\n**What mistakes should be avoided first?**\n\nAvoid vague claims, missing data, and one-size-fits-all recommendations.\n\n**How often should this be reviewed?**\n\nRe-check assumptions whenever pricing, regulations, or market conditions change.`;
             case "Final Thoughts":

@@ -332,9 +332,10 @@ export function markdownToStyledHtml(
     a.removeAttribute("class");
   });
 
-  // Style strong/bold
-  container.querySelectorAll("strong").forEach((s) => {
-    s.removeAttribute("class");
+  // Remove article bolding entirely while preserving text content
+  container.querySelectorAll("strong, b").forEach((el) => {
+    const text = container.ownerDocument!.createTextNode(el.textContent || "");
+    el.parentNode?.replaceChild(text, el);
   });
 
   // Remove all remaining class attributes
