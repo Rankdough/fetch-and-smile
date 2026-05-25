@@ -195,7 +195,8 @@ serve(async (req) => {
     }
 
     // Calculate required tables based on word count (relaxed for migration)
-    const requiredTables = migrationMode ? 1 : Math.max(1, Math.floor(targetWords / 600));
+    // Rule: ≥2 tables for 1,000-word articles, ≥3 tables for 1,500-word articles (1 per 500 words)
+    const requiredTables = migrationMode ? 1 : Math.max(1, Math.floor(targetWords / 500));
 
     // Calculate per-section word budgets so the AI knows exactly how much to write per section
     const sectionBudgets = (() => {
