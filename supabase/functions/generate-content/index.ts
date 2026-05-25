@@ -57,6 +57,52 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    const normaliseSourceText = (value: string) => value
+      .toLowerCase()
+      .replace(/https?:\/\/\S+/g, " ")
+      .replace(/\[[^\]]+\]\([^)]+\)/g, " ")
+      .replace(/[^a-z0-9\s]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+    const tokeniseSourceText = (value: string) => new Set(normaliseSourceText(value).split(" ").filter(token => token.length > 2));
+    const titleFromUrl = (url: string): string => {
+      try {
+        const parsed = new URL(url);
+        const pathName = decodeURIComponent(parsed.pathname.split("/").filter(Boolean).pop() || "").replace(/[-_]+/g, " ").replace(/\.pdf$/i, " PDF").trim();
+        return pathName ? `${parsed.hostname.replace(/^www\./, "")} - ${pathName}` : parsed.hostname.replace(/^www\./, "");
+      } catch {
+        return url;
+      }
+    };
+    const contextSourceLinks: { title: string; url: string; markdown: string; key: string; tokens: Set<string> }[] = [];
+    const seenContextSourceUrls = new Set<string>();
+    const addContextSourceLink = (title: string, url: string) => {
+      const cleanedUrl = url.replace(/[)\]\.,;]+$/, "").trim();
+      if (!/^https?:\/\//i.test(cleanedUrl) || seenContextSourceUrls.has(cleanedUrl)) return;
+      const cleanedTitle = title.replace(/\s+/g, " ").replace(/^[-*+\d.\s]+/, "").trim() || titleFromUrl(cleanedUrl);
+      seenContextSourceUrls.add(cleanedUrl);
+      contextSourceLinks.push({
+        title: cleanedTitle,
+        url: cleanedUrl,
+        markdown: `[${cleanedTitle}](${cleanedUrl})`,
+        key: normaliseSourceText(cleanedTitle),
+        tokens: tokeniseSourceText(`${cleanedTitle} ${cleanedUrl}`),
+      });
+    };
+    if (contextFiles && Array.isArray(contextFiles)) {
+      for (const file of contextFiles as { name: string; content: string }[]) {
+        const content = `${file.name}\n${file.content || ""}`;
+        for (const match of content.matchAll(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g)) {
+          addContextSourceLink(match[1], match[2]);
+        }
+        for (const match of content.matchAll(/https?:\/\/[^\s)\]>"']+/g)) {
+          addContextSourceLink(titleFromUrl(match[0]), match[0]);
+        }
+      }
+    }
+    const contextSourceCatalogue = contextSourceLinks.map((link, index) => `${index + 1}. ${link.markdown}`).join("\n");
+    const allowedContextSourceUrls = new Set(contextSourceLinks.map(link => link.url));
+
     // Fetch knowledge base rules if enabled
     let knowledgeRules: string[] = [];
     if (useKnowledgeBase) {
@@ -246,16 +292,16 @@ ${skipSources ? `SOURCE REFERENCE RULES:
 - DO NOT include any **Sources:** lines after sections
 - DO NOT include a ## References section at the end
 - DO NOT use inline numeric citations like [1], [2], [3]
-- Write all claims as general knowledge without citation` : `SOURCE REFERENCE RULES:
+- Write all claims as general knowledge without citation` : contextSourceLinks.length > 0 ? `SOURCE REFERENCE RULES:
 - DO NOT use inline numeric citations like [1], [2], [3] in the text
-- Add a "**Sources:**" line at the END of EACH major section (after ## headings)
-- List 1-2 relevant sources as simple markdown links directly under that section
-- CRITICAL: All source links MUST be real, valid, working URLs to authoritative websites
-- Format: **Sources:** [Source Title](https://example.com/actual-page-url)
-- Use real domains like gov sites, NHS, CDC, Wikipedia, official brand sites, reputable news outlets
-- Example: [NHS Food Safety Guidelines](https://www.nhs.uk/live-well/eat-well/food-guidelines-and-food-labels/)
-- NEVER use placeholder URLs or made-up links - only include sources you know exist
-- Sources should be relevant to that specific section's content`}
+- Add a "**Sources:**" line at the END of EACH major section only when one of the provided context source URLs supports that section
+- Use ONLY URLs from the CONTEXT SOURCE URL CATALOGUE supplied below. Do not use Google search URLs, generic authority URLs, remembered URLs, placeholder URLs, or any URL that is not in that catalogue
+- Format: **Sources:** [Source Title](https://provided-context-url)
+- If no catalogue URL supports a section, omit that section's source line rather than inventing one
+- The final ## References section must list ONLY catalogue URLs actually cited in the article` : `SOURCE REFERENCE RULES:
+- DO NOT use inline numeric citations like [1], [2], [3] in the text
+- No context-file source URLs were provided, so DO NOT add any **Sources:** lines or a ## References section
+- Do not invent, remember, search for, or guess reference URLs`}
 
 ARTICLE STRUCTURE (in this order) — WORD BUDGET PER SECTION:
 Total target: ${targetWords} words. Each section has a strict word budget. Do NOT exceed individual section budgets.
@@ -507,7 +553,7 @@ MUST FOLLOW (in priority order):
 1. STRUCTURE — Follow the AEO layout exactly: H1 → AI-quotable opening paragraph (30-50 words) → ## TL;DR (1 dense paragraph, no list) → ## Quick Tips (3 tips, max 15 words each) → ## In This Article (nav list) → question-based H2 sections (each H2 phrased as a question, immediately followed by a ~30-word direct answer paragraph, then EXACTLY THREE markdown bullet points using "- ", then a comparison table where relevant${skipSources ? '' : ', then a **Sources:** line'}) → ## How to Choose (4-6 criteria as a bullet checklist) → ## Frequently Asked Questions → ## Final Thoughts${skipSources ? '' : ' → ## References (markdown bullet list of all sources)'}.
 2. WORD COUNT — Final article between ${wordFloor} and ${wordCeiling} words (target ${targetWords}). Count as you write.
 3. TABLES — Include exactly ${requiredTables} markdown comparison table${requiredTables > 1 ? 's' : ''} (1 per 600 words), each ≥3 columns and ≥4 data rows, spread evenly across body H2 sections. Markdown pipe syntax only.${skipSources ? '' : `
-4. SOURCES — Every body H2 ends with a "**Sources:**" line listing 1-2 real markdown links to authoritative sites (NHS, gov, CDC, Wikipedia, official brand sites, reputable news). The final ## References section lists all sources as a markdown bullet list. Real working URLs only — no placeholders, no inline [1][2] citations.`}
+4. SOURCES — ${contextSourceLinks.length > 0 ? `Use ONLY URLs from the provided context source catalogue for "**Sources:**" lines and ## References. Never invent or remember outside URLs. If no catalogue URL supports a section, omit that section's source line.` : `Every body H2 ends with a "**Sources:**" line listing 1-2 real markdown links to authoritative sites (NHS, gov, CDC, Wikipedia, official brand sites, reputable news). The final ## References section lists all sources as a markdown bullet list. Real working URLs only — no placeholders, no inline [1][2] citations.`}`}
 5. FORMATTING — Every body H2 section must contain EXACTLY THREE markdown bullet points using "- ". Do not use numbered lists as the required bullets. Use **bold** for key terms. British English. No em/en dashes. No horizontal rules.
 6. ATOMIC SECTION CONTRACT (NON-NEGOTIABLE) — Every body H2 and H3 must be a standalone answer block that works alone if extracted by Google AI Overviews, ChatGPT, Gemini or Perplexity. For EACH body H2/H3 you MUST:
    (a) Open with ONE direct sentence that fully answers the heading question on its own (no preamble, no "Dental implants are popular…" style intros).
@@ -605,6 +651,14 @@ The following reference materials are your AUTHORITATIVE source. You MUST:
 
 CONTEXT FILES:
 ${contextContent}`;
+        if (contextSourceCatalogue) {
+          userPrompt += `
+
+CONTEXT SOURCE URL CATALOGUE (ONLY THESE URLS MAY BE USED IN SOURCES OR REFERENCES):
+${contextSourceCatalogue}
+
+If a source URL is not listed above, do not cite it. Do not create Google search links, generic reference links, or remembered URLs.`;
+        }
       }
 
       // Add article images for AI placement
@@ -1079,13 +1133,30 @@ Place these images throughout the article at logical locations, typically after 
         links.push({ title, url, markdown: `[${title}](${url})`, key: normalise(title), tokens: tokenise(`${title} ${url}`) });
       }
 
+      const candidateLinks = contextSourceLinks.length > 0 ? contextSourceLinks : links;
+      const linkIsAllowed = (url: string) => contextSourceLinks.length === 0 || allowedContextSourceUrls.has(url.replace(/[\].,;]+$/, ""));
+      const allowedMarkdownLinksFromLine = (line: string): string[] => {
+        const allowed: string[] = [];
+        const seenLineUrls = new Set<string>();
+        let match: RegExpExecArray | null;
+        const lineLinkRegex = /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g;
+        while ((match = lineLinkRegex.exec(line)) !== null) {
+          const title = match[1].trim();
+          const url = match[2].replace(/[\].,;]+$/, "");
+          if (!title || seenLineUrls.has(url) || !linkIsAllowed(url)) continue;
+          seenLineUrls.add(url);
+          allowed.push(`[${title}](${url})`);
+        }
+        return allowed;
+      };
+
       const bestLinkFor = (sourceText: string) => {
         const sourceKey = normalise(sourceText);
         const sourceTokens = tokenise(sourceText);
         if (!sourceKey || sourceTokens.size === 0) return null;
-        let best: typeof links[number] | null = null;
+        let best: typeof candidateLinks[number] | null = null;
         let bestScore = 0;
-        for (const link of links) {
+        for (const link of candidateLinks) {
           let overlap = 0;
           sourceTokens.forEach(token => { if (link.tokens.has(token)) overlap++; });
           const directMatch = sourceKey.length > 8 && link.key.length > 8 && (sourceKey.includes(link.key) || link.key.includes(sourceKey));
@@ -1108,11 +1179,25 @@ Place these images throughout the article at logical locations, typically after 
 
         const sourceLineMatch = line.match(/^\s*\*?\*?Sources?:\*?\*?\s*(.*)$/i);
         if (sourceLineMatch) {
-          if (/\[[^\]]+\]\(https?:\/\/[^)\s]+\)/i.test(line)) return line;
+          if (/\[[^\]]+\]\(https?:\/\/[^)\s]+\)/i.test(line)) {
+            const allowedLinks = allowedMarkdownLinksFromLine(line);
+            if (allowedLinks.length > 0) return `**Sources:** ${allowedLinks.join(" | ")}`;
+            brokenSections.add(currentHeading);
+            return "";
+          }
           const sourceText = sourceLineMatch[1].trim();
           const urlMatch = sourceText.match(/https?:\/\/\S+/i);
           if (urlMatch) {
             const url = urlMatch[0].replace(/[\].,;]+$/, "");
+            if (contextSourceLinks.length > 0 && !allowedContextSourceUrls.has(url)) {
+              const matched = bestLinkFor(sourceText);
+              if (matched) {
+                repairedSections.add(currentHeading);
+                return `**Sources:** ${matched.markdown}`;
+              }
+              brokenSections.add(currentHeading);
+              return "";
+            }
             const label = sourceText.replace(urlMatch[0], "").replace(/[|,;:]+$/g, "").trim() || new URL(url).hostname.replace(/^www\./, "");
             repairedSections.add(currentHeading);
             return `**Sources:** [${label}](${url})`;
@@ -1122,21 +1207,30 @@ Place these images throughout the article at logical locations, typically after 
             repairedSections.add(currentHeading);
             return `**Sources:** ${matched.markdown}`;
           }
-          const cleanLabel = sourceText.replace(/[|,;:]+$/g, "").trim();
-          if (cleanLabel) {
-            const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(cleanLabel)}`;
-            repairedSections.add(currentHeading);
-            return `**Sources:** [${cleanLabel}](${searchUrl})`;
-          }
           brokenSections.add(currentHeading);
-          return line;
+          return contextSourceLinks.length > 0 ? "" : line;
         }
 
-        if (/^##\s+references:?$/i.test(`## ${currentHeading}`) && line.trim() && !/^##\s+/.test(line) && !/\[[^\]]+\]\(https?:\/\/[^)\s]+\)/i.test(line)) {
+        if (/^##\s+references:?$/i.test(`## ${currentHeading}`) && line.trim() && !/^##\s+/.test(line)) {
+          if (/\[[^\]]+\]\(https?:\/\/[^)\s]+\)/i.test(line)) {
+            const allowedLinks = allowedMarkdownLinksFromLine(line);
+            if (allowedLinks.length > 0) return allowedLinks.map(link => `- ${link}`).join("\n");
+            brokenSections.add("References");
+            return "";
+          }
           const sourceText = line.replace(/^[-*+]\s+/, "").trim();
           const urlMatch = sourceText.match(/https?:\/\/\S+/i);
           if (urlMatch) {
             const url = urlMatch[0].replace(/[\].,;]+$/, "");
+            if (contextSourceLinks.length > 0 && !allowedContextSourceUrls.has(url)) {
+              const matched = bestLinkFor(sourceText);
+              if (matched) {
+                repairedSections.add("References");
+                return `- ${matched.markdown}`;
+              }
+              brokenSections.add("References");
+              return "";
+            }
             const label = sourceText.replace(urlMatch[0], "").replace(/[|,;:]+$/g, "").trim() || new URL(url).hostname.replace(/^www\./, "");
             repairedSections.add("References");
             return `- [${label}](${url})`;
@@ -1146,13 +1240,8 @@ Place these images throughout the article at logical locations, typically after 
             repairedSections.add("References");
             return `- ${matched.markdown}`;
           }
-          const cleanLabel = sourceText.replace(/[|,;:]+$/g, "").trim();
-          if (cleanLabel) {
-            const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(cleanLabel)}`;
-            repairedSections.add("References");
-            return `- [${cleanLabel}](${searchUrl})`;
-          }
           brokenSections.add("References");
+          return contextSourceLinks.length > 0 ? "" : line;
         }
 
         return line;
@@ -1290,7 +1379,7 @@ Place these images throughout the article at logical locations, typically after 
         while ((m = linkRe.exec(md)) !== null) {
           const title = m[1].trim();
           const url = m[2].replace(/[)\]\.,;]+$/, "");
-          if (!title || seen.has(url)) continue;
+          if (!title || seen.has(url) || (contextSourceLinks.length > 0 && !allowedContextSourceUrls.has(url))) continue;
           seen.add(url);
           items.push(`- [${title}](${url})`);
         }
