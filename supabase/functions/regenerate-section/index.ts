@@ -266,6 +266,7 @@ ${sectionMarkdown}`;
 
 
     content = ensureExactlyThreeBullets(content);
+    content = await ensureSourceLine(content, sectionTitle);
 
     return new Response(
       JSON.stringify({ content }),
