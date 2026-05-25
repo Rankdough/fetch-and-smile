@@ -463,6 +463,7 @@ const Index = () => {
     const saved = localStorage.getItem("seo-generator-generatedContent");
     return saved ? normalizeQuickTipsSection(cleanContent(saved)) : "";
   });
+  const [contentIntegrityWarnings, setContentIntegrityWarnings] = useState<string[]>([]);
   
   // Store the original generated content for reset functionality
   const [originalContent, setOriginalContent] = useState(() => {
@@ -1464,6 +1465,7 @@ const Index = () => {
     setIsGenerating(true);
     setGeneratedContent("");
     setAppliedRules(null);
+    setContentIntegrityWarnings([]);
 
     try {
       let content: string;
@@ -1512,6 +1514,8 @@ const Index = () => {
 
         content = data.content;
         setAppliedRules(data.appliedRules || null);
+        const warnings = Array.isArray(data.contentIntegrityWarnings) ? data.contentIntegrityWarnings : [];
+        setContentIntegrityWarnings(warnings);
         
         if (data.ctas) {
           console.log("CTAs received from API:", data.ctas);
@@ -1544,7 +1548,13 @@ const Index = () => {
         }
         
         // Show completeness guard results
-        if (data.completenessGuard?.fixed?.length > 0) {
+        if (warnings.length > 0) {
+          toast({
+            title: "Generation integrity warning",
+            description: warnings.join(" • "),
+            variant: "destructive",
+          });
+        } else if (data.completenessGuard?.fixed?.length > 0) {
           toast({
             title: "Article auto-completed ✓",
             description: `Missing sections were auto-generated: ${data.completenessGuard.fixed.join(", ")}`,
