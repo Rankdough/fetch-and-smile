@@ -292,7 +292,13 @@ ${skipSources ? `SOURCE REFERENCE RULES:
 - DO NOT include any **Sources:** lines after sections
 - DO NOT include a ## References section at the end
 - DO NOT use inline numeric citations like [1], [2], [3]
-- Write all claims as general knowledge without citation` : `SOURCE REFERENCE RULES:
+- Write all claims as general knowledge without citation` : contextSourceLinks.length > 0 ? `SOURCE REFERENCE RULES:
+- DO NOT use inline numeric citations like [1], [2], [3] in the text
+- Add a "**Sources:**" line at the END of EACH major section only when one of the provided context source URLs supports that section
+- Use ONLY URLs from the CONTEXT SOURCE URL CATALOGUE supplied below. Do not use Google search URLs, generic authority URLs, remembered URLs, placeholder URLs, or any URL that is not in that catalogue
+- Format: **Sources:** [Source Title](https://provided-context-url)
+- If no catalogue URL supports a section, omit that section's source line rather than inventing one
+- The final ## References section must list ONLY catalogue URLs actually cited in the article` : `SOURCE REFERENCE RULES:
 - DO NOT use inline numeric citations like [1], [2], [3] in the text
 - Add a "**Sources:**" line at the END of EACH major section (after ## headings)
 - List 1-2 relevant sources as simple markdown links directly under that section
