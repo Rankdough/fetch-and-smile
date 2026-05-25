@@ -57,6 +57,52 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    const normaliseSourceText = (value: string) => value
+      .toLowerCase()
+      .replace(/https?:\/\/\S+/g, " ")
+      .replace(/\[[^\]]+\]\([^)]+\)/g, " ")
+      .replace(/[^a-z0-9\s]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+    const tokeniseSourceText = (value: string) => new Set(normaliseSourceText(value).split(" ").filter(token => token.length > 2));
+    const titleFromUrl = (url: string): string => {
+      try {
+        const parsed = new URL(url);
+        const pathName = decodeURIComponent(parsed.pathname.split("/").filter(Boolean).pop() || "").replace(/[-_]+/g, " ").replace(/\.pdf$/i, " PDF").trim();
+        return pathName ? `${parsed.hostname.replace(/^www\./, "")} - ${pathName}` : parsed.hostname.replace(/^www\./, "");
+      } catch {
+        return url;
+      }
+    };
+    const contextSourceLinks: { title: string; url: string; markdown: string; key: string; tokens: Set<string> }[] = [];
+    const seenContextSourceUrls = new Set<string>();
+    const addContextSourceLink = (title: string, url: string) => {
+      const cleanedUrl = url.replace(/[)\]\.,;]+$/, "").trim();
+      if (!/^https?:\/\//i.test(cleanedUrl) || seenContextSourceUrls.has(cleanedUrl)) return;
+      const cleanedTitle = title.replace(/\s+/g, " ").replace(/^[-*+\d.\s]+/, "").trim() || titleFromUrl(cleanedUrl);
+      seenContextSourceUrls.add(cleanedUrl);
+      contextSourceLinks.push({
+        title: cleanedTitle,
+        url: cleanedUrl,
+        markdown: `[${cleanedTitle}](${cleanedUrl})`,
+        key: normaliseSourceText(cleanedTitle),
+        tokens: tokeniseSourceText(`${cleanedTitle} ${cleanedUrl}`),
+      });
+    };
+    if (contextFiles && Array.isArray(contextFiles)) {
+      for (const file of contextFiles as { name: string; content: string }[]) {
+        const content = `${file.name}\n${file.content || ""}`;
+        for (const match of content.matchAll(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g)) {
+          addContextSourceLink(match[1], match[2]);
+        }
+        for (const match of content.matchAll(/https?:\/\/[^\s)\]>"']+/g)) {
+          addContextSourceLink(titleFromUrl(match[0]), match[0]);
+        }
+      }
+    }
+    const contextSourceCatalogue = contextSourceLinks.map((link, index) => `${index + 1}. ${link.markdown}`).join("\n");
+    const allowedContextSourceUrls = new Set(contextSourceLinks.map(link => link.url));
+
     // Fetch knowledge base rules if enabled
     let knowledgeRules: string[] = [];
     if (useKnowledgeBase) {
