@@ -5456,12 +5456,18 @@ CRITICAL EXPANSION RULES:
                           if (error) throw error;
                           const newSection = (data?.content || "").trim();
                           if (!newSection) throw new Error("Empty response");
+                          const warnings = Array.isArray(data?.contentIntegrityWarnings) ? data.contentIntegrityWarnings : [];
+                          setContentIntegrityWarnings(warnings);
 
                           const before = lines.slice(0, startIdx).join("\n").replace(/\s+$/, "");
                           const after = lines.slice(endIdx).join("\n").replace(/^\s+/, "");
                           const rebuilt = [before, newSection, after].filter(Boolean).join("\n\n");
                           setGeneratedContent(rebuilt);
-                          toast({ title: "Section regenerated", description: sectionTitle });
+                          if (warnings.length > 0) {
+                            toast({ title: "Regeneration integrity warning", description: warnings.join(" • "), variant: "destructive" });
+                          } else {
+                            toast({ title: "Section regenerated", description: sectionTitle });
+                          }
                         } catch (err) {
                           console.error("Regenerate section error:", err);
                           toast({
