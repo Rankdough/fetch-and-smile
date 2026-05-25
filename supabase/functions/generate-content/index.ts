@@ -535,11 +535,13 @@ The article MUST substantively cover EVERY one of the following ${claimsArray.le
 ${claimsArray.map((c: string, i: number) => `CLAIM ${i + 1}: ${c}`).join("\n")}
 
 ENFORCEMENT RULES:
-- If a claim mentions a specific comparison (e.g., "Albanian food vs British food"), include a dedicated section with a comparison table and detailed paragraphs on BOTH sides.
-- If a claim mentions specific populations or conditions (e.g., "gluten-free", "food sensitivities"), dedicate a full section to it with named conditions, practical advice, and examples.
-- If a claim mentions "context files" or specific data sources, explicitly reference and use that material.
-- Before finishing the article, mentally check each claim: is it addressed in a dedicated, substantive way? If not, add a section for it.
-- Do NOT sacrifice any claim for length — but stay within the word count target. Be concise and substantive rather than padding with filler.`;
+- Each claim MUST become either (a) its own H2 body section, or (b) an H3 subsection placed directly under the most relevant H2. The heading text MUST echo a 4-6 word verbatim fragment of the claim so the section is unmistakably about that claim.
+- Under that heading write at least 2-3 substantive paragraphs (or 1 paragraph + a comparison table + a bullet list) that directly deliver the promise. No passing mentions.
+- If a claim mentions a specific comparison (e.g., "Albanian food vs British food"), include a comparison table and detailed paragraphs on BOTH sides under that claim's section.
+- If a claim mentions specific populations or conditions (e.g., "gluten-free", "food sensitivities"), dedicate the section to it with named conditions, practical advice, and examples.
+- If a claim references "context files" or specific data sources, explicitly use that material in the claim's section.
+- Before finishing the article, run a self-check: for each numbered claim above, can you point to ONE heading whose text echoes that claim? If no, add it now. If a heading exists but the content is thin, expand it.
+- Stay within the word count target — be concise and substantive rather than padding with filler.`;
       }
 
       if (gapAnalysis) {

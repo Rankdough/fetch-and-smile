@@ -236,9 +236,24 @@ const getCoverageIntent = (keyword: string): string | null => {
 
   if (subjectTokens.length === 0) return null;
 
+  // Redundancy folding: when a more specific noun is present, drop the
+  // generic qualifier that is implied by it. e.g. "dental implant" ≡
+  // "implant" in dentistry context, so "dentist for implants" and
+  // "dentist for dental implants" collapse to the same subject.
+  const tokenSet = new Set(subjectTokens);
+  const REDUNDANT_WHEN_PRESENT: Record<string, string[]> = {
+    // if any of the values is present, drop the key
+    dental: ["implant", "crown", "veneer", "denture", "bridge"],
+  };
+  for (const [redundant, triggers] of Object.entries(REDUNDANT_WHEN_PRESENT)) {
+    if (tokenSet.has(redundant) && triggers.some(t => tokenSet.has(t))) {
+      tokenSet.delete(redundant);
+    }
+  }
+
   // Sort + dedupe so token order doesn't matter
   // ("tooth implants" == "implants tooth" once folded).
-  const subjectKey = Array.from(new Set(subjectTokens)).sort().join("-");
+  const subjectKey = Array.from(tokenSet).sort().join("-");
   if (!subjectKey) return null;
 
   return `${subjectKey}:${questionType}`;
