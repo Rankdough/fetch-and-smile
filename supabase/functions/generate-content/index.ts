@@ -1156,6 +1156,24 @@ Place these images throughout the article at logical locations, typically after 
       .replace(/\n{3,}/g, "\n\n")
       .trim();
 
+    const stripDisallowedArticleLinks = (markdown: string): { markdown: string; removedUrls: string[] } => {
+      const removed = new Set<string>();
+      const withoutMarkdownLinks = markdown.replace(/(!?)\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, (full, bang, label, rawUrl) => {
+        const url = String(rawUrl).replace(/[\].,;]+$/, "");
+        if (bang === "!") return full;
+        if (allowedContextSourceUrls.has(url)) return full;
+        removed.add(url);
+        return label;
+      });
+      const withoutBareUrls = withoutMarkdownLinks.replace(/(?<!["'(\[])https?:\/\/[^\s<>"')\]]+/g, (rawUrl) => {
+        const url = String(rawUrl).replace(/[),.;]+$/, "");
+        if (allowedContextSourceUrls.has(url)) return rawUrl;
+        removed.add(url);
+        return "";
+      });
+      return { markdown: withoutBareUrls.replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim(), removedUrls: [...removed] };
+    };
+
     const repairNonClickableSourceReferences = (markdown: string): { markdown: string; repairedSections: string[]; brokenSections: string[] } => {
       const linkRegex = /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g;
       const links: { title: string; url: string; markdown: string; key: string; tokens: Set<string> }[] = [];
