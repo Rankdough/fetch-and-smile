@@ -1235,7 +1235,27 @@ Place these images throughout the article at logical locations, typically after 
       const web = await searchWebSources(heading, body);
       const combined = [...contextWorking, ...web.filter((w) => !contextWorking.some((c) => c.url === w.url))].slice(0, 2);
       console.log(`SOURCE PICK [mixed]: "${heading.slice(0, 60)}" -> context=${contextWorking.length} web=${web.length}`);
-      return combined.length ? combined : web;
+
+      if (combined.length) return combined;
+
+      const broadWeb = await searchWebSources(topic || heading, "");
+      if (broadWeb.length) {
+        console.log(`SOURCE PICK [broad-web]: "${heading.slice(0, 60)}" -> ${broadWeb.map((c) => c.url).join(" | ")}`);
+        return broadWeb.slice(0, 1);
+      }
+
+      const fallbackContext: SourceCandidate[] = [];
+      for (const candidate of scored.map((s) => s.cand)) {
+        if (fallbackContext.some((c) => c.url === candidate.url)) continue;
+        if (await isWorkingSourceUrl(candidate.url)) fallbackContext.push(candidate);
+        if (fallbackContext.length >= 1) break;
+      }
+      if (fallbackContext.length) {
+        console.log(`SOURCE PICK [fallback-context]: "${heading.slice(0, 60)}" -> ${fallbackContext.map((c) => c.url).join(" | ")}`);
+        return fallbackContext;
+      }
+
+      return [];
     };
 
 
