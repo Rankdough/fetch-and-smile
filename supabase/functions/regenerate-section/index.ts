@@ -336,12 +336,36 @@ ${sectionMarkdown}`;
       return { content: repaired, warnings };
     };
 
+    const stripDisallowedSectionLinks = (section: string): { content: string; warnings: string[] } => {
+      const removed = new Set<string>();
+      const withoutMarkdownLinks = section.replace(/(!?)\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, (full, bang, label, rawUrl) => {
+        const url = String(rawUrl).replace(/[\].,;]+$/, "");
+        if (bang === "!") return full;
+        if (allowedContextSourceUrls.has(url)) return full;
+        removed.add(url);
+        return label;
+      });
+      const withoutBareUrls = withoutMarkdownLinks.replace(/(?<!["'(\[])https?:\/\/[^\s<>"')\]]+/g, (rawUrl) => {
+        const url = String(rawUrl).replace(/[),.;]+$/, "");
+        if (allowedContextSourceUrls.has(url)) return rawUrl;
+        removed.add(url);
+        return "";
+      });
+      return {
+        content: withoutBareUrls.replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim(),
+        warnings: [...removed].map((url) => `SOURCE GUARD: Removed non-context URL from regenerated section: ${url}`),
+      };
+    };
+
     content = ensureExactlyThreeBullets(content);
     const sourceRepair = repairNonClickableSources(content);
     content = sourceRepair.content;
+    const disallowedLinkRepair = stripDisallowedSectionLinks(content);
+    content = disallowedLinkRepair.content;
+    const rejectedSourceWarnings = rejectedContextSourceUrls.map((item) => `SOURCE GUARD: Removed broken or unreachable context source URL before regeneration: ${item.url} (${item.reason})`);
 
     return new Response(
-      JSON.stringify({ content, contentIntegrityWarnings: sourceRepair.warnings }),
+      JSON.stringify({ content, contentIntegrityWarnings: [...sourceRepair.warnings, ...disallowedLinkRepair.warnings, ...rejectedSourceWarnings] }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (e) {
