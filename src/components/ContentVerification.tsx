@@ -1,7 +1,8 @@
-import { CheckCircle2, XCircle, AlertCircle, Wand2 } from "lucide-react";
+import { CheckCircle2, XCircle, AlertCircle, Wand2, LinkIcon, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
+
 
 interface AppliedRules {
   gapAnalysisUsed: boolean;
