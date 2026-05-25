@@ -900,11 +900,21 @@ ${isPricingQuestion
         urls: linkUrls,
       });
 
-      // Final whitelist guard: unwrap any markdown link whose URL is NOT in linkUrls.
-      // Catches hallucinated links (e.g. bare homepage) introduced at any stage.
+      const referenceUrls = new Set<string>();
+      finalMarkdown.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+|\/[^\s)]+)\)/g, (_m, _anchor: string, url: string, offset: number) => {
+        const before = finalMarkdown.slice(0, offset);
+        const lastH2 = before.match(/^##\s+(.+)$/gm)?.pop() || "";
+        if (/references|sources/i.test(lastH2) || /\*\*Sources?:\*\*/i.test(before.slice(Math.max(0, before.lastIndexOf("\n", offset - 1))))) {
+          referenceUrls.add(url);
+        }
+        return _m;
+      });
+
+      // Final whitelist guard: unwrap markdown links not supplied as internal links or verified source/reference links.
+      // Catches hallucinated links without deleting required context-file citations.
       {
         const norm = (u: string) => u.trim().replace(/\/+$/, "").toLowerCase();
-        const allowed = new Set(linkUrls.map(norm));
+        const allowed = new Set([...linkUrls, ...referenceUrls].map(norm));
         finalMarkdown = finalMarkdown.replace(
           /\[([^\]]+)\]\((https?:\/\/[^\s)]+|\/[^\s)]+)\)/g,
           (_m, anchor: string, url: string) => (allowed.has(norm(url)) ? `[${anchor}](${url})` : anchor)
