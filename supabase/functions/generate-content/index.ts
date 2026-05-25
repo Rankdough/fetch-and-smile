@@ -1540,6 +1540,13 @@ Place these images throughout the article at logical locations, typically after 
         contentIntegrityWarnings.push(message);
       }
     }
+    const disallowedLinkResult = stripDisallowedArticleLinks(content);
+    content = disallowedLinkResult.markdown;
+    if (disallowedLinkResult.removedUrls.length > 0) {
+      const message = `SOURCE GUARD: Removed ${disallowedLinkResult.removedUrls.length} non-context URL(s) from generated content: ${disallowedLinkResult.removedUrls.join(" | ")}`;
+      console.warn(message);
+      contentIntegrityWarnings.push(message);
+    }
     if (rejectedContextSourceUrls.length > 0) {
       const message = `SOURCE GUARD: Removed ${rejectedContextSourceUrls.length} broken or unreachable context source URL(s): ${rejectedContextSourceUrls.map((item) => `${item.url} (${item.reason})`).join(" | ")}`;
       console.warn(message);
