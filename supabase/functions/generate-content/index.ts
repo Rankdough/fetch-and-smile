@@ -972,7 +972,25 @@ Place these images throughout the article at logical locations, typically after 
 
     const bodySectionSkipPattern = /tl;?\s?dr|quick\s*tips|in\s*this\s*article|frequently\s*asked|faq|final\s*thoughts|conclusion|references|sources/i;
 
-    type SourceCandidate = { title: string; url: string; origin: "context" | "web" | "existing" };
+    type SourceCandidate = { title: string; url: string; origin: "context" | "web" | "existing"; snippet?: string; fileName?: string };
+
+    // Junk URL patterns: navigation, legal, social, tracking, assets - NOT real citations.
+    const junkUrlPatterns = [
+      /\/(privacy|cookies?|terms|legal|gdpr|imprint|impressum|disclaimer|accessibility|sitemap|login|signin|signup|register|account|cart|checkout|unsubscribe|preferences|consent)(\/|$|\?|#)/i,
+      /\/(share|tweet|facebook|linkedin|whatsapp|pinterest|reddit|email[-_]?friend)(\/|$|\?|#)/i,
+      /(twitter\.com\/intent|facebook\.com\/sharer|linkedin\.com\/share|t\.co\/|bit\.ly\/|goo\.gl\/|lnkd\.in\/|fb\.me\/|youtu\.be\/share)/i,
+      /\.(png|jpe?g|gif|svg|webp|ico|css|js|woff2?|ttf|eot|pdf\?|mp4|mp3|zip|xml|rss)(\?|$)/i,
+      /\/(wp-content|wp-includes|assets|static|cdn|fonts|images?|img|media)\//i,
+      /(googletagmanager|google-analytics|doubleclick|hotjar|segment\.io|mixpanel|amplitude|facebook\.net|connect\.facebook)/i,
+      /^https?:\/\/(www\.)?(twitter|x|facebook|instagram|tiktok|youtube|pinterest|linkedin|reddit)\.com\/?$/i,
+    ];
+    const isJunkUrl = (url: string): boolean => {
+      try {
+        const u = new URL(url);
+        if (u.hostname.length < 4) return true;
+        return junkUrlPatterns.some((re) => re.test(url));
+      } catch { return true; }
+    };
 
     const placeholderHosts = ["example.com", "example.org", "example.net", "yourdomain.com", "your-domain.com", "placeholder.com"];
     const urlStatusCache = new Map<string, Promise<boolean>>();
