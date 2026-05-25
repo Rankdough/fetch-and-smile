@@ -696,14 +696,14 @@ export const ContentVerification = ({
       </div>
 
       <div className="space-y-2">
-        {verificationResults.map((item) => (
+        {allResults.map((item) => (
           <div
             key={item.id}
             className="flex items-start gap-2 text-sm"
           >
             {getStatusIcon(item.status)}
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <span className={cn(
                   "font-medium",
                   item.status === "passed" && "text-foreground",
@@ -723,11 +723,37 @@ export const ContentVerification = ({
                     {item.fixType === "em-dash" ? "Fix" : "Expand"}
                   </Button>
                 )}
+                {item.id === "broken-links" && contentUrls.length > 0 && linkCheck.status !== "checking" && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-6 px-2 text-xs"
+                    onClick={runLinkCheck}
+                  >
+                    <Link2 className="h-3 w-3 mr-1" />
+                    {linkCheck.status === "done" || linkCheck.status === "error" ? "Re-check" : "Check links"}
+                  </Button>
+                )}
+                {item.id === "broken-links" && linkCheck.status === "checking" && (
+                  <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                )}
               </div>
               {item.details && (
                 <p className="text-xs text-muted-foreground mt-0.5 truncate">
                   {item.details}
                 </p>
+              )}
+              {item.id === "broken-links" && linkCheck.status === "done" && linkCheck.broken.length > 0 && (
+                <ul className="mt-1.5 space-y-1">
+                  {linkCheck.broken.map((b) => (
+                    <li key={b.url} className="text-xs text-red-600 dark:text-red-400 break-all">
+                      <a href={b.url} target="_blank" rel="noopener noreferrer" className="underline">
+                        {b.url}
+                      </a>
+                      <span className="text-muted-foreground"> — {b.status || ""} {b.reason || (b.status >= 400 ? "HTTP error" : "")}</span>
+                    </li>
+                  ))}
+                </ul>
               )}
               {item.id === "atomic-sections" && item.failingSections && item.failingSections.length > 0 && onRegenerateSection && (
                 <div className="mt-2 flex flex-wrap gap-1.5">
@@ -754,6 +780,7 @@ export const ContentVerification = ({
           </div>
         ))}
       </div>
+
     </div>
   );
 };
