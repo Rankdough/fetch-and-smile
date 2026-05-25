@@ -188,8 +188,9 @@ serve(async (req) => {
             }
           }
           
-          const sourceCatalogue = extractDocxSourceCatalogue(documentXml, relationshipsXml);
-          textContent = [sourceCatalogue, paragraphs.join("\n\n")].filter(Boolean).join("\n\n");
+          const bodyText = paragraphs.join("\n\n");
+          const sourceCatalogue = extractDocxSourceCatalogue(documentXml, relationshipsXml, bodyText);
+          textContent = [sourceCatalogue, bodyText].filter(Boolean).join("\n\n");
           console.log("Extracted text and hyperlink catalogue from docx using fflate, length:", textContent.length);
         }
         
