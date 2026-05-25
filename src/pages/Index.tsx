@@ -1175,7 +1175,7 @@ const Index = () => {
 
         toast({
           title: "File uploaded",
-          description: `${file.name} added as context${data.truncated ? " (truncated to 10k chars)" : ""}`,
+          description: `${file.name} added as context${data.truncated ? " (truncated to 30k chars)" : ""}`,
         });
       }
     } catch (error) {
