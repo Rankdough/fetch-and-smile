@@ -111,9 +111,12 @@ serve(async (req) => {
         return { ok: true, status: 0, reason: e?.name === "AbortError" ? "timeout-trusted" : "fetch-failed-trusted" };
       }
     };
+    // OOXML / XML namespace declarations leak into raw .docx text but are never citable sources.
+    const NAMESPACE_HOST_RE = /^https?:\/\/(?:schemas\.openxmlformats\.org|schemas\.microsoft\.com|purl\.oclc\.org|www\.w3\.org|schemas\.xmlsoap\.org)\b/i;
     const addContextSourceLink = (title: string, url: string) => {
       const cleanedUrl = url.replace(/[)\]\.,;]+$/, "").trim();
       if (!/^https?:\/\//i.test(cleanedUrl) || seenContextSourceUrls.has(cleanedUrl)) return;
+      if (NAMESPACE_HOST_RE.test(cleanedUrl)) return;
       const cleanedTitle = title.replace(/\s+/g, " ").replace(/^[-*+\d.\s]+/, "").trim() || titleFromUrl(cleanedUrl);
       seenContextSourceUrls.add(cleanedUrl);
       contextSourceLinks.push({
