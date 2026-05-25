@@ -1138,7 +1138,7 @@ Place these images throughout the article at logical locations, typically after 
           const resp = await fetch("https://api.firecrawl.dev/v2/search", {
             method: "POST",
             headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-            body: JSON.stringify({ query, limit: 10 }),
+            body: JSON.stringify({ query, limit: 15 }),
           });
           if (!resp.ok) {
             console.warn(`Firecrawl source search failed: ${resp.status}`);
@@ -1147,41 +1147,83 @@ Place these images throughout the article at logical locations, typically after 
           const data = await resp.json();
           const results: any[] = data?.data?.web || (Array.isArray(data?.data) ? data.data : null) || data?.web || [];
 
-          // Low-authority host patterns: user-generated, social, Q&A, content farms, personal blog hosts.
-          // Pinned: rejected unless nothing higher-quality is available.
+          // ─── Tier 1: HIGH-AUTHORITY ALLOWLIST ───────────────────────────────
+          // Only these domains (or matching patterns) are accepted as references.
+          // Anything outside this list is treated as commercial/unknown and rejected
+          // unless absolutely no Tier-1 match is available.
+          const highAuthorityHostPatterns = [
+            // Governments & regulators (any country)
+            /(^|\.)gov(\.[a-z]{2,3})?$/i, /(^|\.)gouv\.fr$/i, /(^|\.)gov\.uk$/i, /(^|\.)gc\.ca$/i, /(^|\.)gov\.au$/i,
+            /(^|\.)europa\.eu$/i, /(^|\.)un\.org$/i, /(^|\.)who\.int$/i, /(^|\.)oecd\.org$/i,
+            // Health & medical authorities
+            /(^|\.)nhs\.uk$/i, /(^|\.)nice\.org\.uk$/i, /(^|\.)mhra\.gov\.uk$/i,
+            /(^|\.)cdc\.gov$/i, /(^|\.)fda\.gov$/i, /(^|\.)nih\.gov$/i, /(^|\.)nlm\.nih\.gov$/i, /(^|\.)ncbi\.nlm\.nih\.gov$/i,
+            /(^|\.)medlineplus\.gov$/i, /(^|\.)cancer\.gov$/i, /(^|\.)hhs\.gov$/i,
+            /(^|\.)ema\.europa\.eu$/i, /(^|\.)ecdc\.europa\.eu$/i,
+            /(^|\.)mayoclinic\.org$/i, /(^|\.)clevelandclinic\.org$/i, /(^|\.)hopkinsmedicine\.org$/i,
+            /(^|\.)mountsinai\.org$/i, /(^|\.)massgeneral\.org$/i, /(^|\.)kp\.org$/i,
+            /(^|\.)bupa\.co\.uk$/i, /(^|\.)bupa\.com$/i, /(^|\.)healthdirect\.gov\.au$/i,
+            /(^|\.)healthline\.com$/i, /(^|\.)webmd\.com$/i, /(^|\.)medicalnewstoday\.com$/i,
+            /(^|\.)bmj\.com$/i, /(^|\.)thelancet\.com$/i, /(^|\.)nejm\.org$/i, /(^|\.)jamanetwork\.com$/i,
+            /(^|\.)cochrane\.org$/i, /(^|\.)cochranelibrary\.com$/i,
+            // Dental professional bodies
+            /(^|\.)ada\.org$/i, /(^|\.)bda\.org$/i, /(^|\.)rcseng\.ac\.uk$/i, /(^|\.)gdc-uk\.org$/i,
+            /(^|\.)fdiworlddental\.org$/i, /(^|\.)bsperio\.org\.uk$/i,
+            // Academia / research / journals
+            /\.edu$/i, /\.ac\.[a-z]{2,3}$/i,
+            /(^|\.)nature\.com$/i, /(^|\.)science\.org$/i, /(^|\.)sciencedirect\.com$/i,
+            /(^|\.)springer\.com$/i, /(^|\.)wiley\.com$/i, /(^|\.)tandfonline\.com$/i,
+            /(^|\.)sagepub\.com$/i, /(^|\.)oup\.com$/i, /(^|\.)cambridge\.org$/i,
+            /(^|\.)plos\.org$/i, /(^|\.)frontiersin\.org$/i, /(^|\.)mdpi\.com$/i,
+            /(^|\.)arxiv\.org$/i, /(^|\.)ssrn\.com$/i, /(^|\.)jstor\.org$/i,
+            // Reference works
+            /(^|\.)wikipedia\.org$/i, /(^|\.)britannica\.com$/i,
+            // Standards bodies
+            /(^|\.)iso\.org$/i, /(^|\.)iec\.ch$/i, /(^|\.)ieee\.org$/i, /(^|\.)ietf\.org$/i, /(^|\.)w3\.org$/i,
+            /(^|\.)bsigroup\.com$/i, /(^|\.)cenelec\.eu$/i, /(^|\.)astm\.org$/i, /(^|\.)nist\.gov$/i,
+            // Major news / authoritative reporting
+            /(^|\.)reuters\.com$/i, /(^|\.)apnews\.com$/i, /(^|\.)bbc\.co\.uk$/i, /(^|\.)bbc\.com$/i,
+            /(^|\.)nytimes\.com$/i, /(^|\.)washingtonpost\.com$/i, /(^|\.)wsj\.com$/i, /(^|\.)ft\.com$/i,
+            /(^|\.)economist\.com$/i, /(^|\.)theguardian\.com$/i, /(^|\.)npr\.org$/i,
+            // Consumer reports & watchdogs
+            /(^|\.)consumerreports\.org$/i, /(^|\.)which\.co\.uk$/i, /(^|\.)citizensadvice\.org\.uk$/i,
+          ];
+          const isHighAuthority = (url: string): boolean => {
+            try { return highAuthorityHostPatterns.some((re) => re.test(new URL(url).hostname)); }
+            catch { return false; }
+          };
+
+          // ─── Tier 3: LOW-AUTHORITY BLOCKLIST (UGC, social, content farms) ───
           const lowAuthorityHostPatterns = [
-            /(^|\.)reddit\.com$/i,
-            /(^|\.)quora\.com$/i,
-            /(^|\.)pinterest\.[a-z.]+$/i,
-            /(^|\.)medium\.com$/i,
-            /(^|\.)substack\.com$/i,
-            /(^|\.)tumblr\.com$/i,
-            /(^|\.)blogspot\.com$/i,
-            /(^|\.)wordpress\.com$/i,
-            /(^|\.)wixsite\.com$/i,
-            /(^|\.)weebly\.com$/i,
-            /(^|\.)squarespace\.com$/i,
-            /(^|\.)yahoo\.com\/answers/i,
-            /(^|\.)answers\.com$/i,
-            /(^|\.)ehow\.com$/i,
-            /(^|\.)wikihow\.com$/i,
-            /(^|\.)tripadvisor\.[a-z.]+$/i,
-            /(^|\.)yelp\.com$/i,
-            /(^|\.)stackexchange\.com$/i,
-            /(^|\.)stackoverflow\.com$/i,
-            /(^|\.)facebook\.com$/i,
-            /(^|\.)instagram\.com$/i,
-            /(^|\.)tiktok\.com$/i,
-            /(^|\.)x\.com$/i,
-            /(^|\.)twitter\.com$/i,
+            /(^|\.)reddit\.com$/i, /(^|\.)quora\.com$/i, /(^|\.)pinterest\.[a-z.]+$/i,
+            /(^|\.)medium\.com$/i, /(^|\.)substack\.com$/i, /(^|\.)tumblr\.com$/i,
+            /(^|\.)blogspot\.com$/i, /(^|\.)wordpress\.com$/i, /(^|\.)wixsite\.com$/i,
+            /(^|\.)weebly\.com$/i, /(^|\.)squarespace\.com$/i, /(^|\.)yahoo\.com\/answers/i,
+            /(^|\.)answers\.com$/i, /(^|\.)ehow\.com$/i, /(^|\.)wikihow\.com$/i,
+            /(^|\.)tripadvisor\.[a-z.]+$/i, /(^|\.)yelp\.com$/i,
+            /(^|\.)stackexchange\.com$/i, /(^|\.)stackoverflow\.com$/i,
+            /(^|\.)facebook\.com$/i, /(^|\.)instagram\.com$/i, /(^|\.)tiktok\.com$/i,
+            /(^|\.)x\.com$/i, /(^|\.)twitter\.com$/i,
+            // Pharmacy/coupon/lead-gen content farms commonly returned by search
+            /(^|\.)buzzrx\.com$/i, /(^|\.)goodrx\.com\/blog/i, /(^|\.)singlecare\.com$/i,
           ];
           const isLowAuthority = (url: string): boolean => {
             try { return lowAuthorityHostPatterns.some((re) => re.test(new URL(url).hostname)); }
             catch { return true; }
           };
 
-          // Bucket by rank: prefer Firecrawl's top 3 (search-position authority signal).
-          type Ranked = { url: string; title: string; rank: number; lowAuth: boolean };
+          // Commercial/lead-gen heuristic for unknown hosts: hostnames containing
+          // marketing keywords are almost always promotional, not authoritative.
+          const commercialHostHints = /(tourism|clinic|clinics|dental|dentist|dentists|implants?|veneers?|cosmetic|smile|aesthetic|whitening|orthodont|invisalign|loans?|insurance|reviews?|best|top10|topten|cheap|deals?|coupon|discount|directory|finder|near[-_]?me|seo)/i;
+          const looksCommercial = (url: string): boolean => {
+            try {
+              const host = new URL(url).hostname.replace(/^www\./, "");
+              return commercialHostHints.test(host);
+            } catch { return true; }
+          };
+
+          // Bucket by tier + rank.
+          type Ranked = { url: string; title: string; rank: number; tier: 1 | 2 | 3 };
           const ranked: Ranked[] = [];
           const seen = new Set<string>();
           for (let i = 0; i < results.length; i++) {
@@ -1191,15 +1233,20 @@ Place these images throughout the article at logical locations, typically after 
             seen.add(url);
             if (isJunkUrl(url)) continue;
             const title = String(result?.title || sourceTitleFromUrl(url)).trim();
-            ranked.push({ url, title, rank: i, lowAuth: isLowAuthority(url) });
+            let tier: 1 | 2 | 3;
+            if (isHighAuthority(url)) tier = 1;
+            else if (isLowAuthority(url) || looksCommercial(url)) tier = 3;
+            else tier = 2;
+            ranked.push({ url, title, rank: i, tier });
           }
 
-          // Pass 1: top-3 high-authority. Pass 2: any high-authority. Pass 3: top-3 low-authority. Pass 4: any low-authority.
+          // Strict ordering: ONLY Tier-1 by default. Tier-2 only if zero Tier-1.
+          // Tier-3 is never used here — better to return nothing than cite a
+          // dental-tourism / lead-gen / Reddit URL.
           const passes: Ranked[][] = [
-            ranked.filter((r) => r.rank < 3 && !r.lowAuth),
-            ranked.filter((r) => r.rank >= 3 && !r.lowAuth),
-            ranked.filter((r) => r.rank < 3 && r.lowAuth),
-            ranked.filter((r) => r.rank >= 3 && r.lowAuth),
+            ranked.filter((r) => r.tier === 1 && r.rank < 5),
+            ranked.filter((r) => r.tier === 1 && r.rank >= 5),
+            ranked.filter((r) => r.tier === 2 && r.rank < 5),
           ];
           const candidates: SourceCandidate[] = [];
           const picked = new Set<string>();
@@ -1215,11 +1262,16 @@ Place these images throughout the article at logical locations, typically after 
             if (candidates.length >= 2) break;
           }
           if (candidates.length) {
-            console.log(`SOURCE WEB: query="${query.slice(0, 80)}" -> ${candidates.map((c) => `${c.url}${ranked.find((r) => r.url === c.url)?.lowAuth ? " [low-auth]" : ""}`).join(" | ")}`);
+            const tierTag = (u: string) => {
+              const t = ranked.find((r) => r.url === u)?.tier;
+              return t === 1 ? "[T1]" : t === 2 ? "[T2-commercial]" : "[T3-low]";
+            };
+            console.log(`SOURCE WEB: query="${query.slice(0, 80)}" -> ${candidates.map((c) => `${tierTag(c.url)} ${c.url}`).join(" | ")}`);
           } else {
-            console.warn(`SOURCE WEB: no working source for query="${query.slice(0, 80)}"`);
+            console.warn(`SOURCE WEB: no Tier-1/Tier-2 authority for query="${query.slice(0, 80)}" (${ranked.length} candidates rejected)`);
           }
           return candidates;
+
         } catch (error) {
           console.error("Firecrawl source search error", error);
           return [];
