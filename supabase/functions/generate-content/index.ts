@@ -1021,11 +1021,10 @@ Place these images throughout the article at logical locations, typically after 
         console.warn(`TABLE GUARD: Found ${existingTables}/${requiredTables} tables. Injecting ${tablesNeeded} fallback table(s).`);
         const fallbackTable = (idx: number) => `\n\n| Aspect | Option A | Option B | Option C |\n| --- | --- | --- | --- |\n| Best for | Beginners | Intermediate users | Advanced needs |\n| Typical cost | Low | Moderate | Higher |\n| Time to results | Fast | Balanced | Long-term |\n| Key trade-off | Simplicity | Flexibility | Depth |\n`;
         // Find body H2 sections (skip TL;DR, Quick Tips, In This Article, FAQ, Final Thoughts, References)
-        const skipPattern = /tl;?\s?dr|quick\s*tips|in\s*this\s*article|frequently\s*asked|faq|final\s*thoughts|conclusion|references|sources/i;
         const lines = content.split("\n");
         const h2Indices: number[] = [];
         for (let i = 0; i < lines.length; i++) {
-          if (/^##\s+/.test(lines[i]) && !skipPattern.test(lines[i])) {
+          if (/^##\s+/.test(lines[i]) && !bodySectionSkipPattern.test(lines[i])) {
             h2Indices.push(i);
           }
         }
@@ -1082,27 +1081,32 @@ Place these images throughout the article at logical locations, typically after 
         console.log(`ATOMIC GUARD: Stripped ${strippedCount} banned dependency phrase(s)`);
       }
 
-      // Log H2 sections missing any bullet/numbered list/table (no auto-injection)
-      const atomicSkip = /tl;?\s?dr|quick\s*tips|in\s*this\s*article|frequently\s*asked|faq|final\s*thoughts|conclusion|references|sources/i;
+      const bulletResult = enforceThreeBulletsPerBodySection(content);
+      content = bulletResult.markdown;
+      if (bulletResult.changedSections.length > 0) {
+        console.warn(`ATOMIC GUARD: Enforced exactly 3 bullets in ${bulletResult.changedSections.length} body section(s): ${bulletResult.changedSections.join(" | ")}`);
+      }
+
+      // Verify H2 sections have exactly three markdown bullets after deterministic enforcement
       const atomicLines = content.split("\n");
-      const sectionsMissingLists: string[] = [];
+      const sectionsWithWrongBulletCount: string[] = [];
       for (let i = 0; i < atomicLines.length; i++) {
-        if (/^##\s+/.test(atomicLines[i]) && !atomicSkip.test(atomicLines[i])) {
+        if (/^##\s+/.test(atomicLines[i]) && !bodySectionSkipPattern.test(atomicLines[i])) {
           let endIdx = atomicLines.length;
           for (let j = i + 1; j < atomicLines.length; j++) {
             if (/^##\s+/.test(atomicLines[j])) { endIdx = j; break; }
           }
           const body = atomicLines.slice(i + 1, endIdx).join("\n");
-          const hasList = /^\s*([-*+]|\d+\.)\s+/m.test(body) || /\n\|[^\n]+\|/.test(body);
-          if (!hasList) {
-            sectionsMissingLists.push(atomicLines[i].replace(/^##\s+/, "").slice(0, 60));
+          const bulletCount = body.split("\n").filter(line => /^\s*-\s+/.test(line)).length;
+          if (bulletCount !== 3) {
+            sectionsWithWrongBulletCount.push(`${atomicLines[i].replace(/^##\s+/, "").slice(0, 60)} (${bulletCount})`);
           }
         }
       }
-      if (sectionsMissingLists.length > 0) {
-        console.warn(`ATOMIC GUARD: ${sectionsMissingLists.length} body section(s) missing bullets/lists: ${sectionsMissingLists.join(" | ")}`);
+      if (sectionsWithWrongBulletCount.length > 0) {
+        console.warn(`ATOMIC GUARD: ${sectionsWithWrongBulletCount.length} body section(s) still have wrong bullet count: ${sectionsWithWrongBulletCount.join(" | ")}`);
       } else {
-        console.log(`ATOMIC GUARD: All body sections contain bullets/lists ✓`);
+        console.log(`ATOMIC GUARD: All body sections contain exactly 3 bullets ✓`);
       }
     }
 
