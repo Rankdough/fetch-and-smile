@@ -1385,7 +1385,7 @@ Place these images throughout the article at logical locations, typically after 
         while ((m = linkRe.exec(md)) !== null) {
           const title = m[1].trim();
           const url = m[2].replace(/[)\]\.,;]+$/, "");
-          if (!title || seen.has(url)) continue;
+          if (!title || seen.has(url) || (contextSourceLinks.length > 0 && !allowedContextSourceUrls.has(url))) continue;
           seen.add(url);
           items.push(`- [${title}](${url})`);
         }
