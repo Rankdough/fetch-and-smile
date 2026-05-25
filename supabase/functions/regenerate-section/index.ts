@@ -6,6 +6,96 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+const placeholderHosts = ["example.com", "example.org", "example.net", "yourdomain.com", "your-domain.com", "placeholder.com"];
+
+const cleanUrl = (rawUrl: string): string => rawUrl.replace(/[)\]\.,;]+$/, "").trim();
+
+const titleFromUrl = (url: string): string => {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return "Source";
+  }
+};
+
+async function isWorkingUrl(rawUrl: string): Promise<boolean> {
+  const url = cleanUrl(rawUrl);
+  let parsed: URL;
+  try { parsed = new URL(url); } catch { return false; }
+  if (!/^https?:$/.test(parsed.protocol)) return false;
+  if (placeholderHosts.some((host) => parsed.hostname.toLowerCase().endsWith(host))) return false;
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 7000);
+  try {
+    let resp = await fetch(url, {
+      method: "HEAD",
+      redirect: "follow",
+      signal: ctrl.signal,
+      headers: { "User-Agent": "Mozilla/5.0 (SourceVerifier)" },
+    }).catch(() => null);
+    if (!resp || resp.status === 405 || resp.status === 403 || resp.status === 0 || resp.status >= 500) {
+      resp = await fetch(url, {
+        method: "GET",
+        redirect: "follow",
+        signal: ctrl.signal,
+        headers: { "User-Agent": "Mozilla/5.0 (SourceVerifier)" },
+      });
+    }
+    return resp.ok;
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function findWorkingSource(sectionTitle: string, sectionBody: string): Promise<{ title: string; url: string } | null> {
+  const existingLinks = [...sectionBody.matchAll(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g)]
+    .filter((match) => match.index === undefined || sectionBody[match.index - 1] !== "!")
+    .map((match) => ({ title: match[1].trim().replace(/[*_`]/g, "") || titleFromUrl(match[2]), url: cleanUrl(match[2]) }));
+  for (const link of existingLinks) {
+    if (await isWorkingUrl(link.url)) return link;
+  }
+
+  const apiKey = Deno.env.get("FIRECRAWL_API_KEY");
+  if (!apiKey) return null;
+  const query = `${sectionTitle} ${sectionBody.replace(/\[[^\]]+\]\([^)]+\)/g, "").replace(/[#*_`|>\n]/g, " ").slice(0, 180)}`.replace(/\s+/g, " ").trim().slice(0, 260);
+  try {
+    const resp = await fetch("https://api.firecrawl.dev/v2/search", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ query, limit: 6 }),
+    });
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    const results: any[] = data?.data?.web || (Array.isArray(data?.data) ? data.data : null) || data?.web || [];
+    for (const result of results) {
+      const url = cleanUrl(result?.url || result?.link || "");
+      if (!url) continue;
+      if (await isWorkingUrl(url)) return { title: String(result?.title || titleFromUrl(url)).trim(), url };
+    }
+  } catch (error) {
+    console.error("source search error", error);
+  }
+  return null;
+}
+
+async function ensureSourceLine(section: string, sectionTitle: string): Promise<string> {
+  const lines = section.split("\n");
+  const heading = lines[0] || `## ${sectionTitle}`;
+  const body = lines.slice(1)
+    .filter((line) => !/^\s*\*\*Sources?:\*\*/i.test(line) && !/^\s*Sources?:\s*/i.test(line))
+    .join("\n")
+    .trim();
+  const source = await findWorkingSource(sectionTitle, `${sectionMarkdownSafe(section)}\n${body}`);
+  const sourceLine = source ? `**Sources:** [${source.title}](${source.url})` : "";
+  return [heading, body, sourceLine].filter(Boolean).join("\n\n").trim();
+}
+
+function sectionMarkdownSafe(section: string): string {
+  return section.replace(/^##\s+.+$/m, "").slice(0, 1200);
+}
+
 interface ToneProfile {
   summary: string | null;
   characteristics: Record<string, string>;
