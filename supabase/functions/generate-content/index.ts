@@ -1150,6 +1150,12 @@ Place these images throughout the article at logical locations, typically after 
       return { markdown: [intro, ...rebuiltSections].filter(Boolean).join("\n\n").trim(), changedSections };
     };
 
+    const removeDisallowedSourceSections = (markdown: string): string => markdown
+      .replace(/^\s*\*?\*?Sources?:\*?\*?.*$/gim, "")
+      .replace(/^#{1,3}\s+References:?\s*[\s\S]*?(?=^#{1,3}\s+|\s*$)/gim, "")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim();
+
     const repairNonClickableSourceReferences = (markdown: string): { markdown: string; repairedSections: string[]; brokenSections: string[] } => {
       const linkRegex = /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g;
       const links: { title: string; url: string; markdown: string; key: string; tokens: Set<string> }[] = [];
@@ -1171,8 +1177,8 @@ Place these images throughout the article at logical locations, typically after 
         links.push({ title, url, markdown: `[${title}](${url})`, key: normalise(title), tokens: tokenise(`${title} ${url}`) });
       }
 
-      const candidateLinks = contextSourceLinks.length > 0 ? contextSourceLinks : links;
-      const linkIsAllowed = (url: string) => contextSourceLinks.length === 0 || allowedContextSourceUrls.has(url.replace(/[\].,;]+$/, ""));
+      const candidateLinks = contextSourceLinks;
+      const linkIsAllowed = (url: string) => allowedContextSourceUrls.has(url.replace(/[\].,;]+$/, ""));
       const allowedMarkdownLinksFromLine = (line: string): string[] => {
         const allowed: string[] = [];
         const seenLineUrls = new Set<string>();
