@@ -208,6 +208,11 @@ ${sectionMarkdown}`;
           return `**Sources:** ${(matched || existingLinks[0]).markdown}`;
         }
 
+        const cleanLabel = sourceText.replace(/[|,;:]+$/g, "").trim();
+        if (cleanLabel) {
+          const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(cleanLabel)}`;
+          return `**Sources:** [${cleanLabel}](${searchUrl})`;
+        }
         warnings.push(`SOURCE GUARD: Could not repair non-clickable source reference in section: ${sectionTitle}`);
         return line;
       }).join("\n").trim();
