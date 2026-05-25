@@ -76,6 +76,32 @@ serve(async (req) => {
     };
     const contextSourceLinks: { title: string; url: string; markdown: string; key: string; tokens: Set<string> }[] = [];
     const seenContextSourceUrls = new Set<string>();
+    const rejectedContextSourceUrls: { url: string; reason: string }[] = [];
+    const checkSourceUrl = async (rawUrl: string): Promise<{ ok: boolean; status: number; reason?: string }> => {
+      const url = rawUrl.trim();
+      try {
+        const parsed = new URL(url);
+        if (!/^https?:$/.test(parsed.protocol)) return { ok: false, status: 0, reason: "non-http" };
+        if (["example.com", "example.org", "example.net", "yourdomain.com", "your-domain.com", "placeholder.com"].some((host) => parsed.hostname.toLowerCase().endsWith(host))) {
+          return { ok: false, status: 0, reason: "placeholder host" };
+        }
+      } catch {
+        return { ok: false, status: 0, reason: "invalid URL" };
+      }
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 8000);
+      try {
+        let resp = await fetch(url, { method: "HEAD", redirect: "follow", signal: ctrl.signal, headers: { "User-Agent": "Mozilla/5.0 (LinkChecker)" } }).catch(() => null);
+        if (!resp || resp.status === 405 || resp.status === 403 || resp.status === 0) {
+          resp = await fetch(url, { method: "GET", redirect: "follow", signal: ctrl.signal, headers: { "User-Agent": "Mozilla/5.0 (LinkChecker)" } });
+        }
+        clearTimeout(timer);
+        return { ok: resp.ok, status: resp.status, reason: resp.ok ? undefined : "HTTP error" };
+      } catch (e: any) {
+        clearTimeout(timer);
+        return { ok: false, status: 0, reason: e?.name === "AbortError" ? "timeout" : "fetch failed" };
+      }
+    };
     const addContextSourceLink = (title: string, url: string) => {
       const cleanedUrl = url.replace(/[)\]\.,;]+$/, "").trim();
       if (!/^https?:\/\//i.test(cleanedUrl) || seenContextSourceUrls.has(cleanedUrl)) return;
@@ -99,6 +125,18 @@ serve(async (req) => {
           addContextSourceLink(titleFromUrl(match[0]), match[0]);
         }
       }
+    }
+    if (contextSourceLinks.length > 0) {
+      const checkedLinks: typeof contextSourceLinks = [];
+      for (let i = 0; i < contextSourceLinks.length; i += 25) {
+        const batch = contextSourceLinks.slice(i, i + 25);
+        const results = await Promise.all(batch.map(async (link) => ({ link, result: await checkSourceUrl(link.url) })));
+        for (const { link, result } of results) {
+          if (result.ok) checkedLinks.push(link);
+          else rejectedContextSourceUrls.push({ url: link.url, reason: result.status ? `${result.status} ${result.reason || "HTTP error"}` : result.reason || "unreachable" });
+        }
+      }
+      contextSourceLinks.splice(0, contextSourceLinks.length, ...checkedLinks);
     }
     const contextSourceCatalogue = contextSourceLinks.map((link, index) => `${index + 1}. ${link.markdown}`).join("\n");
     const allowedContextSourceUrls = new Set(contextSourceLinks.map(link => link.url));
@@ -169,7 +207,7 @@ serve(async (req) => {
         { name: "How to Choose", words: Math.round(targetWords * 0.08), included: true },
         { name: "FAQ", words: skipFaqs ? 0 : Math.round(targetWords * 0.12), included: !skipFaqs },
         { name: "Final Thoughts", words: Math.round(targetWords * 0.05), included: true },
-        { name: "References", words: skipSources ? 0 : 30, included: !skipSources },
+        { name: "References", words: skipSources || contextSourceLinks.length === 0 ? 0 : 30, included: !skipSources && contextSourceLinks.length > 0 },
       ];
       const fixedTotal = fixedSections.filter(s => s.included).reduce((sum, s) => sum + s.words, 0);
       const remainingWords = targetWords - fixedTotal;
@@ -214,7 +252,7 @@ Most people complete the process in 2-4 weeks.
    - Blank line between Q&A pairs
    - Do NOT use ### headings, > blockquotes, or "Q:" / "A:" prefixes
    - Questions must be SPECIFIC to the article topic (not generic placeholders)`;
-    const referencesSection = skipSources ? '' : "9. \"## References:\" (~" + referencesWords + " words) — list ALL sources as markdown links";
+    const referencesSection = skipSources || contextSourceLinks.length === 0 ? '' : "9. \"## References:\" (~" + referencesWords + " words) — list ALL sources as markdown links";
     
     // Build the prompt
     let systemPrompt = `You are an expert SEO content writer. Write high-quality, engaging blog posts optimized for search engines while remaining valuable and readable.
@@ -270,7 +308,7 @@ ${formatReference ? `FORMAT REFERENCE MODE: A format reference has been provided
   1. Clear text paragraphs (elaboration after the answer)
   2. EXACTLY THREE markdown bullet points using "- " (no more, no fewer; numbered lists do not count)
   3. A comparison table where relevant (at least ${requiredTables} tables total across the article)
-  4. Source references at the end of the section
+  ${skipSources || contextSourceLinks.length === 0 ? '' : '4. Source references at the end of the section'}
 
 ${migrationMode ? `TABLE RULE:
 - Use markdown tables where the source content contains list-style comparisons or product listings
@@ -550,10 +588,10 @@ ${instructions}`;
       userPrompt = `Write a blog post about: ${topic}
 
 MUST FOLLOW (in priority order):
-1. STRUCTURE — Follow the AEO layout exactly: H1 → AI-quotable opening paragraph (30-50 words) → ## TL;DR (1 dense paragraph, no list) → ## Quick Tips (3 tips, max 15 words each) → ## In This Article (nav list) → question-based H2 sections (each H2 phrased as a question, immediately followed by a ~30-word direct answer paragraph, then EXACTLY THREE markdown bullet points using "- ", then a comparison table where relevant${skipSources ? '' : ', then a **Sources:** line'}) → ## How to Choose (4-6 criteria as a bullet checklist) → ## Frequently Asked Questions → ## Final Thoughts${skipSources ? '' : ' → ## References (markdown bullet list of all sources)'}.
+1. STRUCTURE — Follow the AEO layout exactly: H1 → AI-quotable opening paragraph (30-50 words) → ## TL;DR (1 dense paragraph, no list) → ## Quick Tips (3 tips, max 15 words each) → ## In This Article (nav list) → question-based H2 sections (each H2 phrased as a question, immediately followed by a ~30-word direct answer paragraph, then EXACTLY THREE markdown bullet points using "- ", then a comparison table where relevant${skipSources || contextSourceLinks.length === 0 ? '' : ', then a **Sources:** line'}) → ## How to Choose (4-6 criteria as a bullet checklist) → ## Frequently Asked Questions → ## Final Thoughts${skipSources || contextSourceLinks.length === 0 ? '' : ' → ## References (markdown bullet list of all sources)'}.
 2. WORD COUNT — Final article between ${wordFloor} and ${wordCeiling} words (target ${targetWords}). Count as you write.
 3. TABLES — Include exactly ${requiredTables} markdown comparison table${requiredTables > 1 ? 's' : ''} (1 per 600 words), each ≥3 columns and ≥4 data rows, spread evenly across body H2 sections. Markdown pipe syntax only.${skipSources ? '' : `
-4. SOURCES — ${contextSourceLinks.length > 0 ? `Use ONLY URLs from the provided context source catalogue for "**Sources:**" lines and ## References. Never invent or remember outside URLs. If no catalogue URL supports a section, omit that section's source line.` : `Every body H2 ends with a "**Sources:**" line listing 1-2 real markdown links to authoritative sites (NHS, gov, CDC, Wikipedia, official brand sites, reputable news). The final ## References section lists all sources as a markdown bullet list. Real working URLs only — no placeholders, no inline [1][2] citations.`}`}
+4. SOURCES — ${contextSourceLinks.length > 0 ? `Use ONLY URLs from the provided context source catalogue for "**Sources:**" lines and ## References. Never invent or remember outside URLs. If no catalogue URL supports a section, omit that section's source line.` : `No verified context source URLs are available. Do NOT add "**Sources:**" lines. Do NOT add a ## References section. Do not cite outside URLs, remembered URLs, authority URLs, Google URLs, PDFs, or placeholders.`}`}
 5. FORMATTING — Every body H2 section must contain EXACTLY THREE markdown bullet points using "- ". Do not use numbered lists as the required bullets. Use **bold** for key terms. British English. No em/en dashes. No horizontal rules.
 6. ATOMIC SECTION CONTRACT (NON-NEGOTIABLE) — Every body H2 and H3 must be a standalone answer block that works alone if extracted by Google AI Overviews, ChatGPT, Gemini or Perplexity. For EACH body H2/H3 you MUST:
    (a) Open with ONE direct sentence that fully answers the heading question on its own (no preamble, no "Dental implants are popular…" style intros).
@@ -1112,10 +1150,31 @@ Place these images throughout the article at logical locations, typically after 
       return { markdown: [intro, ...rebuiltSections].filter(Boolean).join("\n\n").trim(), changedSections };
     };
 
+    const removeDisallowedSourceSections = (markdown: string): string => markdown
+      .replace(/^\s*\*?\*?Sources?:\*?\*?.*$/gim, "")
+      .replace(/^#{1,3}\s+References:?\s*[\s\S]*?(?=^#{1,3}\s+|\s*$)/gim, "")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim();
+
+    const stripDisallowedArticleLinks = (markdown: string): { markdown: string; removedUrls: string[] } => {
+      const removed = new Set<string>();
+      const withoutMarkdownLinks = markdown.replace(/(!?)\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, (full, bang, label, rawUrl) => {
+        const url = String(rawUrl).replace(/[\].,;]+$/, "");
+        if (bang === "!") return full;
+        if (allowedContextSourceUrls.has(url)) return full;
+        removed.add(url);
+        return label;
+      });
+      const withoutBareUrls = withoutMarkdownLinks.replace(/(?<!["'(\[])https?:\/\/[^\s<>"')\]]+/g, (rawUrl) => {
+        const url = String(rawUrl).replace(/[),.;]+$/, "");
+        if (allowedContextSourceUrls.has(url)) return rawUrl;
+        removed.add(url);
+        return "";
+      });
+      return { markdown: withoutBareUrls.replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim(), removedUrls: [...removed] };
+    };
+
     const repairNonClickableSourceReferences = (markdown: string): { markdown: string; repairedSections: string[]; brokenSections: string[] } => {
-      const linkRegex = /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g;
-      const links: { title: string; url: string; markdown: string; key: string; tokens: Set<string> }[] = [];
-      const seenUrls = new Set<string>();
       const normalise = (value: string) => value
         .toLowerCase()
         .replace(/https?:\/\/\S+/g, " ")
@@ -1124,17 +1183,9 @@ Place these images throughout the article at logical locations, typically after 
         .replace(/\s+/g, " ")
         .trim();
       const tokenise = (value: string) => new Set(normalise(value).split(" ").filter(token => token.length > 2));
-      let linkMatch: RegExpExecArray | null;
-      while ((linkMatch = linkRegex.exec(markdown)) !== null) {
-        const title = linkMatch[1].trim();
-        const url = linkMatch[2].replace(/[\].,;]+$/, "");
-        if (!title || seenUrls.has(url)) continue;
-        seenUrls.add(url);
-        links.push({ title, url, markdown: `[${title}](${url})`, key: normalise(title), tokens: tokenise(`${title} ${url}`) });
-      }
 
-      const candidateLinks = contextSourceLinks.length > 0 ? contextSourceLinks : links;
-      const linkIsAllowed = (url: string) => contextSourceLinks.length === 0 || allowedContextSourceUrls.has(url.replace(/[\].,;]+$/, ""));
+      const candidateLinks = contextSourceLinks;
+      const linkIsAllowed = (url: string) => allowedContextSourceUrls.has(url.replace(/[\].,;]+$/, ""));
       const allowedMarkdownLinksFromLine = (line: string): string[] => {
         const allowed: string[] = [];
         const seenLineUrls = new Set<string>();
@@ -1369,9 +1420,10 @@ Place these images throughout the article at logical locations, typically after 
       const hasInThisArticle = /in\s*this\s*article/i.test(content);
       const hasFAQ = skipFaqs || /^#{1,3}\s.*frequently\s*asked|^#{1,3}\s.*faq/im.test(content);
       const hasFinalThoughts = /^#{1,3}\s.*final\s*thoughts|^#{1,3}\s.*conclusion/im.test(content);
-      const hasReferences = skipSources || /^#{1,3}\s.*references/im.test(content);
+      const hasReferences = skipSources || contextSourceLinks.length === 0 || /^#{1,3}\s.*references/im.test(content);
 
       const buildReferencesFromRealLinks = (md: string): string => {
+        if (contextSourceLinks.length === 0) return "";
         const linkRe = /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g;
         const seen = new Set<string>();
         const items: string[] = [];
@@ -1452,6 +1504,10 @@ Place these images throughout the article at logical locations, typically after 
       content = normaliseReferencesSection(content);
     }
 
+    if (!skipSources && contextSourceLinks.length === 0) {
+      content = removeDisallowedSourceSections(content);
+    }
+
     if (!expandExistingContent && !migrationMode && !formatReference) {
       const finalBulletResult = enforceThreeBulletsPerBodySection(content);
       content = finalBulletResult.markdown;
@@ -1460,7 +1516,7 @@ Place these images throughout the article at logical locations, typically after 
       }
     }
 
-    if (!skipSources) {
+    if (!skipSources && contextSourceLinks.length > 0) {
       const sourceRepairResult = repairNonClickableSourceReferences(content);
       content = sourceRepairResult.markdown;
       if (sourceRepairResult.repairedSections.length > 0) {
@@ -1473,6 +1529,18 @@ Place these images throughout the article at logical locations, typically after 
         console.warn(message);
         contentIntegrityWarnings.push(message);
       }
+    }
+    const disallowedLinkResult = stripDisallowedArticleLinks(content);
+    content = disallowedLinkResult.markdown;
+    if (disallowedLinkResult.removedUrls.length > 0) {
+      const message = `SOURCE GUARD: Removed ${disallowedLinkResult.removedUrls.length} non-context URL(s) from generated content: ${disallowedLinkResult.removedUrls.join(" | ")}`;
+      console.warn(message);
+      contentIntegrityWarnings.push(message);
+    }
+    if (rejectedContextSourceUrls.length > 0) {
+      const message = `SOURCE GUARD: Removed ${rejectedContextSourceUrls.length} broken or unreachable context source URL(s): ${rejectedContextSourceUrls.map((item) => `${item.url} (${item.reason})`).join(" | ")}`;
+      console.warn(message);
+      contentIntegrityWarnings.push(message);
     }
 
     // Generate CTAs if requested
