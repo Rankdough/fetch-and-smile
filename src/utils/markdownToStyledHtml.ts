@@ -350,20 +350,6 @@ export function markdownToStyledHtml(
     if (txt && QUOTE_ONLY_RE.test(txt)) el.remove();
   });
 
-  // Remove any legacy per-section "Sources" blocks from rendered output.
-  // Only the final ## References section should remain visible.
-  container.querySelectorAll("p, li").forEach((el) => {
-    const text = (el.textContent || "").trim();
-    if (/^Sources:?$/i.test(text)) el.remove();
-  });
-
-  container.querySelectorAll("ul, ol").forEach((list) => {
-    const previous = list.previousElementSibling;
-    if (previous && previous.tagName === "P" && /^Sources:?$/i.test((previous.textContent || "").trim())) {
-      list.remove();
-    }
-  });
-
   // 4. Get the cleaned HTML content
   let finalHtml = container.innerHTML;
 
