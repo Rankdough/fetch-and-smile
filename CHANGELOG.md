@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-05-25 - Add Content Verification check: source link in every section
+
+- **What:** New verification item `Source link in every section` in `src/components/ContentVerification.tsx`. Scans every body H2, skipping TL;DR, Quick Tips, In This Article, FAQ, Final Thoughts/Conclusion, References/Sources, How to Choose. Fails if a section body has no external markdown link. Renders the existing per-section regenerate buttons (and a "Fix all N sections" button) as the Fix action by reusing the `onRegenerateSection` / `onRegenerateAllSections` props.
+- **Why:** User wants a verifier + one-click fix that ensures every body section ends with a link to its source.
+- **What may break:** Sections whose only sourced reference is a non-link citation (plain text URL or footnote-style) will now report as failed. The skip list matches headings by keyword; a body H2 literally titled e.g. "Sources of funding" would be skipped because "sources" matches the skip pattern.
+- **Files:** `src/components/ContentVerification.tsx`, `CHANGELOG.md`.
+- **Verify:** Open an article in the editor; the Content Verification panel shows the new row. Failing sections render Fix buttons that call the existing regenerate-section flow.
+
+
+
 ## 2026-05-25 - Restore visible per-section source links in articles
 
 - **What:** Re-enabled visible `**Sources:**` blocks for eligible body H2 sections in `generate-content`, stopped the HTML renderer from stripping those source labels and lists out of article output, and stopped `regenerate-section` from deleting inline sources during section rewrites. Updated the regression test so it now fails if body-section source links disappear again.
