@@ -37,6 +37,7 @@ interface ContentVerificationProps {
   internalLinks?: string[];
   selectedGapInsights?: string[];
   valuePromiseClaims?: string[];
+  integrityWarnings?: string[];
 }
 
 interface VerificationItem {
@@ -61,7 +62,8 @@ export const ContentVerification = ({
   generatedCTAs,
   internalLinks,
   selectedGapInsights,
-  valuePromiseClaims
+  valuePromiseClaims,
+  integrityWarnings = []
 }: ContentVerificationProps) => {
   const verificationResults = useMemo(() => {
     const results: VerificationItem[] = [];
@@ -105,6 +107,15 @@ export const ContentVerification = ({
       fixType: "word-count",
     });
 
+    if (integrityWarnings.length > 0) {
+      results.push({
+        id: "integrity-warnings",
+        label: "Integrity warnings from generation",
+        status: integrityWarnings.some((warning) => /could not repair|still|failed/i.test(warning)) ? "failed" : "warning",
+        details: integrityWarnings.slice(0, 2).join(" • "),
+      });
+    }
+
     // Check for TL;DR as H2
     const hasTldrH2 = /^## TL;?DR/im.test(content);
     results.push({
@@ -113,6 +124,20 @@ export const ContentVerification = ({
       status: hasTldrH2 ? "passed" : "failed",
       details: hasTldrH2 ? "Found ## TL;DR heading" : "Missing TL;DR H2 section",
     });
+
+    const clickableReferencesMatch = content.match(/^##\s+References:?\s*\n([\s\S]*?)(?=\n##\s+|$)/im);
+    if (clickableReferencesMatch) {
+      const referenceLines = clickableReferencesMatch[1].split("\n").map((line) => line.trim()).filter(Boolean);
+      const nonClickableReferenceLines = referenceLines.filter((line) => !/\[[^\]]+\]\(https?:\/\/[^)\s]+\)/i.test(line));
+      results.push({
+        id: "clickable-references",
+        label: "References are clickable",
+        status: nonClickableReferenceLines.length === 0 ? "passed" : "failed",
+        details: nonClickableReferenceLines.length === 0
+          ? `${referenceLines.length} reference link${referenceLines.length === 1 ? "" : "s"} verified`
+          : `${nonClickableReferenceLines.length} non-clickable reference line(s) found`,
+      });
+    }
 
 
     // Atomic sections check: every body H2 must have exactly three bullets, avoid dependency phrases,
@@ -136,8 +161,9 @@ export const ContentVerification = ({
           const body = lines.slice(i + 1, endIdx).join("\n");
           const bulletCount = body.split("\n").filter((line) => /^\s*-\s+/.test(line)).length;
           const banned = bannedRegex.test(body);
-          // Detect "Sources: ..." lines that contain no markdown link
-          const brokenSource = /^\s*\*?\*?Sources?:\*?\*?\s+[^\n]*$/im.test(body) && !/\[[^\]]+\]\([^)]+\)/.test(body);
+          // Detect any "Sources: ..." line that is not clickable on that exact line
+          const sourceLines = body.split("\n").filter((line) => /^\s*\*?\*?Sources?:\*?\*?/i.test(line));
+          const brokenSource = sourceLines.some((line) => !/\[[^\]]+\]\(https?:\/\/[^)\s]+\)/i.test(line));
           const fullTitle = lines[i].replace(/^##\s+/, "").trim();
           if (bulletCount !== 3 || banned || brokenSource) {
             failingTitles.push(fullTitle.slice(0, 60));
@@ -547,7 +573,7 @@ export const ContentVerification = ({
     }
 
     return results;
-  }, [content, appliedRules, ctaUrl, generatedCTAs, internalLinks, selectedGapInsights, valuePromiseClaims]);
+  }, [content, appliedRules, ctaUrl, generatedCTAs, internalLinks, selectedGapInsights, valuePromiseClaims, integrityWarnings]);
 
   const passedCount = verificationResults.filter((r) => r.status === "passed").length;
   const totalCount = verificationResults.length;

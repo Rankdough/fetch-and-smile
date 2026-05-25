@@ -463,6 +463,7 @@ const Index = () => {
     const saved = localStorage.getItem("seo-generator-generatedContent");
     return saved ? normalizeQuickTipsSection(cleanContent(saved)) : "";
   });
+  const [contentIntegrityWarnings, setContentIntegrityWarnings] = useState<string[]>([]);
   
   // Store the original generated content for reset functionality
   const [originalContent, setOriginalContent] = useState(() => {
@@ -1464,6 +1465,7 @@ const Index = () => {
     setIsGenerating(true);
     setGeneratedContent("");
     setAppliedRules(null);
+    setContentIntegrityWarnings([]);
 
     try {
       let content: string;
@@ -1512,6 +1514,8 @@ const Index = () => {
 
         content = data.content;
         setAppliedRules(data.appliedRules || null);
+        const warnings = Array.isArray(data.contentIntegrityWarnings) ? data.contentIntegrityWarnings : [];
+        setContentIntegrityWarnings(warnings);
         
         if (data.ctas) {
           console.log("CTAs received from API:", data.ctas);
@@ -1544,7 +1548,13 @@ const Index = () => {
         }
         
         // Show completeness guard results
-        if (data.completenessGuard?.fixed?.length > 0) {
+        if (warnings.length > 0) {
+          toast({
+            title: "Generation integrity warning",
+            description: warnings.join(" • "),
+            variant: "destructive",
+          });
+        } else if (data.completenessGuard?.fixed?.length > 0) {
           toast({
             title: "Article auto-completed ✓",
             description: `Missing sections were auto-generated: ${data.completenessGuard.fixed.join(", ")}`,
@@ -3256,6 +3266,8 @@ const Index = () => {
                   if (error) throw error;
                   let finalContent = data.content;
                   setAppliedRules(data.appliedRules || null);
+                  const warnings = Array.isArray(data.contentIntegrityWarnings) ? data.contentIntegrityWarnings : [];
+                  setContentIntegrityWarnings(warnings);
                   if (data.ctas) {
                     setGeneratedCTAs(data.ctas);
                   } else {
@@ -3293,10 +3305,18 @@ const Index = () => {
                    }
 
                   setGeneratedContent(finalContent, true);
-                  toast({
-                    title: "Sample generated!",
-                    description: "Generated with all current settings applied.",
-                  });
+                  if (warnings.length > 0) {
+                    toast({
+                      title: "Generation integrity warning",
+                      description: warnings.join(" • "),
+                      variant: "destructive",
+                    });
+                  } else {
+                    toast({
+                      title: "Sample generated!",
+                      description: "Generated with all current settings applied.",
+                    });
+                  }
                 } catch (error) {
                   console.error("Generation error:", error);
                   toast({
@@ -5368,6 +5388,7 @@ CRITICAL EXPANSION RULES:
                           if (data.appliedRules) {
                             setAppliedRules(data.appliedRules);
                           }
+                          setContentIntegrityWarnings(Array.isArray(data.contentIntegrityWarnings) ? data.contentIntegrityWarnings : []);
                           if (data.ctas) {
                             setGeneratedCTAs(data.ctas);
                           }
@@ -5388,6 +5409,7 @@ CRITICAL EXPANSION RULES:
                       }}
                       ctaUrl={ctaUrl}
                       generatedCTAs={generatedCTAs}
+                      integrityWarnings={contentIntegrityWarnings}
                       regeneratingSectionTitle={regeneratingSectionTitle}
                       onRegenerateSection={async (sectionTitle) => {
                         if (!generatedContent.trim() || regeneratingSectionTitle) return;
@@ -5434,12 +5456,18 @@ CRITICAL EXPANSION RULES:
                           if (error) throw error;
                           const newSection = (data?.content || "").trim();
                           if (!newSection) throw new Error("Empty response");
+                          const warnings = Array.isArray(data?.contentIntegrityWarnings) ? data.contentIntegrityWarnings : [];
+                          setContentIntegrityWarnings(warnings);
 
                           const before = lines.slice(0, startIdx).join("\n").replace(/\s+$/, "");
                           const after = lines.slice(endIdx).join("\n").replace(/^\s+/, "");
                           const rebuilt = [before, newSection, after].filter(Boolean).join("\n\n");
                           setGeneratedContent(rebuilt);
-                          toast({ title: "Section regenerated", description: sectionTitle });
+                          if (warnings.length > 0) {
+                            toast({ title: "Regeneration integrity warning", description: warnings.join(" • "), variant: "destructive" });
+                          } else {
+                            toast({ title: "Section regenerated", description: sectionTitle });
+                          }
                         } catch (err) {
                           console.error("Regenerate section error:", err);
                           toast({

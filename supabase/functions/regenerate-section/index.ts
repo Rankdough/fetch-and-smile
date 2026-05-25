@@ -174,10 +174,60 @@ ${sectionMarkdown}`;
       return [heading, prose, bullets.slice(0, 3).join("\n"), sourceLines.join("\n").trim()].filter(Boolean).join("\n\n").trim();
     };
 
+    const repairNonClickableSources = (section: string): { content: string; warnings: string[] } => {
+      const linkRe = /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g;
+      const existingLinks: { title: string; url: string; markdown: string }[] = [];
+      const seenUrls = new Set<string>();
+      let match: RegExpExecArray | null;
+      while ((match = linkRe.exec(`${sectionMarkdown}\n${section}`)) !== null) {
+        const title = match[1].trim();
+        const url = match[2].replace(/[\].,;]+$/, "");
+        if (!title || seenUrls.has(url)) continue;
+        seenUrls.add(url);
+        existingLinks.push({ title, url, markdown: `[${title}](${url})` });
+      }
+
+      const warnings: string[] = [];
+      const originalHadSourceLine = /^\s*\*?\*?Sources?:\*?\*?/im.test(sectionMarkdown);
+      const repaired = section.split("\n").map((line) => {
+        const sourceMatch = line.match(/^\s*\*?\*?Sources?:\*?\*?\s*(.*)$/i);
+        if (!sourceMatch) return line;
+        if (/\[[^\]]+\]\(https?:\/\/[^)\s]+\)/i.test(line)) return line;
+
+        const sourceText = sourceMatch[1].trim();
+        const urlMatch = sourceText.match(/https?:\/\/\S+/i);
+        if (urlMatch) {
+          const url = urlMatch[0].replace(/[\].,;]+$/, "");
+          const label = sourceText.replace(urlMatch[0], "").replace(/[|,;:]+$/g, "").trim() || new URL(url).hostname.replace(/^www\./, "");
+          return `**Sources:** [${label}](${url})`;
+        }
+
+        if (existingLinks.length > 0) {
+          const lowerSource = sourceText.toLowerCase();
+          const matched = existingLinks.find((link) => lowerSource.includes(link.title.toLowerCase()) || link.title.toLowerCase().includes(lowerSource));
+          return `**Sources:** ${(matched || existingLinks[0]).markdown}`;
+        }
+
+        warnings.push(`SOURCE GUARD: Could not repair non-clickable source reference in section: ${sectionTitle}`);
+        return line;
+      }).join("\n").trim();
+
+      if (originalHadSourceLine && !/^\s*\*?\*?Sources?:\*?\*?/im.test(repaired)) {
+        if (existingLinks.length > 0) {
+          return { content: `${repaired}\n\n**Sources:** ${existingLinks[0].markdown}`, warnings };
+        }
+        warnings.push(`SOURCE GUARD: Could not restore missing source reference in section: ${sectionTitle}`);
+      }
+
+      return { content: repaired, warnings };
+    };
+
     content = ensureExactlyThreeBullets(content);
+    const sourceRepair = repairNonClickableSources(content);
+    content = sourceRepair.content;
 
     return new Response(
-      JSON.stringify({ content }),
+      JSON.stringify({ content, contentIntegrityWarnings: sourceRepair.warnings }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (e) {
