@@ -25,6 +25,15 @@ interface CTAData {
   end?: { headline: string; description: string; buttonText: string };
 }
 
+export interface LinkFixReport {
+  totalLinks: number;
+  brokenCount: number;
+  fixedCount: number;
+  removedCount: number;
+  fixed: { from: string; to: string; anchor: string }[];
+  removed: { url: string; anchor: string }[];
+}
+
 interface ContentVerificationProps {
   content: string;
   appliedRules: AppliedRules | null;
@@ -38,7 +47,9 @@ interface ContentVerificationProps {
   internalLinks?: string[];
   selectedGapInsights?: string[];
   valuePromiseClaims?: string[];
+  onCheckAndFixLinks?: () => Promise<LinkFixReport | null>;
 }
+
 
 interface VerificationItem {
   id: string;
