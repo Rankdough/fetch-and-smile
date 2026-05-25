@@ -983,7 +983,7 @@ Place these images throughout the article at logical locations, typically after 
 
         changedSections.push(section.heading.slice(0, 60));
         const keptBulletSet = new Set(existingBullets.slice(0, 3));
-        const nonBulletLines = lines.filter(line => !/^\s*-\s+/.test(line) || keptBulletSet.has(line.trim()));
+        const nonBulletLines = lines.filter(line => !/^\s*([-*+]|\d+\.)\s+/.test(line) || keptBulletSet.has(line.trim()));
         const sourceIndex = nonBulletLines.findIndex(line => /^\s*\*\*Sources?:\*\*/i.test(line) || /^\s*Sources?:/i.test(line));
         const beforeSources = sourceIndex >= 0 ? nonBulletLines.slice(0, sourceIndex) : nonBulletLines;
         const sourceLines = sourceIndex >= 0 ? nonBulletLines.slice(sourceIndex) : [];
