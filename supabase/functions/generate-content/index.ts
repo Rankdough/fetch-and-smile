@@ -1359,6 +1359,21 @@ Place these images throughout the article at logical locations, typically after 
       }
     }
 
+    if (!skipSources) {
+      const sourceRepairResult = repairNonClickableSourceReferences(content);
+      content = sourceRepairResult.markdown;
+      if (sourceRepairResult.repairedSections.length > 0) {
+        const message = `SOURCE GUARD: Repaired non-clickable source references in ${sourceRepairResult.repairedSections.length} section(s): ${sourceRepairResult.repairedSections.join(" | ")}`;
+        console.warn(message);
+        contentIntegrityWarnings.push(message);
+      }
+      if (sourceRepairResult.brokenSections.length > 0) {
+        const message = `SOURCE GUARD: Could not repair non-clickable source references in ${sourceRepairResult.brokenSections.length} section(s): ${sourceRepairResult.brokenSections.join(" | ")}`;
+        console.warn(message);
+        contentIntegrityWarnings.push(message);
+      }
+    }
+
     // Generate CTAs if requested
     let ctas = null;
     if (generateCTAs) {
@@ -1457,7 +1472,7 @@ STRICT RULES — follow this exact pattern from a proven high-performing example
     console.log("Applied rules:", appliedRules);
 
     return new Response(
-      JSON.stringify({ content, appliedRules, ctas, completenessGuard: missingSections.length > 0 ? { fixed: missingSections, status: "auto-completed" } : { fixed: [], status: "complete" } }),
+      JSON.stringify({ content, appliedRules, ctas, contentIntegrityWarnings, completenessGuard: missingSections.length > 0 ? { fixed: missingSections, status: "auto-completed" } : { fixed: [], status: "complete" } }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
