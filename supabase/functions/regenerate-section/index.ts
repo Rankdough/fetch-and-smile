@@ -24,14 +24,12 @@ serve(async (req) => {
       topic,
       toneProfile,
       useFirstPerson,
-      contextFiles,
     }: {
       sectionMarkdown: string;
       sectionTitle: string;
       topic?: string;
       toneProfile?: ToneProfile | null;
       useFirstPerson?: boolean;
-      contextFiles?: { name: string; content: string }[];
     } = await req.json();
 
     if (!sectionMarkdown || !sectionTitle) {
@@ -59,81 +57,6 @@ serve(async (req) => {
       ? "Use first person plural (we/our) where natural."
       : "Strictly third person. Never use I, we, our, us.";
 
-    const normaliseSourceText = (value: string) => value
-      .toLowerCase()
-      .replace(/https?:\/\/\S+/g, " ")
-      .replace(/\[[^\]]+\]\([^)]+\)/g, " ")
-      .replace(/[^a-z0-9\s]/g, " ")
-      .replace(/\s+/g, " ")
-      .trim();
-    const tokeniseSourceText = (value: string) => new Set(normaliseSourceText(value).split(" ").filter(token => token.length > 2));
-    const titleFromUrl = (url: string): string => {
-      try {
-        const parsed = new URL(url);
-        const pathName = decodeURIComponent(parsed.pathname.split("/").filter(Boolean).pop() || "").replace(/[-_]+/g, " ").replace(/\.pdf$/i, " PDF").trim();
-        return pathName ? `${parsed.hostname.replace(/^www\./, "")} - ${pathName}` : parsed.hostname.replace(/^www\./, "");
-      } catch {
-        return url;
-      }
-    };
-    const contextSourceLinks: { title: string; url: string; markdown: string; key: string; tokens: Set<string> }[] = [];
-    const seenContextSourceUrls = new Set<string>();
-    const rejectedContextSourceUrls: { url: string; reason: string }[] = [];
-    const checkSourceUrl = async (rawUrl: string): Promise<{ ok: boolean; status: number; reason?: string }> => {
-      const url = rawUrl.trim();
-      try {
-        const parsed = new URL(url);
-        if (!/^https?:$/.test(parsed.protocol)) return { ok: false, status: 0, reason: "non-http" };
-        if (["example.com", "example.org", "example.net", "yourdomain.com", "your-domain.com", "placeholder.com"].some((host) => parsed.hostname.toLowerCase().endsWith(host))) {
-          return { ok: false, status: 0, reason: "placeholder host" };
-        }
-      } catch {
-        return { ok: false, status: 0, reason: "invalid URL" };
-      }
-      // Lenient verification: trust context URLs unless they are definitively dead (404/410).
-      // Many legitimate publishers block bots with 403/405/429/timeouts.
-      const ctrl = new AbortController();
-      const timer = setTimeout(() => ctrl.abort(), 8000);
-      try {
-        let resp = await fetch(url, { method: "HEAD", redirect: "follow", signal: ctrl.signal, headers: { "User-Agent": "Mozilla/5.0 (compatible; LinkChecker/1.0)" } }).catch(() => null);
-        if (!resp || resp.status === 405 || resp.status === 403 || resp.status === 0 || resp.status === 429) {
-          resp = await fetch(url, { method: "GET", redirect: "follow", signal: ctrl.signal, headers: { "User-Agent": "Mozilla/5.0 (compatible; LinkChecker/1.0)" } }).catch(() => null);
-        }
-        clearTimeout(timer);
-        if (!resp) return { ok: true, status: 0, reason: "network-unreachable-trusted" };
-        if (resp.status === 404 || resp.status === 410) return { ok: false, status: resp.status, reason: "not found" };
-        return { ok: true, status: resp.status };
-      } catch (e: any) {
-        clearTimeout(timer);
-        return { ok: true, status: 0, reason: e?.name === "AbortError" ? "timeout-trusted" : "fetch-failed-trusted" };
-      }
-    };
-    const addContextSourceLink = (title: string, url: string) => {
-      const cleanedUrl = url.replace(/[)\]\.,;]+$/, "").trim();
-      if (!/^https?:\/\//i.test(cleanedUrl) || seenContextSourceUrls.has(cleanedUrl)) return;
-      const cleanedTitle = title.replace(/\s+/g, " ").replace(/^[-*+\d.\s]+/, "").trim() || titleFromUrl(cleanedUrl);
-      seenContextSourceUrls.add(cleanedUrl);
-      contextSourceLinks.push({ title: cleanedTitle, url: cleanedUrl, markdown: `[${cleanedTitle}](${cleanedUrl})`, key: normaliseSourceText(cleanedTitle), tokens: tokeniseSourceText(`${cleanedTitle} ${cleanedUrl}`) });
-    };
-    if (Array.isArray(contextFiles)) {
-      for (const file of contextFiles) {
-        const fileContent = `${file.name}\n${file.content || ""}`;
-        for (const match of fileContent.matchAll(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g)) addContextSourceLink(match[1], match[2]);
-        for (const match of fileContent.matchAll(/https?:\/\/[^\s)\]>"']+/g)) addContextSourceLink(titleFromUrl(match[0]), match[0]);
-      }
-    }
-    if (contextSourceLinks.length > 0) {
-      const checkedLinks: typeof contextSourceLinks = [];
-      const results = await Promise.all(contextSourceLinks.map(async (link) => ({ link, result: await checkSourceUrl(link.url) })));
-      for (const { link, result } of results) {
-        if (result.ok) checkedLinks.push(link);
-        else rejectedContextSourceUrls.push({ url: link.url, reason: result.status ? `${result.status} ${result.reason || "HTTP error"}` : result.reason || "unreachable" });
-      }
-      contextSourceLinks.splice(0, contextSourceLinks.length, ...checkedLinks);
-    }
-    const contextSourceCatalogue = contextSourceLinks.map((link, index) => `${index + 1}. ${link.markdown}`).join("\n");
-    const allowedContextSourceUrls = new Set(contextSourceLinks.map(link => link.url));
-
     const system = `You are rewriting ONE section of an SEO article to make it ATOMIC and self-contained.
 
 ATOMIC SECTION CONTRACT (MANDATORY — output is REJECTED if any rule fails):
@@ -142,16 +65,12 @@ ATOMIC SECTION CONTRACT (MANDATORY — output is REJECTED if any rule fails):
 3. 90-180 words total in the section body (excluding the H2 line).
 4. No back-reference phrases: never say "as mentioned above", "as we saw earlier", "continuing from", "in the previous section", "building on the above", "the following point".
 5. Include at least one concrete specific (number, price, timeframe, name, or example).
-6. If you cite a source, render it as a clickable markdown link [Source Name](https://url). ${contextSourceLinks.length > 0 ? "Use ONLY URLs from the verified context source catalogue. If no catalogue URL supports this section, omit the source line entirely." : "No verified context source URLs are available. Do NOT add a Sources line and do NOT cite outside URLs."}
+6. If you cite a source, render it as a clickable markdown link [Source Name](https://url). NEVER write plain-text "Sources: ..." without links. If you don't have a real URL, omit the source line entirely.
 7. Preserve the EXACT H2 heading line from the input. Do not change the heading wording.
 8. ${perspective}
 9. British English. No em dashes or en dashes. No AI buzzwords ("delve", "in today's", "in the realm of", "moreover", "furthermore" as transitions).
-10. Do NOT use markdown bold for emphasis in normal prose, bullet text, or keyword phrases. Write plain text instead.
 
-Output ONLY the rewritten section in markdown, starting with the same ## heading. No preamble, no code fences, no commentary.${toneBlock}${contextSourceCatalogue ? `
-
-CONTEXT SOURCE URL CATALOGUE (ONLY THESE URLS MAY BE USED IN SOURCES):
-${contextSourceCatalogue}` : ""}`;
+Output ONLY the rewritten section in markdown, starting with the same ## heading. No preamble, no code fences, no commentary.${toneBlock}`;
 
     const user = `Topic: ${topic || "(not provided)"}
 Section heading: ${sectionTitle}
@@ -256,121 +175,64 @@ ${sectionMarkdown}`;
     };
 
     const repairNonClickableSources = (section: string): { content: string; warnings: string[] } => {
-      const candidateLinks = contextSourceLinks.map((link) => ({ title: link.title, url: link.url, markdown: link.markdown }));
-      const linkIsAllowed = (url: string) => allowedContextSourceUrls.has(url.replace(/[\].,;]+$/, ""));
-      const bestLinkFor = (sourceText: string) => {
-        const sourceKey = normaliseSourceText(sourceText);
-        const sourceTokens = tokeniseSourceText(sourceText);
-        if (!sourceKey || sourceTokens.size === 0) return null;
-        let best: typeof candidateLinks[number] | null = null;
-        let bestScore = 0;
-        for (const link of candidateLinks) {
-          const linkKey = normaliseSourceText(link.title);
-          const linkTokens = tokeniseSourceText(`${link.title} ${link.url}`);
-          let overlap = 0;
-          sourceTokens.forEach(token => { if (linkTokens.has(token)) overlap++; });
-          const directMatch = sourceKey.length > 8 && linkKey.length > 8 && (sourceKey.includes(linkKey) || linkKey.includes(sourceKey));
-          const score = directMatch ? 1 : overlap / Math.max(3, Math.min(sourceTokens.size, linkTokens.size));
-          if (score > bestScore) {
-            bestScore = score;
-            best = link;
-          }
-        }
-        return best && bestScore >= 0.45 ? best : null;
-      };
+      const linkRe = /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g;
+      const existingLinks: { title: string; url: string; markdown: string }[] = [];
+      const seenUrls = new Set<string>();
+      let match: RegExpExecArray | null;
+      while ((match = linkRe.exec(`${sectionMarkdown}\n${section}`)) !== null) {
+        const title = match[1].trim();
+        const url = match[2].replace(/[\].,;]+$/, "");
+        if (!title || seenUrls.has(url)) continue;
+        seenUrls.add(url);
+        existingLinks.push({ title, url, markdown: `[${title}](${url})` });
+      }
 
       const warnings: string[] = [];
       const originalHadSourceLine = /^\s*\*?\*?Sources?:\*?\*?/im.test(sectionMarkdown);
       const repaired = section.split("\n").map((line) => {
         const sourceMatch = line.match(/^\s*\*?\*?Sources?:\*?\*?\s*(.*)$/i);
         if (!sourceMatch) return line;
-        if (/\[[^\]]+\]\(https?:\/\/[^)\s]+\)/i.test(line)) {
-          const allowedLinks: string[] = [];
-          let linkMatch: RegExpExecArray | null;
-          const lineLinkRe = /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g;
-          while ((linkMatch = lineLinkRe.exec(line)) !== null) {
-            const title = linkMatch[1].trim();
-            const url = linkMatch[2].replace(/[\].,;]+$/, "");
-            if (title && linkIsAllowed(url)) allowedLinks.push(`[${title}](${url})`);
-          }
-          if (allowedLinks.length > 0) return `**Sources:** ${allowedLinks.join(" | ")}`;
-          warnings.push(`SOURCE GUARD: Removed source URL not found in provided context files for section: ${sectionTitle}`);
-          return "";
-        }
+        if (/\[[^\]]+\]\(https?:\/\/[^)\s]+\)/i.test(line)) return line;
 
         const sourceText = sourceMatch[1].trim();
         const urlMatch = sourceText.match(/https?:\/\/\S+/i);
         if (urlMatch) {
           const url = urlMatch[0].replace(/[\].,;]+$/, "");
-          if (!linkIsAllowed(url)) {
-            const matched = bestLinkFor(sourceText);
-            if (matched) return `**Sources:** ${matched.markdown}`;
-            warnings.push(`SOURCE GUARD: Removed source URL not found in provided context files for section: ${sectionTitle}`);
-            return "";
-          }
           const label = sourceText.replace(urlMatch[0], "").replace(/[|,;:]+$/g, "").trim() || new URL(url).hostname.replace(/^www\./, "");
           return `**Sources:** [${label}](${url})`;
         }
 
-        if (candidateLinks.length > 0) {
+        if (existingLinks.length > 0) {
           const lowerSource = sourceText.toLowerCase();
-          const matched = bestLinkFor(sourceText) || candidateLinks.find((link) => lowerSource.includes(link.title.toLowerCase()) || link.title.toLowerCase().includes(lowerSource));
-          if (matched) return `**Sources:** ${matched.markdown}`;
+          const matched = existingLinks.find((link) => lowerSource.includes(link.title.toLowerCase()) || link.title.toLowerCase().includes(lowerSource));
+          return `**Sources:** ${(matched || existingLinks[0]).markdown}`;
         }
 
+        const cleanLabel = sourceText.replace(/[|,;:]+$/g, "").trim();
+        if (cleanLabel) {
+          const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(cleanLabel)}`;
+          return `**Sources:** [${cleanLabel}](${searchUrl})`;
+        }
         warnings.push(`SOURCE GUARD: Could not repair non-clickable source reference in section: ${sectionTitle}`);
-        return "";
+        return line;
       }).join("\n").trim();
 
       if (originalHadSourceLine && !/^\s*\*?\*?Sources?:\*?\*?/im.test(repaired)) {
+        if (existingLinks.length > 0) {
+          return { content: `${repaired}\n\n**Sources:** ${existingLinks[0].markdown}`, warnings };
+        }
         warnings.push(`SOURCE GUARD: Could not restore missing source reference in section: ${sectionTitle}`);
       }
 
       return { content: repaired, warnings };
     };
 
-    const stripDisallowedSectionLinks = (section: string): { content: string; warnings: string[] } => {
-      const removed = new Set<string>();
-      const withoutMarkdownLinks = section.replace(/(!?)\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, (full, bang, label, rawUrl) => {
-        const url = String(rawUrl).replace(/[\].,;]+$/, "");
-        if (bang === "!") return full;
-        if (allowedContextSourceUrls.has(url)) return full;
-        removed.add(url);
-        return label;
-      });
-      const withoutBareUrls = withoutMarkdownLinks.replace(/(?<!["'(\[])https?:\/\/[^\s<>"')\]]+/g, (rawUrl) => {
-        const url = String(rawUrl).replace(/[),.;]+$/, "");
-        if (allowedContextSourceUrls.has(url)) return rawUrl;
-        removed.add(url);
-        return "";
-      });
-      return {
-        content: withoutBareUrls.replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim(),
-        warnings: [...removed].map((url) => `SOURCE GUARD: Removed non-context URL from regenerated section: ${url}`),
-      };
-    };
-
-    const stripInlineBoldEmphasis = (section: string): string => section
-      .split("\n")
-      .map((line) => {
-        if (/^#{1,6}\s+/.test(line)) return line;
-        if (/^\s*\*\*Sources?:\*\*/i.test(line)) return line;
-        if (/^>\s*\*\*Tip\s+\d+:\*\*/i.test(line)) return line;
-        if (/^\s*\*\*[^*]+\?\*\*\s*$/i.test(line)) return line;
-        return line.replace(/\*\*([^*]+)\*\*/g, "$1");
-      })
-      .join("\n");
-
     content = ensureExactlyThreeBullets(content);
     const sourceRepair = repairNonClickableSources(content);
     content = sourceRepair.content;
-    const disallowedLinkRepair = stripDisallowedSectionLinks(content);
-    content = disallowedLinkRepair.content;
-    content = stripInlineBoldEmphasis(content);
-    const rejectedSourceWarnings = rejectedContextSourceUrls.map((item) => `SOURCE GUARD: Removed broken or unreachable context source URL before regeneration: ${item.url} (${item.reason})`);
 
     return new Response(
-      JSON.stringify({ content, contentIntegrityWarnings: [...sourceRepair.warnings, ...disallowedLinkRepair.warnings, ...rejectedSourceWarnings] }),
+      JSON.stringify({ content, contentIntegrityWarnings: sourceRepair.warnings }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (e) {

@@ -258,7 +258,7 @@ export default function ShopifyFaqBulk() {
   const [includeFaqs, setIncludeFaqs] = useState<boolean>(init.includeFaqs ?? false);
   const [includeNav, setIncludeNav] = useState<boolean>(init.includeNav ?? false);
   const [skipQuickTips, setSkipQuickTips] = useState<boolean>(init.skipQuickTips ?? false);
-  const [skipSources, setSkipSources] = useState<boolean>(init.skipSources ?? false);
+  const [skipSources, setSkipSources] = useState<boolean>(init.skipSources ?? true);
   const [stripTitle, setStripTitle] = useState<boolean>(init.stripTitle ?? false);
   const [paletteId, setPaletteId] = useState<string | null>(init.paletteId ?? null);
   const [internalLinks, setInternalLinks] = useState<string[]>(
@@ -576,7 +576,6 @@ const sanitizeGeneratedMarkdown = (markdown: string, title: string, urls: string
       const content = data?.content || "";
       if (!content || content.length < 20) throw new Error("Could not extract text from file.");
       setContextFiles((prev) => [...prev, { name: file.name, content }]);
-      setSkipSources(false);
       toast({ title: "Context file added", description: file.name });
     } catch (err: any) {
       toast({ title: "Failed to parse file", description: err?.message || "", variant: "destructive" });
@@ -901,21 +900,11 @@ ${isPricingQuestion
         urls: linkUrls,
       });
 
-      const referenceUrls = new Set<string>();
-      finalMarkdown.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+|\/[^\s)]+)\)/g, (_m, _anchor: string, url: string, offset: number) => {
-        const before = finalMarkdown.slice(0, offset);
-        const lastH2 = before.match(/^##\s+(.+)$/gm)?.pop() || "";
-        if (/references|sources/i.test(lastH2) || /\*\*Sources?:\*\*/i.test(before.slice(Math.max(0, before.lastIndexOf("\n", offset - 1))))) {
-          referenceUrls.add(url);
-        }
-        return _m;
-      });
-
-      // Final whitelist guard: unwrap markdown links not supplied as internal links or verified source/reference links.
-      // Catches hallucinated links without deleting required context-file citations.
+      // Final whitelist guard: unwrap any markdown link whose URL is NOT in linkUrls.
+      // Catches hallucinated links (e.g. bare homepage) introduced at any stage.
       {
         const norm = (u: string) => u.trim().replace(/\/+$/, "").toLowerCase();
-        const allowed = new Set([...linkUrls, ...referenceUrls].map(norm));
+        const allowed = new Set(linkUrls.map(norm));
         finalMarkdown = finalMarkdown.replace(
           /\[([^\]]+)\]\((https?:\/\/[^\s)]+|\/[^\s)]+)\)/g,
           (_m, anchor: string, url: string) => (allowed.has(norm(url)) ? `[${anchor}](${url})` : anchor)

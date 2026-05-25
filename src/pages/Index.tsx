@@ -662,7 +662,7 @@ const Index = () => {
     const saved = localStorage.getItem("seo-generator-formatUrlHistory");
     return saved ? JSON.parse(saved) : [];
   });
-  const [contextFiles, setContextFiles] = useState<{ name: string; content: string; filePath?: string }[]>(() => {
+  const [contextFiles, setContextFiles] = useState<{ name: string; content: string }[]>(() => {
     const saved = localStorage.getItem("seo-generator-contextFiles");
     return saved ? JSON.parse(saved) : [];
   });
@@ -1170,12 +1170,12 @@ const Index = () => {
 
         setContextFiles((prev) => [
           ...prev,
-          { name: file.name, content: data.content, filePath },
+          { name: file.name, content: data.content },
         ]);
 
         toast({
           title: "File uploaded",
-          description: `${file.name} added as context${data.truncated ? " (truncated to 30k chars)" : ""}`,
+          description: `${file.name} added as context${data.truncated ? " (truncated to 10k chars)" : ""}`,
         });
       }
     } catch (error) {
@@ -1190,40 +1190,6 @@ const Index = () => {
       e.target.value = "";
     }
   };
-
-  // Auto-refresh stale cached context files (older uploads were capped at 10k chars
-  // and missing the SOURCE URL CATALOGUE header — re-parse them from storage).
-  useEffect(() => {
-    const stale = contextFiles.filter(
-      (f) => f.filePath && !/SOURCE URL CATALOGUE/i.test(f.content || "")
-    );
-    if (stale.length === 0) return;
-    let cancelled = false;
-    (async () => {
-      for (const f of stale) {
-        try {
-          const { data, error } = await supabase.functions.invoke(
-            "parse-context-file",
-            { body: { filePath: f.filePath, fileName: f.name } }
-          );
-          if (error || cancelled || !data?.content) continue;
-          setContextFiles((prev) =>
-            prev.map((x) => (x.filePath === f.filePath ? { ...x, content: data.content } : x))
-          );
-          toast({
-            title: "Context file refreshed",
-            description: `${f.name} re-parsed with full source list`,
-          });
-        } catch {
-          // ignore — user can re-upload manually
-        }
-      }
-    })();
-    return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-
 
   // Human mode pipeline generation
   const handleHumanModeGenerate = async () => {
@@ -5515,7 +5481,6 @@ CRITICAL EXPANSION RULES:
                               topic: formData.topic,
                               toneProfile,
                               useFirstPerson,
-                              contextFiles: contextFiles.length > 0 ? contextFiles : undefined,
                             },
                           });
                           if (error) throw error;

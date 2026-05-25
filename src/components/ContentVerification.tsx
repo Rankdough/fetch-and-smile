@@ -1,8 +1,7 @@
-import { CheckCircle2, XCircle, AlertCircle, Wand2, Link2, Loader2 } from "lucide-react";
+import { CheckCircle2, XCircle, AlertCircle, Wand2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Button } from "@/components/ui/button";
-import { supabase } from "@/integrations/supabase/client";
 
 interface AppliedRules {
   gapAnalysisUsed: boolean;
@@ -576,85 +575,8 @@ export const ContentVerification = ({
     return results;
   }, [content, appliedRules, ctaUrl, generatedCTAs, internalLinks, selectedGapInsights, valuePromiseClaims, integrityWarnings]);
 
-  // Extract every http(s) URL from the rendered content (markdown links + bare URLs)
-  const contentUrls = useMemo(() => {
-    const set = new Set<string>();
-    // markdown links: [label](url)
-    const mdRe = /\[[^\]]+\]\((https?:\/\/[^\s)]+)\)/g;
-    let m: RegExpExecArray | null;
-    while ((m = mdRe.exec(content))) set.add(m[1].replace(/[),.;]+$/, ""));
-    // html anchors: href="url"
-    const hrefRe = /href=["'](https?:\/\/[^"']+)["']/g;
-    while ((m = hrefRe.exec(content))) set.add(m[1]);
-    // bare URLs
-    const bareRe = /(?<!["'(\[])https?:\/\/[^\s<>"')\]]+/g;
-    while ((m = bareRe.exec(content))) set.add(m[0].replace(/[),.;]+$/, ""));
-    return Array.from(set);
-  }, [content]);
-
-  const [linkCheck, setLinkCheck] = useState<{
-    status: "idle" | "checking" | "done" | "error";
-    broken: { url: string; status: number; reason?: string }[];
-    total: number;
-    error?: string;
-  }>({ status: "idle", broken: [], total: 0 });
-
-  const runLinkCheck = async () => {
-    if (contentUrls.length === 0) {
-      setLinkCheck({ status: "done", broken: [], total: 0 });
-      return;
-    }
-    setLinkCheck({ status: "checking", broken: [], total: contentUrls.length });
-    try {
-      // Chunk to respect the edge function cap (50 per call)
-      const chunks: string[][] = [];
-      for (let i = 0; i < contentUrls.length; i += 50) chunks.push(contentUrls.slice(i, i + 50));
-      const broken: { url: string; status: number; reason?: string }[] = [];
-      for (const chunk of chunks) {
-        const { data, error } = await supabase.functions.invoke("verify-links", { body: { urls: chunk } });
-        if (error) throw error;
-        const results = (data?.results || []) as { url: string; ok: boolean; status: number; reason?: string }[];
-        for (const r of results) if (!r.ok) broken.push({ url: r.url, status: r.status, reason: r.reason });
-      }
-      setLinkCheck({ status: "done", broken, total: contentUrls.length });
-    } catch (e: any) {
-      setLinkCheck({ status: "error", broken: [], total: contentUrls.length, error: e?.message || "Check failed" });
-    }
-  };
-
-  const linkCheckItem: VerificationItem = useMemo(() => {
-    if (linkCheck.status === "idle") {
-      return {
-        id: "broken-links",
-        label: "Working links",
-        status: "warning",
-        details: contentUrls.length === 0
-          ? "No links in content"
-          : `${contentUrls.length} link(s) found — click Check to verify they all resolve`,
-      };
-    }
-    if (linkCheck.status === "checking") {
-      return { id: "broken-links", label: "Working links", status: "warning", details: `Checking ${linkCheck.total} link(s)…` };
-    }
-    if (linkCheck.status === "error") {
-      return { id: "broken-links", label: "Working links", status: "failed", details: `Check failed: ${linkCheck.error}` };
-    }
-    const brokenCount = linkCheck.broken.length;
-    return {
-      id: "broken-links",
-      label: "Working links",
-      status: brokenCount === 0 ? "passed" : "failed",
-      details: brokenCount === 0
-        ? `All ${linkCheck.total} link(s) resolve successfully`
-        : `${brokenCount}/${linkCheck.total} link(s) broken or unreachable`,
-    };
-  }, [linkCheck, contentUrls.length]);
-
-  const allResults = useMemo(() => [...verificationResults, linkCheckItem], [verificationResults, linkCheckItem]);
-
-  const passedCount = allResults.filter((r) => r.status === "passed").length;
-  const totalCount = allResults.length;
-
+  const passedCount = verificationResults.filter((r) => r.status === "passed").length;
+  const totalCount = verificationResults.length;
 
   const getStatusIcon = (status: "passed" | "failed" | "warning") => {
     switch (status) {
@@ -696,14 +618,14 @@ export const ContentVerification = ({
       </div>
 
       <div className="space-y-2">
-        {allResults.map((item) => (
+        {verificationResults.map((item) => (
           <div
             key={item.id}
             className="flex items-start gap-2 text-sm"
           >
             {getStatusIcon(item.status)}
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex items-center gap-2">
                 <span className={cn(
                   "font-medium",
                   item.status === "passed" && "text-foreground",
@@ -723,37 +645,11 @@ export const ContentVerification = ({
                     {item.fixType === "em-dash" ? "Fix" : "Expand"}
                   </Button>
                 )}
-                {item.id === "broken-links" && contentUrls.length > 0 && linkCheck.status !== "checking" && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-6 px-2 text-xs"
-                    onClick={runLinkCheck}
-                  >
-                    <Link2 className="h-3 w-3 mr-1" />
-                    {linkCheck.status === "done" || linkCheck.status === "error" ? "Re-check" : "Check links"}
-                  </Button>
-                )}
-                {item.id === "broken-links" && linkCheck.status === "checking" && (
-                  <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
-                )}
               </div>
               {item.details && (
                 <p className="text-xs text-muted-foreground mt-0.5 truncate">
                   {item.details}
                 </p>
-              )}
-              {item.id === "broken-links" && linkCheck.status === "done" && linkCheck.broken.length > 0 && (
-                <ul className="mt-1.5 space-y-1">
-                  {linkCheck.broken.map((b) => (
-                    <li key={b.url} className="text-xs text-red-600 dark:text-red-400 break-all">
-                      <a href={b.url} target="_blank" rel="noopener noreferrer" className="underline">
-                        {b.url}
-                      </a>
-                      <span className="text-muted-foreground"> — {b.status || ""} {b.reason || (b.status >= 400 ? "HTTP error" : "")}</span>
-                    </li>
-                  ))}
-                </ul>
               )}
               {item.id === "atomic-sections" && item.failingSections && item.failingSections.length > 0 && onRegenerateSection && (
                 <div className="mt-2 flex flex-wrap gap-1.5">
@@ -780,7 +676,6 @@ export const ContentVerification = ({
           </div>
         ))}
       </div>
-
     </div>
   );
 };

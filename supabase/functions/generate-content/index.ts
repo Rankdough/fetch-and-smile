@@ -57,106 +57,6 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const normaliseSourceText = (value: string) => value
-      .toLowerCase()
-      .replace(/https?:\/\/\S+/g, " ")
-      .replace(/\[[^\]]+\]\([^)]+\)/g, " ")
-      .replace(/[^a-z0-9\s]/g, " ")
-      .replace(/\s+/g, " ")
-      .trim();
-    const tokeniseSourceText = (value: string) => new Set(normaliseSourceText(value).split(" ").filter(token => token.length > 2));
-    const titleFromUrl = (url: string): string => {
-      try {
-        const parsed = new URL(url);
-        const pathName = decodeURIComponent(parsed.pathname.split("/").filter(Boolean).pop() || "").replace(/[-_]+/g, " ").replace(/\.pdf$/i, " PDF").trim();
-        return pathName ? `${parsed.hostname.replace(/^www\./, "")} - ${pathName}` : parsed.hostname.replace(/^www\./, "");
-      } catch {
-        return url;
-      }
-    };
-    const contextSourceLinks: { title: string; url: string; markdown: string; key: string; tokens: Set<string> }[] = [];
-    const seenContextSourceUrls = new Set<string>();
-    const rejectedContextSourceUrls: { url: string; reason: string }[] = [];
-    const checkSourceUrl = async (rawUrl: string): Promise<{ ok: boolean; status: number; reason?: string }> => {
-      const url = rawUrl.trim();
-      try {
-        const parsed = new URL(url);
-        if (!/^https?:$/.test(parsed.protocol)) return { ok: false, status: 0, reason: "non-http" };
-        if (["example.com", "example.org", "example.net", "yourdomain.com", "your-domain.com", "placeholder.com"].some((host) => parsed.hostname.toLowerCase().endsWith(host))) {
-          return { ok: false, status: 0, reason: "placeholder host" };
-        }
-      } catch {
-        return { ok: false, status: 0, reason: "invalid URL" };
-      }
-      // Lenient verification: many legitimate publishers (ScienceDirect, NHS, journals, PDFs)
-      // block HEAD/GET from bots and return 403/405/429/timeouts. We ONLY reject URLs that
-      // are definitively dead (404/410, DNS failure, or invalid). Anything else is trusted
-      // because the URL came from the user's own context file.
-      const ctrl = new AbortController();
-      const timer = setTimeout(() => ctrl.abort(), 8000);
-      try {
-        let resp = await fetch(url, { method: "HEAD", redirect: "follow", signal: ctrl.signal, headers: { "User-Agent": "Mozilla/5.0 (compatible; LinkChecker/1.0)" } }).catch(() => null);
-        if (!resp || resp.status === 405 || resp.status === 403 || resp.status === 0 || resp.status === 429) {
-          resp = await fetch(url, { method: "GET", redirect: "follow", signal: ctrl.signal, headers: { "User-Agent": "Mozilla/5.0 (compatible; LinkChecker/1.0)" } }).catch(() => null);
-        }
-        clearTimeout(timer);
-        if (!resp) return { ok: false, status: 0, reason: "network-unreachable" };
-        // Hard-fail definitively broken responses
-        if (resp.status === 404 || resp.status === 410) return { ok: false, status: resp.status, reason: "not found" };
-        if (resp.status >= 500 && resp.status <= 599) return { ok: false, status: resp.status, reason: "server error" };
-        if (resp.status === 400 || resp.status === 451) return { ok: false, status: resp.status, reason: "bad/blocked request" };
-        // 200/3xx and auth-gated 401/403/405/429 are trusted (publishers often block bots)
-        return { ok: true, status: resp.status };
-      } catch (e: any) {
-        clearTimeout(timer);
-        // Timeouts and network errors → reject so we don't keep dead links
-        return { ok: false, status: 0, reason: e?.name === "AbortError" ? "timeout" : "fetch-failed" };
-      }
-    };
-
-    // OOXML / XML namespace declarations leak into raw .docx text but are never citable sources.
-    const NAMESPACE_HOST_RE = /^https?:\/\/(?:schemas\.openxmlformats\.org|schemas\.microsoft\.com|purl\.oclc\.org|www\.w3\.org|schemas\.xmlsoap\.org)\b/i;
-    const addContextSourceLink = (title: string, url: string) => {
-      const cleanedUrl = url.replace(/[)\]\.,;]+$/, "").trim();
-      if (!/^https?:\/\//i.test(cleanedUrl) || seenContextSourceUrls.has(cleanedUrl)) return;
-      if (NAMESPACE_HOST_RE.test(cleanedUrl)) return;
-      const cleanedTitle = title.replace(/\s+/g, " ").replace(/^[-*+\d.\s]+/, "").trim() || titleFromUrl(cleanedUrl);
-      seenContextSourceUrls.add(cleanedUrl);
-      contextSourceLinks.push({
-        title: cleanedTitle,
-        url: cleanedUrl,
-        markdown: `[${cleanedTitle}](${cleanedUrl})`,
-        key: normaliseSourceText(cleanedTitle),
-        tokens: tokeniseSourceText(`${cleanedTitle} ${cleanedUrl}`),
-      });
-    };
-    if (contextFiles && Array.isArray(contextFiles)) {
-      for (const file of contextFiles as { name: string; content: string }[]) {
-        const content = `${file.name}\n${file.content || ""}`;
-        for (const match of content.matchAll(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g)) {
-          addContextSourceLink(match[1], match[2]);
-        }
-        for (const match of content.matchAll(/https?:\/\/[^\s)\]>"']+/g)) {
-          addContextSourceLink(titleFromUrl(match[0]), match[0]);
-        }
-      }
-    }
-    if (contextSourceLinks.length > 0) {
-      const checkedLinks: typeof contextSourceLinks = [];
-      for (let i = 0; i < contextSourceLinks.length; i += 25) {
-        const batch = contextSourceLinks.slice(i, i + 25);
-        const results = await Promise.all(batch.map(async (link) => ({ link, result: await checkSourceUrl(link.url) })));
-        for (const { link, result } of results) {
-          if (result.ok) checkedLinks.push(link);
-          else rejectedContextSourceUrls.push({ url: link.url, reason: result.status ? `${result.status} ${result.reason || "HTTP error"}` : result.reason || "unreachable" });
-        }
-      }
-      contextSourceLinks.splice(0, contextSourceLinks.length, ...checkedLinks);
-    }
-    console.log(`SOURCE CATALOGUE: ${contextSourceLinks.length} accepted, ${rejectedContextSourceUrls.length} rejected. contextFiles=${Array.isArray(contextFiles) ? contextFiles.length : 0} (${(contextFiles || []).map((f: any) => `${f?.name}:${(f?.content || "").length}c`).join(", ")}). First 5 accepted: ${contextSourceLinks.slice(0, 5).map(l => l.url).join(" | ")}. First 5 rejected: ${rejectedContextSourceUrls.slice(0, 5).map(r => `${r.url} [${r.reason}]`).join(" | ")}`);
-    const contextSourceCatalogue = contextSourceLinks.map((link, index) => `${index + 1}. ${link.markdown}`).join("\n");
-    const allowedContextSourceUrls = new Set(contextSourceLinks.map(link => link.url));
-
     // Fetch knowledge base rules if enabled
     let knowledgeRules: string[] = [];
     if (useKnowledgeBase) {
@@ -211,8 +111,7 @@ serve(async (req) => {
     }
 
     // Calculate required tables based on word count (relaxed for migration)
-    // Rule: ≥2 tables for 1,000-word articles, ≥3 tables for 1,500-word articles (1 per 500 words)
-    const requiredTables = migrationMode ? 1 : Math.max(1, Math.floor(targetWords / 500));
+    const requiredTables = migrationMode ? 1 : Math.max(1, Math.floor(targetWords / 600));
 
     // Calculate per-section word budgets so the AI knows exactly how much to write per section
     const sectionBudgets = (() => {
@@ -224,7 +123,7 @@ serve(async (req) => {
         { name: "How to Choose", words: Math.round(targetWords * 0.08), included: true },
         { name: "FAQ", words: skipFaqs ? 0 : Math.round(targetWords * 0.12), included: !skipFaqs },
         { name: "Final Thoughts", words: Math.round(targetWords * 0.05), included: true },
-        { name: "References", words: skipSources || contextSourceLinks.length === 0 ? 0 : 30, included: !skipSources && contextSourceLinks.length > 0 },
+        { name: "References", words: skipSources ? 0 : 30, included: !skipSources },
       ];
       const fixedTotal = fixedSections.filter(s => s.included).reduce((sum, s) => sum + s.words, 0);
       const remainingWords = targetWords - fixedTotal;
@@ -269,7 +168,7 @@ Most people complete the process in 2-4 weeks.
    - Blank line between Q&A pairs
    - Do NOT use ### headings, > blockquotes, or "Q:" / "A:" prefixes
    - Questions must be SPECIFIC to the article topic (not generic placeholders)`;
-    const referencesSection = skipSources || contextSourceLinks.length === 0 ? '' : "9. \"## References:\" (~" + referencesWords + " words) — list ALL sources as markdown links";
+    const referencesSection = skipSources ? '' : "9. \"## References:\" (~" + referencesWords + " words) — list ALL sources as markdown links";
     
     // Build the prompt
     let systemPrompt = `You are an expert SEO content writer. Write high-quality, engaging blog posts optimized for search engines while remaining valuable and readable.
@@ -299,7 +198,7 @@ CRITICAL MARKDOWN FORMATTING RULES:
 - Major sections: Use ## for H2 headings${!formatReference ? ' - ALL H2 headings MUST be phrased as QUESTIONS (see rule below)' : ''}
 - Subsections: Use ### for H3 headings
 - DO NOT use numbered headings like "1. Section Name" - use proper markdown ## syntax
-- Do NOT use markdown bold for emphasis in normal article prose, bullet text, table cells, or keyword phrases. Write plain text instead.
+- Use **bold** for emphasis on key terms and important points
 - Use bullet points (-) for lists - write the text directly after the dash, NO additional dashes or punctuation
 - WRONG: "- - Text here" or "- — Text here" 
 - CORRECT: "- Text here"
@@ -325,12 +224,12 @@ ${formatReference ? `FORMAT REFERENCE MODE: A format reference has been provided
   1. Clear text paragraphs (elaboration after the answer)
   2. EXACTLY THREE markdown bullet points using "- " (no more, no fewer; numbered lists do not count)
   3. A comparison table where relevant (at least ${requiredTables} tables total across the article)
-  ${skipSources || contextSourceLinks.length === 0 ? '' : '4. Source references at the end of the section'}
+  4. Source references at the end of the section
 
 ${migrationMode ? `TABLE RULE:
 - Use markdown tables where the source content contains list-style comparisons or product listings
-- Do NOT force tables where the source does not warrant them` : `TABLE RULE (minimum cadence: ≥2 tables per 1,000 words, ≥3 tables per 1,500 words — 1 table per 500 words of target length):
-- Include AT LEAST ${requiredTables} markdown comparison table${requiredTables > 1 ? 's' : ''} for ${targetWords} target words
+- Do NOT force tables where the source does not warrant them` : `TABLE RULE (1 table per 600 words of target length):
+- Include EXACTLY ${requiredTables} markdown comparison table${requiredTables > 1 ? 's' : ''} for ${targetWords} target words
 - Use proper pipe syntax with a header separator row, e.g.:
 
 | Feature | Option A | Option B |
@@ -339,8 +238,6 @@ ${migrationMode ? `TABLE RULE:
 | Duration | 1 hour | 2 hours |
 
 - Each table: at least 3 columns and at least 4 data rows
-- NEVER produce a table with only one data row. If you only have one row of data to show, write it as a sentence or bullet instead — do not wrap it in a table.
-- NEVER place two tables back-to-back. Every table must be separated from the next by at least one paragraph of body prose. If two comparisons belong together, merge them into a single wider table.
 - Spread tables evenly across body H2 sections; never cluster at the end
 - Markdown only — do NOT use HTML <table> tags
 - Do NOT replace tables with bullet lists`}
@@ -349,16 +246,16 @@ ${skipSources ? `SOURCE REFERENCE RULES:
 - DO NOT include any **Sources:** lines after sections
 - DO NOT include a ## References section at the end
 - DO NOT use inline numeric citations like [1], [2], [3]
-- Write all claims as general knowledge without citation` : contextSourceLinks.length > 0 ? `SOURCE REFERENCE RULES:
+- Write all claims as general knowledge without citation` : `SOURCE REFERENCE RULES:
 - DO NOT use inline numeric citations like [1], [2], [3] in the text
-- Add a "**Sources:**" line at the END of EVERY body H2 section using the closest matching context source URL
-- Use ONLY URLs from the CONTEXT SOURCE URL CATALOGUE supplied below. Do not use Google search URLs, generic authority URLs, remembered URLs, placeholder URLs, or any URL that is not in that catalogue
-- Format: **Sources:** [Source Title](https://provided-context-url)
-- If the fit is imperfect, still use the closest catalogue URL rather than inventing or omitting a source line
-- The final ## References section must list ONLY catalogue URLs actually cited in the article` : `SOURCE REFERENCE RULES:
-- DO NOT use inline numeric citations like [1], [2], [3] in the text
-- No context-file source URLs were provided, so DO NOT add any **Sources:** lines or a ## References section
-- Do not invent, remember, search for, or guess reference URLs`}
+- Add a "**Sources:**" line at the END of EACH major section (after ## headings)
+- List 1-2 relevant sources as simple markdown links directly under that section
+- CRITICAL: All source links MUST be real, valid, working URLs to authoritative websites
+- Format: **Sources:** [Source Title](https://example.com/actual-page-url)
+- Use real domains like gov sites, NHS, CDC, Wikipedia, official brand sites, reputable news outlets
+- Example: [NHS Food Safety Guidelines](https://www.nhs.uk/live-well/eat-well/food-guidelines-and-food-labels/)
+- NEVER use placeholder URLs or made-up links - only include sources you know exist
+- Sources should be relevant to that specific section's content`}
 
 ARTICLE STRUCTURE (in this order) — WORD BUDGET PER SECTION:
 Total target: ${targetWords} words. Each section has a strict word budget. Do NOT exceed individual section budgets.
@@ -607,11 +504,11 @@ ${instructions}`;
       userPrompt = `Write a blog post about: ${topic}
 
 MUST FOLLOW (in priority order):
-1. STRUCTURE — Follow the AEO layout exactly: H1 → AI-quotable opening paragraph (30-50 words) → ## TL;DR (1 dense paragraph, no list) → ## Quick Tips (3 tips, max 15 words each) → ## In This Article (nav list) → question-based H2 sections (each H2 phrased as a question, immediately followed by a ~30-word direct answer paragraph, then EXACTLY THREE markdown bullet points using "- ", then a comparison table where relevant${skipSources || contextSourceLinks.length === 0 ? '' : ', then a **Sources:** line'}) → ## How to Choose (4-6 criteria as a bullet checklist) → ## Frequently Asked Questions → ## Final Thoughts${skipSources || contextSourceLinks.length === 0 ? '' : ' → ## References (markdown bullet list of all sources)'}.
+1. STRUCTURE — Follow the AEO layout exactly: H1 → AI-quotable opening paragraph (30-50 words) → ## TL;DR (1 dense paragraph, no list) → ## Quick Tips (3 tips, max 15 words each) → ## In This Article (nav list) → question-based H2 sections (each H2 phrased as a question, immediately followed by a ~30-word direct answer paragraph, then EXACTLY THREE markdown bullet points using "- ", then a comparison table where relevant${skipSources ? '' : ', then a **Sources:** line'}) → ## How to Choose (4-6 criteria as a bullet checklist) → ## Frequently Asked Questions → ## Final Thoughts${skipSources ? '' : ' → ## References (markdown bullet list of all sources)'}.
 2. WORD COUNT — Final article between ${wordFloor} and ${wordCeiling} words (target ${targetWords}). Count as you write.
-3. TABLES — Include AT LEAST ${requiredTables} markdown comparison table${requiredTables > 1 ? 's' : ''} (≥2 per 1,000 words, ≥3 per 1,500 words; 1 per 500 words), each ≥3 columns and ≥4 data rows, spread evenly across body H2 sections. Markdown pipe syntax only.${skipSources ? '' : `
-4. SOURCES — ${contextSourceLinks.length > 0 ? `Use ONLY URLs from the provided context source catalogue for "**Sources:**" lines and ## References. Never invent or remember outside URLs. If no catalogue URL supports a section, omit that section's source line.` : `No verified context source URLs are available. Do NOT add "**Sources:**" lines. Do NOT add a ## References section. Do not cite outside URLs, remembered URLs, authority URLs, Google URLs, PDFs, or placeholders.`}`}
-5. FORMATTING — Every body H2 section must contain EXACTLY THREE markdown bullet points using "- ". Do not use numbered lists as the required bullets. Do not bold key terms or keyword phrases in the article prose. British English. No em/en dashes. No horizontal rules.
+3. TABLES — Include exactly ${requiredTables} markdown comparison table${requiredTables > 1 ? 's' : ''} (1 per 600 words), each ≥3 columns and ≥4 data rows, spread evenly across body H2 sections. Markdown pipe syntax only.${skipSources ? '' : `
+4. SOURCES — Every body H2 ends with a "**Sources:**" line listing 1-2 real markdown links to authoritative sites (NHS, gov, CDC, Wikipedia, official brand sites, reputable news). The final ## References section lists all sources as a markdown bullet list. Real working URLs only — no placeholders, no inline [1][2] citations.`}
+5. FORMATTING — Every body H2 section must contain EXACTLY THREE markdown bullet points using "- ". Do not use numbered lists as the required bullets. Use **bold** for key terms. British English. No em/en dashes. No horizontal rules.
 6. ATOMIC SECTION CONTRACT (NON-NEGOTIABLE) — Every body H2 and H3 must be a standalone answer block that works alone if extracted by Google AI Overviews, ChatGPT, Gemini or Perplexity. For EACH body H2/H3 you MUST:
    (a) Open with ONE direct sentence that fully answers the heading question on its own (no preamble, no "Dental implants are popular…" style intros).
    (b) Follow with a supporting explanation (1–2 short paragraphs) AND EXACTLY THREE markdown bullet points using "- ". No section may have 0, 1, 2, 4, or more bullet points.
@@ -708,14 +605,6 @@ The following reference materials are your AUTHORITATIVE source. You MUST:
 
 CONTEXT FILES:
 ${contextContent}`;
-        if (contextSourceCatalogue) {
-          userPrompt += `
-
-CONTEXT SOURCE URL CATALOGUE (ONLY THESE URLS MAY BE USED IN SOURCES OR REFERENCES):
-${contextSourceCatalogue}
-
-If a source URL is not listed above, do not cite it. Do not create Google search links, generic reference links, or remembered URLs.`;
-        }
       }
 
       // Add article images for AI placement
@@ -1169,42 +1058,10 @@ Place these images throughout the article at logical locations, typically after 
       return { markdown: [intro, ...rebuiltSections].filter(Boolean).join("\n\n").trim(), changedSections };
     };
 
-    const removeDisallowedSourceSections = (markdown: string): string => markdown
-      .replace(/^\s*\*?\*?Sources?:\*?\*?.*$/gim, "")
-      .replace(/^#{1,3}\s+References:?\s*[\s\S]*?(?=^#{1,3}\s+|\s*$)/gim, "")
-      .replace(/\n{3,}/g, "\n\n")
-      .trim();
-
-    const stripInlineBoldEmphasis = (markdown: string): string => markdown
-      .split("\n")
-      .map((line) => {
-        if (/^#{1,6}\s+/.test(line)) return line;
-        if (/^\s*\*\*Sources?:\*\*/i.test(line)) return line;
-        if (/^>\s*\*\*Tip\s+\d+:\*\*/i.test(line)) return line;
-        if (/^\s*\*\*[^*]+\?\*\*\s*$/i.test(line)) return line;
-        return line.replace(/\*\*([^*]+)\*\*/g, "$1");
-      })
-      .join("\n");
-
-    const stripDisallowedArticleLinks = (markdown: string): { markdown: string; removedUrls: string[] } => {
-      const removed = new Set<string>();
-      const withoutMarkdownLinks = markdown.replace(/(!?)\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, (full, bang, label, rawUrl) => {
-        const url = String(rawUrl).replace(/[\].,;]+$/, "");
-        if (bang === "!") return full;
-        if (allowedContextSourceUrls.has(url)) return full;
-        removed.add(url);
-        return label;
-      });
-      const withoutBareUrls = withoutMarkdownLinks.replace(/(?<!["'(\[])https?:\/\/[^\s<>"')\]]+/g, (rawUrl) => {
-        const url = String(rawUrl).replace(/[),.;]+$/, "");
-        if (allowedContextSourceUrls.has(url)) return rawUrl;
-        removed.add(url);
-        return "";
-      });
-      return { markdown: withoutBareUrls.replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim(), removedUrls: [...removed] };
-    };
-
     const repairNonClickableSourceReferences = (markdown: string): { markdown: string; repairedSections: string[]; brokenSections: string[] } => {
+      const linkRegex = /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g;
+      const links: { title: string; url: string; markdown: string; key: string; tokens: Set<string> }[] = [];
+      const seenUrls = new Set<string>();
       const normalise = (value: string) => value
         .toLowerCase()
         .replace(/https?:\/\/\S+/g, " ")
@@ -1213,31 +1070,22 @@ Place these images throughout the article at logical locations, typically after 
         .replace(/\s+/g, " ")
         .trim();
       const tokenise = (value: string) => new Set(normalise(value).split(" ").filter(token => token.length > 2));
-
-      const candidateLinks = contextSourceLinks;
-      const linkIsAllowed = (url: string) => allowedContextSourceUrls.has(url.replace(/[\].,;]+$/, ""));
-      const allowedMarkdownLinksFromLine = (line: string): string[] => {
-        const allowed: string[] = [];
-        const seenLineUrls = new Set<string>();
-        let match: RegExpExecArray | null;
-        const lineLinkRegex = /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g;
-        while ((match = lineLinkRegex.exec(line)) !== null) {
-          const title = match[1].trim();
-          const url = match[2].replace(/[\].,;]+$/, "");
-          if (!title || seenLineUrls.has(url) || !linkIsAllowed(url)) continue;
-          seenLineUrls.add(url);
-          allowed.push(`[${title}](${url})`);
-        }
-        return allowed;
-      };
+      let linkMatch: RegExpExecArray | null;
+      while ((linkMatch = linkRegex.exec(markdown)) !== null) {
+        const title = linkMatch[1].trim();
+        const url = linkMatch[2].replace(/[\].,;]+$/, "");
+        if (!title || seenUrls.has(url)) continue;
+        seenUrls.add(url);
+        links.push({ title, url, markdown: `[${title}](${url})`, key: normalise(title), tokens: tokenise(`${title} ${url}`) });
+      }
 
       const bestLinkFor = (sourceText: string) => {
         const sourceKey = normalise(sourceText);
         const sourceTokens = tokenise(sourceText);
         if (!sourceKey || sourceTokens.size === 0) return null;
-        let best: typeof candidateLinks[number] | null = null;
+        let best: typeof links[number] | null = null;
         let bestScore = 0;
-        for (const link of candidateLinks) {
+        for (const link of links) {
           let overlap = 0;
           sourceTokens.forEach(token => { if (link.tokens.has(token)) overlap++; });
           const directMatch = sourceKey.length > 8 && link.key.length > 8 && (sourceKey.includes(link.key) || link.key.includes(sourceKey));
@@ -1260,25 +1108,11 @@ Place these images throughout the article at logical locations, typically after 
 
         const sourceLineMatch = line.match(/^\s*\*?\*?Sources?:\*?\*?\s*(.*)$/i);
         if (sourceLineMatch) {
-          if (/\[[^\]]+\]\(https?:\/\/[^)\s]+\)/i.test(line)) {
-            const allowedLinks = allowedMarkdownLinksFromLine(line);
-            if (allowedLinks.length > 0) return `**Sources:** ${allowedLinks.join(" | ")}`;
-            brokenSections.add(currentHeading);
-            return "";
-          }
+          if (/\[[^\]]+\]\(https?:\/\/[^)\s]+\)/i.test(line)) return line;
           const sourceText = sourceLineMatch[1].trim();
           const urlMatch = sourceText.match(/https?:\/\/\S+/i);
           if (urlMatch) {
             const url = urlMatch[0].replace(/[\].,;]+$/, "");
-            if (contextSourceLinks.length > 0 && !allowedContextSourceUrls.has(url)) {
-              const matched = bestLinkFor(sourceText);
-              if (matched) {
-                repairedSections.add(currentHeading);
-                return `**Sources:** ${matched.markdown}`;
-              }
-              brokenSections.add(currentHeading);
-              return "";
-            }
             const label = sourceText.replace(urlMatch[0], "").replace(/[|,;:]+$/g, "").trim() || new URL(url).hostname.replace(/^www\./, "");
             repairedSections.add(currentHeading);
             return `**Sources:** [${label}](${url})`;
@@ -1288,30 +1122,21 @@ Place these images throughout the article at logical locations, typically after 
             repairedSections.add(currentHeading);
             return `**Sources:** ${matched.markdown}`;
           }
+          const cleanLabel = sourceText.replace(/[|,;:]+$/g, "").trim();
+          if (cleanLabel) {
+            const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(cleanLabel)}`;
+            repairedSections.add(currentHeading);
+            return `**Sources:** [${cleanLabel}](${searchUrl})`;
+          }
           brokenSections.add(currentHeading);
-          return contextSourceLinks.length > 0 ? "" : line;
+          return line;
         }
 
-        if (/^##\s+references:?$/i.test(`## ${currentHeading}`) && line.trim() && !/^##\s+/.test(line)) {
-          if (/\[[^\]]+\]\(https?:\/\/[^)\s]+\)/i.test(line)) {
-            const allowedLinks = allowedMarkdownLinksFromLine(line);
-            if (allowedLinks.length > 0) return allowedLinks.map(link => `- ${link}`).join("\n");
-            brokenSections.add("References");
-            return "";
-          }
+        if (/^##\s+references:?$/i.test(`## ${currentHeading}`) && line.trim() && !/^##\s+/.test(line) && !/\[[^\]]+\]\(https?:\/\/[^)\s]+\)/i.test(line)) {
           const sourceText = line.replace(/^[-*+]\s+/, "").trim();
           const urlMatch = sourceText.match(/https?:\/\/\S+/i);
           if (urlMatch) {
             const url = urlMatch[0].replace(/[\].,;]+$/, "");
-            if (contextSourceLinks.length > 0 && !allowedContextSourceUrls.has(url)) {
-              const matched = bestLinkFor(sourceText);
-              if (matched) {
-                repairedSections.add("References");
-                return `- ${matched.markdown}`;
-              }
-              brokenSections.add("References");
-              return "";
-            }
             const label = sourceText.replace(urlMatch[0], "").replace(/[|,;:]+$/g, "").trim() || new URL(url).hostname.replace(/^www\./, "");
             repairedSections.add("References");
             return `- [${label}](${url})`;
@@ -1321,8 +1146,13 @@ Place these images throughout the article at logical locations, typically after 
             repairedSections.add("References");
             return `- ${matched.markdown}`;
           }
+          const cleanLabel = sourceText.replace(/[|,;:]+$/g, "").trim();
+          if (cleanLabel) {
+            const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(cleanLabel)}`;
+            repairedSections.add("References");
+            return `- [${cleanLabel}](${searchUrl})`;
+          }
           brokenSections.add("References");
-          return contextSourceLinks.length > 0 ? "" : line;
         }
 
         return line;
@@ -1331,98 +1161,10 @@ Place these images throughout the article at logical locations, typically after 
       return { markdown: fixedLines.join("\n").trim(), repairedSections: [...repairedSections], brokenSections: [...brokenSections] };
     };
 
-    const enforceSourceLineOnEveryBodySection = (markdown: string): { markdown: string; addedSections: string[]; replacedSections: string[] } => {
-      if (skipSources || contextSourceLinks.length === 0) return { markdown, addedSections: [], replacedSections: [] };
-
-      const headingRegex = /^##\s+.+$/gm;
-      const matches = [...markdown.matchAll(headingRegex)];
-      if (matches.length === 0) return { markdown, addedSections: [], replacedSections: [] };
-
-      const addedSections: string[] = [];
-      const replacedSections: string[] = [];
-      const intro = markdown.slice(0, matches[0].index ?? 0).trim();
-      const rebuilt = matches.map((match, index) => {
-        const start = match.index ?? 0;
-        const end = index + 1 < matches.length ? (matches[index + 1].index ?? markdown.length) : markdown.length;
-        const headingLine = match[0];
-        const heading = headingLine.replace(/^##\s+/, "").replace(/:$/, "").trim();
-        const headingKey = heading.toLowerCase();
-        const blockBody = markdown.slice(start + headingLine.length, end).trim();
-
-        if (bodySectionSkipPattern.test(headingKey)) return `${headingLine}\n${blockBody}`.trim();
-
-        const sectionText = `${heading}\n${blockBody}`;
-        const sectionTokens = tokeniseSourceText(sectionText);
-        let bestLink = contextSourceLinks[index % contextSourceLinks.length];
-        let bestScore = -1;
-        for (const link of contextSourceLinks) {
-          let overlap = 0;
-          sectionTokens.forEach(token => { if (link.tokens.has(token)) overlap++; });
-          const score = overlap / Math.max(1, Math.min(sectionTokens.size || 1, link.tokens.size || 1));
-          if (score > bestScore) {
-            bestScore = score;
-            bestLink = link;
-          }
-        }
-
-        const lines = blockBody.split("\n");
-        const hadSourceLine = lines.some(line => /^\s*\*?\*?Sources?:\*?\*?/i.test(line));
-        const bodyWithoutSourceLines = lines.filter(line => !/^\s*\*?\*?Sources?:\*?\*?/i.test(line)).join("\n").trim();
-        if (hadSourceLine) replacedSections.push(heading.slice(0, 60));
-        else addedSections.push(heading.slice(0, 60));
-
-        return `${headingLine}\n${bodyWithoutSourceLines}\n\n**Sources:** ${bestLink.markdown}`.trim();
-      });
-
-      return { markdown: [intro, ...rebuilt].filter(Boolean).join("\n\n").trim(), addedSections, replacedSections };
-    };
-
     // ═══════════════════════════════════════════════════════════════════════
     // TABLE GUARD: deterministic local injection if model under-delivered
     // ═══════════════════════════════════════════════════════════════════════
     if (!expandExistingContent) {
-      // First, strip any markdown table that has fewer than 2 data rows.
-      // A "data row" is a |...| row AFTER the separator (| --- | --- |).
-      // Single-row tables are not real comparisons and must never appear.
-      const stripUndersizedTables = (md: string): { md: string; removed: number } => {
-        const lines = md.split("\n");
-        const out: string[] = [];
-        let removed = 0;
-        let i = 0;
-        while (i < lines.length) {
-          const isPipe = (s: string) => s.includes("|");
-          const isSep = (s: string) => /^\s*\|?[\s\-:|]+\|[\s\-:|]+\|?\s*$/.test(s);
-          if (isPipe(lines[i]) && i + 1 < lines.length && isSep(lines[i + 1])) {
-            // collect contiguous data rows
-            let j = i + 2;
-            const dataRows: string[] = [];
-            while (j < lines.length && isPipe(lines[j]) && lines[j].trim() !== "") {
-              dataRows.push(lines[j]);
-              j++;
-            }
-            if (dataRows.length < 2) {
-              // drop the whole table (header + separator + any data rows)
-              removed++;
-              i = j;
-              // also swallow a single trailing blank line if it was just padding
-              if (i < lines.length && lines[i].trim() === "") i++;
-              continue;
-            }
-            // keep table as-is
-            out.push(lines[i], lines[i + 1], ...dataRows);
-            i = j;
-            continue;
-          }
-          out.push(lines[i]);
-          i++;
-        }
-        return { md: out.join("\n"), removed };
-      };
-      const stripped = stripUndersizedTables(content);
-      if (stripped.removed > 0) {
-        console.warn(`TABLE GUARD: Removed ${stripped.removed} undersized table(s) with <2 data rows`);
-        content = stripped.md;
-      }
       const countTables = (md: string): number => {
         const lines = md.split("\n");
         let count = 0;
@@ -1436,35 +1178,28 @@ Place these images throughout the article at logical locations, typically after 
       const existingTables = countTables(content);
       const tablesNeeded = requiredTables - existingTables;
       if (tablesNeeded > 0) {
-        console.warn(`TABLE GUARD: Found ${existingTables}/${requiredTables} tables. Attempting to inject ${tablesNeeded} fallback table(s).`);
-        const fallbackTable = (_idx: number) => `\n\n| Aspect | Option A | Option B | Option C |\n| --- | --- | --- | --- |\n| Best for | Beginners | Intermediate users | Advanced needs |\n| Typical cost | Low | Moderate | Higher |\n| Time to results | Fast | Balanced | Long-term |\n| Key trade-off | Simplicity | Flexibility | Depth |\n`;
-        const lines = content.split("\n");
-        const isPipe = (s: string) => s.includes("|");
-        const isSep = (s: string) => /^\s*\|?[\s\-:|]+\|[\s\-:|]+\|?\s*$/.test(s);
+        console.warn(`TABLE GUARD: Found ${existingTables}/${requiredTables} tables. Injecting ${tablesNeeded} fallback table(s).`);
+        const fallbackTable = (idx: number) => `\n\n| Aspect | Option A | Option B | Option C |\n| --- | --- | --- | --- |\n| Best for | Beginners | Intermediate users | Advanced needs |\n| Typical cost | Low | Moderate | Higher |\n| Time to results | Fast | Balanced | Long-term |\n| Key trade-off | Simplicity | Flexibility | Depth |\n`;
         // Find body H2 sections (skip TL;DR, Quick Tips, In This Article, FAQ, Final Thoughts, References)
-        // AND that do NOT already contain a markdown table.
-        const eligibleH2: { start: number; end: number }[] = [];
+        const lines = content.split("\n");
+        const h2Indices: number[] = [];
         for (let i = 0; i < lines.length; i++) {
           if (/^##\s+/.test(lines[i]) && !bodySectionSkipPattern.test(lines[i])) {
-            let end = lines.length;
-            for (let j = i + 1; j < lines.length; j++) {
-              if (/^##\s+/.test(lines[j])) { end = j; break; }
-            }
-            let hasTable = false;
-            for (let k = i + 1; k < end - 1; k++) {
-              if (isPipe(lines[k]) && isSep(lines[k + 1])) { hasTable = true; break; }
-            }
-            if (!hasTable) eligibleH2.push({ start: i, end });
+            h2Indices.push(i);
           }
         }
-        if (eligibleH2.length > 0) {
-          // Distribute evenly across eligible (table-free) H2 sections
-          const inject = Math.min(tablesNeeded, eligibleH2.length);
+        if (h2Indices.length > 0) {
+          // Distribute evenly across body H2s, find end of each section
           const targets: number[] = [];
-          const step = Math.max(1, Math.floor(eligibleH2.length / inject));
-          for (let i = 0; i < inject; i++) {
-            const sec = eligibleH2[Math.min(i * step, eligibleH2.length - 1)];
-            targets.push(sec.end);
+          const step = Math.max(1, Math.floor(h2Indices.length / tablesNeeded));
+          for (let i = 0; i < tablesNeeded; i++) {
+            const h2Idx = h2Indices[Math.min(i * step, h2Indices.length - 1)];
+            // find end of this section (next ## or end)
+            let endIdx = lines.length;
+            for (let j = h2Idx + 1; j < lines.length; j++) {
+              if (/^##\s+/.test(lines[j])) { endIdx = j; break; }
+            }
+            targets.push(endIdx);
           }
           // Insert from bottom up to preserve indices
           targets.sort((a, b) => b - a);
@@ -1472,57 +1207,12 @@ Place these images throughout the article at logical locations, typically after 
             lines.splice(targets[i], 0, fallbackTable(i));
           }
           content = lines.join("\n");
-          console.log(`TABLE GUARD: Injected ${inject} table(s) into table-free body H2 sections (requested ${tablesNeeded})`);
-        } else {
-          console.warn(`TABLE GUARD: No table-free body H2 sections available; skipping injection to avoid back-to-back tables`);
+          console.log(`TABLE GUARD: Injected ${tablesNeeded} table(s) into body H2 sections`);
         }
       } else {
         console.log(`TABLE GUARD: ${existingTables}/${requiredTables} tables present ✓`);
       }
-
-      // Final pass: collapse any back-to-back markdown tables (separated only by blank lines)
-      // by removing the second (generic) table. Real tables earned their place; duplicates go.
-      const removeAdjacentTables = (md: string): { md: string; removed: number } => {
-        const lines2 = md.split("\n");
-        const isPipe = (s: string) => s.includes("|");
-        const isSep = (s: string) => /^\s*\|?[\s\-:|]+\|[\s\-:|]+\|?\s*$/.test(s);
-        // Find table ranges: [headerIdx, lastDataRowIdx]
-        const tables: { start: number; end: number }[] = [];
-        let i = 0;
-        while (i < lines2.length - 1) {
-          if (isPipe(lines2[i]) && isSep(lines2[i + 1])) {
-            let j = i + 2;
-            while (j < lines2.length && isPipe(lines2[j]) && lines2[j].trim() !== "") j++;
-            tables.push({ start: i, end: j - 1 });
-            i = j;
-          } else {
-            i++;
-          }
-        }
-        // Mark second table for removal if only blank lines (or nothing) lie between prev.end and next.start
-        const toRemove = new Set<number>();
-        for (let t = 1; t < tables.length; t++) {
-          const prev = tables[t - 1];
-          const next = tables[t];
-          let onlyBlank = true;
-          for (let k = prev.end + 1; k < next.start; k++) {
-            if (lines2[k].trim() !== "") { onlyBlank = false; break; }
-          }
-          if (onlyBlank) {
-            for (let k = next.start; k <= next.end; k++) toRemove.add(k);
-          }
-        }
-        if (toRemove.size === 0) return { md, removed: 0 };
-        const out = lines2.filter((_, idx) => !toRemove.has(idx));
-        return { md: out.join("\n"), removed: tables.filter((_, idx) => idx > 0 && toRemove.has(tables[idx].start)).length };
-      };
-      const adj = removeAdjacentTables(content);
-      if (adj.removed > 0) {
-        console.warn(`TABLE GUARD: Removed ${adj.removed} back-to-back duplicate table(s)`);
-        content = adj.md;
-      }
     }
-
 
     // ═══════════════════════════════════════════════════════════════════════
     // ATOMIC SECTION GUARD: strip banned dependency phrases + log gaps
@@ -1590,10 +1280,9 @@ Place these images throughout the article at logical locations, typically after 
       const hasInThisArticle = /in\s*this\s*article/i.test(content);
       const hasFAQ = skipFaqs || /^#{1,3}\s.*frequently\s*asked|^#{1,3}\s.*faq/im.test(content);
       const hasFinalThoughts = /^#{1,3}\s.*final\s*thoughts|^#{1,3}\s.*conclusion/im.test(content);
-      const hasReferences = skipSources || contextSourceLinks.length === 0 || /^#{1,3}\s.*references/im.test(content);
+      const hasReferences = skipSources || /^#{1,3}\s.*references/im.test(content);
 
       const buildReferencesFromRealLinks = (md: string): string => {
-        if (contextSourceLinks.length === 0) return "";
         const linkRe = /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g;
         const seen = new Set<string>();
         const items: string[] = [];
@@ -1601,22 +1290,17 @@ Place these images throughout the article at logical locations, typically after 
         while ((m = linkRe.exec(md)) !== null) {
           const title = m[1].trim();
           const url = m[2].replace(/[)\]\.,;]+$/, "");
-          if (!title || seen.has(url) || (contextSourceLinks.length > 0 && !allowedContextSourceUrls.has(url))) continue;
+          if (!title || seen.has(url)) continue;
           seen.add(url);
           items.push(`- [${title}](${url})`);
         }
         return items.length ? `## References\n${items.join("\n")}` : "";
       };
 
-      const buildReferencesFromCatalogue = (): string => {
-        if (contextSourceLinks.length === 0) return "";
-        return `## References\n${contextSourceLinks.map((link) => `- ${link.markdown}`).join("\n")}`;
-      };
-
       const normaliseReferencesSection = (md: string): string => {
         if (skipSources || !/^#{1,3}\s.*references/im.test(md)) return md;
         const rebuilt = buildReferencesFromRealLinks(md.replace(/^#{1,3}\s.*references[\s\S]*$/im, ""));
-        if (!rebuilt) return buildReferencesFromCatalogue() ? md.replace(/^#{1,3}\s.*references[\s\S]*$/im, buildReferencesFromCatalogue()) : md;
+        if (!rebuilt) return md;
         return md.replace(/^#{1,3}\s.*references[\s\S]*$/im, rebuilt);
       };
 
@@ -1644,9 +1328,8 @@ Place these images throughout the article at logical locations, typically after 
               return `## Final Thoughts\nThe strongest results come from clear criteria, grounded comparisons, and deliberate trade-offs. Use the framework above to choose confidently and execute the next step with evidence, not guesswork.`;
             case "References": {
               // Build References from real markdown links found in the body.
-              // If the model omitted per-section source lines, fall back to the verified context catalogue.
-              // Never inject placeholder authority URLs — catalogue URLs came from the user's context files.
-              return buildReferencesFromRealLinks(content) || buildReferencesFromCatalogue();
+              // Never inject placeholder authority URLs — fake sources are worse than none.
+              return buildReferencesFromRealLinks(content);
             }
             default:
               return "";
@@ -1680,10 +1363,6 @@ Place these images throughout the article at logical locations, typically after 
       content = normaliseReferencesSection(content);
     }
 
-    if (!skipSources && contextSourceLinks.length === 0) {
-      content = removeDisallowedSourceSections(content);
-    }
-
     if (!expandExistingContent && !migrationMode && !formatReference) {
       const finalBulletResult = enforceThreeBulletsPerBodySection(content);
       content = finalBulletResult.markdown;
@@ -1692,7 +1371,7 @@ Place these images throughout the article at logical locations, typically after 
       }
     }
 
-    if (!skipSources && contextSourceLinks.length > 0) {
+    if (!skipSources) {
       const sourceRepairResult = repairNonClickableSourceReferences(content);
       content = sourceRepairResult.markdown;
       if (sourceRepairResult.repairedSections.length > 0) {
@@ -1705,63 +1384,6 @@ Place these images throughout the article at logical locations, typically after 
         console.warn(message);
         contentIntegrityWarnings.push(message);
       }
-    }
-    if (!skipSources && contextSourceLinks.length > 0) {
-      const sourceLineResult = enforceSourceLineOnEveryBodySection(content);
-      content = sourceLineResult.markdown;
-      if (sourceLineResult.addedSections.length > 0 || sourceLineResult.replacedSections.length > 0) {
-        const message = `SOURCE GUARD: Enforced clickable source lines on body sections. Added ${sourceLineResult.addedSections.length}, replaced ${sourceLineResult.replacedSections.length}.`;
-        console.warn(message);
-        contentIntegrityWarnings.push(message);
-      }
-    }
-    const disallowedLinkResult = stripDisallowedArticleLinks(content);
-    content = disallowedLinkResult.markdown;
-    if (!skipSources && contextSourceLinks.length > 0) {
-      const referencesBlock = (() => {
-        const linkRe = /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g;
-        const seen = new Set<string>();
-        const cited: string[] = [];
-        let m: RegExpExecArray | null;
-        const bodyWithoutReferences = content.replace(/^#{1,3}\s.*references[\s\S]*$/im, "");
-        while ((m = linkRe.exec(bodyWithoutReferences)) !== null) {
-          const title = m[1].trim();
-          const url = m[2].replace(/[)\]\.,;]+$/, "");
-          if (!title || seen.has(url) || !allowedContextSourceUrls.has(url)) continue;
-          seen.add(url);
-          cited.push(`- [${title}](${url})`);
-        }
-        // Guarantee a meaningful References section: top up with catalogue
-        // entries (in original order) so readers always see at least 5 sources.
-        const minReferences = Math.min(5, contextSourceLinks.length);
-        if (cited.length < minReferences) {
-          for (const link of contextSourceLinks) {
-            if (cited.length >= minReferences) break;
-            if (seen.has(link.url)) continue;
-            seen.add(link.url);
-            cited.push(`- ${link.markdown}`);
-          }
-        }
-        return `## References\n${cited.join("\n")}`;
-      })();
-      if (/^#{1,3}\s.*references/im.test(content)) {
-        content = content.replace(/^#{1,3}\s.*references[\s\S]*$/im, referencesBlock);
-      } else {
-        content = `${content.trimEnd()}\n\n${referencesBlock}`;
-      }
-      console.log(`SOURCE GUARD: References rebuilt with ${referencesBlock.split("\n").length - 1} catalogue link(s)`);
-    }
-
-    content = stripInlineBoldEmphasis(content);
-    if (disallowedLinkResult.removedUrls.length > 0) {
-      const message = `SOURCE GUARD: Removed ${disallowedLinkResult.removedUrls.length} non-context URL(s) from generated content: ${disallowedLinkResult.removedUrls.join(" | ")}`;
-      console.warn(message);
-      contentIntegrityWarnings.push(message);
-    }
-    if (rejectedContextSourceUrls.length > 0) {
-      const message = `SOURCE GUARD: Removed ${rejectedContextSourceUrls.length} broken or unreachable context source URL(s): ${rejectedContextSourceUrls.map((item) => `${item.url} (${item.reason})`).join(" | ")}`;
-      console.warn(message);
-      contentIntegrityWarnings.push(message);
     }
 
     // Generate CTAs if requested

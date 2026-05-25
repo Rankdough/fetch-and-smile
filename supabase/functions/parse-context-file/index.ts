@@ -7,68 +7,6 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const decodeXmlText = (value: string): string => value
-  .replace(/&lt;/g, "<")
-  .replace(/&gt;/g, ">")
-  .replace(/&amp;/g, "&")
-  .replace(/&quot;/g, '"')
-  .replace(/&apos;/g, "'")
-  .replace(/&#x([0-9a-f]+);/gi, (_m, hex) => String.fromCodePoint(parseInt(hex, 16)))
-  .replace(/&#(\d+);/g, (_m, dec) => String.fromCodePoint(parseInt(dec, 10)));
-
-// Domains used by Word's OOXML namespace declarations; never citable sources.
-const NAMESPACE_HOST_RE = /^https?:\/\/(?:schemas\.openxmlformats\.org|schemas\.microsoft\.com|purl\.oclc\.org|www\.w3\.org|schemas\.xmlsoap\.org|sjis\.example\.com)\b/i;
-
-const extractDocxSourceCatalogue = (
-  documentXml: string,
-  relationshipsXml: string,
-  plainText: string,
-): string => {
-  const relTargets = new Map<string, string>();
-  for (const match of relationshipsXml.matchAll(/<Relationship\b[^>]*Id="([^"]+)"[^>]*Target="([^"]+)"[^>]*(?:TargetMode="External")?[^>]*>/g)) {
-    const id = match[1];
-    const target = decodeXmlText(match[2]);
-    if (/^https?:\/\//i.test(target) && !NAMESPACE_HOST_RE.test(target)) {
-      relTargets.set(id, target);
-    }
-  }
-
-  const sources: { title: string; url: string }[] = [];
-  const seen = new Set<string>();
-  const addSource = (title: string, rawUrl: string) => {
-    const url = decodeXmlText(rawUrl).replace(/[)\].,;]+$/, "").trim();
-    if (!/^https?:\/\//i.test(url) || seen.has(url)) return;
-    if (NAMESPACE_HOST_RE.test(url)) return;
-    seen.add(url);
-    const cleanedTitle = decodeXmlText(title).replace(/\s+/g, " ").trim() || url;
-    sources.push({ title: cleanedTitle, url });
-  };
-
-  // 1) Authoritative: Word hyperlink relationships referenced from the body.
-  for (const match of documentXml.matchAll(/<w:hyperlink\b[^>]*r:id="([^"]+)"[^>]*>([\s\S]*?)<\/w:hyperlink>/g)) {
-    const url = relTargets.get(match[1]);
-    if (!url) continue;
-    const label = [...match[2].matchAll(/<w:t[^>]*>([\s\S]*?)<\/w:t>/g)].map((m) => m[1]).join("");
-    addSource(label, url);
-  }
-
-  // 2) Safety net: any external rels not referenced inline (e.g. footnote refs).
-  for (const [, url] of relTargets) addSource(url, url);
-
-  // 3) Fallback: URLs typed directly into the document body (visible text only,
-  //    NOT raw XML — raw XML contains namespace declarations that are not sources).
-  for (const urlMatch of plainText.matchAll(/https?:\/\/[^\s<>"')\]]+/g)) {
-    addSource(urlMatch[0], urlMatch[0]);
-  }
-
-  if (sources.length === 0) return "";
-  return [
-    "SOURCE URL CATALOGUE FROM UPLOADED CONTEXT FILE:",
-    "Use ONLY these URLs for citations, inline source links, and the References section. Do not invent or use any other URLs.",
-    ...sources.map((source, index) => `${index + 1}. [${source.title}](${source.url})`),
-  ].join("\n");
-};
-
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -153,17 +91,13 @@ serve(async (req) => {
         // Unzip the docx file
         const unzipped = unzipSync(uint8Array);
         
-        // Find and read document.xml (main content) plus relationships (embedded hyperlinks)
+        // Find and read document.xml (main content)
         let documentXml = "";
-        let relationshipsXml = "";
         for (const [path, content] of Object.entries(unzipped)) {
           if (path === "word/document.xml") {
             const decoder = new TextDecoder("utf-8");
             documentXml = decoder.decode(content as Uint8Array);
-          }
-          if (path === "word/_rels/document.xml.rels") {
-            const decoder = new TextDecoder("utf-8");
-            relationshipsXml = decoder.decode(content as Uint8Array);
+            break;
           }
         }
         
@@ -179,7 +113,7 @@ serve(async (req) => {
               const paragraphText = sectionTextMatches
                 .map(match => {
                   const textMatch = match.match(/<w:t[^>]*>([^<]*)<\/w:t>/);
-                  return textMatch ? decodeXmlText(textMatch[1]) : "";
+                  return textMatch ? textMatch[1] : "";
                 })
                 .join("");
               if (paragraphText.trim()) {
@@ -188,10 +122,8 @@ serve(async (req) => {
             }
           }
           
-          const bodyText = paragraphs.join("\n\n");
-          const sourceCatalogue = extractDocxSourceCatalogue(documentXml, relationshipsXml, bodyText);
-          textContent = [sourceCatalogue, bodyText].filter(Boolean).join("\n\n");
-          console.log("Extracted text and hyperlink catalogue from docx using fflate, length:", textContent.length);
+          textContent = paragraphs.join("\n\n");
+          console.log("Extracted text from docx using fflate, length:", textContent.length);
         }
         
         if (!textContent || textContent.length < 20) {
@@ -231,9 +163,9 @@ serve(async (req) => {
 
     return new Response(
       JSON.stringify({
-        content: textContent.substring(0, 30000), // Keep source catalogues and enough body context for generation
+        content: textContent.substring(0, 10000), // Limit to 10k chars
         fileName,
-        truncated: textContent.length > 30000,
+        truncated: textContent.length > 10000,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
