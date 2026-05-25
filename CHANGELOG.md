@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-05-25 - One-click "Fix all sections" + "Remove inline Sources" in verification
+
+- **What:** Content Verification now exposes (1) a deterministic "Remove" button on the "Inline Sources blocks removed" row that strips every legacy `Sources:` heading and its adjacent link list/bullets from the current article in one click, with a toast confirming how many lines were cleaned, and (2) a "Fix all N sections" primary button on the atomic-sections row that runs `regenerate-section` sequentially against every failing H2, applies each result to the latest content snapshot, and shows a single completion toast (success count or per-section failures). Per-section buttons remain for targeted reruns and are disabled while the batch is running. `regenerateOneSection` is now a shared helper so the single and batch paths cannot diverge.
+- **Why:** User reported clicking each failing section button one by one, no completion signal, and inline Sources blocks reappearing on legacy content. They needed deterministic, batch, and notified fixes that do not depend on regenerating the whole article.
+- **Verified broken:** Nothing verified broken. Checked: `regenerateOneSection` mirrors the previous inline logic exactly (heading match, tone profile fetch, supabase invoke, before/after join); per-section button still calls it; batch loop reuses the latest snapshot so consecutive edits do not clobber each other; "Remove inline Sources" is a pure string transform that only deletes `Sources:` headings and adjacent markdown link bullets/bare links, leaving body prose, tables, and the final References section untouched; new props are optional so other consumers of `ContentVerification` are unaffected.
+- **Files:** `src/components/ContentVerification.tsx`, `src/pages/Index.tsx`, `CHANGELOG.md`.
+- **Verify:** Open an article that still shows inline `Sources:` blocks. Click "Remove" next to "Inline Sources blocks removed" — the blocks disappear and a toast confirms it. For atomic sections, click "Fix all N sections" — buttons disable, the badge updates, and a single toast reports "All sections fixed" (or lists the failures).
+
+
+
 ## 2026-05-25 - References-only output, no inline Sources blocks
 
 - **What:** Removed visible per-section `Sources:` output from the article pipeline. `generate-content` now strips legacy inline source blocks from every section, still selects at most one working source per eligible section internally, and rebuilds a single final `## References` list from those selections using anchor text only. `markdownToStyledHtml` now removes any leftover rendered `Sources:` paragraphs/lists so TL;DR, Quick Tips, and the generated navigation never show source links underneath them. `ContentVerification` now checks that inline Sources blocks are absent and that only the final clickable References section remains; atomic-section validation no longer expects per-section source lines.

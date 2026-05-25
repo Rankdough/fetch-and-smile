@@ -432,6 +432,56 @@ const Index = () => {
   const { trackUsage, getVoiceEditCredits, getQualityAnalysisCredits, getQualityAnalysisBreakdown, clearHistory: clearCreditHistory } = useCreditTracking();
   const [isGenerating, setIsGenerating] = useState(false);
   const [regeneratingSectionTitle, setRegeneratingSectionTitle] = useState<string | null>(null);
+  const [regeneratingAllSections, setRegeneratingAllSections] = useState(false);
+
+  // Regenerate a single section against the supplied content snapshot.
+  // Returns the updated content (or null if the section was not found).
+  // Used by both the per-section button and the "Fix all sections" batch runner.
+  const regenerateOneSection = async (
+    sectionTitle: string,
+    sourceContent: string,
+  ): Promise<{ updated: string | null }> => {
+    const lines = sourceContent.split("\n");
+    let startIdx = -1;
+    for (let i = 0; i < lines.length; i++) {
+      if (/^##\s+/.test(lines[i]) && lines[i].replace(/^##\s+/, "").trim() === sectionTitle) {
+        startIdx = i;
+        break;
+      }
+    }
+    if (startIdx === -1) return { updated: null };
+    let endIdx = lines.length;
+    for (let j = startIdx + 1; j < lines.length; j++) {
+      if (/^##\s+/.test(lines[j])) { endIdx = j; break; }
+    }
+    const sectionMarkdown = lines.slice(startIdx, endIdx).join("\n").trim();
+
+    let toneProfile = null;
+    if (selectedToneProfileId) {
+      const { data: profileData } = await supabase
+        .from("tone_profiles")
+        .select("*")
+        .eq("id", selectedToneProfileId)
+        .maybeSingle();
+      if (profileData) toneProfile = profileData;
+    }
+
+    const { data, error } = await supabase.functions.invoke("regenerate-section", {
+      body: {
+        sectionMarkdown,
+        sectionTitle,
+        topic: formData.topic,
+        toneProfile,
+        useFirstPerson,
+      },
+    });
+    if (error) throw error;
+    const newSection = (data?.content || "").trim();
+    if (!newSection) throw new Error("Empty response");
+    const before = lines.slice(0, startIdx).join("\n").replace(/\s+$/, "");
+    const after = lines.slice(endIdx).join("\n").replace(/^\s+/, "");
+    return { updated: [before, newSection, after].filter(Boolean).join("\n\n") };
+  };
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isEnhancingImport, setIsEnhancingImport] = useState(false);
   const [isApplyingFormat, setIsApplyingFormat] = useState(false);
@@ -5389,56 +5439,44 @@ CRITICAL EXPANSION RULES:
                       ctaUrl={ctaUrl}
                       generatedCTAs={generatedCTAs}
                       regeneratingSectionTitle={regeneratingSectionTitle}
+                      regeneratingAllSections={regeneratingAllSections}
+                      onStripInlineSources={() => {
+                        if (!generatedContent.trim()) return;
+                        const lines = generatedContent.split("\n");
+                        const out: string[] = [];
+                        let skipping = false;
+                        let removed = 0;
+                        for (const line of lines) {
+                          const trimmed = line.trim();
+                          const isHeading = /^\*?\*?Sources?:\*?\*?\s*$/i.test(trimmed);
+                          const isSourceBullet = /^[-*+]\s+\[[^\]]+\]\(https?:\/\/[^)\s]+\)/i.test(trimmed);
+                          const isBareSourceLink = /^\[[^\]]+\]\(https?:\/\/[^)\s]+\)$/i.test(trimmed);
+                          if (isHeading) { skipping = true; removed++; continue; }
+                          if (skipping) {
+                            if (!trimmed || isSourceBullet || isBareSourceLink) { if (trimmed) removed++; continue; }
+                            skipping = false;
+                          }
+                          out.push(line);
+                        }
+                        const cleaned = out.join("\n").replace(/\n{3,}/g, "\n\n");
+                        if (cleaned === generatedContent) {
+                          toast({ title: "Nothing to remove", description: "No inline Sources blocks found." });
+                          return;
+                        }
+                        setGeneratedContent(cleaned);
+                        toast({ title: "Inline Sources removed", description: `Cleaned ${removed} line(s). Only the final References section remains.` });
+                      }}
                       onRegenerateSection={async (sectionTitle) => {
-                        if (!generatedContent.trim() || regeneratingSectionTitle) return;
+                        if (!generatedContent.trim() || regeneratingSectionTitle || regeneratingAllSections) return;
                         setRegeneratingSectionTitle(sectionTitle);
                         try {
-                          // Locate the section in the current content
-                          const lines = generatedContent.split("\n");
-                          let startIdx = -1;
-                          for (let i = 0; i < lines.length; i++) {
-                            if (/^##\s+/.test(lines[i]) && lines[i].replace(/^##\s+/, "").trim() === sectionTitle) {
-                              startIdx = i;
-                              break;
-                            }
-                          }
-                          if (startIdx === -1) {
+                          const result = await regenerateOneSection(sectionTitle, generatedContent);
+                          if (result.updated) {
+                            setGeneratedContent(result.updated);
+                            toast({ title: "Section regenerated", description: sectionTitle });
+                          } else {
                             toast({ title: "Section not found", description: sectionTitle, variant: "destructive" });
-                            return;
                           }
-                          let endIdx = lines.length;
-                          for (let j = startIdx + 1; j < lines.length; j++) {
-                            if (/^##\s+/.test(lines[j])) { endIdx = j; break; }
-                          }
-                          const sectionMarkdown = lines.slice(startIdx, endIdx).join("\n").trim();
-
-                          let toneProfile = null;
-                          if (selectedToneProfileId) {
-                            const { data: profileData } = await supabase
-                              .from("tone_profiles")
-                              .select("*")
-                              .eq("id", selectedToneProfileId)
-                              .maybeSingle();
-                            if (profileData) toneProfile = profileData;
-                          }
-
-                          const { data, error } = await supabase.functions.invoke("regenerate-section", {
-                            body: {
-                              sectionMarkdown,
-                              sectionTitle,
-                              topic: formData.topic,
-                              toneProfile,
-                              useFirstPerson,
-                            },
-                          });
-                          if (error) throw error;
-                          const newSection = (data?.content || "").trim();
-                          if (!newSection) throw new Error("Empty response");
-                          const before = lines.slice(0, startIdx).join("\n").replace(/\s+$/, "");
-                          const after = lines.slice(endIdx).join("\n").replace(/^\s+/, "");
-                          const rebuilt = [before, newSection, after].filter(Boolean).join("\n\n");
-                          setGeneratedContent(rebuilt);
-                          toast({ title: "Section regenerated", description: sectionTitle });
                         } catch (err) {
                           console.error("Regenerate section error:", err);
                           toast({
@@ -5448,6 +5486,41 @@ CRITICAL EXPANSION RULES:
                           });
                         } finally {
                           setRegeneratingSectionTitle(null);
+                        }
+                      }}
+                      onRegenerateAllSections={async (sectionTitles) => {
+                        if (!generatedContent.trim() || regeneratingAllSections || regeneratingSectionTitle) return;
+                        setRegeneratingAllSections(true);
+                        let working = generatedContent;
+                        let success = 0;
+                        const failures: string[] = [];
+                        try {
+                          for (const title of sectionTitles) {
+                            setRegeneratingSectionTitle(title);
+                            try {
+                              const result = await regenerateOneSection(title, working);
+                              if (result.updated) {
+                                working = result.updated;
+                                success++;
+                              } else {
+                                failures.push(title);
+                              }
+                            } catch (err) {
+                              console.error("Batch regen failed for", title, err);
+                              failures.push(title);
+                            }
+                          }
+                          if (working !== generatedContent) setGeneratedContent(working);
+                          toast({
+                            title: failures.length === 0 ? "All sections fixed" : "Batch finished with errors",
+                            description: failures.length === 0
+                              ? `${success} section(s) regenerated successfully.`
+                              : `${success} fixed, ${failures.length} failed: ${failures.slice(0, 3).join(", ")}${failures.length > 3 ? "…" : ""}`,
+                            variant: failures.length === 0 ? "default" : "destructive",
+                          });
+                        } finally {
+                          setRegeneratingSectionTitle(null);
+                          setRegeneratingAllSections(false);
                         }
                       }}
                       onCheckAndFixLinks={async () => {
