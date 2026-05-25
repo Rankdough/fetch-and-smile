@@ -5450,6 +5450,39 @@ CRITICAL EXPANSION RULES:
                           setRegeneratingSectionTitle(null);
                         }
                       }}
+                      onCheckAndFixLinks={async () => {
+                        if (!generatedContent.trim()) return null;
+                        try {
+                          const { data, error } = await supabase.functions.invoke("fix-broken-links", {
+                            body: { content: generatedContent },
+                          });
+                          if (error) throw error;
+                          if (typeof data?.content === "string" && data.content !== generatedContent) {
+                            setGeneratedContent(data.content);
+                          }
+                          toast({
+                            title: "Link check complete",
+                            description: `${data.brokenCount} broken • ${data.fixedCount} replaced • ${data.removedCount} removed`,
+                          });
+                          return {
+                            totalLinks: data.totalLinks ?? 0,
+                            brokenCount: data.brokenCount ?? 0,
+                            fixedCount: data.fixedCount ?? 0,
+                            removedCount: data.removedCount ?? 0,
+                            fixed: data.fixed ?? [],
+                            removed: data.removed ?? [],
+                          };
+                        } catch (err) {
+                          console.error("fix-broken-links error", err);
+                          toast({
+                            title: "Link check failed",
+                            description: err instanceof Error ? err.message : "Could not check links",
+                            variant: "destructive",
+                          });
+                          return null;
+                        }
+                      }}
+
                     />
                     
                     
