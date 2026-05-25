@@ -1139,13 +1139,30 @@ Place these images throughout the article at logical locations, typically after 
         links.push({ title, url, markdown: `[${title}](${url})`, key: normalise(title), tokens: tokenise(`${title} ${url}`) });
       }
 
+      const candidateLinks = contextSourceLinks.length > 0 ? contextSourceLinks : links;
+      const linkIsAllowed = (url: string) => contextSourceLinks.length === 0 || allowedContextSourceUrls.has(url.replace(/[\].,;]+$/, ""));
+      const allowedMarkdownLinksFromLine = (line: string): string[] => {
+        const allowed: string[] = [];
+        const seenLineUrls = new Set<string>();
+        let match: RegExpExecArray | null;
+        const lineLinkRegex = /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g;
+        while ((match = lineLinkRegex.exec(line)) !== null) {
+          const title = match[1].trim();
+          const url = match[2].replace(/[\].,;]+$/, "");
+          if (!title || seenLineUrls.has(url) || !linkIsAllowed(url)) continue;
+          seenLineUrls.add(url);
+          allowed.push(`[${title}](${url})`);
+        }
+        return allowed;
+      };
+
       const bestLinkFor = (sourceText: string) => {
         const sourceKey = normalise(sourceText);
         const sourceTokens = tokenise(sourceText);
         if (!sourceKey || sourceTokens.size === 0) return null;
-        let best: typeof links[number] | null = null;
+        let best: typeof candidateLinks[number] | null = null;
         let bestScore = 0;
-        for (const link of links) {
+        for (const link of candidateLinks) {
           let overlap = 0;
           sourceTokens.forEach(token => { if (link.tokens.has(token)) overlap++; });
           const directMatch = sourceKey.length > 8 && link.key.length > 8 && (sourceKey.includes(link.key) || link.key.includes(sourceKey));
@@ -1168,11 +1185,25 @@ Place these images throughout the article at logical locations, typically after 
 
         const sourceLineMatch = line.match(/^\s*\*?\*?Sources?:\*?\*?\s*(.*)$/i);
         if (sourceLineMatch) {
-          if (/\[[^\]]+\]\(https?:\/\/[^)\s]+\)/i.test(line)) return line;
+          if (/\[[^\]]+\]\(https?:\/\/[^)\s]+\)/i.test(line)) {
+            const allowedLinks = allowedMarkdownLinksFromLine(line);
+            if (allowedLinks.length > 0) return `**Sources:** ${allowedLinks.join(" | ")}`;
+            brokenSections.add(currentHeading);
+            return "";
+          }
           const sourceText = sourceLineMatch[1].trim();
           const urlMatch = sourceText.match(/https?:\/\/\S+/i);
           if (urlMatch) {
             const url = urlMatch[0].replace(/[\].,;]+$/, "");
+            if (contextSourceLinks.length > 0 && !allowedContextSourceUrls.has(url)) {
+              const matched = bestLinkFor(sourceText);
+              if (matched) {
+                repairedSections.add(currentHeading);
+                return `**Sources:** ${matched.markdown}`;
+              }
+              brokenSections.add(currentHeading);
+              return "";
+            }
             const label = sourceText.replace(urlMatch[0], "").replace(/[|,;:]+$/g, "").trim() || new URL(url).hostname.replace(/^www\./, "");
             repairedSections.add(currentHeading);
             return `**Sources:** [${label}](${url})`;
@@ -1182,21 +1213,30 @@ Place these images throughout the article at logical locations, typically after 
             repairedSections.add(currentHeading);
             return `**Sources:** ${matched.markdown}`;
           }
-          const cleanLabel = sourceText.replace(/[|,;:]+$/g, "").trim();
-          if (cleanLabel) {
-            const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(cleanLabel)}`;
-            repairedSections.add(currentHeading);
-            return `**Sources:** [${cleanLabel}](${searchUrl})`;
-          }
           brokenSections.add(currentHeading);
-          return line;
+          return contextSourceLinks.length > 0 ? "" : line;
         }
 
-        if (/^##\s+references:?$/i.test(`## ${currentHeading}`) && line.trim() && !/^##\s+/.test(line) && !/\[[^\]]+\]\(https?:\/\/[^)\s]+\)/i.test(line)) {
+        if (/^##\s+references:?$/i.test(`## ${currentHeading}`) && line.trim() && !/^##\s+/.test(line)) {
+          if (/\[[^\]]+\]\(https?:\/\/[^)\s]+\)/i.test(line)) {
+            const allowedLinks = allowedMarkdownLinksFromLine(line);
+            if (allowedLinks.length > 0) return allowedLinks.map(link => `- ${link}`).join("\n");
+            brokenSections.add("References");
+            return "";
+          }
           const sourceText = line.replace(/^[-*+]\s+/, "").trim();
           const urlMatch = sourceText.match(/https?:\/\/\S+/i);
           if (urlMatch) {
             const url = urlMatch[0].replace(/[\].,;]+$/, "");
+            if (contextSourceLinks.length > 0 && !allowedContextSourceUrls.has(url)) {
+              const matched = bestLinkFor(sourceText);
+              if (matched) {
+                repairedSections.add("References");
+                return `- ${matched.markdown}`;
+              }
+              brokenSections.add("References");
+              return "";
+            }
             const label = sourceText.replace(urlMatch[0], "").replace(/[|,;:]+$/g, "").trim() || new URL(url).hostname.replace(/^www\./, "");
             repairedSections.add("References");
             return `- [${label}](${url})`;
@@ -1206,13 +1246,8 @@ Place these images throughout the article at logical locations, typically after 
             repairedSections.add("References");
             return `- ${matched.markdown}`;
           }
-          const cleanLabel = sourceText.replace(/[|,;:]+$/g, "").trim();
-          if (cleanLabel) {
-            const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(cleanLabel)}`;
-            repairedSections.add("References");
-            return `- [${cleanLabel}](${searchUrl})`;
-          }
           brokenSections.add("References");
+          return contextSourceLinks.length > 0 ? "" : line;
         }
 
         return line;
