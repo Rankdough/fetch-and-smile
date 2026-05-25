@@ -430,6 +430,7 @@ const Index = () => {
   const { toast } = useToast();
   const { trackUsage, getVoiceEditCredits, getQualityAnalysisCredits, getQualityAnalysisBreakdown, clearHistory: clearCreditHistory } = useCreditTracking();
   const [isGenerating, setIsGenerating] = useState(false);
+  const [regeneratingSectionTitle, setRegeneratingSectionTitle] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isEnhancingImport, setIsEnhancingImport] = useState(false);
   const [isApplyingFormat, setIsApplyingFormat] = useState(false);
@@ -5387,7 +5388,71 @@ CRITICAL EXPANSION RULES:
                       }}
                       ctaUrl={ctaUrl}
                       generatedCTAs={generatedCTAs}
+                      regeneratingSectionTitle={regeneratingSectionTitle}
+                      onRegenerateSection={async (sectionTitle) => {
+                        if (!generatedContent.trim() || regeneratingSectionTitle) return;
+                        setRegeneratingSectionTitle(sectionTitle);
+                        try {
+                          // Locate the section in the current content
+                          const lines = generatedContent.split("\n");
+                          let startIdx = -1;
+                          for (let i = 0; i < lines.length; i++) {
+                            if (/^##\s+/.test(lines[i]) && lines[i].replace(/^##\s+/, "").trim() === sectionTitle) {
+                              startIdx = i;
+                              break;
+                            }
+                          }
+                          if (startIdx === -1) {
+                            toast({ title: "Section not found", description: sectionTitle, variant: "destructive" });
+                            return;
+                          }
+                          let endIdx = lines.length;
+                          for (let j = startIdx + 1; j < lines.length; j++) {
+                            if (/^##\s+/.test(lines[j])) { endIdx = j; break; }
+                          }
+                          const sectionMarkdown = lines.slice(startIdx, endIdx).join("\n").trim();
+
+                          let toneProfile = null;
+                          if (selectedToneProfileId) {
+                            const { data: profileData } = await supabase
+                              .from("tone_profiles")
+                              .select("*")
+                              .eq("id", selectedToneProfileId)
+                              .maybeSingle();
+                            if (profileData) toneProfile = profileData;
+                          }
+
+                          const { data, error } = await supabase.functions.invoke("regenerate-section", {
+                            body: {
+                              sectionMarkdown,
+                              sectionTitle,
+                              topic: formData.topic,
+                              toneProfile,
+                              useFirstPerson,
+                            },
+                          });
+                          if (error) throw error;
+                          const newSection = (data?.content || "").trim();
+                          if (!newSection) throw new Error("Empty response");
+
+                          const before = lines.slice(0, startIdx).join("\n").replace(/\s+$/, "");
+                          const after = lines.slice(endIdx).join("\n").replace(/^\s+/, "");
+                          const rebuilt = [before, newSection, after].filter(Boolean).join("\n\n");
+                          setGeneratedContent(rebuilt);
+                          toast({ title: "Section regenerated", description: sectionTitle });
+                        } catch (err) {
+                          console.error("Regenerate section error:", err);
+                          toast({
+                            title: "Regenerate failed",
+                            description: err instanceof Error ? err.message : "Failed to regenerate section",
+                            variant: "destructive",
+                          });
+                        } finally {
+                          setRegeneratingSectionTitle(null);
+                        }
+                      }}
                     />
+                    
                     
                     {/* Value Promise Verification */}
                     {valuePromiseClaims.some(c => c.trim()) && (
