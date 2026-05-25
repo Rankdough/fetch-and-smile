@@ -7,6 +7,51 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+const decodeXmlText = (value: string): string => value
+  .replace(/&lt;/g, "<")
+  .replace(/&gt;/g, ">")
+  .replace(/&amp;/g, "&")
+  .replace(/&quot;/g, '"')
+  .replace(/&apos;/g, "'")
+  .replace(/&#x([0-9a-f]+);/gi, (_m, hex) => String.fromCodePoint(parseInt(hex, 16)))
+  .replace(/&#(\d+);/g, (_m, dec) => String.fromCodePoint(parseInt(dec, 10)));
+
+const extractDocxSourceCatalogue = (documentXml: string, relationshipsXml: string): string => {
+  const relTargets = new Map<string, string>();
+  for (const match of relationshipsXml.matchAll(/<Relationship\b[^>]*Id="([^"]+)"[^>]*Target="([^"]+)"[^>]*(?:TargetMode="External")?[^>]*>/g)) {
+    const id = match[1];
+    const target = decodeXmlText(match[2]);
+    if (/^https?:\/\//i.test(target)) relTargets.set(id, target);
+  }
+
+  const sources: { title: string; url: string }[] = [];
+  const seen = new Set<string>();
+  const addSource = (title: string, rawUrl: string) => {
+    const url = decodeXmlText(rawUrl).replace(/[)\].,;]+$/, "").trim();
+    if (!/^https?:\/\//i.test(url) || seen.has(url)) return;
+    seen.add(url);
+    const cleanedTitle = decodeXmlText(title).replace(/\s+/g, " ").trim() || url;
+    sources.push({ title: cleanedTitle, url });
+  };
+
+  for (const match of documentXml.matchAll(/<w:hyperlink\b[^>]*r:id="([^"]+)"[^>]*>([\s\S]*?)<\/w:hyperlink>/g)) {
+    const url = relTargets.get(match[1]);
+    if (!url) continue;
+    const label = [...match[2].matchAll(/<w:t[^>]*>([\s\S]*?)<\/w:t>/g)].map((m) => m[1]).join("");
+    addSource(label, url);
+  }
+
+  for (const urlMatch of documentXml.matchAll(/https?:\/\/[^\s<"']+/g)) {
+    addSource(urlMatch[0], urlMatch[0]);
+  }
+
+  if (sources.length === 0) return "";
+  return [
+    "SOURCE URL CATALOGUE FROM UPLOADED CONTEXT FILE:",
+    ...sources.map((source, index) => `${index + 1}. [${source.title}](${source.url})`),
+  ].join("\n");
+};
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -91,13 +136,17 @@ serve(async (req) => {
         // Unzip the docx file
         const unzipped = unzipSync(uint8Array);
         
-        // Find and read document.xml (main content)
+        // Find and read document.xml (main content) plus relationships (embedded hyperlinks)
         let documentXml = "";
+        let relationshipsXml = "";
         for (const [path, content] of Object.entries(unzipped)) {
           if (path === "word/document.xml") {
             const decoder = new TextDecoder("utf-8");
             documentXml = decoder.decode(content as Uint8Array);
-            break;
+          }
+          if (path === "word/_rels/document.xml.rels") {
+            const decoder = new TextDecoder("utf-8");
+            relationshipsXml = decoder.decode(content as Uint8Array);
           }
         }
         
@@ -113,7 +162,7 @@ serve(async (req) => {
               const paragraphText = sectionTextMatches
                 .map(match => {
                   const textMatch = match.match(/<w:t[^>]*>([^<]*)<\/w:t>/);
-                  return textMatch ? textMatch[1] : "";
+                  return textMatch ? decodeXmlText(textMatch[1]) : "";
                 })
                 .join("");
               if (paragraphText.trim()) {
@@ -122,8 +171,9 @@ serve(async (req) => {
             }
           }
           
-          textContent = paragraphs.join("\n\n");
-          console.log("Extracted text from docx using fflate, length:", textContent.length);
+          const sourceCatalogue = extractDocxSourceCatalogue(documentXml, relationshipsXml);
+          textContent = [sourceCatalogue, paragraphs.join("\n\n")].filter(Boolean).join("\n\n");
+          console.log("Extracted text and hyperlink catalogue from docx using fflate, length:", textContent.length);
         }
         
         if (!textContent || textContent.length < 20) {
@@ -163,9 +213,9 @@ serve(async (req) => {
 
     return new Response(
       JSON.stringify({
-        content: textContent.substring(0, 10000), // Limit to 10k chars
+        content: textContent.substring(0, 30000), // Keep source catalogues and enough body context for generation
         fileName,
-        truncated: textContent.length > 10000,
+        truncated: textContent.length > 30000,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

@@ -5,6 +5,31 @@ Newest entries on top. Append-only — never edit or delete past entries.
 
 ---
 
+## 2026-05-25 — Extract DOCX hyperlink sources from context files
+
+**What changed**
+- `parse-context-file` now reads `word/_rels/document.xml.rels` from uploaded `.docx` files and builds a source URL catalogue from embedded Word hyperlinks, not just visible text.
+- Parsed DOCX context now prepends `SOURCE URL CATALOGUE FROM UPLOADED CONTEXT FILE` before the article text so `generate-content` can detect those URLs as allowed source/reference links.
+- The context parse limit increased from 10,000 to 30,000 characters so long research briefs keep the source catalogue plus enough body context.
+- The main article generator upload toast now reports the new 30k truncation limit.
+
+**Why**
+- The uploaded research brief contained many URLs stored as DOCX relationships and/or late Works Cited entries. The old parser only extracted `<w:t>` text and then truncated to 10k characters, so embedded hyperlinks and later reference URLs were not reliably reaching generation.
+
+**What may break / side effects**
+- Larger context payloads can increase generation prompt size and cost slightly.
+- If a DOCX contains many unrelated hyperlinks, all extracted URLs become eligible catalogue sources unless the content generator later filters them by relevance.
+- The parser is still XML-based and does not preserve every Word layout detail; it is specifically improved for text plus hyperlink extraction.
+
+**Files touched**
+- `supabase/functions/parse-context-file/index.ts`
+- `src/pages/Index.tsx`
+
+**How to verify**
+- Upload `Screwless_Dental_Implants_Research_Brief.docx`. The parsed context should start with a source catalogue and expose at least 39 URLs from the file before truncation. Generate with sources enabled and confirm the final References section uses those context-file URLs.
+
+---
+
 ## 2026-05-25 — Preserve references and source links in export
 
 **What changed**
