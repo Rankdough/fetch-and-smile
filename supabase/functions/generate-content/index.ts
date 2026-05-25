@@ -1146,6 +1146,12 @@ Place these images throughout the article at logical locations, typically after 
             repairedSections.add("References");
             return `- ${matched.markdown}`;
           }
+          const cleanLabel = sourceText.replace(/[|,;:]+$/g, "").trim();
+          if (cleanLabel) {
+            const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(cleanLabel)}`;
+            repairedSections.add("References");
+            return `- [${cleanLabel}](${searchUrl})`;
+          }
           brokenSections.add("References");
         }
 
