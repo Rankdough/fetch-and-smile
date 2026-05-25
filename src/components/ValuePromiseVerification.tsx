@@ -96,33 +96,57 @@ export const ValuePromiseVerification = ({
       if (error) throw error;
       if (!data?.content) throw new Error("No content returned");
 
-      onContentUpdate(data.content);
-      
-      // Update the fixed claims in-place instead of clearing results
-      const fixedClaimTexts = claimsToFix.map(c => c.claim);
-      setResult(prev => {
-        if (!prev) return prev;
-        const updatedClaims = prev.claims.map(c => 
-          fixedClaimTexts.includes(c.claim) 
-            ? { ...c, fulfilled: true, evidence: "Fixed via AI repair", explanation: "This claim was repaired. Click 'Re-verify After Edits' to confirm." }
-            : c
+      const fixedContent: string = data.content;
+      onContentUpdate(fixedContent);
+
+      // Auto re-verify against the freshly fixed content so the score is honest.
+      try {
+        const { data: verifyData, error: verifyError } = await supabase.functions.invoke(
+          "verify-value-promise",
+          { body: { content: fixedContent, claims, valuePromise } },
         );
-        const fulfilledCount = updatedClaims.filter(c => c.fulfilled).length;
-        return {
-          ...prev,
-          claims: updatedClaims,
-          fulfilledCount,
-          summary: fulfilledCount === prev.totalClaims 
-            ? "All claims now addressed. Re-verify to confirm." 
-            : `${fulfilledCount}/${prev.totalClaims} claims fulfilled. Fix remaining claims or re-verify.`,
-        };
-      });
-      
-      toast.success(
-        claimsToFix.length === 1
-          ? "Claim fix applied. Re-verify to confirm."
-          : `Fixed ${claimsToFix.length} failed claim(s). Re-verify to confirm.`,
-      );
+
+        if (verifyError) throw verifyError;
+
+        setResult(verifyData);
+        onVerificationComplete?.(verifyData);
+
+        if (verifyData.fulfilledCount === verifyData.totalClaims) {
+          toast.success(`Fix applied — all ${verifyData.totalClaims} claims now pass.`);
+        } else {
+          toast.warning(
+            `Fix applied — ${verifyData.fulfilledCount}/${verifyData.totalClaims} claims pass. Review remaining and Fix again if needed.`,
+          );
+        }
+      } catch (verifyErr) {
+        // Re-verify failed: fall back to optimistic in-place update so the user is not stuck.
+        console.error("Auto re-verify after fix failed:", verifyErr);
+        const fixedClaimTexts = claimsToFix.map((c) => c.claim);
+        setResult((prev) => {
+          if (!prev) return prev;
+          const updatedClaims = prev.claims.map((c) =>
+            fixedClaimTexts.includes(c.claim)
+              ? {
+                  ...c,
+                  fulfilled: true,
+                  evidence: "Fixed via AI repair",
+                  explanation: "This claim was repaired. Click 'Re-verify After Edits' to confirm.",
+                }
+              : c,
+          );
+          const fulfilledCount = updatedClaims.filter((c) => c.fulfilled).length;
+          return {
+            ...prev,
+            claims: updatedClaims,
+            fulfilledCount,
+            summary:
+              fulfilledCount === prev.totalClaims
+                ? "All claims now addressed. Re-verify to confirm."
+                : `${fulfilledCount}/${prev.totalClaims} claims fulfilled. Fix remaining or re-verify.`,
+          };
+        });
+        toast.warning("Fix applied but auto re-verify failed — click 'Re-verify After Edits' to confirm.");
+      }
     } catch (error) {
       console.error("Fix error:", error);
       const message = error instanceof Error ? error.message : "Failed to fix claims";
