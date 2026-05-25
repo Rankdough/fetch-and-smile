@@ -1655,6 +1655,29 @@ Place these images throughout the article at logical locations, typically after 
     }
     const disallowedLinkResult = stripDisallowedArticleLinks(content);
     content = disallowedLinkResult.markdown;
+    if (!skipSources && contextSourceLinks.length > 0) {
+      const referencesBlock = (() => {
+        const linkRe = /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g;
+        const seen = new Set<string>();
+        const cited: string[] = [];
+        let m: RegExpExecArray | null;
+        const bodyWithoutReferences = content.replace(/^#{1,3}\s.*references[\s\S]*$/im, "");
+        while ((m = linkRe.exec(bodyWithoutReferences)) !== null) {
+          const title = m[1].trim();
+          const url = m[2].replace(/[)\]\.,;]+$/, "");
+          if (!title || seen.has(url) || !allowedContextSourceUrls.has(url)) continue;
+          seen.add(url);
+          cited.push(`- [${title}](${url})`);
+        }
+        const items = cited.length > 0 ? cited : contextSourceLinks.map((link) => `- ${link.markdown}`);
+        return `## References\n${items.join("\n")}`;
+      })();
+      if (/^#{1,3}\s.*references/im.test(content)) {
+        content = content.replace(/^#{1,3}\s.*references[\s\S]*$/im, referencesBlock);
+      } else {
+        content = `${content.trimEnd()}\n\n${referencesBlock}`;
+      }
+    }
     content = stripInlineBoldEmphasis(content);
     if (disallowedLinkResult.removedUrls.length > 0) {
       const message = `SOURCE GUARD: Removed ${disallowedLinkResult.removedUrls.length} non-context URL(s) from generated content: ${disallowedLinkResult.removedUrls.join(" | ")}`;
