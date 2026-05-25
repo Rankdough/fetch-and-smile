@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-05-25 - Authority-tiered web source fallback
+
+- **What:** When per-section context URLs don't clear the relevance floor, the Firecrawl fallback now requests 10 results (up from 6) and selects them in four authority passes: (1) top-3 search-rank + high-authority, (2) any rank + high-authority, (3) top-3 + low-authority, (4) any low-authority. Low-authority hosts include Reddit, Quora, Pinterest, Medium, Substack, Tumblr, Blogspot, WordPress.com, Wix, Weebly, Squarespace, TripAdvisor, Yelp, StackExchange/Overflow, Facebook, Instagram, TikTok, X/Twitter, eHow, WikiHow, Answers.com. They're only picked when no working high-authority page exists for the query. Added `SOURCE WEB:` logs naming each pick and tagging `[low-auth]` when applicable.
+- **Why:** Without per-project trusted-domain lists the fallback was returning random blogs and social/Q&A pages instead of top-ranked authoritative pages, which made non-medical articles (cars, mics, sports, etc.) look poorly cited.
+- **Verified broken:** Nothing verified broken. Checked: `generate-content` deploys (next step); `SourceCandidate` shape unchanged; context-first path still wins when the relevance floor is met; web fallback still returns up to 2 candidates as before; `sourcesForSection` consumer untouched; `fix-broken-links` and `regenerate-section` untouched.
+- **Files:** `supabase/functions/generate-content/index.ts`, `CHANGELOG.md`.
+- **Verify:** Generate an article about a non-health topic (microphones, cars, sports). Check edge function logs for `SOURCE WEB: query="..." -> <url>` lines. Picked URLs should be from publishers/manufacturers/established media before any Reddit/Quora/Medium URL appears; low-auth URLs only appear when nothing higher ranks.
+
+
+
 ## 2026-05-25 - Snippet-aware context source picker + junk URL filter
 
 - **What:** Rewrote the context-URL extractor in `generate-content` to capture each URL with a ±300-char surrounding snippet (markdown links + bare URLs), filter out junk URLs (privacy/cookies/terms/share/social/CDN/tracking/asset URLs), and score sources by snippet-vs-section-heading token overlap instead of just URL/title overlap. Picker now requires a relevance floor of 6 (multiple distinct snippet hits) before accepting a context URL; below that it falls through to Firecrawl web search. Web fallback also rejects junk URLs. Added clear `SOURCE PICK [context|mixed]` logs so source decisions are auditable in edge function logs.
