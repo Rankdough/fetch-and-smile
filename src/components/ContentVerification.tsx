@@ -576,8 +576,85 @@ export const ContentVerification = ({
     return results;
   }, [content, appliedRules, ctaUrl, generatedCTAs, internalLinks, selectedGapInsights, valuePromiseClaims, integrityWarnings]);
 
-  const passedCount = verificationResults.filter((r) => r.status === "passed").length;
-  const totalCount = verificationResults.length;
+  // Extract every http(s) URL from the rendered content (markdown links + bare URLs)
+  const contentUrls = useMemo(() => {
+    const set = new Set<string>();
+    // markdown links: [label](url)
+    const mdRe = /\[[^\]]+\]\((https?:\/\/[^\s)]+)\)/g;
+    let m: RegExpExecArray | null;
+    while ((m = mdRe.exec(content))) set.add(m[1].replace(/[),.;]+$/, ""));
+    // html anchors: href="url"
+    const hrefRe = /href=["'](https?:\/\/[^"']+)["']/g;
+    while ((m = hrefRe.exec(content))) set.add(m[1]);
+    // bare URLs
+    const bareRe = /(?<!["'(\[])https?:\/\/[^\s<>"')\]]+/g;
+    while ((m = bareRe.exec(content))) set.add(m[0].replace(/[),.;]+$/, ""));
+    return Array.from(set);
+  }, [content]);
+
+  const [linkCheck, setLinkCheck] = useState<{
+    status: "idle" | "checking" | "done" | "error";
+    broken: { url: string; status: number; reason?: string }[];
+    total: number;
+    error?: string;
+  }>({ status: "idle", broken: [], total: 0 });
+
+  const runLinkCheck = async () => {
+    if (contentUrls.length === 0) {
+      setLinkCheck({ status: "done", broken: [], total: 0 });
+      return;
+    }
+    setLinkCheck({ status: "checking", broken: [], total: contentUrls.length });
+    try {
+      // Chunk to respect the edge function cap (50 per call)
+      const chunks: string[][] = [];
+      for (let i = 0; i < contentUrls.length; i += 50) chunks.push(contentUrls.slice(i, i + 50));
+      const broken: { url: string; status: number; reason?: string }[] = [];
+      for (const chunk of chunks) {
+        const { data, error } = await supabase.functions.invoke("verify-links", { body: { urls: chunk } });
+        if (error) throw error;
+        const results = (data?.results || []) as { url: string; ok: boolean; status: number; reason?: string }[];
+        for (const r of results) if (!r.ok) broken.push({ url: r.url, status: r.status, reason: r.reason });
+      }
+      setLinkCheck({ status: "done", broken, total: contentUrls.length });
+    } catch (e: any) {
+      setLinkCheck({ status: "error", broken: [], total: contentUrls.length, error: e?.message || "Check failed" });
+    }
+  };
+
+  const linkCheckItem: VerificationItem = useMemo(() => {
+    if (linkCheck.status === "idle") {
+      return {
+        id: "broken-links",
+        label: "Working links",
+        status: "warning",
+        details: contentUrls.length === 0
+          ? "No links in content"
+          : `${contentUrls.length} link(s) found — click Check to verify they all resolve`,
+      };
+    }
+    if (linkCheck.status === "checking") {
+      return { id: "broken-links", label: "Working links", status: "warning", details: `Checking ${linkCheck.total} link(s)…` };
+    }
+    if (linkCheck.status === "error") {
+      return { id: "broken-links", label: "Working links", status: "failed", details: `Check failed: ${linkCheck.error}` };
+    }
+    const brokenCount = linkCheck.broken.length;
+    return {
+      id: "broken-links",
+      label: "Working links",
+      status: brokenCount === 0 ? "passed" : "failed",
+      details: brokenCount === 0
+        ? `All ${linkCheck.total} link(s) resolve successfully`
+        : `${brokenCount}/${linkCheck.total} link(s) broken or unreachable`,
+    };
+  }, [linkCheck, contentUrls.length]);
+
+  const allResults = useMemo(() => [...verificationResults, linkCheckItem], [verificationResults, linkCheckItem]);
+
+  const passedCount = allResults.filter((r) => r.status === "passed").length;
+  const totalCount = allResults.length;
+
 
   const getStatusIcon = (status: "passed" | "failed" | "warning") => {
     switch (status) {
