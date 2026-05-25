@@ -258,7 +258,7 @@ export default function ShopifyFaqBulk() {
   const [includeFaqs, setIncludeFaqs] = useState<boolean>(init.includeFaqs ?? false);
   const [includeNav, setIncludeNav] = useState<boolean>(init.includeNav ?? false);
   const [skipQuickTips, setSkipQuickTips] = useState<boolean>(init.skipQuickTips ?? false);
-  const [skipSources, setSkipSources] = useState<boolean>(init.skipSources ?? true);
+  const [skipSources, setSkipSources] = useState<boolean>(init.skipSources ?? false);
   const [stripTitle, setStripTitle] = useState<boolean>(init.stripTitle ?? false);
   const [paletteId, setPaletteId] = useState<string | null>(init.paletteId ?? null);
   const [internalLinks, setInternalLinks] = useState<string[]>(
@@ -576,6 +576,7 @@ const sanitizeGeneratedMarkdown = (markdown: string, title: string, urls: string
       const content = data?.content || "";
       if (!content || content.length < 20) throw new Error("Could not extract text from file.");
       setContextFiles((prev) => [...prev, { name: file.name, content }]);
+      setSkipSources(false);
       toast({ title: "Context file added", description: file.name });
     } catch (err: any) {
       toast({ title: "Failed to parse file", description: err?.message || "", variant: "destructive" });
