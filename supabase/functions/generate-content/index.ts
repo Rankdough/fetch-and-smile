@@ -972,6 +972,242 @@ Place these images throughout the article at logical locations, typically after 
 
     const bodySectionSkipPattern = /tl;?\s?dr|quick\s*tips|in\s*this\s*article|frequently\s*asked|faq|final\s*thoughts|conclusion|references|sources/i;
 
+    type SourceCandidate = { title: string; url: string; origin: "context" | "web" | "existing" };
+
+    const placeholderHosts = ["example.com", "example.org", "example.net", "yourdomain.com", "your-domain.com", "placeholder.com"];
+    const urlStatusCache = new Map<string, Promise<boolean>>();
+    const firecrawlSourceCache = new Map<string, Promise<SourceCandidate[]>>();
+
+    const cleanSourceUrl = (rawUrl: string): string => rawUrl.replace(/[)\]\.,;]+$/, "").trim();
+
+    const sourceTitleFromUrl = (url: string): string => {
+      try {
+        const parsed = new URL(url);
+        return parsed.hostname.replace(/^www\./, "");
+      } catch {
+        return "Source";
+      }
+    };
+
+    const isWorkingSourceUrl = (rawUrl: string): Promise<boolean> => {
+      const url = cleanSourceUrl(rawUrl);
+      if (urlStatusCache.has(url)) return urlStatusCache.get(url)!;
+      const promise = (async () => {
+        let parsed: URL;
+        try { parsed = new URL(url); } catch { return false; }
+        if (!/^https?:$/.test(parsed.protocol)) return false;
+        if (placeholderHosts.some((host) => parsed.hostname.toLowerCase().endsWith(host))) return false;
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 7000);
+        try {
+          let resp = await fetch(url, {
+            method: "HEAD",
+            redirect: "follow",
+            signal: ctrl.signal,
+            headers: { "User-Agent": "Mozilla/5.0 (SourceVerifier)" },
+          }).catch(() => null);
+          if (!resp || resp.status === 405 || resp.status === 403 || resp.status === 0 || resp.status >= 500) {
+            resp = await fetch(url, {
+              method: "GET",
+              redirect: "follow",
+              signal: ctrl.signal,
+              headers: { "User-Agent": "Mozilla/5.0 (SourceVerifier)" },
+            });
+          }
+          return resp.ok;
+        } catch {
+          return false;
+        } finally {
+          clearTimeout(timer);
+        }
+      })();
+      urlStatusCache.set(url, promise);
+      return promise;
+    };
+
+    const extractMarkdownLinks = (md: string, origin: SourceCandidate["origin"]): SourceCandidate[] => {
+      const linkRe = /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g;
+      const links: SourceCandidate[] = [];
+      let m: RegExpExecArray | null;
+      while ((m = linkRe.exec(md)) !== null) {
+        if (m.index > 0 && md[m.index - 1] === "!") continue;
+        const title = m[1].trim().replace(/[*_`]/g, "") || sourceTitleFromUrl(m[2]);
+        const url = cleanSourceUrl(m[2]);
+        links.push({ title, url, origin });
+      }
+      return links;
+    };
+
+    const extractContextSourceCandidates = (): SourceCandidate[] => {
+      if (!contextFiles || !Array.isArray(contextFiles)) return [];
+      const candidates: SourceCandidate[] = [];
+      const seen = new Set<string>();
+      for (const file of contextFiles as { name: string; content: string }[]) {
+        const fileText = `${file.name}\n${file.content || ""}`;
+        for (const link of extractMarkdownLinks(fileText, "context")) {
+          if (seen.has(link.url)) continue;
+          seen.add(link.url);
+          candidates.push(link);
+        }
+        const rawUrlRe = /https?:\/\/[^\s)\],;]+/g;
+        let raw: RegExpExecArray | null;
+        while ((raw = rawUrlRe.exec(fileText)) !== null) {
+          const url = cleanSourceUrl(raw[0]);
+          if (seen.has(url)) continue;
+          seen.add(url);
+          candidates.push({ title: sourceTitleFromUrl(url), url, origin: "context" });
+        }
+      }
+      return candidates.slice(0, 40);
+    };
+
+    const contextSourceCandidates = extractContextSourceCandidates();
+    console.log(`SOURCE CATALOGUE: ${contextSourceCandidates.length} context URL candidate(s) from ${Array.isArray(contextFiles) ? contextFiles.length : 0} context file(s)`);
+
+    const tokenise = (text: string): Set<string> => new Set(text.toLowerCase().match(/[a-z0-9]{4,}/g) || []);
+
+    const scoreSource = (source: SourceCandidate, heading: string, body: string): number => {
+      const wanted = tokenise(`${topic || ""} ${heading} ${body.slice(0, 700)}`);
+      const haystack = `${source.title} ${source.url}`.toLowerCase();
+      let score = source.origin === "context" ? 2 : 1;
+      for (const token of wanted) if (haystack.includes(token)) score += 1;
+      return score;
+    };
+
+    const searchWebSources = (heading: string, body: string): Promise<SourceCandidate[]> => {
+      const query = `${topic || ""} ${heading} ${body.replace(/\[[^\]]+\]\([^)]+\)/g, "").replace(/[#*_`|>\n]/g, " ").slice(0, 180)}`.replace(/\s+/g, " ").trim().slice(0, 260);
+      if (!query) return Promise.resolve([]);
+      if (firecrawlSourceCache.has(query)) return firecrawlSourceCache.get(query)!;
+      const promise = (async () => {
+        const apiKey = Deno.env.get("FIRECRAWL_API_KEY");
+        if (!apiKey) {
+          console.warn("FIRECRAWL_API_KEY not set - cannot fetch online source references");
+          return [];
+        }
+        try {
+          const resp = await fetch("https://api.firecrawl.dev/v2/search", {
+            method: "POST",
+            headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ query, limit: 6 }),
+          });
+          if (!resp.ok) {
+            console.warn(`Firecrawl source search failed: ${resp.status}`);
+            return [];
+          }
+          const data = await resp.json();
+          const results: any[] = data?.data?.web || (Array.isArray(data?.data) ? data.data : null) || data?.web || [];
+          const candidates: SourceCandidate[] = [];
+          const seen = new Set<string>();
+          for (const result of results) {
+            const url = cleanSourceUrl(result?.url || result?.link || "");
+            if (!url || seen.has(url)) continue;
+            seen.add(url);
+            const title = String(result?.title || sourceTitleFromUrl(url)).trim();
+            if (await isWorkingSourceUrl(url)) candidates.push({ title, url, origin: "web" });
+            if (candidates.length >= 2) break;
+          }
+          return candidates;
+        } catch (error) {
+          console.error("Firecrawl source search error", error);
+          return [];
+        }
+      })();
+      firecrawlSourceCache.set(query, promise);
+      return promise;
+    };
+
+    const formatSourcesLine = (sources: SourceCandidate[]): string => {
+      const seen = new Set<string>();
+      const links = sources.filter((source) => {
+        if (seen.has(source.url)) return false;
+        seen.add(source.url);
+        return true;
+      }).slice(0, 2).map((source) => `[${source.title}](${source.url})`);
+      return links.length ? `**Sources:** ${links.join(" | ")}` : "";
+    };
+
+    const sourcesForSection = async (heading: string, body: string): Promise<SourceCandidate[]> => {
+      const existing = extractMarkdownLinks(body, "existing");
+      const existingWorking: SourceCandidate[] = [];
+      for (const link of existing) {
+        if (await isWorkingSourceUrl(link.url)) existingWorking.push(link);
+        if (existingWorking.length >= 2) return existingWorking;
+      }
+
+      const rankedContext = [...contextSourceCandidates]
+        .sort((a, b) => scoreSource(b, heading, body) - scoreSource(a, heading, body))
+        .slice(0, 8);
+      const contextWorking: SourceCandidate[] = [];
+      for (const link of rankedContext) {
+        if (await isWorkingSourceUrl(link.url)) contextWorking.push(link);
+        if (contextWorking.length >= 2) return contextWorking;
+      }
+
+      return searchWebSources(heading, body);
+    };
+
+    const rebuildReferencesFromLinks = (md: string): string => {
+      const linkRe = /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g;
+      const seen = new Set<string>();
+      const items: string[] = [];
+      let m: RegExpExecArray | null;
+      while ((m = linkRe.exec(md)) !== null) {
+        if (m.index > 0 && md[m.index - 1] === "!") continue;
+        const title = m[1].trim().replace(/[*_`]/g, "") || sourceTitleFromUrl(m[2]);
+        const url = cleanSourceUrl(m[2]);
+        if (!title || seen.has(url)) continue;
+        seen.add(url);
+        items.push(`- [${title}](${url})`);
+      }
+      return items.length ? `## References\n${items.join("\n")}` : "";
+    };
+
+    const enforceSourcesAndReferences = async (markdown: string): Promise<string> => {
+      if (skipSources) return markdown;
+      const withoutReferences = markdown.replace(/^#{2,3}\s+References:?\s*[\s\S]*$/im, "").trimEnd();
+      const headingRegex = /^#{2,3}\s+.+$/gm;
+      const matches = [...withoutReferences.matchAll(headingRegex)];
+      if (matches.length === 0) return withoutReferences;
+
+      const intro = withoutReferences.slice(0, matches[0].index ?? 0).trim();
+      const rebuiltSections: string[] = [];
+      let addedSourceLines = 0;
+
+      for (let index = 0; index < matches.length; index++) {
+        const match = matches[index];
+        const start = match.index ?? 0;
+        const end = index + 1 < matches.length ? (matches[index + 1].index ?? withoutReferences.length) : withoutReferences.length;
+        const headingLine = match[0];
+        const heading = headingLine.replace(/^#{2,3}\s+/, "").trim();
+        const headingLower = heading.toLowerCase();
+        let body = withoutReferences.slice(start + headingLine.length, end).trim();
+        const shouldSource = !/references|bibliography|sources|in\s+this\s+article/i.test(headingLower);
+
+        if (shouldSource) {
+          body = body
+            .split("\n")
+            .filter((line) => !/^\s*\*\*Sources?:\*\*/i.test(line) && !/^\s*Sources?:\s*/i.test(line))
+            .join("\n")
+            .trim();
+          const sources = await sourcesForSection(heading, body);
+          const sourceLine = formatSourcesLine(sources);
+          if (sourceLine) {
+            body = [body, sourceLine].filter(Boolean).join("\n\n");
+            addedSourceLines += 1;
+          } else {
+            console.warn(`SOURCE GUARD: No working source found for section: ${heading}`);
+          }
+        }
+
+        rebuiltSections.push(`${headingLine}\n${body}`.trim());
+      }
+
+      const bodyWithSources = [intro, ...rebuiltSections].filter(Boolean).join("\n\n").trim();
+      const references = rebuildReferencesFromLinks(bodyWithSources);
+      console.log(`SOURCE GUARD: Added/validated source lines for ${addedSourceLines} section(s); references ${references ? "rebuilt" : "not available"}`);
+      return references ? `${bodyWithSources}\n\n${references}` : bodyWithSources;
+    };
+
     const buildFallbackBullets = (heading: string, body: string): string[] => {
       const plain = body
         .split("\n")
