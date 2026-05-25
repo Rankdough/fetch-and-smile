@@ -1236,7 +1236,7 @@ Place these images throughout the article at logical locations, typically after 
         seen.add(source.url);
         return true;
       }).slice(0, 2).map((source) => `[${source.title}](${source.url})`);
-      return links.length ? `**Sources:** ${links.join(" | ")}` : "";
+      return links.length ? `**Sources:**\n${links.map((l) => `- ${l}`).join("\n")}` : "";
     };
 
     const sourcesForSection = async (heading: string, body: string): Promise<SourceCandidate[]> => {
