@@ -76,6 +76,32 @@ serve(async (req) => {
     };
     const contextSourceLinks: { title: string; url: string; markdown: string; key: string; tokens: Set<string> }[] = [];
     const seenContextSourceUrls = new Set<string>();
+    const rejectedContextSourceUrls: { url: string; reason: string }[] = [];
+    const checkSourceUrl = async (rawUrl: string): Promise<{ ok: boolean; status: number; reason?: string }> => {
+      const url = rawUrl.trim();
+      try {
+        const parsed = new URL(url);
+        if (!/^https?:$/.test(parsed.protocol)) return { ok: false, status: 0, reason: "non-http" };
+        if (["example.com", "example.org", "example.net", "yourdomain.com", "your-domain.com", "placeholder.com"].some((host) => parsed.hostname.toLowerCase().endsWith(host))) {
+          return { ok: false, status: 0, reason: "placeholder host" };
+        }
+      } catch {
+        return { ok: false, status: 0, reason: "invalid URL" };
+      }
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 8000);
+      try {
+        let resp = await fetch(url, { method: "HEAD", redirect: "follow", signal: ctrl.signal, headers: { "User-Agent": "Mozilla/5.0 (LinkChecker)" } }).catch(() => null);
+        if (!resp || resp.status === 405 || resp.status === 403 || resp.status === 0) {
+          resp = await fetch(url, { method: "GET", redirect: "follow", signal: ctrl.signal, headers: { "User-Agent": "Mozilla/5.0 (LinkChecker)" } });
+        }
+        clearTimeout(timer);
+        return { ok: resp.ok, status: resp.status, reason: resp.ok ? undefined : "HTTP error" };
+      } catch (e: any) {
+        clearTimeout(timer);
+        return { ok: false, status: 0, reason: e?.name === "AbortError" ? "timeout" : "fetch failed" };
+      }
+    };
     const addContextSourceLink = (title: string, url: string) => {
       const cleanedUrl = url.replace(/[)\]\.,;]+$/, "").trim();
       if (!/^https?:\/\//i.test(cleanedUrl) || seenContextSourceUrls.has(cleanedUrl)) return;
@@ -99,6 +125,18 @@ serve(async (req) => {
           addContextSourceLink(titleFromUrl(match[0]), match[0]);
         }
       }
+    }
+    if (contextSourceLinks.length > 0) {
+      const checkedLinks: typeof contextSourceLinks = [];
+      for (let i = 0; i < contextSourceLinks.length; i += 25) {
+        const batch = contextSourceLinks.slice(i, i + 25);
+        const results = await Promise.all(batch.map(async (link) => ({ link, result: await checkSourceUrl(link.url) })));
+        for (const { link, result } of results) {
+          if (result.ok) checkedLinks.push(link);
+          else rejectedContextSourceUrls.push({ url: link.url, reason: result.status ? `${result.status} ${result.reason || "HTTP error"}` : result.reason || "unreachable" });
+        }
+      }
+      contextSourceLinks.splice(0, contextSourceLinks.length, ...checkedLinks);
     }
     const contextSourceCatalogue = contextSourceLinks.map((link, index) => `${index + 1}. ${link.markdown}`).join("\n");
     const allowedContextSourceUrls = new Set(contextSourceLinks.map(link => link.url));
