@@ -5,6 +5,31 @@ Newest entries on top. Append-only — never edit or delete past entries.
 
 ---
 
+## 2026-05-25 — Preserve references and source links in export
+
+**What changed**
+- `generate-content` now deterministically restores a `## References` section whenever context-file source URLs exist and sources are not skipped. It first uses URLs cited in `**Sources:**` lines, then falls back to the verified context source catalogue if the model omitted citations.
+- The Shopify bulk export whitelist now preserves links inside `**Sources:**` lines and the final `## References` section instead of unwrapping them because they were not entered in the internal-link fields.
+- New Shopify bulk sessions now include sources by default, and uploading a context file automatically turns off `Skip References / Sources` so references are not silently disabled.
+
+**Why**
+- Source/reference URLs were still disappearing after generation. The backend could end with no rebuilt References block if the model omitted source lines, and the export page then stripped citation links because its final whitelist only allowed internal links.
+
+**What may break / side effects**
+- If context files contain many URLs, the fallback References section can include more links than the article body actually cited. This is intentional until there is a stronger citation matcher.
+- Source/reference links are preserved only when they appear in a `**Sources:**` line or under a References/Sources H2. Links elsewhere still must match the internal-link whitelist or they are unwrapped.
+- A context URL that passed the lenient verifier but is paywalled, geoblocked, or bot-blocked can still appear in References.
+- Existing browser-local settings may still have `Skip References / Sources` enabled from an earlier session until a context file is uploaded or the checkbox is manually changed.
+
+**Files touched**
+- `supabase/functions/generate-content/index.ts`
+- `src/pages/ShopifyFaqBulk.tsx`
+
+**How to verify**
+- Generate/export an article with context files containing source URLs and Skip References/Sources disabled. Confirm the markdown and Body HTML include a `References` section with clickable links, and that provided internal links still inject separately.
+
+---
+
 ## 2026-05-25 — No back-to-back tables
 
 **What changed**

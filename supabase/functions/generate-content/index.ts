@@ -1555,10 +1555,15 @@ Place these images throughout the article at logical locations, typically after 
         return items.length ? `## References\n${items.join("\n")}` : "";
       };
 
+      const buildReferencesFromCatalogue = (): string => {
+        if (contextSourceLinks.length === 0) return "";
+        return `## References\n${contextSourceLinks.map((link) => `- ${link.markdown}`).join("\n")}`;
+      };
+
       const normaliseReferencesSection = (md: string): string => {
         if (skipSources || !/^#{1,3}\s.*references/im.test(md)) return md;
         const rebuilt = buildReferencesFromRealLinks(md.replace(/^#{1,3}\s.*references[\s\S]*$/im, ""));
-        if (!rebuilt) return md;
+        if (!rebuilt) return buildReferencesFromCatalogue() ? md.replace(/^#{1,3}\s.*references[\s\S]*$/im, buildReferencesFromCatalogue()) : md;
         return md.replace(/^#{1,3}\s.*references[\s\S]*$/im, rebuilt);
       };
 
@@ -1586,8 +1591,9 @@ Place these images throughout the article at logical locations, typically after 
               return `## Final Thoughts\nThe strongest results come from clear criteria, grounded comparisons, and deliberate trade-offs. Use the framework above to choose confidently and execute the next step with evidence, not guesswork.`;
             case "References": {
               // Build References from real markdown links found in the body.
-              // Never inject placeholder authority URLs — fake sources are worse than none.
-              return buildReferencesFromRealLinks(content);
+              // If the model omitted per-section source lines, fall back to the verified context catalogue.
+              // Never inject placeholder authority URLs — catalogue URLs came from the user's context files.
+              return buildReferencesFromRealLinks(content) || buildReferencesFromCatalogue();
             }
             default:
               return "";
@@ -1649,6 +1655,29 @@ Place these images throughout the article at logical locations, typically after 
     }
     const disallowedLinkResult = stripDisallowedArticleLinks(content);
     content = disallowedLinkResult.markdown;
+    if (!skipSources && contextSourceLinks.length > 0) {
+      const referencesBlock = (() => {
+        const linkRe = /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g;
+        const seen = new Set<string>();
+        const cited: string[] = [];
+        let m: RegExpExecArray | null;
+        const bodyWithoutReferences = content.replace(/^#{1,3}\s.*references[\s\S]*$/im, "");
+        while ((m = linkRe.exec(bodyWithoutReferences)) !== null) {
+          const title = m[1].trim();
+          const url = m[2].replace(/[)\]\.,;]+$/, "");
+          if (!title || seen.has(url) || !allowedContextSourceUrls.has(url)) continue;
+          seen.add(url);
+          cited.push(`- [${title}](${url})`);
+        }
+        const items = cited.length > 0 ? cited : contextSourceLinks.map((link) => `- ${link.markdown}`);
+        return `## References\n${items.join("\n")}`;
+      })();
+      if (/^#{1,3}\s.*references/im.test(content)) {
+        content = content.replace(/^#{1,3}\s.*references[\s\S]*$/im, referencesBlock);
+      } else {
+        content = `${content.trimEnd()}\n\n${referencesBlock}`;
+      }
+    }
     content = stripInlineBoldEmphasis(content);
     if (disallowedLinkResult.removedUrls.length > 0) {
       const message = `SOURCE GUARD: Removed ${disallowedLinkResult.removedUrls.length} non-context URL(s) from generated content: ${disallowedLinkResult.removedUrls.join(" | ")}`;
