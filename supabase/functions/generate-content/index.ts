@@ -1641,9 +1641,9 @@ Place these images throughout the article at logical locations, typically after 
             case "TL;DR":
               return `## TL;DR\nThis article covers everything you need to know about ${topic}, including key considerations, practical comparisons, and actionable recommendations to help you make an informed decision.`;
             case "Quick Tips":
-              return `## Quick Tips\n> **Tip 1:** Start with verified figures, not generic claims.\n> **Tip 2:** Compare at least two realistic options before deciding.\n> **Tip 3:** Match every recommendation to your exact use case.`;
+              return `## Quick Tips\n> Start with verified figures, not generic claims.\n> Compare at least two realistic options before deciding.\n> Match every recommendation to your exact use case.`;
             case "In This Article":
-              return `## In This Article\n- **1. Core topic questions** - direct answers and key context\n- **2. Side-by-side comparison** - practical differences that affect outcomes\n- **3. Decision framework** - how to choose based on constraints\n- **4. FAQ and references** - quick clarifications and credible sources`;
+              return `## In This Article\n- 1. Core topic questions - direct answers and key context\n- 2. Side-by-side comparison - practical differences that affect outcomes\n- 3. Decision framework - how to choose based on constraints\n- 4. FAQ and references - quick clarifications and credible sources`;
             case "FAQ":
               return `## Frequently Asked Questions\n**What is the safest way to act on this advice?**\n\nPrioritise evidence-backed options, then validate against your budget, timeline, and constraints.\n\n**How should readers compare alternatives?**\n\nUse consistent criteria, including cost, reliability, and expected results.\n\n**What mistakes should be avoided first?**\n\nAvoid vague claims, missing data, and one-size-fits-all recommendations.\n\n**How often should this be reviewed?**\n\nRe-check assumptions whenever pricing, regulations, or market conditions change.`;
             case "Final Thoughts":
