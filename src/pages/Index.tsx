@@ -208,6 +208,32 @@ const cleanContent = (content: string): string => {
   return cleaned;
 };
 
+const preserveExistingMarkdownLinks = (previousContent: string, nextContent: string): { content: string; restored: string[] } => {
+  if (!previousContent || !nextContent) return { content: nextContent, restored: [] };
+  const linkRegex = /\[([^\]]+)\]\((https?:\/\/[^)\s]+|\/[^)\s]+)\)/g;
+  const restored: string[] = [];
+  const seen = new Set<string>();
+  let repaired = nextContent;
+  let match: RegExpExecArray | null;
+
+  while ((match = linkRegex.exec(previousContent)) !== null) {
+    const label = match[1].replace(/\s+/g, " ").trim();
+    const url = match[2].trim();
+    const key = `${label}\u0000${url}`;
+    if (!label || seen.has(key) || repaired.includes(`](${url})`)) continue;
+    seen.add(key);
+
+    const escapedLabel = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const plainLabelRegex = new RegExp(`(^|[\\s>\\-*])(${escapedLabel})(?=\\s*(?:$|[<\\n.,;:)]))`, "m");
+    if (plainLabelRegex.test(repaired)) {
+      repaired = repaired.replace(plainLabelRegex, `$1[${label}](${url})`);
+      restored.push(label);
+    }
+  }
+
+  return { content: repaired, restored };
+};
+
 // Helper to extract "In This Article" navigation items from markdown
 const extractInThisArticleItems = (content: string): { number: number; title: string; description: string; detailedDescription?: string; slug: string; isHighlighted?: boolean }[] => {
   const items: { number: number; title: string; description: string; detailedDescription?: string; slug: string; isHighlighted?: boolean }[] = [];
@@ -476,7 +502,11 @@ const Index = () => {
   
   // Wrapper that auto-cleans content before setting
   const setGeneratedContent = (content: string, isNewGeneration = false) => {
-    const cleaned = normalizeQuickTipsSection(cleanContent(content));
+    const preserved = isNewGeneration ? { content, restored: [] } : preserveExistingMarkdownLinks(generatedContent, content);
+    const cleaned = normalizeQuickTipsSection(cleanContent(preserved.content));
+    if (preserved.restored.length > 0) {
+      setContentIntegrityWarnings([`LINK GUARD: Restored ${preserved.restored.length} existing reference/internal link(s) that an edit tried to strip.`]);
+    }
     setGeneratedContentRaw(cleaned);
     // If this is a new generation (not an edit), save as original
     if (isNewGeneration) {

@@ -207,17 +207,22 @@ ${content}`;
     // Post-process: Remove any em dashes and horizontal rules the AI might have introduced
     linkedContent = linkedContent.replace(/—/g, "-").replace(/–/g, "-");
 
-    // Enforce strict whitelist + "each URL linked EXACTLY ONCE":
-    // - Any link to a URL NOT in the provided whitelist (i.e. AI hallucination, including
-    //   bare homepages like https://example.com/) is unwrapped back to plain text.
-    // - Any duplicate of a whitelisted URL is also unwrapped.
+    // Enforce strict whitelist for NEW internal links while preserving existing article links
+    // such as References/Sources. The previous version unwrapped every non-whitelisted URL,
+    // which stripped generated reference links when inserting internal links.
     const norm = (u: string) => u.trim().replace(/\/+$/, "").toLowerCase();
+    const originalLinkedUrls = new Set<string>();
+    content.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+|\/[^\s)]+)\)/g, (_m, _anchor, url) => {
+      originalLinkedUrls.add(norm(url));
+      return _m;
+    });
     const allowedUrls = new Set(validUrls.map(norm));
     const seenUrls = new Set<string>();
     linkedContent = linkedContent.replace(
       /\[([^\]]+)\]\((https?:\/\/[^\s)]+|\/[^\s)]+)\)/g,
       (_m: string, anchor: string, url: string) => {
         const key = norm(url);
+        if (originalLinkedUrls.has(key)) return `[${anchor}](${url})`; // preserve existing references/sources
         if (!allowedUrls.has(key)) return anchor; // hallucinated / not whitelisted
         if (seenUrls.has(key)) return anchor; // duplicate
         seenUrls.add(key);
