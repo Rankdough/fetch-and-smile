@@ -5378,6 +5378,7 @@ CRITICAL EXPANSION RULES:
                           if (data.appliedRules) {
                             setAppliedRules(data.appliedRules);
                           }
+                          setContentIntegrityWarnings(Array.isArray(data.contentIntegrityWarnings) ? data.contentIntegrityWarnings : []);
                           if (data.ctas) {
                             setGeneratedCTAs(data.ctas);
                           }
@@ -5398,6 +5399,7 @@ CRITICAL EXPANSION RULES:
                       }}
                       ctaUrl={ctaUrl}
                       generatedCTAs={generatedCTAs}
+                      integrityWarnings={contentIntegrityWarnings}
                       regeneratingSectionTitle={regeneratingSectionTitle}
                       onRegenerateSection={async (sectionTitle) => {
                         if (!generatedContent.trim() || regeneratingSectionTitle) return;
