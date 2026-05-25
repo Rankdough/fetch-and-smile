@@ -563,7 +563,7 @@ export const ContentVerification = ({
     }
 
     return results;
-  }, [content, appliedRules, ctaUrl, generatedCTAs, internalLinks, selectedGapInsights, valuePromiseClaims, integrityWarnings]);
+  }, [content, appliedRules, ctaUrl, generatedCTAs, internalLinks, selectedGapInsights, valuePromiseClaims]);
 
   const passedCount = verificationResults.filter((r) => r.status === "passed").length;
   const totalCount = verificationResults.length;
