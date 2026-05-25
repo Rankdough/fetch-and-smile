@@ -332,6 +332,7 @@ ${migrationMode ? `TABLE RULE:
 | Duration | 1 hour | 2 hours |
 
 - Each table: at least 3 columns and at least 4 data rows
+- NEVER produce a table with only one data row. If you only have one row of data to show, write it as a sentence or bullet instead — do not wrap it in a table.
 - Spread tables evenly across body H2 sections; never cluster at the end
 - Markdown only — do NOT use HTML <table> tags
 - Do NOT replace tables with bullet lists`}
