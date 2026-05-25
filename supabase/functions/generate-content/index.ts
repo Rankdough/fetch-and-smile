@@ -960,15 +960,33 @@ Place these images throughout the article at logical locations, typically after 
         .replace(/\s+/g, " ")
         .trim();
       const sentences = plain.split(/(?<=[.!?])\s+/).map(s => s.trim()).filter(s => s.length > 24);
-      const seeds = [sentences[1] || sentences[0], sentences[2] || sentences[0], sentences[3] || sentences[0]];
-      return seeds.map((seed, index) => {
+      const seeds = [...sentences.slice(1), ...sentences.slice(0, 1)];
+      const bullets: string[] = [];
+      const seen = new Set<string>();
+      for (const seed of seeds) {
+        if (bullets.length >= 3) break;
+        const cleaned = seed.replace(/^[-*+]\s+/, "").replace(/^\d+\.\s+/, "").replace(/\s+/g, " ").trim();
+        const key = cleaned.toLowerCase().replace(/\W+/g, " ").trim();
+        if (!key || seen.has(key)) continue;
+        seen.add(key);
+        bullets.push(`- ${cleaned}`);
+      }
+      const fallbacks = [0, 1, 2].map((_, index) => {
         const fallback = index === 0
           ? `${heading.replace(/\?$/, "")} depends on the mechanism, clinical use, and maintenance expectations.`
           : index === 1
             ? `Concrete numbers, examples, or timeframes make this section useful when read alone.`
             : `The practical takeaway should stay specific to ${topic || "the topic"}.`;
-        return `- ${(seed || fallback).replace(/^[-*+]\s+/, "").replace(/^\d+\.\s+/, "").replace(/\s+/g, " ").trim()}`;
+        return `- ${fallback}`;
       });
+      for (const fallback of fallbacks) {
+        if (bullets.length >= 3) break;
+        const key = fallback.toLowerCase().replace(/^[-*+]\s+/, "").replace(/\W+/g, " ").trim();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        bullets.push(fallback);
+      }
+      return bullets.slice(0, 3);
     };
 
     const enforceThreeBulletsPerBodySection = (markdown: string): { markdown: string; changedSections: string[] } => {
