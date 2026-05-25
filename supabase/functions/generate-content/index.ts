@@ -945,6 +945,7 @@ Place these images throughout the article at logical locations, typically after 
     };
 
     let content: string;
+    const contentIntegrityWarnings: string[] = [];
     try {
       content = await generateWithRetry();
     } catch (e: any) {
@@ -1055,6 +1056,97 @@ Place these images throughout the article at logical locations, typically after 
       });
 
       return { markdown: [intro, ...rebuiltSections].filter(Boolean).join("\n\n").trim(), changedSections };
+    };
+
+    const repairNonClickableSourceReferences = (markdown: string): { markdown: string; repairedSections: string[]; brokenSections: string[] } => {
+      const linkRegex = /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g;
+      const links: { title: string; url: string; markdown: string; key: string; tokens: Set<string> }[] = [];
+      const seenUrls = new Set<string>();
+      const normalise = (value: string) => value
+        .toLowerCase()
+        .replace(/https?:\/\/\S+/g, " ")
+        .replace(/\[[^\]]+\]\([^)]+\)/g, " ")
+        .replace(/[^a-z0-9\s]/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+      const tokenise = (value: string) => new Set(normalise(value).split(" ").filter(token => token.length > 2));
+      let linkMatch: RegExpExecArray | null;
+      while ((linkMatch = linkRegex.exec(markdown)) !== null) {
+        const title = linkMatch[1].trim();
+        const url = linkMatch[2].replace(/[\].,;]+$/, "");
+        if (!title || seenUrls.has(url)) continue;
+        seenUrls.add(url);
+        links.push({ title, url, markdown: `[${title}](${url})`, key: normalise(title), tokens: tokenise(`${title} ${url}`) });
+      }
+
+      const bestLinkFor = (sourceText: string) => {
+        const sourceKey = normalise(sourceText);
+        const sourceTokens = tokenise(sourceText);
+        if (!sourceKey || sourceTokens.size === 0) return null;
+        let best: typeof links[number] | null = null;
+        let bestScore = 0;
+        for (const link of links) {
+          let overlap = 0;
+          sourceTokens.forEach(token => { if (link.tokens.has(token)) overlap++; });
+          const directMatch = sourceKey.length > 8 && link.key.length > 8 && (sourceKey.includes(link.key) || link.key.includes(sourceKey));
+          const score = directMatch ? 1 : overlap / Math.max(3, Math.min(sourceTokens.size, link.tokens.size));
+          if (score > bestScore) {
+            bestScore = score;
+            best = link;
+          }
+        }
+        return best && bestScore >= 0.45 ? best : null;
+      };
+
+      const lines = markdown.split("\n");
+      let currentHeading = "Article";
+      const repairedSections = new Set<string>();
+      const brokenSections = new Set<string>();
+      const fixedLines = lines.map((line) => {
+        const headingMatch = line.match(/^##\s+(.+)$/);
+        if (headingMatch) currentHeading = headingMatch[1].replace(/:$/, "").trim();
+
+        const sourceLineMatch = line.match(/^\s*\*?\*?Sources?:\*?\*?\s*(.*)$/i);
+        if (sourceLineMatch) {
+          if (/\[[^\]]+\]\(https?:\/\/[^)\s]+\)/i.test(line)) return line;
+          const sourceText = sourceLineMatch[1].trim();
+          const urlMatch = sourceText.match(/https?:\/\/\S+/i);
+          if (urlMatch) {
+            const url = urlMatch[0].replace(/[\].,;]+$/, "");
+            const label = sourceText.replace(urlMatch[0], "").replace(/[|,;:]+$/g, "").trim() || new URL(url).hostname.replace(/^www\./, "");
+            repairedSections.add(currentHeading);
+            return `**Sources:** [${label}](${url})`;
+          }
+          const matched = bestLinkFor(sourceText);
+          if (matched) {
+            repairedSections.add(currentHeading);
+            return `**Sources:** ${matched.markdown}`;
+          }
+          brokenSections.add(currentHeading);
+          return line;
+        }
+
+        if (/^##\s+references:?$/i.test(`## ${currentHeading}`) && line.trim() && !/^##\s+/.test(line) && !/\[[^\]]+\]\(https?:\/\/[^)\s]+\)/i.test(line)) {
+          const sourceText = line.replace(/^[-*+]\s+/, "").trim();
+          const urlMatch = sourceText.match(/https?:\/\/\S+/i);
+          if (urlMatch) {
+            const url = urlMatch[0].replace(/[\].,;]+$/, "");
+            const label = sourceText.replace(urlMatch[0], "").replace(/[|,;:]+$/g, "").trim() || new URL(url).hostname.replace(/^www\./, "");
+            repairedSections.add("References");
+            return `- [${label}](${url})`;
+          }
+          const matched = bestLinkFor(sourceText);
+          if (matched) {
+            repairedSections.add("References");
+            return `- ${matched.markdown}`;
+          }
+          brokenSections.add("References");
+        }
+
+        return line;
+      });
+
+      return { markdown: fixedLines.join("\n").trim(), repairedSections: [...repairedSections], brokenSections: [...brokenSections] };
     };
 
     // ═══════════════════════════════════════════════════════════════════════
