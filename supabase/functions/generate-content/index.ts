@@ -1165,6 +1165,7 @@ Place these images throughout the article at logical locations, typically after 
             const url = cleanSourceUrl(result?.url || result?.link || "");
             if (!url || seen.has(url)) continue;
             seen.add(url);
+            if (isJunkUrl(url)) continue;
             const title = String(result?.title || sourceTitleFromUrl(url)).trim();
             if (await isWorkingSourceUrl(url)) candidates.push({ title, url, origin: "web" });
             if (candidates.length >= 2) break;
