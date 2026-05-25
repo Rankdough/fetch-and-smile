@@ -1258,8 +1258,13 @@ Place these images throughout the article at logical locations, typically after 
         const heading = headingLine.replace(/^#{2,3}\s+/, "").trim();
         const headingLower = heading.toLowerCase();
         let body = withoutReferences.slice(start + headingLine.length, end).trim();
+        const isDecisionGuide = headingLower.includes("how to choose")
+          || headingLower.includes("how to pick")
+          || headingLower.includes("how to decide")
+          || headingLower.includes("how to find the right")
+          || headingLower.includes("how to select");
         const shouldSource = !/references|bibliography|sources|in\s+this\s+article|tl;?dr|quick\s*tips|frequently\s*asked|faq|final\s*thoughts|conclusion/i.test(headingLower)
-          && !isDecisionGuideHeading(headingLower);
+          && !isDecisionGuide;
 
         if (shouldSource) {
           const bodyLines = body.split("\n");
