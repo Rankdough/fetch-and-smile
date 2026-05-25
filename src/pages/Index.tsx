@@ -1544,13 +1544,7 @@ const Index = () => {
         }
         
         // Show completeness guard results
-        if (warnings.length > 0) {
-          toast({
-            title: "Generation integrity warning",
-            description: warnings.join(" • "),
-            variant: "destructive",
-          });
-        } else if (data.completenessGuard?.fixed?.length > 0) {
+        if (data.completenessGuard?.fixed?.length > 0) {
           toast({
             title: "Article auto-completed ✓",
             description: `Missing sections were auto-generated: ${data.completenessGuard.fixed.join(", ")}`,
@@ -3299,18 +3293,10 @@ const Index = () => {
                    }
 
                   setGeneratedContent(finalContent, true);
-                  if (warnings.length > 0) {
-                    toast({
-                      title: "Generation integrity warning",
-                      description: warnings.join(" • "),
-                      variant: "destructive",
-                    });
-                  } else {
-                    toast({
-                      title: "Sample generated!",
-                      description: "Generated with all current settings applied.",
-                    });
-                  }
+                  toast({
+                    title: "Sample generated!",
+                    description: "Generated with all current settings applied.",
+                  });
                 } catch (error) {
                   console.error("Generation error:", error);
                   toast({
