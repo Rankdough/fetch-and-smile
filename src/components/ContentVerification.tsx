@@ -224,6 +224,44 @@ export const ContentVerification = ({
       });
     }
 
+    // Per-section source link check: every body H2 (excluding TL;DR, Quick Tips,
+    // In This Article, FAQ, Final Thoughts/Conclusion, References/Sources) must
+    // contain at least one external markdown link to a source.
+    {
+      const lines = content.split("\n");
+      const skipPattern = /tl;?\s?dr|quick\s*tips|in\s*this\s*article|frequently\s*asked|faq|final\s*thoughts|conclusion|references|sources|how\s+to\s+choose/i;
+      const externalLinkRegex = /\[[^\]]+\]\(https?:\/\/[^)\s]+\)/i;
+      const missingSourceTitles: string[] = [];
+      let totalBodySections = 0;
+      for (let i = 0; i < lines.length; i++) {
+        if (/^##\s+/.test(lines[i]) && !skipPattern.test(lines[i])) {
+          totalBodySections++;
+          let endIdx = lines.length;
+          for (let j = i + 1; j < lines.length; j++) {
+            if (/^##\s+/.test(lines[j])) { endIdx = j; break; }
+          }
+          const body = lines.slice(i + 1, endIdx).join("\n");
+          if (!externalLinkRegex.test(body)) {
+            missingSourceTitles.push(lines[i].replace(/^##\s+/, "").trim());
+          }
+        }
+      }
+      const missingCount = missingSourceTitles.length;
+      results.push({
+        id: "section-sources",
+        label: "Source link in every section",
+        status: totalBodySections === 0
+          ? "warning"
+          : missingCount === 0 ? "passed" : "failed",
+        details: totalBodySections === 0
+          ? "No body H2 sections detected"
+          : missingCount === 0
+            ? `All ${totalBodySections} body sections include a source link`
+            : `${missingCount} section(s) missing a source link: ${missingSourceTitles.slice(0, 3).map(t => t.slice(0, 40)).join("; ")}${missingCount > 3 ? "…" : ""}`,
+        failingSections: missingSourceTitles,
+      });
+    }
+
     // Check for tables - count them based on word count requirements
     const tableMatches = content.match(/\n\|[^\n]+\|[^\n]+\|\n\|[-:| ]+\|/g) || [];
     const tableCount = tableMatches.length;
@@ -692,7 +730,7 @@ export const ContentVerification = ({
                   {item.details}
                 </p>
               )}
-              {item.id === "atomic-sections" && item.failingSections && item.failingSections.length > 0 && onRegenerateSection && (
+              {(item.id === "atomic-sections" || item.id === "section-sources") && item.failingSections && item.failingSections.length > 0 && onRegenerateSection && (
                 <div className="mt-2 space-y-2">
                   {onRegenerateAllSections && item.failingSections.length > 1 && (
                     <Button
