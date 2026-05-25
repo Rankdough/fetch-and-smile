@@ -289,7 +289,7 @@ ${sectionMarkdown}`;
         if (candidateLinks.length > 0) {
           const lowerSource = sourceText.toLowerCase();
           const matched = bestLinkFor(sourceText) || candidateLinks.find((link) => lowerSource.includes(link.title.toLowerCase()) || link.title.toLowerCase().includes(lowerSource));
-          return `**Sources:** ${(matched || existingLinks[0]).markdown}`;
+          return `**Sources:** ${(matched || candidateLinks[0]).markdown}`;
         }
 
         warnings.push(`SOURCE GUARD: Could not repair non-clickable source reference in section: ${sectionTitle}`);
