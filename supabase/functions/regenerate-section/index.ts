@@ -174,7 +174,7 @@ ${sectionMarkdown}`;
       return [heading, prose, bullets.slice(0, 3).join("\n"), sourceLines.join("\n").trim()].filter(Boolean).join("\n\n").trim();
     };
 
-    const repairNonClickableSources = (section: string): string => {
+    const repairNonClickableSources = (section: string): { content: string; warnings: string[] } => {
       const linkRe = /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g;
       const existingLinks: { title: string; url: string; markdown: string }[] = [];
       const seenUrls = new Set<string>();
@@ -187,7 +187,8 @@ ${sectionMarkdown}`;
         existingLinks.push({ title, url, markdown: `[${title}](${url})` });
       }
 
-      return section.split("\n").map((line) => {
+      const warnings: string[] = [];
+      const repaired = section.split("\n").map((line) => {
         const sourceMatch = line.match(/^\s*\*?\*?Sources?:\*?\*?\s*(.*)$/i);
         if (!sourceMatch) return line;
         if (/\[[^\]]+\]\(https?:\/\/[^)\s]+\)/i.test(line)) return line;
@@ -206,15 +207,19 @@ ${sectionMarkdown}`;
           return `**Sources:** ${(matched || existingLinks[0]).markdown}`;
         }
 
+        warnings.push(`SOURCE GUARD: Could not repair non-clickable source reference in section: ${sectionTitle}`);
         return line;
       }).join("\n").trim();
+
+      return { content: repaired, warnings };
     };
 
     content = ensureExactlyThreeBullets(content);
-    content = repairNonClickableSources(content);
+    const sourceRepair = repairNonClickableSources(content);
+    content = sourceRepair.content;
 
     return new Response(
-      JSON.stringify({ content }),
+      JSON.stringify({ content, contentIntegrityWarnings: sourceRepair.warnings }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (e) {
