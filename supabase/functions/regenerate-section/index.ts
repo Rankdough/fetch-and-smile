@@ -6,35 +6,6 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-async function stripInlineSources(section: string): Promise<string> {
-  const lines = section.split("\n");
-  const heading = lines[0] || "## Section";
-  const bodyLines = lines.slice(1);
-  const cleanedBody: string[] = [];
-  let skippingSourcesBlock = false;
-
-  for (const line of bodyLines) {
-    const trimmed = line.trim();
-    const isSourcesHeading = /^\*?\*?Sources?:\*?\*?/i.test(trimmed);
-    const isSourceBullet = /^[-*+]\s+\[[^\]]+\]\(https?:\/\/[^)\s]+\)/i.test(trimmed);
-    const isBareSourceLink = /^\[[^\]]+\]\(https?:\/\/[^)\s]+\)$/i.test(trimmed);
-
-    if (isSourcesHeading) {
-      skippingSourcesBlock = true;
-      continue;
-    }
-
-    if (skippingSourcesBlock) {
-      if (!trimmed || isSourceBullet || isBareSourceLink) continue;
-      skippingSourcesBlock = false;
-    }
-
-    cleanedBody.push(line);
-  }
-
-  return [heading, cleanedBody.join("\n").trim()].filter(Boolean).join("\n\n").trim();
-}
-
 interface ToneProfile {
   summary: string | null;
   characteristics: Record<string, string>;
@@ -94,7 +65,7 @@ ATOMIC SECTION CONTRACT (MANDATORY — output is REJECTED if any rule fails):
 3. 90-180 words total in the section body (excluding the H2 line).
 4. No back-reference phrases: never say "as mentioned above", "as we saw earlier", "continuing from", "in the previous section", "building on the above", "the following point".
 5. Include at least one concrete specific (number, price, timeframe, name, or example).
-6. Do NOT add a "Sources:" block to this section. Source links belong only in the final References section handled elsewhere.
+6. Preserve an existing "Sources:" block if one is present in the input. Do not invent or remove source links.
 7. Preserve the EXACT H2 heading line from the input. Do not change the heading wording.
 8. ${perspective}
 9. British English. No em dashes or en dashes. No AI buzzwords ("delve", "in today's", "in the realm of", "moreover", "furthermore" as transitions).
@@ -104,7 +75,7 @@ Output ONLY the rewritten section in markdown, starting with the same ## heading
     const user = `Topic: ${topic || "(not provided)"}
 Section heading: ${sectionTitle}
 
-Original section markdown (rewrite this to satisfy the atomic contract; keep the same factual substance, add exactly three bullet points, tighten the opener into a direct answer, and remove any inline Sources block):
+Original section markdown (rewrite this to satisfy the atomic contract; keep the same factual substance, add exactly three bullet points, tighten the opener into a direct answer, and preserve any existing inline Sources block verbatim at the end):
 
 ${sectionMarkdown}`;
 
@@ -205,7 +176,6 @@ ${sectionMarkdown}`;
 
 
     content = ensureExactlyThreeBullets(content);
-    content = await stripInlineSources(content);
 
     return new Response(
       JSON.stringify({ content }),
