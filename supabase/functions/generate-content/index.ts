@@ -1496,6 +1496,10 @@ Place these images throughout the article at logical locations, typically after 
       content = normaliseReferencesSection(content);
     }
 
+    if (!skipSources && contextSourceLinks.length === 0) {
+      content = removeDisallowedSourceSections(content);
+    }
+
     if (!expandExistingContent && !migrationMode && !formatReference) {
       const finalBulletResult = enforceThreeBulletsPerBodySection(content);
       content = finalBulletResult.markdown;
@@ -1504,7 +1508,7 @@ Place these images throughout the article at logical locations, typically after 
       }
     }
 
-    if (!skipSources) {
+    if (!skipSources && contextSourceLinks.length > 0) {
       const sourceRepairResult = repairNonClickableSourceReferences(content);
       content = sourceRepairResult.markdown;
       if (sourceRepairResult.repairedSections.length > 0) {
@@ -1517,6 +1521,11 @@ Place these images throughout the article at logical locations, typically after 
         console.warn(message);
         contentIntegrityWarnings.push(message);
       }
+    }
+    if (rejectedContextSourceUrls.length > 0) {
+      const message = `SOURCE GUARD: Removed ${rejectedContextSourceUrls.length} broken or unreachable context source URL(s): ${rejectedContextSourceUrls.map((item) => `${item.url} (${item.reason})`).join(" | ")}`;
+      console.warn(message);
+      contentIntegrityWarnings.push(message);
     }
 
     // Generate CTAs if requested
