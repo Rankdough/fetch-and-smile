@@ -122,20 +122,28 @@ ${sectionMarkdown}`;
       const heading = lines[0] || `## ${sectionTitle}`;
       const bodyLines = lines.slice(1);
       const bulletLines = bodyLines.filter((line) => /^-\s+/.test(line.trim()));
+      const uniqueBullets = new Set(bulletLines.map((line) => line.toLowerCase().replace(/^[-*+]\s+/, "").replace(/\W+/g, " ").trim()));
 
-      if (bulletLines.length === 3) return section.trim();
+      if (bulletLines.length === 3 && uniqueBullets.size === 3) return section.trim();
 
       const bodyWithoutBullets = bodyLines.filter((line) => !/^[-*+]\s+/.test(line.trim()) && !/^\d+\.\s+/.test(line.trim()));
       const sourceStart = bodyWithoutBullets.findIndex((line) => /^\*\*Sources?:\*\*/i.test(line.trim()) || /^Sources?:/i.test(line.trim()));
       const proseLines = sourceStart >= 0 ? bodyWithoutBullets.slice(0, sourceStart) : bodyWithoutBullets;
       const sourceLines = sourceStart >= 0 ? bodyWithoutBullets.slice(sourceStart) : [];
       const prose = proseLines.join("\n").trim();
-      const sentences = prose
+      const sourceForBullets = `${sectionMarkdown}\n${prose}`;
+      const sentences = sourceForBullets
         .replace(/^##\s+.+$/m, "")
         .split(/(?<=[.!?])\s+/)
         .map((sentence) => sentence.trim())
         .filter((sentence) => sentence.length > 20 && !/^\*\*Sources?:\*\*/i.test(sentence));
-      const existing = bulletLines.map((line) => line.trim()).slice(0, 3);
+      const seen = new Set<string>();
+      const existing = bulletLines.map((line) => line.trim()).filter((line) => {
+        const key = line.toLowerCase().replace(/^[-*+]\s+/, "").replace(/\W+/g, " ").trim();
+        if (!key || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      }).slice(0, 3);
       const fallbackSeeds = [
         sentences[1] || sentences[0] || `The ${sectionTitle.toLowerCase()} point needs a clear practical distinction.`,
         sentences[2] || sentences[0] || `Readers should compare the mechanism, cost, and clinical fit before deciding.`,
