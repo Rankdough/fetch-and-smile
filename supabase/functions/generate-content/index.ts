@@ -1190,24 +1190,37 @@ Place these images throughout the article at logical locations, typically after 
     };
 
     const sourcesForSection = async (heading: string, body: string): Promise<SourceCandidate[]> => {
-      const existing = extractMarkdownLinks(body, "existing");
+      const existing = extractMarkdownLinks(body, "existing").filter((l) => !isJunkUrl(l.url));
       const existingWorking: SourceCandidate[] = [];
       for (const link of existing) {
         if (await isWorkingSourceUrl(link.url)) existingWorking.push(link);
         if (existingWorking.length >= 2) return existingWorking;
       }
 
-      const rankedContext = [...contextSourceCandidates]
-        .sort((a, b) => scoreSource(b, heading, body) - scoreSource(a, heading, body))
-        .slice(0, 8);
-      const contextWorking: SourceCandidate[] = [];
-      for (const link of rankedContext) {
+      // Score every context URL against this section; only accept ones with real snippet relevance.
+      const scored = contextSourceCandidates
+        .map((c) => ({ cand: c, score: scoreSource(c, heading, body) }))
+        .sort((a, b) => b.score - a.score);
+      const RELEVANCE_FLOOR = 6; // require multiple snippet hits, not just "context" bonus
+      const relevantContext = scored.filter((s) => s.score >= RELEVANCE_FLOOR).slice(0, 10).map((s) => s.cand);
+
+      const contextWorking: SourceCandidate[] = [...existingWorking];
+      for (const link of relevantContext) {
+        if (contextWorking.some((c) => c.url === link.url)) continue;
         if (await isWorkingSourceUrl(link.url)) contextWorking.push(link);
-        if (contextWorking.length >= 2) return contextWorking;
+        if (contextWorking.length >= 2) {
+          console.log(`SOURCE PICK [context]: "${heading.slice(0, 60)}" -> ${contextWorking.map((c) => c.url).join(" | ")}`);
+          return contextWorking;
+        }
       }
 
-      return searchWebSources(heading, body);
+      // Not enough relevant context URLs — fall back to web search.
+      const web = await searchWebSources(heading, body);
+      const combined = [...contextWorking, ...web.filter((w) => !contextWorking.some((c) => c.url === w.url))].slice(0, 2);
+      console.log(`SOURCE PICK [mixed]: "${heading.slice(0, 60)}" -> context=${contextWorking.length} web=${web.length}`);
+      return combined.length ? combined : web;
     };
+
 
     const rebuildReferencesFromLinks = (md: string): string => {
       const linkRe = /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g;
