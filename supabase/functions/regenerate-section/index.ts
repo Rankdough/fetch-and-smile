@@ -138,7 +138,7 @@ ATOMIC SECTION CONTRACT (MANDATORY — output is REJECTED if any rule fails):
 3. 90-180 words total in the section body (excluding the H2 line).
 4. No back-reference phrases: never say "as mentioned above", "as we saw earlier", "continuing from", "in the previous section", "building on the above", "the following point".
 5. Include at least one concrete specific (number, price, timeframe, name, or example).
-6. If you cite a source, render it as a clickable markdown link [Source Name](https://url). ${contextSourceLinks.length > 0 ? "Use ONLY URLs from the context source catalogue. If no catalogue URL supports this section, omit the source line entirely." : "NEVER write plain-text \"Sources: ...\" without links. If you don't have a real URL, omit the source line entirely."}
+6. If you cite a source, render it as a clickable markdown link [Source Name](https://url). ${contextSourceLinks.length > 0 ? "Use ONLY URLs from the verified context source catalogue. If no catalogue URL supports this section, omit the source line entirely." : "No verified context source URLs are available. Do NOT add a Sources line and do NOT cite outside URLs."}
 7. Preserve the EXACT H2 heading line from the input. Do not change the heading wording.
 8. ${perspective}
 9. British English. No em dashes or en dashes. No AI buzzwords ("delve", "in today's", "in the realm of", "moreover", "furthermore" as transitions).
@@ -263,10 +263,8 @@ ${sectionMarkdown}`;
         existingLinks.push({ title, url, markdown: `[${title}](${url})` });
       }
 
-      const candidateLinks = contextSourceLinks.length > 0
-        ? contextSourceLinks.map((link) => ({ title: link.title, url: link.url, markdown: link.markdown }))
-        : existingLinks;
-      const linkIsAllowed = (url: string) => contextSourceLinks.length === 0 || allowedContextSourceUrls.has(url.replace(/[\].,;]+$/, ""));
+      const candidateLinks = contextSourceLinks.map((link) => ({ title: link.title, url: link.url, markdown: link.markdown }));
+      const linkIsAllowed = (url: string) => allowedContextSourceUrls.has(url.replace(/[\].,;]+$/, ""));
       const bestLinkFor = (sourceText: string) => {
         const sourceKey = normaliseSourceText(sourceText);
         const sourceTokens = tokeniseSourceText(sourceText);
@@ -325,17 +323,13 @@ ${sectionMarkdown}`;
           const lowerSource = sourceText.toLowerCase();
           const matched = bestLinkFor(sourceText) || candidateLinks.find((link) => lowerSource.includes(link.title.toLowerCase()) || link.title.toLowerCase().includes(lowerSource));
           if (matched) return `**Sources:** ${matched.markdown}`;
-          if (contextSourceLinks.length === 0) return `**Sources:** ${candidateLinks[0].markdown}`;
         }
 
         warnings.push(`SOURCE GUARD: Could not repair non-clickable source reference in section: ${sectionTitle}`);
-        return contextSourceLinks.length > 0 ? "" : line;
+        return "";
       }).join("\n").trim();
 
       if (originalHadSourceLine && !/^\s*\*?\*?Sources?:\*?\*?/im.test(repaired)) {
-        if (candidateLinks.length > 0 && contextSourceLinks.length === 0) {
-          return { content: `${repaired}\n\n**Sources:** ${candidateLinks[0].markdown}`, warnings };
-        }
         warnings.push(`SOURCE GUARD: Could not restore missing source reference in section: ${sectionTitle}`);
       }
 
