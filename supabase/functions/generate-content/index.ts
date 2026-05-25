@@ -1,15 +1,12 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { countWords, trimSectionToBudget } from "../_shared/articleSectionBudget.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
-
-function countWords(text: string): number {
-  return text.split(/\s+/).filter(Boolean).length;
-}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -511,7 +508,7 @@ MUST FOLLOW (in priority order):
 1. STRUCTURE — Follow the AEO layout exactly: H1 → AI-quotable opening paragraph (30-50 words) → ## TL;DR (1 dense paragraph, no list) → ## Quick Tips (3 tips, max 15 words each) → ## In This Article (nav list) → question-based H2 sections (each H2 phrased as a question, immediately followed by a ~30-word direct answer paragraph, then EXACTLY THREE markdown bullet points using "- ", then a comparison table where relevant${skipSources ? '' : ', with references preserved only for the final References section'}) → ## How to Choose (4-6 criteria as a bullet checklist) → ## Frequently Asked Questions → ## Final Thoughts${skipSources ? '' : ' → ## References (markdown bullet list of all sources)'}.
 2. WORD COUNT — Final article between ${wordFloor} and ${wordCeiling} words (target ${targetWords}). Count as you write.
 3. TABLES — Include exactly ${requiredTables} markdown comparison table${requiredTables > 1 ? 's' : ''} (1 per 600 words), each ≥3 columns and ≥4 data rows, spread evenly across body H2 sections. Markdown pipe syntax only.${skipSources ? '' : `
-4. SOURCES — Every body H2 ends with a "**Sources:**" line listing 1-2 real markdown links to authoritative sites (NHS, gov, CDC, Wikipedia, official brand sites, reputable news). The final ## References section lists all sources as a markdown bullet list. Real working URLs only — no placeholders, no inline [1][2] citations.`}
+4. SOURCES — Do NOT output any inline "**Sources:**" blocks under sections. Preserve citations only in the final ## References section as markdown bullet links with real working URLs. No placeholders, no inline [1][2] citations.`}
 5. FORMATTING — Every body H2 section must contain EXACTLY THREE markdown bullet points using "- ". Do not use numbered lists as the required bullets. Do not use bold formatting in the article body. British English. No em/en dashes. No horizontal rules.
 6. ATOMIC SECTION CONTRACT (NON-NEGOTIABLE) — Every body H2 and H3 must be a standalone answer block that works alone if extracted by Google AI Overviews, ChatGPT, Gemini or Perplexity. For EACH body H2/H3 you MUST:
    (a) Open with ONE direct sentence that fully answers the heading question on its own (no preamble, no "Dental implants are popular…" style intros).
@@ -675,98 +672,6 @@ Place these images throughout the article at logical locations, typically after 
         content: generatedContent,
         finishReason: firstChoice?.finish_reason,
       };
-    };
-
-    const trimToWordCount = (text: string, maxWords: number): string => {
-      if (!text.trim() || maxWords <= 0) return "";
-      const words = text.trim().split(/\s+/).filter(Boolean);
-      if (words.length <= maxWords) return text.trim();
-      const trimmed = words.slice(0, maxWords).join(" ").replace(/[,:;\-]$/, "").trim();
-      return trimmed.endsWith(".") || trimmed.endsWith("!") || trimmed.endsWith("?") ? trimmed : `${trimmed}.`;
-    };
-
-    const extractSourcesBlock = (body: string): { body: string; sources: string } => {
-      const lines = body.split("\n");
-      const idx = lines.findIndex((line) => /^\s*\*\*Sources?:\*\*/i.test(line) || /^\s*Sources?:\s/i.test(line));
-      if (idx < 0) return { body, sources: "" };
-      const before = lines.slice(0, idx).join("\n").trim();
-      const sources = lines.slice(idx).join("\n").trim();
-      return { body: before, sources };
-    };
-
-    const trimSectionToBudget = (body: string, budget: number): string => {
-      const cleaned = body.trim();
-      if (!cleaned) return "";
-      if (budget <= 0) return "";
-
-      // ALWAYS preserve the **Sources:** line — never let the trimmer drop it.
-      const { body: bodyWithoutSources, sources } = extractSourcesBlock(cleaned);
-      const sourceWords = sources ? countWords(sources) : 0;
-      const effectiveBudget = Math.max(0, budget - sourceWords);
-
-      const appendSources = (trimmed: string): string => {
-        if (!sources) return trimmed;
-        return trimmed ? `${trimmed}\n\n${sources}` : sources;
-      };
-
-      if (countWords(bodyWithoutSources) <= effectiveBudget) {
-        return appendSources(bodyWithoutSources.trim());
-      }
-
-      const paragraphs = bodyWithoutSources.split(/\n{2,}/).map(p => p.trim()).filter(Boolean);
-      const kept: string[] = [];
-      let remaining = effectiveBudget;
-
-      for (const paragraph of paragraphs) {
-        if (remaining <= 0) break;
-        const paragraphWords = countWords(paragraph);
-
-        if (paragraphWords <= remaining) {
-          kept.push(paragraph);
-          remaining -= paragraphWords;
-          continue;
-        }
-
-        if (remaining < 10) break;
-
-        const lines = paragraph.split("\n").map(line => line.trim()).filter(Boolean);
-        const isTable = lines.some(line => line.includes("|"));
-        if (isTable) {
-          const tableLines = lines.filter(line => line.includes("|"));
-          const minimalTable = tableLines.slice(0, Math.min(3, tableLines.length)).join("\n");
-          const tableWords = countWords(minimalTable);
-          if (tableWords <= remaining) {
-            kept.push(minimalTable);
-            remaining -= tableWords;
-          }
-          continue;
-        }
-
-        const sentences = paragraph.match(/[^.!?]+[.!?]?/g)?.map(s => s.trim()).filter(Boolean) ?? [paragraph];
-        const sentenceBuffer: string[] = [];
-
-        for (const sentence of sentences) {
-          if (remaining <= 0) break;
-          const sentenceWords = countWords(sentence);
-          if (sentenceWords <= remaining) {
-            sentenceBuffer.push(sentence);
-            remaining -= sentenceWords;
-            continue;
-          }
-
-          if (remaining >= 8) {
-            sentenceBuffer.push(trimToWordCount(sentence, remaining));
-            remaining = 0;
-          }
-          break;
-        }
-
-        if (sentenceBuffer.length > 0) kept.push(sentenceBuffer.join(" "));
-        break;
-      }
-
-      if (!kept.length) return appendSources(trimToWordCount(bodyWithoutSources, Math.max(12, effectiveBudget)));
-      return appendSources(kept.join("\n\n").trim());
     };
 
     const splitByH2Sections = (markdown: string): { intro: string; sections: { heading: string; body: string }[] } => {
