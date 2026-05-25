@@ -1326,19 +1326,25 @@ Place these images throughout the article at logical locations, typically after 
 
     const rebuildReferencesFromLinks = (md: string): string => {
       const linkRe = /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g;
-      const seen = new Set<string>();
+      const seenUrl = new Set<string>();
+      const seenTitle = new Set<string>();
       const items: string[] = [];
+      const normTitle = (t: string) => t.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
       let m: RegExpExecArray | null;
       while ((m = linkRe.exec(md)) !== null) {
         if (m.index > 0 && md[m.index - 1] === "!") continue;
         const title = m[1].trim().replace(/[*_`]/g, "") || sourceTitleFromUrl(m[2]);
         const url = cleanSourceUrl(m[2]);
-        if (!title || seen.has(url)) continue;
-        seen.add(url);
+        if (!title || seenUrl.has(url)) continue;
+        const tKey = normTitle(title);
+        if (tKey && seenTitle.has(tKey)) continue; // suppress near-duplicate titles
+        seenUrl.add(url);
+        if (tKey) seenTitle.add(tKey);
         items.push(`- [${title}](${url})`);
       }
       return items.length ? `## References\n${items.join("\n")}` : "";
     };
+
 
     const enforceSourcesAndReferences = async (markdown: string): Promise<string> => {
       if (skipSources) return markdown;
