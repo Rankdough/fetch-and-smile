@@ -90,18 +90,22 @@ serve(async (req) => {
       } catch {
         return { ok: false, status: 0, reason: "invalid URL" };
       }
+      // Lenient verification: trust context URLs unless they are definitively dead (404/410).
+      // Many legitimate publishers block bots with 403/405/429/timeouts.
       const ctrl = new AbortController();
       const timer = setTimeout(() => ctrl.abort(), 8000);
       try {
-        let resp = await fetch(url, { method: "HEAD", redirect: "follow", signal: ctrl.signal, headers: { "User-Agent": "Mozilla/5.0 (LinkChecker)" } }).catch(() => null);
-        if (!resp || resp.status === 405 || resp.status === 403 || resp.status === 0) {
-          resp = await fetch(url, { method: "GET", redirect: "follow", signal: ctrl.signal, headers: { "User-Agent": "Mozilla/5.0 (LinkChecker)" } });
+        let resp = await fetch(url, { method: "HEAD", redirect: "follow", signal: ctrl.signal, headers: { "User-Agent": "Mozilla/5.0 (compatible; LinkChecker/1.0)" } }).catch(() => null);
+        if (!resp || resp.status === 405 || resp.status === 403 || resp.status === 0 || resp.status === 429) {
+          resp = await fetch(url, { method: "GET", redirect: "follow", signal: ctrl.signal, headers: { "User-Agent": "Mozilla/5.0 (compatible; LinkChecker/1.0)" } }).catch(() => null);
         }
         clearTimeout(timer);
-        return { ok: resp.ok, status: resp.status, reason: resp.ok ? undefined : "HTTP error" };
+        if (!resp) return { ok: true, status: 0, reason: "network-unreachable-trusted" };
+        if (resp.status === 404 || resp.status === 410) return { ok: false, status: resp.status, reason: "not found" };
+        return { ok: true, status: resp.status };
       } catch (e: any) {
         clearTimeout(timer);
-        return { ok: false, status: 0, reason: e?.name === "AbortError" ? "timeout" : "fetch failed" };
+        return { ok: true, status: 0, reason: e?.name === "AbortError" ? "timeout-trusted" : "fetch-failed-trusted" };
       }
     };
     const addContextSourceLink = (title: string, url: string) => {
