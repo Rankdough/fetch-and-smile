@@ -208,31 +208,6 @@ const cleanContent = (content: string): string => {
   return cleaned;
 };
 
-const preserveExistingMarkdownLinks = (previousContent: string, nextContent: string): { content: string; restored: string[] } => {
-  if (!previousContent || !nextContent) return { content: nextContent, restored: [] };
-  const linkRegex = /\[([^\]]+)\]\((https?:\/\/[^)\s]+|\/[^)\s]+)\)/g;
-  const restored: string[] = [];
-  const seen = new Set<string>();
-  let repaired = nextContent;
-  let match: RegExpExecArray | null;
-
-  while ((match = linkRegex.exec(previousContent)) !== null) {
-    const label = match[1].replace(/\s+/g, " ").trim();
-    const url = match[2].trim();
-    const key = `${label}\u0000${url}`;
-    if (!label || seen.has(key) || repaired.includes(`](${url})`)) continue;
-    seen.add(key);
-
-    const escapedLabel = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const plainLabelRegex = new RegExp(`(^|[\\s>\\-*])(${escapedLabel})(?=\\s*(?:$|[<\\n.,;:)]))`, "m");
-    if (plainLabelRegex.test(repaired)) {
-      repaired = repaired.replace(plainLabelRegex, `$1[${label}](${url})`);
-      restored.push(label);
-    }
-  }
-
-  return { content: repaired, restored };
-};
 
 // Helper to extract "In This Article" navigation items from markdown
 const extractInThisArticleItems = (content: string): { number: number; title: string; description: string; detailedDescription?: string; slug: string; isHighlighted?: boolean }[] => {
@@ -489,7 +464,6 @@ const Index = () => {
     const saved = localStorage.getItem("seo-generator-generatedContent");
     return saved ? normalizeQuickTipsSection(cleanContent(saved)) : "";
   });
-  const [contentIntegrityWarnings, setContentIntegrityWarnings] = useState<string[]>([]);
   
   // Store the original generated content for reset functionality
   const [originalContent, setOriginalContent] = useState(() => {
@@ -502,11 +476,7 @@ const Index = () => {
   
   // Wrapper that auto-cleans content before setting
   const setGeneratedContent = (content: string, isNewGeneration = false) => {
-    const preserved = isNewGeneration ? { content, restored: [] } : preserveExistingMarkdownLinks(generatedContent, content);
-    const cleaned = normalizeQuickTipsSection(cleanContent(preserved.content));
-    if (preserved.restored.length > 0) {
-      setContentIntegrityWarnings([`LINK GUARD: Restored ${preserved.restored.length} existing reference/internal link(s) that an edit tried to strip.`]);
-    }
+    const cleaned = normalizeQuickTipsSection(cleanContent(content));
     setGeneratedContentRaw(cleaned);
     // If this is a new generation (not an edit), save as original
     if (isNewGeneration) {
@@ -1495,7 +1465,6 @@ const Index = () => {
     setIsGenerating(true);
     setGeneratedContent("");
     setAppliedRules(null);
-    setContentIntegrityWarnings([]);
 
     try {
       let content: string;
@@ -1544,9 +1513,6 @@ const Index = () => {
 
         content = data.content;
         setAppliedRules(data.appliedRules || null);
-        const warnings = Array.isArray(data.contentIntegrityWarnings) ? data.contentIntegrityWarnings : [];
-        setContentIntegrityWarnings(warnings);
-        
         if (data.ctas) {
           console.log("CTAs received from API:", data.ctas);
           setGeneratedCTAs(data.ctas);
@@ -3296,8 +3262,6 @@ const Index = () => {
                   if (error) throw error;
                   let finalContent = data.content;
                   setAppliedRules(data.appliedRules || null);
-                  const warnings = Array.isArray(data.contentIntegrityWarnings) ? data.contentIntegrityWarnings : [];
-                  setContentIntegrityWarnings(warnings);
                   if (data.ctas) {
                     setGeneratedCTAs(data.ctas);
                   } else {
@@ -5418,7 +5382,6 @@ CRITICAL EXPANSION RULES:
                           if (data.appliedRules) {
                             setAppliedRules(data.appliedRules);
                           }
-                          setContentIntegrityWarnings(Array.isArray(data.contentIntegrityWarnings) ? data.contentIntegrityWarnings : []);
                           if (data.ctas) {
                             setGeneratedCTAs(data.ctas);
                           }
@@ -5439,7 +5402,6 @@ CRITICAL EXPANSION RULES:
                       }}
                       ctaUrl={ctaUrl}
                       generatedCTAs={generatedCTAs}
-                      integrityWarnings={contentIntegrityWarnings}
                       regeneratingSectionTitle={regeneratingSectionTitle}
                       onRegenerateSection={async (sectionTitle) => {
                         if (!generatedContent.trim() || regeneratingSectionTitle) return;
@@ -5486,18 +5448,11 @@ CRITICAL EXPANSION RULES:
                           if (error) throw error;
                           const newSection = (data?.content || "").trim();
                           if (!newSection) throw new Error("Empty response");
-                          const warnings = Array.isArray(data?.contentIntegrityWarnings) ? data.contentIntegrityWarnings : [];
-                          setContentIntegrityWarnings(warnings);
-
                           const before = lines.slice(0, startIdx).join("\n").replace(/\s+$/, "");
                           const after = lines.slice(endIdx).join("\n").replace(/^\s+/, "");
                           const rebuilt = [before, newSection, after].filter(Boolean).join("\n\n");
                           setGeneratedContent(rebuilt);
-                          if (warnings.length > 0) {
-                            toast({ title: "Regeneration integrity warning", description: warnings.join(" • "), variant: "destructive" });
-                          } else {
-                            toast({ title: "Section regenerated", description: sectionTitle });
-                          }
+                          toast({ title: "Section regenerated", description: sectionTitle });
                         } catch (err) {
                           console.error("Regenerate section error:", err);
                           toast({

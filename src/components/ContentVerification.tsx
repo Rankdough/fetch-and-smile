@@ -37,7 +37,6 @@ interface ContentVerificationProps {
   internalLinks?: string[];
   selectedGapInsights?: string[];
   valuePromiseClaims?: string[];
-  integrityWarnings?: string[];
 }
 
 interface VerificationItem {
@@ -62,8 +61,7 @@ export const ContentVerification = ({
   generatedCTAs,
   internalLinks,
   selectedGapInsights,
-  valuePromiseClaims,
-  integrityWarnings = []
+  valuePromiseClaims
 }: ContentVerificationProps) => {
   const verificationResults = useMemo(() => {
     const results: VerificationItem[] = [];
@@ -107,14 +105,6 @@ export const ContentVerification = ({
       fixType: "word-count",
     });
 
-    if (integrityWarnings.length > 0) {
-      results.push({
-        id: "integrity-warnings",
-        label: "Integrity warnings from generation",
-        status: integrityWarnings.some((warning) => /could not repair|still|failed/i.test(warning)) ? "failed" : "warning",
-        details: integrityWarnings.slice(0, 2).join(" • "),
-      });
-    }
 
     // Check for TL;DR as H2
     const hasTldrH2 = /^## TL;?DR/im.test(content);
