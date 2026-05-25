@@ -1731,15 +1731,27 @@ Place these images throughout the article at logical locations, typically after 
           seen.add(url);
           cited.push(`- [${title}](${url})`);
         }
-        const items = cited.length > 0 ? cited : contextSourceLinks.map((link) => `- ${link.markdown}`);
-        return `## References\n${items.join("\n")}`;
+        // Guarantee a meaningful References section: top up with catalogue
+        // entries (in original order) so readers always see at least 5 sources.
+        const minReferences = Math.min(5, contextSourceLinks.length);
+        if (cited.length < minReferences) {
+          for (const link of contextSourceLinks) {
+            if (cited.length >= minReferences) break;
+            if (seen.has(link.url)) continue;
+            seen.add(link.url);
+            cited.push(`- ${link.markdown}`);
+          }
+        }
+        return `## References\n${cited.join("\n")}`;
       })();
       if (/^#{1,3}\s.*references/im.test(content)) {
         content = content.replace(/^#{1,3}\s.*references[\s\S]*$/im, referencesBlock);
       } else {
         content = `${content.trimEnd()}\n\n${referencesBlock}`;
       }
+      console.log(`SOURCE GUARD: References rebuilt with ${referencesBlock.split("\n").length - 1} catalogue link(s)`);
     }
+
     content = stripInlineBoldEmphasis(content);
     if (disallowedLinkResult.removedUrls.length > 0) {
       const message = `SOURCE GUARD: Removed ${disallowedLinkResult.removedUrls.length} non-context URL(s) from generated content: ${disallowedLinkResult.removedUrls.join(" | ")}`;
