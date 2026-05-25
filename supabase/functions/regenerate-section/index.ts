@@ -251,18 +251,6 @@ ${sectionMarkdown}`;
     };
 
     const repairNonClickableSources = (section: string): { content: string; warnings: string[] } => {
-      const linkRe = /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g;
-      const existingLinks: { title: string; url: string; markdown: string }[] = [];
-      const seenUrls = new Set<string>();
-      let match: RegExpExecArray | null;
-      while ((match = linkRe.exec(`${sectionMarkdown}\n${section}`)) !== null) {
-        const title = match[1].trim();
-        const url = match[2].replace(/[\].,;]+$/, "");
-        if (!title || seenUrls.has(url)) continue;
-        seenUrls.add(url);
-        existingLinks.push({ title, url, markdown: `[${title}](${url})` });
-      }
-
       const candidateLinks = contextSourceLinks.map((link) => ({ title: link.title, url: link.url, markdown: link.markdown }));
       const linkIsAllowed = (url: string) => allowedContextSourceUrls.has(url.replace(/[\].,;]+$/, ""));
       const bestLinkFor = (sourceText: string) => {
