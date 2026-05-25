@@ -73,9 +73,20 @@ export const ContentVerification = ({
   generatedCTAs,
   internalLinks,
   selectedGapInsights,
-  valuePromiseClaims
+  valuePromiseClaims,
+  onCheckAndFixLinks,
 }: ContentVerificationProps) => {
+  const [linkBusy, setLinkBusy] = useState(false);
+  const [linkReport, setLinkReport] = useState<LinkFixReport | null>(null);
+
+  // Count external markdown links in current content (used for the live status)
+  const externalLinkCount = useMemo(() => {
+    const re = /\[[^\]]+\]\(https?:\/\/[^)\s]+\)/g;
+    return (content.match(re) || []).length;
+  }, [content]);
+
   const verificationResults = useMemo(() => {
+
     const results: VerificationItem[] = [];
 
     // Count words - excluding FAQ and References sections
