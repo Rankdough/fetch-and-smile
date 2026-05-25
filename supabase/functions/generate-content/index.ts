@@ -332,6 +332,7 @@ ${migrationMode ? `TABLE RULE:
 | Duration | 1 hour | 2 hours |
 
 - Each table: at least 3 columns and at least 4 data rows
+- NEVER produce a table with only one data row. If you only have one row of data to show, write it as a sentence or bullet instead — do not wrap it in a table.
 - Spread tables evenly across body H2 sections; never cluster at the end
 - Markdown only — do NOT use HTML <table> tags
 - Do NOT replace tables with bullet lists`}
@@ -1326,6 +1327,48 @@ Place these images throughout the article at logical locations, typically after 
     // TABLE GUARD: deterministic local injection if model under-delivered
     // ═══════════════════════════════════════════════════════════════════════
     if (!expandExistingContent) {
+      // First, strip any markdown table that has fewer than 2 data rows.
+      // A "data row" is a |...| row AFTER the separator (| --- | --- |).
+      // Single-row tables are not real comparisons and must never appear.
+      const stripUndersizedTables = (md: string): { md: string; removed: number } => {
+        const lines = md.split("\n");
+        const out: string[] = [];
+        let removed = 0;
+        let i = 0;
+        while (i < lines.length) {
+          const isPipe = (s: string) => s.includes("|");
+          const isSep = (s: string) => /^\s*\|?[\s\-:|]+\|[\s\-:|]+\|?\s*$/.test(s);
+          if (isPipe(lines[i]) && i + 1 < lines.length && isSep(lines[i + 1])) {
+            // collect contiguous data rows
+            let j = i + 2;
+            const dataRows: string[] = [];
+            while (j < lines.length && isPipe(lines[j]) && lines[j].trim() !== "") {
+              dataRows.push(lines[j]);
+              j++;
+            }
+            if (dataRows.length < 2) {
+              // drop the whole table (header + separator + any data rows)
+              removed++;
+              i = j;
+              // also swallow a single trailing blank line if it was just padding
+              if (i < lines.length && lines[i].trim() === "") i++;
+              continue;
+            }
+            // keep table as-is
+            out.push(lines[i], lines[i + 1], ...dataRows);
+            i = j;
+            continue;
+          }
+          out.push(lines[i]);
+          i++;
+        }
+        return { md: out.join("\n"), removed };
+      };
+      const stripped = stripUndersizedTables(content);
+      if (stripped.removed > 0) {
+        console.warn(`TABLE GUARD: Removed ${stripped.removed} undersized table(s) with <2 data rows`);
+        content = stripped.md;
+      }
       const countTables = (md: string): number => {
         const lines = md.split("\n");
         let count = 0;

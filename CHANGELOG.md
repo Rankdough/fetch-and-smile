@@ -5,6 +5,29 @@ Newest entries on top. Append-only — never edit or delete past entries.
 
 ---
 
+## 2026-05-25 — Strip single-row tables
+
+**What changed**
+- Added `stripUndersizedTables` pass in `generate-content` that removes any markdown table with fewer than 2 data rows before TABLE GUARD counts tables.
+- Prompt now explicitly forbids producing a table with only one data row; the model is told to use a sentence or bullet instead.
+
+**Why**
+- User rule: one-row tables aren't real comparisons and should never appear in articles.
+
+**What may break / side effects**
+- A removed undersized table reduces the table count, so TABLE GUARD may then inject a generic fallback table (Aspect / Option A / B / C) to hit the cadence. That fallback can read as boilerplate on niche topics.
+- The strip only runs in normal generation, not in `expandExistingContent` mode — existing 1-row tables in expand-mode passes won't be touched.
+- Detection requires a proper separator row (`| --- | --- |`). Malformed tables without a separator are not recognised as tables and pass through untouched (same as before).
+- `regenerate-section` does not yet run this strip; regenerating a single section can still produce a 1-row table until that function is updated.
+
+**Files touched**
+- `supabase/functions/generate-content/index.ts` (lines ~325–337 prompt rule, ~1325–1380 strip + guard)
+
+**How to verify**
+- Generate an article and check that no markdown block has the shape `| H1 | H2 |\n| --- | --- |\n| only | row |` followed immediately by a blank line or new heading. Check edge function logs for `TABLE GUARD: Removed N undersized table(s)`.
+
+---
+
 ## 2026-05-25 — Lenient context-URL verifier (refs were disappearing)
 
 **What changed**
