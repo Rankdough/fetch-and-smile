@@ -5481,6 +5481,7 @@ CRITICAL EXPANSION RULES:
                               topic: formData.topic,
                               toneProfile,
                               useFirstPerson,
+                              contextFiles: contextFiles.length > 0 ? contextFiles : undefined,
                             },
                           });
                           if (error) throw error;
