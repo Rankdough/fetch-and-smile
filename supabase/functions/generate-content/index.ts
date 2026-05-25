@@ -1003,6 +1003,57 @@ Place these images throughout the article at logical locations, typically after 
     }
 
     // ═══════════════════════════════════════════════════════════════════════
+    // ATOMIC SECTION GUARD: strip banned dependency phrases + log gaps
+    // (non-destructive: only removes/replaces banned transitions, never rewrites prose)
+    // ═══════════════════════════════════════════════════════════════════════
+    if (!expandExistingContent && !migrationMode && !formatReference) {
+      const bannedPhrases: { pattern: RegExp; replacement: string }[] = [
+        { pattern: /\bas\s+mentioned\s+(above|earlier|previously)\b[,]?\s*/gi, replacement: "" },
+        { pattern: /\bas\s+(we\s+)?(saw|discussed|noted)\s+(above|earlier|previously)\b[,]?\s*/gi, replacement: "" },
+        { pattern: /\bcontinuing\s+from\s+(earlier|above|the\s+previous\s+section)\b[,]?\s*/gi, replacement: "" },
+        { pattern: /\bin\s+the\s+previous\s+section\b[,]?\s*/gi, replacement: "" },
+        { pattern: /\bthe\s+following\s+point\b[,]?\s*/gi, replacement: "" },
+        { pattern: /\bbuilding\s+on\s+(what\s+we\s+covered|the\s+above|the\s+previous)\b[,]?\s*/gi, replacement: "" },
+      ];
+      let strippedCount = 0;
+      bannedPhrases.forEach(({ pattern, replacement }) => {
+        const matches = content.match(pattern);
+        if (matches) {
+          strippedCount += matches.length;
+          content = content.replace(pattern, replacement);
+        }
+      });
+      // Tidy: capitalize first letter after a stripped phrase at sentence start
+      content = content.replace(/(^|\n|\. )([a-z])/g, (_m, p1, p2) => p1 + p2.toUpperCase());
+      if (strippedCount > 0) {
+        console.log(`ATOMIC GUARD: Stripped ${strippedCount} banned dependency phrase(s)`);
+      }
+
+      // Log H2 sections missing any bullet/numbered list/table (no auto-injection)
+      const atomicSkip = /tl;?\s?dr|quick\s*tips|in\s*this\s*article|frequently\s*asked|faq|final\s*thoughts|conclusion|references|sources/i;
+      const atomicLines = content.split("\n");
+      const sectionsMissingLists: string[] = [];
+      for (let i = 0; i < atomicLines.length; i++) {
+        if (/^##\s+/.test(atomicLines[i]) && !atomicSkip.test(atomicLines[i])) {
+          let endIdx = atomicLines.length;
+          for (let j = i + 1; j < atomicLines.length; j++) {
+            if (/^##\s+/.test(atomicLines[j])) { endIdx = j; break; }
+          }
+          const body = atomicLines.slice(i + 1, endIdx).join("\n");
+          const hasList = /^\s*([-*+]|\d+\.)\s+/m.test(body) || /\n\|[^\n]+\|/.test(body);
+          if (!hasList) {
+            sectionsMissingLists.push(atomicLines[i].replace(/^##\s+/, "").slice(0, 60));
+          }
+        }
+      }
+      if (sectionsMissingLists.length > 0) {
+        console.warn(`ATOMIC GUARD: ${sectionsMissingLists.length} body section(s) missing bullets/lists: ${sectionsMissingLists.join(" | ")}`);
+      } else {
+        console.log(`ATOMIC GUARD: All body sections contain bullets/lists ✓`);
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
     // COMPLETENESS GUARD: deterministic local fallback (no extra AI call)
     // ═══════════════════════════════════════════════════════════════════════
     let missingSections: string[] = [];
