@@ -248,14 +248,18 @@ ${skipSources ? `SOURCE REFERENCE RULES:
 - DO NOT use inline numeric citations like [1], [2], [3]
 - Write all claims as general knowledge without citation` : `SOURCE REFERENCE RULES:
 - DO NOT use inline numeric citations like [1], [2], [3] in the text
-- Add a "**Sources:**" line at the END of EACH major section (after ## headings)
-- List 1-2 relevant sources as simple markdown links directly under that section
+- DO NOT put a **Sources:** line inside the ## TL;DR section — TL;DR is a single clean paragraph only
+- Add a "**Sources:**" line at the END of EACH body H2 section (question-based sections), not after TL;DR, Quick Tips, In This Article, How to Choose, FAQ, or Final Thoughts
+- Under "**Sources:**", put each source on its OWN line as a markdown bullet:
+    **Sources:**
+    - [Source Title 1](https://real-url-1)
+    - [Source Title 2](https://real-url-2)
+  Never put multiple sources on one line separated by "|" or commas.
 - CRITICAL: All source links MUST be real, valid, working URLs to authoritative websites
-- Format: **Sources:** [Source Title](https://example.com/actual-page-url)
 - Use real domains like gov sites, NHS, CDC, Wikipedia, official brand sites, reputable news outlets
-- Example: [NHS Food Safety Guidelines](https://www.nhs.uk/live-well/eat-well/food-guidelines-and-food-labels/)
 - NEVER use placeholder URLs or made-up links - only include sources you know exist
-- Sources should be relevant to that specific section's content`}
+- Sources must be relevant to that specific section's content`}
+
 
 ARTICLE STRUCTURE (in this order) — WORD BUDGET PER SECTION:
 Total target: ${targetWords} words. Each section has a strict word budget. Do NOT exceed individual section budgets.
