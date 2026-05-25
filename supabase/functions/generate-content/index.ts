@@ -505,10 +505,10 @@ ${instructions}`;
       userPrompt = `Write a blog post about: ${topic}
 
 MUST FOLLOW (in priority order):
-1. STRUCTURE — Follow the AEO layout exactly: H1 → AI-quotable opening paragraph (30-50 words) → ## TL;DR (1 dense paragraph, no list) → ## Quick Tips (3 tips, max 15 words each) → ## In This Article (nav list) → question-based H2 sections (each H2 phrased as a question, immediately followed by a ~30-word direct answer paragraph, then EXACTLY THREE markdown bullet points using "- ", then a comparison table where relevant${skipSources ? '' : ', with references preserved only for the final References section'}) → ## How to Choose (4-6 criteria as a bullet checklist) → ## Frequently Asked Questions → ## Final Thoughts${skipSources ? '' : ' → ## References (markdown bullet list of all sources)'}.
+1. STRUCTURE — Follow the AEO layout exactly: H1 → AI-quotable opening paragraph (30-50 words) → ## TL;DR (1 dense paragraph, no list) → ## Quick Tips (3 tips, max 15 words each) → ## In This Article (nav list) → question-based H2 sections (each H2 phrased as a question, immediately followed by a ~30-word direct answer paragraph, then EXACTLY THREE markdown bullet points using "- ", then a comparison table where relevant${skipSources ? '' : ', and each eligible body H2 ending with its own visible **Sources:** block'}) → ## How to Choose (4-6 criteria as a bullet checklist) → ## Frequently Asked Questions → ## Final Thoughts${skipSources ? '' : ' → ## References (markdown bullet list of all sources)'}. 
 2. WORD COUNT — Final article between ${wordFloor} and ${wordCeiling} words (target ${targetWords}). Count as you write.
 3. TABLES — Include exactly ${requiredTables} markdown comparison table${requiredTables > 1 ? 's' : ''} (1 per 600 words), each ≥3 columns and ≥4 data rows, spread evenly across body H2 sections. Markdown pipe syntax only.${skipSources ? '' : `
-4. SOURCES — Do NOT output any inline "**Sources:**" blocks under sections. Preserve citations only in the final ## References section as markdown bullet links with real working URLs. No placeholders, no inline [1][2] citations.`}
+4. SOURCES — Every eligible body H2 must end with a visible "**Sources:**" block using real markdown bullet links. Do not put sources under TL;DR, Quick Tips, In This Article, How to Choose, FAQ, or Final Thoughts. Also include the final ## References section as markdown bullet links with real working URLs. No placeholders, no inline [1][2] citations.`}
 5. FORMATTING — Every body H2 section must contain EXACTLY THREE markdown bullet points using "- ". Do not use numbered lists as the required bullets. Do not use bold formatting in the article body. British English. No em/en dashes. No horizontal rules.
 6. ATOMIC SECTION CONTRACT (NON-NEGOTIABLE) — Every body H2 and H3 must be a standalone answer block that works alone if extracted by Google AI Overviews, ChatGPT, Gemini or Perplexity. For EACH body H2/H3 you MUST:
    (a) Open with ONE direct sentence that fully answers the heading question on its own (no preamble, no "Dental implants are popular…" style intros).
@@ -1258,7 +1258,8 @@ Place these images throughout the article at logical locations, typically after 
         const heading = headingLine.replace(/^#{2,3}\s+/, "").trim();
         const headingLower = heading.toLowerCase();
         let body = withoutReferences.slice(start + headingLine.length, end).trim();
-        const shouldSource = !/references|bibliography|sources|in\s+this\s+article/i.test(headingLower);
+        const shouldSource = !/references|bibliography|sources|in\s+this\s+article|tl;?dr|quick\s*tips|frequently\s*asked|faq|final\s*thoughts|conclusion/i.test(headingLower)
+          && !isDecisionGuideHeading(headingLower);
 
         if (shouldSource) {
           const bodyLines = body.split("\n");
@@ -1285,9 +1286,13 @@ Place these images throughout the article at logical locations, typically after 
 
           body = cleanedBody.join("\n").trim();
           const sources = await sourcesForSection(heading, body);
-          const selected = sources[0];
-          if (selected) {
-            selectedSources.push(selected);
+          if (sources.length > 0) {
+            selectedSources.push(...sources);
+            const sourcesBlock = [
+              "**Sources:**",
+              ...sources.map((source) => `- [${source.title.trim().replace(/[*_`]/g, "") || sourceTitleFromUrl(source.url)}](${cleanSourceUrl(source.url)})`),
+            ].join("\n");
+            body = [body, sourcesBlock].filter(Boolean).join("\n\n").trim();
           } else {
             console.warn(`SOURCE GUARD: No working source found for section: ${heading}`);
           }
