@@ -125,9 +125,9 @@ export const ContentVerification = ({
       details: hasTldrH2 ? "Found ## TL;DR heading" : "Missing TL;DR H2 section",
     });
 
-    const referencesMatch = content.match(/^##\s+References:?\s*\n([\s\S]*?)(?=\n##\s+|$)/im);
-    if (referencesMatch) {
-      const referenceLines = referencesMatch[1].split("\n").map((line) => line.trim()).filter(Boolean);
+    const clickableReferencesMatch = content.match(/^##\s+References:?\s*\n([\s\S]*?)(?=\n##\s+|$)/im);
+    if (clickableReferencesMatch) {
+      const referenceLines = clickableReferencesMatch[1].split("\n").map((line) => line.trim()).filter(Boolean);
       const nonClickableReferenceLines = referenceLines.filter((line) => !/\[[^\]]+\]\(https?:\/\/[^)\s]+\)/i.test(line));
       results.push({
         id: "clickable-references",
