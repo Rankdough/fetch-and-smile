@@ -69,9 +69,39 @@ export function markdownToStyledHtml(
   }
   cleanMarkdown = filteredLines.join('\n');
 
+  // Strip any "**Sources:**" line that lives inside the TL;DR section
+  // (TL;DR must be a single clean paragraph — no source list).
+  {
+    const srcLines = cleanMarkdown.split('\n');
+    const out: string[] = [];
+    let inTldr = false;
+    for (const line of srcLines) {
+      if (/^##\s+TL;?DR/i.test(line)) { inTldr = true; out.push(line); continue; }
+      if (inTldr && /^#{1,3}\s+/.test(line)) { inTldr = false; }
+      if (inTldr && /^\s*\*?\*?Sources:\*?\*?/i.test(line.trim())) continue;
+      out.push(line);
+    }
+    cleanMarkdown = out.join('\n');
+  }
+
+  // Reformat "**Sources:** [a](u) | [b](u)" into a heading + one link per line
+  // so anchor-text sources render line by line instead of mushed with "|".
+  cleanMarkdown = cleanMarkdown.replace(
+    /^[ \t>*-]*\*\*Sources:\*\*[ \t]*(.+)$/gim,
+    (_m, rest: string) => {
+      const parts = rest
+        .split(/\s*\|\s*|\s+•\s+|\s+·\s+/)
+        .map((s) => s.trim())
+        .filter(Boolean);
+      if (parts.length === 0) return "**Sources:**";
+      return ["**Sources:**", ...parts.map((p) => `- ${p}`)].join("\n");
+    }
+  );
+
   // Fix inline numbered lists and bold-label items merged into single paragraphs
   cleanMarkdown = cleanMarkdown.replace(/(\S)\s+(\d+)\.\s+(\*\*)/g, "$1\n$2. $3");
   cleanMarkdown = cleanMarkdown.replace(/([.!?])\s+-\s+\*\*/g, "$1\n- **");
+
 
   // 2. Convert Markdown → basic HTML
   // Strip stray standalone quote/apostrophe lines that the AI sometimes emits
