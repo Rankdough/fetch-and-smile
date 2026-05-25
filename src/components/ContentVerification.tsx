@@ -30,6 +30,8 @@ interface ContentVerificationProps {
   onFixEmDashes?: () => void;
   onFixHorizontalLines?: () => void;
   onRegenerateForWordCount?: () => void;
+  onRegenerateSection?: (sectionTitle: string) => Promise<void> | void;
+  regeneratingSectionTitle?: string | null;
   ctaUrl?: string;
   generatedCTAs?: CTAData | null;
   internalLinks?: string[];
@@ -44,6 +46,7 @@ interface VerificationItem {
   details?: string;
   fixable?: boolean;
   fixType?: "em-dash" | "word-count" | "horizontal-line";
+  failingSections?: string[];
 }
 
 export const ContentVerification = ({ 
@@ -52,6 +55,8 @@ export const ContentVerification = ({
   onFixEmDashes,
   onFixHorizontalLines,
   onRegenerateForWordCount,
+  onRegenerateSection,
+  regeneratingSectionTitle,
   ctaUrl,
   generatedCTAs,
   internalLinks,
