@@ -1504,6 +1504,10 @@ Place these images throughout the article at logical locations, typically after 
       }
     }
 
+    if (!expandExistingContent && !migrationMode && !formatReference && !skipSources) {
+      content = await enforceSourcesAndReferences(content);
+    }
+
 
     // Generate CTAs if requested
     let ctas = null;
