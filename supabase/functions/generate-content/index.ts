@@ -1219,6 +1219,14 @@ Place these images throughout the article at logical locations, typically after 
       content = normaliseReferencesSection(content);
     }
 
+    if (!expandExistingContent && !migrationMode && !formatReference) {
+      const finalBulletResult = enforceThreeBulletsPerBodySection(content);
+      content = finalBulletResult.markdown;
+      if (finalBulletResult.changedSections.length > 0) {
+        console.warn(`FINAL ATOMIC GUARD: Enforced exactly 3 bullets in ${finalBulletResult.changedSections.length} section(s): ${finalBulletResult.changedSections.join(" | ")}`);
+      }
+    }
+
     // Generate CTAs if requested
     let ctas = null;
     if (generateCTAs) {
