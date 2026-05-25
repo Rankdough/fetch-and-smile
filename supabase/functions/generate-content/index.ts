@@ -1325,6 +1325,52 @@ Place these images throughout the article at logical locations, typically after 
       return { markdown: fixedLines.join("\n").trim(), repairedSections: [...repairedSections], brokenSections: [...brokenSections] };
     };
 
+    const enforceSourceLineOnEveryBodySection = (markdown: string): { markdown: string; addedSections: string[]; replacedSections: string[] } => {
+      if (skipSources || contextSourceLinks.length === 0) return { markdown, addedSections: [], replacedSections: [] };
+
+      const headingRegex = /^##\s+.+$/gm;
+      const matches = [...markdown.matchAll(headingRegex)];
+      if (matches.length === 0) return { markdown, addedSections: [], replacedSections: [] };
+
+      const addedSections: string[] = [];
+      const replacedSections: string[] = [];
+      const intro = markdown.slice(0, matches[0].index ?? 0).trim();
+      const rebuilt = matches.map((match, index) => {
+        const start = match.index ?? 0;
+        const end = index + 1 < matches.length ? (matches[index + 1].index ?? markdown.length) : markdown.length;
+        const headingLine = match[0];
+        const heading = headingLine.replace(/^##\s+/, "").replace(/:$/, "").trim();
+        const headingKey = heading.toLowerCase();
+        const blockBody = markdown.slice(start + headingLine.length, end).trim();
+
+        if (bodySectionSkipPattern.test(headingKey)) return `${headingLine}\n${blockBody}`.trim();
+
+        const sectionText = `${heading}\n${blockBody}`;
+        const sectionTokens = tokeniseSourceText(sectionText);
+        let bestLink = contextSourceLinks[index % contextSourceLinks.length];
+        let bestScore = -1;
+        for (const link of contextSourceLinks) {
+          let overlap = 0;
+          sectionTokens.forEach(token => { if (link.tokens.has(token)) overlap++; });
+          const score = overlap / Math.max(1, Math.min(sectionTokens.size || 1, link.tokens.size || 1));
+          if (score > bestScore) {
+            bestScore = score;
+            bestLink = link;
+          }
+        }
+
+        const lines = blockBody.split("\n");
+        const hadSourceLine = lines.some(line => /^\s*\*?\*?Sources?:\*?\*?/i.test(line));
+        const bodyWithoutSourceLines = lines.filter(line => !/^\s*\*?\*?Sources?:\*?\*?/i.test(line)).join("\n").trim();
+        if (hadSourceLine) replacedSections.push(heading.slice(0, 60));
+        else addedSections.push(heading.slice(0, 60));
+
+        return `${headingLine}\n${bodyWithoutSourceLines}\n\n**Sources:** ${bestLink.markdown}`.trim();
+      });
+
+      return { markdown: [intro, ...rebuilt].filter(Boolean).join("\n\n").trim(), addedSections, replacedSections };
+    };
+
     // ═══════════════════════════════════════════════════════════════════════
     // TABLE GUARD: deterministic local injection if model under-delivered
     // ═══════════════════════════════════════════════════════════════════════
