@@ -629,7 +629,15 @@ export const ContentVerification = ({
       onFixHorizontalLines();
     } else if (item.fixType === "word-count" && onRegenerateForWordCount) {
       onRegenerateForWordCount();
+    } else if (item.fixType === "inline-sources" && onStripInlineSources) {
+      onStripInlineSources();
     }
+  };
+
+  const fixLabelFor = (item: VerificationItem): string => {
+    if (item.fixType === "word-count") return "Expand";
+    if (item.fixType === "inline-sources") return "Remove";
+    return "Fix";
   };
 
   return (
@@ -675,7 +683,7 @@ export const ContentVerification = ({
                     onClick={() => handleFix(item)}
                   >
                     <Wand2 className="h-3 w-3 mr-1" />
-                    {item.fixType === "em-dash" ? "Fix" : "Expand"}
+                    {fixLabelFor(item)}
                   </Button>
                 )}
               </div>
@@ -685,30 +693,49 @@ export const ContentVerification = ({
                 </p>
               )}
               {item.id === "atomic-sections" && item.failingSections && item.failingSections.length > 0 && onRegenerateSection && (
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  {item.failingSections.map((title) => {
-                    const busy = regeneratingSectionTitle === title;
-                    return (
-                      <Button
-                        key={title}
-                        variant="outline"
-                        size="sm"
-                        disabled={!!regeneratingSectionTitle}
-                        className="h-6 px-2 text-xs max-w-full"
-                        onClick={() => onRegenerateSection(title)}
-                        title={`Regenerate section: ${title}`}
-                      >
-                        <Wand2 className="h-3 w-3 mr-1 flex-shrink-0" />
-                        <span className="truncate">{busy ? "Regenerating…" : title}</span>
-                      </Button>
-                    );
-                  })}
+                <div className="mt-2 space-y-2">
+                  {onRegenerateAllSections && item.failingSections.length > 1 && (
+                    <Button
+                      variant="default"
+                      size="sm"
+                      disabled={!!regeneratingSectionTitle || !!regeneratingAllSections}
+                      className="h-7 px-3 text-xs"
+                      onClick={() => onRegenerateAllSections(item.failingSections || [])}
+                    >
+                      {regeneratingAllSections ? (
+                        <><Loader2 className="h-3 w-3 mr-1 animate-spin" />Fixing all {item.failingSections.length} sections…</>
+                      ) : (
+                        <><Wand2 className="h-3 w-3 mr-1" />Fix all {item.failingSections.length} sections</>
+                      )}
+                    </Button>
+                  )}
+                  <div className="flex flex-wrap gap-1.5">
+                    {item.failingSections.map((title) => {
+                      const busy = regeneratingSectionTitle === title;
+                      return (
+                        <Button
+                          key={title}
+                          variant="outline"
+                          size="sm"
+                          disabled={!!regeneratingSectionTitle || !!regeneratingAllSections}
+                          className="h-6 px-2 text-xs max-w-full"
+                          onClick={() => onRegenerateSection(title)}
+                          title={`Regenerate section: ${title}`}
+                        >
+                          <Wand2 className="h-3 w-3 mr-1 flex-shrink-0" />
+                          <span className="truncate">{busy ? "Regenerating…" : title}</span>
+                        </Button>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
             </div>
           </div>
         ))}
       </div>
+
+
 
       {onCheckAndFixLinks && (
         <div className="rounded-md border border-border bg-background/60 p-3 space-y-2">
