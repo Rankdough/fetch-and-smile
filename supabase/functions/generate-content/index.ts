@@ -1175,9 +1175,6 @@ Place these images throughout the article at logical locations, typically after 
     };
 
     const repairNonClickableSourceReferences = (markdown: string): { markdown: string; repairedSections: string[]; brokenSections: string[] } => {
-      const linkRegex = /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g;
-      const links: { title: string; url: string; markdown: string; key: string; tokens: Set<string> }[] = [];
-      const seenUrls = new Set<string>();
       const normalise = (value: string) => value
         .toLowerCase()
         .replace(/https?:\/\/\S+/g, " ")
@@ -1186,14 +1183,6 @@ Place these images throughout the article at logical locations, typically after 
         .replace(/\s+/g, " ")
         .trim();
       const tokenise = (value: string) => new Set(normalise(value).split(" ").filter(token => token.length > 2));
-      let linkMatch: RegExpExecArray | null;
-      while ((linkMatch = linkRegex.exec(markdown)) !== null) {
-        const title = linkMatch[1].trim();
-        const url = linkMatch[2].replace(/[\].,;]+$/, "");
-        if (!title || seenUrls.has(url)) continue;
-        seenUrls.add(url);
-        links.push({ title, url, markdown: `[${title}](${url})`, key: normalise(title), tokens: tokenise(`${title} ${url}`) });
-      }
 
       const candidateLinks = contextSourceLinks;
       const linkIsAllowed = (url: string) => allowedContextSourceUrls.has(url.replace(/[\].,;]+$/, ""));
