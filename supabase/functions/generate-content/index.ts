@@ -333,6 +333,7 @@ ${migrationMode ? `TABLE RULE:
 
 - Each table: at least 3 columns and at least 4 data rows
 - NEVER produce a table with only one data row. If you only have one row of data to show, write it as a sentence or bullet instead — do not wrap it in a table.
+- NEVER place two tables back-to-back. Every table must be separated from the next by at least one paragraph of body prose. If two comparisons belong together, merge them into a single wider table.
 - Spread tables evenly across body H2 sections; never cluster at the end
 - Markdown only — do NOT use HTML <table> tags
 - Do NOT replace tables with bullet lists`}
