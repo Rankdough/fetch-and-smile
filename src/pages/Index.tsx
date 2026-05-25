@@ -5451,6 +5451,8 @@ CRITICAL EXPANSION RULES:
                           setRegeneratingSectionTitle(null);
                         }
                       }}
+                    />
+                    
                     
                     {/* Value Promise Verification */}
                     {valuePromiseClaims.some(c => c.trim()) && (
