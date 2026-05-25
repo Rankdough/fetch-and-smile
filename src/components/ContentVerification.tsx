@@ -174,6 +174,8 @@ export const ContentVerification = ({
         details: legacySourceMatches.length === 0
           ? "Only the final References section is present"
           : `${legacySourceMatches.length} legacy inline Sources block(s) still present`,
+        fixable: legacySourceMatches.length > 0,
+        fixType: "inline-sources",
       });
     }
 
