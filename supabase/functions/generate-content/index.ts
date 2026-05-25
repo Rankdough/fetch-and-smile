@@ -1051,23 +1051,6 @@ Place these images throughout the article at logical locations, typically after 
         if (m.index > 0 && md[m.index - 1] === "!") continue;
         const title = m[1].trim().replace(/[*_`]/g, "") || sourceTitleFromUrl(m[2]);
         const url = cleanSourceUrl(m[2]);
-        links.push({ title, url, origin });
-      }
-      return links;
-    };
-
-    const extractContextSourceCandidates = (): SourceCandidate[] => {
-      if (!contextFiles || !Array.isArray(contextFiles)) return [];
-      const candidates: SourceCandidate[] = [];
-      const seen = new Set<string>();
-    const extractMarkdownLinks = (md: string, origin: SourceCandidate["origin"]): SourceCandidate[] => {
-      const linkRe = /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g;
-      const links: SourceCandidate[] = [];
-      let m: RegExpExecArray | null;
-      while ((m = linkRe.exec(md)) !== null) {
-        if (m.index > 0 && md[m.index - 1] === "!") continue;
-        const title = m[1].trim().replace(/[*_`]/g, "") || sourceTitleFromUrl(m[2]);
-        const url = cleanSourceUrl(m[2]);
         const snipStart = Math.max(0, m.index - 280);
         const snipEnd = Math.min(md.length, m.index + m[0].length + 280);
         const snippet = md.slice(snipStart, snipEnd).replace(/\s+/g, " ").trim();
