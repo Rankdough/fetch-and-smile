@@ -28,7 +28,7 @@ function countDataRows(tableLines: string[]): number {
 }
 
 describe("article regression verification", () => {
-  it("renders only the final References section and strips inline Sources blocks from TL;DR, Quick Tips, and body sections", () => {
+  it("renders visible body-section Sources links while keeping final References clickable", () => {
     const markdown = `# Dental Implants on the NHS: Can I Get Them?
 
 Direct answer opening paragraph.
@@ -70,7 +70,7 @@ Eligibility is usually limited to major trauma, cancer surgery, or congenital ab
 
     const html = markdownToStyledHtml(markdown);
 
-    expect(html).not.toContain("Sources:");
+    expect(html).toContain("Sources:");
     expect(html).toContain("References:");
     expect(html).toContain('href="https://www.nhs.uk/nhs-services/dentists/what-dental-services-are-available-on-the-nhs/"');
     expect(html).toContain('href="https://www.england.nhs.uk/"');
@@ -123,12 +123,12 @@ Eligibility depends on clinical need.
     expect(countDataRows(tables[0])).toBeGreaterThanOrEqual(2);
   });
 
-  it("detects the live generator rule that must not reintroduce inline Sources instructions", async () => {
+  it("detects the live generator rule that requires inline Sources for body sections", async () => {
     const moduleText = await import("fs/promises").then((fs) =>
       fs.readFile("supabase/functions/generate-content/index.ts", "utf8"),
     );
 
-    expect(moduleText).not.toMatch(/Every body H2 ends with a "\*\*Sources:\*\*" line/i);
-    expect(moduleText).toMatch(/Do not output any inline "\*\*Sources:\*\*" blocks under sections/i);
+    expect(moduleText).toMatch(/Every eligible body H2 must end with a visible "\*\*Sources:\*\*" block/i);
+    expect(moduleText).toMatch(/Add a "\*\*Sources:\*\*" line at the END of EACH body H2 section/i);
   });
 });
