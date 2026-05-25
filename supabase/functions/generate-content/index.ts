@@ -220,9 +220,9 @@ ${formatReference ? `FORMAT REFERENCE MODE: A format reference has been provided
   - ## Longevity and Care ❌
 - The very first paragraph after the H1 title MUST be an AI-QUOTABLE opening statement: a standalone, factual sentence (30-50 words) that an AI assistant could quote verbatim as its entire answer. It MUST directly answer the title question with a clear factual claim and a practical verdict. Do NOT force prices, brand names, product models, or "best for X" recommendations unless the user's instructions explicitly allow them.
 - Each H2 question heading MUST be immediately followed by a short paragraph (roughly 30 words) that directly answers that question before any supporting details
-- Each section MUST then continue with a mix of:
+- Each body H2 section MUST then continue with:
   1. Clear text paragraphs (elaboration after the answer)
-  2. Bullet points or numbered lists for scannable takeaways
+  2. EXACTLY THREE markdown bullet points using "- " (no more, no fewer; numbered lists do not count)
   3. A comparison table where relevant (at least ${requiredTables} tables total across the article)
   4. Source references at the end of the section
 
@@ -270,7 +270,7 @@ SECTION DETAILS:
 ${quickTipsSection}
 ${inThisArticleSection}
 5. ${sectionBudgets.bodyH2Count} Main content sections with ## QUESTION headings (~${sectionBudgets.wordsPerBodyH2} words EACH, no more)
-   - Each answered with text + bullets + tables${skipSources ? '' : ' + **Sources:** at the end'}
+   - Each answered with text + EXACTLY THREE "- " bullet points + tables${skipSources ? '' : ' + **Sources:** at the end'}
    - Include comparison table(s) where relevant
 6. Decision Guide H2 (~${howToChooseWords} words) — practical checklist of 4-6 criteria as bullet points.
    - The H2 MUST be a topic-specific decision question, NOT the generic "## How to Choose".
@@ -504,14 +504,14 @@ ${instructions}`;
       userPrompt = `Write a blog post about: ${topic}
 
 MUST FOLLOW (in priority order):
-1. STRUCTURE — Follow the AEO layout exactly: H1 → AI-quotable opening paragraph (30-50 words) → ## TL;DR (1 dense paragraph, no list) → ## Quick Tips (3 tips, max 15 words each) → ## In This Article (nav list) → question-based H2 sections (each H2 phrased as a question, immediately followed by a ~30-word direct answer paragraph, then bullets/numbered lists for scannable points, then a comparison table where relevant${skipSources ? '' : ', then a **Sources:** line'}) → ## How to Choose (4-6 criteria as a bullet checklist) → ## Frequently Asked Questions → ## Final Thoughts${skipSources ? '' : ' → ## References (markdown bullet list of all sources)'}.
+1. STRUCTURE — Follow the AEO layout exactly: H1 → AI-quotable opening paragraph (30-50 words) → ## TL;DR (1 dense paragraph, no list) → ## Quick Tips (3 tips, max 15 words each) → ## In This Article (nav list) → question-based H2 sections (each H2 phrased as a question, immediately followed by a ~30-word direct answer paragraph, then EXACTLY THREE markdown bullet points using "- ", then a comparison table where relevant${skipSources ? '' : ', then a **Sources:** line'}) → ## How to Choose (4-6 criteria as a bullet checklist) → ## Frequently Asked Questions → ## Final Thoughts${skipSources ? '' : ' → ## References (markdown bullet list of all sources)'}.
 2. WORD COUNT — Final article between ${wordFloor} and ${wordCeiling} words (target ${targetWords}). Count as you write.
 3. TABLES — Include exactly ${requiredTables} markdown comparison table${requiredTables > 1 ? 's' : ''} (1 per 600 words), each ≥3 columns and ≥4 data rows, spread evenly across body H2 sections. Markdown pipe syntax only.${skipSources ? '' : `
 4. SOURCES — Every body H2 ends with a "**Sources:**" line listing 1-2 real markdown links to authoritative sites (NHS, gov, CDC, Wikipedia, official brand sites, reputable news). The final ## References section lists all sources as a markdown bullet list. Real working URLs only — no placeholders, no inline [1][2] citations.`}
-5. FORMATTING — Use bullet points (-) and numbered lists (1.) liberally inside body sections for scannability. Use **bold** for key terms. British English. No em/en dashes. No horizontal rules.
+5. FORMATTING — Every body H2 section must contain EXACTLY THREE markdown bullet points using "- ". Do not use numbered lists as the required bullets. Use **bold** for key terms. British English. No em/en dashes. No horizontal rules.
 6. ATOMIC SECTION CONTRACT (NON-NEGOTIABLE) — Every body H2 and H3 must be a standalone answer block that works alone if extracted by Google AI Overviews, ChatGPT, Gemini or Perplexity. For EACH body H2/H3 you MUST:
    (a) Open with ONE direct sentence that fully answers the heading question on its own (no preamble, no "Dental implants are popular…" style intros).
-   (b) Follow with a supporting explanation (1–2 short paragraphs) AND at least one of: a bullet list (3+ items), a numbered list, or a comparison table.
+   (b) Follow with a supporting explanation (1–2 short paragraphs) AND EXACTLY THREE markdown bullet points using "- ". No section may have 0, 1, 2, 4, or more bullet points.
    (c) Keep the section roughly 75–200 words (100–300 tokens). No one-line sections, no 800-word walls.
    (d) Be self-contained: NEVER use dependency phrases like "as mentioned above", "as we saw", "continuing from earlier", "this is why", "the following point", "in the previous section". Each section must make sense on its own.
    (e) Include at least one concrete specific (number, %, named example, timeframe, or named tool/brand from the context files) — no vague filler.
