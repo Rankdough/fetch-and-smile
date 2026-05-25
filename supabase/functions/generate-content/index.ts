@@ -972,12 +972,22 @@ Place these images throughout the article at logical locations, typically after 
     };
 
     const enforceThreeBulletsPerBodySection = (markdown: string): { markdown: string; changedSections: string[] } => {
-      const { intro, sections } = splitByH2Sections(markdown);
-      const changedSections: string[] = [];
-      const rebuiltSections = sections.map(section => {
-        if (bodySectionSkipPattern.test(section.heading)) return `## ${section.heading}\n${section.body}`.trim();
+      const headingRegex = /^#{2,3}\s+.+$/gm;
+      const matches = [...markdown.matchAll(headingRegex)];
+      if (matches.length === 0) return { markdown: markdown.trim(), changedSections: [] };
 
-        const lines = section.body.split("\n");
+      const intro = markdown.slice(0, matches[0].index ?? 0).trim();
+      const changedSections: string[] = [];
+      const rebuiltSections = matches.map((match, index) => {
+        const start = match.index ?? 0;
+        const end = index + 1 < matches.length ? (matches[index + 1].index ?? markdown.length) : markdown.length;
+        const headingLine = match[0];
+        const heading = headingLine.replace(/^#{2,3}\s+/, "").trim();
+        const bodyText = markdown.slice(start + headingLine.length, end).trim();
+
+        if (bodySectionSkipPattern.test(heading)) return `${headingLine}\n${bodyText}`.trim();
+
+        const lines = bodyText.split("\n");
         const seenBullets = new Set<string>();
         const existingBullets = lines.filter(line => /^\s*-\s+/.test(line)).map(line => line.trim()).filter(line => {
           const key = line.toLowerCase().replace(/^[-*+]\s+/, "").replace(/\W+/g, " ").trim();
@@ -985,23 +995,23 @@ Place these images throughout the article at logical locations, typically after 
           seenBullets.add(key);
           return true;
         });
-        if (lines.filter(line => /^\s*-\s+/.test(line)).length === 3 && existingBullets.length === 3) return `## ${section.heading}\n${section.body}`.trim();
+        if (lines.filter(line => /^\s*-\s+/.test(line)).length === 3 && existingBullets.length === 3) return `${headingLine}\n${bodyText}`.trim();
 
-        changedSections.push(section.heading.slice(0, 60));
+        changedSections.push(heading.slice(0, 60));
         const keptBulletSet = new Set(existingBullets.slice(0, 3));
         const nonBulletLines = lines.filter(line => !/^\s*([-*+]|\d+\.)\s+/.test(line) || keptBulletSet.has(line.trim()));
         const sourceIndex = nonBulletLines.findIndex(line => /^\s*\*\*Sources?:\*\*/i.test(line) || /^\s*Sources?:/i.test(line));
         const beforeSources = sourceIndex >= 0 ? nonBulletLines.slice(0, sourceIndex) : nonBulletLines;
         const sourceLines = sourceIndex >= 0 ? nonBulletLines.slice(sourceIndex) : [];
         const bullets = existingBullets.slice(0, 3);
-        for (const fallback of buildFallbackBullets(section.heading, section.body)) {
+        for (const fallback of buildFallbackBullets(heading, bodyText)) {
           if (bullets.length >= 3) break;
           bullets.push(fallback);
         }
 
         const cleanedBeforeSources = beforeSources.filter(line => !keptBulletSet.has(line.trim()));
         const body = [cleanedBeforeSources.join("\n").trim(), bullets.slice(0, 3).join("\n"), sourceLines.join("\n").trim()].filter(Boolean).join("\n\n");
-        return `## ${section.heading}\n${body}`.trim();
+        return `${headingLine}\n${body}`.trim();
       });
 
       return { markdown: [intro, ...rebuiltSections].filter(Boolean).join("\n\n").trim(), changedSections };
