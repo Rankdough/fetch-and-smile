@@ -228,39 +228,77 @@ ${sectionMarkdown}`;
         existingLinks.push({ title, url, markdown: `[${title}](${url})` });
       }
 
+      const candidateLinks = contextSourceLinks.length > 0
+        ? contextSourceLinks.map((link) => ({ title: link.title, url: link.url, markdown: link.markdown }))
+        : existingLinks;
+      const linkIsAllowed = (url: string) => contextSourceLinks.length === 0 || allowedContextSourceUrls.has(url.replace(/[\].,;]+$/, ""));
+      const bestLinkFor = (sourceText: string) => {
+        const sourceKey = normaliseSourceText(sourceText);
+        const sourceTokens = tokeniseSourceText(sourceText);
+        if (!sourceKey || sourceTokens.size === 0) return null;
+        let best: typeof candidateLinks[number] | null = null;
+        let bestScore = 0;
+        for (const link of candidateLinks) {
+          const linkKey = normaliseSourceText(link.title);
+          const linkTokens = tokeniseSourceText(`${link.title} ${link.url}`);
+          let overlap = 0;
+          sourceTokens.forEach(token => { if (linkTokens.has(token)) overlap++; });
+          const directMatch = sourceKey.length > 8 && linkKey.length > 8 && (sourceKey.includes(linkKey) || linkKey.includes(sourceKey));
+          const score = directMatch ? 1 : overlap / Math.max(3, Math.min(sourceTokens.size, linkTokens.size));
+          if (score > bestScore) {
+            bestScore = score;
+            best = link;
+          }
+        }
+        return best && bestScore >= 0.45 ? best : null;
+      };
+
       const warnings: string[] = [];
       const originalHadSourceLine = /^\s*\*?\*?Sources?:\*?\*?/im.test(sectionMarkdown);
       const repaired = section.split("\n").map((line) => {
         const sourceMatch = line.match(/^\s*\*?\*?Sources?:\*?\*?\s*(.*)$/i);
         if (!sourceMatch) return line;
-        if (/\[[^\]]+\]\(https?:\/\/[^)\s]+\)/i.test(line)) return line;
+        if (/\[[^\]]+\]\(https?:\/\/[^)\s]+\)/i.test(line)) {
+          const allowedLinks: string[] = [];
+          let linkMatch: RegExpExecArray | null;
+          const lineLinkRe = /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g;
+          while ((linkMatch = lineLinkRe.exec(line)) !== null) {
+            const title = linkMatch[1].trim();
+            const url = linkMatch[2].replace(/[\].,;]+$/, "");
+            if (title && linkIsAllowed(url)) allowedLinks.push(`[${title}](${url})`);
+          }
+          if (allowedLinks.length > 0) return `**Sources:** ${allowedLinks.join(" | ")}`;
+          warnings.push(`SOURCE GUARD: Removed source URL not found in provided context files for section: ${sectionTitle}`);
+          return "";
+        }
 
         const sourceText = sourceMatch[1].trim();
         const urlMatch = sourceText.match(/https?:\/\/\S+/i);
         if (urlMatch) {
           const url = urlMatch[0].replace(/[\].,;]+$/, "");
+          if (!linkIsAllowed(url)) {
+            const matched = bestLinkFor(sourceText);
+            if (matched) return `**Sources:** ${matched.markdown}`;
+            warnings.push(`SOURCE GUARD: Removed source URL not found in provided context files for section: ${sectionTitle}`);
+            return "";
+          }
           const label = sourceText.replace(urlMatch[0], "").replace(/[|,;:]+$/g, "").trim() || new URL(url).hostname.replace(/^www\./, "");
           return `**Sources:** [${label}](${url})`;
         }
 
-        if (existingLinks.length > 0) {
+        if (candidateLinks.length > 0) {
           const lowerSource = sourceText.toLowerCase();
-          const matched = existingLinks.find((link) => lowerSource.includes(link.title.toLowerCase()) || link.title.toLowerCase().includes(lowerSource));
+          const matched = bestLinkFor(sourceText) || candidateLinks.find((link) => lowerSource.includes(link.title.toLowerCase()) || link.title.toLowerCase().includes(lowerSource));
           return `**Sources:** ${(matched || existingLinks[0]).markdown}`;
         }
 
-        const cleanLabel = sourceText.replace(/[|,;:]+$/g, "").trim();
-        if (cleanLabel) {
-          const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(cleanLabel)}`;
-          return `**Sources:** [${cleanLabel}](${searchUrl})`;
-        }
         warnings.push(`SOURCE GUARD: Could not repair non-clickable source reference in section: ${sectionTitle}`);
-        return line;
+        return contextSourceLinks.length > 0 ? "" : line;
       }).join("\n").trim();
 
       if (originalHadSourceLine && !/^\s*\*?\*?Sources?:\*?\*?/im.test(repaired)) {
-        if (existingLinks.length > 0) {
-          return { content: `${repaired}\n\n**Sources:** ${existingLinks[0].markdown}`, warnings };
+        if (candidateLinks.length > 0) {
+          return { content: `${repaired}\n\n**Sources:** ${candidateLinks[0].markdown}`, warnings };
         }
         warnings.push(`SOURCE GUARD: Could not restore missing source reference in section: ${sectionTitle}`);
       }
