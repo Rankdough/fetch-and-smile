@@ -3,6 +3,20 @@
 Every entry must list: **What changed**, **Why**, **What may break / side effects**, **Files touched**, **How to verify**.
 Newest entries on top. Append-only — never edit or delete past entries.
 
+## 2026-05-25 — Fix: generate-content also leaking OOXML namespace URLs into Sources/References
+
+**What changed:** `supabase/functions/generate-content/index.ts` `addContextSourceLink` now rejects any URL whose host matches `schemas.openxmlformats.org`, `schemas.microsoft.com`, `purl.oclc.org`, `www.w3.org`, `schemas.xmlsoap.org`. Same blocklist as the parse-context-file fix.
+
+**Why:** The earlier parse-context-file fix cleaned the catalogue header but `generate-content` independently re-scans the raw context file `content` for URLs (line ~133, `content.matchAll(/https?:\/\/[^\s)\]>"']+/g)`). Any namespace URLs that were already inside cached/parsed context (e.g. articles parsed before the previous fix) were still being added to `contextSourceLinks`, surviving link-check (HEAD usually returns 200/3xx for those hosts), and showing up as "broken context source URLs" in the SOURCE GUARD warning. User screenshot confirmed 8 `http://schemas.microsoft.com/office/word/2010/wordproc...` URLs in the generation integrity warning.
+
+**Verified broken:** Nothing. Only `addContextSourceLink` was edited — added a single early-return guard. Real URLs (pubmed, bicon, aspendental, etc.) are unaffected because their hosts don't match the regex. No call-site changes.
+
+**Files touched:** `supabase/functions/generate-content/index.ts`, `CHANGELOG.md`.
+
+**How to verify:** Regenerate the article with the same context files. The SOURCE CATALOGUE log line should show real source counts (not inflated by schema URLs), and the integrity warning should no longer list `http://schemas.*` URLs as "broken context source URL(s)".
+
+
+
 ## 2026-05-25 — Fix: References section showing OOXML namespace URLs instead of real hyperlinks
 
 **What changed:** `supabase/functions/parse-context-file/index.ts` source-catalogue extractor now (1) excludes OOXML namespace hosts (`schemas.openxmlformats.org`, `schemas.microsoft.com`, etc.) from both relationship targets and the fallback URL scan, (2) runs the fallback inline-URL regex against the **extracted paragraph text** instead of raw `document.xml` (raw XML contains namespace declarations that were being treated as citable sources), and (3) adds an unreferenced-relationship pass so external rels not inline in `<w:hyperlink>` still flow through. Catalogue header now explicitly instructs the LLM to use ONLY these URLs.
