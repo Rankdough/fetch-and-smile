@@ -502,7 +502,11 @@ const Index = () => {
   
   // Wrapper that auto-cleans content before setting
   const setGeneratedContent = (content: string, isNewGeneration = false) => {
-    const cleaned = normalizeQuickTipsSection(cleanContent(content));
+    const preserved = isNewGeneration ? { content, restored: [] } : preserveExistingMarkdownLinks(generatedContent, content);
+    const cleaned = normalizeQuickTipsSection(cleanContent(preserved.content));
+    if (preserved.restored.length > 0) {
+      setContentIntegrityWarnings([`LINK GUARD: Restored ${preserved.restored.length} existing reference/internal link(s) that an edit tried to strip.`]);
+    }
     setGeneratedContentRaw(cleaned);
     // If this is a new generation (not an edit), save as original
     if (isNewGeneration) {
