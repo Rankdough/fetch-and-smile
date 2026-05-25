@@ -125,6 +125,20 @@ export const ContentVerification = ({
       details: hasTldrH2 ? "Found ## TL;DR heading" : "Missing TL;DR H2 section",
     });
 
+    const referencesMatch = content.match(/^##\s+References:?\s*\n([\s\S]*?)(?=\n##\s+|$)/im);
+    if (referencesMatch) {
+      const referenceLines = referencesMatch[1].split("\n").map((line) => line.trim()).filter(Boolean);
+      const nonClickableReferenceLines = referenceLines.filter((line) => !/\[[^\]]+\]\(https?:\/\/[^)\s]+\)/i.test(line));
+      results.push({
+        id: "clickable-references",
+        label: "References are clickable",
+        status: nonClickableReferenceLines.length === 0 ? "passed" : "failed",
+        details: nonClickableReferenceLines.length === 0
+          ? `${referenceLines.length} reference link${referenceLines.length === 1 ? "" : "s"} verified`
+          : `${nonClickableReferenceLines.length} non-clickable reference line(s) found`,
+      });
+    }
+
 
     // Atomic sections check: every body H2 must have exactly three bullets, avoid dependency phrases,
     // and have any "Sources:" line rendered as clickable markdown links.
