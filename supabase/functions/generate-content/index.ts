@@ -1693,7 +1693,7 @@ Place these images throughout the article at logical locations, typically after 
       if (!hasInThisArticle) missingSections.push("In This Article");
       if (!hasFAQ) missingSections.push("FAQ");
       if (!hasFinalThoughts) missingSections.push("Final Thoughts");
-      if (!hasReferences) missingSections.push("References");
+      // (References handled separately by enforceSourcesAndReferences)
 
       if (missingSections.length > 0) {
         console.warn(`COMPLETENESS GUARD: Missing sections detected: ${missingSections.join(", ")}. Injecting deterministic fallback sections.`);
