@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-05-26 - Restore web fallback but lock it to Tier-1 when context files attached
+
+- **What:** Reverted `contextOnlySources` back to URL-presence gating. New `tier1OnlyFallback` flag activates when context files are attached but contain no URLs — web search runs but only Tier-1 authorities (gov/edu/peer-review) are accepted; Tier-2 commercial blogs (clearchoice.com, soulbraces.com, etc.) are rejected. `searchWebSources` now takes a `tier1Only` param and the Firecrawl cache key is namespaced by tier to avoid cross-mode contamination.
+- **Why:** Previous change suppressed ALL Sources blocks whenever a context file was attached, which the user flagged as broken. The real intent: never cite random commercial pages, but Tier-1 (FDA/NIH/PMC/etc.) is still acceptable.
+- **Files:** `supabase/functions/generate-content/index.ts`, `CHANGELOG.md`.
+- **Verify:** Re-generate the screwless implants article; logs should show `SOURCE PICK [mixed-T1only]` and citations only from FDA/NIH/PMC-class domains. No `[T2-commercial]` lines.
+- **Verified broken:** Nothing verified broken (grep confirmed all `searchWebSources` callers updated; cache key updated to match).
+
+
 ## 2026-05-26 - Context-only mode now triggers on file presence, not URL count
 
 - **What:** `contextOnlySources` now flips on whenever ANY context file is attached, even if the file contains zero URLs. Previously it required at least one extractable URL, so a knowledge-style context file with no links left the web-search fallback active.
