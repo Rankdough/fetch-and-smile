@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-05-26 - Context-only mode now triggers on file presence, not URL count
+
+- **What:** `contextOnlySources` now flips on whenever ANY context file is attached, even if the file contains zero URLs. Previously it required at least one extractable URL, so a knowledge-style context file with no links left the web-search fallback active.
+- **Why:** User uploaded a context file with no URLs; generator fell back to Firecrawl and cited `clearchoice.com/dental-implant-resources/screwless-dental-implants/`. Broken-link checker passed it because the URL is reachable, but it was never authorised by the brief.
+- **Files:** `supabase/functions/generate-content/index.ts`, `CHANGELOG.md`.
+- **Verify:** Re-generate the screwless implants article with the same context file; logs should show `SOURCE PICK [context-strict EMPTY]` for every section and no `SOURCE WEB:` lines.
+- **Verified broken:**
+  - Articles where the context file has no URLs will now have NO Sources blocks on any body H2.
+  - Web-search fallback is fully bypassed whenever a context file is present — even when desirable.
+
+
 ## 2026-05-26 - Strict context-only source URLs (no more fabricated commercial blogs)
 
 - **What:** When context files are uploaded, generate-content now extracts every URL from them and treats that list as the closed source allow-list.
