@@ -752,6 +752,19 @@ const Index = () => {
     const saved = localStorage.getItem("seo-generator-generateFaqSchema");
     return saved !== null ? JSON.parse(saved) : false;
   });
+  const [includeTrustSignal, setIncludeTrustSignal] = useState<boolean>(() => {
+    const saved = localStorage.getItem("seo-generator-includeTrustSignal");
+    return saved !== null ? JSON.parse(saved) : false;
+  });
+  const [trustSignalTitle, setTrustSignalTitle] = useState<string>(() => {
+    return localStorage.getItem("seo-generator-trustSignalTitle") || "Why You Can Trust This Article";
+  });
+  const [trustSignalContent, setTrustSignalContent] = useState<string>(() => {
+    return (
+      localStorage.getItem("seo-generator-trustSignalContent") ||
+      "This guide is written and reviewed by our in-house editorial team with hands-on experience in the topic. We cite primary sources, government and academic data, and recognised industry references — never AI summaries — and update our articles as new evidence emerges.\n\n- Edited by qualified subject-matter reviewers\n- Sources verified against the latest available data\n- Independent recommendations, not sponsored opinions"
+    );
+  });
   const [isEditMode, setIsEditMode] = useState(false);
   const [useFirstPerson, setUseFirstPerson] = useState<boolean>(() => {
     return localStorage.getItem("seo-generator-useFirstPerson") === "true";
