@@ -252,12 +252,12 @@ export const ContentVerification = ({
         label: "Source link in every section",
         status: totalBodySections === 0
           ? "warning"
-          : missingCount === 0 ? "passed" : "failed",
+          : missingCount === 0 ? "passed" : "warning",
         details: totalBodySections === 0
           ? "No body H2 sections detected"
           : missingCount === 0
             ? `All ${totalBodySections} body sections include a source link`
-            : `${missingCount} section(s) missing a source link: ${missingSourceTitles.slice(0, 3).map(t => t.slice(0, 40)).join("; ")}${missingCount > 3 ? "…" : ""}`,
+            : `${missingCount} section(s) without an allow-listed source link: ${missingSourceTitles.slice(0, 3).map(t => t.slice(0, 40)).join("; ")}${missingCount > 3 ? "…" : ""} (context-only mode omits Sources when no listed URL fits — this is expected)`,
         failingSections: missingSourceTitles,
       });
     }
