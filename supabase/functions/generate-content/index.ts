@@ -1230,7 +1230,11 @@ Place these images throughout the article at logical locations, typically after 
       return items.length ? `## References\n${items.join("\n")}` : "";
     };
 
-    const contextOnlySources = contextSourceCandidates.length > 0;
+    // STRICT: once the user attaches ANY context file, lock sources to that allow-list.
+    // If the context contains no URLs, sections simply omit the Sources block rather than
+    // letting the web-search fallback invent commercial citations (e.g. clearchoice.com).
+    const hasContextFiles = Array.isArray(contextFiles) && contextFiles.length > 0;
+    const contextOnlySources = hasContextFiles || contextSourceCandidates.length > 0;
     const contextAllowedUrlSet = new Set(contextSourceCandidates.map((c) => cleanSourceUrl(c.url)));
     // Internal links and CTA URLs are also legitimate (added by other pipeline steps).
     const extraAllowedUrls = new Set<string>();
