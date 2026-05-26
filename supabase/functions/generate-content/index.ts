@@ -1222,9 +1222,9 @@ Place these images throughout the article at logical locations, typically after 
     }
 
     // Own-domain blocklist: never cite the project's own URLs in References.
-    // Internal links to these domains belong to the inline internal-links system,
-    // not to citations. Derived from the CTA URL host plus any host found in
-    // article images (typically the same site).
+    // Sources: (1) CTA URL host, (2) article-image hosts, (3) every host found
+    // in the internal_link_files table — those URLs are reserved for the inline
+    // internal-links pipeline and must never appear under ## References.
     const ownDomains = new Set<string>();
     const addOwnHost = (u: string) => {
       try { ownDomains.add(new URL(u).hostname.replace(/^www\./, "").toLowerCase()); } catch { /* ignore */ }
@@ -1235,6 +1235,29 @@ Place these images throughout the article at logical locations, typically after 
         if (img?.url && /^https?:\/\//i.test(img.url)) addOwnHost(img.url);
       }
     }
+    try {
+      const supabaseUrl = Deno.env.get("SUPABASE_URL");
+      const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || Deno.env.get("SUPABASE_ANON_KEY");
+      if (supabaseUrl && supabaseKey) {
+        const resp = await fetch(`${supabaseUrl}/rest/v1/internal_link_files?select=urls`, {
+          headers: { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` },
+        });
+        if (resp.ok) {
+          const rows = await resp.json() as { urls: unknown }[];
+          for (const row of rows) {
+            const list = Array.isArray(row.urls) ? row.urls : [];
+            for (const entry of list) {
+              const u = typeof entry === "string" ? entry : (entry && typeof entry === "object" && "url" in entry ? (entry as { url?: string }).url : undefined);
+              if (typeof u === "string" && /^https?:\/\//i.test(u)) addOwnHost(u);
+            }
+          }
+          console.log(`OWN-DOMAIN BLOCKLIST: ${ownDomains.size} host(s) excluded from References:`, [...ownDomains].join(", "));
+        }
+      }
+    } catch (err) {
+      console.warn("OWN-DOMAIN BLOCKLIST: failed to load internal_link_files:", err instanceof Error ? err.message : err);
+    }
+
     const isOwnDomainUrl = (u: string): boolean => {
       try {
         const h = new URL(u).hostname.replace(/^www\./, "").toLowerCase();
