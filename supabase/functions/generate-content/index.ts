@@ -1291,15 +1291,16 @@ Place these images throughout the article at logical locations, typically after 
       }
 
       // Not enough relevant context URLs — fall back to web search.
-      const web = await searchWebSources(heading, body);
+      // When context files are attached (but had no URLs), restrict to Tier-1 only.
+      const web = await searchWebSources(heading, body, tier1OnlyFallback);
       const combined = [...contextWorking, ...web.filter((w) => !contextWorking.some((c) => c.url === w.url))].slice(0, 2);
-      console.log(`SOURCE PICK [mixed]: "${heading.slice(0, 60)}" -> context=${contextWorking.length} web=${web.length}`);
+      console.log(`SOURCE PICK [mixed${tier1OnlyFallback ? "-T1only" : ""}]: "${heading.slice(0, 60)}" -> context=${contextWorking.length} web=${web.length}`);
 
       if (combined.length) return combined;
 
-      const broadWeb = await searchWebSources(topic || heading, "");
+      const broadWeb = await searchWebSources(topic || heading, "", tier1OnlyFallback);
       if (broadWeb.length) {
-        console.log(`SOURCE PICK [broad-web]: "${heading.slice(0, 60)}" -> ${broadWeb.map((c) => c.url).join(" | ")}`);
+        console.log(`SOURCE PICK [broad-web${tier1OnlyFallback ? "-T1only" : ""}]: "${heading.slice(0, 60)}" -> ${broadWeb.map((c) => c.url).join(" | ")}`);
         return broadWeb.slice(0, 1);
       }
 
