@@ -165,7 +165,7 @@ Most people complete the process in 2-4 weeks.
    - Blank line between Q&A pairs
    - Do NOT use ### headings, > blockquotes, or "Q:" / "A:" prefixes
    - Questions must be SPECIFIC to the article topic (not generic placeholders)`;
-    const referencesSection = skipSources ? '' : "9. \"## References:\" (~" + referencesWords + " words) — list ALL sources as markdown links";
+    const referencesSection = ""; // References are now built deterministically post-generation from the context allow-list.
     
     // Build the prompt
     let systemPrompt = `You are an expert SEO content writer. Write high-quality, engaging blog posts optimized for search engines while remaining valuable and readable.
