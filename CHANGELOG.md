@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-05-26 - "Why You Can Trust This Article" E-E-A-T box (settings-toggleable)
+
+- **What:** New collapsible trust-signal box that renders at the very top of the article, immediately above the TL;DR heading. Configurable via Settings → Output Options with three controls: a switch to include/exclude, a title input, and a markdown textarea for the body (author bio, credentials, editorial policy, verification links). All three persist to localStorage. Rendered both in the live preview (new `TrustSignalBox.tsx` shadcn Collapsible with shield icon) and in the Copy-HTML export pipeline (`buildTrustSignalHtml` produces a styled `<details>` block with inline CSS). Also wired into `src/utils/markdownToStyledHtml.ts` so any caller that passes `includeTrustSignal/trustSignalTitle/trustSignalContent` in ConvertOptions gets the same box in its output.
+- **Why:** User wants an E-E-A-T authority/trust signal at the top of the article (per the attached Hinge Health "Why trust Hinge Health" reference) to satisfy AEO trust criteria and Google's E-E-A-T expectations.
+- **Files:** `src/components/TrustSignalBox.tsx` (new), `src/pages/Index.tsx` (state + persistence + Output Options UI + preview render + export injection), `src/utils/markdownToStyledHtml.ts` (ConvertOptions + injection), `CHANGELOG.md`.
+- **Verify:** Settings → Output Options → toggle "Include 'Why Trust This Article' Box" on, edit title/content, regenerate or open an existing article. Preview shows a collapsible box (closed by default) with shield icon directly above the TL;DR section. Copy HTML output contains a `<details data-trust-signal="true">` block in the same position. Toggle off → box disappears from both preview and export. Untouched articles (option off, default) render identically to before.
+- **Verified broken:** Nothing verified broken. Checked: (1) default state of `includeTrustSignal` is `false` so existing behaviour is preserved; (2) parts-builder mutation only fires when the toggle is on AND a TL;DR heading exists in `parts[0]`; (3) export injection in Index.tsx and `markdownToStyledHtml` both guard on the toggle + non-empty content; (4) `marked` is already a dependency (used by `markdownToStyledHtml`), so the synchronous import in Index.tsx adds no new package. Not verified: visual QA in dark-site palette beyond inline-style review.
+
+
+
 ## 2026-05-26 - References top-up actually reaches the 4-minimum (relaxed fallback)
 
 - **What:** Added a "relaxed top-up" pass in `enforceSourcesAndReferences`. After the strict Tier-1/Tier-2 search exhausts itself, if References still has <4 entries, a second pass calls Firecrawl directly per seed query (topic + each non-structural H2) with `limit: 10` and accepts any host that is NOT on a narrow UGC/social blocklist, NOT junk, and NOT own-domain. Each accepted URL is HEAD-verified before being added.
