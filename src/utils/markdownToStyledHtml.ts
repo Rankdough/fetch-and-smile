@@ -422,5 +422,28 @@ export function markdownToStyledHtml(
     }
   }
 
+  // 7. Insert Trust Signal box immediately before the TL;DR heading
+  if (options.includeTrustSignal && options.trustSignalContent?.trim()) {
+    const trustHtml = buildTrustSignalHtml(
+      options.trustSignalTitle?.trim() || "Why You Can Trust This Article",
+      marked.parse(options.trustSignalContent, { async: false }) as string,
+      colorPalette as any,
+    );
+    const tldrHeadingMatch = finalHtml.match(/<h2[^>]*>[\s\S]*?TL;?DR[\s\S]*?<\/h2>/i);
+    if (tldrHeadingMatch) {
+      const insertPoint = finalHtml.indexOf(tldrHeadingMatch[0]);
+      finalHtml = finalHtml.slice(0, insertPoint) + trustHtml + finalHtml.slice(insertPoint);
+    } else {
+      // Fallback: prepend at the very top (after H1 if present)
+      const h1Match = finalHtml.match(/<h1[^>]*>[\s\S]*?<\/h1>/i);
+      if (h1Match) {
+        const after = finalHtml.indexOf(h1Match[0]) + h1Match[0].length;
+        finalHtml = finalHtml.slice(0, after) + trustHtml + finalHtml.slice(after);
+      } else {
+        finalHtml = trustHtml + finalHtml;
+      }
+    }
+  }
+
   return finalHtml;
 }
