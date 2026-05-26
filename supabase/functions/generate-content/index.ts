@@ -1221,6 +1221,31 @@ Place these images throughout the article at logical locations, typically after 
       }
     }
 
+    // Own-domain blocklist: never cite the project's own URLs in References.
+    // Internal links to these domains belong to the inline internal-links system,
+    // not to citations. Derived from the CTA URL host plus any host found in
+    // article images (typically the same site).
+    const ownDomains = new Set<string>();
+    const addOwnHost = (u: string) => {
+      try { ownDomains.add(new URL(u).hostname.replace(/^www\./, "").toLowerCase()); } catch { /* ignore */ }
+    };
+    if (typeof ctaUrl === "string" && /^https?:\/\//i.test(ctaUrl)) addOwnHost(ctaUrl);
+    if (Array.isArray(articleImages)) {
+      for (const img of articleImages as { url?: string }[]) {
+        if (img?.url && /^https?:\/\//i.test(img.url)) addOwnHost(img.url);
+      }
+    }
+    const isOwnDomainUrl = (u: string): boolean => {
+      try {
+        const h = new URL(u).hostname.replace(/^www\./, "").toLowerCase();
+        for (const own of ownDomains) {
+          if (h === own || h.endsWith(`.${own}`)) return true;
+        }
+        return false;
+      } catch { return false; }
+    };
+
+
     const sourcesForSection = async (heading: string, body: string): Promise<SourceCandidate[]> => {
       const existing = extractMarkdownLinks(body, "existing")
         .filter((l) => !isJunkUrl(l.url))
@@ -1348,9 +1373,10 @@ Place these images throughout the article at logical locations, typically after 
       const verifiedAllowList: SourceCandidate[] = [];
       if (contextSourceCandidates.length > 0) {
         await Promise.all(contextSourceCandidates.map(async (c) => {
+          if (isOwnDomainUrl(c.url)) return; // never cite own domain in References
           if (await isWorkingSourceUrl(c.url)) verifiedAllowList.push(c);
         }));
-        console.log(`CITATION: ${verifiedAllowList.length}/${contextSourceCandidates.length} allow-listed URLs verified working.`);
+        console.log(`CITATION: ${verifiedAllowList.length}/${contextSourceCandidates.length} allow-listed URLs verified working (own-domain filtered).`);
       }
       const useWebFallback = verifiedAllowList.length === 0;
       if (useWebFallback) {
@@ -1395,7 +1421,7 @@ Place these images throughout the article at logical locations, typically after 
           } else {
             // Web-fallback path: ask sourcesForSection for Tier-1 candidates.
             const webCands = await sourcesForSection(heading, body);
-            const fresh = webCands.find((c) => (urlUseCount.get(cleanSourceUrl(c.url)) || 0) < 2);
+            const fresh = webCands.find((c) => !isOwnDomainUrl(c.url) && (urlUseCount.get(cleanSourceUrl(c.url)) || 0) < 2);
             if (fresh) chosen = fresh;
           }
 
@@ -1424,6 +1450,7 @@ Place these images throughout the article at logical locations, typically after 
         const pushCand = (c: SourceCandidate) => {
           const cleanUrl = cleanSourceUrl(c.url);
           if (usedUrlSet.has(cleanUrl)) return;
+          if (isOwnDomainUrl(cleanUrl)) return; // never add own-domain URLs to References
           const anchor = (c.title || "").trim().replace(/[*_`\[\]()]/g, "") || sourceTitleFromUrl(cleanUrl);
           usedSources.push({ ...c, url: cleanUrl, title: anchor });
           usedUrlSet.add(cleanUrl);
@@ -1457,12 +1484,14 @@ Place these images throughout the article at logical locations, typically after 
       }
 
       // 7. Build References from used sources (anchor text only, numbered).
-      if (usedSources.length > 0) {
-        const refLines = usedSources.map((s, idx) => `${idx + 1}. [${s.title}](${cleanSourceUrl(s.url)})`);
+      //    Final safety filter: never list own-domain URLs in References.
+      const refSources = usedSources.filter((s) => !isOwnDomainUrl(cleanSourceUrl(s.url)));
+      if (refSources.length > 0) {
+        const refLines = refSources.map((s, idx) => `${idx + 1}. [${s.title}](${cleanSourceUrl(s.url)})`);
         result += `\n\n## References\n${refLines.join("\n")}`;
-        console.log(`CITATION: References section built with ${usedSources.length} source(s).`);
+        console.log(`CITATION: References section built with ${refSources.length} source(s) (own-domain filtered).`);
       } else {
-        console.log("CITATION: No section scored above threshold → no References section emitted.");
+        console.log("CITATION: No external sources qualified → no References section emitted.");
       }
 
 

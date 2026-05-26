@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-05-26 - References never include own-domain URLs
+
+- **What:** Added `isOwnDomainUrl` filter in `enforceSourcesAndReferences` (derived from CTA URL host + article-image hosts). Applied at four points: (1) context allow-list verification skips own-domain URLs; (2) web-fallback per-section pick skips them; (3) top-up `pushCand` skips them; (4) final `refSources` filter strips them before References is rendered. Internal links to the project's own domain remain untouched — they continue to flow through the inline internal-links pipeline.
+- **Why:** Citations are external evidence. The project's own URLs (e.g. `dentaltourismalbania.com/...`) belong inline as internal links, never in the `## References` block. User explicit requirement.
+- **Files:** `supabase/functions/generate-content/index.ts`
+- **Verify:** Generate with a CTA URL pointing at the site. Confirm References contains zero entries from that domain or its subdomains; internal-link chips still render inline as before.
+
+
 ## 2026-05-26 - Minimum 4 references in every article
 
 - **What:** `enforceSourcesAndReferences` now tops up the References list to a minimum of 4 entries. After the per-section inline-injection pass, any shortfall is filled from (a) remaining verified context allow-list URLs, then (b) Tier-1 web searches keyed to the article topic and each non-structural H2. Top-up entries appear in References only (no inline anchor injection), ensuring at least 4 numbered references when sources can be found.
