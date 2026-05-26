@@ -3101,6 +3101,34 @@ const Index = () => {
                     finalHtml += faqHtml;
                   }
                 }
+
+                // Insert Trust Signal box immediately before the TL;DR heading
+                if (includeTrustSignal && trustSignalContent.trim()) {
+                  try {
+                    const { marked } = await import("marked");
+                    const trustHtml = buildTrustSignalHtml(
+                      trustSignalTitle?.trim() || "Why You Can Trust This Article",
+                      marked.parse(trustSignalContent, { async: false }) as string,
+                      selectedColorPalette,
+                    );
+                    const tldrHeadingMatch = finalHtml.match(/<h2[^>]*>[\s\S]*?TL;?DR[\s\S]*?<\/h2>/i);
+                    if (tldrHeadingMatch) {
+                      const insertPoint = finalHtml.indexOf(tldrHeadingMatch[0]);
+                      finalHtml = finalHtml.slice(0, insertPoint) + trustHtml + finalHtml.slice(insertPoint);
+                    } else {
+                      const h1Match = finalHtml.match(/<h1[^>]*>[\s\S]*?<\/h1>/i);
+                      if (h1Match) {
+                        const after = finalHtml.indexOf(h1Match[0]) + h1Match[0].length;
+                        finalHtml = finalHtml.slice(0, after) + trustHtml + finalHtml.slice(after);
+                      } else {
+                        finalHtml = trustHtml + finalHtml;
+                      }
+                    }
+                  } catch (e) {
+                    console.error("Failed to inject trust signal into export:", e);
+                  }
+                }
+                
                 
                 // Add CTA banners only when content does not already contain inline CTA banners
                 if (generatedCTAs && ctaUrl && !hasInlineCtaBanners) {
