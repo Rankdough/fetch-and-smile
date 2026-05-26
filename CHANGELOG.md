@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-05-26 - Minimum 4 references in every article
+
+- **What:** `enforceSourcesAndReferences` now tops up the References list to a minimum of 4 entries. After the per-section inline-injection pass, any shortfall is filled from (a) remaining verified context allow-list URLs, then (b) Tier-1 web searches keyed to the article topic and each non-structural H2. Top-up entries appear in References only (no inline anchor injection), ensuring at least 4 numbered references when sources can be found.
+- **Why:** User requirement: "at least four references in the list at the end of the article. Minimum four."
+- **Files:** `supabase/functions/generate-content/index.ts`
+- **Verify:** Generate an article (with or without context-file URLs). Confirm the `## References` block contains ≥4 numbered entries with valid links.
+
+
 ## 2026-05-26 - Citation pipeline: Tier-1 web fallback when context files have zero URLs
 
 - **What:** `enforceSourcesAndReferences` in `supabase/functions/generate-content/index.ts` no longer returns zero citations when the context-files allow-list is empty. When `contextSourceCandidates.length === 0` (or every context URL fails HEAD check), the pipeline now walks each non-structural H2/H3 and calls `sourcesForSection(heading, body)` to fetch a Tier-1 web authority (gov/edu/peer-review only, via `tier1OnlyFallback`). The single best fresh candidate per section is injected inline via `injectInlineAnchor` and credited in the consolidated `## References` block. Context-URL path is unchanged when context files contain URLs.
