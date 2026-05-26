@@ -1421,7 +1421,7 @@ Place these images throughout the article at logical locations, typically after 
           } else {
             // Web-fallback path: ask sourcesForSection for Tier-1 candidates.
             const webCands = await sourcesForSection(heading, body);
-            const fresh = webCands.find((c) => (urlUseCount.get(cleanSourceUrl(c.url)) || 0) < 2);
+            const fresh = webCands.find((c) => !isOwnDomainUrl(c.url) && (urlUseCount.get(cleanSourceUrl(c.url)) || 0) < 2);
             if (fresh) chosen = fresh;
           }
 
