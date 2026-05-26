@@ -239,23 +239,13 @@ ${migrationMode ? `TABLE RULE:
 - Markdown only — do NOT use HTML <table> tags
 - Do NOT replace tables with bullet lists`}
 
-${skipSources ? `SOURCE REFERENCE RULES:
-- DO NOT include any **Sources:** lines after sections
-- DO NOT include a ## References section at the end
-- DO NOT use inline numeric citations like [1], [2], [3]
-- Write all claims as general knowledge without citation` : `SOURCE REFERENCE RULES:
-- DO NOT use inline numeric citations like [1], [2], [3] in the text
-- DO NOT put a **Sources:** line inside the ## TL;DR section — TL;DR is a single clean paragraph only
-- Add a "**Sources:**" line at the END of EACH body H2 section (question-based sections), not after TL;DR, Quick Tips, In This Article, How to Choose, FAQ, or Final Thoughts
-- Under "**Sources:**", put each source on its OWN line as a markdown bullet:
-    **Sources:**
-    - [Source Title 1](https://real-url-1)
-    - [Source Title 2](https://real-url-2)
-  Never put multiple sources on one line separated by "|" or commas.
-- CRITICAL: All source links MUST be real, valid, working URLs to authoritative websites
-- Use real domains like gov sites, NHS, CDC, Wikipedia, official brand sites, reputable news outlets
-- NEVER use placeholder URLs or made-up links - only include sources you know exist
-- Sources must be relevant to that specific section's content`}
+SOURCE REFERENCE RULES (ABSOLUTE):
+- DO NOT add any "**Sources:**" lines, "Sources:" lines, or "Source:" lines anywhere in the article.
+- DO NOT add bullet lists of source links after any section.
+- DO NOT add a "## References" or "## Bibliography" section at the end.
+- DO NOT add inline numeric citations like [1], [2], [3].
+- DO NOT add any inline markdown links to external URLs in the body prose, tables, or bullets.
+- Write all claims as clean prose. The system will deterministically attach citations and a References section after generation, drawn ONLY from the article's context files. You must not pre-empt that.
 
 
 ARTICLE STRUCTURE (in this order) — WORD BUDGET PER SECTION:
