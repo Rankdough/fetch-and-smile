@@ -3106,10 +3106,9 @@ const Index = () => {
                 // Insert Trust Signal box immediately before the TL;DR heading
                 if (includeTrustSignal && trustSignalContent.trim()) {
                   try {
-                    const { marked } = await import("marked");
                     const trustHtml = buildTrustSignalHtml(
                       trustSignalTitle?.trim() || "Why You Can Trust This Article",
-                      marked.parse(trustSignalContent, { async: false }) as string,
+                      markedLib.parse(trustSignalContent, { async: false }) as string,
                       selectedColorPalette,
                     );
                     const tldrHeadingMatch = finalHtml.match(/<h2[^>]*>[\s\S]*?TL;?DR[\s\S]*?<\/h2>/i);
