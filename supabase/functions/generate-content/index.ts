@@ -1289,91 +1289,175 @@ Place these images throughout the article at logical locations, typically after 
 
 
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // DETERMINISTIC CITATION PIPELINE (allow-list only, no model improvisation)
+    // ═══════════════════════════════════════════════════════════════════════
+    // Strips every "Sources:" block, every model-emitted external markdown link,
+    // and any model-written References section. Then attaches at most one inline
+    // anchor link per body H2 from the verified context-files allow-list, and
+    // builds a single consolidated ## References section at the end. If the
+    // context files have zero URLs, the article has zero citations and no
+    // References section. Never falls back to web search.
     const enforceSourcesAndReferences = async (markdown: string): Promise<string> => {
       if (skipSources) return markdown;
-      const withoutReferences = markdown.replace(/^#{2,3}\s+References:?\s*[\s\S]*$/im, "").trimEnd();
+
+      // 1. Drop any model-written References / Bibliography section.
+      let cleaned = markdown.replace(/^#{2,3}\s+(References|Bibliography|Sources|Works\s+Cited):?\s*[\s\S]*$/im, "").trimEnd();
+
+      // 2. Strip every "**Sources:**" / "Sources:" / "Source:" block, plus any
+      //    orphan bullet that is a bare URL or a bare label with no link.
+      {
+        const lines = cleaned.split("\n");
+        const out: string[] = [];
+        let inSourcesBlock = false;
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (/^[>*-]?\s*\*?\*?Sources?:\*?\*?\s*$/i.test(trimmed) || /^[>*-]?\s*\*\*Sources?:\*\*/i.test(trimmed)) {
+            inSourcesBlock = true;
+            continue;
+          }
+          if (inSourcesBlock) {
+            // Drop trailing source bullets (linked or bare) and bare URL bullets.
+            if (!trimmed) continue;
+            if (/^[-*+]\s+\[[^\]]+\]\(https?:\/\/[^)\s]+\)/i.test(trimmed)) continue;
+            if (/^[-*+]\s+https?:\/\/\S+/i.test(trimmed)) continue;
+            if (/^\[[^\]]+\]\(https?:\/\/[^)\s]+\)$/i.test(trimmed)) continue;
+            // Orphan label bullet (e.g. "- NHS Orthodontics Guidance" with no link) — drop only if it looks source-shaped.
+            if (/^[-*+]\s+[A-Z][\w'’\-\s,&]+$/.test(trimmed) && trimmed.length < 80) continue;
+            inSourcesBlock = false;
+          }
+          out.push(line);
+        }
+        cleaned = out.join("\n");
+      }
+
+      // 3. Strip ALL inline external markdown links (the model must never decide
+      //    what gets cited). Preserve image markdown ![...](...) and internal
+      //    CTA/article-image URLs.
+      cleaned = cleaned.replace(/(!)?\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, (full, bang, label, rawUrl) => {
+        if (bang) return full; // image
+        const c = cleanSourceUrl(rawUrl);
+        if (extraAllowedUrls.has(c)) return full; // CTA / image URLs are legitimate
+        return String(label);
+      });
+
+      // 4. No context URLs available → zero citations, no References section.
+      if (contextSourceCandidates.length === 0) {
+        console.log("CITATION: No context-file URLs → article will have no citations and no References section.");
+        return cleaned.trim();
+      }
+
+      // 5. HEAD-verify the allow-list once (parallel).
+      const verifiedAllowList: SourceCandidate[] = [];
+      await Promise.all(contextSourceCandidates.map(async (c) => {
+        if (await isWorkingSourceUrl(c.url)) verifiedAllowList.push(c);
+      }));
+      if (verifiedAllowList.length === 0) {
+        console.warn("CITATION: All context URLs failed HEAD check → no citations.");
+        return cleaned.trim();
+      }
+      console.log(`CITATION: ${verifiedAllowList.length}/${contextSourceCandidates.length} allow-listed URLs verified working.`);
+
+      // 6. Walk H2/H3 sections. For each non-structural body section, pick the
+      //    single highest-scoring allow-list URL (score ≥ 6, max 2 uses per URL)
+      //    and inject ONE inline anchor link by safely wrapping a phrase in the
+      //    body. If safe wrap fails, the source is still credited in References.
       const headingRegex = /^#{2,3}\s+.+$/gm;
-      const matches = [...withoutReferences.matchAll(headingRegex)];
-      if (matches.length === 0) return withoutReferences;
+      const matches = [...cleaned.matchAll(headingRegex)];
+      if (matches.length === 0) return cleaned.trim();
 
-      const intro = withoutReferences.slice(0, matches[0].index ?? 0).trim();
-      const rebuiltSections: string[] = [];
-      const selectedSources: SourceCandidate[] = [];
+      const intro = cleaned.slice(0, matches[0].index ?? 0).trim();
+      const urlUseCount = new Map<string, number>();
+      const usedSources: SourceCandidate[] = [];
+      const rebuilt: string[] = [];
 
-      for (let index = 0; index < matches.length; index++) {
-        const match = matches[index];
+      for (let i = 0; i < matches.length; i++) {
+        const match = matches[i];
         const start = match.index ?? 0;
-        const end = index + 1 < matches.length ? (matches[index + 1].index ?? withoutReferences.length) : withoutReferences.length;
+        const end = i + 1 < matches.length ? (matches[i + 1].index ?? cleaned.length) : cleaned.length;
         const headingLine = match[0];
         const heading = headingLine.replace(/^#{2,3}\s+/, "").trim();
         const headingLower = heading.toLowerCase();
-        let body = withoutReferences.slice(start + headingLine.length, end).trim();
-        const isDecisionGuide = headingLower.includes("how to choose")
-          || headingLower.includes("how to pick")
-          || headingLower.includes("how to decide")
-          || headingLower.includes("how to find the right")
-          || headingLower.includes("how to select");
-        const shouldSource = !/references|bibliography|sources|in\s+this\s+article|tl;?dr|quick\s*tips|frequently\s*asked|faq|final\s*thoughts|conclusion/i.test(headingLower)
-          && !isDecisionGuide;
+        let body = cleaned.slice(start + headingLine.length, end).trim();
 
-        if (shouldSource) {
-          const bodyLines = body.split("\n");
-          const cleanedBody: string[] = [];
-          let skippingSourcesBlock = false;
-          for (const line of bodyLines) {
-            const trimmed = line.trim();
-            const isSourcesHeading = /^\*?\*?Sources?:\*?\*?/i.test(trimmed);
-            const isSourceBullet = /^[-*+]\s+\[[^\]]+\]\(https?:\/\/[^)\s]+\)/i.test(trimmed);
-            const isBareSourceLink = /^\[[^\]]+\]\(https?:\/\/[^)\s]+\)$/i.test(trimmed);
+        const isStructural = /references|bibliography|sources|in\s+this\s+article|tl;?dr|quick\s*tips|frequently\s*asked|faq|final\s*thoughts|conclusion|how\s+to\s+(choose|pick|decide|select|find)/i.test(headingLower);
 
-            if (isSourcesHeading) {
-              skippingSourcesBlock = true;
-              continue;
+        if (!isStructural) {
+          const ranked = verifiedAllowList
+            .filter((c) => (urlUseCount.get(c.url) || 0) < 2)
+            .map((c) => ({ cand: c, score: scoreSource(c, heading, body) }))
+            .filter((s) => s.score >= 6)
+            .sort((a, b) => b.score - a.score);
+
+          if (ranked.length > 0) {
+            const chosen = ranked[0].cand;
+            const anchor = (chosen.title || "").trim().replace(/[*_`\[\]()]/g, "") || sourceTitleFromUrl(chosen.url);
+            const cleanUrl = cleanSourceUrl(chosen.url);
+            const injection = injectInlineAnchor(body, anchor, cleanUrl);
+            if (injection.changed) body = injection.body;
+            urlUseCount.set(cleanUrl, (urlUseCount.get(cleanUrl) || 0) + 1);
+            if (!usedSources.find((s) => cleanSourceUrl(s.url) === cleanUrl)) {
+              usedSources.push({ ...chosen, url: cleanUrl, title: anchor });
             }
-
-            if (skippingSourcesBlock) {
-              if (!trimmed || isSourceBullet || isBareSourceLink) continue;
-              skippingSourcesBlock = false;
-            }
-
-            cleanedBody.push(line);
-          }
-
-          body = cleanedBody.join("\n").trim();
-
-          // STRICT SANITISER: when context-only mode is active, strip any markdown link
-          // (in body prose, tables, bullets) whose URL is not in the allow-list. This
-          // prevents the model from sneaking in fabricated commercial URLs inline.
-          if (contextOnlySources) {
-            body = body.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, (full, label, rawUrl) => {
-              const cleaned = cleanSourceUrl(rawUrl);
-              if (contextAllowedUrlSet.has(cleaned) || extraAllowedUrls.has(cleaned)) return full;
-              console.warn(`SOURCE SANITISER: stripped non-allowlisted inline link in "${heading.slice(0, 60)}" -> ${cleaned}`);
-              return String(label); // drop the link, keep the visible text
-            });
-          }
-
-          const sources = await sourcesForSection(heading, body);
-          if (sources.length > 0) {
-            selectedSources.push(...sources);
-            const sourcesBlock = [
-              "**Sources:**",
-              ...sources.map((source) => `- [${source.title.trim().replace(/[*_`]/g, "") || sourceTitleFromUrl(source.url)}](${cleanSourceUrl(source.url)})`),
-            ].join("\n");
-            body = [body, sourcesBlock].filter(Boolean).join("\n\n").trim();
-          } else {
-            console.warn(`SOURCE GUARD: No working source found for section: ${heading}`);
+            console.log(`CITATION: "${heading.slice(0, 60)}" -> ${cleanUrl} ${injection.changed ? "(inline)" : "(refs only)"}`);
           }
         }
 
-        rebuiltSections.push(`${headingLine}\n${body}`.trim());
+        rebuilt.push(`${headingLine}\n${body}`.trim());
       }
 
-      const rebuiltBody = [intro, ...rebuiltSections].filter(Boolean).join("\n\n").trim();
-      const references = buildReferencesFromCandidates(selectedSources);
-      console.log(`SOURCE GUARD: Selected 1 source for ${selectedSources.length} section(s); references ${references ? "rebuilt" : "not available"}`);
-      return references ? `${rebuiltBody}\n\n${references}` : rebuiltBody;
+      let result = [intro, ...rebuilt].filter(Boolean).join("\n\n").trim();
+
+      // 7. Build References from used sources (anchor text only, numbered).
+      if (usedSources.length > 0) {
+        const refLines = usedSources.map((s, idx) => `${idx + 1}. [${s.title}](${cleanSourceUrl(s.url)})`);
+        result += `\n\n## References\n${refLines.join("\n")}`;
+        console.log(`CITATION: References section built with ${usedSources.length} source(s).`);
+      } else {
+        console.log("CITATION: No section scored above threshold → no References section emitted.");
+      }
+
+      return result;
     };
+
+    // Safely wrap a phrase in the body with a markdown link. Skips headings,
+    // tables, bullets, blockquotes, and lines that already contain links.
+    // Wraps a short phrase (3-6 words) near the end of the best-matching
+    // sentence so the prose stays clean.
+    const injectInlineAnchor = (body: string, anchorText: string, url: string): { body: string; changed: boolean } => {
+      const lines = body.split("\n");
+      const anchorTokens = new Set(((anchorText || "").toLowerCase().match(/[a-z0-9]{4,}/g) || []));
+
+      // Score each eligible line by token overlap with anchor.
+      type Cand = { idx: number; overlap: number; len: number };
+      const cands: Cand[] = [];
+      for (let i = 0; i < lines.length; i++) {
+        const t = lines[i].trim();
+        if (!t) continue;
+        if (t.startsWith("#") || t.startsWith("|") || t.startsWith(">") || t.startsWith("![")) continue;
+        if (/^[-*+]\s/.test(t) || /^\d+\.\s/.test(t)) continue;
+        if (t.includes("](")) continue; // already has a link
+        if (t.length < 40) continue;
+        const lineTokens = new Set((t.toLowerCase().match(/[a-z0-9]{4,}/g) || []));
+        let overlap = 0;
+        for (const tok of anchorTokens) if (lineTokens.has(tok)) overlap++;
+        cands.push({ idx: i, overlap, len: t.length });
+      }
+      if (cands.length === 0) return { body, changed: false };
+      cands.sort((a, b) => (b.overlap - a.overlap) || (b.len - a.len));
+      const target = cands[0];
+
+      // Wrap the last 3-5 words of that sentence (before terminal punctuation).
+      const line = lines[target.idx];
+      const m = line.match(/^(.*?)([A-Za-z][A-Za-z0-9'’\-]+(?:\s+[A-Za-z][A-Za-z0-9'’\-]+){2,5})([.!?,;:]?)\s*$/);
+      if (!m) return { body, changed: false };
+      const before = m[1];
+      const phrase = m[2];
+      const tail = m[3] || "";
+      lines[target.idx] = `${before}[${phrase}](${url})${tail}`;
+      return { body: lines.join("\n"), changed: true };
+    };
+
 
     const buildFallbackBullets = (heading: string, body: string): string[] => {
       const plain = body
