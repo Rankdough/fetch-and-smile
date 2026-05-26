@@ -84,18 +84,38 @@ export function markdownToStyledHtml(
     cleanMarkdown = out.join('\n');
   }
 
-  // Reformat legacy inline source lines before stripping them from rendered HTML.
-  cleanMarkdown = cleanMarkdown.replace(
-    /^[ \t>*-]*\*\*Sources:\*\*[ \t]*(.+)$/gim,
-    (_m, rest: string) => {
-      const parts = rest
-        .split(/\s*\|\s*|\s+•\s+|\s+·\s+/)
-        .map((s) => s.trim())
-        .filter(Boolean);
-      if (parts.length === 0) return "**Sources:**";
-      return ["**Sources:**", ...parts.map((p) => `- ${p}`)].join("\n");
+  // RENDERER SAFETY NET: strip any "Sources:"/"Source:" lines and the bullet
+  // block that follows them, anywhere outside the dedicated ## References H2.
+  // Keeps consolidated References intact (those bullets sit under a proper H2,
+  // not under a "Sources:" label).
+  {
+    const srcLines = cleanMarkdown.split("\n");
+    const out: string[] = [];
+    let inSourcesBlock = false;
+    for (const line of srcLines) {
+      const trimmed = line.trim();
+      const isSourcesLabel =
+        /^[>*-]?\s*\*?\*?Sources?:\*?\*?\s*$/i.test(trimmed) ||
+        /^[>*-]?\s*\*\*Sources?:\*\*/i.test(trimmed) ||
+        /^[>*-]?\s*Sources?:\s*\S/i.test(trimmed);
+      if (isSourcesLabel) {
+        inSourcesBlock = true;
+        continue;
+      }
+      if (inSourcesBlock) {
+        if (!trimmed) continue;
+        // Drop trailing source bullets (linked, bare URL, or short orphan label).
+        if (/^[-*+]\s+\[[^\]]+\]\(https?:\/\/[^)\s]+\)/i.test(trimmed)) continue;
+        if (/^[-*+]\s+https?:\/\/\S+/i.test(trimmed)) continue;
+        if (/^\[[^\]]+\]\(https?:\/\/[^)\s]+\)$/i.test(trimmed)) continue;
+        if (/^[-*+]\s+[A-Z][\w'’\-\s,&]+$/.test(trimmed) && trimmed.length < 80) continue;
+        inSourcesBlock = false;
+      }
+      out.push(line);
     }
-  );
+    cleanMarkdown = out.join("\n");
+  }
+
 
   // Fix inline numbered lists and bold-label items merged into single paragraphs
   cleanMarkdown = cleanMarkdown.replace(/(\S)\s+(\d+)\.\s+(\*\*)/g, "$1\n$2. $3");
