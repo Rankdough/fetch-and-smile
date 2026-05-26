@@ -1503,6 +1503,64 @@ Place these images throughout the article at logical locations, typically after 
             }
           }
         }
+
+        // 6b. RELAXED TOP-UP: if strict Tier-1/Tier-2 search still left us
+        // short of MIN_REFERENCES, query Firecrawl directly with a permissive
+        // filter — accept any host that isn't on the low-authority/UGC
+        // blocklist, isn't junk, and isn't own-domain. This guarantees the
+        // References list reaches the minimum even for topics where Tier-1
+        // coverage is thin (e.g. niche commercial dental procedures).
+        if (usedSources.length < MIN_REFERENCES) {
+          const apiKey = Deno.env.get("FIRECRAWL_API_KEY");
+          if (apiKey) {
+            const relaxedQueries = [topic || "", ...matches
+              .map((m) => m[0].replace(/^#{2,3}\s+/, "").trim())
+              .filter((h) => !/references|bibliography|sources|in\s+this\s+article|tl;?dr|quick\s*tips|frequently\s*asked|faq|final\s*thoughts|conclusion/i.test(h))
+              .map((h) => `${topic || ""} ${h}`.trim())
+            ].filter(Boolean);
+            const lowAuthorityRelaxed = [
+              /(^|\.)reddit\.com$/i, /(^|\.)quora\.com$/i, /(^|\.)pinterest\.[a-z.]+$/i,
+              /(^|\.)tumblr\.com$/i, /(^|\.)blogspot\.com$/i, /(^|\.)wordpress\.com$/i,
+              /(^|\.)wixsite\.com$/i, /(^|\.)weebly\.com$/i, /(^|\.)squarespace\.com$/i,
+              /(^|\.)answers\.com$/i, /(^|\.)ehow\.com$/i, /(^|\.)wikihow\.com$/i,
+              /(^|\.)tripadvisor\.[a-z.]+$/i, /(^|\.)yelp\.com$/i,
+              /(^|\.)stackexchange\.com$/i, /(^|\.)stackoverflow\.com$/i,
+              /(^|\.)facebook\.com$/i, /(^|\.)instagram\.com$/i, /(^|\.)tiktok\.com$/i,
+              /(^|\.)x\.com$/i, /(^|\.)twitter\.com$/i, /(^|\.)youtube\.com$/i,
+            ];
+            const isLowRelaxed = (url: string): boolean => {
+              try { return lowAuthorityRelaxed.some((re) => re.test(new URL(url).hostname)); }
+              catch { return true; }
+            };
+            for (const q of relaxedQueries) {
+              if (usedSources.length >= MIN_REFERENCES) break;
+              try {
+                const resp = await fetch("https://api.firecrawl.dev/v2/search", {
+                  method: "POST",
+                  headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+                  body: JSON.stringify({ query: q.slice(0, 260), limit: 10 }),
+                });
+                if (!resp.ok) continue;
+                const data = await resp.json();
+                const results: any[] = data?.data?.web || (Array.isArray(data?.data) ? data.data : null) || data?.web || [];
+                for (const r of results) {
+                  if (usedSources.length >= MIN_REFERENCES) break;
+                  const rawUrl = cleanSourceUrl(r?.url || r?.link || "");
+                  if (!rawUrl) continue;
+                  if (isJunkUrl(rawUrl)) continue;
+                  if (isLowRelaxed(rawUrl)) continue;
+                  if (isOwnDomainUrl(rawUrl)) continue;
+                  if (!(await isWorkingSourceUrl(rawUrl))) continue;
+                  const title = String(r?.title || sourceTitleFromUrl(rawUrl)).trim();
+                  pushCand({ url: rawUrl, title, origin: "web" });
+                }
+                console.log(`CITATION [relaxed-topup]: query="${q.slice(0, 60)}" -> usedSources=${usedSources.length}`);
+              } catch (err) {
+                console.warn("CITATION [relaxed-topup]: search failed:", err instanceof Error ? err.message : err);
+              }
+            }
+          }
+        }
         console.log(`CITATION: Top-up brought References to ${usedSources.length} source(s) (min ${MIN_REFERENCES}).`);
       }
 

@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-05-26 - References top-up actually reaches the 4-minimum (relaxed fallback)
+
+- **What:** Added a "relaxed top-up" pass in `enforceSourcesAndReferences`. After the strict Tier-1/Tier-2 search exhausts itself, if References still has <4 entries, a second pass calls Firecrawl directly per seed query (topic + each non-structural H2) with `limit: 10` and accepts any host that is NOT on a narrow UGC/social blocklist, NOT junk, and NOT own-domain. Each accepted URL is HEAD-verified before being added.
+- **Why:** Previous min-4 enforcement relied on `searchWebSources` which caps at 2 candidates per call AND only accepts Tier-1 (or Tier-2 non-commercial) domains. For niche commercial topics (e.g. dental procedures) the `commercialHostHints` heuristic rejected effectively every candidate as Tier-3, so top-up plateaued at 2 references. User: "Fix what you broke" → the min-4 promise wasn't being kept.
+- **Files:** `supabase/functions/generate-content/index.ts`, `CHANGELOG.md`
+- **Verify:** Generate any article without context-file URLs. Logs should show `CITATION [relaxed-topup]: query="..." -> usedSources=N` and the final `## References` block should contain ≥4 numbered entries.
+- **Verified broken:** Nothing verified broken. Relaxed pass only fires when strict pass leaves usedSources <4, so articles that already reach 4 are unchanged. Own-domain blocklist, junk filter, and HEAD verification all still apply.
+
+
 ## 2026-05-26 - References own-domain blocklist now includes internal-link library hosts
 
 - **What:** `generate-content/index.ts` now seeds the own-domain blocklist from the `internal_link_files` table (all hosts from `urls` JSONB) in addition to the CTA URL and article-image hosts. Any URL on those domains is excluded from References at every entry point (context allow-list verification, web-fallback section pick, top-up `pushCand`, and the final pre-render `refSources` filter).
