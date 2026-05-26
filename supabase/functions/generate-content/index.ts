@@ -1230,8 +1230,21 @@ Place these images throughout the article at logical locations, typically after 
       return items.length ? `## References\n${items.join("\n")}` : "";
     };
 
+    const contextOnlySources = contextSourceCandidates.length > 0;
+    const contextAllowedUrlSet = new Set(contextSourceCandidates.map((c) => cleanSourceUrl(c.url)));
+    // Internal links and CTA URLs are also legitimate (added by other pipeline steps).
+    const extraAllowedUrls = new Set<string>();
+    if (typeof ctaUrl === "string" && /^https?:\/\//i.test(ctaUrl)) extraAllowedUrls.add(cleanSourceUrl(ctaUrl));
+    if (Array.isArray(articleImages)) {
+      for (const img of articleImages as { url?: string }[]) {
+        if (img?.url && /^https?:\/\//i.test(img.url)) extraAllowedUrls.add(cleanSourceUrl(img.url));
+      }
+    }
+
     const sourcesForSection = async (heading: string, body: string): Promise<SourceCandidate[]> => {
-      const existing = extractMarkdownLinks(body, "existing").filter((l) => !isJunkUrl(l.url));
+      const existing = extractMarkdownLinks(body, "existing")
+        .filter((l) => !isJunkUrl(l.url))
+        .filter((l) => !contextOnlySources || contextAllowedUrlSet.has(cleanSourceUrl(l.url)));
       const existingWorking: SourceCandidate[] = [];
       for (const link of existing) {
         if (await isWorkingSourceUrl(link.url)) existingWorking.push(link);
@@ -1242,7 +1255,8 @@ Place these images throughout the article at logical locations, typically after 
       const scored = contextSourceCandidates
         .map((c) => ({ cand: c, score: scoreSource(c, heading, body) }))
         .sort((a, b) => b.score - a.score);
-      const RELEVANCE_FLOOR = 6; // require multiple snippet hits, not just "context" bonus
+      // When context-only is in force, drop the relevance floor — any context URL beats fabrication.
+      const RELEVANCE_FLOOR = contextOnlySources ? 1 : 6;
       const relevantContext = scored.filter((s) => s.score >= RELEVANCE_FLOOR).slice(0, 10).map((s) => s.cand);
 
       const contextWorking: SourceCandidate[] = [...existingWorking];
@@ -1253,6 +1267,16 @@ Place these images throughout the article at logical locations, typically after 
           console.log(`SOURCE PICK [context]: "${heading.slice(0, 60)}" -> ${contextWorking.map((c) => c.url).join(" | ")}`);
           return contextWorking;
         }
+      }
+
+      // Strict mode: if context URLs exist, NEVER fall back to web search — return what we have (possibly empty).
+      if (contextOnlySources) {
+        if (contextWorking.length) {
+          console.log(`SOURCE PICK [context-strict]: "${heading.slice(0, 60)}" -> ${contextWorking.map((c) => c.url).join(" | ")}`);
+        } else {
+          console.warn(`SOURCE PICK [context-strict EMPTY]: "${heading.slice(0, 60)}" — no allow-listed URL fits; omitting Sources block`);
+        }
+        return contextWorking;
       }
 
       // Not enough relevant context URLs — fall back to web search.
@@ -1281,6 +1305,7 @@ Place these images throughout the article at logical locations, typically after 
 
       return [];
     };
+
 
 
     const enforceSourcesAndReferences = async (markdown: string): Promise<string> => {
