@@ -1450,6 +1450,7 @@ Place these images throughout the article at logical locations, typically after 
         const pushCand = (c: SourceCandidate) => {
           const cleanUrl = cleanSourceUrl(c.url);
           if (usedUrlSet.has(cleanUrl)) return;
+          if (isOwnDomainUrl(cleanUrl)) return; // never add own-domain URLs to References
           const anchor = (c.title || "").trim().replace(/[*_`\[\]()]/g, "") || sourceTitleFromUrl(cleanUrl);
           usedSources.push({ ...c, url: cleanUrl, title: anchor });
           usedUrlSet.add(cleanUrl);
