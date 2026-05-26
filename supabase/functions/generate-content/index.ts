@@ -1664,7 +1664,7 @@ Place these images throughout the article at logical locations, typically after 
       const hasInThisArticle = /in\s*this\s*article/i.test(content);
       const hasFAQ = skipFaqs || /^#{1,3}\s.*frequently\s*asked|^#{1,3}\s.*faq/im.test(content);
       const hasFinalThoughts = /^#{1,3}\s.*final\s*thoughts|^#{1,3}\s.*conclusion/im.test(content);
-      const hasReferences = skipSources || /^#{1,3}\s.*references/im.test(content);
+      // References are deterministically built by enforceSourcesAndReferences below — do not check or inject here.
 
       const buildReferencesFromRealLinks = (md: string): string => {
         const linkRe = /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g;
