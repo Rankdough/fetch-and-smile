@@ -221,7 +221,7 @@ ${formatReference ? `FORMAT REFERENCE MODE: A format reference has been provided
   1. Clear text paragraphs (elaboration after the answer)
   2. EXACTLY THREE markdown bullet points using "- " (no more, no fewer; numbered lists do not count)
   3. A comparison table where relevant (at least ${requiredTables} tables total across the article)
-  4. Source references at the end of the section
+  4. No "Sources:" line and no inline external links — citations are added post-generation by the system.
 
 ${migrationMode ? `TABLE RULE:
 - Use markdown tables where the source content contains list-style comparisons or product listings
