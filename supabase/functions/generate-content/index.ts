@@ -1053,10 +1053,11 @@ Place these images throughout the article at logical locations, typically after 
       return score;
     };
 
-    const searchWebSources = (heading: string, body: string): Promise<SourceCandidate[]> => {
-      const query = `${topic || ""} ${heading} ${body.replace(/\[[^\]]+\]\([^)]+\)/g, "").replace(/[#*_`|>\n]/g, " ").slice(0, 180)}`.replace(/\s+/g, " ").trim().slice(0, 260);
+    const searchWebSources = (heading: string, body: string, tier1Only = false): Promise<SourceCandidate[]> => {
+      const cacheKey = `${tier1Only ? "T1:" : ""}${`${topic || ""} ${heading} ${body.replace(/\[[^\]]+\]\([^)]+\)/g, "").replace(/[#*_`|>\n]/g, " ").slice(0, 180)}`.replace(/\s+/g, " ").trim().slice(0, 260)}`;
+      const query = cacheKey.replace(/^T1:/, "");
       if (!query) return Promise.resolve([]);
-      if (firecrawlSourceCache.has(query)) return firecrawlSourceCache.get(query)!;
+      if (firecrawlSourceCache.has(cacheKey)) return firecrawlSourceCache.get(cacheKey)!;
       const promise = (async () => {
         const apiKey = Deno.env.get("FIRECRAWL_API_KEY");
         if (!apiKey) {
