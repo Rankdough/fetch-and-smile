@@ -1484,12 +1484,14 @@ Place these images throughout the article at logical locations, typically after 
       }
 
       // 7. Build References from used sources (anchor text only, numbered).
-      if (usedSources.length > 0) {
-        const refLines = usedSources.map((s, idx) => `${idx + 1}. [${s.title}](${cleanSourceUrl(s.url)})`);
+      //    Final safety filter: never list own-domain URLs in References.
+      const refSources = usedSources.filter((s) => !isOwnDomainUrl(cleanSourceUrl(s.url)));
+      if (refSources.length > 0) {
+        const refLines = refSources.map((s, idx) => `${idx + 1}. [${s.title}](${cleanSourceUrl(s.url)})`);
         result += `\n\n## References\n${refLines.join("\n")}`;
-        console.log(`CITATION: References section built with ${usedSources.length} source(s).`);
+        console.log(`CITATION: References section built with ${refSources.length} source(s) (own-domain filtered).`);
       } else {
-        console.log("CITATION: No section scored above threshold → no References section emitted.");
+        console.log("CITATION: No external sources qualified → no References section emitted.");
       }
 
 
