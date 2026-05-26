@@ -4338,7 +4338,7 @@ const Index = () => {
                 number={15}
                 title="Output Options"
                 isComplete={true}
-                summary={[skipNavigation && "Navigation skipped", skipFaqs && "FAQs skipped", skipQuickTips && "Tips skipped", skipSources && "Sources skipped"].filter(Boolean).join(", ") || "All sections included"}
+                summary={[skipNavigation && "Navigation skipped", skipFaqs && "FAQs skipped", skipQuickTips && "Tips skipped", skipSources && "Sources skipped", includeTrustSignal && "Trust box on"].filter(Boolean).join(", ") || "All sections included"}
                 icon={<Settings className="h-4 w-4" />}
               >
                 <div className="space-y-3">
