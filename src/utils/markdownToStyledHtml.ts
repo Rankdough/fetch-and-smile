@@ -1,6 +1,7 @@
 import { marked } from "marked";
 import { extractNavigationFromContent, generateNavigationHtml } from "@/components/ArticleNavigationPanel";
 import { extractFAQFromContent, removeFAQSection, generateFAQHtml } from "@/components/FAQAccordion";
+import { buildTrustSignalHtml } from "@/components/TrustSignalBox";
 
 interface ColorPalette {
   id?: string;
@@ -16,6 +17,9 @@ interface ConvertOptions {
   skipQuickTips?: boolean;
   skipFaqs?: boolean;
   skipSources?: boolean;
+  includeTrustSignal?: boolean;
+  trustSignalTitle?: string;
+  trustSignalContent?: string;
 }
 
 /**
