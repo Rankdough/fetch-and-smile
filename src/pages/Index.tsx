@@ -948,6 +948,18 @@ const Index = () => {
   useEffect(() => {
     localStorage.setItem("seo-generator-generateFaqSchema", JSON.stringify(generateFaqSchema));
   }, [generateFaqSchema]);
+
+  useEffect(() => {
+    localStorage.setItem("seo-generator-includeTrustSignal", JSON.stringify(includeTrustSignal));
+  }, [includeTrustSignal]);
+
+  useEffect(() => {
+    localStorage.setItem("seo-generator-trustSignalTitle", trustSignalTitle);
+  }, [trustSignalTitle]);
+
+  useEffect(() => {
+    localStorage.setItem("seo-generator-trustSignalContent", trustSignalContent);
+  }, [trustSignalContent]);
   
   useEffect(() => {
     if (selectedToneProfileId) {
