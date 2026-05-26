@@ -606,6 +606,30 @@ The following reference materials are your AUTHORITATIVE source. You MUST:
 
 CONTEXT FILES:
 ${contextContent}`;
+
+        // Extract URLs from the context files and surface them as the closed source allow-list.
+        const urlAllowSet = new Set<string>();
+        for (const f of contextFiles as { name: string; content: string }[]) {
+          const text = f?.content || "";
+          const rawRe = /https?:\/\/[^\s)\],;<>"']+/g;
+          let mm: RegExpExecArray | null;
+          while ((mm = rawRe.exec(text)) !== null) {
+            const cleaned = mm[0].replace(/[.,;:!?)\]]+$/g, "");
+            if (cleaned && !/^https?:\/\/(www\.)?(example|placeholder)\./i.test(cleaned)) {
+              urlAllowSet.add(cleaned);
+            }
+          }
+        }
+        const urlAllowList = [...urlAllowSet];
+        if (urlAllowList.length > 0) {
+          userPrompt += `
+
+🔒 SOURCE URL ALLOW-LIST (CONTEXT FILES ONLY) — STRICT:
+You may cite ONLY the URLs listed below — these are the URLs that appear inside the context files. Every link in the article body, every "**Sources:**" bullet, and every entry in the final ## References section MUST be picked from this list. If no listed URL fits a section, OMIT the "**Sources:**" block for that section rather than inventing one. NEVER cite a URL that is not in this list. NEVER invent commercial blogs, ortho clinics, or general health sites that you "think" exist.
+
+ALLOWED URLS (${urlAllowList.length}):
+${urlAllowList.map((u) => `- ${u}`).join("\n")}`;
+        }
       }
 
       // Add article images for AI placement
@@ -1206,8 +1230,21 @@ Place these images throughout the article at logical locations, typically after 
       return items.length ? `## References\n${items.join("\n")}` : "";
     };
 
+    const contextOnlySources = contextSourceCandidates.length > 0;
+    const contextAllowedUrlSet = new Set(contextSourceCandidates.map((c) => cleanSourceUrl(c.url)));
+    // Internal links and CTA URLs are also legitimate (added by other pipeline steps).
+    const extraAllowedUrls = new Set<string>();
+    if (typeof ctaUrl === "string" && /^https?:\/\//i.test(ctaUrl)) extraAllowedUrls.add(cleanSourceUrl(ctaUrl));
+    if (Array.isArray(articleImages)) {
+      for (const img of articleImages as { url?: string }[]) {
+        if (img?.url && /^https?:\/\//i.test(img.url)) extraAllowedUrls.add(cleanSourceUrl(img.url));
+      }
+    }
+
     const sourcesForSection = async (heading: string, body: string): Promise<SourceCandidate[]> => {
-      const existing = extractMarkdownLinks(body, "existing").filter((l) => !isJunkUrl(l.url));
+      const existing = extractMarkdownLinks(body, "existing")
+        .filter((l) => !isJunkUrl(l.url))
+        .filter((l) => !contextOnlySources || contextAllowedUrlSet.has(cleanSourceUrl(l.url)));
       const existingWorking: SourceCandidate[] = [];
       for (const link of existing) {
         if (await isWorkingSourceUrl(link.url)) existingWorking.push(link);
@@ -1218,7 +1255,8 @@ Place these images throughout the article at logical locations, typically after 
       const scored = contextSourceCandidates
         .map((c) => ({ cand: c, score: scoreSource(c, heading, body) }))
         .sort((a, b) => b.score - a.score);
-      const RELEVANCE_FLOOR = 6; // require multiple snippet hits, not just "context" bonus
+      // When context-only is in force, drop the relevance floor — any context URL beats fabrication.
+      const RELEVANCE_FLOOR = contextOnlySources ? 1 : 6;
       const relevantContext = scored.filter((s) => s.score >= RELEVANCE_FLOOR).slice(0, 10).map((s) => s.cand);
 
       const contextWorking: SourceCandidate[] = [...existingWorking];
@@ -1229,6 +1267,16 @@ Place these images throughout the article at logical locations, typically after 
           console.log(`SOURCE PICK [context]: "${heading.slice(0, 60)}" -> ${contextWorking.map((c) => c.url).join(" | ")}`);
           return contextWorking;
         }
+      }
+
+      // Strict mode: if context URLs exist, NEVER fall back to web search — return what we have (possibly empty).
+      if (contextOnlySources) {
+        if (contextWorking.length) {
+          console.log(`SOURCE PICK [context-strict]: "${heading.slice(0, 60)}" -> ${contextWorking.map((c) => c.url).join(" | ")}`);
+        } else {
+          console.warn(`SOURCE PICK [context-strict EMPTY]: "${heading.slice(0, 60)}" — no allow-listed URL fits; omitting Sources block`);
+        }
+        return contextWorking;
       }
 
       // Not enough relevant context URLs — fall back to web search.
@@ -1257,6 +1305,7 @@ Place these images throughout the article at logical locations, typically after 
 
       return [];
     };
+
 
 
     const enforceSourcesAndReferences = async (markdown: string): Promise<string> => {
@@ -1310,6 +1359,19 @@ Place these images throughout the article at logical locations, typically after 
           }
 
           body = cleanedBody.join("\n").trim();
+
+          // STRICT SANITISER: when context-only mode is active, strip any markdown link
+          // (in body prose, tables, bullets) whose URL is not in the allow-list. This
+          // prevents the model from sneaking in fabricated commercial URLs inline.
+          if (contextOnlySources) {
+            body = body.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, (full, label, rawUrl) => {
+              const cleaned = cleanSourceUrl(rawUrl);
+              if (contextAllowedUrlSet.has(cleaned) || extraAllowedUrls.has(cleaned)) return full;
+              console.warn(`SOURCE SANITISER: stripped non-allowlisted inline link in "${heading.slice(0, 60)}" -> ${cleaned}`);
+              return String(label); // drop the link, keep the visible text
+            });
+          }
+
           const sources = await sourcesForSection(heading, body);
           if (sources.length > 0) {
             selectedSources.push(...sources);
