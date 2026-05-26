@@ -1212,7 +1212,7 @@ Place these images throughout the article at logical locations, typically after 
           return [];
         }
       })();
-      firecrawlSourceCache.set(query, promise);
+      firecrawlSourceCache.set(cacheKey, promise);
       return promise;
     };
 
