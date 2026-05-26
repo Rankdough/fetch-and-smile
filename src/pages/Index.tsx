@@ -5079,7 +5079,13 @@ const Index = () => {
                           <>
                             {parts.map((part, idx) => (
                               <div key={idx}>
-                                {part.navPanel && navItems.length > 0 && !skipNavigation ? (
+                                {part.trustSignal ? (
+                                  <TrustSignalBox
+                                    title={trustSignalTitle}
+                                    content={trustSignalContent}
+                                    brandColors={selectedColorPalette}
+                                  />
+                                ) : part.navPanel && navItems.length > 0 && !skipNavigation ? (
                                   <div className="my-6">
                                     <ArticleNavigationPanel 
                                       items={navItems}
