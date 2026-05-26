@@ -1417,7 +1417,46 @@ Place these images throughout the article at logical locations, typically after 
 
       let result = [intro, ...rebuilt].filter(Boolean).join("\n\n").trim();
 
-      // 6. Build References from used sources (anchor text only, numbered).
+      // 6. Top-up to at least MIN_REFERENCES (refs only, no inline injection).
+      const MIN_REFERENCES = 4;
+      if (usedSources.length < MIN_REFERENCES) {
+        const usedUrlSet = new Set(usedSources.map((s) => cleanSourceUrl(s.url)));
+        const pushCand = (c: SourceCandidate) => {
+          const cleanUrl = cleanSourceUrl(c.url);
+          if (usedUrlSet.has(cleanUrl)) return;
+          const anchor = (c.title || "").trim().replace(/[*_`\[\]()]/g, "") || sourceTitleFromUrl(cleanUrl);
+          usedSources.push({ ...c, url: cleanUrl, title: anchor });
+          usedUrlSet.add(cleanUrl);
+        };
+
+        if (!useWebFallback) {
+          for (const c of verifiedAllowList) {
+            if (usedSources.length >= MIN_REFERENCES) break;
+            pushCand(c);
+          }
+        }
+
+        if (usedSources.length < MIN_REFERENCES) {
+          // Pull additional Tier-1 web sources keyed to the article topic + each H2.
+          const seedQueries: Array<{ heading: string; body: string }> = [{ heading: topic || "", body: "" }];
+          for (const m of matches) {
+            const h = m[0].replace(/^#{2,3}\s+/, "").trim();
+            if (/references|bibliography|sources|in\s+this\s+article|tl;?dr|quick\s*tips|frequently\s*asked|faq|final\s*thoughts|conclusion/i.test(h)) continue;
+            seedQueries.push({ heading: h, body: "" });
+          }
+          for (const q of seedQueries) {
+            if (usedSources.length >= MIN_REFERENCES) break;
+            const web = await searchWebSources(q.heading, q.body, hasContextFiles);
+            for (const c of web) {
+              if (usedSources.length >= MIN_REFERENCES) break;
+              if (await isWorkingSourceUrl(c.url)) pushCand(c);
+            }
+          }
+        }
+        console.log(`CITATION: Top-up brought References to ${usedSources.length} source(s) (min ${MIN_REFERENCES}).`);
+      }
+
+      // 7. Build References from used sources (anchor text only, numbered).
       if (usedSources.length > 0) {
         const refLines = usedSources.map((s, idx) => `${idx + 1}. [${s.title}](${cleanSourceUrl(s.url)})`);
         result += `\n\n## References\n${refLines.join("\n")}`;
@@ -1425,6 +1464,7 @@ Place these images throughout the article at logical locations, typically after 
       } else {
         console.log("CITATION: No section scored above threshold → no References section emitted.");
       }
+
 
       return result;
     };
