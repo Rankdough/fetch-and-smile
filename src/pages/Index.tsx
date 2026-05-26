@@ -5012,7 +5012,7 @@ const Index = () => {
                           : -1;
                         
                         // Build parts: content before TL;DR end, navigation panel, rest of content
-                        const parts: { content: string; ctaPosition?: 'middle' | 'end'; navPanel?: boolean }[] = [];
+                        const parts: { content: string; ctaPosition?: 'middle' | 'end'; navPanel?: boolean; trustSignal?: boolean }[] = [];
                         
                         if (tldrEndIndex > 0 && navItems.length > 0) {
                           // Part 1: Title + TL;DR
@@ -5052,6 +5052,27 @@ const Index = () => {
                           parts.push({ content: lines.slice(middleInsertIndex).join('\n') });
                         } else {
                           parts.push({ content: contentWithoutNav });
+                        }
+
+                        // Trust signal: split the part that starts with title/intro so the box sits
+                        // immediately above the TL;DR heading.
+                        if (includeTrustSignal && tldrStartIndex >= 0 && parts[0]?.content) {
+                          const firstLines = parts[0].content.split('\n');
+                          const localTldrIdx = firstLines.findIndex(line => /^## TL;?DR/i.test(line));
+                          if (localTldrIdx > 0) {
+                            const preTldr = firstLines.slice(0, localTldrIdx).join('\n');
+                            const fromTldr = firstLines.slice(localTldrIdx).join('\n');
+                            parts.splice(
+                              0,
+                              1,
+                              { content: preTldr },
+                              { content: '', trustSignal: true },
+                              { content: fromTldr },
+                            );
+                          } else {
+                            // No TL;DR found in first part — prepend trust box at the very top.
+                            parts.unshift({ content: '', trustSignal: true });
+                          }
                         }
                         
                         return (
