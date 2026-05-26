@@ -1173,11 +1173,16 @@ Place these images throughout the article at logical locations, typically after 
           // Strict ordering: ONLY Tier-1 by default. Tier-2 only if zero Tier-1.
           // Tier-3 is never used here — better to return nothing than cite a
           // dental-tourism / lead-gen / Reddit URL.
-          const passes: Ranked[][] = [
-            ranked.filter((r) => r.tier === 1 && r.rank < 5),
-            ranked.filter((r) => r.tier === 1 && r.rank >= 5),
-            ranked.filter((r) => r.tier === 2 && r.rank < 5),
-          ];
+          const passes: Ranked[][] = tier1Only
+            ? [
+                ranked.filter((r) => r.tier === 1 && r.rank < 5),
+                ranked.filter((r) => r.tier === 1 && r.rank >= 5),
+              ]
+            : [
+                ranked.filter((r) => r.tier === 1 && r.rank < 5),
+                ranked.filter((r) => r.tier === 1 && r.rank >= 5),
+                ranked.filter((r) => r.tier === 2 && r.rank < 5),
+              ];
           const candidates: SourceCandidate[] = [];
           const picked = new Set<string>();
           for (const pass of passes) {
