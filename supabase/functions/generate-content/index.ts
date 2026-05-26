@@ -1341,27 +1341,27 @@ Place these images throughout the article at logical locations, typically after 
         return String(label);
       });
 
-      // 4. No context URLs available → zero citations, no References section.
-      if (contextSourceCandidates.length === 0) {
-        console.log("CITATION: No context-file URLs → article will have no citations and no References section.");
-        return cleaned.trim();
-      }
-
-      // 5. HEAD-verify the allow-list once (parallel).
+      // 4. Build the verified allow-list. Prefer context-file URLs. If the
+      //    context files contain zero URLs (or none survive HEAD check), fall
+      //    back to Tier-1 web authorities per-section — never leave the article
+      //    without citations just because the uploaded doc had no links.
       const verifiedAllowList: SourceCandidate[] = [];
-      await Promise.all(contextSourceCandidates.map(async (c) => {
-        if (await isWorkingSourceUrl(c.url)) verifiedAllowList.push(c);
-      }));
-      if (verifiedAllowList.length === 0) {
-        console.warn("CITATION: All context URLs failed HEAD check → no citations.");
-        return cleaned.trim();
+      if (contextSourceCandidates.length > 0) {
+        await Promise.all(contextSourceCandidates.map(async (c) => {
+          if (await isWorkingSourceUrl(c.url)) verifiedAllowList.push(c);
+        }));
+        console.log(`CITATION: ${verifiedAllowList.length}/${contextSourceCandidates.length} allow-listed URLs verified working.`);
       }
-      console.log(`CITATION: ${verifiedAllowList.length}/${contextSourceCandidates.length} allow-listed URLs verified working.`);
+      const useWebFallback = verifiedAllowList.length === 0;
+      if (useWebFallback) {
+        console.log("CITATION: No context-file URLs available → using Tier-1 web fallback per section.");
+      }
 
-      // 6. Walk H2/H3 sections. For each non-structural body section, pick the
+      // 5. Walk H2/H3 sections. For each non-structural body section, pick the
       //    single highest-scoring allow-list URL (score ≥ 6, max 2 uses per URL)
       //    and inject ONE inline anchor link by safely wrapping a phrase in the
-      //    body. If safe wrap fails, the source is still credited in References.
+      //    body. When the context allow-list is empty, fetch Tier-1 web sources
+      //    via sourcesForSection (which already enforces tier1OnlyFallback).
       const headingRegex = /^#{2,3}\s+.+$/gm;
       const matches = [...cleaned.matchAll(headingRegex)];
       if (matches.length === 0) return cleaned.trim();
@@ -1383,14 +1383,23 @@ Place these images throughout the article at logical locations, typically after 
         const isStructural = /references|bibliography|sources|in\s+this\s+article|tl;?dr|quick\s*tips|frequently\s*asked|faq|final\s*thoughts|conclusion|how\s+to\s+(choose|pick|decide|select|find)/i.test(headingLower);
 
         if (!isStructural) {
-          const ranked = verifiedAllowList
-            .filter((c) => (urlUseCount.get(c.url) || 0) < 2)
-            .map((c) => ({ cand: c, score: scoreSource(c, heading, body) }))
-            .filter((s) => s.score >= 6)
-            .sort((a, b) => b.score - a.score);
+          let chosen: SourceCandidate | null = null;
 
-          if (ranked.length > 0) {
-            const chosen = ranked[0].cand;
+          if (!useWebFallback) {
+            const ranked = verifiedAllowList
+              .filter((c) => (urlUseCount.get(c.url) || 0) < 2)
+              .map((c) => ({ cand: c, score: scoreSource(c, heading, body) }))
+              .filter((s) => s.score >= 6)
+              .sort((a, b) => b.score - a.score);
+            if (ranked.length > 0) chosen = ranked[0].cand;
+          } else {
+            // Web-fallback path: ask sourcesForSection for Tier-1 candidates.
+            const webCands = await sourcesForSection(heading, body);
+            const fresh = webCands.find((c) => (urlUseCount.get(cleanSourceUrl(c.url)) || 0) < 2);
+            if (fresh) chosen = fresh;
+          }
+
+          if (chosen) {
             const anchor = (chosen.title || "").trim().replace(/[*_`\[\]()]/g, "") || sourceTitleFromUrl(chosen.url);
             const cleanUrl = cleanSourceUrl(chosen.url);
             const injection = injectInlineAnchor(body, anchor, cleanUrl);
@@ -1399,7 +1408,7 @@ Place these images throughout the article at logical locations, typically after 
             if (!usedSources.find((s) => cleanSourceUrl(s.url) === cleanUrl)) {
               usedSources.push({ ...chosen, url: cleanUrl, title: anchor });
             }
-            console.log(`CITATION: "${heading.slice(0, 60)}" -> ${cleanUrl} ${injection.changed ? "(inline)" : "(refs only)"}`);
+            console.log(`CITATION${useWebFallback ? " [web-fallback]" : ""}: "${heading.slice(0, 60)}" -> ${cleanUrl} ${injection.changed ? "(inline)" : "(refs only)"}`);
           }
         }
 
@@ -1408,7 +1417,7 @@ Place these images throughout the article at logical locations, typically after 
 
       let result = [intro, ...rebuilt].filter(Boolean).join("\n\n").trim();
 
-      // 7. Build References from used sources (anchor text only, numbered).
+      // 6. Build References from used sources (anchor text only, numbered).
       if (usedSources.length > 0) {
         const refLines = usedSources.map((s, idx) => `${idx + 1}. [${s.title}](${cleanSourceUrl(s.url)})`);
         result += `\n\n## References\n${refLines.join("\n")}`;
