@@ -1744,7 +1744,7 @@ Place these images throughout the article at logical locations, typically after 
         console.log("COMPLETENESS GUARD: All required sections present ✓");
       }
 
-      content = normaliseReferencesSection(content);
+      // (normaliseReferencesSection removed — enforceSourcesAndReferences handles all citation/References work below.)
     }
 
     if (!expandExistingContent && !migrationMode && !formatReference) {
