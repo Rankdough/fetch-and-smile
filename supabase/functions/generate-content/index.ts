@@ -1221,6 +1221,31 @@ Place these images throughout the article at logical locations, typically after 
       }
     }
 
+    // Own-domain blocklist: never cite the project's own URLs in References.
+    // Internal links to these domains belong to the inline internal-links system,
+    // not to citations. Derived from the CTA URL host plus any host found in
+    // article images (typically the same site).
+    const ownDomains = new Set<string>();
+    const addOwnHost = (u: string) => {
+      try { ownDomains.add(new URL(u).hostname.replace(/^www\./, "").toLowerCase()); } catch { /* ignore */ }
+    };
+    if (typeof ctaUrl === "string" && /^https?:\/\//i.test(ctaUrl)) addOwnHost(ctaUrl);
+    if (Array.isArray(articleImages)) {
+      for (const img of articleImages as { url?: string }[]) {
+        if (img?.url && /^https?:\/\//i.test(img.url)) addOwnHost(img.url);
+      }
+    }
+    const isOwnDomainUrl = (u: string): boolean => {
+      try {
+        const h = new URL(u).hostname.replace(/^www\./, "").toLowerCase();
+        for (const own of ownDomains) {
+          if (h === own || h.endsWith(`.${own}`)) return true;
+        }
+        return false;
+      } catch { return false; }
+    };
+
+
     const sourcesForSection = async (heading: string, body: string): Promise<SourceCandidate[]> => {
       const existing = extractMarkdownLinks(body, "existing")
         .filter((l) => !isJunkUrl(l.url))
