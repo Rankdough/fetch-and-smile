@@ -65,7 +65,7 @@ ATOMIC SECTION CONTRACT (MANDATORY — output is REJECTED if any rule fails):
 3. 90-180 words total in the section body (excluding the H2 line).
 4. No back-reference phrases: never say "as mentioned above", "as we saw earlier", "continuing from", "in the previous section", "building on the above", "the following point".
 5. Include at least one concrete specific (number, price, timeframe, name, or example).
-6. Preserve an existing "Sources:" block if one is present in the input. Do not invent or remove source links.
+6. Do NOT add any "Sources:" / "Source:" / "**Sources:**" line, do NOT add bullet lists of source URLs, and do NOT add inline external markdown links. Write clean prose only.
 7. Preserve the EXACT H2 heading line from the input. Do not change the heading wording.
 8. ${perspective}
 9. British English. No em dashes or en dashes. No AI buzzwords ("delve", "in today's", "in the realm of", "moreover", "furthermore" as transitions).
