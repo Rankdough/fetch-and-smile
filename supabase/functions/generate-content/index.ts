@@ -597,29 +597,8 @@ The following reference materials are your AUTHORITATIVE source. You MUST:
 CONTEXT FILES:
 ${contextContent}`;
 
-        // Extract URLs from the context files and surface them as the closed source allow-list.
-        const urlAllowSet = new Set<string>();
-        for (const f of contextFiles as { name: string; content: string }[]) {
-          const text = f?.content || "";
-          const rawRe = /https?:\/\/[^\s)\],;<>"']+/g;
-          let mm: RegExpExecArray | null;
-          while ((mm = rawRe.exec(text)) !== null) {
-            const cleaned = mm[0].replace(/[.,;:!?)\]]+$/g, "");
-            if (cleaned && !/^https?:\/\/(www\.)?(example|placeholder)\./i.test(cleaned)) {
-              urlAllowSet.add(cleaned);
-            }
-          }
-        }
-        const urlAllowList = [...urlAllowSet];
-        if (urlAllowList.length > 0) {
-          userPrompt += `
-
-🔒 SOURCE URL ALLOW-LIST (CONTEXT FILES ONLY) — STRICT:
-You may cite ONLY the URLs listed below — these are the URLs that appear inside the context files. Every link in the article body, every "**Sources:**" bullet, and every entry in the final ## References section MUST be picked from this list. If no listed URL fits a section, OMIT the "**Sources:**" block for that section rather than inventing one. NEVER cite a URL that is not in this list. NEVER invent commercial blogs, ortho clinics, or general health sites that you "think" exist.
-
-ALLOWED URLS (${urlAllowList.length}):
-${urlAllowList.map((u) => `- ${u}`).join("\n")}`;
-        }
+        // NOTE: URL allow-list is NOT shown to the model. The model writes clean prose with zero
+        // citations; the post-processor below attaches sources deterministically from context files.
       }
 
       // Add article images for AI placement
