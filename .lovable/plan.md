@@ -1,73 +1,55 @@
+# Fix source citations once and for all
 
-## What's changing (and what isn't)
+## The problem (verified in your last sample)
+- "**Sources:**" bullet blocks still appear under H2s
+- Orphan label text remains where fabricated URLs were stripped
+- Model is still improvising citations instead of using context files
 
-Three precise additions inspired by Google's GenAI Search guide. **No changes** to the AEO layout, word-count rules, export format, CTA/table cadence, tone enforcement, or anything not listed below.
+## The fix: model writes prose, code attaches sources
 
----
+The AI model will no longer make any decision about citations. A deterministic post-processor handles 100% of source attachment from a closed allow-list built from your context files.
 
-### 1. First-Hand Evidence input — SEO Content Generator settings
+### 1. Build an Authorised Sources allow-list (generation start)
+Extract every URL from context files into a structured list: `{ url, anchorText, snippet, sourceFile }`. This is the **only** universe of URLs the article can ever cite. If context has zero URLs → article has zero citations and no References section. No web fallback, ever.
 
-**Goal:** Let the user paste a first-person anecdote, case study, internal data, or expert observation that the writer must weave into the article. This is the single biggest GenAI-visibility signal Google calls out ("non-commodity, first-hand experience").
+### 2. Strip all citation instructions from the prompt
+Remove every "cite sources", "add Sources:", "link to authority" instruction from the generation prompt. Model writes clean prose with no citation hints. This kills the improvisation at the root.
 
-**Where:** `src/pages/Articles.tsx` — add a new optional collapsible field in the generator settings panel, labelled **"First-Hand Evidence (optional)"** with helper text: *"Anecdote, case study, internal data, or expert observation. The writer will weave this into the article as a concrete, citable detail."*
+### 3. Deterministic source attachment (post-generation)
+For each H2 section: tokenise heading + body, score every authorised source by snippet/anchor/URL-slug overlap, attach **one inline anchor link** to the best-matching phrase in the body. Rules:
+- Max 1 citation per section
+- Max 2 uses per URL across the article
+- Never emit a "Sources:" block, never a bullet list of URLs, never a bare URL
+- If no source scores above threshold → section gets no citation (that's fine)
 
-**How it flows:**
-- New state `firstHandEvidence: string`, persisted alongside other generator inputs.
-- Passed through to `supabase/functions/generate-content/index.ts` in the request body.
-- Injected into the system prompt as a dedicated block: *"FIRST-HAND EVIDENCE TO INCORPORATE — weave this naturally into at least one body section. Do not invent facts beyond what is stated here. Do not quote it verbatim if the tone profile forbids first-person; paraphrase into the allowed perspective."*
-- Respects existing 3rd-person rule (paraphrases away "I/we" if that perspective is active).
-- Empty string = no behavioural change (fully backward compatible).
+### 4. Build References section deterministically
+At the end, generate `## References` as a numbered list of **anchor text only** (e.g. "1. NHS Orthodontics Guidance") from URLs actually used in the body. If zero URLs were attached → omit the section entirely.
 
-**Not changed:** article structure, word count, sections, exports.
+### 5. URL verification
+HEAD-check every authorised URL before generation starts. Unreachable URLs are dropped from the allow-list so they can never reach the article.
 
----
+### 6. Renderer-level safety net
+In `markdownToStyledHtml.ts`, blocklist any line matching:
+- `**Sources:**` / `Sources:` / `Source:` (as bullet or paragraph)
+- Bullet lines that are bare URLs
+- Bullet lines that are orphan labels with no link
 
-### 2. Commodity-content guardrails — writer prompt only (copy, not format)
+This catches anything that somehow slips past steps 1–4.
 
-**Goal:** Push the writer away from generic listicle phrasing ("7 Tips for…", "In today's world…", "It is important to…") toward specific, experiential, non-commodity copy. Per your confirmation: **prompt-side only**, the AEO skeleton stays identical.
+## Files touched
+- `supabase/functions/generate-content/index.ts` — build allow-list, strip citation prompts, run attachment pass
+- `supabase/functions/regenerate-section/index.ts` — same attachment logic for regenerations
+- `src/lib/markdownToStyledHtml.ts` — renderer blocklist
+- `src/components/ContentVerification.tsx` — show which authorised sources were used vs unused
 
-**Where:**
-- `supabase/functions/generate-content/index.ts` system prompt — add a "NON-COMMODITY WRITING RULES" block.
-- `supabase/functions/humanise-write-section/index.ts` — mirror the same rules so section rewrites don't regress.
+## Out of scope
+The off-topic `dentaltourismalbania.com` links come from the **Internal Links** pipeline (separate system). Not fixed by this plan — flag separately if you want that addressed too.
 
-**Rules added to the prompt:**
-- Avoid generic openers: "In today's world", "When it comes to", "It is important to", "Many people".
-- Prefer specific over generic: named examples, concrete numbers, scenarios over abstractions.
-- Each H2 body should contain at least one concrete element (a number, named example, scenario, or direct quote) — not just abstract advice.
-- Don't restate common knowledge as if it's insight.
-- If First-Hand Evidence is provided, anchor at least one section to it.
+## Verification
+After implementation I'll generate a fresh sample on the same Invisalign topic and check:
+- Zero "Sources:" blocks anywhere
+- Zero orphan labels
+- References section contains only anchor text, only URLs from context
+- Every cited URL returns 200
 
-**Not changed:** No new sections, no new word-count rules, no structural validators. The existing humanness/quality scorer already covers detection on the back end — we're just steering the front-end of generation.
-
----
-
-### 3. Consolidation Suggester — Keyword Research
-
-**Goal:** When two blog ideas in the same silo are semantically near-duplicates, flag them and offer a one-click merge. This prevents users from triggering Google's "scaled content abuse" pattern by producing multiple thin articles for keyword variants.
-
-**Where:** `src/components/keyword-research/KeywordClustering.tsx` (or the ideas list view within it).
-
-**How it works:**
-- Reuse the existing fuzzy/core-question normalization from `KeywordDeduplicator` (already deterministic, no AI cost).
-- On idea list render, compute pairwise similarity within each silo. Pairs above threshold (e.g. ≥0.85) get a subtle **"Similar to: [other idea title]"** chip on the idea card with a **"Review & Merge"** action.
-- Clicking opens the existing **Combine Ideas** flow (already implemented per memory) pre-populated with the two ideas.
-- Pure UI/UX surface — no changes to data model, generation, or export.
-- A small dismiss-per-pair state (localStorage) so users can ignore a suggestion permanently.
-
-**Not changed:** silo logic, classification, value-promise generation, queue, exports.
-
----
-
-### Out of scope (per your instructions)
-
-- ❌ #3 Image/video enforcement
-- ❌ #4 Page-experience export lint
-- ❌ #6 Author/E-E-A-T metadata
-
----
-
-### Validation plan
-
-- **#1**: generate with and without evidence; confirm output structure identical, evidence appears woven in when provided, no first-person leakage in 3rd-person mode.
-- **#2**: generate same topic before/after; confirm word count, section list, table count, CTA count, FAQ count all unchanged; confirm opener and abstract-phrase usage drops.
-- **#3**: load a project with known near-duplicate ideas; confirm chip appears, Combine flow opens pre-populated, dismiss persists across reload.
+Approve this and I'll implement it end-to-end, then generate the sample.
