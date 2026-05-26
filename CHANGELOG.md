@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-05-26 - References own-domain blocklist now includes internal-link library hosts
+
+- **What:** `generate-content/index.ts` now seeds the own-domain blocklist from the `internal_link_files` table (all hosts from `urls` JSONB) in addition to the CTA URL and article-image hosts. Any URL on those domains is excluded from References at every entry point (context allow-list verification, web-fallback section pick, top-up `pushCand`, and the final pre-render `refSources` filter).
+- **Why:** When `ctaUrl` is empty for a generation, the previous blocklist was empty too, so Tier-1 web search could return the project's own URLs (e.g. `dentaltourismalbania.com/blogs/...`) and they landed in References. The internal-link library is the authoritative source of "our own URLs" — querying it guarantees those hosts are always blocked.
+- **Files:** `supabase/functions/generate-content/index.ts`
+- **Verify:** Generate without a CTA URL. Confirm the new log line `OWN-DOMAIN BLOCKLIST: N host(s) excluded from References: ...` lists every project host, and References contains zero entries from those hosts.
+
+
 ## 2026-05-26 - References never include own-domain URLs
 
 - **What:** Added `isOwnDomainUrl` filter in `enforceSourcesAndReferences` (derived from CTA URL host + article-image hosts). Applied at four points: (1) context allow-list verification skips own-domain URLs; (2) web-fallback per-section pick skips them; (3) top-up `pushCand` skips them; (4) final `refSources` filter strips them before References is rendered. Internal links to the project's own domain remain untouched — they continue to flow through the inline internal-links pipeline.
