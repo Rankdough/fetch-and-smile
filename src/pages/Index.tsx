@@ -41,6 +41,7 @@ import { GenerationChecklist } from "@/components/GenerationChecklist";
 import { ContentVerification } from "@/components/ContentVerification";
 import { CTABanner, generateCTAHtml } from "@/components/CTABanner";
 import { TrustSignalBox, buildTrustSignalHtml } from "@/components/TrustSignalBox";
+import { marked as markedLib } from "marked";
 import { ColorPaletteSelector, ColorPalette, COLOR_PALETTES } from "@/components/ColorPaletteSelector";
 import { KnowledgeBasePanel } from "@/components/KnowledgeBasePanel";
 import { VoiceEditAgent } from "@/components/VoiceEditAgent";
