@@ -4417,6 +4417,53 @@ const Index = () => {
                       onCheckedChange={setGenerateFaqSchema}
                     />
                   </div>
+
+                  <div className="rounded-lg border p-3 space-y-3 bg-muted/30">
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <label htmlFor="include-trust-signal" className="text-sm font-medium">
+                          Include "Why Trust This Article" Box
+                        </label>
+                        <p className="text-xs text-muted-foreground">
+                          Adds a collapsible E-E-A-T trust panel at the very top of the article, just above the TL;DR.
+                        </p>
+                      </div>
+                      <Switch
+                        id="include-trust-signal"
+                        checked={includeTrustSignal}
+                        onCheckedChange={setIncludeTrustSignal}
+                      />
+                    </div>
+
+                    {includeTrustSignal && (
+                      <div className="space-y-2 pt-1">
+                        <div className="space-y-1">
+                          <label htmlFor="trust-signal-title" className="text-xs font-medium text-muted-foreground">
+                            Box Title
+                          </label>
+                          <Input
+                            id="trust-signal-title"
+                            value={trustSignalTitle}
+                            onChange={(e) => setTrustSignalTitle(e.target.value)}
+                            placeholder="Why You Can Trust This Article"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label htmlFor="trust-signal-content" className="text-xs font-medium text-muted-foreground">
+                            Trust Content (Markdown supported — author, credentials, sources policy, verification links)
+                          </label>
+                          <Textarea
+                            id="trust-signal-content"
+                            value={trustSignalContent}
+                            onChange={(e) => setTrustSignalContent(e.target.value)}
+                            rows={6}
+                            className="font-mono text-xs"
+                            placeholder="Author bio, credentials, editorial policy, links to LinkedIn/reviews, etc."
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </CollapsibleSection>
 
