@@ -1359,6 +1359,19 @@ Place these images throughout the article at logical locations, typically after 
           }
 
           body = cleanedBody.join("\n").trim();
+
+          // STRICT SANITISER: when context-only mode is active, strip any markdown link
+          // (in body prose, tables, bullets) whose URL is not in the allow-list. This
+          // prevents the model from sneaking in fabricated commercial URLs inline.
+          if (contextOnlySources) {
+            body = body.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, (full, label, rawUrl) => {
+              const cleaned = cleanSourceUrl(rawUrl);
+              if (contextAllowedUrlSet.has(cleaned) || extraAllowedUrls.has(cleaned)) return full;
+              console.warn(`SOURCE SANITISER: stripped non-allowlisted inline link in "${heading.slice(0, 60)}" -> ${cleaned}`);
+              return String(label); // drop the link, keep the visible text
+            });
+          }
+
           const sources = await sourcesForSection(heading, body);
           if (sources.length > 0) {
             selectedSources.push(...sources);
