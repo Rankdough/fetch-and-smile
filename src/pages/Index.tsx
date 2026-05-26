@@ -40,6 +40,8 @@ import {
 import { GenerationChecklist } from "@/components/GenerationChecklist";
 import { ContentVerification } from "@/components/ContentVerification";
 import { CTABanner, generateCTAHtml } from "@/components/CTABanner";
+import { TrustSignalBox, buildTrustSignalHtml } from "@/components/TrustSignalBox";
+import { marked as markedLib } from "marked";
 import { ColorPaletteSelector, ColorPalette, COLOR_PALETTES } from "@/components/ColorPaletteSelector";
 import { KnowledgeBasePanel } from "@/components/KnowledgeBasePanel";
 import { VoiceEditAgent } from "@/components/VoiceEditAgent";
@@ -752,6 +754,19 @@ const Index = () => {
     const saved = localStorage.getItem("seo-generator-generateFaqSchema");
     return saved !== null ? JSON.parse(saved) : false;
   });
+  const [includeTrustSignal, setIncludeTrustSignal] = useState<boolean>(() => {
+    const saved = localStorage.getItem("seo-generator-includeTrustSignal");
+    return saved !== null ? JSON.parse(saved) : false;
+  });
+  const [trustSignalTitle, setTrustSignalTitle] = useState<string>(() => {
+    return localStorage.getItem("seo-generator-trustSignalTitle") || "Why You Can Trust This Article";
+  });
+  const [trustSignalContent, setTrustSignalContent] = useState<string>(() => {
+    return (
+      localStorage.getItem("seo-generator-trustSignalContent") ||
+      "This guide is written and reviewed by our in-house editorial team with hands-on experience in the topic. We cite primary sources, government and academic data, and recognised industry references — never AI summaries — and update our articles as new evidence emerges.\n\n- Edited by qualified subject-matter reviewers\n- Sources verified against the latest available data\n- Independent recommendations, not sponsored opinions"
+    );
+  });
   const [isEditMode, setIsEditMode] = useState(false);
   const [useFirstPerson, setUseFirstPerson] = useState<boolean>(() => {
     return localStorage.getItem("seo-generator-useFirstPerson") === "true";
@@ -935,6 +950,18 @@ const Index = () => {
   useEffect(() => {
     localStorage.setItem("seo-generator-generateFaqSchema", JSON.stringify(generateFaqSchema));
   }, [generateFaqSchema]);
+
+  useEffect(() => {
+    localStorage.setItem("seo-generator-includeTrustSignal", JSON.stringify(includeTrustSignal));
+  }, [includeTrustSignal]);
+
+  useEffect(() => {
+    localStorage.setItem("seo-generator-trustSignalTitle", trustSignalTitle);
+  }, [trustSignalTitle]);
+
+  useEffect(() => {
+    localStorage.setItem("seo-generator-trustSignalContent", trustSignalContent);
+  }, [trustSignalContent]);
   
   useEffect(() => {
     if (selectedToneProfileId) {
@@ -3075,6 +3102,33 @@ const Index = () => {
                     finalHtml += faqHtml;
                   }
                 }
+
+                // Insert Trust Signal box immediately before the TL;DR heading
+                if (includeTrustSignal && trustSignalContent.trim()) {
+                  try {
+                    const trustHtml = buildTrustSignalHtml(
+                      trustSignalTitle?.trim() || "Why You Can Trust This Article",
+                      markedLib.parse(trustSignalContent, { async: false }) as string,
+                      selectedColorPalette,
+                    );
+                    const tldrHeadingMatch = finalHtml.match(/<h2[^>]*>[\s\S]*?TL;?DR[\s\S]*?<\/h2>/i);
+                    if (tldrHeadingMatch) {
+                      const insertPoint = finalHtml.indexOf(tldrHeadingMatch[0]);
+                      finalHtml = finalHtml.slice(0, insertPoint) + trustHtml + finalHtml.slice(insertPoint);
+                    } else {
+                      const h1Match = finalHtml.match(/<h1[^>]*>[\s\S]*?<\/h1>/i);
+                      if (h1Match) {
+                        const after = finalHtml.indexOf(h1Match[0]) + h1Match[0].length;
+                        finalHtml = finalHtml.slice(0, after) + trustHtml + finalHtml.slice(after);
+                      } else {
+                        finalHtml = trustHtml + finalHtml;
+                      }
+                    }
+                  } catch (e) {
+                    console.error("Failed to inject trust signal into export:", e);
+                  }
+                }
+                
                 
                 // Add CTA banners only when content does not already contain inline CTA banners
                 if (generatedCTAs && ctaUrl && !hasInlineCtaBanners) {
@@ -4312,7 +4366,7 @@ const Index = () => {
                 number={15}
                 title="Output Options"
                 isComplete={true}
-                summary={[skipNavigation && "Navigation skipped", skipFaqs && "FAQs skipped", skipQuickTips && "Tips skipped", skipSources && "Sources skipped"].filter(Boolean).join(", ") || "All sections included"}
+                summary={[skipNavigation && "Navigation skipped", skipFaqs && "FAQs skipped", skipQuickTips && "Tips skipped", skipSources && "Sources skipped", includeTrustSignal && "Trust box on"].filter(Boolean).join(", ") || "All sections included"}
                 icon={<Settings className="h-4 w-4" />}
               >
                 <div className="space-y-3">
@@ -4390,6 +4444,53 @@ const Index = () => {
                       checked={generateFaqSchema}
                       onCheckedChange={setGenerateFaqSchema}
                     />
+                  </div>
+
+                  <div className="rounded-lg border p-3 space-y-3 bg-muted/30">
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <label htmlFor="include-trust-signal" className="text-sm font-medium">
+                          Include "Why Trust This Article" Box
+                        </label>
+                        <p className="text-xs text-muted-foreground">
+                          Adds a collapsible E-E-A-T trust panel at the very top of the article, just above the TL;DR.
+                        </p>
+                      </div>
+                      <Switch
+                        id="include-trust-signal"
+                        checked={includeTrustSignal}
+                        onCheckedChange={setIncludeTrustSignal}
+                      />
+                    </div>
+
+                    {includeTrustSignal && (
+                      <div className="space-y-2 pt-1">
+                        <div className="space-y-1">
+                          <label htmlFor="trust-signal-title" className="text-xs font-medium text-muted-foreground">
+                            Box Title
+                          </label>
+                          <Input
+                            id="trust-signal-title"
+                            value={trustSignalTitle}
+                            onChange={(e) => setTrustSignalTitle(e.target.value)}
+                            placeholder="Why You Can Trust This Article"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label htmlFor="trust-signal-content" className="text-xs font-medium text-muted-foreground">
+                            Trust Content (Markdown supported — author, credentials, sources policy, verification links)
+                          </label>
+                          <Textarea
+                            id="trust-signal-content"
+                            value={trustSignalContent}
+                            onChange={(e) => setTrustSignalContent(e.target.value)}
+                            rows={6}
+                            className="font-mono text-xs"
+                            placeholder="Author bio, credentials, editorial policy, links to LinkedIn/reviews, etc."
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </CollapsibleSection>
@@ -4939,7 +5040,7 @@ const Index = () => {
                           : -1;
                         
                         // Build parts: content before TL;DR end, navigation panel, rest of content
-                        const parts: { content: string; ctaPosition?: 'middle' | 'end'; navPanel?: boolean }[] = [];
+                        const parts: { content: string; ctaPosition?: 'middle' | 'end'; navPanel?: boolean; trustSignal?: boolean }[] = [];
                         
                         if (tldrEndIndex > 0 && navItems.length > 0) {
                           // Part 1: Title + TL;DR
@@ -4980,12 +5081,39 @@ const Index = () => {
                         } else {
                           parts.push({ content: contentWithoutNav });
                         }
+
+                        // Trust signal: split the part that starts with title/intro so the box sits
+                        // immediately above the TL;DR heading.
+                        if (includeTrustSignal && tldrStartIndex >= 0 && parts[0]?.content) {
+                          const firstLines = parts[0].content.split('\n');
+                          const localTldrIdx = firstLines.findIndex(line => /^## TL;?DR/i.test(line));
+                          if (localTldrIdx > 0) {
+                            const preTldr = firstLines.slice(0, localTldrIdx).join('\n');
+                            const fromTldr = firstLines.slice(localTldrIdx).join('\n');
+                            parts.splice(
+                              0,
+                              1,
+                              { content: preTldr },
+                              { content: '', trustSignal: true },
+                              { content: fromTldr },
+                            );
+                          } else {
+                            // No TL;DR found in first part — prepend trust box at the very top.
+                            parts.unshift({ content: '', trustSignal: true });
+                          }
+                        }
                         
                         return (
                           <>
                             {parts.map((part, idx) => (
                               <div key={idx}>
-                                {part.navPanel && navItems.length > 0 && !skipNavigation ? (
+                                {part.trustSignal ? (
+                                  <TrustSignalBox
+                                    title={trustSignalTitle}
+                                    content={trustSignalContent}
+                                    brandColors={selectedColorPalette}
+                                  />
+                                ) : part.navPanel && navItems.length > 0 && !skipNavigation ? (
                                   <div className="my-6">
                                     <ArticleNavigationPanel 
                                       items={navItems}
