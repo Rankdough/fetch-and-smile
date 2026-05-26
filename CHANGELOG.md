@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026-05-26 - Deterministic citation pipeline: allow-list only, single consolidated References
+
+- **What:** Removed all source-citation instructions from the generation prompt (system + user). The model now writes clean prose with zero `**Sources:**` blocks, zero inline external links, and no `## References` section. Replaced `enforceSourcesAndReferences` with a deterministic post-processor that: (1) strips every `Sources:` block, every model-emitted external markdown link, and any model-written References/Bibliography/Works Cited section; (2) HEAD-verifies the context-files URL allow-list in parallel; (3) walks each non-structural body H2/H3 and attaches at most one inline anchor link from the highest-scoring allow-list URL (score ≥ 6, max 2 uses per URL) by safely wrapping a 3-6 word phrase via `injectInlineAnchor` (skips headings, tables, bullets, blockquotes, lines that already contain links); (4) builds a single consolidated `## References` at the end as a numbered markdown link list of used sources only (anchor text only, no raw URLs visible); (5) emits zero citations and no References section when the context files have no URLs or all URLs fail HEAD check — never falls back to web search. Removed References from the COMPLETENESS GUARD (handled by the citation pipeline instead). Added the same renderer-level safety net to `src/utils/markdownToStyledHtml.ts`: any `Sources:`/`Source:` label plus its trailing bullets (linked, bare URL, or short orphan label) is stripped on render. Updated `regenerate-section` to forbid Sources blocks and inline external links.
+- **Why:** Verified sample showed `**Sources:**` bullet blocks still appearing under H2s and orphan labels left behind when fabricated URLs were stripped. User mandated: no `Sources:` blocks anywhere, one consolidated References at the end, anchor text only, allow-list URLs only.
+- **What may break:**
+  - Articles with no context-file URLs now have zero citations and no References section (by design).
+  - Inline citations may be sparse: a section gets no inline link if no allow-list URL scores ≥ 6 against it or if no safe wrap target exists (the source still appears in References if it was credited).
+  - Removed the dead `case "References"` branch is still in the completeness guard switch but `missingSections` will never include "References" — harmless no-op.
+  - `searchWebSources`, `sourcesForSection`, `buildReferencesFromCandidates`, and `normaliseReferencesSection` are no longer called from the main pipeline (still defined, dead code). Left in place to minimise risk; will prune in a follow-up if needed.
+  - `regenerate-section` will no longer preserve any inline citation in a regenerated section.
+- **Files:** `supabase/functions/generate-content/index.ts`, `supabase/functions/regenerate-section/index.ts`, `src/utils/markdownToStyledHtml.ts`, `CHANGELOG.md`.
+- **Verify:** Generate a fresh article with a context file containing URLs; grep the output for `**Sources:**` (must be 0), check that `## References` appears exactly once at the end, every `## References` link returns 200, and every URL is from the context file allow-list. Also generate with a context file that has zero URLs and confirm no References section is emitted.
+
+
+
 ## 2026-05-26 - Restore web fallback but lock it to Tier-1 when context files attached
 
 - **What:** Reverted `contextOnlySources` back to URL-presence gating. New `tier1OnlyFallback` flag activates when context files are attached but contain no URLs — web search runs but only Tier-1 authorities (gov/edu/peer-review) are accepted; Tier-2 commercial blogs (clearchoice.com, soulbraces.com, etc.) are rejected. `searchWebSources` now takes a `tier1Only` param and the Firecrawl cache key is namespaced by tier to avoid cross-mode contamination.
