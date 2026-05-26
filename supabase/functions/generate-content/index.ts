@@ -1373,9 +1373,10 @@ Place these images throughout the article at logical locations, typically after 
       const verifiedAllowList: SourceCandidate[] = [];
       if (contextSourceCandidates.length > 0) {
         await Promise.all(contextSourceCandidates.map(async (c) => {
+          if (isOwnDomainUrl(c.url)) return; // never cite own domain in References
           if (await isWorkingSourceUrl(c.url)) verifiedAllowList.push(c);
         }));
-        console.log(`CITATION: ${verifiedAllowList.length}/${contextSourceCandidates.length} allow-listed URLs verified working.`);
+        console.log(`CITATION: ${verifiedAllowList.length}/${contextSourceCandidates.length} allow-listed URLs verified working (own-domain filtered).`);
       }
       const useWebFallback = verifiedAllowList.length === 0;
       if (useWebFallback) {
