@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026-05-26 - Strict context-only source URLs (no more fabricated commercial blogs)
+
+- **What:** When context files are uploaded, generate-content now extracts every URL from them and treats that list as the closed source allow-list.
+  1. Allow-list URLs are passed into the prompt with a hard "ONLY cite from this list; omit Sources block if none fits" rule.
+  2. `sourcesForSection` drops the relevance floor to 1 in strict mode and NEVER falls back to Firecrawl web search (which previously surfaced commercial Tier-2 sites like soulbraces.com and greatlakesda.com).
+  3. New body sanitiser inside `enforceSourcesAndReferences` strips any inline markdown link whose URL is not in the allow-list (∪ ctaUrl ∪ articleImages), keeping the visible anchor text.
+  4. Content Verification check "Source link in every section" demoted from `failed` → `warning` so the verifier no longer pressures the generator into fabricating sources for sections where no allow-listed URL fits.
+- **Why:** User repeatedly reported invented sources (e.g. soulbraces.com, greatlakesda.com) appearing in articles even though the brief contained 43 real, authoritative URLs. The previous prompt told the model "use real URLs" but never constrained the set; the post-generation guard then fell back to a web search that returned commercial sites.
+- **Files:** `supabase/functions/generate-content/index.ts`, `src/components/ContentVerification.tsx`, `CHANGELOG.md`.
+- **Verify:** Generate an article with the Invisalign Underbite brief attached and confirm every cited URL appears in the brief. Sections where no listed URL is relevant should have no Sources block (expected). Verifier shows yellow warning instead of red fail for missing sources.
+- **Verified broken:**
+  - Articles generated WITHOUT any context files: behaviour unchanged (web search fallback still active because `contextSourceCandidates.length === 0`).
+  - Sections that previously got a fabricated commercial source will now have NO Sources block when no allow-listed URL fits — visually emptier but factually correct.
+
+
+
 ## 2026-05-25 - Add Content Verification check: source link in every section
 
 - **What:** New verification item `Source link in every section` in `src/components/ContentVerification.tsx`. Scans every body H2, skipping TL;DR, Quick Tips, In This Article, FAQ, Final Thoughts/Conclusion, References/Sources, How to Choose. Fails if a section body has no external markdown link. Renders the existing per-section regenerate buttons (and a "Fix all N sections" button) as the Fix action by reusing the `onRegenerateSection` / `onRegenerateAllSections` props.
