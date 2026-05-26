@@ -1053,10 +1053,11 @@ Place these images throughout the article at logical locations, typically after 
       return score;
     };
 
-    const searchWebSources = (heading: string, body: string): Promise<SourceCandidate[]> => {
-      const query = `${topic || ""} ${heading} ${body.replace(/\[[^\]]+\]\([^)]+\)/g, "").replace(/[#*_`|>\n]/g, " ").slice(0, 180)}`.replace(/\s+/g, " ").trim().slice(0, 260);
+    const searchWebSources = (heading: string, body: string, tier1Only = false): Promise<SourceCandidate[]> => {
+      const cacheKey = `${tier1Only ? "T1:" : ""}${`${topic || ""} ${heading} ${body.replace(/\[[^\]]+\]\([^)]+\)/g, "").replace(/[#*_`|>\n]/g, " ").slice(0, 180)}`.replace(/\s+/g, " ").trim().slice(0, 260)}`;
+      const query = cacheKey.replace(/^T1:/, "");
       if (!query) return Promise.resolve([]);
-      if (firecrawlSourceCache.has(query)) return firecrawlSourceCache.get(query)!;
+      if (firecrawlSourceCache.has(cacheKey)) return firecrawlSourceCache.get(cacheKey)!;
       const promise = (async () => {
         const apiKey = Deno.env.get("FIRECRAWL_API_KEY");
         if (!apiKey) {
@@ -1172,11 +1173,16 @@ Place these images throughout the article at logical locations, typically after 
           // Strict ordering: ONLY Tier-1 by default. Tier-2 only if zero Tier-1.
           // Tier-3 is never used here — better to return nothing than cite a
           // dental-tourism / lead-gen / Reddit URL.
-          const passes: Ranked[][] = [
-            ranked.filter((r) => r.tier === 1 && r.rank < 5),
-            ranked.filter((r) => r.tier === 1 && r.rank >= 5),
-            ranked.filter((r) => r.tier === 2 && r.rank < 5),
-          ];
+          const passes: Ranked[][] = tier1Only
+            ? [
+                ranked.filter((r) => r.tier === 1 && r.rank < 5),
+                ranked.filter((r) => r.tier === 1 && r.rank >= 5),
+              ]
+            : [
+                ranked.filter((r) => r.tier === 1 && r.rank < 5),
+                ranked.filter((r) => r.tier === 1 && r.rank >= 5),
+                ranked.filter((r) => r.tier === 2 && r.rank < 5),
+              ];
           const candidates: SourceCandidate[] = [];
           const picked = new Set<string>();
           for (const pass of passes) {
@@ -1206,7 +1212,7 @@ Place these images throughout the article at logical locations, typically after 
           return [];
         }
       })();
-      firecrawlSourceCache.set(query, promise);
+      firecrawlSourceCache.set(cacheKey, promise);
       return promise;
     };
 
@@ -1230,11 +1236,12 @@ Place these images throughout the article at logical locations, typically after 
       return items.length ? `## References\n${items.join("\n")}` : "";
     };
 
-    // STRICT: once the user attaches ANY context file, lock sources to that allow-list.
-    // If the context contains no URLs, sections simply omit the Sources block rather than
-    // letting the web-search fallback invent commercial citations (e.g. clearchoice.com).
+    // Lock to context allow-list ONLY when the context files actually contain URLs.
+    // If files are attached but contain no URLs, allow a web fallback but restrict it to
+    // Tier-1 authorities (gov/edu/peer-review) — never Tier-2 commercial blogs.
     const hasContextFiles = Array.isArray(contextFiles) && contextFiles.length > 0;
-    const contextOnlySources = hasContextFiles || contextSourceCandidates.length > 0;
+    const contextOnlySources = contextSourceCandidates.length > 0;
+    const tier1OnlyFallback = hasContextFiles && !contextOnlySources;
     const contextAllowedUrlSet = new Set(contextSourceCandidates.map((c) => cleanSourceUrl(c.url)));
     // Internal links and CTA URLs are also legitimate (added by other pipeline steps).
     const extraAllowedUrls = new Set<string>();
@@ -1284,15 +1291,16 @@ Place these images throughout the article at logical locations, typically after 
       }
 
       // Not enough relevant context URLs — fall back to web search.
-      const web = await searchWebSources(heading, body);
+      // When context files are attached (but had no URLs), restrict to Tier-1 only.
+      const web = await searchWebSources(heading, body, tier1OnlyFallback);
       const combined = [...contextWorking, ...web.filter((w) => !contextWorking.some((c) => c.url === w.url))].slice(0, 2);
-      console.log(`SOURCE PICK [mixed]: "${heading.slice(0, 60)}" -> context=${contextWorking.length} web=${web.length}`);
+      console.log(`SOURCE PICK [mixed${tier1OnlyFallback ? "-T1only" : ""}]: "${heading.slice(0, 60)}" -> context=${contextWorking.length} web=${web.length}`);
 
       if (combined.length) return combined;
 
-      const broadWeb = await searchWebSources(topic || heading, "");
+      const broadWeb = await searchWebSources(topic || heading, "", tier1OnlyFallback);
       if (broadWeb.length) {
-        console.log(`SOURCE PICK [broad-web]: "${heading.slice(0, 60)}" -> ${broadWeb.map((c) => c.url).join(" | ")}`);
+        console.log(`SOURCE PICK [broad-web${tier1OnlyFallback ? "-T1only" : ""}]: "${heading.slice(0, 60)}" -> ${broadWeb.map((c) => c.url).join(" | ")}`);
         return broadWeb.slice(0, 1);
       }
 
