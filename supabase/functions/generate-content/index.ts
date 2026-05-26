@@ -261,7 +261,7 @@ SECTION DETAILS:
 ${quickTipsSection}
 ${inThisArticleSection}
 5. ${sectionBudgets.bodyH2Count} Main content sections with ## QUESTION headings (~${sectionBudgets.wordsPerBodyH2} words EACH, no more)
-   - Each answered with text + EXACTLY THREE "- " bullet points + tables${skipSources ? '' : ' + **Sources:** at the end'}
+   - Each answered with text + EXACTLY THREE "- " bullet points + tables (no "Sources:" line — citations are added post-generation)
    - Include comparison table(s) where relevant
 6. Decision Guide H2 (~${howToChooseWords} words) — practical checklist of 4-6 criteria as bullet points.
    - The H2 MUST be a topic-specific decision question, NOT the generic "## How to Choose".
