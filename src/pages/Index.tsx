@@ -1899,6 +1899,8 @@ const Index = () => {
     setGeneratedContent("", true);
     setOriginalContent("");
     setAppliedRules(null);
+    setCommodityGrade(null);
+
     setSelectedToneProfileId(null);
     setValuePromise("");
     setSelectedAngles([]);
