@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { NON_COMMODITY_TITLE_RULES } from "../_shared/nonCommodityTitleRules.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -156,11 +157,7 @@ They must be tightly aligned with the target_keywords, naturally incorporating t
 - BANNED: "Learn", "Understand", "Explore", "Discover", "Use", "Follow", "Check", "tips", "guide", action verbs directed at the reader, generic filler, revealing actual answers.
 
 BLOG IDEA TITLE RULES:
-- Format: "[Main Keyword]: [Natural Question]?" — e.g. "Cross-Country Running: How Do You Train for a Race?", "Track Pants: What Are They Made Of?"
-- The title MUST contain the primary target keyword verbatim, followed by a natural question.
-- Keep it simple, short (6-12 words), and conversational — like how a real person would ask.
-- BANNED phrases (never use these in titles): "Ultimate Guide", "Beginner's Guide", "Beginner's Handbook", "Comprehensive", "Everything You Need to Know", "Deep Dive", "Mastering", "Unpacking", "Unlocking", "Navigate", "Essential", "Your", "Handbook", "Checklist", "Beyond the Basics".
-- NO sales language, no hype, no AI-sounding filler. Just keyword + question.
+${NON_COMMODITY_TITLE_RULES}
 
 CRITICAL — STEP-BY-STEP PROCESS (follow this order):
 
