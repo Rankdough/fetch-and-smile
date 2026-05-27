@@ -306,6 +306,23 @@ em dashes, en dashes, or horizontal rules.`;
       ruleBlocks.push(OPENING_REFRAME_RULE);
       applied.push(6);
     }
+
+    // FAQ framing section: enforce direct-answer contract.
+    if (section.kind === "faq") {
+      ruleBlocks.push(FAQ_DIRECT_ANSWER_RULE);
+      applied.push(5); // re-emphasise no-hedge for FAQ specifically
+    }
+
+    // Quick Tips framing section: enforce exactly 3 actionable tips.
+    if (section.kind === "quick-tips") {
+      ruleBlocks.push(`QUICK TIPS RULE:
+Output EXACTLY 3 markdown bullet points. Each bullet is one actionable
+sentence (max 18 words) that a reader can act on before their next clinical
+appointment. No filler ("consider", "think about", "be aware that"). Each
+tip must reference a real category, decision, or check from the body
+sections — not a generic platitude.`);
+      applied.push(2);
+    }
   }
 
   const system = [
