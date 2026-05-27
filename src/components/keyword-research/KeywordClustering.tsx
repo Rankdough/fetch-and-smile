@@ -1425,7 +1425,10 @@ const KeywordClustering = () => {
         })
         .slice(0, 5);
 
-      const experiencePack = isExperienceGateEnabled() ? (await loadProjectSignals()).pack || undefined : undefined;
+      // Note: experiencePack intentionally NOT sent. Blog idea generation produces
+      // outline-level value promises (not factual prose), so first-hand signals have
+      // no slot to inject into. The non-commodity gate now applies to article
+      // generation only — where signals can actually be cited inside body sections.
       const { data, error } = await supabase.functions.invoke("cluster-keywords-enrich", {
         body: {
           clusters: [{
@@ -1435,9 +1438,9 @@ const KeywordClustering = () => {
           }],
           singleIdea: true,
           focusKeyword: keyword,
-          experiencePack,
         },
       });
+
 
       if (error) throw error;
 
