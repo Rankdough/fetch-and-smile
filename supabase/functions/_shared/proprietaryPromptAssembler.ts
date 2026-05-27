@@ -152,9 +152,14 @@ FRAMING SECTION RULES:
 function describeMappedUnit(unit: MappedUnit | null): string {
   if (!unit) {
     return `MAPPED KNOWLEDGE UNIT: NONE.
-No proprietary unit is mapped to this section. Per Rule 1, if you cannot write
-this section using only specifics that would survive the no-commodity test,
-output [NEEDS EXPERT INPUT] as the entire body.`;
+No proprietary unit is mapped to this section. You must still produce a
+non-commodity section using Rules 1, 2, 3, 5 and 6. That means: direct answer
+first, category distinctions made explicit, contrarian framing where the
+consensus is weak, and concrete failure mechanisms where they apply. Use
+[NEEDS EXPERT INPUT] as an INLINE placeholder ONLY where a specific number,
+case count, or proprietary outcome is required. Do not collapse the whole
+section into the placeholder, and do not write a generic definitional answer
+to dodge the constraint.`;
   }
   const header = `MAPPED KNOWLEDGE UNIT (type: ${unit.unit_type}${unit.title ? `, title: ${unit.title}` : ""}):`;
   const summary = unit.summary ? `Summary: ${unit.summary}` : "";
@@ -179,8 +184,10 @@ export function assembleSectionPrompt(input: AssemblerInput): AssembledPrompt {
   // System prompt assembly
   const baseIdentity = `You are a proprietary-content writer for a ${businessType} business.
 You write sections one at a time. You produce non-commodity content grounded in the
-mapped knowledge unit provided for THIS section. You never invent specifics. You
-never write generic filler. You never use em dashes, en dashes, or horizontal rules.`;
+mapped knowledge unit provided for THIS section, or — when no unit is mapped — in
+direct clinical reasoning. You never invent specific numbers, case counts, named
+patients, or fabricated citations. You never write generic filler. You never use
+em dashes, en dashes, or horizontal rules.`;
 
   const audienceBlock = `AUDIENCE: ${audienceSentence}`;
   const destinationBlock = `PUBLICATION DESTINATION: ${publicationDestination} — ${
@@ -212,13 +219,21 @@ never write generic filler. You never use em dashes, en dashes, or horizontal ru
 
     // Rule 4 — failure-mode sections, mandatory for service / healthcare-clinical
     if (section.kind === "failure-mode" && (businessType === "service" || businessType === "healthcare-clinical")) {
-      ruleBlocks.push(FAILURE_MODE_RULE);
+      const hasFailureUnit = mappedUnit && mappedUnit.unit_type === "failure";
+      ruleBlocks.push(hasFailureUnit ? FAILURE_MODE_RULE_WITH_UNIT : FAILURE_MODE_RULE_NO_UNIT);
       applied.push(4);
     }
 
     // Rule 5 — every body section
     ruleBlocks.push(SPECIFIC_NUMBERS_RULE);
     applied.push(5);
+
+    // Rule 6 — h2-question sections always get contrarian licence when no
+    // contrarian unit is mapped (the editor pass below handles the mapped case).
+    if (section.kind === "h2-question" && (!mappedUnit || mappedUnit.unit_type !== "contrarian")) {
+      ruleBlocks.push(CONTRARIAN_RULE_NO_UNIT);
+      applied.push(6);
+    }
   } else {
     ruleBlocks.push(FRAMING_LITE_RULES);
     // Framing inherits rules 2 and 5 conceptually
