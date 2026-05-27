@@ -733,6 +733,9 @@ const KeywordResearch = () => {
             <Search className="h-5 w-5 text-primary" />
             <h1 className="text-lg font-semibold">Keyword Research</h1>
           </button>
+          <div className="ml-auto">
+            <SettingsPopover />
+          </div>
         </div>
       </header>
 
