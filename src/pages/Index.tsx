@@ -646,6 +646,7 @@ const Index = () => {
     return saved ? JSON.parse(saved) : null;
   });
   const [commodityGrade, setCommodityGrade] = useState<TwoPassReport | null>(null);
+  const [hasBrainForGrade, setHasBrainForGrade] = useState(false);
 
   const [generatedCTAs, setGeneratedCTAs] = useState<{ middle: { headline: string; description: string; buttonText: string }; end: { headline: string; description: string; buttonText: string } } | null>(() => {
     const saved = localStorage.getItem("seo-generator-generatedCTAs");
@@ -839,6 +840,15 @@ const Index = () => {
     const saved = localStorage.getItem("seo-generator-useHumanMode");
     return saved !== null ? JSON.parse(saved) : false;
   });
+  // Proprietary mode (demo path) — calls proprietary-generate-article
+  // which auto-maps brain units and enforces the six rules per section.
+  const [useProprietaryMode, setUseProprietaryMode] = useState(() => {
+    const saved = localStorage.getItem("seo-generator-useProprietaryMode");
+    return saved !== null ? JSON.parse(saved) : false;
+  });
+  useEffect(() => {
+    localStorage.setItem("seo-generator-useProprietaryMode", JSON.stringify(useProprietaryMode));
+  }, [useProprietaryMode]);
   const [pipelineStages, setPipelineStages] = useState<PipelineStage[]>([]);
   const [currentPipelineStage, setCurrentPipelineStage] = useState(0);
   const [currentSectionIndex, setCurrentSectionIndex] = useState(0);
@@ -1550,8 +1560,39 @@ const Index = () => {
 
     try {
       let content: string;
+      // Per-article mapped unit texts (only proprietary mode populates these).
+      // Used by the post-generation verification grader.
+      let proprietaryMappedTexts: string[] = [];
 
-      if (useHumanMode) {
+      if (useProprietaryMode) {
+        // Demo path: shortest end-to-end proprietary pipeline.
+        // No mapping screen — server auto-picks brain units by token overlap.
+        const { data, error } = await supabase.functions.invoke(
+          "proprietary-generate-article",
+          {
+            body: {
+              topic: formData.topic,
+              // Defaults are sensible; the full UI for these comes in Stage 3+.
+              businessType: "healthcare-clinical",
+              publicationDestination: "both",
+            },
+          },
+        );
+        if (error) throw error;
+        if (data?.error) throw new Error(data.error);
+        content = data.content as string;
+        proprietaryMappedTexts = Array.isArray(data.mappedUnitTexts) ? data.mappedUnitTexts : [];
+
+        const expertGaps = (data.sections || []).filter((s: { needsExpertInput?: boolean }) => s.needsExpertInput).length;
+        const flagged = (data.sections || []).reduce(
+          (n: number, s: { ruleFlags?: unknown[] }) => n + (s.ruleFlags?.length || 0),
+          0,
+        );
+        toast({
+          title: "Proprietary article generated",
+          description: `${data.brainUnitCount ?? 0} brain unit(s) considered · ${expertGaps} section(s) need expert input · ${flagged} Rule-5 flag(s)`,
+        });
+      } else if (useHumanMode) {
         // Use 4-stage humanising pipeline
         content = await handleHumanModeGenerate();
         
@@ -1650,11 +1691,10 @@ const Index = () => {
       // whether the first-hand signals actually landed. Only runs when toggle ON.
       if (isExperienceGateEnabled()) {
         try {
-          // Two-axis report: structural (cold, brain-independent) +
-          // verification (anchors signals against mapped knowledge units).
-          // No mapping wired into the classic flow yet, so mappedUnitTexts = [].
-          // That correctly yields the "no-brain" verification state in the UI.
-          setCommodityGrade(gradeArticleTwoPass(content, []));
+          // Proprietary mode supplies mapped unit texts, so the verification
+          // axis can actually anchor signals. Classic/Human mode pass [].
+          setCommodityGrade(gradeArticleTwoPass(content, proprietaryMappedTexts));
+          setHasBrainForGrade(proprietaryMappedTexts.length > 0);
         } catch (e) {
           console.warn("Two-pass grading failed", e);
           setCommodityGrade(null);
@@ -2462,7 +2502,7 @@ const Index = () => {
               {isGenerating ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  {useHumanMode ? "Human Mode..." : "Generating..."}
+                  {useProprietaryMode ? "Proprietary..." : useHumanMode ? "Human Mode..." : "Generating..."}
                 </>
               ) : (
                 <>
@@ -2481,12 +2521,32 @@ const Index = () => {
                 id="human-mode"
                 checked={useHumanMode}
                 onCheckedChange={setUseHumanMode}
-                disabled={isGenerating}
+                disabled={isGenerating || useProprietaryMode}
               />
               {useHumanMode && (
                 <span className="text-xs text-muted-foreground">(4-stage pipeline)</span>
               )}
             </div>
+
+            {/* Proprietary Mode Toggle */}
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-background border" title="Demo path. Calls the proprietary engine: outline → auto-pick brain unit per section by token overlap → series-generate with the six rules → Rule-5 lint. Sections without a matching brain unit emit [NEEDS EXPERT INPUT] instead of fabricating.">
+              <Label htmlFor="proprietary-mode" className="text-sm font-medium cursor-pointer">
+                Proprietary Mode
+              </Label>
+              <Switch
+                id="proprietary-mode"
+                checked={useProprietaryMode}
+                onCheckedChange={(v) => {
+                  setUseProprietaryMode(v);
+                  if (v) setUseHumanMode(false);
+                }}
+                disabled={isGenerating}
+              />
+              {useProprietaryMode && (
+                <span className="text-xs text-muted-foreground">(brain-grounded · demo)</span>
+              )}
+            </div>
+
 
             {/* Humanise Only Button - appears when content exists */}
             {generatedContent && (
@@ -4607,7 +4667,7 @@ const Index = () => {
                   )}
                   Generated Content
                   {commodityGrade && (
-                    <VerificationReport report={commodityGrade} hasBrain={false} className="ml-2 align-middle" />
+                    <VerificationReport report={commodityGrade} hasBrain={hasBrainForGrade} className="ml-2 align-middle" />
                   )}
                 </CardTitle>
 

@@ -1,0 +1,330 @@
+// Proprietary Mode — full-article orchestrator (demo path).
+//
+// Shortest end-to-end pipeline that calls the proprietary engine on every
+// section. No mapping UI required: this function auto-picks the best brain
+// unit per section by deterministic token overlap.
+//
+// Pipeline:
+//   1. Load every brain_insights row for the project (capped).
+//   2. AI call: derive 3 H2 question headings for the topic.
+//   3. Build outline: opening (framing) → TL;DR (framing) → 3 H2s (body) →
+//      failure-mode (body, healthcare/service only) → final thoughts (framing).
+//   4. For each section, auto-pick the highest-overlap unit (or null).
+//   5. Series-call section generator, threading surroundingContext.
+//   6. Stitch markdown and return alongside per-section telemetry.
+
+import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import {
+  assembleSectionPrompt,
+  buildContradictionPrompt,
+  lintRule5,
+  type BusinessType,
+  type MappedUnit,
+  type SectionSpec,
+  type UnitType,
+} from "../_shared/proprietaryPromptAssembler.ts";
+
+const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
+const DEFAULT_MODEL = "google/gemini-2.5-flash";
+
+interface RequestBody {
+  topic: string;
+  audienceSentence?: string;
+  businessType?: BusinessType;
+  publicationDestination?: "ai-search" | "human-blog" | "both";
+  model?: string;
+}
+
+interface BrainUnit {
+  id: string;
+  title: string | null;
+  summary: string | null;
+  full_text: string | null;
+  unit_type: UnitType | "legacy" | null;
+}
+
+async function callModel(system: string, user: string, model: string): Promise<string> {
+  const res = await fetch(AI_URL, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${LOVABLE_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model,
+      messages: [
+        { role: "system", content: system },
+        { role: "user", content: user },
+      ],
+    }),
+  });
+  if (!res.ok) {
+    if (res.status === 429) throw new Error("Rate limit exceeded — try again shortly.");
+    if (res.status === 402) throw new Error("AI credits exhausted — top up the workspace.");
+    throw new Error(`AI gateway ${res.status}: ${await res.text()}`);
+  }
+  const json = await res.json();
+  return json?.choices?.[0]?.message?.content ?? "";
+}
+
+/* ── outline generation ───────────────────────────────────────────────── */
+
+async function generateH2Questions(topic: string, model: string): Promise<string[]> {
+  const sys = `You generate H2 question headings for non-commodity articles. Output exactly 3 question headings, one per line, no numbering, no bullets, no markdown. Each must be a real question a reader would type, phrased in 4-10 words. No filler openers. No "what is X" if there's a sharper question.`;
+  const user = `Topic: ${topic}\n\nReturn 3 H2 question headings.`;
+  const raw = await callModel(sys, user, model);
+  const lines = raw
+    .split(/\r?\n/)
+    .map((l) => l.replace(/^[\d\-*.\s)#]+/, "").trim())
+    .filter((l) => l.length > 5 && l.length < 140);
+  return lines.slice(0, 3);
+}
+
+/* ── deterministic unit auto-mapping ──────────────────────────────────── */
+
+const STOPWORDS = new Set([
+  "the","and","for","with","that","this","from","have","been","were","when","what",
+  "which","their","there","about","into","over","than","then","they","them","your",
+  "you","are","was","but","not","can","does","how","why","who","whom","one","two",
+  "use","using","used","also","its","it's","more","most","some","any","all","will",
+  "should","could","would","may","might","much","many","very","just","like","such",
+  "make","made","take","gets","get","got","need","needs","needed",
+]);
+
+function tokenize(s: string): Set<string> {
+  return new Set(
+    s
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, " ")
+      .split(/\s+/)
+      .filter((t) => t.length >= 4 && !STOPWORDS.has(t)),
+  );
+}
+
+function pickUnit(
+  sectionHeading: string,
+  topic: string,
+  units: BrainUnit[],
+  minOverlap = 2,
+): MappedUnit | null {
+  if (!units.length) return null;
+  const target = tokenize(`${topic} ${sectionHeading}`);
+  let best: { unit: BrainUnit; score: number } | null = null;
+  for (const u of units) {
+    if (!u.full_text || !u.unit_type || u.unit_type === "legacy") continue;
+    const haystack = `${u.title || ""} ${u.summary || ""} ${u.full_text.slice(0, 800)}`;
+    const tokens = tokenize(haystack);
+    let score = 0;
+    for (const t of target) if (tokens.has(t)) score++;
+    if (!best || score > best.score) best = { unit: u, score };
+  }
+  if (!best || best.score < minOverlap) return null;
+  const u = best.unit;
+  return {
+    id: u.id,
+    unit_type: u.unit_type as UnitType,
+    title: u.title,
+    summary: u.summary,
+    full_text: u.full_text!,
+  };
+}
+
+/* ── per-section generation (inlined from proprietary-generate-section) ─ */
+
+async function runSection(input: {
+  businessType: BusinessType;
+  mappedUnit: MappedUnit | null;
+  audienceSentence: string;
+  publicationDestination: "ai-search" | "human-blog" | "both";
+  section: SectionSpec;
+  surroundingContext: Array<{ heading: string; content: string }>;
+  articleTitle: string;
+  model: string;
+}) {
+  const { system, user, appliedRules } = assembleSectionPrompt(input);
+  let content = (await callModel(system, user, input.model)).trim();
+  const needsExpertInput = /^\[NEEDS EXPERT INPUT\]\s*$/i.test(content);
+  const ruleFlags = needsExpertInput ? [] : lintRule5(content);
+
+  let contradicted = false;
+  if (!needsExpertInput && input.mappedUnit?.unit_type === "contrarian") {
+    const cp = buildContradictionPrompt({
+      generatedSection: content,
+      contrarianUnit: input.mappedUnit,
+      sectionHeading: input.section.heading,
+    });
+    try {
+      const raw = await callModel(cp.system, cp.user, input.model);
+      const parsed = JSON.parse(raw.replace(/```json|```/g, "").trim());
+      if (parsed?.rewritten && typeof parsed.rewritten === "string") {
+        contradicted = !!parsed.contradicted;
+        if (contradicted) content = parsed.rewritten.trim();
+      }
+    } catch (e) {
+      console.warn("Rule-6 pass failed (non-fatal):", e);
+    }
+  }
+  return { content, needsExpertInput, ruleFlags, contradicted, appliedRules };
+}
+
+/* ── handler ──────────────────────────────────────────────────────────── */
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+
+  try {
+    const body = (await req.json()) as RequestBody;
+    if (!body.topic?.trim()) {
+      return new Response(JSON.stringify({ error: "topic is required" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const model = body.model || DEFAULT_MODEL;
+    const businessType: BusinessType = body.businessType || "healthcare-clinical";
+    const audienceSentence =
+      body.audienceSentence ||
+      "Adults researching this topic who want a direct, expert-level answer.";
+    const publicationDestination = body.publicationDestination || "both";
+
+    // 1. Load brain units
+    const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    const { data: rawUnits, error: brainErr } = await sb
+      .from("brain_insights")
+      .select("id, title, summary, full_text, unit_type")
+      .limit(100);
+    if (brainErr) console.warn("brain_insights fetch failed:", brainErr);
+    const units: BrainUnit[] = (rawUnits as BrainUnit[]) || [];
+
+    // 2. Outline
+    const h2Questions = await generateH2Questions(body.topic, model);
+    if (h2Questions.length === 0) {
+      return new Response(
+        JSON.stringify({ error: "Outline generation returned no questions" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+    // 3. Build section plan
+    const includeFailureMode =
+      businessType === "healthcare-clinical" || businessType === "service";
+    const plan: SectionSpec[] = [
+      { id: "opening", heading: "Opening", kind: "opening", type: "framing" },
+      { id: "tldr", heading: "TL;DR", kind: "tldr", type: "framing" },
+      ...h2Questions.map(
+        (q, i): SectionSpec => ({
+          id: `h2-${i + 1}`,
+          heading: q,
+          kind: "h2-question",
+          type: "body",
+        }),
+      ),
+      ...(includeFailureMode
+        ? [
+            {
+              id: "failure",
+              heading: "Where this commonly goes wrong",
+              kind: "failure-mode" as const,
+              type: "body" as const,
+            },
+          ]
+        : []),
+      {
+        id: "final",
+        heading: "Final thoughts",
+        kind: "final-thoughts",
+        type: "framing",
+      },
+    ];
+
+    // 4 + 5. Series generation with surrounding context
+    const surrounding: Array<{ heading: string; content: string }> = [];
+    const sectionsOut: Array<{
+      id: string;
+      heading: string;
+      kind: string;
+      type: string;
+      mappedUnitId: string | null;
+      mappedUnitType: string | null;
+      content: string;
+      needsExpertInput: boolean;
+      ruleFlags: string[];
+      contradicted: boolean;
+      appliedRules: number[];
+    }> = [];
+
+    for (const section of plan) {
+      const mappedUnit =
+        section.type === "body" ? pickUnit(section.heading, body.topic, units) : null;
+
+      const result = await runSection({
+        businessType,
+        mappedUnit,
+        audienceSentence,
+        publicationDestination,
+        section,
+        surroundingContext: surrounding.slice(),
+        articleTitle: body.topic,
+        model,
+      });
+
+      surrounding.push({ heading: section.heading, content: result.content });
+      sectionsOut.push({
+        id: section.id,
+        heading: section.heading,
+        kind: section.kind,
+        type: section.type,
+        mappedUnitId: mappedUnit?.id ?? null,
+        mappedUnitType: mappedUnit?.unit_type ?? null,
+        content: result.content,
+        needsExpertInput: result.needsExpertInput,
+        ruleFlags: result.ruleFlags,
+        contradicted: result.contradicted,
+        appliedRules: result.appliedRules,
+      });
+    }
+
+    // 6. Stitch
+    const md: string[] = [`# ${body.topic}`, ""];
+    for (const s of sectionsOut) {
+      if (s.kind === "opening") {
+        md.push(s.content, "");
+      } else if (s.kind === "tldr") {
+        md.push("## TL;DR", "", s.content, "");
+      } else {
+        md.push(`## ${s.heading}`, "", s.content, "");
+      }
+    }
+    const content = md.join("\n").trim();
+
+    // mappedUnitTexts for downstream verification grading on the client
+    const mappedUnitTexts: string[] = [];
+    for (const s of sectionsOut) {
+      if (!s.mappedUnitId) continue;
+      const u = units.find((x) => x.id === s.mappedUnitId);
+      if (u?.full_text) mappedUnitTexts.push(u.full_text);
+    }
+
+    return new Response(
+      JSON.stringify({
+        content,
+        sections: sectionsOut,
+        mappedUnitTexts,
+        brainUnitCount: units.length,
+        outline: h2Questions,
+      }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
+  } catch (e) {
+    console.error("proprietary-generate-article error:", e);
+    return new Response(
+      JSON.stringify({ error: e instanceof Error ? e.message : String(e) }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
+  }
+});
