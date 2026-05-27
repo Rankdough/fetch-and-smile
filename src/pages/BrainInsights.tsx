@@ -8,9 +8,10 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectLabel, SelectGroup, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Loader2, Brain, FileText, BookOpen, MessageSquare, History, Search, Pencil, Trash2, Plus, AlertOctagon, Bookmark } from "lucide-react";
+import { Loader2, Brain, FileText, BookOpen, MessageSquare, History, Search, Pencil, Trash2, Plus, AlertOctagon, Bookmark, Sparkles, Layers } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { UnitTypeChip } from "@/components/proprietary/UnitTypeChip";
 
 const INSIGHT_TYPES = ["principle", "tactic", "case_study", "framework", "client_note"] as const;
 const MAX_TAGS_PER_TYPE = 15;
@@ -21,6 +22,14 @@ const TYPE_FILTERS = [
   { value: "strategy", label: "Strategy" },
 ] as const;
 
+interface UnitContradiction {
+  id: string;
+  otherId: string;
+  otherTitle: string;
+  note: string | null;
+  status: string;
+}
+
 interface Insight {
   id: string;
   title: string;
@@ -29,8 +38,17 @@ interface Insight {
   full_text: string | null;
   created_at: string;
   is_bookmarked: boolean;
+  unit_type?: string;
+  word_count?: number;
+  contributor_id?: string | null;
+  business_type?: string | null;
+  parent_unit_id?: string | null;
+  is_stale?: boolean;
+  stale_reason?: string | null;
+  usage_count?: number;
   tags?: { id: string; name: string; tag_type: string }[];
   contradictions?: { relatedTitle: string; explanation: string }[];
+  unit_contradictions?: UnitContradiction[];
 }
 
 interface Tag {
@@ -79,11 +97,12 @@ const BrainInsights = () => {
   const [newInsight, setNewInsight] = useState({ title: "", insight_type: "principle", summary: "", full_text: "" });
 
   const fetchData = useCallback(async () => {
-    const [insightsRes, tagsRes, junctionRes, contradictionsRes] = await Promise.all([
+    const [insightsRes, tagsRes, junctionRes, contradictionsRes, unitContraRes] = await Promise.all([
       supabase.from("brain_insights").select("*").order("created_at", { ascending: false }),
       supabase.from("brain_tags").select("*"),
       supabase.from("brain_insight_tags").select("insight_id, tag_id"),
       supabase.from("brain_connections").select("source_insight_id, related_insight_id, explanation").eq("relationship_type", "contradicts"),
+      supabase.from("brain_unit_contradictions").select("id, unit_a_id, unit_b_id, note, status").neq("status", "resolved_deleted"),
     ]);
 
     const tagMap: Record<string, Tag> = {};
@@ -117,10 +136,21 @@ const BrainInsights = () => {
       });
     });
 
+    const unitContraMap: Record<string, UnitContradiction[]> = {};
+    (unitContraRes.data || []).forEach((c: any) => {
+      const a = c.unit_a_id;
+      const b = c.unit_b_id;
+      if (!unitContraMap[a]) unitContraMap[a] = [];
+      unitContraMap[a].push({ id: c.id, otherId: b, otherTitle: insightTitleMap[b] || "Unknown", note: c.note, status: c.status });
+      if (!unitContraMap[b]) unitContraMap[b] = [];
+      unitContraMap[b].push({ id: c.id, otherId: a, otherTitle: insightTitleMap[a] || "Unknown", note: c.note, status: c.status });
+    });
+
     const enriched = (insightsRes.data || []).map((i) => ({
       ...i,
       tags: insightTagMap[i.id] || [],
       contradictions: contradictionMap[i.id] || [],
+      unit_contradictions: unitContraMap[i.id] || [],
     }));
 
     setInsights(enriched);
@@ -242,6 +272,7 @@ const BrainInsights = () => {
             <Button variant="default" size="sm" className="gap-2"><FileText className="h-4 w-4" />Insights</Button>
             <Button variant="ghost" size="sm" onClick={() => navigate("/seo-brain/ask")} className="gap-2"><MessageSquare className="h-4 w-4" />Ask</Button>
             <Button variant="ghost" size="sm" onClick={() => navigate("/seo-brain/outputs")} className="gap-2"><History className="h-4 w-4" />Outputs</Button>
+            <Button variant="outline" size="sm" onClick={() => navigate("/proprietary/extract")} className="gap-2"><Sparkles className="h-4 w-4" />Proprietary Mode</Button>
           </nav>
         </div>
       </header>
@@ -295,9 +326,31 @@ const BrainInsights = () => {
                   <CardContent className="py-4 px-4">
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
                           <Badge variant="outline" className="text-xs">{category?.label || "Content"}</Badge>
+                          <UnitTypeChip
+                            unitType={(insight.unit_type as any) || "legacy"}
+                            wordCount={insight.word_count}
+                            isStale={insight.is_stale}
+                            staleReason={insight.stale_reason}
+                            usageCount={insight.usage_count}
+                            isVersioned={!!insight.parent_unit_id}
+                            contributorId={insight.contributor_id}
+                            createdAt={insight.created_at}
+                          />
                           <span className="font-medium">{insight.title}</span>
+                          {insight.parent_unit_id && (
+                            <button
+                              type="button"
+                              className="text-xs text-muted-foreground inline-flex items-center gap-1 hover:text-foreground underline-offset-2 hover:underline"
+                              onClick={() => {
+                                const parent = insights.find((i) => i.id === insight.parent_unit_id);
+                                if (parent) setEditingInsight(parent);
+                              }}
+                            >
+                              <Layers className="h-3 w-3" /> View previous version
+                            </button>
+                          )}
                         </div>
                         {insight.summary && <p className="text-sm text-muted-foreground mb-2">{insight.summary}</p>}
                         {insight.tags && insight.tags.length > 0 && (
@@ -311,6 +364,68 @@ const BrainInsights = () => {
                               <div key={idx} className="flex items-start gap-2 text-xs bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded px-2.5 py-1.5">
                                 <AlertOctagon className="h-3.5 w-3.5 text-red-500 mt-0.5 shrink-0" />
                                 <span><strong className="text-red-600 dark:text-red-400">Contradicts:</strong> {c.relatedTitle} — {c.explanation}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {insight.unit_contradictions && insight.unit_contradictions.length > 0 && (
+                          <div className="mt-2 space-y-1">
+                            {insight.unit_contradictions.map((c) => (
+                              <div key={c.id} className="flex items-start gap-2 text-xs bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded px-2.5 py-2">
+                                <AlertOctagon className="h-3.5 w-3.5 text-amber-600 mt-0.5 shrink-0" />
+                                <div className="flex-1">
+                                  <div>
+                                    <strong className="text-amber-700 dark:text-amber-400">
+                                      {c.status === "context_dependent" ? "Context-dependent vs:" : "Conflicts with:"}
+                                    </strong>{" "}
+                                    {c.otherTitle}
+                                    {c.note ? ` — ${c.note}` : ""}
+                                  </div>
+                                  {c.status !== "context_dependent" && (
+                                    <div className="mt-1.5 flex items-center gap-2">
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-6 px-2 text-xs"
+                                        onClick={async () => {
+                                          await supabase
+                                            .from("brain_unit_contradictions")
+                                            .update({ status: "context_dependent" })
+                                            .eq("id", c.id);
+                                          toast({ title: "Marked as context-dependent" });
+                                          fetchData();
+                                        }}
+                                      >
+                                        Mark as context-dependent
+                                      </Button>
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-6 px-2 text-xs"
+                                        onClick={async () => {
+                                          await supabase
+                                            .from("brain_unit_contradictions")
+                                            .update({ status: "resolved_deleted" })
+                                            .eq("id", c.id);
+                                          toast({ title: "Conflict dismissed" });
+                                          fetchData();
+                                        }}
+                                      >
+                                        Dismiss
+                                      </Button>
+                                      <button
+                                        type="button"
+                                        className="text-xs text-muted-foreground hover:text-foreground underline"
+                                        onClick={() => {
+                                          const other = insights.find((i) => i.id === c.otherId);
+                                          if (other) setEditingInsight(other);
+                                        }}
+                                      >
+                                        Open the other unit
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
                               </div>
                             ))}
                           </div>

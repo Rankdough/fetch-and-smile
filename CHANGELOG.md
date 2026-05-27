@@ -1,5 +1,26 @@
 # Changelog
 
+## 2026-05-27 - Stage 1: Proprietary Mode foundation (interview agent, schema, brain panel)
+
+- **What:** Added the first slice of Proprietary Mode in parallel to the existing classic generator. Schema migration extends `brain_insights` with `unit_type`, `word_count`, `contributor_id`, `business_type`, `parent_unit_id`, `is_stale`, `stale_reason`, `usage_count` (all defaulted, all existing rows = `legacy`), plus new tables `brain_unit_contradictions` and `proprietary_analytics_events`. New edge function `interview-agent` (Socratic chat + structured extract with 80-word floor for `case` / `outcome` units; 6 business-branch question banks). New page `/proprietary/extract` with 5-step flow (business type → brief → existing-knowledge review → interview → unit review). New shared module `src/lib/proprietaryUnits.ts` and components `UnitTypeChip`, `SlotProgressGrid`, `ExistingKnowledgePanel`. `BrainInsights` page now renders the unit-type chip, staleness/usage/version flags, a "View previous version" link when `parent_unit_id` is set, and surfaces `brain_unit_contradictions` with three-action resolution (Mark as context-dependent / Dismiss / Open the other unit). Nav entry "Proprietary" added to both `Index.tsx` and `BrainInsights.tsx` headers.
+- **Why:** Stage 1 of the Proprietary Mode build plan. Non-destructive: classic flow untouched, every existing brain row remains `unit_type='legacy'` and continues to surface as before. Adds the substrate the later stages (gap detector, outline mapping, commodity gate, audit certificate, mini-interview, staleness loop) will build on.
+- **What may break:**
+  - `brain_unit_contradictions` is rendered via `supabase.from("brain_unit_contradictions")` — depends on `src/integrations/supabase/types.ts` having been regenerated after the migration. If types are stale the page will show a TS error until the next regeneration.
+  - The "View previous version" link only resolves parents that are present in the same fetched list (no separate lookup); historical parents not in the current view will silently not open.
+  - "Proprietary" nav button now appears in production headers — discoverable to all users even though the flow is beta.
+  - Nothing in the classic generator path was modified, but the `Insight` interface now carries optional unit fields; any other consumer that imports it implicitly via React state should keep working since fields are optional.
+- **Files:**
+  - created `supabase/migrations/20260527113807_b51edd74-f7e5-45e6-8362-e5a3fb645365.sql`
+  - created `supabase/functions/interview-agent/index.ts`
+  - created `src/lib/proprietaryUnits.ts`, `src/lib/proprietaryAnalytics.ts`
+  - created `src/pages/ProprietaryExtract.tsx`
+  - created `src/components/proprietary/UnitTypeChip.tsx`, `SlotProgressGrid.tsx`, `ExistingKnowledgePanel.tsx`
+  - edited `src/App.tsx` (route), `src/pages/Index.tsx` (nav), `src/pages/BrainInsights.tsx` (chip, version link, unit-contradiction resolution UI, nav)
+- **Verify:**
+  1. Visit `/seo-brain/insights` — every existing insight shows a "Legacy" chip; no contradictions panel for rows without entries in `brain_unit_contradictions`.
+  2. Visit `/proprietary/extract` — 5-step flow renders, business-type picker shows 6 options, interview hits the `interview-agent` edge function.
+  3. Insert a row into `brain_unit_contradictions` between two existing insights — both insight cards show the amber conflict block with three action buttons; clicking "Mark as context-dependent" flips the status and refreshes.
+
 ## 2026-05-27 - Fix: References section missing when context files contain zero URLs
 
 - **What:** Changed the citation web-fallback gate in `supabase/functions/generate-content/index.ts` from `hasContextFiles` to `contextOnlySources` in three places (lines ~1433, ~1502, ~1529). Previously, attaching ANY context file (even a .docx with no hyperlinks) disabled all web fallback AND made the render gate drop the one Tier-1 web URL that was already accepted per-section, so the article shipped with no References block. Now the lock-down only triggers when context files actually contributed at least one URL candidate.
