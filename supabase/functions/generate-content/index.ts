@@ -1427,10 +1427,12 @@ Place these images throughout the article at logical locations, typically after 
           pushCand(c);
         }
 
-        // 6b. Web fallback (Tier-1 search + relaxed Firecrawl). Runs ONLY when
-        //     there are no context files at all. If the user provided context,
-        //     we trust them and stop here even if we're below MIN_REFERENCES.
-        if (!hasContextFiles && usedSources.length < MIN_REFERENCES) {
+        // 6b. Web fallback (Tier-1 search + relaxed Firecrawl). Runs when the
+        //     context files did NOT contribute any usable URLs (either no
+        //     context files at all, or context files attached but containing
+        //     zero extractable URLs). If context files provided URLs we trust
+        //     them and stop here even if we're below MIN_REFERENCES.
+        if (!contextOnlySources && usedSources.length < MIN_REFERENCES) {
           // Pull additional Tier-1 web sources keyed to the article topic + each H2.
           const seedQueries: Array<{ heading: string; body: string }> = [{ heading: topic || "", body: "" }];
           for (const m of matches) {
