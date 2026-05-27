@@ -339,6 +339,10 @@ Deno.serve(async (req) => {
         md.push(s.content, "");
       } else if (s.kind === "tldr") {
         md.push("## TL;DR", "", s.content, "");
+      } else if (s.kind === "quick-tips") {
+        md.push("## Quick Tips", "", s.content, "");
+      } else if (s.kind === "faq") {
+        md.push("## Frequently Asked Questions", "", s.content, "");
       } else {
         md.push(`## ${s.heading}`, "", s.content, "");
       }
