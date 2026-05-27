@@ -162,7 +162,12 @@ ABSOLUTELY FORBIDDEN row or column labels: "Option A/B/C", "Type 1/2/3",
 "Beginner / Intermediate / Advanced", "Best for: beginners", "Choice 1/2/3",
 or any other template placeholder. If you cannot name the real categories with
 confidence, do NOT include a table — write a prose comparison instead. A
-missing table is always better than a generic one.`.trim();
+missing table is always better than a generic one.
+If the topic is clear-aligner underbite correction, the comparison table should
+use real rows such as "Dental underbite", "Skeletal underbite", and "Combined
+pattern", with columns such as "Definition", "Invisalign suitable?", "Typical
+timeline", and "Key risk if misdiagnosed". Do NOT translate those clinical
+categories into generic options.`.trim();
 
 const FRAMING_LITE_RULES = `
 FRAMING SECTION RULES:
