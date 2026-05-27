@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { isExperienceGateEnabled, loadProjectSignals } from "@/lib/experienceSignals";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -1424,6 +1425,7 @@ const KeywordClustering = () => {
         })
         .slice(0, 5);
 
+      const experiencePack = isExperienceGateEnabled() ? (await loadProjectSignals()).pack || undefined : undefined;
       const { data, error } = await supabase.functions.invoke("cluster-keywords-enrich", {
         body: {
           clusters: [{
@@ -1433,6 +1435,7 @@ const KeywordClustering = () => {
           }],
           singleIdea: true,
           focusKeyword: keyword,
+          experiencePack,
         },
       });
 
@@ -1485,6 +1488,7 @@ const KeywordClustering = () => {
     try {
       const totalVol = keywords.reduce((s, kw) => s + (cluster.keyword_volumes?.[kw] ?? cluster.keyword_volumes?.[kw.toLowerCase()] ?? 0), 0);
 
+      const experiencePack = isExperienceGateEnabled() ? (await loadProjectSignals()).pack || undefined : undefined;
       const { data, error } = await supabase.functions.invoke("cluster-keywords-enrich", {
         body: {
           clusters: [{
@@ -1494,6 +1498,7 @@ const KeywordClustering = () => {
           }],
           singleIdea: true,
           focusKeyword: keywords[0],
+          experiencePack,
         },
       });
 
@@ -1551,6 +1556,7 @@ const KeywordClustering = () => {
       const allKws = cluster.keywords;
       const totalVol = allKws.reduce((s, kw) => s + (cluster.keyword_volumes?.[kw] ?? cluster.keyword_volumes?.[kw.toLowerCase()] ?? 0), 0);
 
+      const experiencePack = isExperienceGateEnabled() ? (await loadProjectSignals()).pack || undefined : undefined;
       const { data, error } = await supabase.functions.invoke("cluster-keywords-enrich", {
         body: {
           clusters: [{
@@ -1562,6 +1568,7 @@ const KeywordClustering = () => {
           singleIdea: true,
           focusKeyword: allKws[0],
           customTitle: title.trim(),
+          experiencePack,
         },
       });
 

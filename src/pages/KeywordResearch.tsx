@@ -17,6 +17,7 @@ import {
   Globe, X, Link2, Plus, Layers, Upload, Filter
 } from "lucide-react";
 import KeywordClustering from "@/components/keyword-research/KeywordClustering";
+import { SettingsPopover } from "@/components/SettingsPopover";
 import KeywordDeduplicator from "@/components/keyword-research/KeywordDeduplicator";
 import KeywordOverlap from "@/components/keyword-research/KeywordOverlap";
 
@@ -732,6 +733,9 @@ const KeywordResearch = () => {
             <Search className="h-5 w-5 text-primary" />
             <h1 className="text-lg font-semibold">Keyword Research</h1>
           </button>
+          <div className="ml-auto">
+            <SettingsPopover />
+          </div>
         </div>
       </header>
 

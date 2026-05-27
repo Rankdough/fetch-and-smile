@@ -14,7 +14,7 @@ serve(async (req) => {
   }
 
   try {
-    const { topic, length, outline, instructions, gapAnalysis, valuePromiseClaims, formatReference, contextFiles, keywords, generateCTAs, ctaUrl, useKnowledgeBase, toneProfileId, articleImages, expandExistingContent, existingContent, wordsToAdd, wordCount, useFirstPerson, skipFaqs, skipQuickTips, skipSources, migrationMode, useBrainInsights, firstHandEvidence } = await req.json();
+    const { topic, length, outline, instructions, gapAnalysis, valuePromiseClaims, formatReference, contextFiles, keywords, generateCTAs, ctaUrl, useKnowledgeBase, toneProfileId, articleImages, expandExistingContent, existingContent, wordsToAdd, wordCount, useFirstPerson, skipFaqs, skipQuickTips, skipSources, migrationMode, useBrainInsights, firstHandEvidence, experiencePack } = await req.json();
 
     // Handle expand mode - different validation
     if (expandExistingContent) {
@@ -577,6 +577,16 @@ RULES:
 
 FIRST-HAND EVIDENCE:
 ${firstHandEvidence.trim()}`;
+      }
+
+      if (experiencePack && typeof experiencePack === "string" && experiencePack.trim()) {
+        userPrompt += `
+
+🟢 EXPERIENCE SIGNALS (non-commodity gate is enabled):
+The following are first-hand signals harvested from project context and the knowledge hub. Each H2 body section should reference at least one signal, OR write a concrete handoff sentence: "Ask the clinical team for current figures on X" (replacing X with the specific thing). Do NOT invent statistics beyond what is listed. Do NOT use generic hedge phrases like "varies significantly", "depends on a number of factors", "it's important to note", "in today's world", "leverage", "delve into".
+
+SIGNALS:
+${experiencePack.trim()}`;
       }
 
       if (contextFiles && Array.isArray(contextFiles) && contextFiles.length > 0) {

@@ -11,7 +11,10 @@ serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { clusters, singleIdea, focusKeyword, customTitle } = body;
+    const { clusters, singleIdea, focusKeyword, customTitle, experiencePack } = body;
+    const expPackBlock = (experiencePack && typeof experiencePack === "string" && experiencePack.trim())
+      ? `\n\nEXPERIENCE SIGNALS (non-commodity gate enabled — anchor value_promises to these where possible; never invent statistics; if a promise needs a number, either use one of these or phrase it as "Find out the clinic's actual figures on X"):\n${experiencePack.trim()}\n`
+      : "";
 
     if (!clusters || !Array.isArray(clusters) || clusters.length === 0) {
       return new Response(JSON.stringify({ error: "Please provide clusters to enrich" }), {
@@ -64,7 +67,7 @@ ${isCustom ? `- You are given the FULL list of keywords in this silo. Your job i
 - If ZERO keywords from the list are relevant, generate 3-8 SUGGESTED keywords that someone would actually search to find this article (e.g. "how to choose dental clinic abroad", "dental clinic abroad checklist", "what to look for dental tourism"). Mark these as suggested by prefixing with "suggested: ".` : `- target_keywords: include the most relevant keywords from the provided list (3-8 keywords that best match the article topic)`}
 - value_promises: exactly 5 sharp, specific promises (see VALUE PROMISE RULES above)
 - description: 1-2 sentences describing the article's angle and coverage
-- reason: 1 sentence explaining the strategic value of this article`;
+- reason: 1 sentence explaining the strategic value of this article${expPackBlock}`;
 
       const c = clusters[0];
       const kwWithVols = c.keyword_volumes
@@ -201,7 +204,7 @@ CRITICAL KEYWORD DEDUPLICATION RULES:
 
 - Match topic names exactly as provided
 - Priority based on volume and business value
-- Content type based on search intent`;
+- Content type based on search intent${expPackBlock}`;
 
     // Process clusters in batches to avoid response truncation
     const BATCH_SIZE = 5;

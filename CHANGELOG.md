@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-05-27 - Optional non-commodity content gate (settings toggle)
+
+- **What:** New global toggle in a Settings popover (gear icon, top-right of `/` and `/keyword-research` headers). When ON, both article generation (`generate-content`) and blog idea generation (`cluster-keywords-enrich`) receive an `experiencePack` string built client-side from `brain_insights` + `context_documents` via deterministic regex extraction (`src/lib/experienceSignals.ts`). Both edge functions inject the pack into their prompts only when present — when absent, behaviour is byte-identical to before. Default OFF.
+- **Why:** Lets the user optionally enforce first-hand experience signals (cases, numbers, named outcomes, named protocols) in generated content without breaking existing flows. Never blocks generation.
+- **Files:** `src/lib/experienceSignals.ts` (new), `src/components/SettingsPopover.tsx` (new), `src/components/CommodityBadge.tsx` (new), `src/pages/Index.tsx` (header + 1 invoke site), `src/pages/KeywordResearch.tsx` (header), `src/components/keyword-research/KeywordClustering.tsx` (3 invoke sites), `supabase/functions/generate-content/index.ts` (accept + inject), `supabase/functions/cluster-keywords-enrich/index.ts` (accept + inject).
+- **Verified broken:** Nothing verified broken. Checked: edge functions only read new field via destructure (no-op when undefined); call sites only add the new field; toggle defaults to false so loadProjectSignals never runs unless user opts in; no DB migration. Not exhaustively manually tested in browser this turn.
+- **Verify:** Toggle OFF (default) → generate article and blog ideas; payloads omit `experiencePack`, no behaviour change. Toggle ON with brain insights / context docs populated → edge function logs show "EXPERIENCE SIGNALS" block in prompt; ideas/articles reference figures from those sources.
+
+
+
 ## 2026-05-27 - Citations: section-end "Source:" line instead of inline anchors
 
 - **What:** Replaced the inline-anchor injection inside `enforceSourcesAndReferences` (generate-content edge function) with a section-end attribution line. For each non-structural H2/H3 body section, instead of wrapping a phrase in `[anchor](url)` mid-prose, the picked reference is appended at the very end of the section body as `*Source: [Title](url)*` on its own paragraph. The final `## References` numbered list at the bottom of the article is unchanged. The model-output stripper (step 2 of `enforceSourcesAndReferences`) is not affected because it only matches lines that are exactly "Sources?:" with no trailing content — our injected line has the title+url after the colon.

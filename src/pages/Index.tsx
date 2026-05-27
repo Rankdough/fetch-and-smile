@@ -44,6 +44,9 @@ import { TrustSignalBox, buildTrustSignalHtml } from "@/components/TrustSignalBo
 import { marked as markedLib } from "marked";
 import { ColorPaletteSelector, ColorPalette, COLOR_PALETTES } from "@/components/ColorPaletteSelector";
 import { KnowledgeBasePanel } from "@/components/KnowledgeBasePanel";
+import { SettingsPopover } from "@/components/SettingsPopover";
+import { CommodityBadge } from "@/components/CommodityBadge";
+import { isExperienceGateEnabled, loadProjectSignals, gradeCommodity, stripHedges, type CommodityGrade } from "@/lib/experienceSignals";
 import { VoiceEditAgent } from "@/components/VoiceEditAgent";
 import { ToneProfilePanel } from "@/components/ToneProfilePanel";
 import { UniqueAnglesPanel } from "@/components/UniqueAnglesPanel";
@@ -1565,6 +1568,10 @@ const Index = () => {
 
         const filledClaims = valuePromiseClaims.filter(c => c.trim());
 
+        const experiencePack = isExperienceGateEnabled()
+          ? (await loadProjectSignals()).pack || undefined
+          : undefined;
+
         const { data, error } = await supabase.functions.invoke("generate-content", {
           body: {
             ...formData,
@@ -1583,6 +1590,7 @@ const Index = () => {
             skipQuickTips,
             skipSources,
             firstHandEvidence: formData.firstHandEvidence?.trim() || undefined,
+            experiencePack,
           },
         });
 
@@ -2389,6 +2397,9 @@ const Index = () => {
               SEO Brain
             </Button>
           </nav>
+          <div className="ml-auto">
+            <SettingsPopover />
+          </div>
         </div>
       </header>
 
