@@ -1491,7 +1491,7 @@ const KeywordClustering = () => {
     try {
       const totalVol = keywords.reduce((s, kw) => s + (cluster.keyword_volumes?.[kw] ?? cluster.keyword_volumes?.[kw.toLowerCase()] ?? 0), 0);
 
-      const experiencePack = isExperienceGateEnabled() ? (await loadProjectSignals()).pack || undefined : undefined;
+      // experiencePack intentionally omitted — see comment above.
       const { data, error } = await supabase.functions.invoke("cluster-keywords-enrich", {
         body: {
           clusters: [{
@@ -1501,9 +1501,9 @@ const KeywordClustering = () => {
           }],
           singleIdea: true,
           focusKeyword: keywords[0],
-          experiencePack,
         },
       });
+
 
       if (error) throw error;
 
