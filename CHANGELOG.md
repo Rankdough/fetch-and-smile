@@ -1,5 +1,24 @@
 # Changelog
 
+## 2026-05-27 - Stage 3 prep: commodity-check signal types + two-pass grading
+
+- **What:** Extended `src/lib/experienceSignals.ts` non-destructively. Added four new `SignalType` values — `study-citation`, `comparative-stat`, `failure-marker`, `contrarian-marker` — with high-priority regex rules placed at the top of `extractSignalsFromText`'s loop so they take precedence over the legacy generic rules. Added a new two-pass grading API: `gradeStructural(text)` returns a cold, brain-independent `StructuralGrade` based on signal density, high-weight-signal count, type variety, hedge density, and number count; `verifyAgainstBrain(text, mappedUnitTexts[])` runs token-anchor matching (3-grams → 2-grams → distinctive numeric tokens) of every extracted signal against the supplied mapped unit text(s), returning per-signal `verified` flags and an aggregate `BrainVerificationGrade`. `gradeArticleTwoPass` is the convenience wrapper that returns both. The existing `gradeCommodity` is untouched so current callers (`CommodityBadge`) keep their behaviour.
+- **Why:** Calibration of the Stage 3 commodity gate. The legacy single-score `gradeCommodity` returned `amber 40` for a clearly proprietary-grade article (false negative) and `green 95` for the same text once 5 unrelated signals existed in the brain (false positive). The new architecture separates "is this article structurally non-commodity?" from "do its signals trace back to declared knowledge?", matching the plan's per-section anchor-matching requirement.
+- **What may break:**
+  - Nothing in the existing UI consumes `gradeStructural` / `verifyAgainstBrain` yet — they are additive exports. `CommodityBadge` and `gradeCommodity` are unchanged.
+  - First-match-wins ordering means a sentence that contains both a study citation and a comparative stat will be tagged `study-citation` only; `comparative-stat` is shadowed in mixed sentences. Verified on the Invisalign sample: "averaged 18 months vs 22 months for braces" was claimed by `study-citation` because the same sentence references the 2025 PubMed study. Acceptable for grading purposes (high-weight either way) but worth knowing if downstream code branches on the specific type.
+  - `contrarian-marker` regex requires the consensus verb to follow the noun directly (`most websites make it sound`), so a sentence like `Most websites make Invisalign sound like it "fixes underbites"` does NOT fire `contrarian-marker` because "Invisalign" sits between "websites" and "make … sound". Verified missed on the Invisalign sample. Looser regex would over-fire; flagging for later refinement rather than churning now.
+- **Files:**
+  - edited `src/lib/experienceSignals.ts` (added 4 SignalType values, 4 extractor rules, `gradeStructural`, `verifyAgainstBrain`, `gradeArticleTwoPass`, `findAnchor`, `HIGH_WEIGHT_TYPES`)
+- **Verify:**
+  1. Ran the Invisalign sample end-to-end in `/tmp/ctest/run2.ts` (inlined supabase stub).
+  2. `gradeStructural` → `green, 86` (5 signals, all high-weight, 0 hedges, 11 numbers) — correct cold-state grade for a well-written article with no brain.
+  3. `verifyAgainstBrain(text, [])` → `red, 0`, every signal `unverified` with reason `No mapped knowledge units — verification not possible` — correct honest report.
+  4. `verifyAgainstBrain(text, [irrelevant_brain])` → `red, 0`, 5 unverified, including `5 unverified high-weight signal(s) — possible fabrication` — correct fabrication flag.
+  5. `verifyAgainstBrain(text, [matching_brain])` → `red, 20`, 1/5 verified (anchor matched `moderate class`) — correct partial verification.
+
+
+
 ## 2026-05-27 - Stage 1: Proprietary Mode foundation (interview agent, schema, brain panel)
 
 - **What:** Added the first slice of Proprietary Mode in parallel to the existing classic generator. Schema migration extends `brain_insights` with `unit_type`, `word_count`, `contributor_id`, `business_type`, `parent_unit_id`, `is_stale`, `stale_reason`, `usage_count` (all defaulted, all existing rows = `legacy`), plus new tables `brain_unit_contradictions` and `proprietary_analytics_events`. New edge function `interview-agent` (Socratic chat + structured extract with 80-word floor for `case` / `outcome` units; 6 business-branch question banks). New page `/proprietary/extract` with 5-step flow (business type → brief → existing-knowledge review → interview → unit review). New shared module `src/lib/proprietaryUnits.ts` and components `UnitTypeChip`, `SlotProgressGrid`, `ExistingKnowledgePanel`. `BrainInsights` page now renders the unit-type chip, staleness/usage/version flags, a "View previous version" link when `parent_unit_id` is set, and surfaces `brain_unit_contradictions` with three-action resolution (Mark as context-dependent / Dismiss / Open the other unit). Nav entry "Proprietary" added to both `Index.tsx` and `BrainInsights.tsx` headers.
