@@ -1055,10 +1055,18 @@ Place these images throughout the article at logical locations, typically after 
       const seen = new Set<string>();
       const push = (cand: SourceCandidate) => {
         if (seen.has(cand.url)) return;
-        if (isJunkUrl(cand.url)) return;
-        // QUALITY FILTER: drop low-authority/commercial domains from context files.
-        // Authority allow-list and commercial heuristic match the web-search tiering.
-        if (isLowQualityDomain(cand.url)) {
+        // CONTEXT FILES = TRUTH. The user curated these URLs deliberately.
+        // We only reject obvious junk (dead patterns, file extensions, anchors,
+        // placeholder hosts) and own-domain links. We do NOT apply the
+        // commercial/authority filter here — that filter is for web-search
+        // fallback results only. If the user put a dental clinic URL in the
+        // context file, it IS the authority for this article.
+        if (isJunkUrl(cand.url)) {
+          rejected.push(cand.url);
+          seen.add(cand.url);
+          return;
+        }
+        if (isOwnDomainUrl(cand.url)) {
           rejected.push(cand.url);
           seen.add(cand.url);
           return;
@@ -1086,13 +1094,15 @@ Place these images throughout the article at logical locations, typically after 
         }
       }
       if (rejected.length > 0) {
-        console.log(`SOURCE CATALOGUE: dropped ${rejected.length} low-quality context URL(s): ${rejected.slice(0, 8).join(", ")}${rejected.length > 8 ? " …" : ""}`);
+        console.log(`SOURCE CATALOGUE: dropped ${rejected.length} junk/own-domain context URL(s): ${rejected.slice(0, 8).join(", ")}${rejected.length > 8 ? " …" : ""}`);
       }
+      console.log(`SOURCE CATALOGUE: accepted ${candidates.length} context URL(s) — context files are trusted, commercial/authority filter NOT applied`);
       return candidates.slice(0, 80);
     };
 
     const contextSourceCandidates = extractContextSourceCandidates();
-    console.log(`SOURCE CATALOGUE: ${contextSourceCandidates.length} context URL candidate(s) (junk filtered) from ${Array.isArray(contextFiles) ? contextFiles.length : 0} context file(s)`);
+    console.log(`SOURCE CATALOGUE: ${contextSourceCandidates.length} context URL candidate(s) from ${Array.isArray(contextFiles) ? contextFiles.length : 0} context file(s)`);
+
 
     const tokenise = (text: string): Set<string> => {
       const stop = new Set(["this","that","with","from","about","what","when","where","which","their","there","they","have","been","will","would","could","should","into","than","then","your","also","more","most","some","such","other","over","under","between","during","while","just","like","make","made","does","doing","because","through","against","both","each","every","very","much","many","only","upon","onto","these","those","being","after","before","still"]);
