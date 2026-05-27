@@ -500,7 +500,7 @@ Deno.serve(async (req) => {
         publicationDestination,
         section,
         surroundingContext: surrounding.slice(),
-        articleTitle: body.topic,
+        articleTitle,
         model,
       });
 
@@ -521,7 +521,7 @@ Deno.serve(async (req) => {
     }
 
     // 6. Stitch
-    const md: string[] = [`# ${body.topic}`, ""];
+    const md: string[] = [`# ${articleTitle}`, ""];
     for (const s of sectionsOut) {
       if (s.kind === "opening") {
         md.push(s.content, "");
@@ -535,7 +535,7 @@ Deno.serve(async (req) => {
         md.push(`## ${s.heading}`, "", s.content, "");
       }
     }
-    const content = sanitiseGeneratedMarkdown(md.join("\n").trim(), body.topic);
+    const content = sanitiseGeneratedMarkdown(md.join("\n").trim(), articleTitle);
 
     // mappedUnitTexts for downstream verification grading on the client
     const mappedUnitTexts: string[] = [];
