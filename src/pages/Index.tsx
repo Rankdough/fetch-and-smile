@@ -4589,7 +4589,11 @@ const Index = () => {
                     </Button>
                   )}
                   Generated Content
+                  {commodityGrade && (
+                    <CommodityBadge grade={commodityGrade} className="ml-2 align-middle" />
+                  )}
                 </CardTitle>
+
                 <Button
                   variant="outline"
                   size="sm"
