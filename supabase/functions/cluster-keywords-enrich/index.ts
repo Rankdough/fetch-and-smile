@@ -11,7 +11,10 @@ serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { clusters, singleIdea, focusKeyword, customTitle } = body;
+    const { clusters, singleIdea, focusKeyword, customTitle, experiencePack } = body;
+    const expPackBlock = (experiencePack && typeof experiencePack === "string" && experiencePack.trim())
+      ? `\n\nEXPERIENCE SIGNALS (non-commodity gate enabled — anchor value_promises to these where possible; never invent statistics; if a promise needs a number, either use one of these or phrase it as "Find out the clinic's actual figures on X"):\n${experiencePack.trim()}\n`
+      : "";
 
     if (!clusters || !Array.isArray(clusters) || clusters.length === 0) {
       return new Response(JSON.stringify({ error: "Please provide clusters to enrich" }), {
