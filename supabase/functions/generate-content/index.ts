@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { countWords, trimSectionToBudget } from "../_shared/articleSectionBudget.ts";
+import { countWords, trimSectionToBudget, trimToWordCount } from "../_shared/articleSectionBudget.ts";
 import {
   type SourceCandidate,
   cleanSourceUrl,
@@ -212,7 +212,7 @@ CRITICAL MARKDOWN FORMATTING RULES:
 - WRONG: "- - Text here" or "- — Text here" 
 - CORRECT: "- Text here"
 - Use numbered lists (1.) for easy scanning
-- Use markdown tables with | for comparisons (e.g., Feature | Option A | Option B)
+- Use markdown tables with | for comparisons, using topic-specific real categories and decision dimensions only
 - DO NOT use blockquotes (>) for TL;DR - use H2 heading instead
 
 ${formatReference ? `FORMAT REFERENCE MODE: A format reference has been provided. You MUST replicate the STRUCTURE and LAYOUT PATTERN of the reference article instead of using the standard article template. The reference structure takes priority over default section rules. Keep the same types of sections, headings, and content patterns as the reference. Target word count: ~${targetWords} words.` : `CRITICAL: QUESTION-BASED HEADINGS RULE:
@@ -237,19 +237,22 @@ ${formatReference ? `FORMAT REFERENCE MODE: A format reference has been provided
 
 ${migrationMode ? `TABLE RULE:
 - Use markdown tables where the source content contains list-style comparisons or product listings
-- Do NOT force tables where the source does not warrant them` : `TABLE RULE (1 table per 600 words of target length):
-- Include EXACTLY ${requiredTables} markdown comparison table${requiredTables > 1 ? 's' : ''} for ${targetWords} target words
-- Use proper pipe syntax with a header separator row, e.g.:
+- Do NOT force tables where the source does not warrant them
+- Every table must use topic-specific categories and dimensions from the source content` : `TABLE RULE (1 table per 600 words of target length):
+- Include up to ${requiredTables} markdown comparison table${requiredTables > 1 ? 's' : ''} for ${targetWords} target words only where the topic has real categories to compare
+- Use proper pipe syntax with a header separator row, e.g. for a clinical treatment topic:
 
-| Feature | Option A | Option B |
-| --- | --- | --- |
-| Cost | $100 | $200 |
-| Duration | 1 hour | 2 hours |
+| Case type | Definition | Treatment suitability | Key risk if misdiagnosed |
+| --- | --- | --- | --- |
+| Dental pattern | Teeth position drives the bite issue | Usually suitable when movement is tooth-led | Treating the wrong mechanism wastes months |
+| Skeletal pattern | Jaw relationship drives the bite issue | Often needs surgical assessment first | Camouflage can worsen facial balance |
 
-- Each table: at least 3 columns and at least 4 data rows
-- Spread tables evenly across body H2 sections; never cluster at the end
-- Markdown only — do NOT use HTML <table> tags
-- Do NOT replace tables with bullet lists`}
+- Each table: at least 3 columns and at least 3 data rows when enough real categories exist
+- Columns must be real decision dimensions for this topic, not generic labels
+- ABSOLUTELY FORBIDDEN table labels: Option A, Option B, Option C, Type 1, Type 2, Type 3, Beginners, Intermediate users, Advanced needs, Choice 1, Choice 2, Choice 3
+- If you cannot name real topic categories with confidence, omit the table rather than using a template
+- Spread tables evenly across body H2 sections when more than one is warranted
+- Markdown only — do NOT use HTML <table> tags`}
 
 SOURCE REFERENCE RULES (ABSOLUTE):
 - DO NOT add any "**Sources:**" lines, "Sources:" lines, or "Source:" lines anywhere in the article.
