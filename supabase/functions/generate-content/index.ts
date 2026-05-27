@@ -909,6 +909,67 @@ Place these images throughout the article at logical locations, typically after 
     content = content.replace(/—/g, "-").replace(/–/g, "-");
     content = content.replace(/^\s*[-*_]{3,}\s*$/gm, "");
 
+    const removeDanglingSentenceTails = (markdown: string): string => {
+      return markdown
+        .split("\n")
+        .map((line) => {
+          const trimmed = line.trim();
+          if (!trimmed || /^#{1,6}\s/.test(trimmed) || /^\s*(\||[-*+]|\d+\.)\s?/.test(line) || trimmed.includes("|") || /^>/.test(trimmed)) {
+            return line;
+          }
+          if (/[.!?:)]\s*$/.test(trimmed)) return line;
+          const lastTerm = Math.max(trimmed.lastIndexOf("."), trimmed.lastIndexOf("!"), trimmed.lastIndexOf("?"));
+          if (lastTerm > 20) return line.slice(0, line.indexOf(trimmed) + lastTerm + 1);
+          return line;
+        })
+        .join("\n")
+        .replace(/\n{3,}/g, "\n\n")
+        .trim();
+    };
+
+    const naturaliseKeywordPhrase = (keyword: string): string => {
+      let phrase = keyword
+        .toLowerCase()
+        .replace(/\b(how|what|why|when|where|which|who|can|does|do|is|are|will|should|could|would)\b/g, " ")
+        .replace(/\b(fix|help|work|mean|cost)\b/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+      if (!phrase || phrase.split(/\s+/).length < 2) phrase = (topic || keyword).toLowerCase();
+      return phrase.replace(/\b\w/g, (c) => c.toUpperCase());
+    };
+
+    const escapeRegExp = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const stripMidProseKeywordStuffing = (markdown: string): string => {
+      if (!keywords || !Array.isArray(keywords) || keywords.length === 0) return markdown;
+      const keywordList = keywords.map((k: string) => String(k || "").trim()).filter((k: string) => k.split(/\s+/).length >= 4);
+      if (keywordList.length === 0) return markdown;
+
+      let stripped = 0;
+      const lines = markdown.split("\n");
+      const seenHeadingKeywords = new Set<string>();
+      const next = lines.map((line) => {
+        const trimmed = line.trim();
+        const isHeading = /^#{1,6}\s/.test(trimmed);
+        let out = line;
+        for (const keyword of keywordList) {
+          const re = new RegExp(`\\b${escapeRegExp(keyword)}\\b`, "gi");
+          const matches = out.match(re);
+          if (!matches) continue;
+          if (isHeading && !seenHeadingKeywords.has(keyword.toLowerCase())) {
+            seenHeadingKeywords.add(keyword.toLowerCase());
+            continue;
+          }
+          stripped += matches.length;
+          out = out.replace(re, naturaliseKeywordPhrase(keyword));
+        }
+        return out;
+      });
+      if (stripped > 0) console.log(`KEYWORD GUARD: Rewrote ${stripped} exact long-tail keyword injection(s) outside allowed heading usage.`);
+      return next.join("\n");
+    };
+
+    content = stripMidProseKeywordStuffing(removeDanglingSentenceTails(content));
+
     if (!expandExistingContent) {
       const currentWordCount = countWords(content);
       if (currentWordCount > wordCeiling) {
