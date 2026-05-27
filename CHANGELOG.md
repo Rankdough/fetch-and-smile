@@ -452,3 +452,9 @@
 **Verified broken:** Nothing verified broken. Checked: assembler file reads, `runSection` consumers (`proprietary-generate-article/index.ts`, `proprietary-generate-section/index.ts`) — both pass `mappedUnit: null` through unchanged and read `appliedRules` as `number[]`, which still holds. No callers depend on Rule 1 forcing a whole-section token. Did not run the build (harness will).
 
 **What may break:** Sections that previously short-circuited to `[NEEDS EXPERT INPUT]` will now produce real content; `needsExpertInput` telemetry counts will drop. Failure-mode sections without a failure unit now describe generic clinical failure mechanisms instead of emitting the bare token — the `needsExpertInput` flag in those cases now reflects the absence of inline placeholders, not the absence of a unit.
+
+## 2026-05-27 — insert-internal-links: timeout hardening
+- What: Switched model from `gemini-3-flash-preview` → `gemini-2.5-flash`; added 110s AbortController; on timeout/error, return original content with 200 instead of letting the function 504.
+- Why: Function was hitting the 150s edge idle timeout, producing a blank screen for the user.
+- Files: supabase/functions/insert-internal-links/index.ts
+- Verified broken: None (graceful fallback preserves prior content). To verify: trigger internal-link insertion on a long article; confirm no 504 and either links inserted or original content returned with `note`.

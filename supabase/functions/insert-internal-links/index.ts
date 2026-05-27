@@ -163,20 +163,44 @@ ${urlContexts.map((c, i) => `${i + 1}. ${c.url}\n   Destination topic keywords: 
 ARTICLE:
 ${contentWithoutReferences}`;
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-      }),
-    });
+    const aiController = new AbortController();
+    const aiTimeout = setTimeout(() => aiController.abort(), 110_000);
+    let response: Response;
+    try {
+      response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash",
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt },
+          ],
+        }),
+        signal: aiController.signal,
+      });
+    } catch (err) {
+      clearTimeout(aiTimeout);
+      const aborted = (err as Error)?.name === "AbortError";
+      console.warn("[insert-internal-links] AI call failed:", aborted ? "timeout" : err);
+      // Graceful fallback: return original content so the client doesn't 504
+      return new Response(
+        JSON.stringify({
+          content,
+          insertedCount: 0,
+          totalProvided: allUrls.length,
+          insertedUrls: [],
+          skippedUrls: allUrls,
+          skippedOffTopic,
+          note: aborted ? "AI link insertion timed out; returning original content." : "AI link insertion failed; returning original content.",
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    clearTimeout(aiTimeout);
 
     if (!response.ok) {
       const errorText = await response.text();
