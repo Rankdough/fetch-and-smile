@@ -316,3 +316,231 @@ export function setExperienceGateEnabled(enabled: boolean): void {
   localStorage.setItem(STORAGE_KEY, enabled ? "true" : "false");
   window.dispatchEvent(new Event("experience-gate-changed"));
 }
+
+// ============================================================================
+// Stage 3 — Two-pass commodity grading
+//
+// 1. Structural grade: cold, brain-independent. Scores an article on signal
+//    density + variety of signal types found in its own text. A genuinely
+//    well-written article scores high here even when no brain exists yet.
+//
+// 2. Brain-verification grade: only meaningful when mapped knowledge units
+//    are supplied. For each signal extracted from the article, check whether
+//    its snippet anchors text that actually appears in the mapped unit.
+//    Signals with no match are "unverified" — potentially fabricated.
+//
+// Surface both scores separately. Never collapse to a single number.
+// ============================================================================
+
+const HIGH_WEIGHT_TYPES: ReadonlySet<SignalType> = new Set([
+  "study-citation",
+  "comparative-stat",
+  "failure-marker",
+  "contrarian-marker",
+]);
+
+export interface StructuralGrade {
+  badge: "red" | "amber" | "green";
+  score: number; // 0-100
+  signalCount: number;
+  highWeightCount: number;
+  typeVariety: number; // distinct SignalType count
+  hedgeHits: number;
+  numberCount: number;
+  reasons: string[];
+}
+
+/**
+ * Cold, brain-independent structural grade.
+ * Pure function of the article text. Suitable for new projects with no brain yet.
+ */
+export function gradeStructural(text: string): StructuralGrade {
+  const reasons: string[] = [];
+  const signals = extractSignalsFromText(text, "self");
+  const typeVariety = new Set(signals.map((s) => s.type)).size;
+  const highWeightCount = signals.filter((s) => HIGH_WEIGHT_TYPES.has(s.type)).length;
+  const { hits: hedgeHits } = stripHedges(text);
+  const numberCount = (text.match(/\b\d+(?:[.,]\d+)?\b/g) || []).length;
+
+  let score = 30; // cold baseline — no brain assumed
+
+  // Signal density (capped contribution)
+  if (signals.length >= 8) {
+    score += 20;
+    reasons.push(`${signals.length} structural signals`);
+  } else if (signals.length >= 4) {
+    score += 12;
+    reasons.push(`${signals.length} structural signals`);
+  } else if (signals.length >= 1) {
+    score += 4;
+    reasons.push(`${signals.length} structural signal(s) — thin`);
+  } else {
+    reasons.push("No structural signals detected");
+    score -= 10;
+  }
+
+  // High-weight (proprietary-grade) signals dominate the score
+  if (highWeightCount >= 4) {
+    score += 30;
+    reasons.push(`${highWeightCount} high-weight signals (study/comparative/failure/contrarian)`);
+  } else if (highWeightCount >= 2) {
+    score += 20;
+    reasons.push(`${highWeightCount} high-weight signals`);
+  } else if (highWeightCount === 1) {
+    score += 8;
+    reasons.push("1 high-weight signal");
+  } else {
+    reasons.push("No high-weight signals (no studies, comparisons, failures, or contrarian claims)");
+  }
+
+  // Type variety bonus — well-rounded articles cover multiple signal types
+  if (typeVariety >= 4) {
+    score += 10;
+    reasons.push(`${typeVariety} distinct signal types`);
+  } else if (typeVariety >= 2) {
+    score += 4;
+  }
+
+  // Hedge penalty
+  if (hedgeHits === 0) {
+    score += 5;
+    reasons.push("No hedge phrases");
+  } else if (hedgeHits <= 2) {
+    score -= 5;
+    reasons.push(`${hedgeHits} hedge phrase(s)`);
+  } else {
+    score -= 15;
+    reasons.push(`${hedgeHits} hedge phrases (high)`);
+  }
+
+  // Concrete numbers
+  if (numberCount >= 8) {
+    score += 5;
+    reasons.push(`${numberCount} concrete numbers`);
+  } else if (numberCount < 3) {
+    score -= 5;
+    reasons.push(`Only ${numberCount} concrete numbers`);
+  }
+
+  score = Math.max(0, Math.min(100, score));
+  const badge: StructuralGrade["badge"] =
+    score >= 70 ? "green" : score >= 40 ? "amber" : "red";
+
+  return { badge, score, signalCount: signals.length, highWeightCount, typeVariety, hedgeHits, numberCount, reasons };
+}
+
+export interface VerifiedSignal {
+  type: SignalType;
+  snippet: string;
+  verified: boolean;
+  matchedAnchor?: string;
+}
+
+export interface BrainVerificationGrade {
+  badge: "red" | "amber" | "green";
+  score: number;
+  verifiedCount: number;
+  unverifiedCount: number;
+  signals: VerifiedSignal[];
+  reasons: string[];
+}
+
+/**
+ * Token-level anchor: shared tokens of length >= 4 between the signal snippet
+ * and any of the mapped unit texts. Returns the longest matching token run.
+ *
+ * Intentionally simple. The point isn't fuzzy NLP — it's "does any chunk of
+ * this signal's source text actually appear in the knowledge unit we mapped
+ * to this section?" If not, the signal came from somewhere else.
+ */
+function findAnchor(snippet: string, unitTexts: string[]): string | undefined {
+  if (!unitTexts.length) return undefined;
+  const haystack = unitTexts.join(" \n ").toLowerCase();
+  // Try multi-word anchors first (most discriminating), then single words.
+  const words = snippet
+    .toLowerCase()
+    .replace(/[^a-z0-9£$€%.\s-]/g, " ")
+    .split(/\s+/)
+    .filter((w) => w.length >= 4 && !/^(the|and|with|that|this|from|have|been|were|when|what|which|their|there|about|aligners?|patient|underbite|underbites|cases?)$/.test(w));
+
+  // 3-grams
+  for (let i = 0; i <= words.length - 3; i++) {
+    const tri = `${words[i]} ${words[i + 1]} ${words[i + 2]}`;
+    if (haystack.includes(tri)) return tri;
+  }
+  // 2-grams
+  for (let i = 0; i <= words.length - 2; i++) {
+    const bi = `${words[i]} ${words[i + 1]}`;
+    if (haystack.includes(bi)) return bi;
+  }
+  // distinctive single tokens (numbers, percentages, currency, year)
+  for (const w of words) {
+    if (/^\d/.test(w) && haystack.includes(w)) return w;
+  }
+  return undefined;
+}
+
+/**
+ * Second pass: cross-check every signal in the article against the mapped
+ * knowledge unit text(s). If a signal can't be anchored, it's unverified.
+ *
+ * Call with mappedUnitTexts = [] to get an honest "unverified" report for a
+ * cold project (every signal becomes unverified, score = 0, badge = red,
+ * and the UI should label this as "no brain to verify against" rather than
+ * a failure of the article itself).
+ */
+export function verifyAgainstBrain(
+  text: string,
+  mappedUnitTexts: string[]
+): BrainVerificationGrade {
+  const signals = extractSignalsFromText(text, "article");
+  const verified: VerifiedSignal[] = signals.map((s) => {
+    const anchor = findAnchor(s.snippet, mappedUnitTexts);
+    return { type: s.type, snippet: s.snippet, verified: !!anchor, matchedAnchor: anchor };
+  });
+  const verifiedCount = verified.filter((v) => v.verified).length;
+  const unverifiedCount = verified.length - verifiedCount;
+
+  const reasons: string[] = [];
+  let score = 0;
+  if (mappedUnitTexts.length === 0) {
+    reasons.push("No mapped knowledge units — verification not possible");
+    return { badge: "red", score: 0, verifiedCount: 0, unverifiedCount: verified.length, signals: verified, reasons };
+  }
+
+  if (signals.length === 0) {
+    reasons.push("No signals to verify");
+    return { badge: "amber", score: 50, verifiedCount: 0, unverifiedCount: 0, signals: [], reasons };
+  }
+
+  const ratio = verifiedCount / signals.length;
+  score = Math.round(ratio * 100);
+  reasons.push(`${verifiedCount}/${signals.length} signals anchor to mapped units`);
+  if (unverifiedCount > 0) {
+    const unverifiedHighWeight = verified.filter((v) => !v.verified && HIGH_WEIGHT_TYPES.has(v.type)).length;
+    if (unverifiedHighWeight > 0) {
+      reasons.push(`${unverifiedHighWeight} unverified high-weight signal(s) — possible fabrication`);
+    }
+  }
+
+  const badge: BrainVerificationGrade["badge"] =
+    score >= 70 ? "green" : score >= 40 ? "amber" : "red";
+  return { badge, score, verifiedCount, unverifiedCount, signals: verified, reasons };
+}
+
+export interface TwoPassReport {
+  structural: StructuralGrade;
+  verification: BrainVerificationGrade;
+}
+
+/**
+ * Convenience wrapper: run both passes and return them side-by-side.
+ * The UI is expected to show BOTH scores — never collapse to a single number.
+ */
+export function gradeArticleTwoPass(text: string, mappedUnitTexts: string[] = []): TwoPassReport {
+  return {
+    structural: gradeStructural(text),
+    verification: verifyAgainstBrain(text, mappedUnitTexts),
+  };
+}
+
