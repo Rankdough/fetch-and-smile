@@ -2392,6 +2392,9 @@ const Index = () => {
               SEO Brain
             </Button>
           </nav>
+          <div className="ml-auto">
+            <SettingsPopover />
+          </div>
         </div>
       </header>
 
