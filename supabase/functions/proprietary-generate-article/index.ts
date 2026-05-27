@@ -552,6 +552,8 @@ Deno.serve(async (req) => {
         mappedUnitTexts,
         brainUnitCount: units.length,
         outline: h2Questions,
+        articleTitle,
+        originalTopic: body.topic,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
