@@ -45,8 +45,8 @@ import { marked as markedLib } from "marked";
 import { ColorPaletteSelector, ColorPalette, COLOR_PALETTES } from "@/components/ColorPaletteSelector";
 import { KnowledgeBasePanel } from "@/components/KnowledgeBasePanel";
 import { SettingsPopover } from "@/components/SettingsPopover";
-import { CommodityBadge } from "@/components/CommodityBadge";
-import { isExperienceGateEnabled, loadProjectSignals, gradeCommodity, stripHedges, type CommodityGrade } from "@/lib/experienceSignals";
+import { VerificationReport } from "@/components/VerificationReport";
+import { isExperienceGateEnabled, loadProjectSignals, gradeArticleTwoPass, stripHedges, type TwoPassReport } from "@/lib/experienceSignals";
 import { VoiceEditAgent } from "@/components/VoiceEditAgent";
 import { ToneProfilePanel } from "@/components/ToneProfilePanel";
 import { UniqueAnglesPanel } from "@/components/UniqueAnglesPanel";
@@ -645,7 +645,7 @@ const Index = () => {
     const saved = localStorage.getItem("seo-generator-appliedRules");
     return saved ? JSON.parse(saved) : null;
   });
-  const [commodityGrade, setCommodityGrade] = useState<CommodityGrade | null>(null);
+  const [commodityGrade, setCommodityGrade] = useState<TwoPassReport | null>(null);
 
   const [generatedCTAs, setGeneratedCTAs] = useState<{ middle: { headline: string; description: string; buttonText: string }; end: { headline: string; description: string; buttonText: string } } | null>(() => {
     const saved = localStorage.getItem("seo-generator-generatedCTAs");
@@ -1650,10 +1650,13 @@ const Index = () => {
       // whether the first-hand signals actually landed. Only runs when toggle ON.
       if (isExperienceGateEnabled()) {
         try {
-          const { signals } = await loadProjectSignals();
-          setCommodityGrade(gradeCommodity(signals, content));
+          // Two-axis report: structural (cold, brain-independent) +
+          // verification (anchors signals against mapped knowledge units).
+          // No mapping wired into the classic flow yet, so mappedUnitTexts = [].
+          // That correctly yields the "no-brain" verification state in the UI.
+          setCommodityGrade(gradeArticleTwoPass(content, []));
         } catch (e) {
-          console.warn("Commodity grading failed", e);
+          console.warn("Two-pass grading failed", e);
           setCommodityGrade(null);
         }
       } else {
@@ -4604,7 +4607,7 @@ const Index = () => {
                   )}
                   Generated Content
                   {commodityGrade && (
-                    <CommodityBadge grade={commodityGrade} className="ml-2 align-middle" />
+                    <VerificationReport report={commodityGrade} hasBrain={false} className="ml-2 align-middle" />
                   )}
                 </CardTitle>
 
