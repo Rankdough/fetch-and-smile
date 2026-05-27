@@ -342,11 +342,18 @@ em dashes, en dashes, or horizontal rules.`;
     // "Option A/B/C" templates; ban them outright.
     ruleBlocks.push(TABLE_GUARD_RULE);
     applied.push(7);
+
+    // Quote + sourced-figures guards — every body section
+    ruleBlocks.push(QUOTE_ATTRIBUTION_RULE);
+    ruleBlocks.push(SOURCED_FIGURES_RULE);
   } else {
     ruleBlocks.push(FRAMING_LITE_RULES);
     ruleBlocks.push(KEYWORD_NATURAL_LANGUAGE_RULE);
+    ruleBlocks.push(QUOTE_ATTRIBUTION_RULE);
+    ruleBlocks.push(SOURCED_FIGURES_RULE);
     // Framing inherits rules 2 and 5 conceptually
     applied.push(2, 5);
+
 
     // Opening framing section: enforce the marketing-umbrella reframe.
     if (section.kind === "opening") {
