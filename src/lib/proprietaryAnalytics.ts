@@ -22,8 +22,8 @@ export async function logProprietaryEvent(
       article_id: opts.articleId ?? null,
       mode: opts.mode ?? "proprietary",
       event_type: eventType,
-      payload,
-    });
+      payload: payload as any,
+    } as any);
   } catch (err) {
     // Telemetry must never break the app.
     console.warn("logProprietaryEvent failed", err);
