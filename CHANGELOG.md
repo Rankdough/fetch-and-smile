@@ -1,5 +1,30 @@
 # Changelog
 
+## 2026-05-27 - Proprietary pipeline: truncation fix, opening reframe, table guard
+
+- **What:**
+  - `proprietary-generate-article/index.ts` and `proprietary-generate-section/index.ts`: every AI gateway call now sends an explicit `max_tokens` (body sections 2200, framing 1000, outline 400). If `finish_reason === "length"`, a continuation call is fired with the partial response appended and stitched in. A last-resort guard trims any trailing dangling fragment (no terminator) so half-sentences never reach the UI.
+  - `_shared/proprietaryPromptAssembler.ts`: added `TABLE_GUARD_RULE` (Rule 7), pushed onto every body section. Forbids generic "Option A/B/C", "Type 1/2/3", "Beginner/Intermediate/Advanced" tables; requires real named categories of the topic or prose comparison instead. Added `OPENING_REFRAME_RULE`, pushed onto the `opening` framing section: when the article title is a marketing-umbrella term (screwless, painless, minimally invasive, holistic, revolutionary, advanced, smart, premium, clinical-grade, etc.), the first sentence MUST reframe with "This term is mostly marketing language, not a clean technical category." then name the underlying real categories. When the title is not marketing language, the rule no-ops.
+- **Why:** Sample article on "screwless dental implants" had three regressions vs GPT agent: (1) sentences cut off mid-thought ("…due to the absence of a."), (2) opening accepted the marketing framing instead of reframing it, (3) comparison table degenerated to "Option A/B/C — best for beginners". All three were missing guards on the proprietary path.
+- **Verified broken / What may break:**
+  - Body-section calls now cost ~2x more tokens (cap raised from gateway default to 2200). Single article = ~5 body sections × 2200 = 11k output tokens max; well within Gemini 2.5 Flash limits.
+  - Continuation call only fires when `finish_reason === "length"`. If the AI gateway omits or renames `finish_reason`, continuation never fires; primary content still ships. Logged via `console.warn`.
+  - Trailing-fragment trimmer drops text after the last `.`/`!`/`?` only if the tail has no terminator AND isn't a markdown list/header/table line. Plain paragraphs ending without punctuation will be trimmed — acceptable trade vs shipping half-sentences.
+  - `OPENING_REFRAME_RULE` is heuristic on the model side (no deterministic title check). If the model misjudges what qualifies as "marketing umbrella", it may either over-reframe a legitimate technical term or under-reframe a real marketing term. The rule explicitly tells it to no-op on non-marketing titles, but this is model-dependent.
+  - `TABLE_GUARD_RULE` doesn't post-validate generated tables — it relies on the model to honour the ban. If the model still emits "Option A/B/C", that ships. Future hardening: deterministic post-gen scrub for the banned tokens.
+  - `appliedRules` array now includes `7` for body sections and `6` for the opening framing section. Telemetry consumers expecting `1..6` only will see a new value.
+  - Nothing else verified broken. Checked: assembler module exports unchanged, both edge functions compile, callModel signature kept backward-compatible via default `maxTokens` param.
+- **Files:**
+  - edited `supabase/functions/proprietary-generate-article/index.ts`
+  - edited `supabase/functions/proprietary-generate-section/index.ts`
+  - edited `supabase/functions/_shared/proprietaryPromptAssembler.ts`
+- **Verify:**
+  1. Generate "Screwless Dental Implants: What Are They?" in Proprietary Mode. Confirm: opening starts with reframe sentence; no section ends with a half-sentence; any comparison table uses real implant categories (screw-retained / cement-retained / friction-fit) or is replaced by prose.
+  2. Generate a non-marketing topic (e.g. "Sequential reaming protocol for posterior implants"). Confirm opening does NOT include the marketing-reframe sentence.
+  3. Edge function logs should show occasional `PROPRIETARY: hit max_tokens` warnings followed by stitched continuation; final content should still terminate cleanly.
+
+
+
 ## 2026-05-27 - Stage 3: proprietary-generate-section edge function + VerificationReport UI
 
 - **What:** Added edge function `supabase/functions/proprietary-generate-section/index.ts` that wraps the shared `proprietaryPromptAssembler`, calls the Lovable AI gateway with the assembled system/user prompts, then runs (a) the deterministic Rule-5 lint and (b) the Rule-6 contradiction-surfacing editor pass when the mapped unit is `contrarian`. Response shape: `{ content, needsExpertInput, ruleFlags, contradicted, appliedRules }`. Added `src/components/VerificationReport.tsx` — a two-pill display (Signal density + Verification) backed by `TwoPassReport`, with four discriminated verification states: `no-brain`, `brain-no-overlap`, `partial-overlap`, `verified`, each with its own tooltip copy. Wired `src/pages/Index.tsx` to use `gradeArticleTwoPass(content, [])` instead of legacy `gradeCommodity`, and rendered `<VerificationReport hasBrain={false} />` in place of `<CommodityBadge>`. Mapping is not wired into the classic flow, so `mappedUnitTexts = []` and verification correctly reports the `no-brain` state (amber pill, not red — honest "can't verify" rather than "failed").

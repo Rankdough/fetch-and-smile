@@ -140,6 +140,16 @@ whenever the consensus framing of the topic is weak, ambiguous, or commercially
 motivated. Do NOT manufacture a contradiction where the consensus is genuinely
 correct.`.trim();
 
+const TABLE_GUARD_RULE = `
+RULE 7 — NO GENERIC PLACEHOLDER TABLES:
+If you include a comparison table, the column and row labels MUST be the real
+named categories of this topic (e.g. for dental implants: "Screw-retained" vs
+"Cement-retained" vs "Friction-fit"; for cement: "Portland" vs "Pozzolanic" vs
+"Rapid-set"). NEVER output a table with generic labels such as "Option A / B / C",
+"Type 1 / 2 / 3", "Beginner / Intermediate / Advanced", or "Best for: beginners".
+If you cannot name the real categories, do not include a table — write a prose
+comparison instead.`.trim();
+
 const FRAMING_LITE_RULES = `
 FRAMING SECTION RULES:
 - Lead with a direct sentence, no filler openers (Rule 2).
@@ -148,6 +158,19 @@ FRAMING SECTION RULES:
 - Avoid "varies / depends on / typically / usually" without a specific number
   carried over from the body (Rule 5).
 - Stay within the section's word budget and structural format.`.trim();
+
+const OPENING_REFRAME_RULE = `
+OPENING REFRAME (mandatory for marketing-umbrella topics):
+Inspect the article title. If the title is built on a marketing umbrella term
+(words such as "screwless", "painless", "minimally invasive", "natural",
+"holistic", "revolutionary", "advanced", "smart", "next-generation", "premium",
+"clinical-grade", or any branded/qualifier-led label that bundles multiple
+distinct technical approaches), your FIRST sentence MUST reframe it. Use the
+literal pattern: "This term is mostly marketing language, not a clean technical
+category." (or a near-identical reframe). Then name the underlying real
+categories in the second sentence. Do not accept the marketing framing.
+If the title is not a marketing umbrella term, ignore this rule and lead with a
+direct factual claim instead.`.trim();
 
 function describeMappedUnit(unit: MappedUnit | null): string {
   if (!unit) {
@@ -234,10 +257,21 @@ em dashes, en dashes, or horizontal rules.`;
       ruleBlocks.push(CONTRARIAN_RULE_NO_UNIT);
       applied.push(6);
     }
+
+    // Rule 7 — table guard on every body section. Models love generic
+    // "Option A/B/C" templates; ban them outright.
+    ruleBlocks.push(TABLE_GUARD_RULE);
+    applied.push(7);
   } else {
     ruleBlocks.push(FRAMING_LITE_RULES);
     // Framing inherits rules 2 and 5 conceptually
     applied.push(2, 5);
+
+    // Opening framing section: enforce the marketing-umbrella reframe.
+    if (section.kind === "opening") {
+      ruleBlocks.push(OPENING_REFRAME_RULE);
+      applied.push(6);
+    }
   }
 
   const system = [

@@ -24,27 +24,55 @@ interface Body extends AssemblerInput {
   model?: string;
 }
 
-async function callModel(system: string, user: string, model: string): Promise<string> {
-  const res = await fetch(AI_URL, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${LOVABLE_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model,
-      messages: [
-        { role: "system", content: system },
-        { role: "user", content: user },
-      ],
-    }),
-  });
-  if (!res.ok) {
-    const txt = await res.text();
-    throw new Error(`AI gateway ${res.status}: ${txt}`);
+async function callModel(system: string, user: string, model: string, maxTokens = 2200): Promise<string> {
+  async function once(sys: string, usr: string) {
+    const res = await fetch(AI_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model,
+        max_tokens: maxTokens,
+        messages: [
+          { role: "system", content: sys },
+          { role: "user", content: usr },
+        ],
+      }),
+    });
+    if (!res.ok) {
+      const txt = await res.text();
+      throw new Error(`AI gateway ${res.status}: ${txt}`);
+    }
+    const json = await res.json();
+    return {
+      content: (json?.choices?.[0]?.message?.content ?? "") as string,
+      finishReason: (json?.choices?.[0]?.finish_reason ?? "stop") as string,
+    };
   }
-  const json = await res.json();
-  return json?.choices?.[0]?.message?.content ?? "";
+  const first = await once(system, user);
+  let content = first.content;
+  if (first.finishReason === "length") {
+    const contSys = system + "\n\nYou are continuing a partial response. Output ONLY the remaining text from the exact stop point. No restating, no preamble.";
+    const contUser = `${user}\n\n--- PARTIAL RESPONSE SO FAR (continue from the next character) ---\n${content}`;
+    try {
+      const cont = await once(contSys, contUser);
+      content = content.replace(/\s+$/, "") + " " + cont.content.replace(/^\s+/, "");
+    } catch (e) {
+      console.warn("continuation failed (non-fatal):", e);
+    }
+  }
+  // Drop trailing dangling fragment (no terminator) as a last-resort guard.
+  const trimmed = content.trim();
+  const lastTerm = Math.max(trimmed.lastIndexOf("."), trimmed.lastIndexOf("!"), trimmed.lastIndexOf("?"));
+  if (lastTerm > 0 && lastTerm < trimmed.length - 1) {
+    const tail = trimmed.slice(lastTerm + 1).trim();
+    if (tail.length > 0 && !/[.!?]$/.test(tail) && !/^[#*\-|]/.test(tail)) {
+      return trimmed.slice(0, lastTerm + 1);
+    }
+  }
+  return content;
 }
 
 Deno.serve(async (req) => {
