@@ -1765,6 +1765,46 @@ Place these images throughout the article at logical locations, typically after 
     // TABLE GUARD: deterministic local injection if model under-delivered
     // ═══════════════════════════════════════════════════════════════════════
     if (!expandExistingContent) {
+      const isGenericTemplateTable = (table: string): boolean => {
+        return /\bOption\s+[ABC]\b/i.test(table)
+          || /\bType\s+[123]\b/i.test(table)
+          || /\bChoice\s+[123]\b/i.test(table)
+          || /\b(Beginners?|Intermediate users?|Advanced needs?)\b/i.test(table)
+          || /\|\s*Aspect\s*\|\s*Option\s+A\s*\|/i.test(table);
+      };
+      const stripGenericTemplateTables = (md: string): string => {
+        const lines = md.split("\n");
+        const kept: string[] = [];
+        let removed = 0;
+        for (let i = 0; i < lines.length; i++) {
+          if (lines[i].includes("|") && i + 1 < lines.length && /^\s*\|?[\s\-:|]+\|[\s\-:|]+$/.test(lines[i + 1])) {
+            const start = i;
+            let end = i + 2;
+            while (end < lines.length && lines[end].includes("|")) end++;
+            const table = lines.slice(start, end).join("\n");
+            if (isGenericTemplateTable(table)) {
+              removed += 1;
+              i = end - 1;
+              continue;
+            }
+          }
+          kept.push(lines[i]);
+        }
+        if (removed > 0) console.warn(`TABLE GUARD: Removed ${removed} generic template table(s).`);
+        return kept.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+      };
+      const buildTopicAwareFallbackTable = (): string => {
+        const t = `${topic || ""} ${outline || ""} ${instructions || ""}`.toLowerCase();
+        if (/invisalign|aligner|underbite|class\s*iii|malocclusion/.test(t)) {
+          return `\n\n| Case type | Definition | Invisalign suitable? | Typical timeline | Key risk if misdiagnosed |\n| --- | --- | --- | --- | --- |\n| Dental underbite | Tooth position creates the reverse bite while jaw relationship is manageable | Often suitable when movement is tooth-led and space allows | Commonly 12-24 months depending on staging and compliance | Treating it as skeletal can overcomplicate care |\n| Skeletal underbite | Lower jaw position or upper-jaw deficiency drives the bite | Limited suitability; surgical orthodontic assessment often comes first | Orthodontics plus surgery can extend beyond 18-24 months | Camouflage can worsen facial balance or stability |\n| Combined pattern | Tooth position and jaw relationship both contribute | Sometimes suitable for camouflage when skeletal discrepancy is mild | Timeline depends on whether surgery is avoided or planned | Misclassification leads to relapse or an incomplete bite correction |\n`;
+        }
+        if (/screwless|implant|dental\s+implant|morse|cement/.test(t)) {
+          return `\n\n| System type | How retention works | Screw present? | Primary risk | Best-fit case |\n| --- | --- | --- | --- | --- |\n| Cement-retained crown | Dental cement bonds the crown to the abutment | No access screw through the crown | Residual cement can inflame peri-implant tissue | Aesthetic zones where access holes would compromise appearance |\n| Friction-fit or Morse taper | Precision taper locks components through mechanical friction | Not through the crown surface | Removal can be difficult if repair is needed | Single-tooth cases with accurate component seating |\n| Traditional screw-retained | A prosthetic screw fixes the crown or bridge to the implant | Yes | Access-channel aesthetics or screw loosening | Retrievable restorations and maintenance-heavy cases |\n`;
+        }
+        return "";
+      };
+
+      content = stripGenericTemplateTables(content);
       const countTables = (md: string): number => {
         const lines = md.split("\n");
         let count = 0;
@@ -1778,8 +1818,12 @@ Place these images throughout the article at logical locations, typically after 
       const existingTables = countTables(content);
       const tablesNeeded = requiredTables - existingTables;
       if (tablesNeeded > 0) {
-        console.warn(`TABLE GUARD: Found ${existingTables}/${requiredTables} tables. Injecting ${tablesNeeded} fallback table(s).`);
-        const fallbackTable = (idx: number) => `\n\n| Aspect | Option A | Option B | Option C |\n| --- | --- | --- | --- |\n| Best for | Beginners | Intermediate users | Advanced needs |\n| Typical cost | Low | Moderate | Higher |\n| Time to results | Fast | Balanced | Long-term |\n| Key trade-off | Simplicity | Flexibility | Depth |\n`;
+        const fallbackTable = buildTopicAwareFallbackTable();
+        if (!fallbackTable) {
+          console.warn(`TABLE GUARD: Found ${existingTables}/${requiredTables} tables, but no safe topic-aware fallback exists. Skipping table injection.`);
+          return;
+        }
+        console.warn(`TABLE GUARD: Found ${existingTables}/${requiredTables} tables. Injecting 1 topic-aware fallback table.`);
         // Find body H2 sections (skip TL;DR, Quick Tips, In This Article, FAQ, Final Thoughts, References)
         const lines = content.split("\n");
         const h2Indices: number[] = [];
@@ -1803,11 +1847,9 @@ Place these images throughout the article at logical locations, typically after 
           }
           // Insert from bottom up to preserve indices
           targets.sort((a, b) => b - a);
-          for (let i = 0; i < targets.length; i++) {
-            lines.splice(targets[i], 0, fallbackTable(i));
-          }
+          lines.splice(targets[0], 0, fallbackTable);
           content = lines.join("\n");
-          console.log(`TABLE GUARD: Injected ${tablesNeeded} table(s) into body H2 sections`);
+          console.log(`TABLE GUARD: Injected 1 topic-aware table into a body H2 section`);
         }
       } else {
         console.log(`TABLE GUARD: ${existingTables}/${requiredTables} tables present ✓`);
