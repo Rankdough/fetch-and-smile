@@ -1568,6 +1568,10 @@ const Index = () => {
 
         const filledClaims = valuePromiseClaims.filter(c => c.trim());
 
+        const experiencePack = isExperienceGateEnabled()
+          ? (await loadProjectSignals()).pack || undefined
+          : undefined;
+
         const { data, error } = await supabase.functions.invoke("generate-content", {
           body: {
             ...formData,
@@ -1586,6 +1590,7 @@ const Index = () => {
             skipQuickTips,
             skipSources,
             firstHandEvidence: formData.firstHandEvidence?.trim() || undefined,
+            experiencePack,
           },
         });
 
