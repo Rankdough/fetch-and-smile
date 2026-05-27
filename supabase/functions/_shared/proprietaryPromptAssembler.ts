@@ -111,13 +111,21 @@ clinical team would do differently. Use the unit's specifics verbatim.`.trim();
 
 const FAILURE_MODE_RULE_NO_UNIT = `
 RULE 4 — FAILURE MODES MANDATORY (no unit mapped):
-This is a failure-mode section but no proprietary failure unit is mapped.
-Describe the two or three most common, well-documented failure patterns for
-this topic at the level of clinical mechanism (e.g. "screw loosening from
-off-axis loading on posterior cases", "marginal bone loss from poor emergence
-profile"). For each: name the mechanism, the contributing factor, and the
-mitigation. Do NOT invent case numbers, percentages, or patient outcomes —
-use [NEEDS EXPERT INPUT] inline for any specific rate or count.`.trim();
+Describe 3-4 specific, well-documented failure patterns for this topic. For each
+failure, you MUST write:
+  (a) the named mechanism (what physically/biologically goes wrong),
+  (b) the specific clinical consequence (what the patient or clinician sees),
+  (c) the contributing factor (why it happened),
+  (d) the mitigation or correct decision (what would have prevented it).
+Bold the failure name at the start of each bullet. Concrete benchmark example
+(dental implants): "Cement excess causing bone loss: Subgingival luting cement
+that is not fully removed after crown seating triggers a foreign-body
+inflammatory response. The tissue loss looks identical to peri-implantitis and
+is frequently misdiagnosed. The mechanism is preventable — raise the margin or
+use a different retention system."
+Do NOT write "complications can occur", "issues may arise", or any vague
+hand-wave. Do NOT invent case numbers, percentages, or patient outcomes — use
+[NEEDS EXPERT INPUT] inline for any specific rate or count.`.trim();
 
 const SPECIFIC_NUMBERS_RULE = `
 RULE 5 — SPECIFIC NUMBERS OVER RANGES:
@@ -141,14 +149,20 @@ motivated. Do NOT manufacture a contradiction where the consensus is genuinely
 correct.`.trim();
 
 const TABLE_GUARD_RULE = `
-RULE 7 — NO GENERIC PLACEHOLDER TABLES:
-If you include a comparison table, the column and row labels MUST be the real
-named categories of this topic (e.g. for dental implants: "Screw-retained" vs
-"Cement-retained" vs "Friction-fit"; for cement: "Portland" vs "Pozzolanic" vs
-"Rapid-set"). NEVER output a table with generic labels such as "Option A / B / C",
-"Type 1 / 2 / 3", "Beginner / Intermediate / Advanced", or "Best for: beginners".
-If you cannot name the real categories, do not include a table — write a prose
-comparison instead.`.trim();
+RULE 7 — TOPIC-DERIVED TABLE COLUMNS (no generic placeholders):
+If a comparison table fits this section, derive BOTH the columns and the rows
+from the actual technical categories of the topic.
+  - Columns must be dimensions a clinician/buyer would compare on
+    (e.g. "System Type | How Retention Works | Screw Present? | Primary Risk",
+    or "Material | Tensile Strength | Cure Time | Failure Mode").
+  - Rows must be the real named alternatives in this topic (e.g. for dental
+    implants: "Cement-retained crown", "Friction-fit / Morse taper",
+    "Traditional screw-retained" — NOT "Option A / B / C").
+ABSOLUTELY FORBIDDEN row or column labels: "Option A/B/C", "Type 1/2/3",
+"Beginner / Intermediate / Advanced", "Best for: beginners", "Choice 1/2/3",
+or any other template placeholder. If you cannot name the real categories with
+confidence, do NOT include a table — write a prose comparison instead. A
+missing table is always better than a generic one.`.trim();
 
 const FRAMING_LITE_RULES = `
 FRAMING SECTION RULES:
@@ -165,12 +179,32 @@ Inspect the article title. If the title is built on a marketing umbrella term
 (words such as "screwless", "painless", "minimally invasive", "natural",
 "holistic", "revolutionary", "advanced", "smart", "next-generation", "premium",
 "clinical-grade", or any branded/qualifier-led label that bundles multiple
-distinct technical approaches), your FIRST sentence MUST reframe it. Use the
-literal pattern: "This term is mostly marketing language, not a clean technical
-category." (or a near-identical reframe). Then name the underlying real
-categories in the second sentence. Do not accept the marketing framing.
-If the title is not a marketing umbrella term, ignore this rule and lead with a
-direct factual claim instead.`.trim();
+distinct technical approaches), your VERY FIRST sentence MUST reframe it
+using this pattern (vary the wording, keep the substance):
+  "<Topic term> is mostly marketing language, not a clean technical category."
+Then immediately, in the same paragraph, (a) state what the umbrella actually
+contains (the 2-3 underlying real technical categories), and (b) explain why
+the distinction matters for the reader's decision.
+If the title is NOT a marketing umbrella term (e.g. "Sequential reaming
+protocol for posterior implants"), ignore this rule and lead with a direct
+factual claim instead.`.trim();
+
+const FAQ_DIRECT_ANSWER_RULE = `
+FAQ DIRECT-ANSWER RULE:
+This is an FAQ section. Each Q&A pair MUST follow this contract:
+  - The answer's FIRST sentence is a direct, specific answer to the question.
+  - At least one concrete specific (a real category name, a real mechanism,
+    a number from earlier in the article, or a named tradeoff) appears in
+    the answer.
+  - "Costs vary", "it depends", "consult your professional", "many factors",
+    or any other non-answer is FORBIDDEN as a substitute for the answer.
+  - If a number is genuinely unknown, write the answer without a number —
+    use a category-level distinction instead (e.g. "Friction-fit systems
+    typically cost more than standard screw-retained because the components
+    are manufactured to tighter tolerances and the procedure requires more
+    technique time.") — never a hedge.
+Format: 3-5 Q&A pairs. Each question on its own line as bold prefixed with
+"Q:". Each answer follows as 2-4 sentences.`.trim();
 
 function describeMappedUnit(unit: MappedUnit | null): string {
   if (!unit) {
@@ -271,6 +305,23 @@ em dashes, en dashes, or horizontal rules.`;
     if (section.kind === "opening") {
       ruleBlocks.push(OPENING_REFRAME_RULE);
       applied.push(6);
+    }
+
+    // FAQ framing section: enforce direct-answer contract.
+    if (section.kind === "faq") {
+      ruleBlocks.push(FAQ_DIRECT_ANSWER_RULE);
+      applied.push(5); // re-emphasise no-hedge for FAQ specifically
+    }
+
+    // Quick Tips framing section: enforce exactly 3 actionable tips.
+    if (section.kind === "quick-tips") {
+      ruleBlocks.push(`QUICK TIPS RULE:
+Output EXACTLY 3 markdown bullet points. Each bullet is one actionable
+sentence (max 18 words) that a reader can act on before their next clinical
+appointment. No filler ("consider", "think about", "be aware that"). Each
+tip must reference a real category, decision, or check from the body
+sections — not a generic platitude.`);
+      applied.push(2);
     }
   }
 
