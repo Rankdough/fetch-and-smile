@@ -11,7 +11,13 @@ export type SignalType =
   | "named-outcome"
   | "procedural-specificity"
   | "patient-story"
-  | "internal-protocol";
+  | "internal-protocol"
+  // Stage 3 additions — proprietary-grade markers.
+  | "study-citation"
+  | "comparative-stat"
+  | "failure-marker"
+  | "contrarian-marker";
+
 
 export interface ExperienceSignal {
   type: SignalType;
