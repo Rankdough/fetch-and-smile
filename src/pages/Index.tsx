@@ -1863,6 +1863,8 @@ const Index = () => {
     setOriginalContent("");
     setAppliedRules(null);
     setGeneratedCTAs(null);
+    setCommodityGrade(null);
+
     
     // Clear content from localStorage (keep settings)
     localStorage.removeItem("seo-generator-generatedContent");
