@@ -839,6 +839,15 @@ const Index = () => {
     const saved = localStorage.getItem("seo-generator-useHumanMode");
     return saved !== null ? JSON.parse(saved) : false;
   });
+  // Proprietary mode (demo path) — calls proprietary-generate-article
+  // which auto-maps brain units and enforces the six rules per section.
+  const [useProprietaryMode, setUseProprietaryMode] = useState(() => {
+    const saved = localStorage.getItem("seo-generator-useProprietaryMode");
+    return saved !== null ? JSON.parse(saved) : false;
+  });
+  useEffect(() => {
+    localStorage.setItem("seo-generator-useProprietaryMode", JSON.stringify(useProprietaryMode));
+  }, [useProprietaryMode]);
   const [pipelineStages, setPipelineStages] = useState<PipelineStage[]>([]);
   const [currentPipelineStage, setCurrentPipelineStage] = useState(0);
   const [currentSectionIndex, setCurrentSectionIndex] = useState(0);
