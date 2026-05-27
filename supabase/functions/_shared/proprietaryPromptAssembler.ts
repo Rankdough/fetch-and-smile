@@ -179,12 +179,32 @@ Inspect the article title. If the title is built on a marketing umbrella term
 (words such as "screwless", "painless", "minimally invasive", "natural",
 "holistic", "revolutionary", "advanced", "smart", "next-generation", "premium",
 "clinical-grade", or any branded/qualifier-led label that bundles multiple
-distinct technical approaches), your FIRST sentence MUST reframe it. Use the
-literal pattern: "This term is mostly marketing language, not a clean technical
-category." (or a near-identical reframe). Then name the underlying real
-categories in the second sentence. Do not accept the marketing framing.
-If the title is not a marketing umbrella term, ignore this rule and lead with a
-direct factual claim instead.`.trim();
+distinct technical approaches), your VERY FIRST sentence MUST reframe it
+using this pattern (vary the wording, keep the substance):
+  "<Topic term> is mostly marketing language, not a clean technical category."
+Then immediately, in the same paragraph, (a) state what the umbrella actually
+contains (the 2-3 underlying real technical categories), and (b) explain why
+the distinction matters for the reader's decision.
+If the title is NOT a marketing umbrella term (e.g. "Sequential reaming
+protocol for posterior implants"), ignore this rule and lead with a direct
+factual claim instead.`.trim();
+
+const FAQ_DIRECT_ANSWER_RULE = `
+FAQ DIRECT-ANSWER RULE:
+This is an FAQ section. Each Q&A pair MUST follow this contract:
+  - The answer's FIRST sentence is a direct, specific answer to the question.
+  - At least one concrete specific (a real category name, a real mechanism,
+    a number from earlier in the article, or a named tradeoff) appears in
+    the answer.
+  - "Costs vary", "it depends", "consult your professional", "many factors",
+    or any other non-answer is FORBIDDEN as a substitute for the answer.
+  - If a number is genuinely unknown, write the answer without a number —
+    use a category-level distinction instead (e.g. "Friction-fit systems
+    typically cost more than standard screw-retained because the components
+    are manufactured to tighter tolerances and the procedure requires more
+    technique time.") — never a hedge.
+Format: 3-5 Q&A pairs. Each question on its own line as bold prefixed with
+"Q:". Each answer follows as 2-4 sentences.`.trim();
 
 function describeMappedUnit(unit: MappedUnit | null): string {
   if (!unit) {
