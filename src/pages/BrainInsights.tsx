@@ -272,6 +272,7 @@ const BrainInsights = () => {
             <Button variant="default" size="sm" className="gap-2"><FileText className="h-4 w-4" />Insights</Button>
             <Button variant="ghost" size="sm" onClick={() => navigate("/seo-brain/ask")} className="gap-2"><MessageSquare className="h-4 w-4" />Ask</Button>
             <Button variant="ghost" size="sm" onClick={() => navigate("/seo-brain/outputs")} className="gap-2"><History className="h-4 w-4" />Outputs</Button>
+            <Button variant="outline" size="sm" onClick={() => navigate("/proprietary/extract")} className="gap-2"><Sparkles className="h-4 w-4" />Proprietary Mode</Button>
           </nav>
         </div>
       </header>
