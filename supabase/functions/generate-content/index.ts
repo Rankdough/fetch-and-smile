@@ -1041,10 +1041,18 @@ Place these images throughout the article at logical locations, typically after 
     const extractContextSourceCandidates = (): SourceCandidate[] => {
       if (!contextFiles || !Array.isArray(contextFiles)) return [];
       const candidates: SourceCandidate[] = [];
+      const rejected: string[] = [];
       const seen = new Set<string>();
       const push = (cand: SourceCandidate) => {
         if (seen.has(cand.url)) return;
         if (isJunkUrl(cand.url)) return;
+        // QUALITY FILTER: drop low-authority/commercial domains from context files.
+        // Authority allow-list and commercial heuristic match the web-search tiering.
+        if (isLowQualityDomain(cand.url)) {
+          rejected.push(cand.url);
+          seen.add(cand.url);
+          return;
+        }
         seen.add(cand.url);
         candidates.push(cand);
       };
@@ -1066,6 +1074,9 @@ Place these images throughout the article at logical locations, typically after 
           const snippet = fileText.slice(snipStart, snipEnd).replace(/\s+/g, " ").trim();
           push({ title: sourceTitleFromUrl(url), url, origin: "context", snippet, fileName });
         }
+      }
+      if (rejected.length > 0) {
+        console.log(`SOURCE CATALOGUE: dropped ${rejected.length} low-quality context URL(s): ${rejected.slice(0, 8).join(", ")}${rejected.length > 8 ? " …" : ""}`);
       }
       return candidates.slice(0, 80);
     };
