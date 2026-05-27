@@ -646,6 +646,7 @@ const Index = () => {
     return saved ? JSON.parse(saved) : null;
   });
   const [commodityGrade, setCommodityGrade] = useState<TwoPassReport | null>(null);
+  const [hasBrainForGrade, setHasBrainForGrade] = useState(false);
 
   const [generatedCTAs, setGeneratedCTAs] = useState<{ middle: { headline: string; description: string; buttonText: string }; end: { headline: string; description: string; buttonText: string } } | null>(() => {
     const saved = localStorage.getItem("seo-generator-generatedCTAs");
@@ -1690,11 +1691,10 @@ const Index = () => {
       // whether the first-hand signals actually landed. Only runs when toggle ON.
       if (isExperienceGateEnabled()) {
         try {
-          // Two-axis report: structural (cold, brain-independent) +
-          // verification (anchors signals against mapped knowledge units).
-          // No mapping wired into the classic flow yet, so mappedUnitTexts = [].
-          // That correctly yields the "no-brain" verification state in the UI.
-          setCommodityGrade(gradeArticleTwoPass(content, []));
+          // Proprietary mode supplies mapped unit texts, so the verification
+          // axis can actually anchor signals. Classic/Human mode pass [].
+          setCommodityGrade(gradeArticleTwoPass(content, proprietaryMappedTexts));
+          setHasBrainForGrade(proprietaryMappedTexts.length > 0);
         } catch (e) {
           console.warn("Two-pass grading failed", e);
           setCommodityGrade(null);
@@ -4647,7 +4647,7 @@ const Index = () => {
                   )}
                   Generated Content
                   {commodityGrade && (
-                    <VerificationReport report={commodityGrade} hasBrain={false} className="ml-2 align-middle" />
+                    <VerificationReport report={commodityGrade} hasBrain={hasBrainForGrade} className="ml-2 align-middle" />
                   )}
                 </CardTitle>
 
