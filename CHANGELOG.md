@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-05-27 - Trust context-file URLs: stop filtering user-curated sources
+
+- **What:** Context-file URLs now bypass the commercial/authority quality filter entirely. The user curates these deliberately — they ARE the authority for the article. Three changes in `supabase/functions/generate-content/index.ts`: (1) `extractContextSourceCandidates` no longer applies `isLowQualityDomain` to context URLs; only `isJunkUrl` and `isOwnDomainUrl` remain. (2) The reference top-up section (step 6) splits Tier-1 web search AND the relaxed Firecrawl top-up behind a single `!hasContextFiles` gate — when the user provided context files, web fallback is fully disabled even if References are below `MIN_REFERENCES = 4`. (3) A new render gate (step 7) re-validates every URL right before the References list is built: own-domain and junk always rejected; context URLs always allowed; non-context URLs rejected entirely when context files exist, and quality-filtered when they don't. Every drop is logged with the reason.
+- **Why:** The previous filter rejected commercial dental/clinic URLs from context files (matched `dental|clinic|implants|smile|...` regex), which emptied the allow-list and triggered web fallback. The relaxed top-up then pulled in low-quality blogs like `smartarchesdental.com` to satisfy the minimum count. Root cause: the system second-guessed user-curated sources and over-relied on a quota. Now: context = truth, no web fallback when context exists, render gate as the final guarantee.
+- **Files:** `supabase/functions/generate-content/index.ts` only.
+- **Verified broken:** Nothing verified broken. Checked: read the full modified function, traced `useWebFallback` / `hasContextFiles` flags, confirmed top-up still works for context-only articles (6a always runs), confirmed articles with NO context still get web fallback (6b/6c gate is `!hasContextFiles`), confirmed render gate is additive (own-domain and junk filters already existed). Not manually tested with a live "screwless implants" generation this turn.
+- **Verify:** Generate "screwless dental implants" article with the dental context files attached → edge function logs should show `SOURCE CATALOGUE: accepted N context URL(s) — context files are trusted` with N matching the curated count, and `CITATION [render-gate] DROP non-context URL` for any web-fallback leakage. Final References list must contain ONLY URLs from the context files. `smartarchesdental.com` must not appear unless the user put it in context themselves.
+
+
+
 ## 2026-05-27 - Optional non-commodity content gate (settings toggle)
 
 - **What:** New global toggle in a Settings popover (gear icon, top-right of `/` and `/keyword-research` headers). When ON, both article generation (`generate-content`) and blog idea generation (`cluster-keywords-enrich`) receive an `experiencePack` string built client-side from `brain_insights` + `context_documents` via deterministic regex extraction (`src/lib/experienceSignals.ts`). Both edge functions inject the pack into their prompts only when present — when absent, behaviour is byte-identical to before. Default OFF.
