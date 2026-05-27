@@ -384,3 +384,15 @@
 - **Verified broken:** Nothing verified broken.
 - **Files:** `src/pages/Index.tsx`, `src/components/ContentVerification.tsx`, `supabase/functions/generate-content/index.ts`, `supabase/functions/regenerate-section/index.ts`, `CHANGELOG.md`.
 - **Verify:** Search for removed guard strings and run the focused test suite.
+
+## 2026-05-27 — Proprietary assembler: fix null-unit path
+
+**What:** Rewrote Rules 1, 4 and added Rule 6 in `_shared/proprietaryPromptAssembler.ts` so body sections without a mapped brain unit still produce non-commodity output. `[NEEDS EXPERT INPUT]` is now an inline placeholder for missing specifics, never a whole-section escape hatch (except for failure-mode sections without a failure unit, which still emit the token for the missing case data — Rule 4 split into `_WITH_UNIT` / `_NO_UNIT` variants). H2-question sections without a contrarian unit now receive an explicit contrarian licence so the model can call out marketing-term topics ("this term is mostly marketing, not a clean technical category").
+
+**Why:** Screwless-implants test article came back commodity because the null-unit path told the model to dump `[NEEDS EXPERT INPUT]` for the whole section; model ignored it and wrote generic prose. Closing the gap between GPT-agent quality and Lovable generator quality requires the assembler rules to fire on every body section regardless of unit availability.
+
+**Files:** `supabase/functions/_shared/proprietaryPromptAssembler.ts`.
+
+**Verified broken:** Nothing verified broken. Checked: assembler file reads, `runSection` consumers (`proprietary-generate-article/index.ts`, `proprietary-generate-section/index.ts`) — both pass `mappedUnit: null` through unchanged and read `appliedRules` as `number[]`, which still holds. No callers depend on Rule 1 forcing a whole-section token. Did not run the build (harness will).
+
+**What may break:** Sections that previously short-circuited to `[NEEDS EXPERT INPUT]` will now produce real content; `needsExpertInput` telemetry counts will drop. Failure-mode sections without a failure unit now describe generic clinical failure mechanisms instead of emitting the bare token — the `needsExpertInput` flag in those cases now reflects the absence of inline placeholders, not the absence of a unit.
