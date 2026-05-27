@@ -22,6 +22,14 @@ const TYPE_FILTERS = [
   { value: "strategy", label: "Strategy" },
 ] as const;
 
+interface UnitContradiction {
+  id: string;
+  otherId: string;
+  otherTitle: string;
+  note: string | null;
+  status: string;
+}
+
 interface Insight {
   id: string;
   title: string;
@@ -30,8 +38,17 @@ interface Insight {
   full_text: string | null;
   created_at: string;
   is_bookmarked: boolean;
+  unit_type?: string;
+  word_count?: number;
+  contributor_id?: string | null;
+  business_type?: string | null;
+  parent_unit_id?: string | null;
+  is_stale?: boolean;
+  stale_reason?: string | null;
+  usage_count?: number;
   tags?: { id: string; name: string; tag_type: string }[];
   contradictions?: { relatedTitle: string; explanation: string }[];
+  unit_contradictions?: UnitContradiction[];
 }
 
 interface Tag {
