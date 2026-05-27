@@ -149,14 +149,20 @@ motivated. Do NOT manufacture a contradiction where the consensus is genuinely
 correct.`.trim();
 
 const TABLE_GUARD_RULE = `
-RULE 7 — NO GENERIC PLACEHOLDER TABLES:
-If you include a comparison table, the column and row labels MUST be the real
-named categories of this topic (e.g. for dental implants: "Screw-retained" vs
-"Cement-retained" vs "Friction-fit"; for cement: "Portland" vs "Pozzolanic" vs
-"Rapid-set"). NEVER output a table with generic labels such as "Option A / B / C",
-"Type 1 / 2 / 3", "Beginner / Intermediate / Advanced", or "Best for: beginners".
-If you cannot name the real categories, do not include a table — write a prose
-comparison instead.`.trim();
+RULE 7 — TOPIC-DERIVED TABLE COLUMNS (no generic placeholders):
+If a comparison table fits this section, derive BOTH the columns and the rows
+from the actual technical categories of the topic.
+  - Columns must be dimensions a clinician/buyer would compare on
+    (e.g. "System Type | How Retention Works | Screw Present? | Primary Risk",
+    or "Material | Tensile Strength | Cure Time | Failure Mode").
+  - Rows must be the real named alternatives in this topic (e.g. for dental
+    implants: "Cement-retained crown", "Friction-fit / Morse taper",
+    "Traditional screw-retained" — NOT "Option A / B / C").
+ABSOLUTELY FORBIDDEN row or column labels: "Option A/B/C", "Type 1/2/3",
+"Beginner / Intermediate / Advanced", "Best for: beginners", "Choice 1/2/3",
+or any other template placeholder. If you cannot name the real categories with
+confidence, do NOT include a table — write a prose comparison instead. A
+missing table is always better than a generic one.`.trim();
 
 const FRAMING_LITE_RULES = `
 FRAMING SECTION RULES:
