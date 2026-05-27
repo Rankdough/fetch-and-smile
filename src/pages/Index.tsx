@@ -645,6 +645,8 @@ const Index = () => {
     const saved = localStorage.getItem("seo-generator-appliedRules");
     return saved ? JSON.parse(saved) : null;
   });
+  const [commodityGrade, setCommodityGrade] = useState<CommodityGrade | null>(null);
+
   const [generatedCTAs, setGeneratedCTAs] = useState<{ middle: { headline: string; description: string; buttonText: string }; end: { headline: string; description: string; buttonText: string } } | null>(() => {
     const saved = localStorage.getItem("seo-generator-generatedCTAs");
     return saved ? JSON.parse(saved) : null;
@@ -1643,6 +1645,21 @@ const Index = () => {
       }
 
       setGeneratedContent(content, true);
+
+      // Non-commodity gate: grade the finished article so the user can SEE
+      // whether the first-hand signals actually landed. Only runs when toggle ON.
+      if (isExperienceGateEnabled()) {
+        try {
+          const { signals } = await loadProjectSignals();
+          setCommodityGrade(gradeCommodity(signals, content));
+        } catch (e) {
+          console.warn("Commodity grading failed", e);
+          setCommodityGrade(null);
+        }
+      } else {
+        setCommodityGrade(null);
+      }
+
     } catch (error) {
       console.error("Generation error:", error);
       setPipelineError(error instanceof Error ? error.message : "Failed to generate content");
@@ -1846,6 +1863,8 @@ const Index = () => {
     setOriginalContent("");
     setAppliedRules(null);
     setGeneratedCTAs(null);
+    setCommodityGrade(null);
+
     
     // Clear content from localStorage (keep settings)
     localStorage.removeItem("seo-generator-generatedContent");
@@ -1880,6 +1899,8 @@ const Index = () => {
     setGeneratedContent("", true);
     setOriginalContent("");
     setAppliedRules(null);
+    setCommodityGrade(null);
+
     setSelectedToneProfileId(null);
     setValuePromise("");
     setSelectedAngles([]);
@@ -4572,7 +4593,11 @@ const Index = () => {
                     </Button>
                   )}
                   Generated Content
+                  {commodityGrade && (
+                    <CommodityBadge grade={commodityGrade} className="ml-2 align-middle" />
+                  )}
                 </CardTitle>
+
                 <Button
                   variant="outline"
                   size="sm"

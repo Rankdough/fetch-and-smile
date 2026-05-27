@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { isExperienceGateEnabled, loadProjectSignals } from "@/lib/experienceSignals";
+// Non-commodity gate intentionally not used here — applies to article generation only.
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -1425,7 +1425,10 @@ const KeywordClustering = () => {
         })
         .slice(0, 5);
 
-      const experiencePack = isExperienceGateEnabled() ? (await loadProjectSignals()).pack || undefined : undefined;
+      // Note: experiencePack intentionally NOT sent. Blog idea generation produces
+      // outline-level value promises (not factual prose), so first-hand signals have
+      // no slot to inject into. The non-commodity gate now applies to article
+      // generation only — where signals can actually be cited inside body sections.
       const { data, error } = await supabase.functions.invoke("cluster-keywords-enrich", {
         body: {
           clusters: [{
@@ -1435,9 +1438,9 @@ const KeywordClustering = () => {
           }],
           singleIdea: true,
           focusKeyword: keyword,
-          experiencePack,
         },
       });
+
 
       if (error) throw error;
 
@@ -1488,7 +1491,7 @@ const KeywordClustering = () => {
     try {
       const totalVol = keywords.reduce((s, kw) => s + (cluster.keyword_volumes?.[kw] ?? cluster.keyword_volumes?.[kw.toLowerCase()] ?? 0), 0);
 
-      const experiencePack = isExperienceGateEnabled() ? (await loadProjectSignals()).pack || undefined : undefined;
+      // experiencePack intentionally omitted — see comment above.
       const { data, error } = await supabase.functions.invoke("cluster-keywords-enrich", {
         body: {
           clusters: [{
@@ -1498,9 +1501,9 @@ const KeywordClustering = () => {
           }],
           singleIdea: true,
           focusKeyword: keywords[0],
-          experiencePack,
         },
       });
+
 
       if (error) throw error;
 
@@ -1556,7 +1559,7 @@ const KeywordClustering = () => {
       const allKws = cluster.keywords;
       const totalVol = allKws.reduce((s, kw) => s + (cluster.keyword_volumes?.[kw] ?? cluster.keyword_volumes?.[kw.toLowerCase()] ?? 0), 0);
 
-      const experiencePack = isExperienceGateEnabled() ? (await loadProjectSignals()).pack || undefined : undefined;
+      // experiencePack intentionally omitted — see comment above.
       const { data, error } = await supabase.functions.invoke("cluster-keywords-enrich", {
         body: {
           clusters: [{
@@ -1568,9 +1571,9 @@ const KeywordClustering = () => {
           singleIdea: true,
           focusKeyword: allKws[0],
           customTitle: title.trim(),
-          experiencePack,
         },
       });
+
 
       if (error) throw error;
 
