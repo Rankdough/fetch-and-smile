@@ -1425,6 +1425,7 @@ const KeywordClustering = () => {
         })
         .slice(0, 5);
 
+      const experiencePack = isExperienceGateEnabled() ? (await loadProjectSignals()).pack || undefined : undefined;
       const { data, error } = await supabase.functions.invoke("cluster-keywords-enrich", {
         body: {
           clusters: [{
@@ -1434,6 +1435,7 @@ const KeywordClustering = () => {
           }],
           singleIdea: true,
           focusKeyword: keyword,
+          experiencePack,
         },
       });
 
@@ -1486,6 +1488,7 @@ const KeywordClustering = () => {
     try {
       const totalVol = keywords.reduce((s, kw) => s + (cluster.keyword_volumes?.[kw] ?? cluster.keyword_volumes?.[kw.toLowerCase()] ?? 0), 0);
 
+      const experiencePack = isExperienceGateEnabled() ? (await loadProjectSignals()).pack || undefined : undefined;
       const { data, error } = await supabase.functions.invoke("cluster-keywords-enrich", {
         body: {
           clusters: [{
@@ -1495,6 +1498,7 @@ const KeywordClustering = () => {
           }],
           singleIdea: true,
           focusKeyword: keywords[0],
+          experiencePack,
         },
       });
 
