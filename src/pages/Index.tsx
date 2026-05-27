@@ -1559,8 +1559,39 @@ const Index = () => {
 
     try {
       let content: string;
+      // Per-article mapped unit texts (only proprietary mode populates these).
+      // Used by the post-generation verification grader.
+      let proprietaryMappedTexts: string[] = [];
 
-      if (useHumanMode) {
+      if (useProprietaryMode) {
+        // Demo path: shortest end-to-end proprietary pipeline.
+        // No mapping screen — server auto-picks brain units by token overlap.
+        const { data, error } = await supabase.functions.invoke(
+          "proprietary-generate-article",
+          {
+            body: {
+              topic: formData.topic,
+              // Defaults are sensible; the full UI for these comes in Stage 3+.
+              businessType: "healthcare-clinical",
+              publicationDestination: "both",
+            },
+          },
+        );
+        if (error) throw error;
+        if (data?.error) throw new Error(data.error);
+        content = data.content as string;
+        proprietaryMappedTexts = Array.isArray(data.mappedUnitTexts) ? data.mappedUnitTexts : [];
+
+        const expertGaps = (data.sections || []).filter((s: { needsExpertInput?: boolean }) => s.needsExpertInput).length;
+        const flagged = (data.sections || []).reduce(
+          (n: number, s: { ruleFlags?: unknown[] }) => n + (s.ruleFlags?.length || 0),
+          0,
+        );
+        toast({
+          title: "Proprietary article generated",
+          description: `${data.brainUnitCount ?? 0} brain unit(s) considered · ${expertGaps} section(s) need expert input · ${flagged} Rule-5 flag(s)`,
+        });
+      } else if (useHumanMode) {
         // Use 4-stage humanising pipeline
         content = await handleHumanModeGenerate();
         
