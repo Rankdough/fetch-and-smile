@@ -24,6 +24,7 @@ import {
   type SectionSpec,
   type UnitType,
 } from "../_shared/proprietaryPromptAssembler.ts";
+import { NON_COMMODITY_TITLE_RULES, isCommodityStyleTitle } from "../_shared/nonCommodityTitleRules.ts";
 
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
