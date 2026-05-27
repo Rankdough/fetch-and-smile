@@ -146,6 +146,36 @@ paragraphs, bullets, table cells, or FAQ answers. Translate it into natural
 clinical language instead, such as "clear aligners can camouflage a dental
 underbite" or "aligner treatment cannot correct a skeletal jaw discrepancy".`.trim();
 
+const QUOTE_ATTRIBUTION_RULE = `
+QUOTE ATTRIBUTION RULE (hard ban on fabricated or borrowed quotes):
+Do NOT include quotation marks around any sentence presented as something a
+clinician, expert, doctor, surgeon, orthodontist, dentist, specialist, or
+"authority" said, unless ALL of these are true:
+  (a) the exact quote text is supplied verbatim in the mapped unit or context
+      files passed to you in this prompt, AND
+  (b) the named speaker (full name + role/affiliation) is also supplied, AND
+  (c) you attribute it inline as: "<Quote>" — <Full Name>, <Role>, <Affiliation>.
+Do NOT use blockquotes ("> ...") at all unless conditions (a)-(c) are met.
+ABSOLUTELY FORBIDDEN: phrases like "an expert noted", "a doctor said",
+"a specialist commented", "First do no harm" as a standalone quote, generic
+proverbs, nutrition/wellness metaphors ("the gut is like a garden", etc.),
+or any quote pulled from your general training. If you do not have a real
+attributed quote for this section, write the point in your own clinical prose
+with no quotation marks.`.trim();
+
+const SOURCED_FIGURES_RULE = `
+SOURCED FIGURES RULE (currency, percentages, rates):
+Any specific currency amount (e.g. "$1,256", "£890", "€1,400"), specific
+percentage tied to a clinical claim (e.g. "73% of cases relapse"), or specific
+volume/count ("12,400 cases per year") MUST either:
+  (a) appear in the mapped unit / context files you were given, AND be cited
+      inline as "(Source: <URL or publication>)" in the same sentence, OR
+  (b) be replaced by the literal sentence "No public data; ask the clinical
+      team for current figures." or an inline [NEEDS EXPERT INPUT] placeholder.
+Do NOT invent specific dollar figures, lab fees, manufacturer prices, or
+percentages. A removed number is always better than a fabricated one.`.trim();
+
+
 const CONTRARIAN_RULE_NO_UNIT = `
 RULE 6 — CONTRADICT CONSENSUS WHEN WARRANTED:
 If the topic is built on a marketing term, a vague umbrella label, or a claim
