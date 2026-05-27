@@ -105,11 +105,51 @@ export function extractSignalsFromText(
 
   const signals: ExperienceSignal[] = [];
   for (const s of sentences) {
+    // === Stage 3: proprietary-grade signals (checked first, high weight) ===
+
+    // study-citation: institutional acronym + year, or year + research verb
+    if (
+      /\b(PubMed|AAO|NICE|Cochrane|NHS|FDA|CDC|WHO|NIH|EMA|ADA|BDA|RCS|AMA|ACS|ISO|NIST|IEEE)\b/.test(s) ||
+      /\b(19|20)\d{2}\b[^.]{0,80}\b(stud(?:y|ies)|trial|review|research|meta[- ]analysis|paper|cohort|audit)\b/i.test(s) ||
+      /\b(stud(?:y|ies)|trial|review|research|meta[- ]analysis|paper|cohort|audit)\b[^.]{0,80}\b(found|showed|reported|demonstrated|concluded|observed|indicated)\b/i.test(s)
+    ) {
+      signals.push({ type: "study-citation", snippet: s, source });
+      continue;
+    }
+
+    // comparative-stat: numeric A vs/versus/compared-to numeric B (with units anywhere nearby)
+    if (
+      /\b\d+(?:\.\d+)?\s*(?:%|months?|weeks?|years?|days?|hours?|patients?|cases?|mm|kg|mg|ml|£|\$|€)?\s*(?:vs\.?|versus|compared\s+to|compared\s+with|against)\s*\d+(?:\.\d+)?\s*(?:%|months?|weeks?|years?|days?|hours?|patients?|cases?|mm|kg|mg|ml|£|\$|€)?/i.test(s)
+    ) {
+      signals.push({ type: "comparative-stat", snippet: s, source });
+      continue;
+    }
+
+    // failure-marker: explicit failure-mode language
+    if (
+      /\b(common failure is|fails when|goes wrong when|the failure mode|the risk is|ends up with|end up with|pushed into unhealthy|multiple refinement rounds|unstable finishing|gum recession risk|open bite|the wrong tool|does not (?:reliably )?(?:fix|work|solve)|usually cannot|cannot change|won'?t (?:fix|work|solve))\b/i.test(s) ||
+      /\b(honest (?:failure|limitation)|failure mode|what goes wrong|limitations? of)\b/i.test(s)
+    ) {
+      signals.push({ type: "failure-marker", snippet: s, source });
+      continue;
+    }
+
+    // contrarian-marker: explicit rebuttal of consensus
+    if (
+      /\b(most (?:websites?|sites?|articles?|blogs?|people|guides?) (?:say|claim|tell you|make it sound|suggest|recommend)|in practice,?|contrary to|despite what|what you won'?t read|the real (?:answer|truth) is|conventional wisdom|popular(?:ly)? believed?)\b/i.test(s)
+    ) {
+      signals.push({ type: "contrarian-marker", snippet: s, source });
+      continue;
+    }
+
+    // === Original signal rules ===
+
     // Currency or percentage
     if (/[£$€¥]\s?\d|\d+\s?%/.test(s)) {
       signals.push({ type: "concrete-price", snippet: s, source });
       continue;
     }
+
     // Case volume: number followed by patients/cases/jobs/events/clients
     if (/\b\d{2,}\s*(patients?|cases?|jobs?|events?|clients?|customers?|members?|users?|implants?|procedures?)\b/i.test(s)) {
       signals.push({ type: "case-volume", snippet: s, source });
