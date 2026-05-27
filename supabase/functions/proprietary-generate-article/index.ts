@@ -425,7 +425,7 @@ Deno.serve(async (req) => {
     if (brainErr) console.warn("brain_insights fetch failed:", brainErr);
     const units: BrainUnit[] = (rawUnits as BrainUnit[]) || [];
 
-    // 2. Outline
+    // 2. Outline (H2 generation uses original keyword-bearing topic)
     const h2Questions = await generateH2Questions(body.topic, model);
     if (h2Questions.length === 0) {
       return new Response(
@@ -433,6 +433,11 @@ Deno.serve(async (req) => {
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
+
+    // 2b. Non-commodity title rewrite (used for H1 + downstream articleTitle).
+    // Original body.topic is preserved for unit mapping and H2 generation so we
+    // don't lose keyword anchoring.
+    const articleTitle = await rewriteTitleNonCommodity(body.topic, model);
 
     // 3. Build section plan
     const includeFailureMode =
