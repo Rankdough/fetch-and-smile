@@ -326,9 +326,31 @@ const BrainInsights = () => {
                   <CardContent className="py-4 px-4">
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
                           <Badge variant="outline" className="text-xs">{category?.label || "Content"}</Badge>
+                          <UnitTypeChip
+                            unitType={(insight.unit_type as any) || "legacy"}
+                            wordCount={insight.word_count}
+                            isStale={insight.is_stale}
+                            staleReason={insight.stale_reason}
+                            usageCount={insight.usage_count}
+                            isVersioned={!!insight.parent_unit_id}
+                            contributorId={insight.contributor_id}
+                            createdAt={insight.created_at}
+                          />
                           <span className="font-medium">{insight.title}</span>
+                          {insight.parent_unit_id && (
+                            <button
+                              type="button"
+                              className="text-xs text-muted-foreground inline-flex items-center gap-1 hover:text-foreground underline-offset-2 hover:underline"
+                              onClick={() => {
+                                const parent = insights.find((i) => i.id === insight.parent_unit_id);
+                                if (parent) setEditingInsight(parent);
+                              }}
+                            >
+                              <Layers className="h-3 w-3" /> View previous version
+                            </button>
+                          )}
                         </div>
                         {insight.summary && <p className="text-sm text-muted-foreground mb-2">{insight.summary}</p>}
                         {insight.tags && insight.tags.length > 0 && (
@@ -342,6 +364,68 @@ const BrainInsights = () => {
                               <div key={idx} className="flex items-start gap-2 text-xs bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded px-2.5 py-1.5">
                                 <AlertOctagon className="h-3.5 w-3.5 text-red-500 mt-0.5 shrink-0" />
                                 <span><strong className="text-red-600 dark:text-red-400">Contradicts:</strong> {c.relatedTitle} — {c.explanation}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {insight.unit_contradictions && insight.unit_contradictions.length > 0 && (
+                          <div className="mt-2 space-y-1">
+                            {insight.unit_contradictions.map((c) => (
+                              <div key={c.id} className="flex items-start gap-2 text-xs bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded px-2.5 py-2">
+                                <AlertOctagon className="h-3.5 w-3.5 text-amber-600 mt-0.5 shrink-0" />
+                                <div className="flex-1">
+                                  <div>
+                                    <strong className="text-amber-700 dark:text-amber-400">
+                                      {c.status === "context_dependent" ? "Context-dependent vs:" : "Conflicts with:"}
+                                    </strong>{" "}
+                                    {c.otherTitle}
+                                    {c.note ? ` — ${c.note}` : ""}
+                                  </div>
+                                  {c.status !== "context_dependent" && (
+                                    <div className="mt-1.5 flex items-center gap-2">
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-6 px-2 text-xs"
+                                        onClick={async () => {
+                                          await supabase
+                                            .from("brain_unit_contradictions")
+                                            .update({ status: "context_dependent" })
+                                            .eq("id", c.id);
+                                          toast({ title: "Marked as context-dependent" });
+                                          fetchData();
+                                        }}
+                                      >
+                                        Mark as context-dependent
+                                      </Button>
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-6 px-2 text-xs"
+                                        onClick={async () => {
+                                          await supabase
+                                            .from("brain_unit_contradictions")
+                                            .update({ status: "resolved_deleted" })
+                                            .eq("id", c.id);
+                                          toast({ title: "Conflict dismissed" });
+                                          fetchData();
+                                        }}
+                                      >
+                                        Dismiss
+                                      </Button>
+                                      <button
+                                        type="button"
+                                        className="text-xs text-muted-foreground hover:text-foreground underline"
+                                        onClick={() => {
+                                          const other = insights.find((i) => i.id === c.otherId);
+                                          if (other) setEditingInsight(other);
+                                        }}
+                                      >
+                                        Open the other unit
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
                               </div>
                             ))}
                           </div>
