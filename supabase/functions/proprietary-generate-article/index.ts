@@ -185,6 +185,80 @@ function naturaliseKeywordPhrase(keyword: string): string {
   return (cleaned || keyword).replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
+/**
+ * Returns true if the line contains an inline attribution that satisfies the
+ * QUOTE_ATTRIBUTION_RULE: an em/en-dash followed by a name, or an explicit
+ * "Source:" / "(Source: ..." marker, or a markdown link in the same line.
+ */
+function lineHasAttribution(line: string): boolean {
+  if (/\bSource\s*:/i.test(line)) return true;
+  if (/\]\(https?:\/\//i.test(line)) return true;
+  // Em-dash or "—" followed by Capitalised Name + comma + role
+  if (/[—–-]\s+[A-Z][a-zA-Z.'-]+(?:\s+[A-Z][a-zA-Z.'-]+){1,3},\s+[A-Za-z]/.test(line)) return true;
+  return false;
+}
+
+function stripFabricatedQuotes(markdown: string): { out: string; removed: number } {
+  const lines = markdown.split("\n");
+  const kept: string[] = [];
+  let removed = 0;
+
+  // 1) Drop blockquote lines that lack attribution
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (/^\s*>\s+/.test(line)) {
+      // Look at this line + next non-empty line for attribution
+      const next = (lines[i + 1] || "") + " " + (lines[i + 2] || "");
+      if (!lineHasAttribution(line) && !lineHasAttribution(next)) {
+        removed += 1;
+        continue;
+      }
+    }
+    kept.push(line);
+  }
+
+  // 2) Inline pattern: "(An?|The) (expert|doctor|specialist|clinician|orthodontist|dentist|surgeon)
+  //    ... (noted|said|commented|observed|explained|stated|remarked|argued|warned)
+  //    [,:]? "..."" — drop the whole sentence when no attribution on the line.
+  const inlineRe =
+    /(?:[A-Z][^.!?"]*?\b(?:expert|doctor|specialist|clinician|orthodontist|dentist|surgeon|physician|practitioner|authority)s?\b[^.!?"]*?\b(?:noted|said|commented|observed|explained|stated|remarked|argued|warned|told)\b[^.!?"]*?["“][^"”]{8,}["”][^.!?]*[.!?])/g;
+
+  const cleaned = kept.map((line) => {
+    if (lineHasAttribution(line)) return line;
+    return line.replace(inlineRe, () => {
+      removed += 1;
+      return "";
+    });
+  });
+
+  return { out: cleaned.join("\n"), removed };
+}
+
+function stripUnsourcedCurrencyClaims(markdown: string): { out: string; removed: number } {
+  const lines = markdown.split("\n");
+  let removed = 0;
+  // Split paragraphs by lines, but evaluate sentence-by-sentence inside each line.
+  const currencyRe = /[\$£€¥]\s?\d[\d,]*(?:\.\d+)?(?:\s?(?:USD|GBP|EUR|JPY))?/;
+  const cleaned = lines.map((line) => {
+    if (line.includes("|")) return line; // leave tables alone
+    if (/^\s*>/.test(line)) return line;
+    if (!currencyRe.test(line)) return line;
+    if (lineHasAttribution(line)) return line;
+    // Split into sentences and drop any sentence containing a currency figure
+    // without inline attribution on the same line.
+    const parts = line.split(/(?<=[.!?])\s+/);
+    const keptParts = parts.filter((s) => {
+      if (currencyRe.test(s)) {
+        removed += 1;
+        return false;
+      }
+      return true;
+    });
+    return keptParts.join(" ");
+  });
+  return { out: cleaned.join("\n"), removed };
+}
+
 function sanitiseGeneratedMarkdown(markdown: string, articleTitle: string): string {
   const titleIsLongQuery = articleTitle.trim().split(/\s+/).length >= 4;
   const titleRegex = titleIsLongQuery ? new RegExp(`\\b${escapeRegExp(articleTitle.trim())}\\b`, "gi") : null;
@@ -230,10 +304,19 @@ function sanitiseGeneratedMarkdown(markdown: string, articleTitle: string): stri
     kept.push(out);
   }
 
+  let result = kept.join("\n");
+  const q = stripFabricatedQuotes(result);
+  result = q.out;
+  const c = stripUnsourcedCurrencyClaims(result);
+  result = c.out;
+
   if (removedTables > 0) console.warn(`PROPRIETARY SANITISER: removed ${removedTables} generic table(s).`);
   if (rewrittenKeywords > 0) console.warn(`PROPRIETARY SANITISER: rewrote ${rewrittenKeywords} exact title-query injection(s).`);
-  return kept.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+  if (q.removed > 0) console.warn(`PROPRIETARY SANITISER: stripped ${q.removed} unattributed quote(s).`);
+  if (c.removed > 0) console.warn(`PROPRIETARY SANITISER: stripped ${c.removed} unsourced currency claim sentence(s).`);
+  return result.replace(/\n{3,}/g, "\n\n").trim();
 }
+
 
 /* ── per-section generation (inlined from proprietary-generate-section) ─ */
 
@@ -278,7 +361,7 @@ async function runSection(input: {
 
 /* ── handler ──────────────────────────────────────────────────────────── */
 
-const BUILD_MARKER = "BUILD-2026-05-27-A proprietary-generate-article";
+const BUILD_MARKER = "BUILD-2026-05-27-B proprietary-generate-article";
 Deno.serve(async (req) => {
   console.log(BUILD_MARKER);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });

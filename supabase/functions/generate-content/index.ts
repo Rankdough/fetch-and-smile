@@ -20,7 +20,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const BUILD_MARKER = "BUILD-2026-05-27-A generate-content";
+const BUILD_MARKER = "BUILD-2026-05-27-B generate-content";
 serve(async (req) => {
   console.log(BUILD_MARKER);
   if (req.method === "OPTIONS") {
@@ -1807,6 +1807,59 @@ Place these images throughout the article at logical locations, typically after 
       };
 
       content = stripGenericTemplateTables(content);
+
+      // ── Fabricated-quote + unsourced-currency guards ────────────────────
+      const lineHasAttribution = (line: string): boolean => {
+        if (/\bSource\s*:/i.test(line)) return true;
+        if (/\]\(https?:\/\//i.test(line)) return true;
+        if (/[—–-]\s+[A-Z][a-zA-Z.'-]+(?:\s+[A-Z][a-zA-Z.'-]+){1,3},\s+[A-Za-z]/.test(line)) return true;
+        return false;
+      };
+      const stripFabricatedQuotes = (md: string): string => {
+        const lines = md.split("\n");
+        const kept: string[] = [];
+        let removed = 0;
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i];
+          if (/^\s*>\s+/.test(line)) {
+            const next = (lines[i + 1] || "") + " " + (lines[i + 2] || "");
+            if (!lineHasAttribution(line) && !lineHasAttribution(next)) {
+              removed += 1;
+              continue;
+            }
+          }
+          kept.push(line);
+        }
+        const inlineRe =
+          /(?:[A-Z][^.!?"]*?\b(?:expert|doctor|specialist|clinician|orthodontist|dentist|surgeon|physician|practitioner|authority)s?\b[^.!?"]*?\b(?:noted|said|commented|observed|explained|stated|remarked|argued|warned|told)\b[^.!?"]*?["“][^"”]{8,}["”][^.!?]*[.!?])/g;
+        const cleaned = kept.map((line) => {
+          if (lineHasAttribution(line)) return line;
+          return line.replace(inlineRe, () => { removed += 1; return ""; });
+        });
+        if (removed > 0) console.warn(`QUOTE GUARD: stripped ${removed} unattributed quote(s).`);
+        return cleaned.join("\n");
+      };
+      const stripUnsourcedCurrencyClaims = (md: string): string => {
+        const lines = md.split("\n");
+        let removed = 0;
+        const currencyRe = /[\$£€¥]\s?\d[\d,]*(?:\.\d+)?(?:\s?(?:USD|GBP|EUR|JPY))?/;
+        const cleaned = lines.map((line) => {
+          if (line.includes("|")) return line;
+          if (/^\s*>/.test(line)) return line;
+          if (!currencyRe.test(line)) return line;
+          if (lineHasAttribution(line)) return line;
+          const parts = line.split(/(?<=[.!?])\s+/);
+          const keptParts = parts.filter((s) => {
+            if (currencyRe.test(s)) { removed += 1; return false; }
+            return true;
+          });
+          return keptParts.join(" ");
+        });
+        if (removed > 0) console.warn(`CURRENCY GUARD: stripped ${removed} unsourced currency sentence(s).`);
+        return cleaned.join("\n");
+      };
+      content = stripFabricatedQuotes(content);
+      content = stripUnsourcedCurrencyClaims(content);
       const countTables = (md: string): number => {
         const lines = md.split("\n");
         let count = 0;
