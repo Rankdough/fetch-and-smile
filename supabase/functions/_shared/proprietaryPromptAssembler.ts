@@ -137,6 +137,15 @@ If no number is available, write either:
 Never invent a number, never quote a range you have not been given, never write
 "can vary depending on …" as a substitute for an answer.`.trim();
 
+const KEYWORD_NATURAL_LANGUAGE_RULE = `
+KEYWORD NATURAL-LANGUAGE RULE:
+Treat the article title as a topic, not a phrase to stuff into sentences. If the
+title is a search query (e.g. "how can Invisalign fix an underbite"), it may
+appear as the H1 and at most one H2. Do NOT repeat the exact query inside body
+paragraphs, bullets, table cells, or FAQ answers. Translate it into natural
+clinical language instead, such as "clear aligners can camouflage a dental
+underbite" or "aligner treatment cannot correct a skeletal jaw discrepancy".`.trim();
+
 const CONTRARIAN_RULE_NO_UNIT = `
 RULE 6 — CONTRADICT CONSENSUS WHEN WARRANTED:
 If the topic is built on a marketing term, a vague umbrella label, or a claim
@@ -290,6 +299,8 @@ em dashes, en dashes, or horizontal rules.`;
     ruleBlocks.push(SPECIFIC_NUMBERS_RULE);
     applied.push(5);
 
+    ruleBlocks.push(KEYWORD_NATURAL_LANGUAGE_RULE);
+
     // Rule 6 — h2-question sections always get contrarian licence when no
     // contrarian unit is mapped (the editor pass below handles the mapped case).
     if (section.kind === "h2-question" && (!mappedUnit || mappedUnit.unit_type !== "contrarian")) {
@@ -303,6 +314,7 @@ em dashes, en dashes, or horizontal rules.`;
     applied.push(7);
   } else {
     ruleBlocks.push(FRAMING_LITE_RULES);
+    ruleBlocks.push(KEYWORD_NATURAL_LANGUAGE_RULE);
     // Framing inherits rules 2 and 5 conceptually
     applied.push(2, 5);
 
