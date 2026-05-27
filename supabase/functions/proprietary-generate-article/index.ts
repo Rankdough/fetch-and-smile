@@ -24,6 +24,7 @@ import {
   type SectionSpec,
   type UnitType,
 } from "../_shared/proprietaryPromptAssembler.ts";
+import { NON_COMMODITY_TITLE_RULES, isCommodityStyleTitle } from "../_shared/nonCommodityTitleRules.ts";
 
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -121,6 +122,39 @@ async function generateH2Questions(topic: string, model: string): Promise<string
     .filter((l) => l.length > 5 && l.length < 140);
   return lines.slice(0, 3);
 }
+
+/* ── non-commodity title rewrite ──────────────────────────────────────── */
+
+async function rewriteTitleNonCommodity(
+  rawTitle: string,
+  model: string,
+): Promise<string> {
+  if (!isCommodityStyleTitle(rawTitle)) {
+    console.log(`TITLE REWRITE: input "${rawTitle}" already non-commodity, kept as-is`);
+    return rawTitle;
+  }
+  const sys = `You rewrite article titles to be non-commodity per the rules below. Return ONLY the rewritten title as a single line. No quotes, no explanation, no markdown.\n\n${NON_COMMODITY_TITLE_RULES}`;
+  const user = `Original title: ${rawTitle}\n\nRewrite per the rules. Pick the strongest framing (distinction, decision, failure mode, or contrarian) for this topic. Keep the primary keyword visible but reframed. Return only the new title.`;
+  try {
+    const raw = (await callModel(sys, user, model, 200)).trim();
+    // Strip surrounding quotes / markdown / leading "#" if model added any.
+    const cleaned = raw
+      .replace(/^#+\s*/, "")
+      .replace(/^["'“”']|["'“”']$/g, "")
+      .split(/\r?\n/)[0]
+      .trim();
+    if (cleaned.length < 6 || cleaned.length > 160) {
+      console.warn(`TITLE REWRITE: model returned out-of-range length (${cleaned.length}), keeping original`);
+      return rawTitle;
+    }
+    console.log(`TITLE REWRITE: "${rawTitle}" -> "${cleaned}"`);
+    return cleaned;
+  } catch (e) {
+    console.warn("TITLE REWRITE failed (non-fatal):", e);
+    return rawTitle;
+  }
+}
+
 
 /* ── deterministic unit auto-mapping ──────────────────────────────────── */
 
@@ -361,7 +395,7 @@ async function runSection(input: {
 
 /* ── handler ──────────────────────────────────────────────────────────── */
 
-const BUILD_MARKER = "BUILD-2026-05-27-B proprietary-generate-article";
+const BUILD_MARKER = "BUILD-2026-05-27-C proprietary-generate-article";
 Deno.serve(async (req) => {
   console.log(BUILD_MARKER);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -391,7 +425,7 @@ Deno.serve(async (req) => {
     if (brainErr) console.warn("brain_insights fetch failed:", brainErr);
     const units: BrainUnit[] = (rawUnits as BrainUnit[]) || [];
 
-    // 2. Outline
+    // 2. Outline (H2 generation uses original keyword-bearing topic)
     const h2Questions = await generateH2Questions(body.topic, model);
     if (h2Questions.length === 0) {
       return new Response(
@@ -399,6 +433,11 @@ Deno.serve(async (req) => {
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
+
+    // 2b. Non-commodity title rewrite (used for H1 + downstream articleTitle).
+    // Original body.topic is preserved for unit mapping and H2 generation so we
+    // don't lose keyword anchoring.
+    const articleTitle = await rewriteTitleNonCommodity(body.topic, model);
 
     // 3. Build section plan
     const includeFailureMode =
@@ -461,7 +500,7 @@ Deno.serve(async (req) => {
         publicationDestination,
         section,
         surroundingContext: surrounding.slice(),
-        articleTitle: body.topic,
+        articleTitle,
         model,
       });
 
@@ -482,7 +521,7 @@ Deno.serve(async (req) => {
     }
 
     // 6. Stitch
-    const md: string[] = [`# ${body.topic}`, ""];
+    const md: string[] = [`# ${articleTitle}`, ""];
     for (const s of sectionsOut) {
       if (s.kind === "opening") {
         md.push(s.content, "");
@@ -496,7 +535,7 @@ Deno.serve(async (req) => {
         md.push(`## ${s.heading}`, "", s.content, "");
       }
     }
-    const content = sanitiseGeneratedMarkdown(md.join("\n").trim(), body.topic);
+    const content = sanitiseGeneratedMarkdown(md.join("\n").trim(), articleTitle);
 
     // mappedUnitTexts for downstream verification grading on the client
     const mappedUnitTexts: string[] = [];
@@ -513,6 +552,8 @@ Deno.serve(async (req) => {
         mappedUnitTexts,
         brainUnitCount: units.length,
         outline: h2Questions,
+        articleTitle,
+        originalTopic: body.topic,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );

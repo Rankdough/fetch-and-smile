@@ -1,3 +1,17 @@
+## 2026-05-27 — Non-commodity title rewriting
+
+**What:**
+- New `supabase/functions/_shared/nonCommodityTitleRules.ts` exporting `NON_COMMODITY_TITLE_RULES` (distinction / decision / failure-mode / contrarian framings, hard bans on "What Are X?", "Ultimate Guide", unchallenged marketing umbrellas) and `isCommodityStyleTitle` detector.
+- `proprietary-generate-article`: added `rewriteTitleNonCommodity` step after H2 generation. Original `body.topic` still drives unit-mapping and H2 generation; rewritten `articleTitle` is used for H1, downstream section prompts, and sanitiser. Response now returns `articleTitle` + `originalTopic`.
+- `cluster-keywords` (bulk pass-2) and `cluster-keywords-enrich` (bulk + single idea): replaced "[Keyword]: [Question]?" mandate with `NON_COMMODITY_TITLE_RULES`.
+- Bumped BUILD_MARKER to `2026-05-27-C` on the three generators.
+
+**Why:** Claude review flagged commodity-style titles ("Screwless Dental Implants: What Are They?"). The previous rule actively forced that format.
+
+**Files:** _shared/nonCommodityTitleRules.ts (new); proprietary-generate-article/index.ts; cluster-keywords/index.ts; cluster-keywords-enrich/index.ts; proprietary-generate-section/index.ts (marker only); generate-content/index.ts (marker only).
+
+**Verified broken:** Nothing verified broken. Custom-title path in single-idea generation is untouched (still uses `customTitle` verbatim). Original `body.topic` preserved for unit mapping. Title rewriter falls back to original on AI failure or out-of-range length.
+
 ## 2026-05-27 — Fabricated-quote + unsourced-currency guards
 
 **What:**

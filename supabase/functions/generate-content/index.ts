@@ -20,7 +20,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const BUILD_MARKER = "BUILD-2026-05-27-B generate-content";
+const BUILD_MARKER = "BUILD-2026-05-27-C generate-content";
 serve(async (req) => {
   console.log(BUILD_MARKER);
   if (req.method === "OPTIONS") {
