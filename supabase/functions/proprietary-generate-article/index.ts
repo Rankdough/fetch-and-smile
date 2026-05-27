@@ -278,7 +278,9 @@ async function runSection(input: {
 
 /* ── handler ──────────────────────────────────────────────────────────── */
 
+const BUILD_MARKER = "BUILD-2026-05-27-A proprietary-generate-article";
 Deno.serve(async (req) => {
+  console.log(BUILD_MARKER);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
