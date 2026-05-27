@@ -111,13 +111,21 @@ clinical team would do differently. Use the unit's specifics verbatim.`.trim();
 
 const FAILURE_MODE_RULE_NO_UNIT = `
 RULE 4 — FAILURE MODES MANDATORY (no unit mapped):
-This is a failure-mode section but no proprietary failure unit is mapped.
-Describe the two or three most common, well-documented failure patterns for
-this topic at the level of clinical mechanism (e.g. "screw loosening from
-off-axis loading on posterior cases", "marginal bone loss from poor emergence
-profile"). For each: name the mechanism, the contributing factor, and the
-mitigation. Do NOT invent case numbers, percentages, or patient outcomes —
-use [NEEDS EXPERT INPUT] inline for any specific rate or count.`.trim();
+Describe 3-4 specific, well-documented failure patterns for this topic. For each
+failure, you MUST write:
+  (a) the named mechanism (what physically/biologically goes wrong),
+  (b) the specific clinical consequence (what the patient or clinician sees),
+  (c) the contributing factor (why it happened),
+  (d) the mitigation or correct decision (what would have prevented it).
+Bold the failure name at the start of each bullet. Concrete benchmark example
+(dental implants): "Cement excess causing bone loss: Subgingival luting cement
+that is not fully removed after crown seating triggers a foreign-body
+inflammatory response. The tissue loss looks identical to peri-implantitis and
+is frequently misdiagnosed. The mechanism is preventable — raise the margin or
+use a different retention system."
+Do NOT write "complications can occur", "issues may arise", or any vague
+hand-wave. Do NOT invent case numbers, percentages, or patient outcomes — use
+[NEEDS EXPERT INPUT] inline for any specific rate or count.`.trim();
 
 const SPECIFIC_NUMBERS_RULE = `
 RULE 5 — SPECIFIC NUMBERS OVER RANGES:
