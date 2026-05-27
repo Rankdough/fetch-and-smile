@@ -1055,10 +1055,18 @@ Place these images throughout the article at logical locations, typically after 
       const seen = new Set<string>();
       const push = (cand: SourceCandidate) => {
         if (seen.has(cand.url)) return;
-        if (isJunkUrl(cand.url)) return;
-        // QUALITY FILTER: drop low-authority/commercial domains from context files.
-        // Authority allow-list and commercial heuristic match the web-search tiering.
-        if (isLowQualityDomain(cand.url)) {
+        // CONTEXT FILES = TRUTH. The user curated these URLs deliberately.
+        // We only reject obvious junk (dead patterns, file extensions, anchors,
+        // placeholder hosts) and own-domain links. We do NOT apply the
+        // commercial/authority filter here — that filter is for web-search
+        // fallback results only. If the user put a dental clinic URL in the
+        // context file, it IS the authority for this article.
+        if (isJunkUrl(cand.url)) {
+          rejected.push(cand.url);
+          seen.add(cand.url);
+          return;
+        }
+        if (isOwnDomainUrl(cand.url)) {
           rejected.push(cand.url);
           seen.add(cand.url);
           return;
@@ -1086,13 +1094,15 @@ Place these images throughout the article at logical locations, typically after 
         }
       }
       if (rejected.length > 0) {
-        console.log(`SOURCE CATALOGUE: dropped ${rejected.length} low-quality context URL(s): ${rejected.slice(0, 8).join(", ")}${rejected.length > 8 ? " …" : ""}`);
+        console.log(`SOURCE CATALOGUE: dropped ${rejected.length} junk/own-domain context URL(s): ${rejected.slice(0, 8).join(", ")}${rejected.length > 8 ? " …" : ""}`);
       }
+      console.log(`SOURCE CATALOGUE: accepted ${candidates.length} context URL(s) — context files are trusted, commercial/authority filter NOT applied`);
       return candidates.slice(0, 80);
     };
 
     const contextSourceCandidates = extractContextSourceCandidates();
-    console.log(`SOURCE CATALOGUE: ${contextSourceCandidates.length} context URL candidate(s) (junk filtered) from ${Array.isArray(contextFiles) ? contextFiles.length : 0} context file(s)`);
+    console.log(`SOURCE CATALOGUE: ${contextSourceCandidates.length} context URL candidate(s) from ${Array.isArray(contextFiles) ? contextFiles.length : 0} context file(s)`);
+
 
     const tokenise = (text: string): Set<string> => {
       const stop = new Set(["this","that","with","from","about","what","when","where","which","their","there","they","have","been","will","would","could","should","into","than","then","your","also","more","most","some","such","other","over","under","between","during","while","just","like","make","made","does","doing","because","through","against","both","each","every","very","much","many","only","upon","onto","these","those","being","after","before","still"]);
@@ -1499,7 +1509,10 @@ Place these images throughout the article at logical locations, typically after 
 
       let result = [intro, ...rebuilt].filter(Boolean).join("\n\n").trim();
 
-      // 6. Top-up to at least MIN_REFERENCES (refs only, no inline injection).
+      // 6. Top-up References. CRITICAL RULE: when context files exist, the
+      //    References list is built EXCLUSIVELY from context URLs. No web
+      //    search, no Firecrawl fallback, no "relaxed top-up". Prefer fewer
+      //    references that the user trusts over four that they don't.
       const MIN_REFERENCES = 4;
       if (usedSources.length < MIN_REFERENCES) {
         const usedUrlSet = new Set(usedSources.map((s) => cleanSourceUrl(s.url)));
@@ -1507,19 +1520,24 @@ Place these images throughout the article at logical locations, typically after 
           const cleanUrl = cleanSourceUrl(c.url);
           if (usedUrlSet.has(cleanUrl)) return;
           if (isOwnDomainUrl(cleanUrl)) return; // never add own-domain URLs to References
+          if (isJunkUrl(cleanUrl)) return;
           const anchor = (c.title || "").trim().replace(/[*_`\[\]()]/g, "") || sourceTitleFromUrl(cleanUrl);
           usedSources.push({ ...c, url: cleanUrl, title: anchor });
           usedUrlSet.add(cleanUrl);
         };
 
-        if (!useWebFallback) {
-          for (const c of verifiedAllowList) {
-            if (usedSources.length >= MIN_REFERENCES) break;
-            pushCand(c);
-          }
+        // 6a. Top up from REMAINING context-file URLs that survived eligibility
+        //     but weren't selected per-section. This always runs when we have
+        //     context files, regardless of useWebFallback.
+        for (const c of verifiedAllowList) {
+          if (usedSources.length >= MIN_REFERENCES) break;
+          pushCand(c);
         }
 
-        if (usedSources.length < MIN_REFERENCES) {
+        // 6b. Web fallback (Tier-1 search + relaxed Firecrawl). Runs ONLY when
+        //     there are no context files at all. If the user provided context,
+        //     we trust them and stop here even if we're below MIN_REFERENCES.
+        if (!hasContextFiles && usedSources.length < MIN_REFERENCES) {
           // Pull additional Tier-1 web sources keyed to the article topic + each H2.
           const seedQueries: Array<{ heading: string; body: string }> = [{ heading: topic || "", body: "" }];
           for (const m of matches) {
@@ -1535,78 +1553,104 @@ Place these images throughout the article at logical locations, typically after 
               if (await isWorkingSourceUrl(c.url)) pushCand(c);
             }
           }
-        }
 
-        // 6b. RELAXED TOP-UP: if strict Tier-1/Tier-2 search still left us
-        // short of MIN_REFERENCES, query Firecrawl directly with a permissive
-        // filter — accept any host that isn't on the low-authority/UGC
-        // blocklist, isn't junk, and isn't own-domain. This guarantees the
-        // References list reaches the minimum even for topics where Tier-1
-        // coverage is thin (e.g. niche commercial dental procedures).
-        if (usedSources.length < MIN_REFERENCES) {
-          const apiKey = Deno.env.get("FIRECRAWL_API_KEY");
-          if (apiKey) {
-            const relaxedQueries = [topic || "", ...matches
-              .map((m) => m[0].replace(/^#{2,3}\s+/, "").trim())
-              .filter((h) => !/references|bibliography|sources|in\s+this\s+article|tl;?dr|quick\s*tips|frequently\s*asked|faq|final\s*thoughts|conclusion/i.test(h))
-              .map((h) => `${topic || ""} ${h}`.trim())
-            ].filter(Boolean);
-            const lowAuthorityRelaxed = [
-              /(^|\.)reddit\.com$/i, /(^|\.)quora\.com$/i, /(^|\.)pinterest\.[a-z.]+$/i,
-              /(^|\.)tumblr\.com$/i, /(^|\.)blogspot\.com$/i, /(^|\.)wordpress\.com$/i,
-              /(^|\.)wixsite\.com$/i, /(^|\.)weebly\.com$/i, /(^|\.)squarespace\.com$/i,
-              /(^|\.)answers\.com$/i, /(^|\.)ehow\.com$/i, /(^|\.)wikihow\.com$/i,
-              /(^|\.)tripadvisor\.[a-z.]+$/i, /(^|\.)yelp\.com$/i,
-              /(^|\.)stackexchange\.com$/i, /(^|\.)stackoverflow\.com$/i,
-              /(^|\.)facebook\.com$/i, /(^|\.)instagram\.com$/i, /(^|\.)tiktok\.com$/i,
-              /(^|\.)x\.com$/i, /(^|\.)twitter\.com$/i, /(^|\.)youtube\.com$/i,
-            ];
-            const isLowRelaxed = (url: string): boolean => {
-              try { return lowAuthorityRelaxed.some((re) => re.test(new URL(url).hostname)); }
-              catch { return true; }
-            };
-            for (const q of relaxedQueries) {
-              if (usedSources.length >= MIN_REFERENCES) break;
-              try {
-                const resp = await fetch("https://api.firecrawl.dev/v2/search", {
-                  method: "POST",
-                  headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-                  body: JSON.stringify({ query: q.slice(0, 260), limit: 10 }),
-                });
-                if (!resp.ok) continue;
-                const data = await resp.json();
-                const results: any[] = data?.data?.web || (Array.isArray(data?.data) ? data.data : null) || data?.web || [];
-                for (const r of results) {
-                  if (usedSources.length >= MIN_REFERENCES) break;
-                  const rawUrl = cleanSourceUrl(r?.url || r?.link || "");
-                  if (!rawUrl) continue;
-                  if (isJunkUrl(rawUrl)) continue;
-                  if (isLowRelaxed(rawUrl)) continue;
-                  if (isOwnDomainUrl(rawUrl)) continue;
-                  if (!(await isWorkingSourceUrl(rawUrl))) continue;
-                  const title = String(r?.title || sourceTitleFromUrl(rawUrl)).trim();
-                  pushCand({ url: rawUrl, title, origin: "web" });
+          // 6c. RELAXED TOP-UP: only when NO context files exist.
+          if (usedSources.length < MIN_REFERENCES) {
+            const apiKey = Deno.env.get("FIRECRAWL_API_KEY");
+            if (apiKey) {
+              const relaxedQueries = [topic || "", ...matches
+                .map((m) => m[0].replace(/^#{2,3}\s+/, "").trim())
+                .filter((h) => !/references|bibliography|sources|in\s+this\s+article|tl;?dr|quick\s*tips|frequently\s*asked|faq|final\s*thoughts|conclusion/i.test(h))
+                .map((h) => `${topic || ""} ${h}`.trim())
+              ].filter(Boolean);
+              const lowAuthorityRelaxed = [
+                /(^|\.)reddit\.com$/i, /(^|\.)quora\.com$/i, /(^|\.)pinterest\.[a-z.]+$/i,
+                /(^|\.)tumblr\.com$/i, /(^|\.)blogspot\.com$/i, /(^|\.)wordpress\.com$/i,
+                /(^|\.)wixsite\.com$/i, /(^|\.)weebly\.com$/i, /(^|\.)squarespace\.com$/i,
+                /(^|\.)answers\.com$/i, /(^|\.)ehow\.com$/i, /(^|\.)wikihow\.com$/i,
+                /(^|\.)tripadvisor\.[a-z.]+$/i, /(^|\.)yelp\.com$/i,
+                /(^|\.)stackexchange\.com$/i, /(^|\.)stackoverflow\.com$/i,
+                /(^|\.)facebook\.com$/i, /(^|\.)instagram\.com$/i, /(^|\.)tiktok\.com$/i,
+                /(^|\.)x\.com$/i, /(^|\.)twitter\.com$/i, /(^|\.)youtube\.com$/i,
+              ];
+              const isLowRelaxed = (url: string): boolean => {
+                try { return lowAuthorityRelaxed.some((re) => re.test(new URL(url).hostname)); }
+                catch { return true; }
+              };
+              for (const q of relaxedQueries) {
+                if (usedSources.length >= MIN_REFERENCES) break;
+                try {
+                  const resp = await fetch("https://api.firecrawl.dev/v2/search", {
+                    method: "POST",
+                    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+                    body: JSON.stringify({ query: q.slice(0, 260), limit: 10 }),
+                  });
+                  if (!resp.ok) continue;
+                  const data = await resp.json();
+                  const results: any[] = data?.data?.web || (Array.isArray(data?.data) ? data.data : null) || data?.web || [];
+                  for (const r of results) {
+                    if (usedSources.length >= MIN_REFERENCES) break;
+                    const rawUrl = cleanSourceUrl(r?.url || r?.link || "");
+                    if (!rawUrl) continue;
+                    if (isJunkUrl(rawUrl)) continue;
+                    if (isLowRelaxed(rawUrl)) continue;
+                    if (isOwnDomainUrl(rawUrl)) continue;
+                    if (!(await isWorkingSourceUrl(rawUrl))) continue;
+                    const title = String(r?.title || sourceTitleFromUrl(rawUrl)).trim();
+                    pushCand({ url: rawUrl, title, origin: "web" });
+                  }
+                  console.log(`CITATION [relaxed-topup]: query="${q.slice(0, 60)}" -> usedSources=${usedSources.length}`);
+                } catch (err) {
+                  console.warn("CITATION [relaxed-topup]: search failed:", err instanceof Error ? err.message : err);
                 }
-                console.log(`CITATION [relaxed-topup]: query="${q.slice(0, 60)}" -> usedSources=${usedSources.length}`);
-              } catch (err) {
-                console.warn("CITATION [relaxed-topup]: search failed:", err instanceof Error ? err.message : err);
               }
             }
           }
+        } else if (hasContextFiles && usedSources.length < MIN_REFERENCES) {
+          console.log(`CITATION: References (${usedSources.length}) below MIN (${MIN_REFERENCES}) but context files exist — web fallback DISABLED. Returning context-only references.`);
         }
-        console.log(`CITATION: Top-up brought References to ${usedSources.length} source(s) (min ${MIN_REFERENCES}).`);
+        console.log(`CITATION: Top-up brought References to ${usedSources.length} source(s) (target ${MIN_REFERENCES}, hasContextFiles=${hasContextFiles}).`);
       }
 
-      // 7. Build References from used sources (anchor text only, numbered).
-      //    Final safety filter: never list own-domain URLs in References.
-      const refSources = usedSources.filter((s) => !isOwnDomainUrl(cleanSourceUrl(s.url)));
+
+      // 7. Build References from used sources. FINAL RENDER GATE:
+      //    - Always drop own-domain URLs.
+      //    - Always drop junk URLs.
+      //    - When context files exist, allow ANY surviving URL (user trusted it).
+      //    - When NO context files exist, additionally enforce the
+      //      commercial/authority filter on web-fallback URLs.
+      const contextAllowed = new Set(contextSourceCandidates.map((c) => cleanSourceUrl(c.url)));
+      const refSources = usedSources.filter((s) => {
+        const u = cleanSourceUrl(s.url);
+        if (isOwnDomainUrl(u)) {
+          console.log(`CITATION [render-gate] DROP own-domain: ${u}`);
+          return false;
+        }
+        if (isJunkUrl(u)) {
+          console.log(`CITATION [render-gate] DROP junk: ${u}`);
+          return false;
+        }
+        // Context-file URLs are always allowed at the render gate.
+        if (contextAllowed.has(u)) return true;
+        // Non-context URLs (web fallback) must clear the quality filter.
+        if (hasContextFiles) {
+          console.log(`CITATION [render-gate] DROP non-context URL (context files present): ${u}`);
+          return false;
+        }
+        if (isLowQualityDomain(u)) {
+          console.log(`CITATION [render-gate] DROP low-quality web URL: ${u}`);
+          return false;
+        }
+        return true;
+      });
       if (refSources.length > 0) {
         const refLines = refSources.map((s, idx) => `${idx + 1}. [${s.title}](${cleanSourceUrl(s.url)})`);
         result += `\n\n## References\n${refLines.join("\n")}`;
-        console.log(`CITATION: References section built with ${refSources.length} source(s) (own-domain filtered).`);
+        console.log(`CITATION: References section built with ${refSources.length} source(s) after render gate.`);
       } else {
         console.log("CITATION: No external sources qualified → no References section emitted.");
       }
+
 
 
       return result;
