@@ -2417,6 +2417,16 @@ const Index = () => {
               <Brain className="h-4 w-4" />
               SEO Brain
             </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate("/proprietary/extract")}
+              className="gap-2"
+              title="Proprietary Mode — interview-driven extraction (Stage 1, beta)"
+            >
+              <Sparkles className="h-4 w-4" />
+              Proprietary
+            </Button>
           </nav>
           <div className="ml-auto">
             <SettingsPopover />
