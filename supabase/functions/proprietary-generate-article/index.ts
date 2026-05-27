@@ -411,7 +411,7 @@ Deno.serve(async (req) => {
         md.push(`## ${s.heading}`, "", s.content, "");
       }
     }
-    const content = md.join("\n").trim();
+    const content = sanitiseGeneratedMarkdown(md.join("\n").trim(), body.topic);
 
     // mappedUnitTexts for downstream verification grading on the client
     const mappedUnitTexts: string[] = [];
