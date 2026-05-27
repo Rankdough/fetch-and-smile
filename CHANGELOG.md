@@ -1,5 +1,37 @@
 # Changelog
 
+## 2026-05-27 - Article generator hardening: truncation, generic tables, keyword stuffing
+
+- **What:**
+  - `supabase/functions/generate-content/index.ts`:
+    - Raised the main article output cap from a tight `wordCeiling * 2.2` budget to a larger `wordCeiling * 3.6` budget, capped at 12,000 tokens, so full articles have room to finish.
+    - Added continuation handling when the AI gateway returns `finish_reason: "length"`; the generator now continues from the partial article instead of restarting and risking another cut-off.
+    - Replaced generic table prompt examples with topic-specific table rules and an explicit ban on `Option A/B/C`, `Type 1/2/3`, `Beginner/Intermediate/Advanced`, and similar placeholders.
+    - Removed the deterministic fallback table that injected `Option A / Option B / Option C`; the fallback now only injects a known topic-aware table for clear supported topics such as Invisalign underbite or screwless implants, otherwise it skips injection.
+    - Added deterministic removal of generic template tables if the model still emits them.
+    - Reworked keyword instructions so keywords are treated as search-intent signals, not phrases to repeat 2-3 times.
+    - Added a post-generation keyword guard that rewrites exact long-tail query injections outside allowed heading usage into natural topic language.
+    - Added a dangling-sentence guard after generation to remove obvious unfinished sentence tails.
+  - `_shared/articleSectionBudget.ts`:
+    - Made hard word trimming sentence-safe by preferring complete sentences and avoiding cuts after unsafe trailing words such as `for`, `orthognathic`, `mild`, and `severe`.
+  - `_shared/proprietaryPromptAssembler.ts`:
+    - Added an explicit natural-language keyword rule to stop exact query repetition in body prose and FAQ answers.
+    - Extended the table guard with the Invisalign underbite benchmark table shape: Dental underbite / Skeletal underbite / Combined pattern across Definition, Invisalign suitability, Timeline, and Misdiagnosis risk.
+  - `proprietary-generate-article/index.ts`:
+    - Added deterministic sanitisation for generated proprietary articles: removes generic template tables, rewrites repeated exact title-query injections outside the first heading, and trims dangling prose tails.
+- **Why:** Claude review of the Invisalign underbite article found three blocker regressions: truncated sentences, generic `Option A/B/C` clinical tables, and exact search-query keyword stuffing in body prose and FAQ answers. These were rooted in the classic generator's tight token cap, hard-coded fallback table, and keyword prompt requiring 2-3 exact uses.
+- **Verified broken:**
+  - None verified broken. Checked: static search confirms the old hard-coded `Option A / Option B / Option C` fallback table is removed from `generate-content`; the keyword instruction no longer asks for 2-3 exact repetitions; `generate-content` now imports `trimToWordCount` from the shared sentence-safe budget helper; proprietary article output now passes through `sanitiseGeneratedMarkdown` before return.
+- **Files:**
+  - edited `supabase/functions/generate-content/index.ts`
+  - edited `supabase/functions/_shared/articleSectionBudget.ts`
+  - edited `supabase/functions/_shared/proprietaryPromptAssembler.ts`
+  - edited `supabase/functions/proprietary-generate-article/index.ts`
+- **Verify:**
+  1. Regenerate `how can Invisalign fix an underbite` with the target keyword present. Confirm no paragraph, bullet, table cell, or FAQ answer repeats the exact query phrase.
+  2. Confirm any table compares clinical categories such as Dental underbite, Skeletal underbite, and Combined pattern, never Option A/B/C or Beginner/Intermediate/Advanced.
+  3. Confirm no paragraph ends mid-sentence with fragments such as `for`, `orthognathic`, `mild`, or `backward or`.
+
 ## 2026-05-27 - Proprietary pipeline: benchmark-alignment pass (FAQ, Quick Tips, stronger rules)
 
 - **What:**

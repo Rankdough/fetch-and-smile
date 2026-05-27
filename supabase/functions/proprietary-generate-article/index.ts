@@ -171,6 +171,70 @@ function pickUnit(
   };
 }
 
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function naturaliseKeywordPhrase(keyword: string): string {
+  const cleaned = keyword
+    .toLowerCase()
+    .replace(/\b(how|what|why|when|where|which|who|can|does|do|is|are|will|should|could|would)\b/g, " ")
+    .replace(/\b(fix|help|work|mean|cost)\b/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return (cleaned || keyword).replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function sanitiseGeneratedMarkdown(markdown: string, articleTitle: string): string {
+  const titleIsLongQuery = articleTitle.trim().split(/\s+/).length >= 4;
+  const titleRegex = titleIsLongQuery ? new RegExp(`\\b${escapeRegExp(articleTitle.trim())}\\b`, "gi") : null;
+  const replacement = titleIsLongQuery ? naturaliseKeywordPhrase(articleTitle) : "";
+  const lines = markdown.split("\n");
+  const kept: string[] = [];
+  let titleHeadingSeen = false;
+  let removedTables = 0;
+  let rewrittenKeywords = 0;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (line.includes("|") && i + 1 < lines.length && /^\s*\|?[\s\-:|]+\|[\s\-:|]+$/.test(lines[i + 1])) {
+      const start = i;
+      let end = i + 2;
+      while (end < lines.length && lines[end].includes("|")) end++;
+      const table = lines.slice(start, end).join("\n");
+      if (/\bOption\s+[ABC]\b|\bType\s+[123]\b|\bChoice\s+[123]\b|\b(Beginners?|Intermediate users?|Advanced needs?)\b/i.test(table)) {
+        removedTables += 1;
+        i = end - 1;
+        continue;
+      }
+    }
+
+    const trimmed = line.trim();
+    let out = line;
+    if (titleRegex && replacement) {
+      const isHeading = /^#{1,6}\s/.test(trimmed);
+      if (isHeading && !titleHeadingSeen) {
+        titleHeadingSeen = true;
+      } else {
+        const matches = out.match(titleRegex);
+        if (matches) rewrittenKeywords += matches.length;
+        out = out.replace(titleRegex, replacement);
+      }
+    }
+
+    if (trimmed && !/^#{1,6}\s/.test(trimmed) && !/^\s*(\||[-*+]|\d+\.)\s?/.test(out) && !out.includes("|") && !/^>/.test(trimmed) && !/[.!?:)]\s*$/.test(trimmed)) {
+      const lastTerm = Math.max(trimmed.lastIndexOf("."), trimmed.lastIndexOf("!"), trimmed.lastIndexOf("?"));
+      if (lastTerm > 20) out = out.slice(0, out.indexOf(trimmed) + lastTerm + 1);
+    }
+
+    kept.push(out);
+  }
+
+  if (removedTables > 0) console.warn(`PROPRIETARY SANITISER: removed ${removedTables} generic table(s).`);
+  if (rewrittenKeywords > 0) console.warn(`PROPRIETARY SANITISER: rewrote ${rewrittenKeywords} exact title-query injection(s).`);
+  return kept.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+}
+
 /* ── per-section generation (inlined from proprietary-generate-section) ─ */
 
 async function runSection(input: {
@@ -347,7 +411,7 @@ Deno.serve(async (req) => {
         md.push(`## ${s.heading}`, "", s.content, "");
       }
     }
-    const content = md.join("\n").trim();
+    const content = sanitiseGeneratedMarkdown(md.join("\n").trim(), body.topic);
 
     // mappedUnitTexts for downstream verification grading on the client
     const mappedUnitTexts: string[] = [];

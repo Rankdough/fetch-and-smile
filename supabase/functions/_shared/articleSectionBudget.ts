@@ -6,7 +6,31 @@ export function trimToWordCount(text: string, maxWords: number): string {
   if (!text.trim() || maxWords <= 0) return "";
   const words = text.trim().split(/\s+/).filter(Boolean);
   if (words.length <= maxWords) return text.trim();
-  const trimmed = words.slice(0, maxWords).join(" ").replace(/[,:;\-]$/, "").trim();
+
+  const sentences = text.match(/[^.!?]+[.!?]+(?:["')\]]+)?/g)?.map((s) => s.trim()).filter(Boolean) ?? [];
+  const completeSentences: string[] = [];
+  let usedWords = 0;
+  for (const sentence of sentences) {
+    const sentenceWords = countWords(sentence);
+    if (usedWords + sentenceWords > maxWords) break;
+    completeSentences.push(sentence);
+    usedWords += sentenceWords;
+  }
+  if (completeSentences.length > 0) return completeSentences.join(" ").trim();
+
+  const unsafeEndWords = new Set([
+    "a", "an", "the", "and", "or", "but", "for", "to", "of", "in", "on", "at", "by", "with", "without",
+    "from", "into", "onto", "over", "under", "between", "through", "because", "while", "where", "when", "which",
+    "that", "this", "these", "those", "is", "are", "was", "were", "be", "being", "been", "require", "requires",
+    "required", "necessitate", "necessitates", "orthognathic", "combined", "mild", "moderate", "severe",
+  ]);
+  let cut = words.slice(0, maxWords);
+  while (cut.length > 8) {
+    const last = cut[cut.length - 1].toLowerCase().replace(/[^a-z0-9]+$/g, "");
+    if (!unsafeEndWords.has(last)) break;
+    cut = cut.slice(0, -1);
+  }
+  const trimmed = cut.join(" ").replace(/[,:;\-]$/, "").trim();
   return trimmed.endsWith(".") || trimmed.endsWith("!") || trimmed.endsWith("?") ? trimmed : `${trimmed}.`;
 }
 
@@ -93,7 +117,7 @@ export function trimSectionToBudget(body: string, budget: number): string {
         continue;
       }
 
-      if (remaining >= 8) {
+      if (sentenceBuffer.length === 0 && remaining >= 12) {
         sentenceBuffer.push(trimToWordCount(sentence, remaining));
         remaining = 0;
       }

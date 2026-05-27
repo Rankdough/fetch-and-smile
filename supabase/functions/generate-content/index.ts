@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { countWords, trimSectionToBudget } from "../_shared/articleSectionBudget.ts";
+import { countWords, trimSectionToBudget, trimToWordCount } from "../_shared/articleSectionBudget.ts";
 import {
   type SourceCandidate,
   cleanSourceUrl,
@@ -212,7 +212,7 @@ CRITICAL MARKDOWN FORMATTING RULES:
 - WRONG: "- - Text here" or "- — Text here" 
 - CORRECT: "- Text here"
 - Use numbered lists (1.) for easy scanning
-- Use markdown tables with | for comparisons (e.g., Feature | Option A | Option B)
+- Use markdown tables with | for comparisons, using topic-specific real categories and decision dimensions only
 - DO NOT use blockquotes (>) for TL;DR - use H2 heading instead
 
 ${formatReference ? `FORMAT REFERENCE MODE: A format reference has been provided. You MUST replicate the STRUCTURE and LAYOUT PATTERN of the reference article instead of using the standard article template. The reference structure takes priority over default section rules. Keep the same types of sections, headings, and content patterns as the reference. Target word count: ~${targetWords} words.` : `CRITICAL: QUESTION-BASED HEADINGS RULE:
@@ -237,19 +237,22 @@ ${formatReference ? `FORMAT REFERENCE MODE: A format reference has been provided
 
 ${migrationMode ? `TABLE RULE:
 - Use markdown tables where the source content contains list-style comparisons or product listings
-- Do NOT force tables where the source does not warrant them` : `TABLE RULE (1 table per 600 words of target length):
-- Include EXACTLY ${requiredTables} markdown comparison table${requiredTables > 1 ? 's' : ''} for ${targetWords} target words
-- Use proper pipe syntax with a header separator row, e.g.:
+- Do NOT force tables where the source does not warrant them
+- Every table must use topic-specific categories and dimensions from the source content` : `TABLE RULE (1 table per 600 words of target length):
+- Include up to ${requiredTables} markdown comparison table${requiredTables > 1 ? 's' : ''} for ${targetWords} target words only where the topic has real categories to compare
+- Use proper pipe syntax with a header separator row, e.g. for a clinical treatment topic:
 
-| Feature | Option A | Option B |
-| --- | --- | --- |
-| Cost | $100 | $200 |
-| Duration | 1 hour | 2 hours |
+| Case type | Definition | Treatment suitability | Key risk if misdiagnosed |
+| --- | --- | --- | --- |
+| Dental pattern | Teeth position drives the bite issue | Usually suitable when movement is tooth-led | Treating the wrong mechanism wastes months |
+| Skeletal pattern | Jaw relationship drives the bite issue | Often needs surgical assessment first | Camouflage can worsen facial balance |
 
-- Each table: at least 3 columns and at least 4 data rows
-- Spread tables evenly across body H2 sections; never cluster at the end
-- Markdown only — do NOT use HTML <table> tags
-- Do NOT replace tables with bullet lists`}
+- Each table: at least 3 columns and at least 3 data rows when enough real categories exist
+- Columns must be real decision dimensions for this topic, not generic labels
+- ABSOLUTELY FORBIDDEN table labels: Option A, Option B, Option C, Type 1, Type 2, Type 3, Beginners, Intermediate users, Advanced needs, Choice 1, Choice 2, Choice 3
+- If you cannot name real topic categories with confidence, omit the table rather than using a template
+- Spread tables evenly across body H2 sections when more than one is warranted
+- Markdown only — do NOT use HTML <table> tags`}
 
 SOURCE REFERENCE RULES (ABSOLUTE):
 - DO NOT add any "**Sources:**" lines, "Sources:" lines, or "Source:" lines anywhere in the article.
@@ -525,11 +528,15 @@ MUST FOLLOW (in priority order):
       if (keywords && Array.isArray(keywords) && keywords.length > 0) {
         userPrompt += `
 
-IMPORTANT SEO KEYWORDS TO USE:
-The following keywords MUST be naturally incorporated throughout the article, especially in headings, the first paragraph, and key sections:
+IMPORTANT SEO KEYWORDS TO USE WITHOUT STUFFING:
+The following are search-intent signals, not phrases to force into clinical prose:
 ${keywords.map((k: string, i: number) => `${i + 1}. ${k}`).join("\n")}
 
-Use each keyword at least 2-3 times throughout the article where it fits naturally.`;
+Rules:
+- Use the top keyword in the H1/title and, if natural, one H2 heading only.
+- Do NOT repeat exact long-tail question keywords inside body paragraphs, bullet points, table cells, or FAQ answers.
+- In prose, translate search queries into natural clinical language. Example: write "clear aligners can camouflage a dental underbite" instead of repeating "how can Invisalign fix an underbite".
+- Never start a sentence with "For cases that can be addressed by [keyword]" or similar SEO phrasing.`;
       }
 
       // Inject value promise claims as mandatory per-claim requirements
@@ -638,15 +645,14 @@ Place these images throughout the article at logical locations, typically after 
 
     console.log(expandExistingContent ? "Expanding existing content" : "Generating content for topic:", topic);
 
-    // Use stronger model for long articles, default flash for shorter ones
     const model = "google/gemini-2.5-flash";
-    // Keep token budget tighter to reduce latency/timeouts and discourage oversized outputs
-    const maxTokens = Math.min(Math.max(2048, Math.ceil(wordCeiling * 2.2)), 8192);
+    // Allow enough completion room for full Markdown articles; downstream trimming is sentence-safe.
+    const maxTokens = Math.min(Math.max(4096, Math.ceil(wordCeiling * 3.6)), 12000);
 
     console.log(`Using model: ${model}, max_tokens: ${maxTokens}, target words: ${targetWords}`);
     console.log(`Word budgets: ${sectionBudgets.bodyH2Count} body H2s × ${sectionBudgets.wordsPerBodyH2} words = ${sectionBudgets.remainingWords} + ${sectionBudgets.fixedTotal} fixed = ${targetWords}`);
 
-    const callModel = async (promptSuffix = ""): Promise<{ content: string; finishReason: string | undefined }> => {
+    const callModelRaw = async (promptSuffix = "", overrideUserPrompt?: string): Promise<{ content: string; finishReason: string | undefined }> => {
       const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
         headers: {
@@ -658,7 +664,7 @@ Place these images throughout the article at logical locations, typically after 
           max_tokens: maxTokens,
           messages: [
             { role: "system", content: systemPrompt },
-            { role: "user", content: userPrompt + promptSuffix },
+            { role: "user", content: (overrideUserPrompt ?? userPrompt) + promptSuffix },
           ],
         }),
       });
@@ -687,6 +693,24 @@ Place these images throughout the article at logical locations, typically after 
         content: generatedContent,
         finishReason: firstChoice?.finish_reason,
       };
+    };
+
+    const callModel = async (promptSuffix = ""): Promise<{ content: string; finishReason: string | undefined }> => {
+      const first = await callModelRaw(promptSuffix);
+      if (first.finishReason !== "length") return first;
+
+      console.warn("AI output hit max_tokens; requesting continuation instead of restarting.");
+      try {
+        const continuationPrompt = `${userPrompt}${promptSuffix}\n\n--- PARTIAL ARTICLE SO FAR ---\n${first.content}\n\nContinue from the exact next word. Do not restart, do not repeat earlier sections, and finish the remaining article with complete sentences.`;
+        const second = await callModelRaw("", continuationPrompt);
+        return {
+          content: `${first.content.replace(/\s+$/, "")}\n\n${(second.content || "").replace(/^\s+/, "")}`.trim(),
+          finishReason: second.finishReason === "length" ? "length" : "stop",
+        };
+      } catch (e) {
+        console.warn("Continuation request failed; returning first partial for retry handling.", e);
+        return first;
+      }
     };
 
     const splitByH2Sections = (markdown: string): { intro: string; sections: { heading: string; body: string }[] } => {
@@ -884,6 +908,67 @@ Place these images throughout the article at logical locations, typically after 
     // Post-process: Remove any em dashes, en dashes, and horizontal rules
     content = content.replace(/—/g, "-").replace(/–/g, "-");
     content = content.replace(/^\s*[-*_]{3,}\s*$/gm, "");
+
+    const removeDanglingSentenceTails = (markdown: string): string => {
+      return markdown
+        .split("\n")
+        .map((line) => {
+          const trimmed = line.trim();
+          if (!trimmed || /^#{1,6}\s/.test(trimmed) || /^\s*(\||[-*+]|\d+\.)\s?/.test(line) || trimmed.includes("|") || /^>/.test(trimmed)) {
+            return line;
+          }
+          if (/[.!?:)]\s*$/.test(trimmed)) return line;
+          const lastTerm = Math.max(trimmed.lastIndexOf("."), trimmed.lastIndexOf("!"), trimmed.lastIndexOf("?"));
+          if (lastTerm > 20) return line.slice(0, line.indexOf(trimmed) + lastTerm + 1);
+          return line;
+        })
+        .join("\n")
+        .replace(/\n{3,}/g, "\n\n")
+        .trim();
+    };
+
+    const naturaliseKeywordPhrase = (keyword: string): string => {
+      let phrase = keyword
+        .toLowerCase()
+        .replace(/\b(how|what|why|when|where|which|who|can|does|do|is|are|will|should|could|would)\b/g, " ")
+        .replace(/\b(fix|help|work|mean|cost)\b/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+      if (!phrase || phrase.split(/\s+/).length < 2) phrase = (topic || keyword).toLowerCase();
+      return phrase.replace(/\b\w/g, (c) => c.toUpperCase());
+    };
+
+    const escapeRegExp = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const stripMidProseKeywordStuffing = (markdown: string): string => {
+      if (!keywords || !Array.isArray(keywords) || keywords.length === 0) return markdown;
+      const keywordList = keywords.map((k: string) => String(k || "").trim()).filter((k: string) => k.split(/\s+/).length >= 4);
+      if (keywordList.length === 0) return markdown;
+
+      let stripped = 0;
+      const lines = markdown.split("\n");
+      const seenHeadingKeywords = new Set<string>();
+      const next = lines.map((line) => {
+        const trimmed = line.trim();
+        const isHeading = /^#{1,6}\s/.test(trimmed);
+        let out = line;
+        for (const keyword of keywordList) {
+          const re = new RegExp(`\\b${escapeRegExp(keyword)}\\b`, "gi");
+          const matches = out.match(re);
+          if (!matches) continue;
+          if (isHeading && !seenHeadingKeywords.has(keyword.toLowerCase())) {
+            seenHeadingKeywords.add(keyword.toLowerCase());
+            continue;
+          }
+          stripped += matches.length;
+          out = out.replace(re, naturaliseKeywordPhrase(keyword));
+        }
+        return out;
+      });
+      if (stripped > 0) console.log(`KEYWORD GUARD: Rewrote ${stripped} exact long-tail keyword injection(s) outside allowed heading usage.`);
+      return next.join("\n");
+    };
+
+    content = stripMidProseKeywordStuffing(removeDanglingSentenceTails(content));
 
     if (!expandExistingContent) {
       const currentWordCount = countWords(content);
@@ -1680,6 +1765,46 @@ Place these images throughout the article at logical locations, typically after 
     // TABLE GUARD: deterministic local injection if model under-delivered
     // ═══════════════════════════════════════════════════════════════════════
     if (!expandExistingContent) {
+      const isGenericTemplateTable = (table: string): boolean => {
+        return /\bOption\s+[ABC]\b/i.test(table)
+          || /\bType\s+[123]\b/i.test(table)
+          || /\bChoice\s+[123]\b/i.test(table)
+          || /\b(Beginners?|Intermediate users?|Advanced needs?)\b/i.test(table)
+          || /\|\s*Aspect\s*\|\s*Option\s+A\s*\|/i.test(table);
+      };
+      const stripGenericTemplateTables = (md: string): string => {
+        const lines = md.split("\n");
+        const kept: string[] = [];
+        let removed = 0;
+        for (let i = 0; i < lines.length; i++) {
+          if (lines[i].includes("|") && i + 1 < lines.length && /^\s*\|?[\s\-:|]+\|[\s\-:|]+$/.test(lines[i + 1])) {
+            const start = i;
+            let end = i + 2;
+            while (end < lines.length && lines[end].includes("|")) end++;
+            const table = lines.slice(start, end).join("\n");
+            if (isGenericTemplateTable(table)) {
+              removed += 1;
+              i = end - 1;
+              continue;
+            }
+          }
+          kept.push(lines[i]);
+        }
+        if (removed > 0) console.warn(`TABLE GUARD: Removed ${removed} generic template table(s).`);
+        return kept.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+      };
+      const buildTopicAwareFallbackTable = (): string => {
+        const t = `${topic || ""} ${outline || ""} ${instructions || ""}`.toLowerCase();
+        if (/invisalign|aligner|underbite|class\s*iii|malocclusion/.test(t)) {
+          return `\n\n| Case type | Definition | Invisalign suitable? | Typical timeline | Key risk if misdiagnosed |\n| --- | --- | --- | --- | --- |\n| Dental underbite | Tooth position creates the reverse bite while jaw relationship is manageable | Often suitable when movement is tooth-led and space allows | Commonly 12-24 months depending on staging and compliance | Treating it as skeletal can overcomplicate care |\n| Skeletal underbite | Lower jaw position or upper-jaw deficiency drives the bite | Limited suitability; surgical orthodontic assessment often comes first | Orthodontics plus surgery can extend beyond 18-24 months | Camouflage can worsen facial balance or stability |\n| Combined pattern | Tooth position and jaw relationship both contribute | Sometimes suitable for camouflage when skeletal discrepancy is mild | Timeline depends on whether surgery is avoided or planned | Misclassification leads to relapse or an incomplete bite correction |\n`;
+        }
+        if (/screwless|implant|dental\s+implant|morse|cement/.test(t)) {
+          return `\n\n| System type | How retention works | Screw present? | Primary risk | Best-fit case |\n| --- | --- | --- | --- | --- |\n| Cement-retained crown | Dental cement bonds the crown to the abutment | No access screw through the crown | Residual cement can inflame peri-implant tissue | Aesthetic zones where access holes would compromise appearance |\n| Friction-fit or Morse taper | Precision taper locks components through mechanical friction | Not through the crown surface | Removal can be difficult if repair is needed | Single-tooth cases with accurate component seating |\n| Traditional screw-retained | A prosthetic screw fixes the crown or bridge to the implant | Yes | Access-channel aesthetics or screw loosening | Retrievable restorations and maintenance-heavy cases |\n`;
+        }
+        return "";
+      };
+
+      content = stripGenericTemplateTables(content);
       const countTables = (md: string): number => {
         const lines = md.split("\n");
         let count = 0;
@@ -1693,36 +1818,32 @@ Place these images throughout the article at logical locations, typically after 
       const existingTables = countTables(content);
       const tablesNeeded = requiredTables - existingTables;
       if (tablesNeeded > 0) {
-        console.warn(`TABLE GUARD: Found ${existingTables}/${requiredTables} tables. Injecting ${tablesNeeded} fallback table(s).`);
-        const fallbackTable = (idx: number) => `\n\n| Aspect | Option A | Option B | Option C |\n| --- | --- | --- | --- |\n| Best for | Beginners | Intermediate users | Advanced needs |\n| Typical cost | Low | Moderate | Higher |\n| Time to results | Fast | Balanced | Long-term |\n| Key trade-off | Simplicity | Flexibility | Depth |\n`;
-        // Find body H2 sections (skip TL;DR, Quick Tips, In This Article, FAQ, Final Thoughts, References)
-        const lines = content.split("\n");
-        const h2Indices: number[] = [];
-        for (let i = 0; i < lines.length; i++) {
-          if (/^##\s+/.test(lines[i]) && !bodySectionSkipPattern.test(lines[i])) {
-            h2Indices.push(i);
+        const fallbackTable = buildTopicAwareFallbackTable();
+        if (!fallbackTable) {
+          console.warn(`TABLE GUARD: Found ${existingTables}/${requiredTables} tables, but no safe topic-aware fallback exists. Skipping table injection.`);
+        } else {
+          console.warn(`TABLE GUARD: Found ${existingTables}/${requiredTables} tables. Injecting 1 topic-aware fallback table.`);
+          // Find body H2 sections (skip TL;DR, Quick Tips, In This Article, FAQ, Final Thoughts, References)
+          const lines = content.split("\n");
+          const h2Indices: number[] = [];
+          for (let i = 0; i < lines.length; i++) {
+            if (/^##\s+/.test(lines[i]) && !bodySectionSkipPattern.test(lines[i])) {
+              h2Indices.push(i);
+            }
           }
-        }
-        if (h2Indices.length > 0) {
-          // Distribute evenly across body H2s, find end of each section
-          const targets: number[] = [];
-          const step = Math.max(1, Math.floor(h2Indices.length / tablesNeeded));
-          for (let i = 0; i < tablesNeeded; i++) {
-            const h2Idx = h2Indices[Math.min(i * step, h2Indices.length - 1)];
-            // find end of this section (next ## or end)
+          if (h2Indices.length > 0) {
+            const h2Idx = h2Indices[Math.min(1, h2Indices.length - 1)];
             let endIdx = lines.length;
             for (let j = h2Idx + 1; j < lines.length; j++) {
-              if (/^##\s+/.test(lines[j])) { endIdx = j; break; }
+              if (/^##\s+/.test(lines[j])) {
+                endIdx = j;
+                break;
+              }
             }
-            targets.push(endIdx);
+            lines.splice(endIdx, 0, fallbackTable);
+            content = lines.join("\n");
+            console.log(`TABLE GUARD: Injected 1 topic-aware table into a body H2 section`);
           }
-          // Insert from bottom up to preserve indices
-          targets.sort((a, b) => b - a);
-          for (let i = 0; i < targets.length; i++) {
-            lines.splice(targets[i], 0, fallbackTable(i));
-          }
-          content = lines.join("\n");
-          console.log(`TABLE GUARD: Injected ${tablesNeeded} table(s) into body H2 sections`);
         }
       } else {
         console.log(`TABLE GUARD: ${existingTables}/${requiredTables} tables present ✓`);
