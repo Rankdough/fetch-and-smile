@@ -8,9 +8,10 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectLabel, SelectGroup, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Loader2, Brain, FileText, BookOpen, MessageSquare, History, Search, Pencil, Trash2, Plus, AlertOctagon, Bookmark } from "lucide-react";
+import { Loader2, Brain, FileText, BookOpen, MessageSquare, History, Search, Pencil, Trash2, Plus, AlertOctagon, Bookmark, Sparkles, Layers } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { UnitTypeChip } from "@/components/proprietary/UnitTypeChip";
 
 const INSIGHT_TYPES = ["principle", "tactic", "case_study", "framework", "client_note"] as const;
 const MAX_TAGS_PER_TYPE = 15;
