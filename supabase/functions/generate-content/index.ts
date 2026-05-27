@@ -528,11 +528,15 @@ MUST FOLLOW (in priority order):
       if (keywords && Array.isArray(keywords) && keywords.length > 0) {
         userPrompt += `
 
-IMPORTANT SEO KEYWORDS TO USE:
-The following keywords MUST be naturally incorporated throughout the article, especially in headings, the first paragraph, and key sections:
+IMPORTANT SEO KEYWORDS TO USE WITHOUT STUFFING:
+The following are search-intent signals, not phrases to force into clinical prose:
 ${keywords.map((k: string, i: number) => `${i + 1}. ${k}`).join("\n")}
 
-Use each keyword at least 2-3 times throughout the article where it fits naturally.`;
+Rules:
+- Use the top keyword in the H1/title and, if natural, one H2 heading only.
+- Do NOT repeat exact long-tail question keywords inside body paragraphs, bullet points, table cells, or FAQ answers.
+- In prose, translate search queries into natural clinical language. Example: write "clear aligners can camouflage a dental underbite" instead of repeating "how can Invisalign fix an underbite".
+- Never start a sentence with "For cases that can be addressed by [keyword]" or similar SEO phrasing.`;
       }
 
       // Inject value promise claims as mandatory per-claim requirements
