@@ -68,17 +68,25 @@ export interface AssembledPrompt {
 const NO_COMMODITY_RULE = `
 RULE 1 — NO COMMODITY ANSWERS:
 Do not write anything that could appear on any generic website covering this topic.
-If your mapped knowledge unit does not contain enough specific detail to support a
-non-generic claim, output the single literal token [NEEDS EXPERT INPUT] as the
-entire section body. Do NOT fill the gap with general knowledge, plausible-sounding
-estimates, or rephrased common wisdom. The token is a feature, not a failure — it
-tells the user exactly where their clinical knowledge is needed.`.trim();
+That means: no rephrased marketing copy, no "X offers an alternative to Y by …"
+definitions, no balanced "pros and cons" summaries, no "consult your professional"
+non-answers. Every paragraph must contain at least one of: a specific number, a
+named failure mode, a concrete category distinction, or a claim that contradicts
+the consensus framing.
+[NEEDS EXPERT INPUT] is an INLINE placeholder, not a section escape hatch. Use it
+in place of a single missing specific (e.g. "average healing time is [NEEDS EXPERT
+INPUT] months") — never as the entire section body unless Rule 4 explicitly says so.
+If you cannot write a non-commodity paragraph WITHOUT a specific number, write the
+paragraph anyway using direct claims, failure patterns, and contrarian framing, and
+mark the missing number inline.`.trim();
 
 const HONEST_ANSWER_RULE = `
 RULE 2 — LEAD WITH THE HONEST ANSWER:
 The first sentence of this section MUST be a direct claim or direct answer.
 No preamble. No context-setting. No "it depends" opener. No "In today's world".
-No "When it comes to". State the answer, then defend it.`.trim();
+No "When it comes to". State the answer, then defend it. If the section heading
+is a question, the first sentence answers it in plain language — even if the
+honest answer is "this term is mostly marketing, not a clean technical category."`.trim();
 
 const CATEGORY_DISTINCTION_RULE_WITH_UNIT = `
 RULE 3 — DISTINGUISH CATEGORIES BEFORE RECOMMENDING:
@@ -90,22 +98,47 @@ collapse the distinction for readability.`.trim();
 const CATEGORY_DISTINCTION_RULE_GENERIC = `
 RULE 3 — DISTINGUISH CATEGORIES BEFORE RECOMMENDING:
 If a category distinction applies to this topic (e.g. mild vs severe, dental vs
-skeletal, adult vs paediatric), draw it before any recommendation. If no
-distinction applies, skip this rule.`.trim();
+skeletal, adult vs paediatric, marketing label vs technical category), draw it
+explicitly before any recommendation. If the topic uses a marketing umbrella
+term that bundles distinct technical approaches, name the underlying categories
+and refuse to treat the umbrella as a clean clinical category.`.trim();
 
-const FAILURE_MODE_RULE = `
+const FAILURE_MODE_RULE_WITH_UNIT = `
 RULE 4 — FAILURE MODES MANDATORY:
-This is a failure-mode section. It MUST describe a real failure mode drawn from
-the mapped knowledge unit. Cover: what went wrong, why it went wrong, and what
-the clinical team would do differently. If the mapped unit is missing or is not
-of type "failure", output [NEEDS EXPERT INPUT] and nothing else.`.trim();
+This is a failure-mode section and a "failure" unit is mapped. Describe the
+actual failure from the unit: what went wrong, why it went wrong, what the
+clinical team would do differently. Use the unit's specifics verbatim.`.trim();
+
+const FAILURE_MODE_RULE_NO_UNIT = `
+RULE 4 — FAILURE MODES MANDATORY (no unit mapped):
+This is a failure-mode section but no proprietary failure unit is mapped.
+Describe the two or three most common, well-documented failure patterns for
+this topic at the level of clinical mechanism (e.g. "screw loosening from
+off-axis loading on posterior cases", "marginal bone loss from poor emergence
+profile"). For each: name the mechanism, the contributing factor, and the
+mitigation. Do NOT invent case numbers, percentages, or patient outcomes —
+use [NEEDS EXPERT INPUT] inline for any specific rate or count.`.trim();
 
 const SPECIFIC_NUMBERS_RULE = `
 RULE 5 — SPECIFIC NUMBERS OVER RANGES:
 Do not write "varies", "depends on", "typically", or "usually" without a specific
-number in the same sentence. Pull numbers from the mapped knowledge unit. If the
-unit contains no number for a claim that needs one, write the literal sentence:
-"No public data; ask the clinical team for current figures." instead of hedging.`.trim();
+number in the same sentence. If a mapped unit provides a number, use it verbatim.
+If no number is available, write either:
+  (a) the literal sentence "No public data; ask the clinical team for current figures.", or
+  (b) an inline [NEEDS EXPERT INPUT] placeholder in place of the missing number.
+Never invent a number, never quote a range you have not been given, never write
+"can vary depending on …" as a substitute for an answer.`.trim();
+
+const CONTRARIAN_RULE_NO_UNIT = `
+RULE 6 — CONTRADICT CONSENSUS WHEN WARRANTED:
+If the topic is built on a marketing term, a vague umbrella label, or a claim
+that experienced clinicians routinely push back on, say so in plain language
+early in the section. Examples of the form: "This term is mostly marketing, not
+a clean technical category." or "Most articles claim X; in practice clinicians
+see Y." You do not need a proprietary unit to apply this rule — apply it
+whenever the consensus framing of the topic is weak, ambiguous, or commercially
+motivated. Do NOT manufacture a contradiction where the consensus is genuinely
+correct.`.trim();
 
 const FRAMING_LITE_RULES = `
 FRAMING SECTION RULES:
