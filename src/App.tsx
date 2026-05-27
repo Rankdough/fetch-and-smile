@@ -14,6 +14,7 @@ import BrainLibrary from "./pages/BrainLibrary";
 import BrainInsights from "./pages/BrainInsights";
 import BrainAsk from "./pages/BrainAsk";
 import BrainOutputs from "./pages/BrainOutputs";
+import ProprietaryExtract from "./pages/ProprietaryExtract";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -36,6 +37,7 @@ const App = () => (
           <Route path="/seo-brain/insights" element={<BrainInsights />} />
           <Route path="/seo-brain/ask" element={<BrainAsk />} />
           <Route path="/seo-brain/outputs" element={<BrainOutputs />} />
+          <Route path="/proprietary/extract" element={<ProprietaryExtract />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

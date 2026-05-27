@@ -183,6 +183,8 @@ export type Database = {
       }
       brain_insights: {
         Row: {
+          business_type: string | null
+          contributor_id: string | null
           created_at: string
           credibility_flag: string | null
           credibility_note: string | null
@@ -190,13 +192,21 @@ export type Database = {
           id: string
           insight_type: string
           is_bookmarked: boolean
+          is_stale: boolean
+          parent_unit_id: string | null
           source_file_id: string | null
+          stale_reason: string | null
           status: string
           summary: string | null
           title: string
+          unit_type: string
           updated_at: string
+          usage_count: number
+          word_count: number
         }
         Insert: {
+          business_type?: string | null
+          contributor_id?: string | null
           created_at?: string
           credibility_flag?: string | null
           credibility_note?: string | null
@@ -204,13 +214,21 @@ export type Database = {
           id?: string
           insight_type?: string
           is_bookmarked?: boolean
+          is_stale?: boolean
+          parent_unit_id?: string | null
           source_file_id?: string | null
+          stale_reason?: string | null
           status?: string
           summary?: string | null
           title: string
+          unit_type?: string
           updated_at?: string
+          usage_count?: number
+          word_count?: number
         }
         Update: {
+          business_type?: string | null
+          contributor_id?: string | null
           created_at?: string
           credibility_flag?: string | null
           credibility_note?: string | null
@@ -218,13 +236,26 @@ export type Database = {
           id?: string
           insight_type?: string
           is_bookmarked?: boolean
+          is_stale?: boolean
+          parent_unit_id?: string | null
           source_file_id?: string | null
+          stale_reason?: string | null
           status?: string
           summary?: string | null
           title?: string
+          unit_type?: string
           updated_at?: string
+          usage_count?: number
+          word_count?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "brain_insights_parent_unit_id_fkey"
+            columns: ["parent_unit_id"]
+            isOneToOne: false
+            referencedRelation: "brain_insights"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "brain_insights_source_file_id_fkey"
             columns: ["source_file_id"]
@@ -332,6 +363,51 @@ export type Database = {
           tag_type?: string
         }
         Relationships: []
+      }
+      brain_unit_contradictions: {
+        Row: {
+          created_at: string
+          id: string
+          note: string | null
+          status: string
+          unit_a_id: string
+          unit_b_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          note?: string | null
+          status?: string
+          unit_a_id: string
+          unit_b_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          note?: string | null
+          status?: string
+          unit_a_id?: string
+          unit_b_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brain_unit_contradictions_unit_a_id_fkey"
+            columns: ["unit_a_id"]
+            isOneToOne: false
+            referencedRelation: "brain_insights"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "brain_unit_contradictions_unit_b_id_fkey"
+            columns: ["unit_b_id"]
+            isOneToOne: false
+            referencedRelation: "brain_insights"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       context_documents: {
         Row: {
@@ -719,6 +795,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      proprietary_analytics_events: {
+        Row: {
+          article_id: string | null
+          created_at: string
+          event_type: string
+          id: string
+          mode: string
+          payload: Json
+        }
+        Insert: {
+          article_id?: string | null
+          created_at?: string
+          event_type: string
+          id?: string
+          mode: string
+          payload?: Json
+        }
+        Update: {
+          article_id?: string | null
+          created_at?: string
+          event_type?: string
+          id?: string
+          mode?: string
+          payload?: Json
+        }
+        Relationships: []
       }
       saved_articles: {
         Row: {
