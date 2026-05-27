@@ -35,11 +35,8 @@ serve(async (req) => {
       
       const titleInstruction = isCustom
         ? `TITLE: Use exactly "${customTitle}" as the blog idea title. Do NOT change it.`
-        : `TITLE RULES:
-- Format: "[Main Keyword]: [Natural Question]?" — e.g. "Cross-Country Running: How Do You Train for a Race?"
-- MUST contain "${focusKeyword}" verbatim, followed by a natural question.
-- Simple, short (6-12 words), conversational.
-- BANNED: "Ultimate Guide", "Beginner's Guide", "Handbook", "Comprehensive", "Everything You Need to Know", "Deep Dive", "Mastering", "Unpacking", "Unlocking", "Navigate", "Essential", "Your", "Checklist".`;
+        : `TITLE RULES for keyword "${focusKeyword}":
+${NON_COMMODITY_TITLE_RULES}`;
 
       const singlePrompt = `You are an expert SEO content strategist. Generate exactly ONE blog idea ${isCustom ? `titled "${customTitle}"` : `for the keyword "${focusKeyword}"`} within the topic cluster "${clusters[0].topic}".
 
