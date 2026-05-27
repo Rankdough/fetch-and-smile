@@ -1556,6 +1556,7 @@ const KeywordClustering = () => {
       const allKws = cluster.keywords;
       const totalVol = allKws.reduce((s, kw) => s + (cluster.keyword_volumes?.[kw] ?? cluster.keyword_volumes?.[kw.toLowerCase()] ?? 0), 0);
 
+      const experiencePack = isExperienceGateEnabled() ? (await loadProjectSignals()).pack || undefined : undefined;
       const { data, error } = await supabase.functions.invoke("cluster-keywords-enrich", {
         body: {
           clusters: [{
@@ -1567,6 +1568,7 @@ const KeywordClustering = () => {
           singleIdea: true,
           focusKeyword: allKws[0],
           customTitle: title.trim(),
+          experiencePack,
         },
       });
 
