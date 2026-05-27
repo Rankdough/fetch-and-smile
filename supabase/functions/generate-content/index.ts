@@ -1821,35 +1821,29 @@ Place these images throughout the article at logical locations, typically after 
         const fallbackTable = buildTopicAwareFallbackTable();
         if (!fallbackTable) {
           console.warn(`TABLE GUARD: Found ${existingTables}/${requiredTables} tables, but no safe topic-aware fallback exists. Skipping table injection.`);
-          return;
-        }
-        console.warn(`TABLE GUARD: Found ${existingTables}/${requiredTables} tables. Injecting 1 topic-aware fallback table.`);
-        // Find body H2 sections (skip TL;DR, Quick Tips, In This Article, FAQ, Final Thoughts, References)
-        const lines = content.split("\n");
-        const h2Indices: number[] = [];
-        for (let i = 0; i < lines.length; i++) {
-          if (/^##\s+/.test(lines[i]) && !bodySectionSkipPattern.test(lines[i])) {
-            h2Indices.push(i);
+        } else {
+          console.warn(`TABLE GUARD: Found ${existingTables}/${requiredTables} tables. Injecting 1 topic-aware fallback table.`);
+          // Find body H2 sections (skip TL;DR, Quick Tips, In This Article, FAQ, Final Thoughts, References)
+          const lines = content.split("\n");
+          const h2Indices: number[] = [];
+          for (let i = 0; i < lines.length; i++) {
+            if (/^##\s+/.test(lines[i]) && !bodySectionSkipPattern.test(lines[i])) {
+              h2Indices.push(i);
+            }
           }
-        }
-        if (h2Indices.length > 0) {
-          // Distribute evenly across body H2s, find end of each section
-          const targets: number[] = [];
-          const step = Math.max(1, Math.floor(h2Indices.length / tablesNeeded));
-          for (let i = 0; i < tablesNeeded; i++) {
-            const h2Idx = h2Indices[Math.min(i * step, h2Indices.length - 1)];
-            // find end of this section (next ## or end)
+          if (h2Indices.length > 0) {
+            const h2Idx = h2Indices[Math.min(1, h2Indices.length - 1)];
             let endIdx = lines.length;
             for (let j = h2Idx + 1; j < lines.length; j++) {
-              if (/^##\s+/.test(lines[j])) { endIdx = j; break; }
+              if (/^##\s+/.test(lines[j])) {
+                endIdx = j;
+                break;
+              }
             }
-            targets.push(endIdx);
+            lines.splice(endIdx, 0, fallbackTable);
+            content = lines.join("\n");
+            console.log(`TABLE GUARD: Injected 1 topic-aware table into a body H2 section`);
           }
-          // Insert from bottom up to preserve indices
-          targets.sort((a, b) => b - a);
-          lines.splice(targets[0], 0, fallbackTable);
-          content = lines.join("\n");
-          console.log(`TABLE GUARD: Injected 1 topic-aware table into a body H2 section`);
         }
       } else {
         console.log(`TABLE GUARD: ${existingTables}/${requiredTables} tables present ✓`);
