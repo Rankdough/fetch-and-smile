@@ -184,7 +184,10 @@ async function runSection(input: {
   model: string;
 }) {
   const { system, user, appliedRules } = assembleSectionPrompt(input);
-  let content = (await callModel(system, user, input.model)).trim();
+  // Body sections get a larger budget than framing sections to prevent mid-sentence
+  // truncation. Gemini/OpenAI default caps were producing dangling sentences.
+  const tokenBudget = input.section.type === "body" ? 2200 : 1000;
+  let content = (await callModel(system, user, input.model, tokenBudget)).trim();
   const needsExpertInput = /^\[NEEDS EXPERT INPUT\]\s*$/i.test(content);
   const ruleFlags = needsExpertInput ? [] : lintRule5(content);
 
@@ -196,7 +199,7 @@ async function runSection(input: {
       sectionHeading: input.section.heading,
     });
     try {
-      const raw = await callModel(cp.system, cp.user, input.model);
+      const raw = await callModel(cp.system, cp.user, input.model, 2200);
       const parsed = JSON.parse(raw.replace(/```json|```/g, "").trim());
       if (parsed?.rewritten && typeof parsed.rewritten === "string") {
         contradicted = !!parsed.contradicted;
