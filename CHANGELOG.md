@@ -1,5 +1,27 @@
 # Changelog
 
+## 2026-05-27 - Stage 3: proprietary-generate-section edge function + VerificationReport UI
+
+- **What:** Added edge function `supabase/functions/proprietary-generate-section/index.ts` that wraps the shared `proprietaryPromptAssembler`, calls the Lovable AI gateway with the assembled system/user prompts, then runs (a) the deterministic Rule-5 lint and (b) the Rule-6 contradiction-surfacing editor pass when the mapped unit is `contrarian`. Response shape: `{ content, needsExpertInput, ruleFlags, contradicted, appliedRules }`. Added `src/components/VerificationReport.tsx` — a two-pill display (Signal density + Verification) backed by `TwoPassReport`, with four discriminated verification states: `no-brain`, `brain-no-overlap`, `partial-overlap`, `verified`, each with its own tooltip copy. Wired `src/pages/Index.tsx` to use `gradeArticleTwoPass(content, [])` instead of legacy `gradeCommodity`, and rendered `<VerificationReport hasBrain={false} />` in place of `<CommodityBadge>`. Mapping is not wired into the classic flow, so `mappedUnitTexts = []` and verification correctly reports the `no-brain` state (amber pill, not red — honest "can't verify" rather than "failed").
+- **Why:** Stage 3 plan called for (1) a per-section generator that enforces the six proprietary rules and emits `[NEEDS EXPERT INPUT]` on missing units, and (2) a dual-axis UI so users see structural quality and verification status as independent signals. Single-axis `CommodityBadge` collapsed them and produced misleading red states on cold projects.
+- **What may break / Verified broken:**
+  - `CommodityBadge.tsx` is no longer imported anywhere in `src/pages/Index.tsx` (grepped). File kept on disk for now; no other importers. Safe to delete in a follow-up.
+  - `stripHedges` import in `Index.tsx` is now unused (was unused before this change too). Not removed to keep this diff surgical.
+  - `proprietary-generate-section` is not yet called from any frontend code. It is deployable and callable via `supabase.functions.invoke`, but no UI path exercises it yet. That's intentional — Stage 3 mapping UI is the next slice.
+  - Rule-6 contradiction pass swallows JSON-parse errors as non-fatal and returns the original content. If the model returns malformed JSON, the section ships unchanged with `contradicted: false`. Logged, not thrown.
+  - Verified the verification pill colours via state matrix in `VerificationReport.tsx`: `no-brain` and `brain-no-overlap` force amber even if underlying `verification.badge` is red; `partial-overlap` and `verified` pass through the badge from `verifyAgainstBrain`.
+  - Nothing else verified broken. Checked: Index.tsx grep for stale `CommodityBadge`/`gradeCommodity`/`CommodityGrade` symbols (clean), assembler module signature unchanged, two-pass grading API surface unchanged.
+- **Files:**
+  - created `supabase/functions/proprietary-generate-section/index.ts`
+  - created `src/components/VerificationReport.tsx`
+  - edited `src/pages/Index.tsx` (import swap, state type swap, gradeArticleTwoPass call site, badge swap)
+- **Verify:**
+  1. Build passes (handled by harness).
+  2. With experience gate ON, generating an article renders two pills: "Signal {score}" + "Verify: no brain" (amber). Tooltips explain each state.
+  3. Edge function deploys; calling with `mappedUnit: null` on a body section returns `content: "[NEEDS EXPERT INPUT]"`, `needsExpertInput: true`.
+
+
+
 ## 2026-05-27 - Stage 3 prep: commodity-check signal types + two-pass grading
 
 - **What:** Extended `src/lib/experienceSignals.ts` non-destructively. Added four new `SignalType` values — `study-citation`, `comparative-stat`, `failure-marker`, `contrarian-marker` — with high-priority regex rules placed at the top of `extractSignalsFromText`'s loop so they take precedence over the legacy generic rules. Added a new two-pass grading API: `gradeStructural(text)` returns a cold, brain-independent `StructuralGrade` based on signal density, high-weight-signal count, type variety, hedge density, and number count; `verifyAgainstBrain(text, mappedUnitTexts[])` runs token-anchor matching (3-grams → 2-grams → distinctive numeric tokens) of every extracted signal against the supplied mapped unit text(s), returning per-signal `verified` flags and an aggregate `BrainVerificationGrade`. `gradeArticleTwoPass` is the convenience wrapper that returns both. The existing `gradeCommodity` is untouched so current callers (`CommodityBadge`) keep their behaviour.
