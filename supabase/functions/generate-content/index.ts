@@ -1528,8 +1528,8 @@ Place these images throughout the article at logical locations, typically after 
         // Context-file URLs are always allowed at the render gate.
         if (contextAllowed.has(u)) return true;
         // Non-context URLs (web fallback) must clear the quality filter.
-        if (hasContextFiles) {
-          console.log(`CITATION [render-gate] DROP non-context URL (context files present): ${u}`);
+        if (contextOnlySources) {
+          console.log(`CITATION [render-gate] DROP non-context URL (context URLs present): ${u}`);
           return false;
         }
         if (isLowQualityDomain(u)) {
