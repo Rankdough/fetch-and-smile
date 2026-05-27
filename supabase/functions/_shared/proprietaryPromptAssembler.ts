@@ -257,10 +257,21 @@ em dashes, en dashes, or horizontal rules.`;
       ruleBlocks.push(CONTRARIAN_RULE_NO_UNIT);
       applied.push(6);
     }
+
+    // Rule 7 — table guard on every body section. Models love generic
+    // "Option A/B/C" templates; ban them outright.
+    ruleBlocks.push(TABLE_GUARD_RULE);
+    applied.push(7);
   } else {
     ruleBlocks.push(FRAMING_LITE_RULES);
     // Framing inherits rules 2 and 5 conceptually
     applied.push(2, 5);
+
+    // Opening framing section: enforce the marketing-umbrella reframe.
+    if (section.kind === "opening") {
+      ruleBlocks.push(OPENING_REFRAME_RULE);
+      applied.push(6);
+    }
   }
 
   const system = [
