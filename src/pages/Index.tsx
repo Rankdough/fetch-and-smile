@@ -1645,6 +1645,21 @@ const Index = () => {
       }
 
       setGeneratedContent(content, true);
+
+      // Non-commodity gate: grade the finished article so the user can SEE
+      // whether the first-hand signals actually landed. Only runs when toggle ON.
+      if (isExperienceGateEnabled()) {
+        try {
+          const { signals } = await loadProjectSignals();
+          setCommodityGrade(gradeCommodity(signals, content));
+        } catch (e) {
+          console.warn("Commodity grading failed", e);
+          setCommodityGrade(null);
+        }
+      } else {
+        setCommodityGrade(null);
+      }
+
     } catch (error) {
       console.error("Generation error:", error);
       setPipelineError(error instanceof Error ? error.message : "Failed to generate content");
