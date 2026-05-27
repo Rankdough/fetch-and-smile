@@ -1613,16 +1613,44 @@ Place these images throughout the article at logical locations, typically after 
       }
 
 
-      // 7. Build References from used sources (anchor text only, numbered).
-      //    Final safety filter: never list own-domain URLs in References.
-      const refSources = usedSources.filter((s) => !isOwnDomainUrl(cleanSourceUrl(s.url)));
+      // 7. Build References from used sources. FINAL RENDER GATE:
+      //    - Always drop own-domain URLs.
+      //    - Always drop junk URLs.
+      //    - When context files exist, allow ANY surviving URL (user trusted it).
+      //    - When NO context files exist, additionally enforce the
+      //      commercial/authority filter on web-fallback URLs.
+      const contextAllowed = new Set(contextSourceCandidates.map((c) => cleanSourceUrl(c.url)));
+      const refSources = usedSources.filter((s) => {
+        const u = cleanSourceUrl(s.url);
+        if (isOwnDomainUrl(u)) {
+          console.log(`CITATION [render-gate] DROP own-domain: ${u}`);
+          return false;
+        }
+        if (isJunkUrl(u)) {
+          console.log(`CITATION [render-gate] DROP junk: ${u}`);
+          return false;
+        }
+        // Context-file URLs are always allowed at the render gate.
+        if (contextAllowed.has(u)) return true;
+        // Non-context URLs (web fallback) must clear the quality filter.
+        if (hasContextFiles) {
+          console.log(`CITATION [render-gate] DROP non-context URL (context files present): ${u}`);
+          return false;
+        }
+        if (isLowQualityDomain(u)) {
+          console.log(`CITATION [render-gate] DROP low-quality web URL: ${u}`);
+          return false;
+        }
+        return true;
+      });
       if (refSources.length > 0) {
         const refLines = refSources.map((s, idx) => `${idx + 1}. [${s.title}](${cleanSourceUrl(s.url)})`);
         result += `\n\n## References\n${refLines.join("\n")}`;
-        console.log(`CITATION: References section built with ${refSources.length} source(s) (own-domain filtered).`);
+        console.log(`CITATION: References section built with ${refSources.length} source(s) after render gate.`);
       } else {
         console.log("CITATION: No external sources qualified → no References section emitted.");
       }
+
 
 
       return result;
