@@ -44,6 +44,9 @@ import { TrustSignalBox, buildTrustSignalHtml } from "@/components/TrustSignalBo
 import { marked as markedLib } from "marked";
 import { ColorPaletteSelector, ColorPalette, COLOR_PALETTES } from "@/components/ColorPaletteSelector";
 import { KnowledgeBasePanel } from "@/components/KnowledgeBasePanel";
+import { SettingsPopover } from "@/components/SettingsPopover";
+import { CommodityBadge } from "@/components/CommodityBadge";
+import { isExperienceGateEnabled, loadProjectSignals, gradeCommodity, stripHedges, type CommodityGrade } from "@/lib/experienceSignals";
 import { VoiceEditAgent } from "@/components/VoiceEditAgent";
 import { ToneProfilePanel } from "@/components/ToneProfilePanel";
 import { UniqueAnglesPanel } from "@/components/UniqueAnglesPanel";

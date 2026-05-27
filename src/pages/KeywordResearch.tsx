@@ -17,6 +17,7 @@ import {
   Globe, X, Link2, Plus, Layers, Upload, Filter
 } from "lucide-react";
 import KeywordClustering from "@/components/keyword-research/KeywordClustering";
+import { SettingsPopover } from "@/components/SettingsPopover";
 import KeywordDeduplicator from "@/components/keyword-research/KeywordDeduplicator";
 import KeywordOverlap from "@/components/keyword-research/KeywordOverlap";
 
