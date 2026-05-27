@@ -1470,13 +1470,17 @@ Place these images throughout the article at logical locations, typically after 
           if (chosen) {
             const anchor = (chosen.title || "").trim().replace(/[*_`\[\]()]/g, "") || sourceTitleFromUrl(chosen.url);
             const cleanUrl = cleanSourceUrl(chosen.url);
-            const injection = injectInlineAnchor(body, anchor, cleanUrl);
-            if (injection.changed) body = injection.body;
+            // Append a "Source:" line at the END of the section body instead of
+            // injecting an inline anchor mid-prose. Keeps the body clean and puts
+            // attribution exactly where the user expects (bottom of each section).
+            // Internal links from the Settings panel are injected by a separate
+            // pipeline (insert-internal-links) and are unaffected by this change.
+            body = `${body.trimEnd()}\n\n*Source: [${anchor}](${cleanUrl})*`;
             urlUseCount.set(cleanUrl, (urlUseCount.get(cleanUrl) || 0) + 1);
             if (!usedSources.find((s) => cleanSourceUrl(s.url) === cleanUrl)) {
               usedSources.push({ ...chosen, url: cleanUrl, title: anchor });
             }
-            console.log(`CITATION${useWebFallback ? " [web-fallback]" : ""}: "${heading.slice(0, 60)}" -> ${cleanUrl} ${injection.changed ? "(inline)" : "(refs only)"}`);
+            console.log(`CITATION${useWebFallback ? " [web-fallback]" : ""}: "${heading.slice(0, 60)}" -> ${cleanUrl} (section-end Source line)`);
           }
         }
 
