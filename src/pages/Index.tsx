@@ -645,6 +645,8 @@ const Index = () => {
     const saved = localStorage.getItem("seo-generator-appliedRules");
     return saved ? JSON.parse(saved) : null;
   });
+  const [commodityGrade, setCommodityGrade] = useState<CommodityGrade | null>(null);
+
   const [generatedCTAs, setGeneratedCTAs] = useState<{ middle: { headline: string; description: string; buttonText: string }; end: { headline: string; description: string; buttonText: string } } | null>(() => {
     const saved = localStorage.getItem("seo-generator-generatedCTAs");
     return saved ? JSON.parse(saved) : null;
