@@ -1,3 +1,24 @@
+## 2026-05-27 — Fabricated-quote + unsourced-currency guards
+
+**What:**
+- Added `QUOTE_ATTRIBUTION_RULE` and `SOURCED_FIGURES_RULE` to every section in `proprietaryPromptAssembler.ts` (body + framing). Forbids unattributed/borrowed quotes and unsourced currency/percentage/volume figures.
+- Added deterministic `stripFabricatedQuotes` post-processor in `proprietary-generate-article/index.ts` and `generate-content/index.ts`: drops blockquote lines without attribution and inline `An expert noted, "..."` sentences without inline Source/link/em-dash-name attribution.
+- Added deterministic `stripUnsourcedCurrencyClaims` post-processor in both functions: removes sentences containing `$ £ €` figures unless the same line carries `Source:`, a markdown link, or em-dash author attribution.
+- Bumped BUILD_MARKER to `2026-05-27-B` across the three generators for deploy verification.
+
+**Why:** Claude review flagged two hallucinated quotes ("gut is like a garden", "First do no harm") and an unsourced `$1,256 USD` lab fee in a generated clinical article. Prompt rule alone is insufficient; deterministic strip is the backstop.
+
+**Files:**
+- supabase/functions/_shared/proprietaryPromptAssembler.ts
+- supabase/functions/proprietary-generate-article/index.ts
+- supabase/functions/generate-content/index.ts
+- supabase/functions/proprietary-generate-section/index.ts (marker only)
+
+**Verify:** After regenerating the underbite article, body should contain no blockquotes without `— Name, Role` or `Source:` markers, and no `$/£/€` figures without inline citation. Edge logs should show `BUILD-2026-05-27-B` and any `QUOTE GUARD: stripped N` / `CURRENCY GUARD: stripped N` warnings.
+
+**Verified broken:** Nothing verified broken. Static checks: helpers are pure functions with conservative regexes that skip table lines and lines that already carry attribution. Properly-attributed quotes (em-dash + name + role) are preserved.
+
+
 # Changelog
 
 ## 2026-05-27 - Article generator hardening: truncation, generic tables, keyword stuffing
