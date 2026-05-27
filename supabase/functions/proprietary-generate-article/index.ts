@@ -257,6 +257,7 @@ Deno.serve(async (req) => {
     const plan: SectionSpec[] = [
       { id: "opening", heading: "Opening", kind: "opening", type: "framing" },
       { id: "tldr", heading: "TL;DR", kind: "tldr", type: "framing" },
+      { id: "quick-tips", heading: "Quick Tips", kind: "quick-tips", type: "framing" },
       ...h2Questions.map(
         (q, i): SectionSpec => ({
           id: `h2-${i + 1}`,
@@ -275,6 +276,7 @@ Deno.serve(async (req) => {
             },
           ]
         : []),
+      { id: "faq", heading: "Frequently Asked Questions", kind: "faq", type: "framing" },
       {
         id: "final",
         heading: "Final thoughts",
