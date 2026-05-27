@@ -97,11 +97,12 @@ const BrainInsights = () => {
   const [newInsight, setNewInsight] = useState({ title: "", insight_type: "principle", summary: "", full_text: "" });
 
   const fetchData = useCallback(async () => {
-    const [insightsRes, tagsRes, junctionRes, contradictionsRes] = await Promise.all([
+    const [insightsRes, tagsRes, junctionRes, contradictionsRes, unitContraRes] = await Promise.all([
       supabase.from("brain_insights").select("*").order("created_at", { ascending: false }),
       supabase.from("brain_tags").select("*"),
       supabase.from("brain_insight_tags").select("insight_id, tag_id"),
       supabase.from("brain_connections").select("source_insight_id, related_insight_id, explanation").eq("relationship_type", "contradicts"),
+      supabase.from("brain_unit_contradictions").select("id, unit_a_id, unit_b_id, note, status").neq("status", "resolved_deleted"),
     ]);
 
     const tagMap: Record<string, Tag> = {};
@@ -135,10 +136,21 @@ const BrainInsights = () => {
       });
     });
 
+    const unitContraMap: Record<string, UnitContradiction[]> = {};
+    (unitContraRes.data || []).forEach((c: any) => {
+      const a = c.unit_a_id;
+      const b = c.unit_b_id;
+      if (!unitContraMap[a]) unitContraMap[a] = [];
+      unitContraMap[a].push({ id: c.id, otherId: b, otherTitle: insightTitleMap[b] || "Unknown", note: c.note, status: c.status });
+      if (!unitContraMap[b]) unitContraMap[b] = [];
+      unitContraMap[b].push({ id: c.id, otherId: a, otherTitle: insightTitleMap[a] || "Unknown", note: c.note, status: c.status });
+    });
+
     const enriched = (insightsRes.data || []).map((i) => ({
       ...i,
       tags: insightTagMap[i.id] || [],
       contradictions: contradictionMap[i.id] || [],
+      unit_contradictions: unitContraMap[i.id] || [],
     }));
 
     setInsights(enriched);
