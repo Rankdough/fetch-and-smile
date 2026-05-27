@@ -75,7 +75,7 @@ async function callModel(system: string, user: string, model: string, maxTokens 
   return content;
 }
 
-const BUILD_MARKER = "BUILD-2026-05-27-A proprietary-generate-section";
+const BUILD_MARKER = "BUILD-2026-05-27-B proprietary-generate-section";
 Deno.serve(async (req) => {
   console.log(BUILD_MARKER);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
