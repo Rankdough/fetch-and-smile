@@ -645,15 +645,14 @@ Place these images throughout the article at logical locations, typically after 
 
     console.log(expandExistingContent ? "Expanding existing content" : "Generating content for topic:", topic);
 
-    // Use stronger model for long articles, default flash for shorter ones
     const model = "google/gemini-2.5-flash";
-    // Keep token budget tighter to reduce latency/timeouts and discourage oversized outputs
-    const maxTokens = Math.min(Math.max(2048, Math.ceil(wordCeiling * 2.2)), 8192);
+    // Allow enough completion room for full Markdown articles; downstream trimming is sentence-safe.
+    const maxTokens = Math.min(Math.max(4096, Math.ceil(wordCeiling * 3.6)), 12000);
 
     console.log(`Using model: ${model}, max_tokens: ${maxTokens}, target words: ${targetWords}`);
     console.log(`Word budgets: ${sectionBudgets.bodyH2Count} body H2s × ${sectionBudgets.wordsPerBodyH2} words = ${sectionBudgets.remainingWords} + ${sectionBudgets.fixedTotal} fixed = ${targetWords}`);
 
-    const callModel = async (promptSuffix = ""): Promise<{ content: string; finishReason: string | undefined }> => {
+    const callModelRaw = async (promptSuffix = "", overrideUserPrompt?: string): Promise<{ content: string; finishReason: string | undefined }> => {
       const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
         headers: {
@@ -665,7 +664,7 @@ Place these images throughout the article at logical locations, typically after 
           max_tokens: maxTokens,
           messages: [
             { role: "system", content: systemPrompt },
-            { role: "user", content: userPrompt + promptSuffix },
+            { role: "user", content: (overrideUserPrompt ?? userPrompt) + promptSuffix },
           ],
         }),
       });
@@ -694,6 +693,24 @@ Place these images throughout the article at logical locations, typically after 
         content: generatedContent,
         finishReason: firstChoice?.finish_reason,
       };
+    };
+
+    const callModel = async (promptSuffix = ""): Promise<{ content: string; finishReason: string | undefined }> => {
+      const first = await callModelRaw(promptSuffix);
+      if (first.finishReason !== "length") return first;
+
+      console.warn("AI output hit max_tokens; requesting continuation instead of restarting.");
+      try {
+        const continuationPrompt = `${userPrompt}${promptSuffix}\n\n--- PARTIAL ARTICLE SO FAR ---\n${first.content}\n\nContinue from the exact next word. Do not restart, do not repeat earlier sections, and finish the remaining article with complete sentences.`;
+        const second = await callModelRaw("", continuationPrompt);
+        return {
+          content: `${first.content.replace(/\s+$/, "")}\n\n${(second.content || "").replace(/^\s+/, "")}`.trim(),
+          finishReason: second.finishReason === "length" ? "length" : "stop",
+        };
+      } catch (e) {
+        console.warn("Continuation request failed; returning first partial for retry handling.", e);
+        return first;
+      }
     };
 
     const splitByH2Sections = (markdown: string): { intro: string; sections: { heading: string; body: string }[] } => {
