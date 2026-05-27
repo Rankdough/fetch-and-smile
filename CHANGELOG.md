@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-05-27 - Fix: References section missing when context files contain zero URLs
+
+- **What:** Changed the citation web-fallback gate in `supabase/functions/generate-content/index.ts` from `hasContextFiles` to `contextOnlySources` in three places (lines ~1433, ~1502, ~1529). Previously, attaching ANY context file (even a .docx with no hyperlinks) disabled all web fallback AND made the render gate drop the one Tier-1 web URL that was already accepted per-section, so the article shipped with no References block. Now the lock-down only triggers when context files actually contributed at least one URL candidate.
+- **Why:** Latest sample (context file: "Screwless Dental Implants Research Brief.docx", 0 URLs extracted) generated with zero references. Logs showed `SOURCE CATALOGUE: 0 context URL candidate(s)` then `web fallback DISABLED` then the render gate dropping the pmc.ncbi.nlm.nih.gov URL that the per-section step had already accepted. The `contextOnlySources` flag already existed at line 1144 for exactly this distinction but wasn't being used at the fallback/render gates.
+- **Files:** `supabase/functions/generate-content/index.ts` (3 small edits, comments updated).
+- **Verified broken:** Nothing verified broken. Checks performed: (a) `grep` confirmed `contextOnlySources` is defined at line 1144 and the three replaced sites are the only `hasContextFiles` gates governing web-fallback/render decisions; (b) behaviour when context files DO contain URLs is unchanged (`contextOnlySources` becomes true, same lock-down as before); (c) behaviour when no context files are attached is unchanged (`!contextOnlySources` is true, same web-fallback path as before).
+- **Verify:** Generate an article with a context file that has no URLs — References section must appear with Tier-1 web sources. Generate with a context file that DOES contain URLs — References must contain only those URLs (unchanged). Generate with no context files — References must contain web fallback URLs (unchanged).
+
+
 ## 2026-05-27 - Refactor Phase 1, slice 1: extract pure URL helpers from generate-content
 
 - **What:** Moved the `SourceCandidate` type, the junk/authority classifier regex arrays (`junkUrlPatterns`, `highAuthorityHostPatterns`, `lowAuthorityHostPatterns`, `commercialHostHints`), the stateless helper functions (`isJunkUrl`, `isHighAuthority`, `isLowAuthority`, `looksCommercial`, `isLowQualityDomain`, `cleanSourceUrl`, `sourceTitleFromUrl`, `extractMarkdownLinks`) out of `supabase/functions/generate-content/index.ts` into a new shared module `supabase/functions/_shared/urlClassifiers.ts`. The orchestrator now imports them. Per-request caches (`urlStatusCache`, `firecrawlSourceCache`) and the network-touching `isWorkingSourceUrl` stay in the orchestrator because they depend on per-request lifetime. `placeholderHosts` stays too (only used inside `isWorkingSourceUrl`). Code moved verbatim — same regex, same logic, same identifiers.

@@ -1427,10 +1427,12 @@ Place these images throughout the article at logical locations, typically after 
           pushCand(c);
         }
 
-        // 6b. Web fallback (Tier-1 search + relaxed Firecrawl). Runs ONLY when
-        //     there are no context files at all. If the user provided context,
-        //     we trust them and stop here even if we're below MIN_REFERENCES.
-        if (!hasContextFiles && usedSources.length < MIN_REFERENCES) {
+        // 6b. Web fallback (Tier-1 search + relaxed Firecrawl). Runs when the
+        //     context files did NOT contribute any usable URLs (either no
+        //     context files at all, or context files attached but containing
+        //     zero extractable URLs). If context files provided URLs we trust
+        //     them and stop here even if we're below MIN_REFERENCES.
+        if (!contextOnlySources && usedSources.length < MIN_REFERENCES) {
           // Pull additional Tier-1 web sources keyed to the article topic + each H2.
           const seedQueries: Array<{ heading: string; body: string }> = [{ heading: topic || "", body: "" }];
           for (const m of matches) {
@@ -1499,8 +1501,8 @@ Place these images throughout the article at logical locations, typically after 
               }
             }
           }
-        } else if (hasContextFiles && usedSources.length < MIN_REFERENCES) {
-          console.log(`CITATION: References (${usedSources.length}) below MIN (${MIN_REFERENCES}) but context files exist — web fallback DISABLED. Returning context-only references.`);
+        } else if (contextOnlySources && usedSources.length < MIN_REFERENCES) {
+          console.log(`CITATION: References (${usedSources.length}) below MIN (${MIN_REFERENCES}) but context files provided URLs — web fallback DISABLED. Returning context-only references.`);
         }
         console.log(`CITATION: Top-up brought References to ${usedSources.length} source(s) (target ${MIN_REFERENCES}, hasContextFiles=${hasContextFiles}).`);
       }
@@ -1526,8 +1528,8 @@ Place these images throughout the article at logical locations, typically after 
         // Context-file URLs are always allowed at the render gate.
         if (contextAllowed.has(u)) return true;
         // Non-context URLs (web fallback) must clear the quality filter.
-        if (hasContextFiles) {
-          console.log(`CITATION [render-gate] DROP non-context URL (context files present): ${u}`);
+        if (contextOnlySources) {
+          console.log(`CITATION [render-gate] DROP non-context URL (context URLs present): ${u}`);
           return false;
         }
         if (isLowQualityDomain(u)) {
