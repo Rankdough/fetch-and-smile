@@ -123,6 +123,39 @@ async function generateH2Questions(topic: string, model: string): Promise<string
   return lines.slice(0, 3);
 }
 
+/* ── non-commodity title rewrite ──────────────────────────────────────── */
+
+async function rewriteTitleNonCommodity(
+  rawTitle: string,
+  model: string,
+): Promise<string> {
+  if (!isCommodityStyleTitle(rawTitle)) {
+    console.log(`TITLE REWRITE: input "${rawTitle}" already non-commodity, kept as-is`);
+    return rawTitle;
+  }
+  const sys = `You rewrite article titles to be non-commodity per the rules below. Return ONLY the rewritten title as a single line. No quotes, no explanation, no markdown.\n\n${NON_COMMODITY_TITLE_RULES}`;
+  const user = `Original title: ${rawTitle}\n\nRewrite per the rules. Pick the strongest framing (distinction, decision, failure mode, or contrarian) for this topic. Keep the primary keyword visible but reframed. Return only the new title.`;
+  try {
+    const raw = (await callModel(sys, user, model, 200)).trim();
+    // Strip surrounding quotes / markdown / leading "#" if model added any.
+    const cleaned = raw
+      .replace(/^#+\s*/, "")
+      .replace(/^["'“”']|["'“”']$/g, "")
+      .split(/\r?\n/)[0]
+      .trim();
+    if (cleaned.length < 6 || cleaned.length > 160) {
+      console.warn(`TITLE REWRITE: model returned out-of-range length (${cleaned.length}), keeping original`);
+      return rawTitle;
+    }
+    console.log(`TITLE REWRITE: "${rawTitle}" -> "${cleaned}"`);
+    return cleaned;
+  } catch (e) {
+    console.warn("TITLE REWRITE failed (non-fatal):", e);
+    return rawTitle;
+  }
+}
+
+
 /* ── deterministic unit auto-mapping ──────────────────────────────────── */
 
 const STOPWORDS = new Set([
