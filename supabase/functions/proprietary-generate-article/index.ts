@@ -47,7 +47,12 @@ interface BrainUnit {
   unit_type: UnitType | "legacy" | null;
 }
 
-async function callModel(system: string, user: string, model: string): Promise<string> {
+async function callModelRaw(
+  system: string,
+  user: string,
+  model: string,
+  maxTokens: number,
+): Promise<{ content: string; finishReason: string }> {
   const res = await fetch(AI_URL, {
     method: "POST",
     headers: {
@@ -56,6 +61,7 @@ async function callModel(system: string, user: string, model: string): Promise<s
     },
     body: JSON.stringify({
       model,
+      max_tokens: maxTokens,
       messages: [
         { role: "system", content: system },
         { role: "user", content: user },
@@ -68,7 +74,39 @@ async function callModel(system: string, user: string, model: string): Promise<s
     throw new Error(`AI gateway ${res.status}: ${await res.text()}`);
   }
   const json = await res.json();
-  return json?.choices?.[0]?.message?.content ?? "";
+  return {
+    content: json?.choices?.[0]?.message?.content ?? "",
+    finishReason: json?.choices?.[0]?.finish_reason ?? "stop",
+  };
+}
+
+async function callModel(system: string, user: string, model: string, maxTokens = 1200): Promise<string> {
+  const first = await callModelRaw(system, user, model, maxTokens);
+  let content = first.content;
+  // If hit length cap, ask for continuation and stitch.
+  if (first.finishReason === "length") {
+    console.warn(`PROPRIETARY: hit max_tokens (${maxTokens}); requesting continuation`);
+    const contSys = system + "\n\nYou are continuing a partial response. Output ONLY the remaining text, starting at the exact point the previous response stopped. No restating, no preamble.";
+    const contUser = `${user}\n\n--- PARTIAL RESPONSE SO FAR (continue from the exact next character) ---\n${content}`;
+    try {
+      const second = await callModelRaw(contSys, contUser, model, maxTokens);
+      // Join with no separator; trim leading whitespace from continuation.
+      content = content.replace(/\s+$/, "") + (content.endsWith(" ") ? "" : " ") + second.content.replace(/^\s+/, "");
+    } catch (e) {
+      console.warn("PROPRIETARY: continuation failed (non-fatal):", e);
+    }
+  }
+  // Strip any trailing dangling-incomplete sentence (no terminator) as a last-resort guard.
+  const trimmed = content.trim();
+  const lastTerm = Math.max(trimmed.lastIndexOf("."), trimmed.lastIndexOf("!"), trimmed.lastIndexOf("?"));
+  if (lastTerm > 0 && lastTerm < trimmed.length - 1) {
+    const tail = trimmed.slice(lastTerm + 1).trim();
+    // Drop if tail looks like an incomplete sentence (no terminator, > 0 chars, not just markdown).
+    if (tail.length > 0 && !/[.!?]$/.test(tail) && !/^[#*\-|]/.test(tail)) {
+      return trimmed.slice(0, lastTerm + 1);
+    }
+  }
+  return content;
 }
 
 /* ── outline generation ───────────────────────────────────────────────── */
