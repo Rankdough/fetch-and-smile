@@ -1501,8 +1501,8 @@ Place these images throughout the article at logical locations, typically after 
               }
             }
           }
-        } else if (hasContextFiles && usedSources.length < MIN_REFERENCES) {
-          console.log(`CITATION: References (${usedSources.length}) below MIN (${MIN_REFERENCES}) but context files exist — web fallback DISABLED. Returning context-only references.`);
+        } else if (contextOnlySources && usedSources.length < MIN_REFERENCES) {
+          console.log(`CITATION: References (${usedSources.length}) below MIN (${MIN_REFERENCES}) but context files provided URLs — web fallback DISABLED. Returning context-only references.`);
         }
         console.log(`CITATION: Top-up brought References to ${usedSources.length} source(s) (target ${MIN_REFERENCES}, hasContextFiles=${hasContextFiles}).`);
       }
