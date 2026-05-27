@@ -114,7 +114,7 @@ async function callModel(system: string, user: string, model: string, maxTokens 
 async function generateH2Questions(topic: string, model: string): Promise<string[]> {
   const sys = `You generate H2 question headings for non-commodity articles. Output exactly 3 question headings, one per line, no numbering, no bullets, no markdown. Each must be a real question a reader would type, phrased in 4-10 words. No filler openers. No "what is X" if there's a sharper question.`;
   const user = `Topic: ${topic}\n\nReturn 3 H2 question headings.`;
-  const raw = await callModel(sys, user, model);
+  const raw = await callModel(sys, user, model, 400);
   const lines = raw
     .split(/\r?\n/)
     .map((l) => l.replace(/^[\d\-*.\s)#]+/, "").trim())
