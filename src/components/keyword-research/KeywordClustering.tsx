@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { isExperienceGateEnabled, loadProjectSignals } from "@/lib/experienceSignals";
+// Non-commodity gate intentionally not used here — applies to article generation only.
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
