@@ -894,6 +894,83 @@ Place these images throughout the article at logical locations, typically after 
       } catch { return true; }
     };
 
+    // ─── DOMAIN AUTHORITY CLASSIFIER (applies to BOTH context URLs and web search) ───
+    // Hoisted so context-file URL extraction can reject low-quality domains the same
+    // way web-search results are tiered. Previously context URLs bypassed this entirely
+    // and a commercial blog with a strong slug match could win the citation over real
+    // authorities.
+    const highAuthorityHostPatterns = [
+      // Governments & regulators
+      /(^|\.)gov(\.[a-z]{2,3})?$/i, /(^|\.)gouv\.fr$/i, /(^|\.)gov\.uk$/i, /(^|\.)gc\.ca$/i, /(^|\.)gov\.au$/i,
+      /(^|\.)europa\.eu$/i, /(^|\.)un\.org$/i, /(^|\.)who\.int$/i, /(^|\.)oecd\.org$/i,
+      // Health & medical authorities
+      /(^|\.)nhs\.uk$/i, /(^|\.)nice\.org\.uk$/i, /(^|\.)mhra\.gov\.uk$/i,
+      /(^|\.)cdc\.gov$/i, /(^|\.)fda\.gov$/i, /(^|\.)nih\.gov$/i, /(^|\.)nlm\.nih\.gov$/i, /(^|\.)ncbi\.nlm\.nih\.gov$/i,
+      /(^|\.)medlineplus\.gov$/i, /(^|\.)cancer\.gov$/i, /(^|\.)hhs\.gov$/i,
+      /(^|\.)ema\.europa\.eu$/i, /(^|\.)ecdc\.europa\.eu$/i,
+      /(^|\.)mayoclinic\.org$/i, /(^|\.)clevelandclinic\.org$/i, /(^|\.)hopkinsmedicine\.org$/i,
+      /(^|\.)mountsinai\.org$/i, /(^|\.)massgeneral\.org$/i, /(^|\.)kp\.org$/i,
+      /(^|\.)bupa\.co\.uk$/i, /(^|\.)bupa\.com$/i, /(^|\.)healthdirect\.gov\.au$/i,
+      /(^|\.)healthline\.com$/i, /(^|\.)webmd\.com$/i, /(^|\.)medicalnewstoday\.com$/i,
+      /(^|\.)bmj\.com$/i, /(^|\.)thelancet\.com$/i, /(^|\.)nejm\.org$/i, /(^|\.)jamanetwork\.com$/i,
+      /(^|\.)cochrane\.org$/i, /(^|\.)cochranelibrary\.com$/i,
+      // Dental professional bodies
+      /(^|\.)ada\.org$/i, /(^|\.)bda\.org$/i, /(^|\.)rcseng\.ac\.uk$/i, /(^|\.)gdc-uk\.org$/i,
+      /(^|\.)fdiworlddental\.org$/i, /(^|\.)bsperio\.org\.uk$/i,
+      // Academia / research / journals
+      /\.edu$/i, /\.ac\.[a-z]{2,3}$/i,
+      /(^|\.)nature\.com$/i, /(^|\.)science\.org$/i, /(^|\.)sciencedirect\.com$/i,
+      /(^|\.)springer\.com$/i, /(^|\.)wiley\.com$/i, /(^|\.)tandfonline\.com$/i,
+      /(^|\.)sagepub\.com$/i, /(^|\.)oup\.com$/i, /(^|\.)cambridge\.org$/i,
+      /(^|\.)plos\.org$/i, /(^|\.)frontiersin\.org$/i, /(^|\.)mdpi\.com$/i,
+      /(^|\.)arxiv\.org$/i, /(^|\.)ssrn\.com$/i, /(^|\.)jstor\.org$/i,
+      // Reference works
+      /(^|\.)wikipedia\.org$/i, /(^|\.)britannica\.com$/i,
+      // Standards bodies
+      /(^|\.)iso\.org$/i, /(^|\.)iec\.ch$/i, /(^|\.)ieee\.org$/i, /(^|\.)ietf\.org$/i, /(^|\.)w3\.org$/i,
+      /(^|\.)bsigroup\.com$/i, /(^|\.)cenelec\.eu$/i, /(^|\.)astm\.org$/i, /(^|\.)nist\.gov$/i,
+      // Major news / authoritative reporting
+      /(^|\.)reuters\.com$/i, /(^|\.)apnews\.com$/i, /(^|\.)bbc\.co\.uk$/i, /(^|\.)bbc\.com$/i,
+      /(^|\.)nytimes\.com$/i, /(^|\.)washingtonpost\.com$/i, /(^|\.)wsj\.com$/i, /(^|\.)ft\.com$/i,
+      /(^|\.)economist\.com$/i, /(^|\.)theguardian\.com$/i, /(^|\.)npr\.org$/i,
+      // Consumer reports & watchdogs
+      /(^|\.)consumerreports\.org$/i, /(^|\.)which\.co\.uk$/i, /(^|\.)citizensadvice\.org\.uk$/i,
+    ];
+    const isHighAuthority = (url: string): boolean => {
+      try { return highAuthorityHostPatterns.some((re) => re.test(new URL(url).hostname)); }
+      catch { return false; }
+    };
+    const lowAuthorityHostPatterns = [
+      /(^|\.)reddit\.com$/i, /(^|\.)quora\.com$/i, /(^|\.)pinterest\.[a-z.]+$/i,
+      /(^|\.)medium\.com$/i, /(^|\.)substack\.com$/i, /(^|\.)tumblr\.com$/i,
+      /(^|\.)blogspot\.com$/i, /(^|\.)wordpress\.com$/i, /(^|\.)wixsite\.com$/i,
+      /(^|\.)weebly\.com$/i, /(^|\.)squarespace\.com$/i, /(^|\.)yahoo\.com\/answers/i,
+      /(^|\.)answers\.com$/i, /(^|\.)ehow\.com$/i, /(^|\.)wikihow\.com$/i,
+      /(^|\.)tripadvisor\.[a-z.]+$/i, /(^|\.)yelp\.com$/i,
+      /(^|\.)stackexchange\.com$/i, /(^|\.)stackoverflow\.com$/i,
+      /(^|\.)facebook\.com$/i, /(^|\.)instagram\.com$/i, /(^|\.)tiktok\.com$/i,
+      /(^|\.)x\.com$/i, /(^|\.)twitter\.com$/i,
+      /(^|\.)buzzrx\.com$/i, /(^|\.)goodrx\.com\/blog/i, /(^|\.)singlecare\.com$/i,
+    ];
+    const isLowAuthority = (url: string): boolean => {
+      try { return lowAuthorityHostPatterns.some((re) => re.test(new URL(url).hostname)); }
+      catch { return true; }
+    };
+    const commercialHostHints = /(tourism|clinic|clinics|dental|dentist|dentists|implants?|veneers?|cosmetic|smile|aesthetic|whitening|orthodont|invisalign|loans?|insurance|reviews?|best|top10|topten|cheap|deals?|coupon|discount|directory|finder|near[-_]?me|seo)/i;
+    const looksCommercial = (url: string): boolean => {
+      try {
+        const host = new URL(url).hostname.replace(/^www\./, "");
+        return commercialHostHints.test(host);
+      } catch { return true; }
+    };
+    // A URL is "low quality" if it's on the UGC blocklist OR looks commercial AND isn't on the high-authority allow-list.
+    const isLowQualityDomain = (url: string): boolean => {
+      if (isHighAuthority(url)) return false;
+      if (isLowAuthority(url)) return true;
+      if (looksCommercial(url)) return true;
+      return false;
+    };
+
     const placeholderHosts = ["example.com", "example.org", "example.net", "yourdomain.com", "your-domain.com", "placeholder.com"];
     const urlStatusCache = new Map<string, Promise<boolean>>();
     const firecrawlSourceCache = new Map<string, Promise<SourceCandidate[]>>();
