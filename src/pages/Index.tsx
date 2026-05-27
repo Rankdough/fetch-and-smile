@@ -2502,7 +2502,7 @@ const Index = () => {
               {isGenerating ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  {useHumanMode ? "Human Mode..." : "Generating..."}
+                  {useProprietaryMode ? "Proprietary..." : useHumanMode ? "Human Mode..." : "Generating..."}
                 </>
               ) : (
                 <>
@@ -2521,12 +2521,32 @@ const Index = () => {
                 id="human-mode"
                 checked={useHumanMode}
                 onCheckedChange={setUseHumanMode}
-                disabled={isGenerating}
+                disabled={isGenerating || useProprietaryMode}
               />
               {useHumanMode && (
                 <span className="text-xs text-muted-foreground">(4-stage pipeline)</span>
               )}
             </div>
+
+            {/* Proprietary Mode Toggle */}
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-background border" title="Demo path. Calls the proprietary engine: outline → auto-pick brain unit per section by token overlap → series-generate with the six rules → Rule-5 lint. Sections without a matching brain unit emit [NEEDS EXPERT INPUT] instead of fabricating.">
+              <Label htmlFor="proprietary-mode" className="text-sm font-medium cursor-pointer">
+                Proprietary Mode
+              </Label>
+              <Switch
+                id="proprietary-mode"
+                checked={useProprietaryMode}
+                onCheckedChange={(v) => {
+                  setUseProprietaryMode(v);
+                  if (v) setUseHumanMode(false);
+                }}
+                disabled={isGenerating}
+              />
+              {useProprietaryMode && (
+                <span className="text-xs text-muted-foreground">(brain-grounded · demo)</span>
+              )}
+            </div>
+
 
             {/* Humanise Only Button - appears when content exists */}
             {generatedContent && (
