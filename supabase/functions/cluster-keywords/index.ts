@@ -195,7 +195,9 @@ CRITICAL KEYWORD DEDUPLICATION RULES:
 
 - Match topic names exactly as provided
 - Priority based on volume and business value
-- Content type based on search intent`;
+- Content type based on search intent
+
+${NON_COMMODITY_TITLE_RULES}`;
 
     const pass2User = `Enrich these ${clusterSummaries.length} topic clusters:\n\n${clusterDescriptions}`;
 
