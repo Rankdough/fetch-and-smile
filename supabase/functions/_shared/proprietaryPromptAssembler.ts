@@ -428,6 +428,10 @@ em dashes, en dashes, or horizontal rules.`;
     // Quote + sourced-figures guards — every body section
     ruleBlocks.push(QUOTE_ATTRIBUTION_RULE);
     ruleBlocks.push(SOURCED_FIGURES_RULE);
+
+    // Rules 9–16 — AI extraction rules, every body section, every business type.
+    ruleBlocks.push(AI_EXTRACTION_RULES);
+    applied.push(9, 10, 11, 12, 13, 14, 15, 16);
   } else {
     ruleBlocks.push(FRAMING_LITE_RULES);
     ruleBlocks.push(KEYWORD_NATURAL_LANGUAGE_RULE);
