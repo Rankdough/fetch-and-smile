@@ -1,4 +1,21 @@
-## 2026-05-28 - pgvector retrieval hardening: similarity floor + backfill + deploy parse cap + brain-file auto-embed
+## 2026-05-28 - proprietary article: strip "weigh against" appendage, gate fallback tables on section heading, scrub [PRACTICE NAME] placeholder
+
+**What:**
+- `supabase/functions/proprietary-generate-article/index.ts` `fallbackTopicTable` (~lines 525–549): removed the `lens` / `qSuffix` variables and the `${lens}` / `${qSuffix}` interpolations from every cell — table cells no longer carry a "; weigh against …" or "(re: …)" suffix. Same function is now SECTION-AWARE: the retention table is only returned when the section heading itself matches `/retention|retain|cement|screw|abutment|morse|crown\s+fix|fixation/`, and the underbite table only when the heading matches `/underbite|aligner|invisalign|class\s*iii|bite\s+correction/`. For any other body section the function returns `""`, so `ensureMinimumTables` skips that section instead of injecting a generic fallback. Topic gate (implant/aligner/etc.) kept as a secondary guard.
+- `supabase/functions/proprietary-generate-article/index.ts` new `stripBrandPlaceholders` helper (~lines 807–826) and one new call after `ensureTrustedReferences` / before `sanitiseGeneratedMarkdown`. Strips literal `[PRACTICE NAME]`, `[YOUR PRACTICE]`, `[CLINIC NAME]`, `[BUSINESS NAME]`, `[BRAND NAME]`, `[COMPANY NAME]` (case-insensitive), collapses leading "the/our/your" + placeholder + possessive to "the practice", and tidies double spaces, stranded punctuation, empty parens, and double commas. No client-name field exists in the request payload today; once one is plumbed in, swap the empty replacement for that value.
+- Deployed `proprietary-generate-article`.
+
+**Why:** Post-regeneration QA on the implant dentist article found three artefacts: (1) "; weigh against [heading]" tacked onto every Best-fit case cell, (2) the same three-row implant retention table appearing in every body section regardless of topic, (3) `[PRACTICE NAME]` appearing in Final Thoughts because the assembler's Rule 15 instructs the model to name the brand but no brand string is plumbed through. Protected files (`_shared/proprietaryPromptAssembler.ts`, `proprietary-generate-section/index.ts`, all UI, schema) were untouched.
+
+**Files:**
+- supabase/functions/proprietary-generate-article/index.ts
+- CHANGELOG.md
+
+**Verified broken:** Nothing verified broken. Checked: (a) re-read the edited regions in `proprietary-generate-article/index.ts`; (b) `rg "fallbackTopicTable|deriveSectionPhrase|stripBrandPlaceholders"` confirms the only caller of `fallbackTopicTable` is still `ensureMinimumTables` and the new strip pass runs before sanitisation; (c) `deriveSectionPhrase` declaration left in place (now unused) so no other call sites break; (d) edge function deploy succeeded; (e) protected files unchanged (no edits issued against them this turn).
+
+---
+
+
 
 **What:**
 - `supabase/functions/proprietary-generate-article/index.ts` (lines 1076–1099): added `SIMILARITY_FLOOR = 0.60` filter to the `match_brain_chunks` retrieval block. Off-topic chunks (cosine similarity below 0.60) are now discarded before being passed to section generation. `retrievedChunks` stays a typed array (never null) so downstream null/length checks behave identically. Log line now reports kept/total counts plus top raw similarity. Deployed.
