@@ -821,7 +821,7 @@ async function runSection(input: {
 
 /* ── handler ──────────────────────────────────────────────────────────── */
 
-const BUILD_MARKER = "BUILD-2026-05-28-G proprietary-generate-article dedupe+filler-removed+refs-honest+sentence-trim";
+const BUILD_MARKER = "BUILD-2026-05-28-H proprietary-generate-article normal-mode-parity: atomic-strip+split-glued-bullets+inline-citations+empty-faq-drop+toc-real-firstline+3-bullets-reenabled";
 Deno.serve(async (req) => {
   console.log(BUILD_MARKER);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
