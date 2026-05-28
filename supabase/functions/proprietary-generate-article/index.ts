@@ -516,13 +516,37 @@ function topicNoun(topic: string): string {
   return "Option";
 }
 
+function firstSentenceOf(sectionBody: string): string {
+  // Strip headings, blockquotes, list markers, table lines. Return first
+  // ~30-word sentence ending in . ! or ?
+  const clean = sectionBody
+    .split("\n")
+    .filter((l) => l.trim() && !/^#{1,6}\s/.test(l) && !l.includes("|") && !/^\s*[-*+]\s/.test(l) && !/^\s*>/.test(l))
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!clean) return "";
+  const m = clean.match(/^.{20,260}?[.!?](?:\s|$)/);
+  const sentence = (m ? m[0] : clean.slice(0, 220)).trim();
+  return sentence;
+}
+
 function injectInThisArticle(markdown: string, topic: string): string {
   if (/^##\s+in\s*this\s*article/im.test(markdown)) return markdown;
   const bodyH2s = getBodyH2s(markdown);
   if (bodyH2s.length === 0) return markdown;
+  // Capture each section's body so we can use its real first sentence as desc.
   const lines = markdown.split("\n");
+  const sectionBody = (lineIdx: number): string => {
+    let end = lines.length;
+    for (let j = lineIdx + 1; j < lines.length; j++) {
+      if (/^##\s+/.test(lines[j])) { end = j; break; }
+    }
+    return lines.slice(lineIdx + 1, end).join("\n");
+  };
   const items = bodyH2s.map((h, i) => {
-    const desc = `Direct answer on ${h.heading.replace(/[?!.]+$/, "").toLowerCase()}, including the clinical reasoning, the honest failure mode, and what to ask before deciding so the answer maps to a real consultation.`;
+    const real = firstSentenceOf(sectionBody(h.index));
+    const desc = real || `${h.heading.replace(/[?!.]+$/, "")} — direct answer plus the honest failure mode and what to ask before deciding.`;
     return `- ${i + 1}. ${h.heading.replace(/[?!.]+$/, "")} - ${desc}`;
   });
   const block = ["## In This Article", "", ...items].join("\n");
@@ -622,7 +646,111 @@ function ensureMinimumTables(markdown: string, topic: string, targetWords: numbe
     let endIdx = freshLines.length;
     for (let j = headingLine + 1; j < freshLines.length; j++) {
       if (/^##\s+/.test(freshLines[j])) { endIdx = j; break; }
+}
+
+/* ── normal-mode parity: atomic-phrase + bullet + citation guards ────── */
+
+function stripAtomicPhrases(markdown: string): { out: string; removed: number } {
+  const banned: RegExp[] = [
+    /\bas\s+mentioned\s+(above|earlier|previously)\b[,]?\s*/gi,
+    /\bas\s+(we\s+)?(saw|discussed|noted)\s+(above|earlier|previously)\b[,]?\s*/gi,
+    /\bcontinuing\s+from\s+(earlier|above|the\s+previous\s+section)\b[,]?\s*/gi,
+    /\bin\s+the\s+previous\s+section\b[,]?\s*/gi,
+    /\bthe\s+following\s+point\b[,]?\s*/gi,
+    /\bbuilding\s+on\s+(what\s+we\s+covered|the\s+above|the\s+previous)\b[,]?\s*/gi,
+  ];
+  let removed = 0;
+  let out = markdown;
+  for (const re of banned) {
+    const m = out.match(re);
+    if (m) removed += m.length;
+    out = out.replace(re, "");
+  }
+  out = out.replace(/(^|\n|\. )([a-z])/g, (_m, p1, p2) => p1 + p2.toUpperCase());
+  return { out, removed };
+}
+
+function splitGluedBullets(markdown: string): { out: string; split: number } {
+  // Fix a common LLM defect: `- A: text *   B: text *   C: text` glued on one
+  // line. Split on `*   ` or `*  ` markers that occur inside a `- ` list item.
+  const lines = markdown.split("\n");
+  let split = 0;
+  const fixed: string[] = [];
+  for (const line of lines) {
+    const m = line.match(/^(\s*)([-*+])\s+(.+)$/);
+    if (!m) { fixed.push(line); continue; }
+    const indent = m[1];
+    const marker = m[2];
+    const body = m[3];
+    // Split on " *   " or " *  " sub-bullet markers inside the line
+    if (!/\s\*\s{2,}/.test(body)) { fixed.push(line); continue; }
+    const parts = body.split(/\s\*\s{2,}/g).map((p) => p.trim()).filter(Boolean);
+    if (parts.length <= 1) { fixed.push(line); continue; }
+    split += parts.length - 1;
+    for (const p of parts) fixed.push(`${indent}${marker} ${p}`);
+  }
+  return { out: fixed.join("\n"), split };
+}
+
+interface BrainUrl { url: string; title: string }
+function collectBrainUrls(units: BrainUnit[]): BrainUrl[] {
+  const out: BrainUrl[] = [];
+  const seen = new Set<string>();
+  const re = /https?:\/\/[^\s)<>"'\]]+/g;
+  for (const u of units) {
+    const text = `${u.summary || ""}\n${u.full_text || ""}`;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(text)) !== null) {
+      const url = m[0].replace(/[)\]\.,;]+$/, "");
+      if (seen.has(url)) continue;
+      try {
+        const host = new URL(url).hostname.replace(/^www\./, "");
+        seen.add(url);
+        out.push({ url, title: u.title || host });
+      } catch { /* skip invalid */ }
     }
+  }
+  return out;
+}
+
+function attachInlineCitations(markdown: string, urls: BrainUrl[]): { out: string; attached: number } {
+  if (urls.length === 0) return { out: markdown, attached: 0 };
+  const lines = markdown.split("\n");
+  let urlIdx = 0;
+  let attached = 0;
+  const fixed: string[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    fixed.push(line);
+    const m = line.match(/^##\s+(.+?)\s*$/);
+    if (!m) continue;
+    if (STRUCT_SKIP_RE.test(m[1])) continue;
+    // Find end of this section
+    let endIdx = lines.length;
+    for (let j = i + 1; j < lines.length; j++) {
+      if (/^##\s+/.test(lines[j])) { endIdx = j; break; }
+    }
+    const sectionBody = lines.slice(i + 1, endIdx).join("\n");
+    if (/\]\(https?:\/\//.test(sectionBody)) continue; // already cited
+    if (urlIdx >= urls.length) continue;
+    const u = urls[urlIdx++];
+    // Append a citation footnote line right before next H2 (we'll do it on
+    // the matching end position via splice on the output array later — simpler:
+    // we record an inline edit). Insert a citation paragraph immediately after
+    // the heading's first paragraph break by mutating the source lines.
+    // Find the end of the first paragraph after heading
+    let pEnd = i + 1;
+    while (pEnd < endIdx && lines[pEnd].trim() !== "") pEnd++;
+    // We're rebuilding fixed[] as we go; instead splice into lines and let
+    // subsequent iterations see the change.
+    const citationLine = `\nSource: [${u.title}](${u.url})`;
+    lines.splice(pEnd, 0, citationLine);
+    attached++;
+  }
+  return { out: lines.join("\n"), attached };
+}
+
+
     const sectionSlice = freshLines.slice(headingLine, endIdx).join("\n");
     if (sectionSlice.includes("|")) continue; // already has a table
     freshLines.splice(endIdx, 0, "", table, "");
@@ -693,7 +821,7 @@ async function runSection(input: {
 
 /* ── handler ──────────────────────────────────────────────────────────── */
 
-const BUILD_MARKER = "BUILD-2026-05-28-G proprietary-generate-article dedupe+filler-removed+refs-honest+sentence-trim";
+const BUILD_MARKER = "BUILD-2026-05-28-H proprietary-generate-article normal-mode-parity: atomic-strip+split-glued-bullets+inline-citations+empty-faq-drop+toc-real-firstline+3-bullets-reenabled";
 Deno.serve(async (req) => {
   console.log(BUILD_MARKER);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -845,10 +973,24 @@ Deno.serve(async (req) => {
       return lines.slice(i).join("\n").trim();
     };
     const md: string[] = [`# ${articleTitle}`, ""];
+    const isEmptyOrPlaceholder = (s: string) => {
+      const t = s.trim();
+      if (!t) return true;
+      if (/^\[NEEDS EXPERT INPUT\]\s*$/i.test(t)) return true;
+      // Strip blank lines and check if anything substantive remains
+      const stripped = t.replace(/^\s*$/gm, "").trim();
+      return stripped.length < 20;
+    };
     for (const s of sectionsOut) {
       const cleanContent = s.type === "body"
         ? stripLeadingDuplicateHeading(s.content, s.heading)
         : s.content;
+      // Drop framing sections (e.g. FAQ) whose content is empty / placeholder
+      // so the heading doesn't render alone above nothing.
+      if ((s.kind === "faq" || s.kind === "quick-tips") && isEmptyOrPlaceholder(cleanContent)) {
+        console.warn(`STITCH: dropping empty section "${s.heading}" (kind=${s.kind})`);
+        continue;
+      }
       if (s.kind === "opening") {
         md.push(cleanContent, "");
       } else if (s.kind === "tldr") {
@@ -862,16 +1004,28 @@ Deno.serve(async (req) => {
       }
     }
     let stitched = md.join("\n").trim();
-    // NOTE: enforceThreeBulletsPerBodySection intentionally removed — it was
-    // injecting templated "Ask which specific X category applies..." filler
-    // bullets at the end of every H2, which read as boilerplate. Body sections
-    // should be natural prose only; Quick Tips block already provides bullets.
+    // Normal-mode parity passes (deterministic, no extra AI calls):
+    const splitBul = splitGluedBullets(stitched);
+    stitched = splitBul.out;
+    if (splitBul.split > 0) console.warn(`SPLIT BULLETS: split ${splitBul.split} glued sub-bullet(s).`);
+    const atomic = stripAtomicPhrases(stitched);
+    stitched = atomic.out;
+    if (atomic.removed > 0) console.warn(`ATOMIC GUARD: stripped ${atomic.removed} dependency phrase(s).`);
+    stitched = enforceThreeBulletsPerBodySection(stitched);
     stitched = injectInThisArticle(stitched, body.topic);
     stitched = injectHowToChoose(stitched, body.topic);
     stitched = ensureMinimumTables(stitched, body.topic, targetWords);
     stitched = ensureFinalThoughtsCta(stitched);
+    // Inline citations from brain-unit URLs (one per body H2 with a URL).
+    const brainUrls = collectBrainUrls(units);
+    const cite = attachInlineCitations(stitched, brainUrls);
+    stitched = cite.out;
+    if (cite.attached > 0) console.log(`CITATIONS: attached ${cite.attached} inline source(s) from brain URLs.`);
     stitched = injectReferences(stitched, units);
+    const refsEmitted = /^##\s+references/im.test(stitched);
+    if (!refsEmitted) console.warn(`REFERENCES: no References section emitted — brain units contain no URLs.`);
     const content = sanitiseGeneratedMarkdown(stitched, articleTitle);
+
 
     // mappedUnitTexts for downstream verification grading on the client
     const mappedUnitTexts: string[] = [];
