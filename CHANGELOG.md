@@ -1,4 +1,4 @@
-## 2026-05-28 — Proprietary generation 500 fix, internal links, and verified references
+## 2026-05-28 - Proprietary generation 500 fix, internal links, and verified references
 
 **What:**
 - `proprietary-generate-article`: fixed the actual `splitGluedBullets is not defined` runtime fault. The helper existed in the file, but a broken brace in `ensureMinimumTables` left the normal-mode parity helpers scoped inside that function instead of available to the handler. The handler could deploy, then fail only when the article reached the post-stitch branch.
