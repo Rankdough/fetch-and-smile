@@ -804,6 +804,27 @@ function ensureMinimumTables(markdown: string, topic: string, targetWords: numbe
   return out;
 }
 
+/* ── brand-name placeholder strip ────────────────────────────────────── */
+// The assembler instructs the model to reference the brand/business name, but
+// no brand string is plumbed through the request payload today, so the model
+// occasionally fills the gap with a literal "[PRACTICE NAME]" placeholder.
+// Remove these placeholders (and tidy the surrounding punctuation/whitespace)
+// so they never reach the rendered article. If a brand string is later added
+// to the request body, swap the empty replacement for that value.
+function stripBrandPlaceholders(markdown: string): string {
+  const PLACEHOLDER_RE = /\[(?:practice\s*name|your\s*practice|clinic\s*name|business\s*name|brand\s*name|company\s*name)\]/gi;
+  let out = markdown.replace(/\b(?:the|our|your)\s+\[(?:practice\s*name|your\s*practice|clinic\s*name|business\s*name|brand\s*name|company\s*name)\]\b['']?s?/gi, "the practice");
+  out = out.replace(PLACEHOLDER_RE, "");
+  // Tidy double spaces, stranded punctuation, and orphan possessives left
+  // behind by the strip.
+  out = out
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/\s+([,.;:!?])/g, "$1")
+    .replace(/\(\s*\)/g, "")
+    .replace(/,\s*,/g, ",");
+  return out;
+}
+
 /* ── normal-mode parity: atomic-phrase + bullet + citation guards ────── */
 
 function stripAtomicPhrases(markdown: string): { out: string; removed: number } {
