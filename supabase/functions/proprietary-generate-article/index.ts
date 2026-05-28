@@ -1010,6 +1010,30 @@ Deno.serve(async (req) => {
       const mappedUnit =
         section.type === "body" ? pickUnit(section.heading, body.topic, units) : null;
 
+      // Semantic retrieval: embed (topic + section heading) and pull top 3 chunks
+      // from brain_chunks. Additive — runs alongside the keyword-matched pickUnit unit.
+      let retrievedChunks: Array<{ content: string; similarity: number }> = [];
+      if (section.type === "body") {
+        try {
+          const queryVec = await embedQuery(`${body.topic}\n${section.heading}`);
+          const { data: matches, error: matchErr } = await sb.rpc("match_brain_chunks", {
+            query_embedding: queryVec as unknown as string,
+            match_count: 3,
+          });
+          if (matchErr) {
+            console.warn(`RETRIEVAL: rpc failed for "${section.heading}":`, matchErr.message);
+          } else if (Array.isArray(matches)) {
+            retrievedChunks = matches.map((m: any) => ({
+              content: m.content,
+              similarity: typeof m.similarity === "number" ? m.similarity : 0,
+            }));
+            console.log(`RETRIEVAL: section="${section.heading}" got ${retrievedChunks.length} chunks (top sim=${retrievedChunks[0]?.similarity?.toFixed(3) ?? "n/a"})`);
+          }
+        } catch (e) {
+          console.warn(`RETRIEVAL: embed/query failed for "${section.heading}" (non-fatal):`, e);
+        }
+      }
+
       const result = await runSection({
         businessType,
         mappedUnit,
@@ -1020,6 +1044,7 @@ Deno.serve(async (req) => {
         articleTitle,
         model,
         sectionBudgetWords,
+        retrievedChunks,
       });
 
       surrounding.push({ heading: section.heading, content: result.content });
