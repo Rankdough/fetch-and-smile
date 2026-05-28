@@ -814,23 +814,46 @@ Deno.serve(async (req) => {
     }
 
     // 6. Stitch
+    const normaliseHeadingText = (s: string) =>
+      s.toLowerCase().replace(/[^a-z0-9 ]+/g, "").replace(/\s+/g, " ").trim();
+    const stripLeadingDuplicateHeading = (content: string, heading: string): string => {
+      // Drop any leading H1/H2/H3/H4 whose normalised text equals the section heading.
+      // Prevents "## X" + body that itself starts with "## X" or "### X" → duplicate heading.
+      const target = normaliseHeadingText(heading);
+      const lines = content.split("\n");
+      let i = 0;
+      while (i < lines.length && lines[i].trim() === "") i++;
+      while (i < lines.length) {
+        const m = lines[i].match(/^\s*#{1,4}\s+(.+?)\s*$/);
+        if (!m) break;
+        if (normaliseHeadingText(m[1]) !== target) break;
+        i++;
+        while (i < lines.length && lines[i].trim() === "") i++;
+      }
+      return lines.slice(i).join("\n").trim();
+    };
     const md: string[] = [`# ${articleTitle}`, ""];
     for (const s of sectionsOut) {
+      const cleanContent = s.type === "body"
+        ? stripLeadingDuplicateHeading(s.content, s.heading)
+        : s.content;
       if (s.kind === "opening") {
-        md.push(s.content, "");
+        md.push(cleanContent, "");
       } else if (s.kind === "tldr") {
-        md.push("## TL;DR", "", s.content, "");
+        md.push("## TL;DR", "", cleanContent, "");
       } else if (s.kind === "quick-tips") {
-        md.push("## Quick Tips", "", s.content, "");
+        md.push("## Quick Tips", "", cleanContent, "");
       } else if (s.kind === "faq") {
-        md.push("## Frequently Asked Questions", "", s.content, "");
+        md.push("## Frequently Asked Questions", "", cleanContent, "");
       } else {
-        md.push(`## ${s.heading}`, "", s.content, "");
+        md.push(`## ${s.heading}`, "", cleanContent, "");
       }
     }
     let stitched = md.join("\n").trim();
-    stitched = enforceThreeBulletsPerBodySection(stitched);
-    // Normal-mode parity: structural injections (idempotent — no-op if present).
+    // NOTE: enforceThreeBulletsPerBodySection intentionally removed — it was
+    // injecting templated "Ask which specific X category applies..." filler
+    // bullets at the end of every H2, which read as boilerplate. Body sections
+    // should be natural prose only; Quick Tips block already provides bullets.
     stitched = injectInThisArticle(stitched, body.topic);
     stitched = injectHowToChoose(stitched, body.topic);
     stitched = ensureMinimumTables(stitched, body.topic, targetWords);
