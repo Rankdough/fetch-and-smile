@@ -524,19 +524,27 @@ function deriveSectionPhrase(heading: string): string {
 
 function fallbackTopicTable(topic: string, sectionHeading?: string): string {
   const t = topic.toLowerCase();
-  const phrase = sectionHeading ? deriveSectionPhrase(sectionHeading) : "";
-  const lens = phrase ? `; weigh against ${phrase}` : "";
-  const qSuffix = phrase ? ` (re: ${phrase})` : "";
-  if (/screwless|implant|morse|cement/.test(t)) return `| System type | How retention works | Screw visible in crown? | Common failure | Best-fit case |
+  const h = (sectionHeading ?? "").toLowerCase();
+  // Section-aware: only inject a topic table when the SECTION HEADING itself is
+  // about the table's subject. Prevents the same retention table being dropped
+  // into unrelated sections (training, failure modes, complications, etc.).
+  const retentionHeading = /retention|retain|cement|screw|abutment|morse|crown\s+fix|fixation/.test(h);
+  const underbiteHeading = /underbite|aligner|invisalign|class\s*iii|bite\s+correction/.test(h);
+  if (retentionHeading && /screwless|implant|morse|cement|crown|abutment|prosthe/.test(t)) {
+    return `| System type | How retention works | Screw visible in crown? | Common failure | Best-fit case |
 | --- | --- | --- | --- | --- |
-| Cement-retained crown | Cement bonds the crown to an abutment | No | Residual cement can inflame tissue | Aesthetic zones where an access hole would show${lens} |
-| Friction-fit or Morse taper | Precision taper locks components mechanically | No | Retrieval can be difficult if repair is needed | Accurate single-tooth component seating${lens} |
-| Screw-retained crown | Prosthetic screw fixes the crown to the implant | Yes | Access-channel aesthetics or screw loosening | Maintenance-heavy or retrievable cases${lens} |`;
-  if (/invisalign|aligner|underbite|class\s*iii/.test(t)) return `| Case type | What drives the bite | Aligner suitability | Common failure | Consultation question |
+| Cement-retained crown | Cement bonds the crown to an abutment | No | Residual cement can inflame tissue | Aesthetic zones where an access hole would show |
+| Friction-fit or Morse taper | Precision taper locks components mechanically | No | Retrieval can be difficult if repair is needed | Accurate single-tooth component seating |
+| Screw-retained crown | Prosthetic screw fixes the crown to the implant | Yes | Access-channel aesthetics or screw loosening | Maintenance-heavy or retrievable cases |`;
+  }
+  if (underbiteHeading && /invisalign|aligner|underbite|class\s*iii|orthodontic/.test(t)) {
+    return `| Case type | What drives the bite | Aligner suitability | Common failure | Consultation question |
 | --- | --- | --- | --- | --- |
-| Dental underbite | Tooth position creates the reverse bite | Stronger when movement is tooth-led | Treating the wrong mechanism wastes months | Is the problem dental or skeletal?${qSuffix} |
-| Skeletal underbite | Jaw relationship drives the bite | Limited without surgical assessment | Camouflage can worsen facial balance | Is surgery part of the realistic plan?${qSuffix} |
-| Combined pattern | Teeth and jaw both contribute | Case-dependent after diagnosis | Relapse or incomplete bite correction | Which part is being corrected first?${qSuffix} |`;
+| Dental underbite | Tooth position creates the reverse bite | Stronger when movement is tooth-led | Treating the wrong mechanism wastes months | Is the problem dental or skeletal? |
+| Skeletal underbite | Jaw relationship drives the bite | Limited without surgical assessment | Camouflage can worsen facial balance | Is surgery part of the realistic plan? |
+| Combined pattern | Teeth and jaw both contribute | Case-dependent after diagnosis | Relapse or incomplete bite correction | Which part is being corrected first? |`;
+  }
+  // No section-appropriate table available: do NOT inject a generic fallback.
   return "";
 }
 
@@ -793,6 +801,27 @@ function ensureMinimumTables(markdown: string, topic: string, targetWords: numbe
     seenSignatures.add(sig);
     inserted++;
   }
+  return out;
+}
+
+/* ── brand-name placeholder strip ────────────────────────────────────── */
+// The assembler instructs the model to reference the brand/business name, but
+// no brand string is plumbed through the request payload today, so the model
+// occasionally fills the gap with a literal "[PRACTICE NAME]" placeholder.
+// Remove these placeholders (and tidy the surrounding punctuation/whitespace)
+// so they never reach the rendered article. If a brand string is later added
+// to the request body, swap the empty replacement for that value.
+function stripBrandPlaceholders(markdown: string): string {
+  const PLACEHOLDER_RE = /\[(?:practice\s*name|your\s*practice|clinic\s*name|business\s*name|brand\s*name|company\s*name)\]/gi;
+  let out = markdown.replace(/\b(?:the|our|your)\s+\[(?:practice\s*name|your\s*practice|clinic\s*name|business\s*name|brand\s*name|company\s*name)\]\b['']?s?/gi, "the practice");
+  out = out.replace(PLACEHOLDER_RE, "");
+  // Tidy double spaces, stranded punctuation, and orphan possessives left
+  // behind by the strip.
+  out = out
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/\s+([,.;:!?])/g, "$1")
+    .replace(/\(\s*\)/g, "")
+    .replace(/,\s*,/g, ",");
   return out;
 }
 
@@ -1202,6 +1231,7 @@ Deno.serve(async (req) => {
     stitched = ensureTrustedReferences(stitched, body.topic);
     const refsEmitted = /^##\s+references/im.test(stitched);
     if (!refsEmitted) console.warn(`REFERENCES: no References section emitted — brain units contain no URLs.`);
+    stitched = stripBrandPlaceholders(stitched);
     let content = sanitiseGeneratedMarkdown(stitched, articleTitle);
     const internalLinkResult = await insertInternalLinksIntoArticle(content, body.internalLinks, body.topic);
     content = internalLinkResult.content;
