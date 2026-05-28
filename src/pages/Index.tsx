@@ -1572,6 +1572,7 @@ const Index = () => {
           {
             body: {
               topic: formData.topic,
+              length: formData.length,
               // Defaults are sensible; the full UI for these comes in Stage 3+.
               businessType: "healthcare-clinical",
               publicationDestination: "both",
@@ -1581,6 +1582,7 @@ const Index = () => {
         if (error) throw error;
         if (data?.error) throw new Error(data.error);
         content = data.content as string;
+        setAppliedRules(data.appliedRules || null);
         proprietaryMappedTexts = Array.isArray(data.mappedUnitTexts) ? data.mappedUnitTexts : [];
 
         const expertGaps = (data.sections || []).filter((s: { needsExpertInput?: boolean }) => s.needsExpertInput).length;
