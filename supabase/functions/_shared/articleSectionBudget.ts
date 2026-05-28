@@ -105,7 +105,8 @@ export function trimSectionToBudget(body: string, budget: number): string {
       continue;
     }
 
-    const sentences = paragraph.match(/[^.!?]+[.!?]?/g)?.map((s) => s.trim()).filter(Boolean) ?? [paragraph];
+    // Only accept fully terminated sentences — never keep a dangling fragment.
+    const sentences = paragraph.match(/[^.!?]+[.!?]+(?:["')\]]+)?/g)?.map((s) => s.trim()).filter(Boolean) ?? [];
     const sentenceBuffer: string[] = [];
 
     for (const sentence of sentences) {
