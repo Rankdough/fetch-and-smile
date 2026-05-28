@@ -646,7 +646,111 @@ function ensureMinimumTables(markdown: string, topic: string, targetWords: numbe
     let endIdx = freshLines.length;
     for (let j = headingLine + 1; j < freshLines.length; j++) {
       if (/^##\s+/.test(freshLines[j])) { endIdx = j; break; }
+}
+
+/* ── normal-mode parity: atomic-phrase + bullet + citation guards ────── */
+
+function stripAtomicPhrases(markdown: string): { out: string; removed: number } {
+  const banned: RegExp[] = [
+    /\bas\s+mentioned\s+(above|earlier|previously)\b[,]?\s*/gi,
+    /\bas\s+(we\s+)?(saw|discussed|noted)\s+(above|earlier|previously)\b[,]?\s*/gi,
+    /\bcontinuing\s+from\s+(earlier|above|the\s+previous\s+section)\b[,]?\s*/gi,
+    /\bin\s+the\s+previous\s+section\b[,]?\s*/gi,
+    /\bthe\s+following\s+point\b[,]?\s*/gi,
+    /\bbuilding\s+on\s+(what\s+we\s+covered|the\s+above|the\s+previous)\b[,]?\s*/gi,
+  ];
+  let removed = 0;
+  let out = markdown;
+  for (const re of banned) {
+    const m = out.match(re);
+    if (m) removed += m.length;
+    out = out.replace(re, "");
+  }
+  out = out.replace(/(^|\n|\. )([a-z])/g, (_m, p1, p2) => p1 + p2.toUpperCase());
+  return { out, removed };
+}
+
+function splitGluedBullets(markdown: string): { out: string; split: number } {
+  // Fix a common LLM defect: `- A: text *   B: text *   C: text` glued on one
+  // line. Split on `*   ` or `*  ` markers that occur inside a `- ` list item.
+  const lines = markdown.split("\n");
+  let split = 0;
+  const fixed: string[] = [];
+  for (const line of lines) {
+    const m = line.match(/^(\s*)([-*+])\s+(.+)$/);
+    if (!m) { fixed.push(line); continue; }
+    const indent = m[1];
+    const marker = m[2];
+    const body = m[3];
+    // Split on " *   " or " *  " sub-bullet markers inside the line
+    if (!/\s\*\s{2,}/.test(body)) { fixed.push(line); continue; }
+    const parts = body.split(/\s\*\s{2,}/g).map((p) => p.trim()).filter(Boolean);
+    if (parts.length <= 1) { fixed.push(line); continue; }
+    split += parts.length - 1;
+    for (const p of parts) fixed.push(`${indent}${marker} ${p}`);
+  }
+  return { out: fixed.join("\n"), split };
+}
+
+interface BrainUrl { url: string; title: string }
+function collectBrainUrls(units: BrainUnit[]): BrainUrl[] {
+  const out: BrainUrl[] = [];
+  const seen = new Set<string>();
+  const re = /https?:\/\/[^\s)<>"'\]]+/g;
+  for (const u of units) {
+    const text = `${u.summary || ""}\n${u.full_text || ""}`;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(text)) !== null) {
+      const url = m[0].replace(/[)\]\.,;]+$/, "");
+      if (seen.has(url)) continue;
+      try {
+        const host = new URL(url).hostname.replace(/^www\./, "");
+        seen.add(url);
+        out.push({ url, title: u.title || host });
+      } catch { /* skip invalid */ }
     }
+  }
+  return out;
+}
+
+function attachInlineCitations(markdown: string, urls: BrainUrl[]): { out: string; attached: number } {
+  if (urls.length === 0) return { out: markdown, attached: 0 };
+  const lines = markdown.split("\n");
+  let urlIdx = 0;
+  let attached = 0;
+  const fixed: string[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    fixed.push(line);
+    const m = line.match(/^##\s+(.+?)\s*$/);
+    if (!m) continue;
+    if (STRUCT_SKIP_RE.test(m[1])) continue;
+    // Find end of this section
+    let endIdx = lines.length;
+    for (let j = i + 1; j < lines.length; j++) {
+      if (/^##\s+/.test(lines[j])) { endIdx = j; break; }
+    }
+    const sectionBody = lines.slice(i + 1, endIdx).join("\n");
+    if (/\]\(https?:\/\//.test(sectionBody)) continue; // already cited
+    if (urlIdx >= urls.length) continue;
+    const u = urls[urlIdx++];
+    // Append a citation footnote line right before next H2 (we'll do it on
+    // the matching end position via splice on the output array later — simpler:
+    // we record an inline edit). Insert a citation paragraph immediately after
+    // the heading's first paragraph break by mutating the source lines.
+    // Find the end of the first paragraph after heading
+    let pEnd = i + 1;
+    while (pEnd < endIdx && lines[pEnd].trim() !== "") pEnd++;
+    // We're rebuilding fixed[] as we go; instead splice into lines and let
+    // subsequent iterations see the change.
+    const citationLine = `\nSource: [${u.title}](${u.url})`;
+    lines.splice(pEnd, 0, citationLine);
+    attached++;
+  }
+  return { out: lines.join("\n"), attached };
+}
+
+
     const sectionSlice = freshLines.slice(headingLine, endIdx).join("\n");
     if (sectionSlice.includes("|")) continue; // already has a table
     freshLines.splice(endIdx, 0, "", table, "");
