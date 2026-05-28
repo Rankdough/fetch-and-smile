@@ -53,6 +53,16 @@ interface BrainUnit {
   unit_type: UnitType | "legacy" | null;
 }
 
+interface InternalLinkResult {
+  content: string;
+  insertedCount: number;
+  totalProvided: number;
+  insertedUrls: string[];
+  skippedUrls: string[];
+  skippedOffTopic?: string[];
+  note?: string;
+}
+
 async function callModelRaw(
   system: string,
   user: string,
@@ -628,6 +638,67 @@ function injectReferences(markdown: string, units: BrainUnit[]): string {
   return `${markdown.trimEnd()}\n\n## References\n\n${items}\n`;
 }
 
+function trustedFallbackSources(topic: string): BrainUrl[] {
+  if (!/\b(dental|implant|implants|screwless|conometric|abutment)\b/i.test(topic)) return [];
+  return [
+    { title: "FDA - Dental Implants: What You Should Know", url: "https://www.fda.gov/medical-devices/dental-devices/dental-implants-what-you-should-know" },
+    { title: "NCBI Bookshelf - Dental Implants", url: "https://www.ncbi.nlm.nih.gov/books/NBK470448/" },
+    { title: "PMC - Implant-abutment connection review", url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC4784146/" },
+  ];
+}
+
+function ensureTrustedReferences(markdown: string, topic: string): string {
+  if (/^##\s+references/im.test(markdown)) return markdown;
+  const sources = trustedFallbackSources(topic);
+  if (sources.length === 0) return markdown;
+  const items = sources.map((s) => `- [${s.title}](${s.url})`).join("\n");
+  return `${markdown.trimEnd()}\n\n## References\n\n${items}\n`;
+}
+
+async function insertInternalLinksIntoArticle(
+  content: string,
+  urls: string[] | undefined,
+  articleTopic: string,
+): Promise<InternalLinkResult> {
+  const cleanUrls = (urls || []).map((u) => u.trim()).filter(Boolean).slice(0, 12);
+  if (cleanUrls.length === 0) {
+    return { content, insertedCount: 0, totalProvided: 0, insertedUrls: [], skippedUrls: [], note: "No internal links provided." };
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 45_000);
+  try {
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/insert-internal-links`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ content, urls: cleanUrls, articleTopic }),
+      signal: controller.signal,
+    });
+    const raw = await res.text();
+    if (!res.ok) throw new Error(`insert-internal-links ${res.status}: ${raw.slice(0, 300)}`);
+    const data = JSON.parse(raw) as Partial<InternalLinkResult>;
+    return {
+      content: typeof data.content === "string" ? data.content : content,
+      insertedCount: typeof data.insertedCount === "number" ? data.insertedCount : 0,
+      totalProvided: typeof data.totalProvided === "number" ? data.totalProvided : cleanUrls.length,
+      insertedUrls: Array.isArray(data.insertedUrls) ? data.insertedUrls : [],
+      skippedUrls: Array.isArray(data.skippedUrls) ? data.skippedUrls : cleanUrls,
+      skippedOffTopic: Array.isArray(data.skippedOffTopic) ? data.skippedOffTopic : [],
+      note: data.note,
+    };
+  } catch (e) {
+    const note = e instanceof Error && e.name === "AbortError"
+      ? "Internal link insertion timed out; returned original article."
+      : `Internal link insertion failed; returned original article: ${e instanceof Error ? e.message : String(e)}`;
+    return { content, insertedCount: 0, totalProvided: cleanUrls.length, insertedUrls: [], skippedUrls: cleanUrls, note };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 function ensureMinimumTables(markdown: string, topic: string, targetWords: number): string {
   const required = Math.max(1, Math.round(targetWords / 600));
   let current = countMarkdownTables(markdown);
@@ -820,7 +891,7 @@ async function runSection(input: {
 
 /* ── handler ──────────────────────────────────────────────────────────── */
 
-const BUILD_MARKER = "BUILD-2026-05-28-H proprietary-generate-article normal-mode-parity: atomic-strip+split-glued-bullets+inline-citations+empty-faq-drop+toc-real-firstline+3-bullets-reenabled";
+const BUILD_MARKER = "BUILD-2026-05-28-I proprietary-generate-article 500-fix+internal-links+trusted-references";
 Deno.serve(async (req) => {
   console.log(BUILD_MARKER);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
