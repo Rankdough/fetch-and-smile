@@ -501,6 +501,157 @@ function fallbackTopicTable(topic: string): string {
   return "";
 }
 
+/* ── normal-mode parity: structural normalisers ───────────────────────── */
+
+const STRUCT_SKIP_RE = /tl;?dr|quick\s*tips|in\s*this\s*article|how\s*to\s*(choose|pick)|frequently\s*asked|faq|final\s*thoughts|references|sources/i;
+
+function getBodyH2s(markdown: string): Array<{ heading: string; index: number }> {
+  const lines = markdown.split("\n");
+  const out: Array<{ heading: string; index: number }> = [];
+  lines.forEach((line, i) => {
+    const m = line.match(/^##\s+(.+?)\s*$/);
+    if (!m) return;
+    if (STRUCT_SKIP_RE.test(m[1])) return;
+    out.push({ heading: m[1].trim(), index: i });
+  });
+  return out;
+}
+
+function topicNoun(topic: string): string {
+  const t = topic.toLowerCase();
+  if (/implant|crown|abutment|prosthe/.test(t)) return "Implant Option";
+  if (/aligner|invisalign|brace|underbite|overbite|orthodontic/.test(t)) return "Treatment";
+  if (/dental|dentist|tooth|teeth|oral/.test(t)) return "Treatment";
+  if (/medical|clinic|surgery|therapy/.test(t)) return "Treatment";
+  return "Option";
+}
+
+function injectInThisArticle(markdown: string, topic: string): string {
+  if (/^##\s+in\s*this\s*article/im.test(markdown)) return markdown;
+  const bodyH2s = getBodyH2s(markdown);
+  if (bodyH2s.length === 0) return markdown;
+  const lines = markdown.split("\n");
+  const items = bodyH2s.map((h, i) => {
+    const desc = `Direct answer on ${h.heading.replace(/[?!.]+$/, "").toLowerCase()}, including the clinical reasoning, the honest failure mode, and what to ask before deciding so the answer maps to a real consultation.`;
+    return `- ${i + 1}. ${h.heading.replace(/[?!.]+$/, "")} - ${desc}`;
+  });
+  const block = ["## In This Article", "", ...items].join("\n");
+  // Insert after Quick Tips block, else after TL;DR, else after H1.
+  const anchors = [
+    /^##\s+quick\s*tips[\s\S]*?(?=^##\s+)/im,
+    /^##\s+tl;?dr[\s\S]*?(?=^##\s+)/im,
+    /^#\s+.+$/m,
+  ];
+  for (const re of anchors) {
+    const m = markdown.match(re);
+    if (m && m.index !== undefined) {
+      const insertAt = m.index + m[0].length;
+      return `${markdown.slice(0, insertAt).trimEnd()}\n\n${block}\n\n${markdown.slice(insertAt).trimStart()}`;
+    }
+  }
+  return `${block}\n\n${markdown}`;
+}
+
+function injectHowToChoose(markdown: string, topic: string): string {
+  if (/^##\s+how\s*to\s*(choose|pick)/im.test(markdown)) return markdown;
+  const noun = topicNoun(topic);
+  const heading = `## How to Choose the Right ${noun} for You`;
+  const criteria = [
+    `- Establish the category first: confirm whether the case is dental or skeletal, simple or complex, before comparing ${noun.toLowerCase()}s.`,
+    `- Ask what the clinician is actively trying to prevent: every plan should name the specific failure mode it is designed to avoid.`,
+    `- Demand specific numbers: timelines, success rates, and costs should come with concrete figures, not "varies" or "depends".`,
+    `- Check candidacy honestly: a good ${noun.toLowerCase()} for the wrong case underperforms regardless of brand or price.`,
+    `- Confirm the review step: ask which checkpoint will confirm the plan is working and what triggers a change of plan.`,
+  ];
+  const block = `${heading}\n\n${criteria.join("\n")}`;
+  // Insert before FAQ or Final Thoughts, else append before References, else at end.
+  const anchorRe = /^##\s+(frequently\s*asked|faq|final\s*thoughts|references)/im;
+  const m = markdown.match(anchorRe);
+  if (m && m.index !== undefined) {
+    return `${markdown.slice(0, m.index).trimEnd()}\n\n${block}\n\n${markdown.slice(m.index)}`;
+  }
+  return `${markdown.trimEnd()}\n\n${block}`;
+}
+
+function extractUrls(text: string): Array<{ url: string; title: string }> {
+  const out: Array<{ url: string; title: string }> = [];
+  const seen = new Set<string>();
+  // Markdown links first (preserve titles)
+  const mdRe = /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g;
+  let m: RegExpExecArray | null;
+  while ((m = mdRe.exec(text)) !== null) {
+    const url = m[2].replace(/[)\]\.,;]+$/, "");
+    if (seen.has(url)) continue;
+    seen.add(url);
+    out.push({ url, title: m[1].trim() });
+  }
+  // Bare URLs
+  const bareRe = /(?<!\()https?:\/\/[^\s)<>"']+/g;
+  while ((m = bareRe.exec(text)) !== null) {
+    const url = m[0].replace(/[)\]\.,;]+$/, "");
+    if (seen.has(url)) continue;
+    seen.add(url);
+    try {
+      const host = new URL(url).hostname.replace(/^www\./, "");
+      out.push({ url, title: host });
+    } catch { /* ignore */ }
+  }
+  return out;
+}
+
+function injectReferences(markdown: string, units: BrainUnit[]): string {
+  if (/^##\s+references/im.test(markdown)) return markdown;
+  const corpus = [
+    markdown,
+    ...units.map((u) => `${u.summary || ""}\n${u.full_text || ""}`),
+  ].join("\n");
+  const links = extractUrls(corpus).slice(0, 8);
+  if (links.length === 0) return markdown;
+  const items = links.map((l) => `- [${l.title}](${l.url})`).join("\n");
+  return `${markdown.trimEnd()}\n\n## References\n\n${items}\n`;
+}
+
+function ensureMinimumTables(markdown: string, topic: string, targetWords: number): string {
+  const required = Math.max(1, Math.round(targetWords / 600));
+  let current = countMarkdownTables(markdown);
+  if (current >= required) return markdown;
+  const table = fallbackTopicTable(topic);
+  if (!table) return markdown;
+  let out = markdown;
+  const lines = out.split("\n");
+  const bodyH2s = lines.map((line, i) => ({ line, i })).filter(({ line }) => /^##\s+/.test(line) && !STRUCT_SKIP_RE.test(line));
+  let inserted = 0;
+  for (let bIdx = 0; bIdx < bodyH2s.length && current + inserted < required; bIdx++) {
+    const startIdx = bodyH2s[bIdx].i + inserted * 3; // rough offset after each insert
+    // Compute section end relative to current `lines`
+    const freshLines = out.split("\n");
+    const headingLine = freshLines.findIndex((l, idx) => idx >= startIdx && /^##\s+/.test(l));
+    if (headingLine === -1) break;
+    let endIdx = freshLines.length;
+    for (let j = headingLine + 1; j < freshLines.length; j++) {
+      if (/^##\s+/.test(freshLines[j])) { endIdx = j; break; }
+    }
+    const sectionSlice = freshLines.slice(headingLine, endIdx).join("\n");
+    if (sectionSlice.includes("|")) continue; // already has a table
+    freshLines.splice(endIdx, 0, "", table, "");
+    out = freshLines.join("\n");
+    inserted++;
+  }
+  return out;
+}
+
+function ensureFinalThoughtsCta(markdown: string): string {
+  const re = /(^##\s+final\s*thoughts\s*\n)([\s\S]*?)(?=^##\s+|$(?![\r\n]))/im;
+  const m = markdown.match(re);
+  if (!m) return markdown;
+  const body = m[2];
+  if (/\b(book|schedule|contact|call|consultation|next step)\b/i.test(body)) return markdown;
+  const cta = "\n\nReady to act on this? Book a consultation with a clinician who will categorise your case first, name the failure mode they are preventing, and give you specific numbers before any plan is recommended.\n";
+  return markdown.replace(re, `${m[1]}${body.trimEnd()}${cta}\n`);
+}
+
+
+
 
 /* ── per-section generation (inlined from proprietary-generate-section) ─ */
 
