@@ -247,8 +247,16 @@ This is an FAQ section. Each Q&A pair MUST follow this contract:
     typically cost more than standard screw-retained because the components
     are manufactured to tighter tolerances and the procedure requires more
     technique time.") — never a hedge.
-Format: 3-5 Q&A pairs. Each question on its own line as bold prefixed with
-"Q:". Each answer follows as 2-4 sentences.`.trim();
+Format: EXACTLY this Markdown structure for each Q&A pair, with one blank
+line between pairs:
+
+**Question text ending with a question mark?**
+
+Answer paragraph of 2-4 sentences on the next line(s).
+
+Produce 3-5 Q&A pairs. Do NOT prefix questions with "Q:" or answers with
+"A:". The question MUST be wrapped in **bold** markers on its own line so
+downstream rendering picks it up as a FAQ entry.`.trim();
 
 function describeMappedUnit(unit: MappedUnit | null): string {
   if (!unit) {
