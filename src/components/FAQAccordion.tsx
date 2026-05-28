@@ -110,20 +110,27 @@ export const extractFAQFromContent = (content: string): FAQItem[] => {
   if (!faqMatch) return items;
   
   const faqContent = faqMatch[1];
-  
-  // Match Q&A pairs: **Question?**\n(optional blank line)\nAnswer text
-  const qaRegex = /\*\*([^*]+\??)\*\*\s*\n\n?([^*\n][^\n]*(?:\n(?!\*\*|\n\*\*)[^\n]+)*)/g;
+
+  // Format A: **Question?**\n\nAnswer text
+  const boldRegex = /\*\*([^*\n]+\??)\*\*\s*\n+([^\n*][^\n]*(?:\n(?!\s*\*\*|\s*Q:\s)[^\n]+)*)/g;
   let match;
-  
-  while ((match = qaRegex.exec(faqContent)) !== null) {
+  while ((match = boldRegex.exec(faqContent)) !== null) {
     const question = match[1].trim();
     const answer = match[2].trim().replace(/\n+/g, ' ');
-    
-    if (question && answer) {
-      items.push({ question, answer });
+    if (question && answer) items.push({ question, answer });
+  }
+
+  // Format B (fallback): "Q: question\nA: answer" pairs
+  if (items.length === 0) {
+    const qaRegex = /(?:^|\n)\s*(?:\*\*)?Q\s*[:.)-]\s*(?:\*\*)?\s*([^\n]+?)\s*(?:\*\*)?\s*\n+\s*(?:\*\*)?A\s*[:.)-]\s*(?:\*\*)?\s*([^\n]+(?:\n(?!\s*(?:\*\*)?Q\s*[:.)-])[^\n]+)*)/gi;
+    let m;
+    while ((m = qaRegex.exec(faqContent)) !== null) {
+      const question = m[1].trim().replace(/\*\*$/, '').trim();
+      const answer = m[2].trim().replace(/\n+/g, ' ');
+      if (question && answer) items.push({ question, answer });
     }
   }
-  
+
   return items;
 };
 
