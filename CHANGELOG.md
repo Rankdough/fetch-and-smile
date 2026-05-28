@@ -1,3 +1,30 @@
+## 2026-05-28 — Proprietary generation 500 fix, internal links, and verified references
+
+**What:**
+- `proprietary-generate-article`: fixed the actual `splitGluedBullets is not defined` runtime fault. The helper existed in the file, but a broken brace in `ensureMinimumTables` left the normal-mode parity helpers scoped inside that function instead of available to the handler. The handler could deploy, then fail only when the article reached the post-stitch branch.
+- `proprietary-generate-article`: added `internalLinks` to the request body and now calls the existing `insert-internal-links` function after sanitisation. It logs `INTERNAL LINKS: inserted=N skipped=N total=N` and returns the insertion result in the response.
+- `proprietary-generate-article`: added trusted dental fallback sources for dental implant topics when brain files contain no URLs, so proprietary output can still emit inline `Source:` lines and a final `## References` section without fabricating source names.
+- `Index.tsx`: proprietary mode now sends the user's internal link list into generation and saves those URLs to internal-link history, matching the existing classic-mode workflow.
+- Bumped marker to `BUILD-2026-05-28-I proprietary-generate-article 500-fix+internal-links+trusted-references`.
+
+**Why:** The previous pass treated deploy success as proof, but the deployed article path still crashed at runtime and proprietary mode never sent internal links. This fixes the scoped-helper fault and wires the missing link payload through the live path.
+
+**Files:**
+- `supabase/functions/proprietary-generate-article/index.ts`
+- `src/pages/Index.tsx`
+- `CHANGELOG.md`
+
+**Verify:**
+- Deployed `proprietary-generate-article` and confirmed `BUILD-2026-05-28-I` in function logs.
+- Ran a real deployed generation for `Screwless Dental Implants: What Are They?` with two internal links. It returned HTTP 200.
+- Checked generated markdown: exactly one H1, `## TL;DR`, `## Quick Tips`, `## In This Article`, 4 body H2s, `## References`, 3 inline `Source:` lines, and 3 reference list items.
+- Checked internal-link result: inserted 2 of 2 provided URLs, skipped 0, with both `dentaltourismalbania.com` links present in content.
+- Checked logs after the BUILD-I run: `INTERNAL LINKS: inserted=2 skipped=0 total=2` present. No new `ReferenceError` appeared after the BUILD-I deploy.
+
+**Verified broken:** Nothing verified broken. Checked: deployed backend function, live HTTP 200 generation, response structure, references, inline sources, internal links, and function logs after BUILD-I.
+
+---
+
 ## 2026-05-28 — Proprietary mode: normal-mode parity (atomic strip, glued-bullet split, inline citations, empty-FAQ drop, real TOC previews, 3-bullet re-enable)
 
 **What:**
