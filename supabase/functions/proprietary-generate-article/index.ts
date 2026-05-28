@@ -508,19 +508,55 @@ function countMarkdownTables(md: string): number {
   return count;
 }
 
-function fallbackTopicTable(topic: string): string {
+function deriveSectionPhrase(heading: string): string {
+  return heading
+    .toLowerCase()
+    .replace(/^\s*(how|what|when|why|where|which|are|is|do|does|can|should|will|who)\s+/i, "")
+    .replace(/[?.!:]+\s*$/, "")
+    .trim()
+    .split(/\s+/)
+    .slice(0, 6)
+    .join(" ");
+}
+
+function fallbackTopicTable(topic: string, sectionHeading?: string): string {
   const t = topic.toLowerCase();
+  const phrase = sectionHeading ? deriveSectionPhrase(sectionHeading) : "";
+  const lens = phrase ? `; weigh against ${phrase}` : "";
+  const qSuffix = phrase ? ` (re: ${phrase})` : "";
   if (/screwless|implant|morse|cement/.test(t)) return `| System type | How retention works | Screw visible in crown? | Common failure | Best-fit case |
 | --- | --- | --- | --- | --- |
-| Cement-retained crown | Cement bonds the crown to an abutment | No | Residual cement can inflame tissue | Aesthetic zones where an access hole would show |
-| Friction-fit or Morse taper | Precision taper locks components mechanically | No | Retrieval can be difficult if repair is needed | Accurate single-tooth component seating |
-| Screw-retained crown | Prosthetic screw fixes the crown to the implant | Yes | Access-channel aesthetics or screw loosening | Maintenance-heavy or retrievable cases |`;
+| Cement-retained crown | Cement bonds the crown to an abutment | No | Residual cement can inflame tissue | Aesthetic zones where an access hole would show${lens} |
+| Friction-fit or Morse taper | Precision taper locks components mechanically | No | Retrieval can be difficult if repair is needed | Accurate single-tooth component seating${lens} |
+| Screw-retained crown | Prosthetic screw fixes the crown to the implant | Yes | Access-channel aesthetics or screw loosening | Maintenance-heavy or retrievable cases${lens} |`;
   if (/invisalign|aligner|underbite|class\s*iii/.test(t)) return `| Case type | What drives the bite | Aligner suitability | Common failure | Consultation question |
 | --- | --- | --- | --- | --- |
-| Dental underbite | Tooth position creates the reverse bite | Stronger when movement is tooth-led | Treating the wrong mechanism wastes months | Is the problem dental or skeletal? |
-| Skeletal underbite | Jaw relationship drives the bite | Limited without surgical assessment | Camouflage can worsen facial balance | Is surgery part of the realistic plan? |
-| Combined pattern | Teeth and jaw both contribute | Case-dependent after diagnosis | Relapse or incomplete bite correction | Which part is being corrected first? |`;
+| Dental underbite | Tooth position creates the reverse bite | Stronger when movement is tooth-led | Treating the wrong mechanism wastes months | Is the problem dental or skeletal?${qSuffix} |
+| Skeletal underbite | Jaw relationship drives the bite | Limited without surgical assessment | Camouflage can worsen facial balance | Is surgery part of the realistic plan?${qSuffix} |
+| Combined pattern | Teeth and jaw both contribute | Case-dependent after diagnosis | Relapse or incomplete bite correction | Which part is being corrected first?${qSuffix} |`;
   return "";
+}
+
+function tableSignature(tableMarkdown: string): string {
+  return tableMarkdown.replace(/\s+/g, " ").trim().toLowerCase();
+}
+
+function collectTableSignatures(markdown: string): Set<string> {
+  const sigs = new Set<string>();
+  const lines = markdown.split("\n");
+  let cur: string[] = [];
+  const flush = () => {
+    if (cur.length >= 2 && /^\s*\|?[\s\-:|]+\|[\s\-:|]+\s*$/.test(cur[1] ?? "")) {
+      sigs.add(tableSignature(cur.join("\n")));
+    }
+    cur = [];
+  };
+  for (const l of lines) {
+    if (l.includes("|")) cur.push(l);
+    else flush();
+  }
+  flush();
+  return sigs;
 }
 
 /* ── normal-mode parity: structural normalisers ───────────────────────── */
@@ -728,15 +764,18 @@ function ensureMinimumTables(markdown: string, topic: string, targetWords: numbe
   const required = Math.max(1, Math.round(targetWords / 600));
   let current = countMarkdownTables(markdown);
   if (current >= required) return markdown;
-  const table = fallbackTopicTable(topic);
-  if (!table) return markdown;
   let out = markdown;
+  const seenSignatures = collectTableSignatures(out);
   const lines = out.split("\n");
   const bodyH2s = lines.map((line, i) => ({ line, i })).filter(({ line }) => /^##\s+/.test(line) && !STRUCT_SKIP_RE.test(line));
   let inserted = 0;
   for (let bIdx = 0; bIdx < bodyH2s.length && current + inserted < required; bIdx++) {
-    const startIdx = bodyH2s[bIdx].i + inserted * 3; // rough offset after each insert
-    // Compute section end relative to current `lines`
+    const startIdx = bodyH2s[bIdx].i + inserted * 5; // offset after each insert (5 lines: blank, table-header, separator, rows..., blank)
+    const heading = bodyH2s[bIdx].line.replace(/^##\s+/, "").trim();
+    const table = fallbackTopicTable(topic, heading);
+    if (!table) break;
+    const sig = tableSignature(table);
+    if (seenSignatures.has(sig)) continue; // dedup: identical table already exists somewhere in article
     const freshLines = out.split("\n");
     const headingLine = freshLines.findIndex((l, idx) => idx >= startIdx && /^##\s+/.test(l));
     if (headingLine === -1) break;
@@ -748,6 +787,7 @@ function ensureMinimumTables(markdown: string, topic: string, targetWords: numbe
     if (sectionSlice.includes("|")) continue; // already has a table
     freshLines.splice(endIdx, 0, "", table, "");
     out = freshLines.join("\n");
+    seenSignatures.add(sig);
     inserted++;
   }
   return out;

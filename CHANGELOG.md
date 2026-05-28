@@ -1,4 +1,27 @@
-## 2026-05-28 - Fix Classic Mode TDZ + remove proprietary template bullets
+## 2026-05-28 - Fix proprietary duplicate-table emission (hash dedup + section-aware variants + offset)
+
+**What:**
+- `supabase/functions/proprietary-generate-article/index.ts`:
+  - `fallbackTopicTable(topic, sectionHeading?)`: now takes an optional section heading and produces section-aware row content (last column gets a `; weigh against <phrase>` lens for the implants table and a `(re: <phrase>)` suffix on each consultation question for the aligners table). Column headers unchanged.
+  - Added `deriveSectionPhrase`, `tableSignature`, `collectTableSignatures` helpers.
+  - `ensureMinimumTables`: (1) builds a per-section table by passing the H2 heading; (2) pre-seeds a `Set` of normalised signatures of every existing table in the markdown and skips injection when the new table's signature already exists; (3) bumped stale-index offset from `inserted * 3` to `inserted * 5` to match the 5 lines each injection actually adds (blank, header row, separator, blank, plus the gap before the next block).
+- Frequency formula `Math.max(1, Math.round(targetWords / 600))` is untouched.
+
+**Why:** The 5-column / 3-row comparison table was appearing verbatim twice in the screwless implants article because a single `fallbackTopicTable(topic)` string was being injected into every eligible H2 with no global identity dedup and a stale offset that let the per-section `|` guard drift past the just-inserted table.
+
+**Files:**
+- supabase/functions/proprietary-generate-article/index.ts
+
+**Verify:**
+- Regenerate the screwless implants article (proprietary mode). Expect `tables_count` ≥ 2 with each table having a distinct last column (per-section lens phrase), and no two tables sharing the same normalised signature.
+- Aligners/Invisalign topics: each table's consultation question column should carry a `(re: <section phrase>)` suffix unique per H2.
+- Topics that don't match either keyword block still get no fallback table (unchanged behaviour).
+
+**Verified broken:** Nothing verified broken. Checked: (1) edge function deployed successfully; (2) `fallbackTopicTable` second arg is optional so the single existing call site (`ensureMinimumTables` line 775) is the only caller and passes the heading; (3) frequency formula and `STRUCT_SKIP_RE` unchanged; (4) `collectTableSignatures` correctly identifies markdown tables via the separator-row regex used by `countMarkdownTables`. Not run end-to-end through the UI in this turn — awaiting the regeneration test the user will trigger.
+
+---
+
+
 
 **What:**
 - `supabase/functions/generate-content/index.ts`: moved the `ownDomains` setup block (declaration, `addOwnHost`, CTA/image host seeding, internal_link_files fetch, OWN-DOMAIN BLOCKLIST log) and the `isOwnDomainUrl` closure as a single unit from lines 1247–1288 to immediately before `extractContextSourceCandidates` (now lines 1032–1075). No characters inside the moved block were altered. Fixes a `ReferenceError: Cannot access 'ownDomains'/'isOwnDomainUrl' before initialization` thrown at line 1049/1094 whenever `extractContextSourceCandidates` ran (Classic Mode + context files).
