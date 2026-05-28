@@ -182,13 +182,21 @@ async function callClinicalWriter(system: string, user: string, maxTokens = 1400
 /* ── outline generation ───────────────────────────────────────────────── */
 
 async function generateH2Questions(topic: string, model: string): Promise<string[]> {
-  const sys = `You generate H2 question headings for non-commodity articles. Output exactly 3 question headings, one per line, no numbering, no bullets, no markdown. Each must be a real question a reader would type, phrased in 4-10 words. No filler openers. No "what is X" if there's a sharper question.`;
-  const user = `Topic: ${topic}\n\nReturn 3 H2 question headings.`;
+  const sys = `You generate H2 question headings for non-commodity articles. Output exactly 3 question headings, one per line, no numbering, no bullets, no markdown. Each must be a real question a reader would type, phrased in 4-10 words. No filler openers. No "what is X" if there's a sharper question. The three questions MUST cover different angles (e.g. mechanism, benefit, failure mode) — never two near-duplicate questions.`;
+  const user = `Topic: ${topic}\n\nReturn 3 distinct H2 question headings.`;
   const raw = await callModel(sys, user, model, 400);
+  const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9 ]+/g, "").replace(/\s+/g, " ").trim();
+  const seen = new Set<string>();
   const lines = raw
     .split(/\r?\n/)
     .map((l) => l.replace(/^[\d\-*.\s)#]+/, "").trim())
-    .filter((l) => l.length > 5 && l.length < 140);
+    .filter((l) => l.length > 5 && l.length < 140)
+    .filter((l) => {
+      const k = norm(l);
+      if (seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    });
   return lines.slice(0, 3);
 }
 
