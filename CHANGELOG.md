@@ -1,4 +1,19 @@
-## 2026-05-28 - ensureMinimumTables: continue past empty fallbacks + universal topic-aware fallback table
+## 2026-05-28 - injectHowToChoose: remove hardcoded clinical phrasing from universal checklist
+
+**What:**
+- `supabase/functions/proprietary-generate-article/index.ts` `injectHowToChoose` (lines 671–679): replaced hardcoded clinical phrasing in the universal "How to Choose" criteria. Removed "dental or skeletal", "clinician", "failure mode", "candidacy", and "plan/case" framing. Bullets are now topic-neutral and parameterised on `nounLower` derived from the article topic.
+
+**Why:** The checklist was being appended to every article (e.g. an archery article) with literal "confirm whether the case is dental or skeletal" and "ask what the clinician is actively trying to prevent". The block is a universal scaffold, not a clinical one, so its language must be domain-agnostic.
+
+**Files:**
+- supabase/functions/proprietary-generate-article/index.ts
+- CHANGELOG.md
+
+**Verified broken:** Nothing verified broken. Checked: (a) re-read the edited function — same five bullets, same anchor logic, same insertion position, only string contents changed; (b) `topicNoun(topic)` call still drives the heading and bullets, so the H2 "How to Choose the Right {Noun} for You" is unchanged; (c) no other call sites for `injectHowToChoose` (grep); (d) grep across `supabase/functions` confirms the clinical phrasing now only remains inside the legitimately clinical underbite table at line 543 and the assembler prompt in `proprietaryPromptAssembler.ts`, both of which are scoped correctly.
+
+---
+
+
 
 **What:**
 - `supabase/functions/proprietary-generate-article/index.ts` `ensureMinimumTables` (line 787): changed `if (!table) break;` to `if (!table) continue;` so one H2 returning no table no longer aborts injection for every subsequent eligible H2.
