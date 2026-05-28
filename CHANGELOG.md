@@ -1,3 +1,20 @@
+## 2026-05-28 — Fix proprietary generation 500 from invalid direct AI key
+
+**What:**
+- `proprietary-generate-article`: removed the direct Anthropic API call path that was failing with `invalid x-api-key`.
+- Body sections now keep the same proprietary clinical writer prompt but run through the configured Lovable AI gateway using `openai/gpt-5.4-mini`.
+- Bumped marker to `BUILD-2026-05-28-D proprietary-generate-article gateway-clinical-writer`.
+
+**Why:** The live proprietary endpoint was returning 500 before content generation could complete because the external direct provider key was invalid. Routing through the configured gateway removes that broken dependency while preserving the proprietary formatting and non-commodity prompt rules.
+
+**Files:**
+- `supabase/functions/proprietary-generate-article/index.ts`
+- `CHANGELOG.md`
+
+**Verified broken:** Nothing verified broken yet. Deployment and endpoint verification are in progress immediately after this entry.
+
+---
+
 ## 2026-05-28 — Proprietary mode: normal-mode formatting parity
 
 **What:**
