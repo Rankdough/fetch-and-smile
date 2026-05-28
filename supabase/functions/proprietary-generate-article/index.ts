@@ -25,15 +25,21 @@ import {
   type UnitType,
 } from "../_shared/proprietaryPromptAssembler.ts";
 import { NON_COMMODITY_TITLE_RULES, isCommodityStyleTitle } from "../_shared/nonCommodityTitleRules.ts";
+import { trimSectionToBudget } from "../_shared/articleSectionBudget.ts";
 
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
+const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
+const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
 const DEFAULT_MODEL = "google/gemini-2.5-flash";
+const CLINICAL_MODEL = "claude-sonnet-4-20250514";
 
 interface RequestBody {
   topic: string;
+  length?: "short" | "medium" | "medium-long" | "long" | "extended" | "comprehensive";
+  wordCount?: number;
   audienceSentence?: string;
   businessType?: BusinessType;
   publicationDestination?: "ai-search" | "human-blog" | "both";
@@ -108,6 +114,91 @@ async function callModel(system: string, user: string, model: string, maxTokens 
     }
   }
   return content;
+}
+
+const CLINICAL_SYSTEM_PROMPT_HEALTHCARE = `You are a clinical content writer producing non-commodity dental and medical content for a specific audience. Your purpose is to write the way an experienced clinician would answer — with specific, honest, experience-backed content that goes beyond what any generic website or AI tool would produce.
+
+You follow these rules strictly:
+
+RULE 1 — NO COMMODITY ANSWERS
+Never write anything that could appear on any generic dental or medical website. No "consult your dentist," no "results vary," no generic timelines without context. If the knowledge input does not contain specific clinical detail on something, write [NEEDS EXPERT INPUT] rather than generating a plausible-sounding generic answer.
+
+RULE 2 — LEAD WITH THE HONEST ANSWER
+State the direct answer first. Then explain the clinical reasoning. Then give the honest tradeoff or limitation. Never bury the real answer in qualifications.
+
+RULE 3 — DISTINGUISH DENTAL VS SKELETAL, SIMPLE VS COMPLEX
+For every condition or treatment question, first establish which category the case falls into before giving a recommendation. The category determines everything else.
+
+RULE 4 — INCLUDE FAILURE MODES
+For every body section, include what goes wrong when the treatment is done incorrectly or on the wrong candidate. Use explicit language: "the common failure is", "what goes wrong when", "this fails when". This is the information patients need most and find least on the internet. Never omit it.
+
+RULE 5 — SPECIFIC NUMBERS OVER RANGES
+When giving timelines, costs, or success rates, give specific numbers. If a range is genuinely necessary, explain what drives each end of the range. Never write "varies", "depends on", "typically", or "usually" without a specific number in the same sentence. If no number exists in the knowledge input, write "No published figure on this — ask the clinical team directly."
+
+RULE 6 — CONTRADICT CONVENTIONAL WISDOM WHEN EXPERIENCE WARRANTS IT
+If the knowledge input contains evidence that contradicts what most websites say, say so directly. Use the pattern: "Most websites say X. In practice, Y because Z." Never confirm conventional wisdom when the knowledge input contradicts it.
+
+RULE 7 — NEVER FABRICATE QUOTES
+Never include a quoted statement unless the exact quote text and its attributed named source are explicitly present in the knowledge input. If no attributed quote exists in the input, write no quote at all. A missing quote is better than a fabricated one.
+
+RULE 8 — TOPIC-SPECIFIC TABLES ONLY
+If a comparison table is appropriate for this section, derive the column headers directly from the clinical topic. Never use generic columns like Option A, Option B, Option C, Best for Beginners, Intermediate Users, or Advanced Needs. Table columns must be clinically meaningful for the specific topic.
+
+STRUCTURE FOR EVERY BODY SECTION:
+- Direct answer or direct claim (first sentence — no preamble)
+- Clinical explanation (what is actually happening and why)
+- Who is and is not a good candidate (when relevant)
+- What to expect specifically (timeline, process, outcome with real numbers)
+- Honest failure mode or limitation (mandatory — use explicit failure language)
+- Bottom line (one sentence the reader can act on)
+
+You are writing content for patients to arrive at their clinical consultation already informed, with the right questions prepared. You are not a replacement for clinical consultation.`;
+
+function buildClinicalUserMessage(input: {
+  mappedUnit: MappedUnit | null;
+  audienceSentence: string;
+  publicationDestination: "ai-search" | "human-blog" | "both";
+  section: SectionSpec;
+  articleTitle: string;
+}): string {
+  const knowledgeInput = input.mappedUnit?.full_text?.trim()
+    ? input.mappedUnit.full_text.trim()
+    : "No proprietary knowledge unit available for this section — generate from clinical expertise following all rules, use [NEEDS EXPERT INPUT] only where a specific proprietary number or case detail is required.";
+
+  return [
+    `Topic: ${input.articleTitle}`,
+    `Section heading: ${input.section.heading}`,
+    `Section type: ${input.section.kind}`,
+    `Audience: ${input.audienceSentence}`,
+    `Publication destination: ${input.publicationDestination}`,
+    `Knowledge input: ${knowledgeInput}`,
+    "",
+    "Write this section now.",
+  ].join("\n");
+}
+
+async function callAnthropic(system: string, user: string, maxTokens = 1400): Promise<string> {
+  if (!ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY is not configured");
+  const res = await fetch(ANTHROPIC_URL, {
+    method: "POST",
+    headers: {
+      "x-api-key": ANTHROPIC_API_KEY,
+      "anthropic-version": "2023-06-01",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: CLINICAL_MODEL,
+      max_tokens: maxTokens,
+      system,
+      messages: [{ role: "user", content: user }],
+    }),
+  });
+  if (!res.ok) throw new Error(`Anthropic ${res.status}: ${await res.text()}`);
+  const json = await res.json();
+  return ((json?.content ?? []) as Array<{ type?: string; text?: string }>)
+    .filter((c) => c?.type === "text")
+    .map((c) => c.text || "")
+    .join("");
 }
 
 /* ── outline generation ───────────────────────────────────────────────── */
@@ -351,6 +442,65 @@ function sanitiseGeneratedMarkdown(markdown: string, articleTitle: string): stri
   return result.replace(/\n{3,}/g, "\n\n").trim();
 }
 
+function buildFallbackBullets(heading: string, body: string): string[] {
+  const cleanHeading = heading.replace(/[?!.]+$/g, "").toLowerCase();
+  const hasFailure = /failure|risk|wrong|peri|loosen|cement|relapse|misdiagnos/i.test(body);
+  return [
+    `- Ask which specific ${cleanHeading} category applies before accepting a treatment plan.`,
+    `- Check what failure mode the clinician is actively trying to prevent.`,
+    `- Request the exact maintenance or review step that confirms the plan is working.`,
+  ].map((line, idx) => (idx === 1 && !hasFailure ? `- Identify the clinical limitation before comparing visible benefits.` : line));
+}
+
+function enforceThreeBulletsPerBodySection(markdown: string): string {
+  const skipPattern = /tl;?dr|quick\s*tips|frequently\s*asked|faq|final\s*thoughts|references|sources/i;
+  const headingRegex = /^##\s+.+$/gm;
+  const matches = [...markdown.matchAll(headingRegex)];
+  if (matches.length === 0) return markdown.trim();
+  const intro = markdown.slice(0, matches[0].index ?? 0).trim();
+  const rebuilt = matches.map((match, index) => {
+    const start = match.index ?? 0;
+    const end = index + 1 < matches.length ? (matches[index + 1].index ?? markdown.length) : markdown.length;
+    const headingLine = match[0];
+    const heading = headingLine.replace(/^##\s+/, "").trim();
+    const body = markdown.slice(start + headingLine.length, end).trim();
+    if (skipPattern.test(heading)) return `${headingLine}\n${body}`.trim();
+    const lines = body.split("\n");
+    const bullets = lines.filter((line) => /^\s*-\s+/.test(line)).slice(0, 3);
+    for (const fallback of buildFallbackBullets(heading, body)) {
+      if (bullets.length >= 3) break;
+      bullets.push(fallback);
+    }
+    const withoutExtraBullets = lines.filter((line) => !/^\s*[-*+]\s+/.test(line)).join("\n").trim();
+    return `${headingLine}\n${[withoutExtraBullets, bullets.slice(0, 3).join("\n")].filter(Boolean).join("\n\n")}`.trim();
+  });
+  return [intro, ...rebuilt].filter(Boolean).join("\n\n").trim();
+}
+
+function countMarkdownTables(md: string): number {
+  const lines = md.split("\n");
+  let count = 0;
+  for (let i = 0; i < lines.length - 1; i++) {
+    if (lines[i].includes("|") && /^\s*\|?[\s\-:|]+\|[\s\-:|]+$/.test(lines[i + 1])) count++;
+  }
+  return count;
+}
+
+function fallbackTopicTable(topic: string): string {
+  const t = topic.toLowerCase();
+  if (/screwless|implant|morse|cement/.test(t)) return `| System type | How retention works | Screw visible in crown? | Common failure | Best-fit case |
+| --- | --- | --- | --- | --- |
+| Cement-retained crown | Cement bonds the crown to an abutment | No | Residual cement can inflame tissue | Aesthetic zones where an access hole would show |
+| Friction-fit or Morse taper | Precision taper locks components mechanically | No | Retrieval can be difficult if repair is needed | Accurate single-tooth component seating |
+| Screw-retained crown | Prosthetic screw fixes the crown to the implant | Yes | Access-channel aesthetics or screw loosening | Maintenance-heavy or retrievable cases |`;
+  if (/invisalign|aligner|underbite|class\s*iii/.test(t)) return `| Case type | What drives the bite | Aligner suitability | Common failure | Consultation question |
+| --- | --- | --- | --- | --- |
+| Dental underbite | Tooth position creates the reverse bite | Stronger when movement is tooth-led | Treating the wrong mechanism wastes months | Is the problem dental or skeletal? |
+| Skeletal underbite | Jaw relationship drives the bite | Limited without surgical assessment | Camouflage can worsen facial balance | Is surgery part of the realistic plan? |
+| Combined pattern | Teeth and jaw both contribute | Case-dependent after diagnosis | Relapse or incomplete bite correction | Which part is being corrected first? |`;
+  return "";
+}
+
 
 /* ── per-section generation (inlined from proprietary-generate-section) ─ */
 
@@ -363,12 +513,17 @@ async function runSection(input: {
   surroundingContext: Array<{ heading: string; content: string }>;
   articleTitle: string;
   model: string;
+  sectionBudgetWords: number;
 }) {
-  const { system, user, appliedRules } = assembleSectionPrompt(input);
-  // Body sections get a larger budget than framing sections to prevent mid-sentence
-  // truncation. Gemini/OpenAI default caps were producing dangling sentences.
-  const tokenBudget = input.section.type === "body" ? 2200 : 1000;
-  let content = (await callModel(system, user, input.model, tokenBudget)).trim();
+  const assembled = assembleSectionPrompt(input);
+  const isBody = input.section.type === "body";
+  const tokenBudget = isBody ? 1400 : 1000;
+  let content = isBody
+    ? (await callAnthropic(CLINICAL_SYSTEM_PROMPT_HEALTHCARE, buildClinicalUserMessage(input), tokenBudget)).trim()
+    : (await callModel(assembled.system, assembled.user, input.model, tokenBudget)).trim();
+  if (isBody) {
+    content = trimSectionToBudget(content, input.sectionBudgetWords);
+  }
   const needsExpertInput = /^\[NEEDS EXPERT INPUT\]\s*$/i.test(content);
   const ruleFlags = needsExpertInput ? [] : lintRule5(content);
 
@@ -390,12 +545,12 @@ async function runSection(input: {
       console.warn("Rule-6 pass failed (non-fatal):", e);
     }
   }
-  return { content, needsExpertInput, ruleFlags, contradicted, appliedRules };
+  return { content, needsExpertInput, ruleFlags, contradicted, appliedRules: isBody ? [1, 2, 3, 4, 5, 6, 7, 8] : assembled.appliedRules };
 }
 
 /* ── handler ──────────────────────────────────────────────────────────── */
 
-const BUILD_MARKER = "BUILD-2026-05-27-C proprietary-generate-article";
+const BUILD_MARKER = "BUILD-2026-05-28-B proprietary-generate-article clinical-contract-restore";
 Deno.serve(async (req) => {
   console.log(BUILD_MARKER);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -410,6 +565,8 @@ Deno.serve(async (req) => {
     }
 
     const model = body.model || DEFAULT_MODEL;
+    const wordCounts: Record<string, number> = { short: 500, medium: 1000, "medium-long": 1500, long: 2000, extended: 3000, comprehensive: 3500 };
+    const targetWords = body.wordCount || wordCounts[body.length || "medium"] || 1000;
     const businessType: BusinessType = body.businessType || "healthcare-clinical";
     const audienceSentence =
       body.audienceSentence ||
@@ -473,6 +630,10 @@ Deno.serve(async (req) => {
       },
     ];
 
+    const fixedBudget = 40 + 70 + 45 + 120 + 55;
+    const bodySectionCount = plan.filter((s) => s.type === "body").length || 1;
+    const sectionBudgetWords = Math.max(90, Math.round((targetWords - fixedBudget) / bodySectionCount));
+
     // 4 + 5. Series generation with surrounding context
     const surrounding: Array<{ heading: string; content: string }> = [];
     const sectionsOut: Array<{
@@ -502,6 +663,7 @@ Deno.serve(async (req) => {
         surroundingContext: surrounding.slice(),
         articleTitle,
         model,
+        sectionBudgetWords,
       });
 
       surrounding.push({ heading: section.heading, content: result.content });
@@ -535,7 +697,23 @@ Deno.serve(async (req) => {
         md.push(`## ${s.heading}`, "", s.content, "");
       }
     }
-    const content = sanitiseGeneratedMarkdown(md.join("\n").trim(), articleTitle);
+    let stitched = md.join("\n").trim();
+    stitched = enforceThreeBulletsPerBodySection(stitched);
+    if (countMarkdownTables(stitched) < 1) {
+      const table = fallbackTopicTable(body.topic);
+      if (table) {
+        const lines = stitched.split("\n");
+        const bodyH2s = lines.map((line, i) => ({ line, i })).filter(({ line }) => /^##\s+/.test(line) && !/tl;?dr|quick\s*tips|frequently\s*asked|faq|final\s*thoughts|references|sources/i.test(line));
+        const targetIdx = bodyH2s[Math.min(1, bodyH2s.length - 1)]?.i;
+        if (typeof targetIdx === "number") {
+          let endIdx = lines.length;
+          for (let j = targetIdx + 1; j < lines.length; j++) if (/^##\s+/.test(lines[j])) { endIdx = j; break; }
+          lines.splice(endIdx, 0, "", table, "");
+          stitched = lines.join("\n");
+        }
+      }
+    }
+    const content = sanitiseGeneratedMarkdown(stitched, articleTitle);
 
     // mappedUnitTexts for downstream verification grading on the client
     const mappedUnitTexts: string[] = [];
@@ -554,6 +732,18 @@ Deno.serve(async (req) => {
         outline: h2Questions,
         articleTitle,
         originalTopic: body.topic,
+        appliedRules: {
+          gapAnalysisUsed: false,
+          formatReferenceUsed: false,
+          contextFilesUsed: units.length > 0,
+          contextFileNames: [],
+          keywordsUsed: false,
+          keywords: [],
+          targetWordCount: targetWords,
+          outlineProvided: true,
+          customInstructionsProvided: false,
+          knowledgeBaseUsed: units.length > 0,
+        },
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
