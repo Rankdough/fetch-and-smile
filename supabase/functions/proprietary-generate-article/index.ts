@@ -584,8 +584,16 @@ function injectReferences(markdown: string, units: BrainUnit[]): string {
     ...units.map((u) => `${u.summary || ""}\n${u.full_text || ""}`),
   ].join("\n");
   const links = extractUrls(corpus).slice(0, 8);
-  if (links.length === 0) return markdown;
-  const items = links.map((l) => `- [${l.title}](${l.url})`).join("\n");
+  const sourceTitles = units
+    .map((u) => (u.title || u.summary || "").trim())
+    .filter((title, index, arr) => title.length > 0 && arr.indexOf(title) === index)
+    .slice(0, 8);
+  if (links.length === 0 && sourceTitles.length === 0) return `${markdown.trimEnd()}\n\n## References\n\n- No source URLs or named source documents were available in the selected knowledge base.\n`;
+  const linkedItems = links.map((l) => `- [${l.title}](${l.url})`);
+  const titleItems = sourceTitles
+    .filter((title) => !linkedItems.some((item) => item.toLowerCase().includes(title.toLowerCase())))
+    .map((title) => `- ${title}`);
+  const items = [...linkedItems, ...titleItems].slice(0, 8).join("\n");
   return `${markdown.trimEnd()}\n\n## References\n\n${items}\n`;
 }
 
@@ -679,7 +687,7 @@ async function runSection(input: {
 
 /* ── handler ──────────────────────────────────────────────────────────── */
 
-const BUILD_MARKER = "BUILD-2026-05-28-E proprietary-generate-article gateway-clinical-writer-fast";
+const BUILD_MARKER = "BUILD-2026-05-28-F proprietary-generate-article references-fallback";
 Deno.serve(async (req) => {
   console.log(BUILD_MARKER);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
