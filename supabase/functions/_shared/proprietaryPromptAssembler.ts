@@ -208,6 +208,80 @@ pattern", with columns such as "Definition", "Invisalign suitable?", "Typical
 timeline", and "Key risk if misdiagnosed". Do NOT translate those clinical
 categories into generic options.`.trim();
 
+const AI_EXTRACTION_RULES = `
+AI EXTRACTION RULES (apply to every section, every business type — additive to Rules 1–8; do NOT override any earlier rule):
+
+RULE 9 — ANSWER PROXIMITY:
+The direct answer to the article's primary question must appear in the first 80
+words of the article body, before any explanation or context. Every article
+must open with a self-contained answer sentence containing at least one
+specific number or verifiable claim. Pages that bury the answer after an
+introduction are bypassed by AI retrieval systems. No word-count threshold is
+imposed on the answer sentence itself — only on its position.
+
+RULE 10 — SELF-CONTAINED SENTENCES:
+Every sentence in every body section must make complete logical sense if
+extracted without its surrounding context. No sentence may rely on a pronoun
+reference to a previous sentence to carry its meaning (avoid "This is why…",
+"That makes it…", "These are the…" as sentence openers without restating the
+noun). No sentence may use unverifiable qualitative claims such as "high
+quality", "world-class", "affordable", "premium", "cutting-edge", or
+"best-in-class" without a specific supporting fact in the same sentence.
+
+RULE 11 — METHODOLOGY DISCLOSURE:
+Every article containing statistics, price ranges, timelines, or comparative
+data must include one explicit methodology sentence explaining how that data
+was gathered. Format: "This data was compiled from [specific source or
+method]." Original methodology-disclosed data receives significantly higher
+AI visibility than data presented without attribution. Place this sentence
+immediately after the first data-containing section. One methodology sentence
+per article is sufficient; do not repeat it in every section.
+
+RULE 12 — INFORMATION GAIN OVER CONSENSUS:
+Never summarise what other websites already say. If the knowledge input
+contains information already widely available, include it only as brief
+framing context (one sentence maximum). Every body section must contain at
+least one data point, observation, or conclusion not available on competing
+pages. If no such information exists in the knowledge input for this section,
+output the literal inline placeholder:
+[NEEDS EXPERT INPUT: describe what proprietary data would strengthen this section]
+rather than padding with consensus material.
+
+RULE 13 — BUYER JOURNEY STAGE MATCHING:
+Every article is written for ONE specific stage of the buyer journey:
+  - Discovery — broad cost and comparison questions.
+  - Validation — deadline, turnaround, and specification questions.
+  - Execution — how to order, what information to prepare, what happens next.
+Identify which stage the article topic matches and structure every section to
+answer that stage's specific questions completely. Do not mix stages in one
+article. If the title is a Discovery question, do not slide into Execution
+checklists, and vice versa.
+
+RULE 14 — OFF-SITE QUOTABILITY:
+Every article must be written as if it will be quoted by a third-party source.
+85% of brand mentions in AI answers come from off-site sources, not the
+brand's own domain. Every key claim should be phrased as a standalone
+quotable statement. The brand or business name must appear naturally in
+context at least twice per article so it travels with the data when extracted
+by AI systems. Write to invite citation, not just to rank.
+
+RULE 15 — GHOST CITATION PREVENTION:
+AI systems frequently cite a URL without naming the brand. To prevent
+anonymous citation, the brand or business name must appear in the first
+paragraph, in at least one body section heading or subheading, and in the
+final thoughts section. It must appear as the SUBJECT of a sentence, not just
+as a possessive modifier. Correct: "Big League Shirts analysed pricing across
+50 bowling alleys." Incorrect: "the Big League Shirts pricing guide."
+
+RULE 16 — MULTI-ENGINE DATA DENSITY:
+AI engines in high reasoning mode cite 4.5 sources per response versus 2.6
+in minimal mode, and 3 out of 4 cited domains differ between reasoning modes.
+Different AI engines agree on only 11% of cited sources. Every article must
+therefore contain at least four independently citable facts, each with a
+specific number or named source, so the content is useful across different
+retrieval modes and different AI engines — not optimised for one engine
+only.`.trim();
+
 const FRAMING_LITE_RULES = `
 FRAMING SECTION RULES:
 - Lead with a direct sentence, no filler openers (Rule 2).
@@ -354,6 +428,10 @@ em dashes, en dashes, or horizontal rules.`;
     // Quote + sourced-figures guards — every body section
     ruleBlocks.push(QUOTE_ATTRIBUTION_RULE);
     ruleBlocks.push(SOURCED_FIGURES_RULE);
+
+    // Rules 9–16 — AI extraction rules, every body section, every business type.
+    ruleBlocks.push(AI_EXTRACTION_RULES);
+    applied.push(9, 10, 11, 12, 13, 14, 15, 16);
   } else {
     ruleBlocks.push(FRAMING_LITE_RULES);
     ruleBlocks.push(KEYWORD_NATURAL_LANGUAGE_RULE);
@@ -361,6 +439,10 @@ em dashes, en dashes, or horizontal rules.`;
     ruleBlocks.push(SOURCED_FIGURES_RULE);
     // Framing inherits rules 2 and 5 conceptually
     applied.push(2, 5);
+
+    // Rules 9–16 — AI extraction rules, every framing section, every business type.
+    ruleBlocks.push(AI_EXTRACTION_RULES);
+    applied.push(9, 10, 11, 12, 13, 14, 15, 16);
 
 
     // Opening framing section: enforce the marketing-umbrella reframe.
