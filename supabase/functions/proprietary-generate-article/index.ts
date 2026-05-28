@@ -169,22 +169,36 @@ function buildClinicalUserMessage(input: {
   publicationDestination: "ai-search" | "human-blog" | "both";
   section: SectionSpec;
   articleTitle: string;
+  retrievedChunks?: Array<{ content: string; similarity: number }>;
 }): string {
   const knowledgeInput = input.mappedUnit?.full_text?.trim()
     ? input.mappedUnit.full_text.trim()
     : "No proprietary knowledge unit available for this section — generate from clinical expertise following all rules, use [NEEDS EXPERT INPUT] only where a specific proprietary number or case detail is required.";
 
-  return [
+  const lines = [
     `Topic: ${input.articleTitle}`,
     `Section heading: ${input.section.heading}`,
     `Section type: ${input.section.kind}`,
     `Audience: ${input.audienceSentence}`,
     `Publication destination: ${input.publicationDestination}`,
     `Knowledge input: ${knowledgeInput}`,
-    "",
-    "Write this section now.",
-  ].join("\n");
+  ];
+
+  if (input.retrievedChunks && input.retrievedChunks.length > 0) {
+    const block = input.retrievedChunks
+      .map((c, i) => `[Chunk ${i + 1} | similarity ${c.similarity.toFixed(3)}]\n${c.content}`)
+      .join("\n\n");
+    lines.push(
+      "",
+      "RETRIEVED KNOWLEDGE — specific facts, numbers, and clinical details from the research brief relevant to this section. Use these specifics in your response.",
+      block,
+    );
+  }
+
+  lines.push("", "Write this section now.");
+  return lines.join("\n");
 }
+
 
 async function callClinicalWriter(system: string, user: string, maxTokens = 1400): Promise<string> {
   return callModel(system, user, CLINICAL_MODEL, maxTokens);
