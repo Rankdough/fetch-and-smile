@@ -161,11 +161,14 @@ serve(async (req) => {
 
     console.log("File parsed successfully, length:", textContent.length);
 
+    // Raised from 10k → 500k chars (~75k words) so long research briefs are stored
+    // in full. Downstream chunk+embed pipeline (brain_chunks) handles retrieval.
+    const MAX_CHARS = 500_000;
     return new Response(
       JSON.stringify({
-        content: textContent.substring(0, 10000), // Limit to 10k chars
+        content: textContent.substring(0, MAX_CHARS),
         fileName,
-        truncated: textContent.length > 10000,
+        truncated: textContent.length > MAX_CHARS,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
