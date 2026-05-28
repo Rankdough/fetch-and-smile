@@ -764,15 +764,18 @@ function ensureMinimumTables(markdown: string, topic: string, targetWords: numbe
   const required = Math.max(1, Math.round(targetWords / 600));
   let current = countMarkdownTables(markdown);
   if (current >= required) return markdown;
-  const table = fallbackTopicTable(topic);
-  if (!table) return markdown;
   let out = markdown;
+  const seenSignatures = collectTableSignatures(out);
   const lines = out.split("\n");
   const bodyH2s = lines.map((line, i) => ({ line, i })).filter(({ line }) => /^##\s+/.test(line) && !STRUCT_SKIP_RE.test(line));
   let inserted = 0;
   for (let bIdx = 0; bIdx < bodyH2s.length && current + inserted < required; bIdx++) {
-    const startIdx = bodyH2s[bIdx].i + inserted * 3; // rough offset after each insert
-    // Compute section end relative to current `lines`
+    const startIdx = bodyH2s[bIdx].i + inserted * 5; // offset after each insert (5 lines: blank, table-header, separator, rows..., blank)
+    const heading = bodyH2s[bIdx].line.replace(/^##\s+/, "").trim();
+    const table = fallbackTopicTable(topic, heading);
+    if (!table) break;
+    const sig = tableSignature(table);
+    if (seenSignatures.has(sig)) continue; // dedup: identical table already exists somewhere in article
     const freshLines = out.split("\n");
     const headingLine = freshLines.findIndex((l, idx) => idx >= startIdx && /^##\s+/.test(l));
     if (headingLine === -1) break;
@@ -784,6 +787,7 @@ function ensureMinimumTables(markdown: string, topic: string, targetWords: numbe
     if (sectionSlice.includes("|")) continue; // already has a table
     freshLines.splice(endIdx, 0, "", table, "");
     out = freshLines.join("\n");
+    seenSignatures.add(sig);
     inserted++;
   }
   return out;
