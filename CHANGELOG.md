@@ -1,4 +1,20 @@
+## 2026-05-28 - pre-save validation: block save when article contains placeholders or duplicate H2 headings
+
+**What:**
+- `src/pages/Index.tsx` `handleSaveArticle` (~lines 577–609): added a pre-save validation block that runs immediately after the empty-content guard and before `setIsSavingArticle(true)`. Scans `generatedContent` for `[NEEDS EXPERT INPUT` (case-insensitive, catches both `[NEEDS EXPERT INPUT]` and `[NEEDS EXPERT INPUT: ...]`), `[PRACTICE NAME]`, `weigh against`, and duplicate H2 headings (collected via `^##\s+(.+)$`, normalised to lowercase + alphanumerics + collapsed whitespace before counting). If any check trips, fires a destructive `toast` with the message "This article contains unpublished placeholders or errors and cannot be saved. Please regenerate or fix the flagged content before saving." and returns before any state mutation or Supabase insert. Issues are also logged to `console.warn` for debugging.
+
+**Why:** Even with the assembler-side scrub and section-aware table gating in place, occasional artefacts can still slip into a generation run. The save action is the single chokepoint before the article reaches `saved_articles` and any downstream publish/export, so a deterministic client-side guard there prevents bad content from being persisted without touching any generation logic, edge function, assembler, schema, or other UI.
+
+**Files:**
+- src/pages/Index.tsx
+- CHANGELOG.md
+
+**Verified broken:** Nothing verified broken. Checked: (a) re-read the edited region in `src/pages/Index.tsx` — early-return path leaves `isSavingArticle` false and never calls `supabase.from("saved_articles").insert`, so save-button enable/disable state and Supabase writes are unchanged; (b) `toast` is already imported and used in the same handler's catch block; (c) no other file edited (grep on `handleSaveArticle` confirms one definition, unchanged signature); (d) the four scan patterns only match strings unlikely to appear in legitimate finished content (`weigh against` is the template artefact phrase; the bracketed placeholders are never valid in published prose); (e) duplicate-H2 detector ignores blank/punctuation-only headings via the `if (!key) continue` guard.
+
+---
+
 ## 2026-05-28 - proprietary article: strip "weigh against" appendage, gate fallback tables on section heading, scrub [PRACTICE NAME] placeholder
+
 
 **What:**
 - `supabase/functions/proprietary-generate-article/index.ts` `fallbackTopicTable` (~lines 525–549): removed the `lens` / `qSuffix` variables and the `${lens}` / `${qSuffix}` interpolations from every cell — table cells no longer carry a "; weigh against …" or "(re: …)" suffix. Same function is now SECTION-AWARE: the retention table is only returned when the section heading itself matches `/retention|retain|cement|screw|abutment|morse|crown\s+fix|fixation/`, and the underbite table only when the heading matches `/underbite|aligner|invisalign|class\s*iii|bite\s+correction/`. For any other body section the function returns `""`, so `ensureMinimumTables` skips that section instead of injecting a generic fallback. Topic gate (implant/aligner/etc.) kept as a secondary guard.
