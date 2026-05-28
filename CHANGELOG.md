@@ -1,4 +1,20 @@
+## 2026-05-28 - injectHowToChoose: remove hardcoded clinical phrasing from universal checklist
+
+**What:**
+- `supabase/functions/proprietary-generate-article/index.ts` `injectHowToChoose` (lines 671–679): replaced hardcoded clinical phrasing in the universal "How to Choose" criteria. Removed "dental or skeletal", "clinician", "failure mode", "candidacy", and "plan/case" framing. Bullets are now topic-neutral and parameterised on `nounLower` derived from the article topic.
+
+**Why:** The checklist was being appended to every article (e.g. an archery article) with literal "confirm whether the case is dental or skeletal" and "ask what the clinician is actively trying to prevent". The block is a universal scaffold, not a clinical one, so its language must be domain-agnostic.
+
+**Files:**
+- supabase/functions/proprietary-generate-article/index.ts
+- CHANGELOG.md
+
+**Verified broken:** Nothing verified broken. Checked: (a) re-read the edited function — same five bullets, same anchor logic, same insertion position, only string contents changed; (b) `topicNoun(topic)` call still drives the heading and bullets, so the H2 "How to Choose the Right {Noun} for You" is unchanged; (c) no other call sites for `injectHowToChoose` (grep); (d) grep across `supabase/functions` confirms the clinical phrasing now only remains inside the legitimately clinical underbite table at line 543 and the assembler prompt in `proprietaryPromptAssembler.ts`, both of which are scoped correctly.
+
+---
+
 ## 2026-05-28 - ensureMinimumTables: continue past empty fallbacks + universal topic-aware fallback table
+
 
 **What:**
 - `supabase/functions/proprietary-generate-article/index.ts` `ensureMinimumTables` (line 787): changed `if (!table) break;` to `if (!table) continue;` so one H2 returning no table no longer aborts injection for every subsequent eligible H2.
@@ -13,6 +29,7 @@
 **Verified broken:** Nothing verified broken. Checked: (a) re-read both edited regions; retention and underbite branches above are unchanged and still return first when their regex matches; (b) `seenSignatures` dedup at line 789 still skips identical tables, so the same universal fallback will not be injected twice into the same article; (c) `continue` keeps the loop bounded by `bodyH2s.length` so no infinite loop risk; (d) the `STRUCT_SKIP_RE` filter on body H2s is unchanged, so structural sections (FAQ, References, etc.) are still excluded from injection targets; (e) generic fallback uses only qualitative descriptors and a sanitised `topicLabel` (trim + whitespace collapse), no statistics invented.
 
 ---
+## 2026-05-28 - pre-save validation: block save when article contains placeholders or duplicate H2 headings
 
 
 
