@@ -33,6 +33,22 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 const DEFAULT_MODEL = "google/gemini-2.5-flash";
 const CLINICAL_MODEL = "google/gemini-2.5-flash";
+const EMBED_URL = "https://ai.gateway.lovable.dev/v1/embeddings";
+const EMBED_MODEL = "google/gemini-embedding-001";
+const EMBED_DIMS = 1536;
+
+async function embedQuery(text: string): Promise<number[]> {
+  const res = await fetch(EMBED_URL, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ model: EMBED_MODEL, input: text, dimensions: EMBED_DIMS }),
+  });
+  if (!res.ok) throw new Error(`embed ${res.status}: ${await res.text()}`);
+  const j = await res.json();
+  const v = j?.data?.[0]?.embedding;
+  if (!Array.isArray(v)) throw new Error("embed: missing data[0].embedding");
+  return v as number[];
+}
 
 interface RequestBody {
   topic: string;
