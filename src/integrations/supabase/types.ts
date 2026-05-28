@@ -49,6 +49,54 @@ export type Database = {
           },
         ]
       }
+      brain_chunks: {
+        Row: {
+          brain_file_id: string | null
+          chunk_index: number
+          content: string
+          context_document_id: string | null
+          created_at: string
+          embedding: string
+          id: string
+          project_id: string | null
+        }
+        Insert: {
+          brain_file_id?: string | null
+          chunk_index: number
+          content: string
+          context_document_id?: string | null
+          created_at?: string
+          embedding: string
+          id?: string
+          project_id?: string | null
+        }
+        Update: {
+          brain_file_id?: string | null
+          chunk_index?: number
+          content?: string
+          context_document_id?: string | null
+          created_at?: string
+          embedding?: string
+          id?: string
+          project_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brain_chunks_brain_file_id_fkey"
+            columns: ["brain_file_id"]
+            isOneToOne: false
+            referencedRelation: "brain_files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "brain_chunks_context_document_id_fkey"
+            columns: ["context_document_id"]
+            isOneToOne: false
+            referencedRelation: "context_documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       brain_connections: {
         Row: {
           created_at: string
@@ -1008,7 +1056,17 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      match_brain_chunks: {
+        Args: { match_count?: number; query_embedding: string }
+        Returns: {
+          brain_file_id: string
+          chunk_index: number
+          content: string
+          context_document_id: string
+          id: string
+          similarity: number
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never

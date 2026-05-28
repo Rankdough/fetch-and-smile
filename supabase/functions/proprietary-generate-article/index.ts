@@ -33,6 +33,22 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 const DEFAULT_MODEL = "google/gemini-2.5-flash";
 const CLINICAL_MODEL = "google/gemini-2.5-flash";
+const EMBED_URL = "https://ai.gateway.lovable.dev/v1/embeddings";
+const EMBED_MODEL = "google/gemini-embedding-001";
+const EMBED_DIMS = 1536;
+
+async function embedQuery(text: string): Promise<number[]> {
+  const res = await fetch(EMBED_URL, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ model: EMBED_MODEL, input: text, dimensions: EMBED_DIMS }),
+  });
+  if (!res.ok) throw new Error(`embed ${res.status}: ${await res.text()}`);
+  const j = await res.json();
+  const v = j?.data?.[0]?.embedding;
+  if (!Array.isArray(v)) throw new Error("embed: missing data[0].embedding");
+  return v as number[];
+}
 
 interface RequestBody {
   topic: string;
@@ -169,22 +185,36 @@ function buildClinicalUserMessage(input: {
   publicationDestination: "ai-search" | "human-blog" | "both";
   section: SectionSpec;
   articleTitle: string;
+  retrievedChunks?: Array<{ content: string; similarity: number }>;
 }): string {
   const knowledgeInput = input.mappedUnit?.full_text?.trim()
     ? input.mappedUnit.full_text.trim()
     : "No proprietary knowledge unit available for this section — generate from clinical expertise following all rules, use [NEEDS EXPERT INPUT] only where a specific proprietary number or case detail is required.";
 
-  return [
+  const lines = [
     `Topic: ${input.articleTitle}`,
     `Section heading: ${input.section.heading}`,
     `Section type: ${input.section.kind}`,
     `Audience: ${input.audienceSentence}`,
     `Publication destination: ${input.publicationDestination}`,
     `Knowledge input: ${knowledgeInput}`,
-    "",
-    "Write this section now.",
-  ].join("\n");
+  ];
+
+  if (input.retrievedChunks && input.retrievedChunks.length > 0) {
+    const block = input.retrievedChunks
+      .map((c, i) => `[Chunk ${i + 1} | similarity ${c.similarity.toFixed(3)}]\n${c.content}`)
+      .join("\n\n");
+    lines.push(
+      "",
+      "RETRIEVED KNOWLEDGE — specific facts, numbers, and clinical details from the research brief relevant to this section. Use these specifics in your response.",
+      block,
+    );
+  }
+
+  lines.push("", "Write this section now.");
+  return lines.join("\n");
 }
+
 
 async function callClinicalWriter(system: string, user: string, maxTokens = 1400): Promise<string> {
   return callModel(system, user, CLINICAL_MODEL, maxTokens);
@@ -855,12 +885,20 @@ async function runSection(input: {
   articleTitle: string;
   model: string;
   sectionBudgetWords: number;
+  retrievedChunks?: Array<{ content: string; similarity: number }>;
 }) {
   const assembled = assembleSectionPrompt(input);
   const isBody = input.section.type === "body";
   const tokenBudget = isBody ? 1400 : 1000;
   let content = isBody
-    ? (await callClinicalWriter(CLINICAL_SYSTEM_PROMPT_HEALTHCARE, buildClinicalUserMessage(input), tokenBudget)).trim()
+    ? (await callClinicalWriter(CLINICAL_SYSTEM_PROMPT_HEALTHCARE, buildClinicalUserMessage({
+        mappedUnit: input.mappedUnit,
+        audienceSentence: input.audienceSentence,
+        publicationDestination: input.publicationDestination,
+        section: input.section,
+        articleTitle: input.articleTitle,
+        retrievedChunks: input.retrievedChunks,
+      }), tokenBudget)).trim()
     : (await callModel(assembled.system, assembled.user, input.model, tokenBudget)).trim();
   if (isBody) {
     content = trimSectionToBudget(content, input.sectionBudgetWords);
@@ -891,7 +929,7 @@ async function runSection(input: {
 
 /* ── handler ──────────────────────────────────────────────────────────── */
 
-const BUILD_MARKER = "BUILD-2026-05-28-J proprietary-generate-article faq-bold-format";
+const BUILD_MARKER = "BUILD-2026-05-28-K proprietary-generate-article pgvector-retrieval";
 Deno.serve(async (req) => {
   console.log(BUILD_MARKER);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -995,6 +1033,30 @@ Deno.serve(async (req) => {
       const mappedUnit =
         section.type === "body" ? pickUnit(section.heading, body.topic, units) : null;
 
+      // Semantic retrieval: embed (topic + section heading) and pull top 3 chunks
+      // from brain_chunks. Additive — runs alongside the keyword-matched pickUnit unit.
+      let retrievedChunks: Array<{ content: string; similarity: number }> = [];
+      if (section.type === "body") {
+        try {
+          const queryVec = await embedQuery(`${body.topic}\n${section.heading}`);
+          const { data: matches, error: matchErr } = await sb.rpc("match_brain_chunks", {
+            query_embedding: queryVec as unknown as string,
+            match_count: 3,
+          });
+          if (matchErr) {
+            console.warn(`RETRIEVAL: rpc failed for "${section.heading}":`, matchErr.message);
+          } else if (Array.isArray(matches)) {
+            retrievedChunks = matches.map((m: any) => ({
+              content: m.content,
+              similarity: typeof m.similarity === "number" ? m.similarity : 0,
+            }));
+            console.log(`RETRIEVAL: section="${section.heading}" got ${retrievedChunks.length} chunks (top sim=${retrievedChunks[0]?.similarity?.toFixed(3) ?? "n/a"})`);
+          }
+        } catch (e) {
+          console.warn(`RETRIEVAL: embed/query failed for "${section.heading}" (non-fatal):`, e);
+        }
+      }
+
       const result = await runSection({
         businessType,
         mappedUnit,
@@ -1005,6 +1067,7 @@ Deno.serve(async (req) => {
         articleTitle,
         model,
         sectionBudgetWords,
+        retrievedChunks,
       });
 
       surrounding.push({ heading: section.heading, content: result.content });

@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { chunkAndEmbed } from "../_shared/embedChunks.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -204,8 +205,25 @@ WRITING RULES:
 
     console.log(`Processed ${insertedCount} insights from ${fileName}`);
 
+    // Second pass: chunk + embed the full document into brain_chunks for semantic retrieval.
+    // Additive — runs alongside the existing brain_insights extraction.
+    let chunkResult = { inserted: 0, chunks: 0 };
+    try {
+      chunkResult = await chunkAndEmbed(supabase, { brain_file_id: fileId }, content, LOVABLE_API_KEY);
+      console.log(`Embedded ${chunkResult.inserted}/${chunkResult.chunks} chunks for ${fileName}`);
+    } catch (e) {
+      console.warn("chunk+embed phase failed (non-fatal):", e);
+    }
+
     return new Response(
-      JSON.stringify({ success: true, insightsCount: insertedCount, pendingReview: insertedCount, summary: fullSummary }),
+      JSON.stringify({
+        success: true,
+        insightsCount: insertedCount,
+        pendingReview: insertedCount,
+        summary: fullSummary,
+        chunksInserted: chunkResult.inserted,
+        chunksTotal: chunkResult.chunks,
+      }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
