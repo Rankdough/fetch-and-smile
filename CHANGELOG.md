@@ -29,6 +29,7 @@
 **Verified broken:** Nothing verified broken. Checked: (a) re-read both edited regions; retention and underbite branches above are unchanged and still return first when their regex matches; (b) `seenSignatures` dedup at line 789 still skips identical tables, so the same universal fallback will not be injected twice into the same article; (c) `continue` keeps the loop bounded by `bodyH2s.length` so no infinite loop risk; (d) the `STRUCT_SKIP_RE` filter on body H2s is unchanged, so structural sections (FAQ, References, etc.) are still excluded from injection targets; (e) generic fallback uses only qualitative descriptors and a sanitised `topicLabel` (trim + whitespace collapse), no statistics invented.
 
 ---
+## 2026-05-28 - pre-save validation: block save when article contains placeholders or duplicate H2 headings
 
 
 
