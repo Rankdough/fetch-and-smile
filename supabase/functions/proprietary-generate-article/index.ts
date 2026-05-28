@@ -1210,6 +1210,7 @@ Deno.serve(async (req) => {
     stitched = ensureTrustedReferences(stitched, body.topic);
     const refsEmitted = /^##\s+references/im.test(stitched);
     if (!refsEmitted) console.warn(`REFERENCES: no References section emitted — brain units contain no URLs.`);
+    stitched = stripBrandPlaceholders(stitched);
     let content = sanitiseGeneratedMarkdown(stitched, articleTitle);
     const internalLinkResult = await insertInternalLinksIntoArticle(content, body.internalLinks, body.topic);
     content = internalLinkResult.content;
