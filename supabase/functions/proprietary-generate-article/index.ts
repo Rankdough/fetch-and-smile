@@ -799,7 +799,7 @@ function ensureMinimumTables(markdown: string, topic: string, targetWords: numbe
     const startIdx = bodyH2s[bIdx].i + inserted * 5; // offset after each insert (5 lines: blank, table-header, separator, rows..., blank)
     const heading = bodyH2s[bIdx].line.replace(/^##\s+/, "").trim();
     const table = fallbackTopicTable(topic, heading);
-    if (!table) break;
+    if (!table) continue;
     const sig = tableSignature(table);
     if (seenSignatures.has(sig)) continue; // dedup: identical table already exists somewhere in article
     const freshLines = out.split("\n");
