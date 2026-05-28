@@ -1,3 +1,20 @@
+## 2026-05-28 - FAQ format fix (proprietary generator)
+
+**What:**
+- `_shared/proprietaryPromptAssembler.ts`: FAQ prompt now mandates `**Question?**` bold-on-its-own-line format with the answer paragraph below. Previously it asked for `Q:` prefixed questions, which `FAQAccordion.extractFAQFromContent` could not parse, so the UI rendered no FAQ block.
+- `src/components/FAQAccordion.tsx`: extractor made tolerant — primary `**Question?**` regex plus a `Q:` / `A:` fallback so any already-generated articles still parse into the accordion.
+- Bumped marker to `BUILD-2026-05-28-J proprietary-generate-article faq-bold-format`. Deployed and verified: live curl returns four `**Question?**` pairs under `## Frequently Asked Questions`.
+
+**Why:** User reported FAQs missing. The backend was emitting `Q:`/`A:` plain lines that the FAQ accordion's regex (expecting `**bold**` questions) skipped, so the section rendered as unstyled text or got swallowed entirely depending on the path.
+
+**What may break:** Articles previously generated with `Q:`/`A:` format now hit the new fallback regex — verified the fallback returns 0 false positives on the prior "Screwless Dental Implants" body. No other call sites of `extractFAQFromContent`/`removeFAQSection` were modified.
+
+**Files:** `supabase/functions/_shared/proprietaryPromptAssembler.ts`, `supabase/functions/proprietary-generate-article/index.ts`, `src/components/FAQAccordion.tsx`.
+
+**Verify:** Live curl to `/proprietary-generate-article` for "Screwless Dental Implants" returned 4 properly-formatted FAQ pairs.
+
+---
+
 ## 2026-05-28 - Proprietary generation 500 fix, internal links, and verified references
 
 **What:**
