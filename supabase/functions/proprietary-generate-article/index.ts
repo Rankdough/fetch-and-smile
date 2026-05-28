@@ -524,19 +524,27 @@ function deriveSectionPhrase(heading: string): string {
 
 function fallbackTopicTable(topic: string, sectionHeading?: string): string {
   const t = topic.toLowerCase();
-  const phrase = sectionHeading ? deriveSectionPhrase(sectionHeading) : "";
-  const lens = phrase ? `; weigh against ${phrase}` : "";
-  const qSuffix = phrase ? ` (re: ${phrase})` : "";
-  if (/screwless|implant|morse|cement/.test(t)) return `| System type | How retention works | Screw visible in crown? | Common failure | Best-fit case |
+  const h = (sectionHeading ?? "").toLowerCase();
+  // Section-aware: only inject a topic table when the SECTION HEADING itself is
+  // about the table's subject. Prevents the same retention table being dropped
+  // into unrelated sections (training, failure modes, complications, etc.).
+  const retentionHeading = /retention|retain|cement|screw|abutment|morse|crown\s+fix|fixation/.test(h);
+  const underbiteHeading = /underbite|aligner|invisalign|class\s*iii|bite\s+correction/.test(h);
+  if (retentionHeading && /screwless|implant|morse|cement|crown|abutment|prosthe/.test(t)) {
+    return `| System type | How retention works | Screw visible in crown? | Common failure | Best-fit case |
 | --- | --- | --- | --- | --- |
-| Cement-retained crown | Cement bonds the crown to an abutment | No | Residual cement can inflame tissue | Aesthetic zones where an access hole would show${lens} |
-| Friction-fit or Morse taper | Precision taper locks components mechanically | No | Retrieval can be difficult if repair is needed | Accurate single-tooth component seating${lens} |
-| Screw-retained crown | Prosthetic screw fixes the crown to the implant | Yes | Access-channel aesthetics or screw loosening | Maintenance-heavy or retrievable cases${lens} |`;
-  if (/invisalign|aligner|underbite|class\s*iii/.test(t)) return `| Case type | What drives the bite | Aligner suitability | Common failure | Consultation question |
+| Cement-retained crown | Cement bonds the crown to an abutment | No | Residual cement can inflame tissue | Aesthetic zones where an access hole would show |
+| Friction-fit or Morse taper | Precision taper locks components mechanically | No | Retrieval can be difficult if repair is needed | Accurate single-tooth component seating |
+| Screw-retained crown | Prosthetic screw fixes the crown to the implant | Yes | Access-channel aesthetics or screw loosening | Maintenance-heavy or retrievable cases |`;
+  }
+  if (underbiteHeading && /invisalign|aligner|underbite|class\s*iii|orthodontic/.test(t)) {
+    return `| Case type | What drives the bite | Aligner suitability | Common failure | Consultation question |
 | --- | --- | --- | --- | --- |
-| Dental underbite | Tooth position creates the reverse bite | Stronger when movement is tooth-led | Treating the wrong mechanism wastes months | Is the problem dental or skeletal?${qSuffix} |
-| Skeletal underbite | Jaw relationship drives the bite | Limited without surgical assessment | Camouflage can worsen facial balance | Is surgery part of the realistic plan?${qSuffix} |
-| Combined pattern | Teeth and jaw both contribute | Case-dependent after diagnosis | Relapse or incomplete bite correction | Which part is being corrected first?${qSuffix} |`;
+| Dental underbite | Tooth position creates the reverse bite | Stronger when movement is tooth-led | Treating the wrong mechanism wastes months | Is the problem dental or skeletal? |
+| Skeletal underbite | Jaw relationship drives the bite | Limited without surgical assessment | Camouflage can worsen facial balance | Is surgery part of the realistic plan? |
+| Combined pattern | Teeth and jaw both contribute | Case-dependent after diagnosis | Relapse or incomplete bite correction | Which part is being corrected first? |`;
+  }
+  // No section-appropriate table available: do NOT inject a generic fallback.
   return "";
 }
 
