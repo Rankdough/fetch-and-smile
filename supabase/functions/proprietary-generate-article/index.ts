@@ -875,7 +875,14 @@ async function runSection(input: {
   const isBody = input.section.type === "body";
   const tokenBudget = isBody ? 1400 : 1000;
   let content = isBody
-    ? (await callClinicalWriter(CLINICAL_SYSTEM_PROMPT_HEALTHCARE, buildClinicalUserMessage(input), tokenBudget)).trim()
+    ? (await callClinicalWriter(CLINICAL_SYSTEM_PROMPT_HEALTHCARE, buildClinicalUserMessage({
+        mappedUnit: input.mappedUnit,
+        audienceSentence: input.audienceSentence,
+        publicationDestination: input.publicationDestination,
+        section: input.section,
+        articleTitle: input.articleTitle,
+        retrievedChunks: input.retrievedChunks,
+      }), tokenBudget)).trim()
     : (await callModel(assembled.system, assembled.user, input.model, tokenBudget)).trim();
   if (isBody) {
     content = trimSectionToBudget(content, input.sectionBudgetWords);
