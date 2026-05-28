@@ -1086,15 +1086,22 @@ Deno.serve(async (req) => {
     stitched = injectHowToChoose(stitched, body.topic);
     stitched = ensureMinimumTables(stitched, body.topic, targetWords);
     stitched = ensureFinalThoughtsCta(stitched);
-    // Inline citations from brain-unit URLs (one per body H2 with a URL).
+    // Inline citations from brain-unit URLs, with trusted dental fallbacks when
+    // proprietary files have no URLs.
     const brainUrls = collectBrainUrls(units);
-    const cite = attachInlineCitations(stitched, brainUrls);
+    const citationUrls = brainUrls.length > 0 ? brainUrls : trustedFallbackSources(body.topic);
+    if (brainUrls.length === 0 && citationUrls.length > 0) console.log(`CITATIONS: using ${citationUrls.length} trusted fallback source(s).`);
+    const cite = attachInlineCitations(stitched, citationUrls);
     stitched = cite.out;
     if (cite.attached > 0) console.log(`CITATIONS: attached ${cite.attached} inline source(s) from brain URLs.`);
     stitched = injectReferences(stitched, units);
+    stitched = ensureTrustedReferences(stitched, body.topic);
     const refsEmitted = /^##\s+references/im.test(stitched);
     if (!refsEmitted) console.warn(`REFERENCES: no References section emitted — brain units contain no URLs.`);
-    const content = sanitiseGeneratedMarkdown(stitched, articleTitle);
+    let content = sanitiseGeneratedMarkdown(stitched, articleTitle);
+    const internalLinkResult = await insertInternalLinksIntoArticle(content, body.internalLinks, body.topic);
+    content = internalLinkResult.content;
+    console.log(`INTERNAL LINKS: inserted=${internalLinkResult.insertedCount} skipped=${internalLinkResult.skippedUrls.length} total=${internalLinkResult.totalProvided}${internalLinkResult.note ? ` note=${internalLinkResult.note}` : ""}`);
 
 
     // mappedUnitTexts for downstream verification grading on the client
@@ -1111,6 +1118,7 @@ Deno.serve(async (req) => {
         sections: sectionsOut,
         mappedUnitTexts,
         brainUnitCount: units.length,
+        internalLinks: internalLinkResult,
         outline: h2Questions,
         articleTitle,
         originalTopic: body.topic,
