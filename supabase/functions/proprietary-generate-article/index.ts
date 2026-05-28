@@ -1084,11 +1084,14 @@ Deno.serve(async (req) => {
           if (matchErr) {
             console.warn(`RETRIEVAL: rpc failed for "${section.heading}":`, matchErr.message);
           } else if (Array.isArray(matches)) {
-            retrievedChunks = matches.map((m: any) => ({
+            const SIMILARITY_FLOOR = 0.60;
+            const rawChunks = matches.map((m: any) => ({
               content: m.content,
               similarity: typeof m.similarity === "number" ? m.similarity : 0,
             }));
-            console.log(`RETRIEVAL: section="${section.heading}" got ${retrievedChunks.length} chunks (top sim=${retrievedChunks[0]?.similarity?.toFixed(3) ?? "n/a"})`);
+            retrievedChunks = rawChunks.filter((c) => c.similarity >= SIMILARITY_FLOOR);
+            const topRaw = rawChunks[0]?.similarity?.toFixed(3) ?? "n/a";
+            console.log(`RETRIEVAL: section="${section.heading}" got ${retrievedChunks.length}/${rawChunks.length} chunks above floor ${SIMILARITY_FLOOR} (top raw sim=${topRaw})`);
           }
         } catch (e) {
           console.warn(`RETRIEVAL: embed/query failed for "${section.heading}" (non-fatal):`, e);
