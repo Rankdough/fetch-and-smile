@@ -3,7 +3,8 @@
 **What:**
 - `proprietary-generate-article`: removed the direct Anthropic API call path that was failing with `invalid x-api-key`.
 - Body sections now keep the same proprietary clinical writer prompt but run through the configured Lovable AI gateway using `google/gemini-2.5-flash`.
-- Bumped marker to `BUILD-2026-05-28-E proprietary-generate-article gateway-clinical-writer-fast`.
+- Added a deterministic References fallback so proprietary mode still emits `## References` using selected knowledge-source titles when no source URLs exist.
+- Bumped marker to `BUILD-2026-05-28-F proprietary-generate-article references-fallback`.
 
 **Why:** The live proprietary endpoint was returning 500 before content generation could complete because the external direct provider key was invalid. Routing through the configured gateway removes that broken dependency while preserving the proprietary formatting and non-commodity prompt rules.
 
@@ -11,7 +12,7 @@
 - `supabase/functions/proprietary-generate-article/index.ts`
 - `CHANGELOG.md`
 
-**Verified broken:** Nothing verified broken yet. First verification confirmed the invalid direct-key failure is gone, but `openai/gpt-5.4-mini` rejected the existing `max_tokens` gateway parameter, and `google/gemini-2.5-pro` exceeded the function response time during end-to-end generation. Switched to `google/gemini-2.5-flash`; final endpoint verification is in progress immediately after this entry.
+**Verified broken:** Nothing verified broken yet. First verification confirmed the invalid direct-key failure is gone, but `openai/gpt-5.4-mini` rejected the existing `max_tokens` gateway parameter, and `google/gemini-2.5-pro` exceeded the function response time during end-to-end generation. Switched to `google/gemini-2.5-flash`; a 200 response was then verified for a short screwless implants article, but References were absent when no source URLs existed. Added the source-title fallback; final endpoint verification is in progress immediately after this entry.
 
 ---
 
