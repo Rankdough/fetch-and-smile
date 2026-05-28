@@ -973,10 +973,24 @@ Deno.serve(async (req) => {
       return lines.slice(i).join("\n").trim();
     };
     const md: string[] = [`# ${articleTitle}`, ""];
+    const isEmptyOrPlaceholder = (s: string) => {
+      const t = s.trim();
+      if (!t) return true;
+      if (/^\[NEEDS EXPERT INPUT\]\s*$/i.test(t)) return true;
+      // Strip blank lines and check if anything substantive remains
+      const stripped = t.replace(/^\s*$/gm, "").trim();
+      return stripped.length < 20;
+    };
     for (const s of sectionsOut) {
       const cleanContent = s.type === "body"
         ? stripLeadingDuplicateHeading(s.content, s.heading)
         : s.content;
+      // Drop framing sections (e.g. FAQ) whose content is empty / placeholder
+      // so the heading doesn't render alone above nothing.
+      if ((s.kind === "faq" || s.kind === "quick-tips") && isEmptyOrPlaceholder(cleanContent)) {
+        console.warn(`STITCH: dropping empty section "${s.heading}" (kind=${s.kind})`);
+        continue;
+      }
       if (s.kind === "opening") {
         md.push(cleanContent, "");
       } else if (s.kind === "tldr") {
@@ -990,16 +1004,28 @@ Deno.serve(async (req) => {
       }
     }
     let stitched = md.join("\n").trim();
-    // NOTE: enforceThreeBulletsPerBodySection intentionally removed — it was
-    // injecting templated "Ask which specific X category applies..." filler
-    // bullets at the end of every H2, which read as boilerplate. Body sections
-    // should be natural prose only; Quick Tips block already provides bullets.
+    // Normal-mode parity passes (deterministic, no extra AI calls):
+    const splitBul = splitGluedBullets(stitched);
+    stitched = splitBul.out;
+    if (splitBul.split > 0) console.warn(`SPLIT BULLETS: split ${splitBul.split} glued sub-bullet(s).`);
+    const atomic = stripAtomicPhrases(stitched);
+    stitched = atomic.out;
+    if (atomic.removed > 0) console.warn(`ATOMIC GUARD: stripped ${atomic.removed} dependency phrase(s).`);
+    stitched = enforceThreeBulletsPerBodySection(stitched);
     stitched = injectInThisArticle(stitched, body.topic);
     stitched = injectHowToChoose(stitched, body.topic);
     stitched = ensureMinimumTables(stitched, body.topic, targetWords);
     stitched = ensureFinalThoughtsCta(stitched);
+    // Inline citations from brain-unit URLs (one per body H2 with a URL).
+    const brainUrls = collectBrainUrls(units);
+    const cite = attachInlineCitations(stitched, brainUrls);
+    stitched = cite.out;
+    if (cite.attached > 0) console.log(`CITATIONS: attached ${cite.attached} inline source(s) from brain URLs.`);
     stitched = injectReferences(stitched, units);
+    const refsEmitted = /^##\s+references/im.test(stitched);
+    if (!refsEmitted) console.warn(`REFERENCES: no References section emitted — brain units contain no URLs.`);
     const content = sanitiseGeneratedMarkdown(stitched, articleTitle);
+
 
     // mappedUnitTexts for downstream verification grading on the client
     const mappedUnitTexts: string[] = [];
