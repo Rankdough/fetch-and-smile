@@ -38,6 +38,7 @@ interface RequestBody {
   topic: string;
   length?: "short" | "medium" | "medium-long" | "long" | "extended" | "comprehensive";
   wordCount?: number;
+  internalLinks?: string[];
   audienceSentence?: string;
   businessType?: BusinessType;
   publicationDestination?: "ai-search" | "human-blog" | "both";
@@ -646,6 +647,14 @@ function ensureMinimumTables(markdown: string, topic: string, targetWords: numbe
     let endIdx = freshLines.length;
     for (let j = headingLine + 1; j < freshLines.length; j++) {
       if (/^##\s+/.test(freshLines[j])) { endIdx = j; break; }
+    }
+    const sectionSlice = freshLines.slice(headingLine, endIdx).join("\n");
+    if (sectionSlice.includes("|")) continue; // already has a table
+    freshLines.splice(endIdx, 0, "", table, "");
+    out = freshLines.join("\n");
+    inserted++;
+  }
+  return out;
 }
 
 /* ── normal-mode parity: atomic-phrase + bullet + citation guards ────── */
@@ -748,16 +757,6 @@ function attachInlineCitations(markdown: string, urls: BrainUrl[]): { out: strin
     attached++;
   }
   return { out: lines.join("\n"), attached };
-}
-
-
-    const sectionSlice = freshLines.slice(headingLine, endIdx).join("\n");
-    if (sectionSlice.includes("|")) continue; // already has a table
-    freshLines.splice(endIdx, 0, "", table, "");
-    out = freshLines.join("\n");
-    inserted++;
-  }
-  return out;
 }
 
 function ensureFinalThoughtsCta(markdown: string): string {
