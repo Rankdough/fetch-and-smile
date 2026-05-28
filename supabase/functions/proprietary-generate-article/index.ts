@@ -32,7 +32,7 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 const DEFAULT_MODEL = "google/gemini-2.5-flash";
-const CLINICAL_MODEL = "google/gemini-2.5-pro";
+const CLINICAL_MODEL = "google/gemini-2.5-flash";
 
 interface RequestBody {
   topic: string;
@@ -679,7 +679,7 @@ async function runSection(input: {
 
 /* ── handler ──────────────────────────────────────────────────────────── */
 
-const BUILD_MARKER = "BUILD-2026-05-28-D proprietary-generate-article gateway-clinical-writer";
+const BUILD_MARKER = "BUILD-2026-05-28-E proprietary-generate-article gateway-clinical-writer-fast";
 Deno.serve(async (req) => {
   console.log(BUILD_MARKER);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
