@@ -440,6 +440,10 @@ em dashes, en dashes, or horizontal rules.`;
     // Framing inherits rules 2 and 5 conceptually
     applied.push(2, 5);
 
+    // Rules 9–16 — AI extraction rules, every framing section, every business type.
+    ruleBlocks.push(AI_EXTRACTION_RULES);
+    applied.push(9, 10, 11, 12, 13, 14, 15, 16);
+
 
     // Opening framing section: enforce the marketing-umbrella reframe.
     if (section.kind === "opening") {
