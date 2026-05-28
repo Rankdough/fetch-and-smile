@@ -693,7 +693,7 @@ async function runSection(input: {
 
 /* ── handler ──────────────────────────────────────────────────────────── */
 
-const BUILD_MARKER = "BUILD-2026-05-28-F proprietary-generate-article references-fallback";
+const BUILD_MARKER = "BUILD-2026-05-28-G proprietary-generate-article dedupe+filler-removed+refs-honest+sentence-trim";
 Deno.serve(async (req) => {
   console.log(BUILD_MARKER);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
