@@ -486,10 +486,14 @@ const STRUCT_SKIP_RE = /tl;?dr|quick\s*tips|in\s*this\s*article|how\s*to\s*(choo
 function getBodyH2s(markdown: string): Array<{ heading: string; index: number }> {
   const lines = markdown.split("\n");
   const out: Array<{ heading: string; index: number }> = [];
+  const seen = new Set<string>();
   lines.forEach((line, i) => {
     const m = line.match(/^##\s+(.+?)\s*$/);
     if (!m) return;
     if (STRUCT_SKIP_RE.test(m[1])) return;
+    const key = m[1].toLowerCase().replace(/[^a-z0-9 ]+/g, "").replace(/\s+/g, " ").trim();
+    if (seen.has(key)) return; // dedupe by normalised heading text
+    seen.add(key);
     out.push({ heading: m[1].trim(), index: i });
   });
   return out;
