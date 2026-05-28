@@ -38,6 +38,7 @@ interface RequestBody {
   topic: string;
   length?: "short" | "medium" | "medium-long" | "long" | "extended" | "comprehensive";
   wordCount?: number;
+  internalLinks?: string[];
   audienceSentence?: string;
   businessType?: BusinessType;
   publicationDestination?: "ai-search" | "human-blog" | "both";
@@ -50,6 +51,16 @@ interface BrainUnit {
   summary: string | null;
   full_text: string | null;
   unit_type: UnitType | "legacy" | null;
+}
+
+interface InternalLinkResult {
+  content: string;
+  insertedCount: number;
+  totalProvided: number;
+  insertedUrls: string[];
+  skippedUrls: string[];
+  skippedOffTopic?: string[];
+  note?: string;
 }
 
 async function callModelRaw(
@@ -627,6 +638,67 @@ function injectReferences(markdown: string, units: BrainUnit[]): string {
   return `${markdown.trimEnd()}\n\n## References\n\n${items}\n`;
 }
 
+function trustedFallbackSources(topic: string): BrainUrl[] {
+  if (!/\b(dental|implant|implants|screwless|conometric|abutment)\b/i.test(topic)) return [];
+  return [
+    { title: "FDA - Dental Implants: What You Should Know", url: "https://www.fda.gov/medical-devices/dental-devices/dental-implants-what-you-should-know" },
+    { title: "NCBI Bookshelf - Dental Implants", url: "https://www.ncbi.nlm.nih.gov/books/NBK470448/" },
+    { title: "PMC - Implant-abutment connection review", url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC4784146/" },
+  ];
+}
+
+function ensureTrustedReferences(markdown: string, topic: string): string {
+  if (/^##\s+references/im.test(markdown)) return markdown;
+  const sources = trustedFallbackSources(topic);
+  if (sources.length === 0) return markdown;
+  const items = sources.map((s) => `- [${s.title}](${s.url})`).join("\n");
+  return `${markdown.trimEnd()}\n\n## References\n\n${items}\n`;
+}
+
+async function insertInternalLinksIntoArticle(
+  content: string,
+  urls: string[] | undefined,
+  articleTopic: string,
+): Promise<InternalLinkResult> {
+  const cleanUrls = (urls || []).map((u) => u.trim()).filter(Boolean).slice(0, 12);
+  if (cleanUrls.length === 0) {
+    return { content, insertedCount: 0, totalProvided: 0, insertedUrls: [], skippedUrls: [], note: "No internal links provided." };
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 45_000);
+  try {
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/insert-internal-links`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ content, urls: cleanUrls, articleTopic }),
+      signal: controller.signal,
+    });
+    const raw = await res.text();
+    if (!res.ok) throw new Error(`insert-internal-links ${res.status}: ${raw.slice(0, 300)}`);
+    const data = JSON.parse(raw) as Partial<InternalLinkResult>;
+    return {
+      content: typeof data.content === "string" ? data.content : content,
+      insertedCount: typeof data.insertedCount === "number" ? data.insertedCount : 0,
+      totalProvided: typeof data.totalProvided === "number" ? data.totalProvided : cleanUrls.length,
+      insertedUrls: Array.isArray(data.insertedUrls) ? data.insertedUrls : [],
+      skippedUrls: Array.isArray(data.skippedUrls) ? data.skippedUrls : cleanUrls,
+      skippedOffTopic: Array.isArray(data.skippedOffTopic) ? data.skippedOffTopic : [],
+      note: data.note,
+    };
+  } catch (e) {
+    const note = e instanceof Error && e.name === "AbortError"
+      ? "Internal link insertion timed out; returned original article."
+      : `Internal link insertion failed; returned original article: ${e instanceof Error ? e.message : String(e)}`;
+    return { content, insertedCount: 0, totalProvided: cleanUrls.length, insertedUrls: [], skippedUrls: cleanUrls, note };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 function ensureMinimumTables(markdown: string, topic: string, targetWords: number): string {
   const required = Math.max(1, Math.round(targetWords / 600));
   let current = countMarkdownTables(markdown);
@@ -646,6 +718,14 @@ function ensureMinimumTables(markdown: string, topic: string, targetWords: numbe
     let endIdx = freshLines.length;
     for (let j = headingLine + 1; j < freshLines.length; j++) {
       if (/^##\s+/.test(freshLines[j])) { endIdx = j; break; }
+    }
+    const sectionSlice = freshLines.slice(headingLine, endIdx).join("\n");
+    if (sectionSlice.includes("|")) continue; // already has a table
+    freshLines.splice(endIdx, 0, "", table, "");
+    out = freshLines.join("\n");
+    inserted++;
+  }
+  return out;
 }
 
 /* ── normal-mode parity: atomic-phrase + bullet + citation guards ────── */
@@ -750,16 +830,6 @@ function attachInlineCitations(markdown: string, urls: BrainUrl[]): { out: strin
   return { out: lines.join("\n"), attached };
 }
 
-
-    const sectionSlice = freshLines.slice(headingLine, endIdx).join("\n");
-    if (sectionSlice.includes("|")) continue; // already has a table
-    freshLines.splice(endIdx, 0, "", table, "");
-    out = freshLines.join("\n");
-    inserted++;
-  }
-  return out;
-}
-
 function ensureFinalThoughtsCta(markdown: string): string {
   const re = /(^##\s+final\s*thoughts\s*\n)([\s\S]*?)(?=^##\s+|$(?![\r\n]))/im;
   const m = markdown.match(re);
@@ -821,7 +891,7 @@ async function runSection(input: {
 
 /* ── handler ──────────────────────────────────────────────────────────── */
 
-const BUILD_MARKER = "BUILD-2026-05-28-H proprietary-generate-article normal-mode-parity: atomic-strip+split-glued-bullets+inline-citations+empty-faq-drop+toc-real-firstline+3-bullets-reenabled";
+const BUILD_MARKER = "BUILD-2026-05-28-I proprietary-generate-article 500-fix+internal-links+trusted-references";
 Deno.serve(async (req) => {
   console.log(BUILD_MARKER);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -1016,15 +1086,22 @@ Deno.serve(async (req) => {
     stitched = injectHowToChoose(stitched, body.topic);
     stitched = ensureMinimumTables(stitched, body.topic, targetWords);
     stitched = ensureFinalThoughtsCta(stitched);
-    // Inline citations from brain-unit URLs (one per body H2 with a URL).
+    // Inline citations from brain-unit URLs, with trusted dental fallbacks when
+    // proprietary files have no URLs.
     const brainUrls = collectBrainUrls(units);
-    const cite = attachInlineCitations(stitched, brainUrls);
+    const citationUrls = brainUrls.length > 0 ? brainUrls : trustedFallbackSources(body.topic);
+    if (brainUrls.length === 0 && citationUrls.length > 0) console.log(`CITATIONS: using ${citationUrls.length} trusted fallback source(s).`);
+    const cite = attachInlineCitations(stitched, citationUrls);
     stitched = cite.out;
     if (cite.attached > 0) console.log(`CITATIONS: attached ${cite.attached} inline source(s) from brain URLs.`);
     stitched = injectReferences(stitched, units);
+    stitched = ensureTrustedReferences(stitched, body.topic);
     const refsEmitted = /^##\s+references/im.test(stitched);
     if (!refsEmitted) console.warn(`REFERENCES: no References section emitted — brain units contain no URLs.`);
-    const content = sanitiseGeneratedMarkdown(stitched, articleTitle);
+    let content = sanitiseGeneratedMarkdown(stitched, articleTitle);
+    const internalLinkResult = await insertInternalLinksIntoArticle(content, body.internalLinks, body.topic);
+    content = internalLinkResult.content;
+    console.log(`INTERNAL LINKS: inserted=${internalLinkResult.insertedCount} skipped=${internalLinkResult.skippedUrls.length} total=${internalLinkResult.totalProvided}${internalLinkResult.note ? ` note=${internalLinkResult.note}` : ""}`);
 
 
     // mappedUnitTexts for downstream verification grading on the client
@@ -1041,6 +1118,14 @@ Deno.serve(async (req) => {
         sections: sectionsOut,
         mappedUnitTexts,
         brainUnitCount: units.length,
+        internalLinks: {
+          insertedCount: internalLinkResult.insertedCount,
+          totalProvided: internalLinkResult.totalProvided,
+          insertedUrls: internalLinkResult.insertedUrls,
+          skippedUrls: internalLinkResult.skippedUrls,
+          skippedOffTopic: internalLinkResult.skippedOffTopic || [],
+          note: internalLinkResult.note,
+        },
         outline: h2Questions,
         articleTitle,
         originalTopic: body.topic,

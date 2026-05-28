@@ -1573,6 +1573,7 @@ const Index = () => {
             body: {
               topic: formData.topic,
               length: formData.length,
+              internalLinks: internalLinks.filter((url) => url.trim()).map((url) => url.trim()),
               // Defaults are sensible; the full UI for these comes in Stage 3+.
               businessType: "healthcare-clinical",
               publicationDestination: "both",
@@ -1584,15 +1585,29 @@ const Index = () => {
         content = data.content as string;
         setAppliedRules(data.appliedRules || null);
         proprietaryMappedTexts = Array.isArray(data.mappedUnitTexts) ? data.mappedUnitTexts : [];
+        const validInternalUrls = internalLinks.filter((url) => url.trim()).map((url) => url.trim());
+        if (validInternalUrls.length > 0) {
+          setInternalLinkHistory(prev => {
+            const newHistory = [...prev];
+            validInternalUrls.forEach(url => {
+              const idx = newHistory.indexOf(url);
+              if (idx !== -1) newHistory.splice(idx, 1);
+              newHistory.unshift(url);
+            });
+            return newHistory.slice(0, 100);
+          });
+          addToInternalLinkHistoryDb(validInternalUrls);
+        }
 
         const expertGaps = (data.sections || []).filter((s: { needsExpertInput?: boolean }) => s.needsExpertInput).length;
         const flagged = (data.sections || []).reduce(
           (n: number, s: { ruleFlags?: unknown[] }) => n + (s.ruleFlags?.length || 0),
           0,
         );
+        const insertedLinks = data.internalLinks?.insertedCount ?? 0;
         toast({
           title: "Proprietary article generated",
-          description: `${data.brainUnitCount ?? 0} brain unit(s) considered · ${expertGaps} section(s) need expert input · ${flagged} Rule-5 flag(s)`,
+          description: `${data.brainUnitCount ?? 0} brain unit(s) considered · ${insertedLinks} internal link(s) inserted · ${expertGaps} section(s) need expert input · ${flagged} Rule-5 flag(s)`,
         });
       } else if (useHumanMode) {
         // Use 4-stage humanising pipeline
