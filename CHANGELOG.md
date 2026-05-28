@@ -1,3 +1,24 @@
+## 2026-05-28 — Proprietary mode: normal-mode formatting parity
+
+**What:**
+- `proprietary-generate-article`: added deterministic post-stitch injectors that bring proprietary output to the same structural contract as `generate-content`:
+  - `injectInThisArticle` — auto-builds `## In This Article` after Quick Tips from the body H2 list with descriptive nav items.
+  - `injectHowToChoose` — inserts `## How to Choose the Right {Treatment|Implant Option|Option} for You` before FAQ with a 5-criterion bullet checklist derived from the clinical rules (category-first, failure mode, specific numbers, candidacy, review step).
+  - `ensureMinimumTables` — enforces 1 table per 600 words (`max(1, round(targetWords/600))`) by inserting the topic fallback table into body H2 sections that lack tables. Previously only 1 table ever.
+  - `ensureFinalThoughtsCta` — appends a clinical-CTA paragraph to `## Final Thoughts` when none is present.
+  - `injectReferences` — builds a deterministic `## References` block at the end from URLs found in brain-unit summaries/full_text and any markdown links already in the body (max 8, deduped).
+- Bumped marker to `BUILD-2026-05-28-C proprietary-generate-article normal-mode-parity`.
+
+**Why:** User reported proprietary mode was missing atomic sections, reference list, How to Choose, and table cadence that normal mode produces. Now both modes share the same AEO layout end-to-end.
+
+**Files:**
+- `supabase/functions/proprietary-generate-article/index.ts`
+- `CHANGELOG.md`
+
+**Verified broken:** Nothing verified broken. Checked: (1) all new helpers are pure functions and idempotent — each checks for the section/table heading and returns the input unchanged if already present; (2) `injectReferences` returns input unchanged when zero URLs are found, so articles with no source URLs still render; (3) `ensureMinimumTables` only inserts the fallback table when a topic-specific template exists in `fallbackTopicTable` (screwless implants / Invisalign underbite today) — other topics get zero injection rather than a generic placeholder; (4) `topicNoun` defaults to "Option" if no domain match, so `injectHowToChoose` always produces a valid heading; (5) the previous 1-table-only block was removed and replaced by `ensureMinimumTables`, which is a superset behaviour.
+
+---
+
 ## 2026-05-28 — Restore proprietary full-article formatting contract
 
 **What:**
