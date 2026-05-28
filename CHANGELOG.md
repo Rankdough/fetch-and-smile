@@ -1,4 +1,27 @@
-## 2026-05-28 — Proprietary mode: dedupe headings, kill filler bullets, honest references, sentence-safe trim
+## 2026-05-28 — Proprietary mode: normal-mode parity (atomic strip, glued-bullet split, inline citations, empty-FAQ drop, real TOC previews, 3-bullet re-enable)
+
+**What:**
+- `proprietary-generate-article` stitch pipeline now matches normal mode's structural passes:
+  - `splitGluedBullets` splits `- A: ... *   B: ... *   C: ...` lines into separate bullets (fixes the merged `*   <strong>Ideal Occlusal Anatomy</strong>` defect).
+  - `stripAtomicPhrases` removes "as mentioned above", "in the previous section", "continuing from earlier", etc., then re-capitalises following sentence starts.
+  - `enforceThreeBulletsPerBodySection` re-enabled (was removed in BUILD-G). Body H2s now get exactly 3 bullets again, consistent with normal mode.
+  - `attachInlineCitations` walks each body H2 and appends `Source: [title](url)` (one per section) using URLs extracted from brain-unit `summary` + `full_text`. Skips sections that already contain a markdown link. Logs `CITATIONS: attached N` count.
+  - FAQ / Quick Tips sections whose generated content is empty or `[NEEDS EXPERT INPUT]` (< 20 chars stripped) are dropped together with their heading instead of rendering an orphaned `## Frequently Asked Questions` above nothing.
+  - `injectInThisArticle` now uses each section's real first sentence (`firstSentenceOf`) as the TOC description instead of the templated "Direct answer on X, including the clinical reasoning…" boilerplate.
+  - When no References section is emitted (brain units contain zero URLs), the function logs an explicit `REFERENCES: no References section emitted` warning so the cause is visible in logs.
+- Bumped marker to `BUILD-2026-05-28-H`.
+
+**Why:** User compared the proprietary output to normal mode and listed the gaps: missing References, missing inline source attribution, empty/missing FAQ heading rendered alone, glued bullet defect, generic TOC placeholder text, missing atomic-section guard, missing 3-bullet enforcement. This pass closes those gaps.
+
+**Files:**
+- `supabase/functions/proprietary-generate-article/index.ts`
+- `CHANGELOG.md`
+
+**Verified broken:** Build deployed (BUILD-2026-05-28-H visible in boot log). Full end-to-end article generation was NOT run from the sandbox (sequential AI calls exceed the 60s curl timeout). User-facing regeneration in the preview is required for the section-by-section assertion. See chat reply "What I broke" for the truthful verification status.
+
+---
+
+
 
 **What:**
 - `proprietary-generate-article`: strip a leading H1-H4 from each section's raw model output when it duplicates the section heading (fixes the `## X` followed by `## X` / `## X` then `### X` duplicates that were leaking into the TOC and producing React duplicate-key warnings).
