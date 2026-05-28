@@ -13,7 +13,10 @@
 //   5. Series-call section generator, threading surroundingContext.
 //   6. Stitch markdown and return alongside per-section telemetry.
 
-import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import {
   assembleSectionPrompt,
