@@ -23,6 +23,7 @@ serve(async (req) => {
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    const projectId = (() => { try { return new URL(SUPABASE_URL).hostname.split(".")[0]; } catch { return ""; } })();
 
     const { sourceType, sourceId } = await req.json();
     if (!sourceId || (sourceType !== "brain_file" && sourceType !== "context_document")) {
@@ -67,8 +68,8 @@ serve(async (req) => {
     const result = await chunkAndEmbed(
       supabase,
       sourceType === "brain_file"
-        ? { brain_file_id: sourceId }
-        : { context_document_id: sourceId },
+        ? { brain_file_id: sourceId, project_id: projectId || undefined }
+        : { context_document_id: sourceId, project_id: projectId || undefined },
       content,
       LOVABLE_API_KEY,
     );

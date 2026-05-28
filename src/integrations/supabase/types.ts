@@ -1057,7 +1057,7 @@ export type Database = {
     }
     Functions: {
       match_brain_chunks: {
-        Args: { match_count?: number; query_embedding: string }
+        Args: { match_count?: number; query_embedding: string; p_project_id?: string | null }
         Returns: {
           brain_file_id: string
           chunk_index: number

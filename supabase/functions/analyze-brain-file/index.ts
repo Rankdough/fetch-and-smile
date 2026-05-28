@@ -25,6 +25,7 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
+    const projectId = (() => { try { return new URL(supabaseUrl).hostname.split(".")[0]; } catch { return ""; } })();
 
     console.log("Analyzing brain file:", fileName);
 
@@ -209,7 +210,7 @@ WRITING RULES:
     // Additive — runs alongside the existing brain_insights extraction.
     let chunkResult = { inserted: 0, chunks: 0 };
     try {
-      chunkResult = await chunkAndEmbed(supabase, { brain_file_id: fileId }, content, LOVABLE_API_KEY);
+      chunkResult = await chunkAndEmbed(supabase, { brain_file_id: fileId, project_id: projectId || undefined }, content, LOVABLE_API_KEY);
       console.log(`Embedded ${chunkResult.inserted}/${chunkResult.chunks} chunks for ${fileName}`);
     } catch (e) {
       console.warn("chunk+embed phase failed (non-fatal):", e);

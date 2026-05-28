@@ -62,6 +62,7 @@ interface RequestBody {
   businessType?: BusinessType;
   publicationDestination?: "ai-search" | "human-blog" | "both";
   model?: string;
+  projectId?: string;
 }
 
 interface BrainUnit {
@@ -189,6 +190,7 @@ function buildClinicalUserMessage(input: {
   section: SectionSpec;
   articleTitle: string;
   retrievedChunks?: Array<{ content: string; similarity: number }>;
+  targetWordCount?: number;
 }): string {
   const knowledgeInput = input.mappedUnit?.full_text?.trim()
     ? input.mappedUnit.full_text.trim()
@@ -200,6 +202,7 @@ function buildClinicalUserMessage(input: {
     `Section type: ${input.section.kind}`,
     `Audience: ${input.audienceSentence}`,
     `Publication destination: ${input.publicationDestination}`,
+    ...(input.targetWordCount ? [`Target section length: approximately ${input.targetWordCount} words — include all mandatory structural elements but scale depth accordingly.`] : []),
     `Knowledge input: ${knowledgeInput}`,
   ];
 
@@ -449,6 +452,11 @@ function sanitiseGeneratedMarkdown(markdown: string, articleTitle: string): stri
         if (matches) rewrittenKeywords += matches.length;
         out = out.replace(titleRegex, replacement);
       }
+    }
+
+    // Strip "; weigh against <phrase>" appendage from table cell content.
+    if (out.includes("|")) {
+      out = out.replace(/\s*;\s*weigh\s+against\s+[^|]+/gi, "");
     }
 
     if (trimmed && !/^#{1,6}\s/.test(trimmed) && !/^\s*(\||[-*+]|\d+\.)\s?/.test(out) && !out.includes("|") && !/^>/.test(trimmed) && !/[.!?:)]\s*$/.test(trimmed)) {
@@ -943,7 +951,8 @@ function attachInlineCitations(markdown: string, urls: BrainUrl[]): { out: strin
   return { out: lines.join("\n"), attached };
 }
 
-function ensureFinalThoughtsCta(markdown: string): string {
+function ensureFinalThoughtsCta(markdown: string, businessType: BusinessType = "healthcare-clinical"): string {
+  if (businessType !== "healthcare-clinical") return markdown;
   const re = /(^##\s+final\s*thoughts\s*\n)([\s\S]*?)(?=^##\s+|$(?![\r\n]))/im;
   const m = markdown.match(re);
   if (!m) return markdown;
@@ -972,7 +981,11 @@ async function runSection(input: {
 }) {
   const assembled = assembleSectionPrompt(input);
   const isBody = input.section.type === "body";
-  const tokenBudget = isBody ? 1400 : 1000;
+  // Scale token budget with the word budget so the model writes to the right length.
+  // Floor at 600 (enough for a concise 90-word section), ceiling at 2400.
+  const tokenBudget = isBody
+    ? Math.max(600, Math.min(2400, Math.round(input.sectionBudgetWords * 1.8)))
+    : 900;
   let content = isBody
     ? (await callClinicalWriter(CLINICAL_SYSTEM_PROMPT_HEALTHCARE, buildClinicalUserMessage({
         mappedUnit: input.mappedUnit,
@@ -981,6 +994,7 @@ async function runSection(input: {
         section: input.section,
         articleTitle: input.articleTitle,
         retrievedChunks: input.retrievedChunks,
+        targetWordCount: input.sectionBudgetWords,
       }), tokenBudget)).trim()
     : (await callModel(assembled.system, assembled.user, input.model, tokenBudget)).trim();
   if (isBody) {
@@ -1035,12 +1049,35 @@ Deno.serve(async (req) => {
       "Adults researching this topic who want a direct, expert-level answer.";
     const publicationDestination = body.publicationDestination || "both";
 
-    // 1. Load brain units
+    // Derive project isolation key from SUPABASE_URL (unique per Supabase project/deployment).
+    // Falls back to body.projectId when explicitly provided by the caller.
+    const projectId: string = body.projectId || (() => {
+      try { return new URL(SUPABASE_URL).hostname.split(".")[0]; } catch { return ""; }
+    })();
+
+    // 1. Load brain units scoped to this project.
     const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-    const { data: rawUnits, error: brainErr } = await sb
+
+    // When a projectId is available, restrict brain_insights to files whose brain_chunks
+    // are tagged with this project — prevents cross-client content leakage.
+    let insightsQuery = sb
       .from("brain_insights")
       .select("id, title, summary, full_text, unit_type")
       .limit(100);
+    if (projectId) {
+      // Fetch brain_file_ids for this project from brain_chunks.
+      const { data: projectChunks } = await sb
+        .from("brain_chunks")
+        .select("brain_file_id")
+        .eq("project_id", projectId)
+        .not("brain_file_id", "is", null)
+        .limit(500);
+      const projectFileIds = [...new Set((projectChunks || []).map((c: { brain_file_id: string }) => c.brain_file_id).filter(Boolean))];
+      if (projectFileIds.length > 0) {
+        insightsQuery = insightsQuery.in("source_file_id", projectFileIds) as typeof insightsQuery;
+      }
+    }
+    const { data: rawUnits, error: brainErr } = await insightsQuery;
     if (brainErr) console.warn("brain_insights fetch failed:", brainErr);
     const units: BrainUnit[] = (rawUnits as BrainUnit[]) || [];
 
@@ -1122,9 +1159,10 @@ Deno.serve(async (req) => {
       if (section.type === "body") {
         try {
           const queryVec = await embedQuery(`${body.topic}\n${section.heading}`);
-          const { data: matches, error: matchErr } = await sb.rpc("match_brain_chunks", {
+          const { data: matches, error: matchErr } = await (sb as any).rpc("match_brain_chunks", {
             query_embedding: queryVec as unknown as string,
             match_count: 3,
+            p_project_id: projectId || null,
           });
           if (matchErr) {
             console.warn(`RETRIEVAL: rpc failed for "${section.heading}":`, matchErr.message);
@@ -1234,7 +1272,7 @@ Deno.serve(async (req) => {
     stitched = injectInThisArticle(stitched, body.topic);
     stitched = injectHowToChoose(stitched, body.topic);
     stitched = ensureMinimumTables(stitched, body.topic, targetWords);
-    stitched = ensureFinalThoughtsCta(stitched);
+    stitched = ensureFinalThoughtsCta(stitched, businessType);
     // Inline citations from brain-unit URLs, with trusted dental fallbacks when
     // proprietary files have no URLs.
     const brainUrls = collectBrainUrls(units);

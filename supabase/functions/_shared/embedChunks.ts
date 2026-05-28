@@ -14,6 +14,7 @@ const OVERLAP_WORDS = 100;
 export interface ChunkSource {
   brain_file_id?: string;
   context_document_id?: string;
+  project_id?: string;
 }
 
 export function chunkText(text: string, size = CHUNK_WORDS, overlap = OVERLAP_WORDS): string[] {
@@ -82,13 +83,14 @@ export async function chunkAndEmbed(
       console.warn(`embed chunk ${i} failed:`, e);
       continue;
     }
-    const row = {
+    const row: Record<string, unknown> = {
       brain_file_id: source.brain_file_id ?? null,
       context_document_id: source.context_document_id ?? null,
       content: text,
       chunk_index: i,
       embedding: embedding as unknown as string, // supabase-js stringifies via pgvector serializer
     };
+    if (source.project_id) row.project_id = source.project_id;
     const { error } = await supabase.from("brain_chunks").insert(row);
     if (error) {
       console.warn(`insert chunk ${i} failed:`, error.message);
