@@ -13,6 +13,7 @@
 
 ---
 
+## 2026-05-28 - ensureMinimumTables: continue past empty fallbacks + universal topic-aware fallback table
 
 
 **What:**
