@@ -25,7 +25,7 @@ import {
   type UnitType,
 } from "../_shared/proprietaryPromptAssembler.ts";
 import { NON_COMMODITY_TITLE_RULES, isCommodityStyleTitle } from "../_shared/nonCommodityTitleRules.ts";
-import { countWords, trimSectionToBudget } from "../_shared/articleSectionBudget.ts";
+import { trimSectionToBudget } from "../_shared/articleSectionBudget.ts";
 
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
@@ -550,7 +550,7 @@ async function runSection(input: {
 
 /* ── handler ──────────────────────────────────────────────────────────── */
 
-const BUILD_MARKER = "BUILD-2026-05-27-C proprietary-generate-article";
+const BUILD_MARKER = "BUILD-2026-05-28-B proprietary-generate-article clinical-contract-restore";
 Deno.serve(async (req) => {
   console.log(BUILD_MARKER);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
