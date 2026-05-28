@@ -163,6 +163,12 @@ const ContextHubPanel = ({ contextFiles, onLoadTopicFiles }: ContextHubPanelProp
       const { data, error } = await supabase.from("context_documents").insert(rows).select();
       if (error) throw error;
       setTopicDocuments((prev) => [...prev, ...(data || [])]);
+      // Fire-and-forget: embed new docs into brain_chunks for semantic retrieval.
+      (data || []).forEach((doc: { id: string }) => {
+        supabase.functions.invoke("reembed-document", {
+          body: { sourceType: "context_document", sourceId: doc.id },
+        }).catch((e: unknown) => console.warn("auto-embed context doc failed:", e));
+      });
       toast({
         title: "Files saved to topic",
         description: `${newFiles.length} file(s) added`,

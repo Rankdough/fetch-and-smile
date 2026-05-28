@@ -28,7 +28,7 @@ import {
   type UnitType,
 } from "../_shared/proprietaryPromptAssembler.ts";
 import { NON_COMMODITY_TITLE_RULES, isCommodityStyleTitle } from "../_shared/nonCommodityTitleRules.ts";
-import { trimSectionToBudget } from "../_shared/articleSectionBudget.ts";
+import { trimSectionToBudget, trimToWordCount } from "../_shared/articleSectionBudget.ts";
 
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -181,6 +181,8 @@ STRUCTURE FOR EVERY BODY SECTION:
 - Honest failure mode or limitation (mandatory — use explicit failure language)
 - Bottom line (one sentence the reader can act on)
 
+PARAGRAPH STRUCTURE: Each prose paragraph must be 3 sentences maximum. Use a bulleted list for any point requiring more than 3 sentences.
+
 You are writing content for patients to arrive at their clinical consultation already informed, with the right questions prepared. You are not a replacement for clinical consultation.`;
 
 function buildClinicalUserMessage(input: {
@@ -194,7 +196,7 @@ function buildClinicalUserMessage(input: {
 }): string {
   const knowledgeInput = input.mappedUnit?.full_text?.trim()
     ? input.mappedUnit.full_text.trim()
-    : "No proprietary knowledge unit available for this section — generate from clinical expertise following all rules, use [NEEDS EXPERT INPUT] only where a specific proprietary number or case detail is required.";
+    : "No proprietary knowledge unit available for this section — generate from first-hand expertise following all rules; use [NEEDS EXPERT INPUT] only where a specific proprietary number or detail is required.";
 
   const lines = [
     `Topic: ${input.articleTitle}`,
@@ -561,14 +563,12 @@ function fallbackTopicTable(topic: string, sectionHeading?: string): string {
 | Board-Certified Specialist (Periodontist or Oral Surgeon) | Three or more years of accredited residency after dental school | Consistently high through residency and ongoing practice | Higher in published series, particularly for complex cases | Complex anatomy, bone grafting, full-arch and compromised sites |
 | Academic or Hospital Setting | Faculty-level training with a supervised teaching caseload | High and protocol-driven through institutional volume | Highest reported in long-term published studies | Medically complex patients and reconstructive cases |`;
   }
-  // Generic three-column comparison derived from the article topic. Uses only
-  // qualitative descriptors so no statistics are invented.
-  const topicLabel = topic.trim().replace(/\s+/g, " ") || "this option";
-  return `| Option | Key Advantage | Primary Limitation |
+  // Generic three-column comparison — no topic string interpolated into cells.
+  return `| Approach | Key Advantage | Primary Limitation |
 | --- | --- | --- |
-| Entry-level approach to ${topicLabel} | Lower cost and easier access | Narrower scope and fewer safeguards |
-| Standard approach to ${topicLabel} | Balanced quality, cost, and availability | Trade-offs between depth and convenience |
-| Premium approach to ${topicLabel} | Highest reported consistency and oversight | Higher cost and limited availability |`;
+| Entry-level | Lower cost and easier access | Narrower scope and fewer safeguards |
+| Standard | Balanced quality, cost, and availability | Trade-offs between depth and convenience |
+| Advanced | Highest reported consistency and oversight | Higher cost and limited availability |`;
 }
 
 function tableSignature(tableMarkdown: string): string {
@@ -805,14 +805,14 @@ function ensureMinimumTables(markdown: string, topic: string, targetWords: numbe
   const bodyH2s = lines.map((line, i) => ({ line, i })).filter(({ line }) => /^##\s+/.test(line) && !STRUCT_SKIP_RE.test(line));
   let inserted = 0;
   for (let bIdx = 0; bIdx < bodyH2s.length && current + inserted < required; bIdx++) {
-    const startIdx = bodyH2s[bIdx].i + inserted * 5; // offset after each insert (5 lines: blank, table-header, separator, rows..., blank)
     const heading = bodyH2s[bIdx].line.replace(/^##\s+/, "").trim();
     const table = fallbackTopicTable(topic, heading);
     if (!table) continue;
     const sig = tableSignature(table);
     if (seenSignatures.has(sig)) continue; // dedup: identical table already exists somewhere in article
     const freshLines = out.split("\n");
-    const headingLine = freshLines.findIndex((l, idx) => idx >= startIdx && /^##\s+/.test(l));
+    // Find heading by text match so prior insertions don't shift the index.
+    const headingLine = freshLines.findIndex(l => /^##\s+/.test(l) && l.replace(/^##\s+/, "").trim() === heading);
     if (headingLine === -1) break;
     let endIdx = freshLines.length;
     for (let j = headingLine + 1; j < freshLines.length; j++) {
@@ -836,11 +836,18 @@ function ensureMinimumTables(markdown: string, topic: string, targetWords: numbe
 // so they never reach the rendered article. If a brand string is later added
 // to the request body, swap the empty replacement for that value.
 function stripBrandPlaceholders(markdown: string): string {
-  const PLACEHOLDER_RE = /\[(?:practice\s*name|your\s*practice|clinic\s*name|business\s*name|brand\s*name|company\s*name)\]/gi;
-  let out = markdown.replace(/\b(?:the|our|your)\s+\[(?:practice\s*name|your\s*practice|clinic\s*name|business\s*name|brand\s*name|company\s*name)\]\b['']?s?/gi, "the practice");
-  out = out.replace(PLACEHOLDER_RE, "");
-  // Tidy double spaces, stranded punctuation, and orphan possessives left
-  // behind by the strip.
+  const PLACEHOLDER_INNER = "practice\\s*name|your\\s*practice|clinic\\s*name|business\\s*name|brand\\s*name|company\\s*name";
+  // Replace preposition + placeholder ("at [PRACTICE NAME]" → "at the practice")
+  let out = markdown.replace(
+    new RegExp(`\\b(at|in|by|from|to|for|with|the|our|your|of)\\s+\\[(?:${PLACEHOLDER_INNER})\\]\\b['']?s?`, "gi"),
+    (_, prep) => {
+      const p = prep.toLowerCase();
+      return ["the", "our", "your"].includes(p) ? "the practice" : `${p} the practice`;
+    },
+  );
+  // Replace any remaining standalone placeholder with "the practice"
+  out = out.replace(new RegExp(`\\[(?:${PLACEHOLDER_INNER})\\]`, "gi"), "the practice");
+  // Tidy artefacts left behind
   out = out
     .replace(/[ \t]{2,}/g, " ")
     .replace(/\s+([,.;:!?])/g, "$1")
@@ -985,18 +992,21 @@ async function runSection(input: {
   // Floor at 600 (enough for a concise 90-word section), ceiling at 2400.
   const tokenBudget = isBody
     ? Math.max(600, Math.min(2400, Math.round(input.sectionBudgetWords * 1.8)))
-    : 900;
-  let content = isBody
-    ? (await callClinicalWriter(CLINICAL_SYSTEM_PROMPT_HEALTHCARE, buildClinicalUserMessage({
-        mappedUnit: input.mappedUnit,
-        audienceSentence: input.audienceSentence,
-        publicationDestination: input.publicationDestination,
-        section: input.section,
-        articleTitle: input.articleTitle,
-        retrievedChunks: input.retrievedChunks,
-        targetWordCount: input.sectionBudgetWords,
-      }), tokenBudget)).trim()
-    : (await callModel(assembled.system, assembled.user, input.model, tokenBudget)).trim();
+    : input.section.kind === "tldr" ? 200 : 900;
+  let content: string;
+  if (isBody && input.businessType === "healthcare-clinical") {
+    content = (await callClinicalWriter(CLINICAL_SYSTEM_PROMPT_HEALTHCARE, buildClinicalUserMessage({
+      mappedUnit: input.mappedUnit,
+      audienceSentence: input.audienceSentence,
+      publicationDestination: input.publicationDestination,
+      section: input.section,
+      articleTitle: input.articleTitle,
+      retrievedChunks: input.retrievedChunks,
+      targetWordCount: input.sectionBudgetWords,
+    }), tokenBudget)).trim();
+  } else {
+    content = (await callModel(assembled.system, assembled.user, input.model, tokenBudget)).trim();
+  }
   if (isBody) {
     content = trimSectionToBudget(content, input.sectionBudgetWords);
   }
@@ -1026,7 +1036,7 @@ async function runSection(input: {
 
 /* ── handler ──────────────────────────────────────────────────────────── */
 
-const BUILD_MARKER = "BUILD-2026-05-28-K proprietary-generate-article pgvector-retrieval";
+const BUILD_MARKER = "BUILD-2026-05-28-L proprietary-generate-article nine-fixes";
 Deno.serve(async (req) => {
   console.log(BUILD_MARKER);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -1043,7 +1053,12 @@ Deno.serve(async (req) => {
     const model = body.model || DEFAULT_MODEL;
     const wordCounts: Record<string, number> = { short: 500, medium: 1000, "medium-long": 1500, long: 2000, extended: 3000, comprehensive: 3500 };
     const targetWords = body.wordCount || wordCounts[body.length || "medium"] || 1000;
-    const businessType: BusinessType = body.businessType || "healthcare-clinical";
+    const HEALTHCARE_TOPIC_RE = /\b(dental|dentist|tooth|teeth|oral|implant|brace|aligner|orthodontic|medical|clinical|surgery|surgeon|health|doctor|patient|clinic|treatment|diagnosis|bone|graft|crown|abutment)\b/i;
+    const businessType: BusinessType = (() => {
+      const raw: BusinessType = body.businessType || "service";
+      if (raw === "healthcare-clinical" && !HEALTHCARE_TOPIC_RE.test(body.topic)) return "service";
+      return raw;
+    })();
     const audienceSentence =
       body.audienceSentence ||
       "Adults researching this topic who want a direct, expert-level answer.";
@@ -1251,7 +1266,7 @@ Deno.serve(async (req) => {
       if (s.kind === "opening") {
         md.push(cleanContent, "");
       } else if (s.kind === "tldr") {
-        md.push("## TL;DR", "", cleanContent, "");
+        md.push("## TL;DR", "", trimToWordCount(cleanContent, 60), "");
       } else if (s.kind === "quick-tips") {
         md.push("## Quick Tips", "", cleanContent, "");
       } else if (s.kind === "faq") {
@@ -1275,7 +1290,11 @@ Deno.serve(async (req) => {
     stitched = ensureFinalThoughtsCta(stitched, businessType);
     // Inline citations from brain-unit URLs, with trusted dental fallbacks when
     // proprietary files have no URLs.
-    const brainUrls = collectBrainUrls(units);
+    // Only collect citation URLs from units that were actually mapped to avoid
+    // injecting cross-topic (e.g. dental) URLs into unrelated articles.
+    const usedUnitIds = new Set(sectionsOut.map(s => s.mappedUnitId).filter(Boolean));
+    const usedUnits = units.filter(u => usedUnitIds.has(u.id));
+    const brainUrls = collectBrainUrls(usedUnits);
     const citationUrls = brainUrls.length > 0 ? brainUrls : trustedFallbackSources(body.topic);
     if (brainUrls.length === 0 && citationUrls.length > 0) console.log(`CITATIONS: using ${citationUrls.length} trusted fallback source(s).`);
     const cite = attachInlineCitations(stitched, citationUrls);

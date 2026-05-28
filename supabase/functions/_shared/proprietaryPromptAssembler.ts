@@ -280,7 +280,13 @@ Different AI engines agree on only 11% of cited sources. Every article must
 therefore contain at least four independently citable facts, each with a
 specific number or named source, so the content is useful across different
 retrieval modes and different AI engines — not optimised for one engine
-only.`.trim();
+only.
+
+RULE 17 — PARAGRAPH LENGTH:
+No prose paragraph may exceed 3 sentences. If a point requires more than
+3 sentences of explanation, convert the extra sentences into a bulleted list
+immediately below the paragraph. Never write more than 3 consecutive
+sentences in a single paragraph block in any section.`.trim();
 
 const FRAMING_LITE_RULES = `
 FRAMING SECTION RULES:
@@ -455,6 +461,11 @@ em dashes, en dashes, or horizontal rules.`;
     if (section.kind === "faq") {
       ruleBlocks.push(FAQ_DIRECT_ANSWER_RULE);
       applied.push(5); // re-emphasise no-hedge for FAQ specifically
+    }
+
+    // TL;DR framing section: enforce 60-word cap.
+    if (section.kind === "tldr") {
+      ruleBlocks.push(`TLDR RULE: Maximum 60 words total. One short paragraph only. No bullets, no sub-headings, no links. Summarise the single most important takeaway from this topic in plain language.`);
     }
 
     // Quick Tips framing section: enforce exactly 3 actionable tips.
