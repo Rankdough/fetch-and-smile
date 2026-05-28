@@ -1,3 +1,21 @@
+## 2026-05-28 — Restore proprietary full-article formatting contract
+
+**What:**
+- `proprietary-generate-article`: fixed the actual endpoint used by the UI. Body sections now use the same clinical Anthropic writer path instead of the old inlined Gateway section writer.
+- Added selected length/word-count support to proprietary article requests and deterministic per-section trimming so body sections cannot balloon past the article target.
+- Added deterministic body-section formatting guards for exactly three bullets and one supported topic-aware table for screwless implants / Invisalign underbite when the model omits tables.
+- `Index.tsx`: proprietary mode now sends the selected length and stores the returned `appliedRules`, so the verification panel uses the right target instead of falling back blindly.
+- Bumped `proprietary-generate-article` marker to `BUILD-2026-05-28-B`.
+
+**Why:** The live UI calls `proprietary-generate-article`, not `proprietary-generate-section`; the previous Anthropic prompt change missed the inlined full-article generation path, so articles were still oversized and missing the existing formatting contract.
+
+**Files:**
+- `supabase/functions/proprietary-generate-article/index.ts`
+- `src/pages/Index.tsx`
+- `CHANGELOG.md`
+
+**Verified broken:** Nothing verified broken yet in-browser. Checked: network snapshot confirmed the UI calls `proprietary-generate-article`; static file reads confirmed `proprietary-generate-section` was not called by the app; deployment verification still pending in this same repair.
+
 ## 2026-05-28 — Clinical writer system prompt via Anthropic (claude-sonnet-4-20250514) for body sections
 
 **What:**
