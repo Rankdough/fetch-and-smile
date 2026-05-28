@@ -668,12 +668,13 @@ function injectHowToChoose(markdown: string, topic: string): string {
   if (/^##\s+how\s*to\s*(choose|pick)/im.test(markdown)) return markdown;
   const noun = topicNoun(topic);
   const heading = `## How to Choose the Right ${noun} for You`;
+  const nounLower = noun.toLowerCase();
   const criteria = [
-    `- Establish the category first: confirm whether the case is dental or skeletal, simple or complex, before comparing ${noun.toLowerCase()}s.`,
-    `- Ask what the clinician is actively trying to prevent: every plan should name the specific failure mode it is designed to avoid.`,
+    `- Establish the category first: confirm what type of ${nounLower} the situation actually calls for before comparing options.`,
+    `- Ask what the option is built to prevent or solve: each ${nounLower} should name the specific problem it is designed to address.`,
     `- Demand specific numbers: timelines, success rates, and costs should come with concrete figures, not "varies" or "depends".`,
-    `- Check candidacy honestly: a good ${noun.toLowerCase()} for the wrong case underperforms regardless of brand or price.`,
-    `- Confirm the review step: ask which checkpoint will confirm the plan is working and what triggers a change of plan.`,
+    `- Check fit honestly: a good ${nounLower} for the wrong situation underperforms regardless of brand or price.`,
+    `- Confirm the review step: ask which checkpoint will confirm the choice is working and what triggers a change.`,
   ];
   const block = `${heading}\n\n${criteria.join("\n")}`;
   // Insert before FAQ or Final Thoughts, else append before References, else at end.
