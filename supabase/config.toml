@@ -119,3 +119,6 @@ verify_jwt = false
 
 [functions.match-gaps-to-covered]
 verify_jwt = false
+
+[functions.reembed-document]
+verify_jwt = false
