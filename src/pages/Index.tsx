@@ -947,29 +947,34 @@ const Index = () => {
     localStorage.setItem("seo-generator-ctaUrlHistory", JSON.stringify(ctaUrlHistory));
   }, [ctaUrlHistory]);
   
-  // Load internal link history from database on mount
+  // Stable project identifier for scoping link history to this deployment.
+  const PROJECT_ID = import.meta.env.VITE_SUPABASE_PROJECT_ID as string | undefined;
+
+  // Load internal link history from database on mount — scoped to this project.
   useEffect(() => {
     const loadHistory = async () => {
-      const { data } = await supabase
+      let q = supabase
         .from("internal_link_history")
         .select("url")
         .order("created_at", { ascending: false })
         .limit(100);
+      if (PROJECT_ID) q = q.eq("project_id", PROJECT_ID) as typeof q;
+      const { data } = await q;
       if (data && data.length > 0) {
         setInternalLinkHistory(data.map(d => d.url));
       }
     };
     loadHistory();
-  }, []);
+  }, [PROJECT_ID]);
 
-  // Sync internal link history changes to database
+  // Sync internal link history changes to database — tagged with project_id.
   const addToInternalLinkHistoryDb = useCallback(async (urls: string[]) => {
     for (const url of urls) {
       await supabase
         .from("internal_link_history")
-        .upsert({ url }, { onConflict: "url" });
+        .upsert({ url, ...(PROJECT_ID ? { project_id: PROJECT_ID } : {}) }, { onConflict: "url" });
     }
-  }, []);
+  }, [PROJECT_ID]);
   
   useEffect(() => {
     localStorage.setItem("seo-generator-useKnowledgeBase", JSON.stringify(useKnowledgeBase));

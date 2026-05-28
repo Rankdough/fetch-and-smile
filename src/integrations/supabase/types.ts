@@ -615,16 +615,19 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          project_id: string | null
           url: string
         }
         Insert: {
           created_at?: string
           id?: string
+          project_id?: string | null
           url: string
         }
         Update: {
           created_at?: string
           id?: string
+          project_id?: string | null
           url?: string
         }
         Relationships: []

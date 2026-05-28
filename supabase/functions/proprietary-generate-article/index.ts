@@ -1036,7 +1036,7 @@ async function runSection(input: {
 
 /* ── handler ──────────────────────────────────────────────────────────── */
 
-const BUILD_MARKER = "BUILD-2026-05-28-L proprietary-generate-article nine-fixes";
+const BUILD_MARKER = "BUILD-2026-05-28-M proprietary-generate-article three-fixes";
 Deno.serve(async (req) => {
   console.log(BUILD_MARKER);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -1285,7 +1285,6 @@ Deno.serve(async (req) => {
     if (atomic.removed > 0) console.warn(`ATOMIC GUARD: stripped ${atomic.removed} dependency phrase(s).`);
     stitched = enforceThreeBulletsPerBodySection(stitched);
     stitched = injectInThisArticle(stitched, body.topic);
-    stitched = injectHowToChoose(stitched, body.topic);
     stitched = ensureMinimumTables(stitched, body.topic, targetWords);
     stitched = ensureFinalThoughtsCta(stitched, businessType);
     // Inline citations from brain-unit URLs, with trusted dental fallbacks when
@@ -1300,7 +1299,7 @@ Deno.serve(async (req) => {
     const cite = attachInlineCitations(stitched, citationUrls);
     stitched = cite.out;
     if (cite.attached > 0) console.log(`CITATIONS: attached ${cite.attached} inline source(s) from brain URLs.`);
-    stitched = injectReferences(stitched, units);
+    stitched = injectReferences(stitched, usedUnits);
     stitched = ensureTrustedReferences(stitched, body.topic);
     const refsEmitted = /^##\s+references/im.test(stitched);
     if (!refsEmitted) console.warn(`REFERENCES: no References section emitted — brain units contain no URLs.`);
