@@ -869,6 +869,7 @@ async function runSection(input: {
   articleTitle: string;
   model: string;
   sectionBudgetWords: number;
+  retrievedChunks?: Array<{ content: string; similarity: number }>;
 }) {
   const assembled = assembleSectionPrompt(input);
   const isBody = input.section.type === "body";
