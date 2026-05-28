@@ -516,13 +516,37 @@ function topicNoun(topic: string): string {
   return "Option";
 }
 
+function firstSentenceOf(sectionBody: string): string {
+  // Strip headings, blockquotes, list markers, table lines. Return first
+  // ~30-word sentence ending in . ! or ?
+  const clean = sectionBody
+    .split("\n")
+    .filter((l) => l.trim() && !/^#{1,6}\s/.test(l) && !l.includes("|") && !/^\s*[-*+]\s/.test(l) && !/^\s*>/.test(l))
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!clean) return "";
+  const m = clean.match(/^.{20,260}?[.!?](?:\s|$)/);
+  const sentence = (m ? m[0] : clean.slice(0, 220)).trim();
+  return sentence;
+}
+
 function injectInThisArticle(markdown: string, topic: string): string {
   if (/^##\s+in\s*this\s*article/im.test(markdown)) return markdown;
   const bodyH2s = getBodyH2s(markdown);
   if (bodyH2s.length === 0) return markdown;
+  // Capture each section's body so we can use its real first sentence as desc.
   const lines = markdown.split("\n");
+  const sectionBody = (lineIdx: number): string => {
+    let end = lines.length;
+    for (let j = lineIdx + 1; j < lines.length; j++) {
+      if (/^##\s+/.test(lines[j])) { end = j; break; }
+    }
+    return lines.slice(lineIdx + 1, end).join("\n");
+  };
   const items = bodyH2s.map((h, i) => {
-    const desc = `Direct answer on ${h.heading.replace(/[?!.]+$/, "").toLowerCase()}, including the clinical reasoning, the honest failure mode, and what to ask before deciding so the answer maps to a real consultation.`;
+    const real = firstSentenceOf(sectionBody(h.index));
+    const desc = real || `${h.heading.replace(/[?!.]+$/, "")} — direct answer plus the honest failure mode and what to ask before deciding.`;
     return `- ${i + 1}. ${h.heading.replace(/[?!.]+$/, "")} - ${desc}`;
   });
   const block = ["## In This Article", "", ...items].join("\n");
