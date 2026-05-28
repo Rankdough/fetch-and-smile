@@ -1,3 +1,21 @@
+## 2026-05-28 — Fix proprietary generation 500 from invalid direct AI key
+
+**What:**
+- `proprietary-generate-article`: removed the direct Anthropic API call path that was failing with `invalid x-api-key`.
+- Body sections now keep the same proprietary clinical writer prompt but run through the configured Lovable AI gateway using `google/gemini-2.5-flash`.
+- Added a deterministic References fallback so proprietary mode still emits `## References` using selected knowledge-source titles when no source URLs exist.
+- Bumped marker to `BUILD-2026-05-28-F proprietary-generate-article references-fallback`.
+
+**Why:** The live proprietary endpoint was returning 500 before content generation could complete because the external direct provider key was invalid. Routing through the configured gateway removes that broken dependency while preserving the proprietary formatting and non-commodity prompt rules.
+
+**Files:**
+- `supabase/functions/proprietary-generate-article/index.ts`
+- `CHANGELOG.md`
+
+**Verified broken:** Nothing verified broken. Checked: deployed `proprietary-generate-article`; direct endpoint test for a short screwless implants article returned HTTP 200; output included 1 H1, Quick Tips, In This Article, How to Choose, FAQ, References, and 5 markdown tables. Earlier verification attempts exposed and resolved the invalid direct AI key, an incompatible gateway model parameter, a slow gateway model timeout, and missing References when no source URLs existed.
+
+---
+
 ## 2026-05-28 — Proprietary mode: normal-mode formatting parity
 
 **What:**
