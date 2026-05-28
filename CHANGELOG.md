@@ -1,4 +1,32 @@
+## 2026-05-28 - pgvector semantic retrieval for proprietary generator (BUILD-2026-05-28-K)
+
+**What:**
+- Migration: enabled `vector` extension; created `public.brain_chunks` (id, brain_file_id FK, context_document_id FK, project_id, content, chunk_index, embedding vector(1536), created_at) with HNSW cosine index and `match_brain_chunks(query_embedding, match_count)` RPC. Source FK is nullable per side with a CHECK ensuring at least one is set.
+- `supabase/functions/_shared/embedChunks.ts` (new): 600-word windows with 100-word overlap, embeds each via Lovable AI `google/gemini-embedding-001` at `dimensions: 1536` (to fit pgvector HNSW 2000-dim cap), inserts into `brain_chunks`. Idempotent — wipes prior rows for the same source before re-inserting.
+- `analyze-brain-file`: after the existing `brain_insights` extraction, runs a second additive pass that calls `chunkAndEmbed` on the full document. Original extraction unchanged.
+- `proprietary-generate-article`: per body section, embeds `topic + heading` and calls `match_brain_chunks` for top 3 chunks before `pickUnit` runs. Chunks are threaded through `runSection` → `buildClinicalUserMessage` as a new labelled block: "RETRIEVED KNOWLEDGE — specific facts, numbers, and clinical details...". Existing `pickUnit`/`brain_insights` injection preserved alongside.
+- `reembed-document` (new edge function): `{sourceType: "brain_file"|"context_document", sourceId}` re-chunks an existing row. Used to backfill the Invisalign brief; usable for any future doc.
+- `parse-context-file`: raised content cap from 10,000 → 500,000 chars so long research briefs are stored in full (the chunk pipeline now handles retrieval; the previous truncation made the brief data the original problem).
+- Bumped marker to `BUILD-2026-05-28-K proprietary-generate-article pgvector-retrieval`.
+
+**Why:** Earlier investigation showed `proprietary-generate-article` had no access to context files and only used one keyword-matched `brain_insights` row per section. Specifics from the source brief were lost both at extraction (4–7 AI-chosen passages only) and at retrieval (token-overlap selection). Semantic retrieval over raw chunks recovers them for any future doc regardless of terminology.
+
+**Verified broken / What may break:**
+- The Invisalign brief in `context_documents` was already truncated to 10,000 chars (1,459 words) by the old `parse-context-file` cap before this fix existed. So of the four test specifics requested:
+  - `$1,256` lab fee: present in stored content → retrievable now.
+  - Han et al / Wu et al distalization percentages, ANB camouflage thresholds, 2.5-year mandibular relapse rate: NOT in the stored brief (confirmed via SQL ILIKE on `context_documents.content`). They were lost at the original upload, before any of this code existed. To recover them, re-upload the original DOCX now that the parse cap is 500k chars, then POST `/reembed-document` again.
+- Verified live: `/reembed-document` returned `{inserted:3, chunks:3}` for the brief; `/proprietary-generate-article` logs show `RETRIEVAL: ... got 3 chunks (top sim=0.71–0.75)` for all 4 body sections. The curl itself exceeded the 60s test timeout, but every section completed in the logs.
+- `analyze-brain-file` now does an extra embedding pass per upload (sequential, one request per chunk). For a 10k-word doc that's ~17 extra embedding calls — within rate limits but slower wall-clock.
+- `parse-context-file` cap change: clients that relied on the previous 10k truncation now get up to 500k chars. No call sites enforce an upper bound downstream; reviewed `Index.tsx` context-file flow — content is stored in `context_documents.content` (text column, no limit) and concatenated into prompts only by `generate-content` (classic mode, model context-window bounded).
+
+**Files:** `supabase/migrations/*` (brain_chunks + match_brain_chunks), `supabase/functions/_shared/embedChunks.ts` (new), `supabase/functions/analyze-brain-file/index.ts`, `supabase/functions/proprietary-generate-article/index.ts`, `supabase/functions/reembed-document/index.ts` (new), `supabase/functions/parse-context-file/index.ts`, `supabase/config.toml`.
+
+**Verify:** `POST /reembed-document {sourceType,sourceId}` → 200 + chunk counts. Generate any proprietary article → edge logs show `RETRIEVAL: section="..." got N chunks (top sim=...)` per body section.
+
+---
+
 ## 2026-05-28 - FAQ format fix (proprietary generator)
+
 
 **What:**
 - `_shared/proprietaryPromptAssembler.ts`: FAQ prompt now mandates `**Question?**` bold-on-its-own-line format with the answer paragraph below. Previously it asked for `Q:` prefixed questions, which `FAQAccordion.extractFAQFromContent` could not parse, so the UI rendered no FAQ block.
