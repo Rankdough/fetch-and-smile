@@ -1,4 +1,26 @@
+## 2026-05-28 - Fix Classic Mode TDZ + remove proprietary template bullets
+
+**What:**
+- `supabase/functions/generate-content/index.ts`: moved the `ownDomains` setup block (declaration, `addOwnHost`, CTA/image host seeding, internal_link_files fetch, OWN-DOMAIN BLOCKLIST log) and the `isOwnDomainUrl` closure as a single unit from lines 1247–1288 to immediately before `extractContextSourceCandidates` (now lines 1032–1075). No characters inside the moved block were altered. Fixes a `ReferenceError: Cannot access 'ownDomains'/'isOwnDomainUrl' before initialization` thrown at line 1049/1094 whenever `extractContextSourceCandidates` ran (Classic Mode + context files).
+- `supabase/functions/proprietary-generate-article/index.ts`: `buildFallbackBullets(heading, body)` reduced to `return []`. Removed the three boilerplate template lines including the `Ask which specific ${cleanHeading} category applies before accepting a treatment plan.` bullet that was being literally interpolated into every body section. No other `cleanHeading` template bullet patterns exist in the file.
+
+**Why:** Classic Mode generation with context files (the primary path for users with brand briefs) was silently throwing TDZ at request time. Proprietary articles were appending three generic boilerplate bullets verbatim under every H2.
+
+**Files:**
+- supabase/functions/generate-content/index.ts (moved block only)
+- supabase/functions/proprietary-generate-article/index.ts (buildFallbackBullets gutted)
+
+**Verify:**
+- Classic Mode with context file URLs: POST /generate-content → HTTP 200, OWN-DOMAIN BLOCKLIST log fires, no ReferenceError in logs (confirmed 11:09:18 UTC).
+- Classic Mode without context: POST /generate-content → HTTP 200 (confirmed 11:09:46 UTC).
+- Proprietary regeneration of "Screwless Dental Implants" topic: function executes to status 200 in ~69s (analytics_query confirmed). Logs since deploy contain zero matches for "Ask which specific". Since `buildFallbackBullets` now returns `[]`, the string is structurally impossible to emit.
+
+**Verified broken:** Nothing verified broken. Checked: (1) file reads of both modified blocks confirm single declaration with all 6 `isOwnDomainUrl` call sites after it; (2) grep confirms zero remaining `cleanHeading` template-bullet usages; (3) two live Classic Mode invocations returned 200; (4) Proprietary invocation reached status 200 in analytics. Side effect of note: the `OWN-DOMAIN BLOCKLIST` console.log line now prints earlier in the request lifecycle (no functional impact).
+
+---
+
 ## 2026-05-28 - pgvector semantic retrieval for proprietary generator (BUILD-2026-05-28-K)
+
 
 **What:**
 - Migration: enabled `vector` extension; created `public.brain_chunks` (id, brain_file_id FK, context_document_id FK, project_id, content, chunk_index, embedding vector(1536), created_at) with HNSW cosine index and `match_brain_chunks(query_embedding, match_count)` RPC. Source FK is nullable per side with a CHECK ensuring at least one is set.

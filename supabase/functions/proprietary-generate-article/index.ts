@@ -469,15 +469,10 @@ function sanitiseGeneratedMarkdown(markdown: string, articleTitle: string): stri
   return result.replace(/\n{3,}/g, "\n\n").trim();
 }
 
-function buildFallbackBullets(heading: string, body: string): string[] {
-  const cleanHeading = heading.replace(/[?!.]+$/g, "").toLowerCase();
-  const hasFailure = /failure|risk|wrong|peri|loosen|cement|relapse|misdiagnos/i.test(body);
-  return [
-    `- Ask which specific ${cleanHeading} category applies before accepting a treatment plan.`,
-    `- Check what failure mode the clinician is actively trying to prevent.`,
-    `- Request the exact maintenance or review step that confirms the plan is working.`,
-  ].map((line, idx) => (idx === 1 && !hasFailure ? `- Identify the clinical limitation before comparing visible benefits.` : line));
+function buildFallbackBullets(_heading: string, _body: string): string[] {
+  return [];
 }
+
 
 function enforceThreeBulletsPerBodySection(markdown: string): string {
   const skipPattern = /tl;?dr|quick\s*tips|frequently\s*asked|faq|final\s*thoughts|references|sources/i;
