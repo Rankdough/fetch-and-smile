@@ -576,7 +576,36 @@ const Index = () => {
   
   const handleSaveArticle = async () => {
     if (!generatedContent.trim()) return;
-    
+
+    // Pre-save placeholder / duplicate-heading validation.
+    // Blocks save (and therefore downstream publish/export) when the generated
+    // article still contains unfilled template artefacts or duplicate H2s.
+    {
+      const issues: string[] = [];
+      if (/\[NEEDS EXPERT INPUT/i.test(generatedContent)) issues.push("[NEEDS EXPERT INPUT");
+      if (/\[PRACTICE NAME\]/i.test(generatedContent)) issues.push("[PRACTICE NAME]");
+      if (/weigh against/i.test(generatedContent)) issues.push("weigh against");
+      const h2Counts = new Map<string, number>();
+      for (const line of generatedContent.split("\n")) {
+        const m = line.match(/^##\s+(.+?)\s*$/);
+        if (!m) continue;
+        const key = m[1].toLowerCase().replace(/[^a-z0-9 ]+/g, "").replace(/\s+/g, " ").trim();
+        if (!key) continue;
+        h2Counts.set(key, (h2Counts.get(key) ?? 0) + 1);
+      }
+      const dupes = Array.from(h2Counts.entries()).filter(([, n]) => n > 1).map(([k]) => k);
+      if (dupes.length > 0) issues.push(`duplicate H2: ${dupes.join(", ")}`);
+      if (issues.length > 0) {
+        console.warn("Pre-save validation blocked save:", issues);
+        toast({
+          title: "Cannot save article",
+          description: "This article contains unpublished placeholders or errors and cannot be saved. Please regenerate or fix the flagged content before saving.",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
     setIsSavingArticle(true);
     try {
       // Extract title from content (first H1 or H2, or use topic)
