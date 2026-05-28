@@ -701,7 +701,7 @@ async function runSection(input: {
 
 /* ── handler ──────────────────────────────────────────────────────────── */
 
-const BUILD_MARKER = "BUILD-2026-05-28-B proprietary-generate-article clinical-contract-restore";
+const BUILD_MARKER = "BUILD-2026-05-28-C proprietary-generate-article normal-mode-parity";
 Deno.serve(async (req) => {
   console.log(BUILD_MARKER);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
