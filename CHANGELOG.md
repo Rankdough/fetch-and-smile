@@ -1,4 +1,27 @@
+## 2026-05-28 - Add AI Extraction Rules 9–16 to proprietary assembler
+
+**What:**
+- `supabase/functions/_shared/proprietaryPromptAssembler.ts`: added `AI_EXTRACTION_RULES` constant containing Rules 9–16 (Answer Proximity, Self-Contained Sentences, Methodology Disclosure, Information Gain Over Consensus, Buyer Journey Stage Matching, Off-Site Quotability, Ghost Citation Prevention, Multi-Engine Data Density). Injected into both branches of `assembleSectionPrompt` (body and framing) with `applied.push(9, 10, 11, 12, 13, 14, 15, 16)`. Appended after existing rule blocks; Rules 1–7 byte-identical and in original order.
+- Deployed `proprietary-generate-section` (the only consumer of this module). `proprietary-generate-article` was not redeployed because it does not import the assembler.
+
+**Why:** Research from the AirOps/Kevin Indig 815K query-pair study, Princeton GEO paper, Ahrefs citation research, Victorious brand mention study, and a Google AI Mode conversation analysis converged on eight new generation rules that materially raise the odds of AI citation. The existing eight rules covered non-commodity writing quality but did not cover extraction-layer mechanics (answer position, sentence portability, methodology attribution, brand-as-subject phrasing, multi-engine data density).
+
+**Files:**
+- supabase/functions/_shared/proprietaryPromptAssembler.ts
+
+**Files explicitly not touched:** all UI components, all schema, all other edge functions including `proprietary-generate-article`, `generate-content`, and `experienceSignals.ts`.
+
+**Verify:**
+- Regenerate a proprietary-mode article. Expect: direct answer in first 80 words of body; one methodology sentence in articles containing stats/prices/timelines; brand name appearing as subject (not modifier) in opening paragraph, ≥1 subheading, and final thoughts; ≥4 independently citable facts with specific numbers or named sources.
+- `deno check supabase/functions/_shared/proprietaryPromptAssembler.ts` passes.
+- Grep confirms Rules 1–7 constants (`NO_COMMODITY_RULE`, `HONEST_ANSWER_RULE`, `CATEGORY_DISTINCTION_RULE_WITH_UNIT`, `CATEGORY_DISTINCTION_RULE_GENERIC`, `FAILURE_MODE_RULE_WITH_UNIT`, `FAILURE_MODE_RULE_NO_UNIT`, `SPECIFIC_NUMBERS_RULE`, `CONTRARIAN_RULE_NO_UNIT`, `TABLE_GUARD_RULE`) all present at original line positions (69, 84, 92, 99, 107, 113, 131, 180, 191).
+
+**Verified broken:** Nothing verified broken. Checked: (1) `deno check` clean; (2) `AssemblerInput` / `AssembledPrompt` / `SectionSpec` interfaces unchanged; (3) `assembleSectionPrompt` signature and return shape unchanged; (4) `lintRule5` and `buildContradictionPrompt` exports unchanged; (5) every existing rule constant string byte-identical (grep on rule headers returns same matches at same lines); (6) `proprietary-generate-section` deployed successfully.
+
+---
+
 ## 2026-05-28 - Fix proprietary duplicate-table emission (hash dedup + section-aware variants + offset)
+
 
 **What:**
 - `supabase/functions/proprietary-generate-article/index.ts`:
