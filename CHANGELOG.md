@@ -12,7 +12,7 @@
 - `supabase/functions/proprietary-generate-article/index.ts`
 - `CHANGELOG.md`
 
-**Verified broken:** Nothing verified broken yet. First verification confirmed the invalid direct-key failure is gone, but `openai/gpt-5.4-mini` rejected the existing `max_tokens` gateway parameter, and `google/gemini-2.5-pro` exceeded the function response time during end-to-end generation. Switched to `google/gemini-2.5-flash`; a 200 response was then verified for a short screwless implants article, but References were absent when no source URLs existed. Added the source-title fallback; final endpoint verification is in progress immediately after this entry.
+**Verified broken:** Nothing verified broken. Checked: deployed `proprietary-generate-article`; direct endpoint test for a short screwless implants article returned HTTP 200; output included 1 H1, Quick Tips, In This Article, How to Choose, FAQ, References, and 5 markdown tables. Earlier verification attempts exposed and resolved the invalid direct AI key, an incompatible gateway model parameter, a slow gateway model timeout, and missing References when no source URLs existed.
 
 ---
 
