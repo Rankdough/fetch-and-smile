@@ -1,3 +1,35 @@
+## 2026-05-28 - pgvector retrieval hardening: similarity floor + backfill + deploy parse cap + brain-file auto-embed
+
+**What:**
+- `supabase/functions/proprietary-generate-article/index.ts` (lines 1076–1099): added `SIMILARITY_FLOOR = 0.60` filter to the `match_brain_chunks` retrieval block. Off-topic chunks (cosine similarity below 0.60) are now discarded before being passed to section generation. `retrievedChunks` stays a typed array (never null) so downstream null/length checks behave identically. Log line now reports kept/total counts plus top raw similarity. Deployed.
+- `supabase/functions/parse-context-file/index.ts`: deployed existing-but-undeployed `MAX_CHARS = 500_000` cap (line 166). Previously the deployed version was still truncating every uploaded research brief at 10,000 chars, which is why the implant brief lost the JADA PEARL / Sendyk / hazard-ratio data before reaching `context_documents.content`.
+- `supabase/functions/analyze-brain-file/index.ts`: deployed existing-but-undeployed second-pass `chunkAndEmbed({ brain_file_id })` call (line 212). Every PDF uploaded through the brain library now lands in `brain_chunks` for pgvector retrieval, in addition to the existing insight extraction into `brain_insights`. Existing extraction path unchanged.
+- Operational: ran `POST /reembed-document` for context_document `c24263f4-5532-4b9b-80f8-17eacb203100` (implant brief). Inserted 3 chunks from 10,000-char (truncated) content. Re-upload of the source .docx is required to capture the full document with the now-raised parse cap.
+
+**Why:** Diagnosis on the "Choosing a Dentist for Implants" generation showed every section retrieved the same 3 chunks at similarity 0.51–0.54 — all from an unrelated Invisalign-underbite brief, the only document chunked in the entire database. Root causes: (a) no similarity floor, so top-K returned off-topic noise as "evidence"; (b) `parse-context-file` was truncating at 10k chars in the deployed version, so even reembedding the right brief would have missed the body of the research; (c) `analyze-brain-file` never embedded brain_files, so all 15 PDFs sat at 0 chunks despite `status='processed'`.
+
+**Files:**
+- supabase/functions/proprietary-generate-article/index.ts
+- supabase/functions/parse-context-file/index.ts (deployment only — code already at 500k)
+- supabase/functions/analyze-brain-file/index.ts (deployment only — chunkAndEmbed already wired)
+- CHANGELOG.md
+
+**Verify:**
+- Re-upload `Dental Implant Dentist Expertise Research.docx` via the Context Hub. Confirm `context_documents.content` length exceeds 10,000.
+- Call `reembed-document` for the new row. Confirm chunk count >> 3.
+- Regenerate "Choosing a Dentist for Implants" article. Confirm JADA PEARL failure rate, Sendyk 50-implant threshold, and guided-vs-freehand failure rate appear in the body. Confirm retrieval logs show `top raw sim` >= 0.60 for at least one section.
+- Upload any new PDF to brain library. Confirm new rows appear in `brain_chunks` keyed by `brain_file_id`, and `brain_insights` rows continue to populate as before.
+
+**What may break:**
+- Sections that previously received off-topic chunks at 0.51–0.59 similarity will now receive zero chunks. This is intended — the model falls back to its general knowledge rather than fabricating evidence around irrelevant excerpts. Net effect on existing articles cannot be predicted without regeneration.
+- `analyze-brain-file` runtime increases by the chunk-embed pass (1 embedding call per ~600-word chunk, sequential). For a 60k-char document that's roughly 15–20 additional Lovable AI calls. Wrapped in try/catch so failure is non-fatal to the insight extraction.
+- `parse-context-file` now returns up to 500k chars instead of 10k. Any downstream consumer that assumed a 10k ceiling will receive larger payloads. Direct consumers checked: `ContextFileUpload.tsx` (stores `data.content` as-is into a `ContextFile` object — no length check), `ContextHubPanel.tsx` (inserts `f.content` directly into `context_documents.content` — text column, no DB-side cap). No clipped consumers found.
+
+**Gap not addressed in this task (out of permitted-file scope):**
+- Auto-embed on `context_documents` insert. The only writer is `src/components/ContextHubPanel.tsx` line 163, which is on the protection list. Until that path also calls `reembed-document` (or a DB trigger fires `chunkAndEmbed`), new context-hub uploads will continue to require a manual `POST /reembed-document` call to appear in retrieval. Flagged for a follow-up task.
+
+---
+
 ## 2026-05-28 - Add AI Extraction Rules 9–16 to proprietary assembler
 
 **What:**
