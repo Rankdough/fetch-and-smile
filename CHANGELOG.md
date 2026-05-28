@@ -15,6 +15,9 @@
 
 ---
 
+## 2026-05-28 - pgvector retrieval hardening: similarity floor + backfill + deploy parse cap + brain-file auto-embed
+
+
 
 
 **What:**
