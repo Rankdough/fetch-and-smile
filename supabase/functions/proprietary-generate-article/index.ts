@@ -182,13 +182,21 @@ async function callClinicalWriter(system: string, user: string, maxTokens = 1400
 /* ── outline generation ───────────────────────────────────────────────── */
 
 async function generateH2Questions(topic: string, model: string): Promise<string[]> {
-  const sys = `You generate H2 question headings for non-commodity articles. Output exactly 3 question headings, one per line, no numbering, no bullets, no markdown. Each must be a real question a reader would type, phrased in 4-10 words. No filler openers. No "what is X" if there's a sharper question.`;
-  const user = `Topic: ${topic}\n\nReturn 3 H2 question headings.`;
+  const sys = `You generate H2 question headings for non-commodity articles. Output exactly 3 question headings, one per line, no numbering, no bullets, no markdown. Each must be a real question a reader would type, phrased in 4-10 words. No filler openers. No "what is X" if there's a sharper question. The three questions MUST cover different angles (e.g. mechanism, benefit, failure mode) — never two near-duplicate questions.`;
+  const user = `Topic: ${topic}\n\nReturn 3 distinct H2 question headings.`;
   const raw = await callModel(sys, user, model, 400);
+  const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9 ]+/g, "").replace(/\s+/g, " ").trim();
+  const seen = new Set<string>();
   const lines = raw
     .split(/\r?\n/)
     .map((l) => l.replace(/^[\d\-*.\s)#]+/, "").trim())
-    .filter((l) => l.length > 5 && l.length < 140);
+    .filter((l) => l.length > 5 && l.length < 140)
+    .filter((l) => {
+      const k = norm(l);
+      if (seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    });
   return lines.slice(0, 3);
 }
 
@@ -486,10 +494,14 @@ const STRUCT_SKIP_RE = /tl;?dr|quick\s*tips|in\s*this\s*article|how\s*to\s*(choo
 function getBodyH2s(markdown: string): Array<{ heading: string; index: number }> {
   const lines = markdown.split("\n");
   const out: Array<{ heading: string; index: number }> = [];
+  const seen = new Set<string>();
   lines.forEach((line, i) => {
     const m = line.match(/^##\s+(.+?)\s*$/);
     if (!m) return;
     if (STRUCT_SKIP_RE.test(m[1])) return;
+    const key = m[1].toLowerCase().replace(/[^a-z0-9 ]+/g, "").replace(/\s+/g, " ").trim();
+    if (seen.has(key)) return; // dedupe by normalised heading text
+    seen.add(key);
     out.push({ heading: m[1].trim(), index: i });
   });
   return out;
@@ -584,16 +596,10 @@ function injectReferences(markdown: string, units: BrainUnit[]): string {
     ...units.map((u) => `${u.summary || ""}\n${u.full_text || ""}`),
   ].join("\n");
   const links = extractUrls(corpus).slice(0, 8);
-  const sourceTitles = units
-    .map((u) => (u.title || u.summary || "").trim())
-    .filter((title, index, arr) => title.length > 0 && arr.indexOf(title) === index)
-    .slice(0, 8);
-  if (links.length === 0 && sourceTitles.length === 0) return `${markdown.trimEnd()}\n\n## References\n\n- No source URLs or named source documents were available in the selected knowledge base.\n`;
-  const linkedItems = links.map((l) => `- [${l.title}](${l.url})`);
-  const titleItems = sourceTitles
-    .filter((title) => !linkedItems.some((item) => item.toLowerCase().includes(title.toLowerCase())))
-    .map((title) => `- ${title}`);
-  const items = [...linkedItems, ...titleItems].slice(0, 8).join("\n");
+  // Only emit a References section when we have real URLs. Never fabricate
+  // citations from brain-unit titles — that produced false references.
+  if (links.length === 0) return markdown;
+  const items = links.map((l) => `- [${l.title}](${l.url})`).join("\n");
   return `${markdown.trimEnd()}\n\n## References\n\n${items}\n`;
 }
 
@@ -687,7 +693,7 @@ async function runSection(input: {
 
 /* ── handler ──────────────────────────────────────────────────────────── */
 
-const BUILD_MARKER = "BUILD-2026-05-28-F proprietary-generate-article references-fallback";
+const BUILD_MARKER = "BUILD-2026-05-28-G proprietary-generate-article dedupe+filler-removed+refs-honest+sentence-trim";
 Deno.serve(async (req) => {
   console.log(BUILD_MARKER);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -820,23 +826,46 @@ Deno.serve(async (req) => {
     }
 
     // 6. Stitch
+    const normaliseHeadingText = (s: string) =>
+      s.toLowerCase().replace(/[^a-z0-9 ]+/g, "").replace(/\s+/g, " ").trim();
+    const stripLeadingDuplicateHeading = (content: string, heading: string): string => {
+      // Drop any leading H1/H2/H3/H4 whose normalised text equals the section heading.
+      // Prevents "## X" + body that itself starts with "## X" or "### X" → duplicate heading.
+      const target = normaliseHeadingText(heading);
+      const lines = content.split("\n");
+      let i = 0;
+      while (i < lines.length && lines[i].trim() === "") i++;
+      while (i < lines.length) {
+        const m = lines[i].match(/^\s*#{1,4}\s+(.+?)\s*$/);
+        if (!m) break;
+        if (normaliseHeadingText(m[1]) !== target) break;
+        i++;
+        while (i < lines.length && lines[i].trim() === "") i++;
+      }
+      return lines.slice(i).join("\n").trim();
+    };
     const md: string[] = [`# ${articleTitle}`, ""];
     for (const s of sectionsOut) {
+      const cleanContent = s.type === "body"
+        ? stripLeadingDuplicateHeading(s.content, s.heading)
+        : s.content;
       if (s.kind === "opening") {
-        md.push(s.content, "");
+        md.push(cleanContent, "");
       } else if (s.kind === "tldr") {
-        md.push("## TL;DR", "", s.content, "");
+        md.push("## TL;DR", "", cleanContent, "");
       } else if (s.kind === "quick-tips") {
-        md.push("## Quick Tips", "", s.content, "");
+        md.push("## Quick Tips", "", cleanContent, "");
       } else if (s.kind === "faq") {
-        md.push("## Frequently Asked Questions", "", s.content, "");
+        md.push("## Frequently Asked Questions", "", cleanContent, "");
       } else {
-        md.push(`## ${s.heading}`, "", s.content, "");
+        md.push(`## ${s.heading}`, "", cleanContent, "");
       }
     }
     let stitched = md.join("\n").trim();
-    stitched = enforceThreeBulletsPerBodySection(stitched);
-    // Normal-mode parity: structural injections (idempotent — no-op if present).
+    // NOTE: enforceThreeBulletsPerBodySection intentionally removed — it was
+    // injecting templated "Ask which specific X category applies..." filler
+    // bullets at the end of every H2, which read as boilerplate. Body sections
+    // should be natural prose only; Quick Tips block already provides bullets.
     stitched = injectInThisArticle(stitched, body.topic);
     stitched = injectHowToChoose(stitched, body.topic);
     stitched = ensureMinimumTables(stitched, body.topic, targetWords);

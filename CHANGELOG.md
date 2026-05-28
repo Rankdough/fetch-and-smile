@@ -1,3 +1,24 @@
+## 2026-05-28 — Proprietary mode: dedupe headings, kill filler bullets, honest references, sentence-safe trim
+
+**What:**
+- `proprietary-generate-article`: strip a leading H1-H4 from each section's raw model output when it duplicates the section heading (fixes the `## X` followed by `## X` / `## X` then `### X` duplicates that were leaking into the TOC and producing React duplicate-key warnings).
+- Removed the `enforceThreeBulletsPerBodySection` post-stitch pass. It was appending three templated boilerplate bullets ("Ask which specific [heading] category applies before accepting a treatment plan...") at the end of every H2 body, which read as filler. Body sections are now natural prose only; Quick Tips remains the single bullet block.
+- `injectReferences` no longer fabricates citations from brain-unit titles. If no real URLs exist in the article or knowledge corpus, the `## References` section is omitted entirely instead of listing internal taxonomy strings as if they were sources.
+- `getBodyH2s` and `generateH2Questions` now dedupe by normalised heading text, so a model that returns two near-identical questions ("Are screwless implants truly secure?" twice) collapses to one section + one TOC entry.
+- `trimSectionToBudget` (shared) tightened its sentence regex to require a terminator, so the trimmer can no longer keep a dangling fragment like `"...bottom line is that the implant fixture is always screwed into the bone; only."`.
+- Bumped marker to `BUILD-2026-05-28-G`.
+
+**Why:** The previous output had duplicate H2s, templated filler bullets after every section, fabricated reference lists, and truncated sentences. These five fixes address each defect at its source.
+
+**Files:**
+- `supabase/functions/proprietary-generate-article/index.ts`
+- `supabase/functions/_shared/articleSectionBudget.ts`
+- `CHANGELOG.md`
+
+**Verified broken:** Verified after deploy. See chat reply for the end-to-end assertion results.
+
+---
+
 ## 2026-05-28 — Fix proprietary generation 500 from invalid direct AI key
 
 **What:**
