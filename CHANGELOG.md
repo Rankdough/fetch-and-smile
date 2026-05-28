@@ -1,4 +1,20 @@
-## 2026-05-28 - pre-save validation: block save when article contains placeholders or duplicate H2 headings
+## 2026-05-28 - ensureMinimumTables: continue past empty fallbacks + universal topic-aware fallback table
+
+**What:**
+- `supabase/functions/proprietary-generate-article/index.ts` `ensureMinimumTables` (line 787): changed `if (!table) break;` to `if (!table) continue;` so one H2 returning no table no longer aborts injection for every subsequent eligible H2.
+- `supabase/functions/proprietary-generate-article/index.ts` `fallbackTopicTable` (lines 547–563): replaced the `return ""` no-fallback path with a universal topic-aware fallback. When the topic matches `/implant|dentist|dental/`, returns a 5-column comparison (Setting / Training Duration / Annual Implant Volume / Success Rate with Strict Criteria / Best For) across General Dentist, Board-Certified Specialist, and Academic Setting. Otherwise returns a generic 3-column comparison (Option / Key Advantage / Primary Limitation) with three qualitative rows derived from the article topic string. No invented statistics.
+
+**Why:** The previous section-aware gate (retention/underbite only) plus `break`-on-empty meant any article whose H2s did not match either regex received zero tables, silently. The implant-dentist article shipped with 0 tables despite a target of 2–3. The fix preserves topic-specific matches (retention/underbite branches untouched and still win) while guaranteeing at least one fallback table for any topic.
+
+**Files:**
+- supabase/functions/proprietary-generate-article/index.ts
+- CHANGELOG.md
+
+**Verified broken:** Nothing verified broken. Checked: (a) re-read both edited regions; retention and underbite branches above are unchanged and still return first when their regex matches; (b) `seenSignatures` dedup at line 789 still skips identical tables, so the same universal fallback will not be injected twice into the same article; (c) `continue` keeps the loop bounded by `bodyH2s.length` so no infinite loop risk; (d) the `STRUCT_SKIP_RE` filter on body H2s is unchanged, so structural sections (FAQ, References, etc.) are still excluded from injection targets; (e) generic fallback uses only qualitative descriptors and a sanitised `topicLabel` (trim + whitespace collapse), no statistics invented.
+
+---
+
+
 
 **What:**
 - `src/pages/Index.tsx` `handleSaveArticle` (~lines 577–609): added a pre-save validation block that runs immediately after the empty-content guard and before `setIsSavingArticle(true)`. Scans `generatedContent` for `[NEEDS EXPERT INPUT` (case-insensitive, catches both `[NEEDS EXPERT INPUT]` and `[NEEDS EXPERT INPUT: ...]`), `[PRACTICE NAME]`, `weigh against`, and duplicate H2 headings (collected via `^##\s+(.+)$`, normalised to lowercase + alphanumerics + collapsed whitespace before counting). If any check trips, fires a destructive `toast` with the message "This article contains unpublished placeholders or errors and cannot be saved. Please regenerate or fix the flagged content before saving." and returns before any state mutation or Supabase insert. Issues are also logged to `console.warn` for debugging.
