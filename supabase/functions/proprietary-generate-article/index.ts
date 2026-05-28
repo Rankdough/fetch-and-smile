@@ -850,20 +850,12 @@ Deno.serve(async (req) => {
     }
     let stitched = md.join("\n").trim();
     stitched = enforceThreeBulletsPerBodySection(stitched);
-    if (countMarkdownTables(stitched) < 1) {
-      const table = fallbackTopicTable(body.topic);
-      if (table) {
-        const lines = stitched.split("\n");
-        const bodyH2s = lines.map((line, i) => ({ line, i })).filter(({ line }) => /^##\s+/.test(line) && !/tl;?dr|quick\s*tips|frequently\s*asked|faq|final\s*thoughts|references|sources/i.test(line));
-        const targetIdx = bodyH2s[Math.min(1, bodyH2s.length - 1)]?.i;
-        if (typeof targetIdx === "number") {
-          let endIdx = lines.length;
-          for (let j = targetIdx + 1; j < lines.length; j++) if (/^##\s+/.test(lines[j])) { endIdx = j; break; }
-          lines.splice(endIdx, 0, "", table, "");
-          stitched = lines.join("\n");
-        }
-      }
-    }
+    // Normal-mode parity: structural injections (idempotent — no-op if present).
+    stitched = injectInThisArticle(stitched, body.topic);
+    stitched = injectHowToChoose(stitched, body.topic);
+    stitched = ensureMinimumTables(stitched, body.topic, targetWords);
+    stitched = ensureFinalThoughtsCta(stitched);
+    stitched = injectReferences(stitched, units);
     const content = sanitiseGeneratedMarkdown(stitched, articleTitle);
 
     // mappedUnitTexts for downstream verification grading on the client
