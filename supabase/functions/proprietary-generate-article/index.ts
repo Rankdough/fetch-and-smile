@@ -28,13 +28,11 @@ import { NON_COMMODITY_TITLE_RULES, isCommodityStyleTitle } from "../_shared/non
 import { trimSectionToBudget } from "../_shared/articleSectionBudget.ts";
 
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
-const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
-const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
 const DEFAULT_MODEL = "google/gemini-2.5-flash";
-const CLINICAL_MODEL = "claude-sonnet-4-20250514";
+const CLINICAL_MODEL = "openai/gpt-5.4-mini";
 
 interface RequestBody {
   topic: string;
@@ -177,28 +175,8 @@ function buildClinicalUserMessage(input: {
   ].join("\n");
 }
 
-async function callAnthropic(system: string, user: string, maxTokens = 1400): Promise<string> {
-  if (!ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY is not configured");
-  const res = await fetch(ANTHROPIC_URL, {
-    method: "POST",
-    headers: {
-      "x-api-key": ANTHROPIC_API_KEY,
-      "anthropic-version": "2023-06-01",
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: CLINICAL_MODEL,
-      max_tokens: maxTokens,
-      system,
-      messages: [{ role: "user", content: user }],
-    }),
-  });
-  if (!res.ok) throw new Error(`Anthropic ${res.status}: ${await res.text()}`);
-  const json = await res.json();
-  return ((json?.content ?? []) as Array<{ type?: string; text?: string }>)
-    .filter((c) => c?.type === "text")
-    .map((c) => c.text || "")
-    .join("");
+async function callClinicalWriter(system: string, user: string, maxTokens = 1400): Promise<string> {
+  return callModel(system, user, CLINICAL_MODEL, maxTokens);
 }
 
 /* ── outline generation ───────────────────────────────────────────────── */
@@ -670,7 +648,7 @@ async function runSection(input: {
   const isBody = input.section.type === "body";
   const tokenBudget = isBody ? 1400 : 1000;
   let content = isBody
-    ? (await callAnthropic(CLINICAL_SYSTEM_PROMPT_HEALTHCARE, buildClinicalUserMessage(input), tokenBudget)).trim()
+    ? (await callClinicalWriter(CLINICAL_SYSTEM_PROMPT_HEALTHCARE, buildClinicalUserMessage(input), tokenBudget)).trim()
     : (await callModel(assembled.system, assembled.user, input.model, tokenBudget)).trim();
   if (isBody) {
     content = trimSectionToBudget(content, input.sectionBudgetWords);
@@ -701,7 +679,7 @@ async function runSection(input: {
 
 /* ── handler ──────────────────────────────────────────────────────────── */
 
-const BUILD_MARKER = "BUILD-2026-05-28-C proprietary-generate-article normal-mode-parity";
+const BUILD_MARKER = "BUILD-2026-05-28-D proprietary-generate-article gateway-clinical-writer";
 Deno.serve(async (req) => {
   console.log(BUILD_MARKER);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
