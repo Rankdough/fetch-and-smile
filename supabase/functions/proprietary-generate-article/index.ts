@@ -979,7 +979,8 @@ async function collectSourceReferences(
   const seen = new Set<string>();
   const add = (title?: string | null, url?: string | null) => {
     const cleanTitle = (title || "").trim();
-    const cleanUrl = (url || "").trim();
+    const rawUrl = (url || "").trim();
+    const cleanUrl = /^https?:\/\//i.test(rawUrl) ? rawUrl : "";
     if (!cleanTitle && !cleanUrl) return;
     const key = `${cleanUrl || "file"}:${cleanTitle || cleanUrl}`.toLowerCase();
     if (seen.has(key)) return;
