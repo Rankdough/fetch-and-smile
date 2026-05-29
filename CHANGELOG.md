@@ -1,3 +1,27 @@
+## 2026-05-29 - proprietary articles: forced context binding + passive-filler ban (BUILD-2026-05-29-I)
+
+**What:**
+- `supabase/functions/_shared/proprietaryPromptAssembler.ts`:
+  - Added `NO_PASSIVE_FILLER_RULE` constant. Pushed into `ruleBlocks` for every body section (right after `SPECIFIC_NUMBERS_RULE`) and for every framing section (right after `FRAMING_LITE_RULES`).
+  - Reordered the user-message payload so `contextFiles` is emitted as the FIRST structural block, ahead of `describeMappedUnit` and `describeRetrievedKnowledge`. Replaced the short "use only facts present here" wrapper with an explicit extraction directive: pull raw data points, named timelines, dosages, eligibility criteria, contraindications, study names, percentages, specific medical/clinical criteria; quote verbatim where diagnostic; `[NEEDS EXPERT INPUT]` when missing.
+- `supabase/functions/proprietary-generate-article/index.ts`:
+  - `buildClinicalUserMessage` reordered to emit context files BEFORE `Knowledge input:` and before retrieved chunks, with the same authoritative extraction directive.
+  - Clinical writer system prompt now composes `CLINICAL_SYSTEM_PROMPT_HEALTHCARE + atomicBlock + noFillerBlock + sourceBlock`, so the hard ban on hedging phrases ships in the generation system message itself.
+  - Build marker bumped to `BUILD-2026-05-29-I`.
+
+**Why:** The score-quality screenshot flagged "Verify: no brain" because uploaded context files were positioned after the mapped unit / retrieved chunks in the prompt payload, so the model preferred the higher-salience earlier blocks. Promoting context files to the top of the user message and adding an explicit "pull raw data points / named timelines / clinical criteria" directive forces direct extraction. Pairing this with the no-passive-filler rule blocks the hedged AI-filler sentences (`may experience`, `results from a range of factors`, etc.) that were tanking the humanness signal and tripping the Rule-5 repair gate post-hoc.
+
+**What may break:** Any caller that relied on `userParts[0]` being the mapped-unit description (e.g. payload-size truncation that lopped off later blocks) will now see context files in slot 0. Verified: `deno check` passes; no other call sites parse the user-message string format. Existing `[NEEDS EXPERT INPUT]` paths still trigger the `needsExpertInput` short-circuit in the section runner.
+
+**Files:**
+- supabase/functions/_shared/proprietaryPromptAssembler.ts
+- supabase/functions/proprietary-generate-article/index.ts
+- CHANGELOG.md
+
+**Verify:** Generate a proprietary article with at least one uploaded context document. The section prompts (visible in edge-function logs under PROMPT-USER) now lead with `🚨 PRIMARY SOURCE OF TRUTH — UPLOADED CONTEXT FILES (HIGHEST PRIORITY)` followed by the file body. Generated body sections no longer contain `may experience`, `results from a range of`, `typically symptoms of`, `it is important to note`, `it is worth noting`, or `a range of factors` openers.
+
+---
+
 ## 2026-05-29 - proprietary articles: References rendered as HTML anchors (BUILD-2026-05-29-H)
 
 **What:**
