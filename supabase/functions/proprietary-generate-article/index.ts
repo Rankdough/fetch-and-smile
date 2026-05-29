@@ -1369,15 +1369,6 @@ function scoreTextForTopic(text: string, topic: string, sectionHeading = ""): nu
   return tokens.reduce((sum, token) => sum + (haystack.includes(token) ? 1 : 0), 0);
 }
 
-function scoreUrlForTopic(url: string, topic: string): number {
-  try {
-    const parsed = new URL(url);
-    return scoreTextForTopic(`${parsed.hostname} ${decodeURIComponent(parsed.pathname)}`, topic);
-  } catch {
-    return 0;
-  }
-}
-
 const WEAK_URL_TOKENS = new Set(["dental", "dentist", "dentists", "clinic", "clinics", "implant", "implants"]);
 
 function urlTopicHits(url: string, text: string): string[] {
