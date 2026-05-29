@@ -614,6 +614,28 @@ function stripBodyNumericCitationMarkers(markdown: string): { out: string; remov
   return { out: cleanedBody + references, removed };
 }
 
+function stripCrossDomainFallbackBullets(markdown: string, topic: string): { out: string; removed: number } {
+  const topicAllowsDietaryLanguage = /\b(gluten|coeliac|celiac|wheat|bloat|bloating|ncgs|sensitivity|ibs|fodmap|diet|digestive|gastro|intestinal)\b/i.test(topic);
+  if (topicAllowsDietaryLanguage) return { out: markdown, removed: 0 };
+
+  const refMatch = markdown.match(/^##\s+references\b/im);
+  const body = refMatch?.index !== undefined ? markdown.slice(0, refMatch.index) : markdown;
+  const references = refMatch?.index !== undefined ? markdown.slice(refMatch.index) : "";
+  const contaminatedBullet = /^\s*[-*+]\s+.*\b(?:changing\s+diet|dietary\s+change|food\s+exposure|bloating|long-term\s+restriction|restriction\s+before\s+testing|symptom\s+timing|digestive\s+mechanisms)\b.*$/i;
+  let removed = 0;
+  const cleanedBody = body
+    .split("\n")
+    .filter((line) => {
+      if (!contaminatedBullet.test(line)) return true;
+      removed += 1;
+      return false;
+    })
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trimEnd();
+  return { out: `${cleanedBody}${references ? `\n\n${references.trimStart()}` : ""}`.trim(), removed };
+}
+
 function stripExpertInputPlaceholders(markdown: string): { out: string; removed: number } {
   let removed = 0;
   const out = markdown
@@ -2066,6 +2088,9 @@ Deno.serve(async (req) => {
     const finalNumericMarkers = stripBodyNumericCitationMarkers(content);
     content = finalNumericMarkers.out;
     if (finalNumericMarkers.removed > 0) console.warn(`CITATION GUARD: removed ${finalNumericMarkers.removed} orphan numeric citation marker(s) after final formatting.`);
+    const crossDomainFallbacks = stripCrossDomainFallbackBullets(content, body.topic);
+    content = crossDomainFallbacks.out;
+    if (crossDomainFallbacks.removed > 0) console.warn(`DOMAIN GUARD: removed ${crossDomainFallbacks.removed} cross-domain fallback bullet(s) after final formatting.`);
     console.log(`INTERNAL LINKS: inserted=${internalLinkResult.insertedCount} skipped=${internalLinkResult.skippedUrls.length} total=${internalLinkResult.totalProvided}${internalLinkResult.note ? ` note=${internalLinkResult.note}` : ""}`);
 
 
