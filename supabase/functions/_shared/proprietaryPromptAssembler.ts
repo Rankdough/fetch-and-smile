@@ -148,6 +148,22 @@ If no number is available, write either:
 Never invent a number, never quote a range you have not been given, never write
 "can vary depending on …" as a substitute for an answer.`.trim();
 
+// BUILD-2026-05-29-I: hard ban on passive AI filler. Pairs with RULE 5 and the
+// Rule-5 repair gate so generated prose ships without hedge openers in the
+// first place, rather than depending on a post-hoc rewrite.
+const NO_PASSIVE_FILLER_RULE = `
+CRITICAL — NO PASSIVE FILLER:
+You are completely forbidden from writing soft, defensive AI filler phrases.
+Banned constructions include, but are not limited to: "typically symptoms of",
+"may experience", "can experience", "results from a range of factors", "is
+often caused by", "is generally considered", "is commonly associated with",
+"plays a role in", "a variety of", "a range of", "a number of", "in some
+cases", "for many people", "it is important to note", "it is worth noting".
+Every statement must be direct, authoritative, and anchored to a concrete
+data node from the mapped unit, retrieved chunks, or context files. If the
+underlying fact is not in the supplied evidence, write [NEEDS EXPERT INPUT]
+instead of generating a hedged sentence.`.trim();
+
 const KEYWORD_NATURAL_LANGUAGE_RULE = `
 KEYWORD NATURAL-LANGUAGE RULE:
 Treat the article title as a topic, not a phrase to stuff into sentences. If the
