@@ -1877,7 +1877,7 @@ Deno.serve(async (req) => {
       if (section.type === "body") {
         const unitUrls = collectBrainUrls(mappedUnit ? [mappedUnit as BrainUnit] : []);
         const chunkUrls = collectChunkUrls(retrievedChunks);
-        const globalUnitUrls = collectBrainUrls(units);
+        const globalUnitUrls = filterUrlsForTopic(collectBrainUrls(units), body.topic);
         const fallback = trustedFallbackSources(body.topic);
         const seen = new Set<string>();
         for (const list of [unitUrls, chunkUrls, globalUnitUrls, fallback]) {
@@ -1999,7 +1999,7 @@ Deno.serve(async (req) => {
     let sourceReferences = await collectSourceReferences(sb, usedUnits, allRetrievedChunks);
     if (sourceReferences.length === 0) sourceReferences = await fallbackContextReferencesForTopic(sb, body.topic);
     if (sourceReferences.length > 0) console.log(`REFERENCES: collected ${sourceReferences.length} context source reference(s).`);
-    const brainUrls = collectBrainUrls(usedUnits);
+    const brainUrls = filterUrlsForTopic(collectBrainUrls(usedUnits), body.topic);
     const citationUrls = brainUrls.length > 0 ? brainUrls : trustedFallbackSources(body.topic);
     if (brainUrls.length === 0 && citationUrls.length > 0) console.log(`CITATIONS: using ${citationUrls.length} trusted fallback source(s).`);
     const cite = attachInlineCitations(stitched, citationUrls);
