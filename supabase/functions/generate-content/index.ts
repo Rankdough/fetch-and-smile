@@ -2207,6 +2207,9 @@ STRICT RULES — follow this exact pattern from a proven high-performing example
       }
     }
 
+    content = enforceParagraphDensity(content);
+    console.log("PARAGRAPH DENSITY GUARD: Applied deterministic sentence-boundary splits");
+
     // Build metadata about what was applied
     const appliedRules = {
       gapAnalysisUsed: !!gapAnalysis && gapAnalysis.trim().length > 0,
