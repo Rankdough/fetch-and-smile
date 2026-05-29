@@ -659,6 +659,13 @@ function fallbackTopicTable(topic: string, sectionHeading?: string): string {
 | Board-Certified Specialist (Periodontist or Oral Surgeon) | Three or more years of accredited residency after dental school | Consistently high through residency and ongoing practice | Higher in published series, particularly for complex cases | Complex anatomy, bone grafting, full-arch and compromised sites |
 | Academic or Hospital Setting | Faculty-level training with a supervised teaching caseload | High and protocol-driven through institutional volume | Highest reported in long-term published studies | Medically complex patients and reconstructive cases |`;
   }
+  if (/gluten|coeliac|celiac|wheat|bloat|bloating|ncgs|sensitivity/.test(combined)) {
+    return `| Condition | Mechanism behind bloating | Diagnostic clue | Management implication |
+| --- | --- | --- | --- |
+| Coeliac disease | Autoimmune injury to the small-intestinal lining disrupts absorption and gut function | Confirmed by coeliac blood tests and specialist assessment before gluten removal | Lifelong strict gluten avoidance is required after diagnosis |
+| Non-coeliac gluten sensitivity | Symptoms occur after gluten or wheat exposure without coeliac autoimmune damage | Symptoms improve with structured removal and return during supervised re-challenge | Intake is individualised rather than automatically zero-tolerance |
+| Wheat allergy | IgE-mediated immune reaction to wheat proteins can include digestive and systemic symptoms | Rapid onset symptoms may include hives, swelling, wheeze, or anaphylaxis risk | Wheat avoidance and allergy planning matter more than gluten-only avoidance |`;
+  }
   return "";
 }
 
