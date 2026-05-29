@@ -556,6 +556,10 @@ function sanitiseGeneratedMarkdown(markdown: string, articleTitle: string): stri
     // mark. Defensive: skip raw HTML lines so an inline style like
     // `line-height: 1.6` cannot be truncated at the `.` and rendered as
     // escaped HTML text. (References are now pure markdown — BUILD-O.)
+    // BUILD-2026-05-29-Q: only treat `.` `!` `?` as terminators when they
+    // are followed by whitespace/quote/end-of-string AND, for `.`, are NOT
+    // preceded by a digit (decimals like "32.5%" or "1.6" would otherwise
+    // be sliced mid-number, producing fragments like "showed a 32.").
     if (
       trimmed &&
       !/^#{1,6}\s/.test(trimmed) &&
@@ -565,9 +569,13 @@ function sanitiseGeneratedMarkdown(markdown: string, articleTitle: string): stri
       !/^</.test(trimmed) &&
       !/[.!?:)]\s*$/.test(trimmed)
     ) {
-      const lastTerm = Math.max(trimmed.lastIndexOf("."), trimmed.lastIndexOf("!"), trimmed.lastIndexOf("?"));
+      const termRe = /(?:(?<!\d)\.|[!?])(?=["')\]\s]|$)/g;
+      let lastTerm = -1;
+      let m: RegExpExecArray | null;
+      while ((m = termRe.exec(trimmed)) !== null) lastTerm = m.index;
       if (lastTerm > 20) out = out.slice(0, out.indexOf(trimmed) + lastTerm + 1);
     }
+
 
     kept.push(out);
   }
