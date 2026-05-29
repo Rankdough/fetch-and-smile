@@ -243,18 +243,25 @@ export function NonCommodityComplianceChecker({ content, onContentUpdate, useFir
         {results.map(r => (
           <div
             key={r.id}
-            className="flex items-start gap-2 rounded-md border border-border/60 bg-card/50 p-2"
+            className={`flex items-start gap-2 rounded-md border p-2 transition-colors ${
+              r.pass
+                ? "border-emerald-500/40 bg-emerald-500/10"
+                : "border-border/60 bg-card/50"
+            }`}
           >
             <div className="mt-0.5">
               {r.pass ? (
-                <Check className="h-4 w-4 text-emerald-500" />
+                <div className="flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500">
+                  <Check className="h-3 w-3 text-white" strokeWidth={3} />
+                </div>
               ) : (
                 <X className="h-4 w-4 text-destructive" />
               )}
             </div>
             <div className="flex-1 min-w-0">
-              <div className="text-xs font-medium leading-tight">
+              <div className={`text-xs font-medium leading-tight ${r.pass ? "text-emerald-700 dark:text-emerald-400" : ""}`}>
                 Rule {r.id}: {r.title}
+                {r.pass && <span className="ml-1.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-400">✓ Fixed</span>}
               </div>
               <div className="text-[11px] text-muted-foreground leading-snug">
                 {r.description}
