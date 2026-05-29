@@ -6013,7 +6013,11 @@ CRITICAL EXPANSION RULES:
                     />
                     
                     {/* Non-Commodity Compliance Guard */}
-                    <NonCommodityComplianceChecker content={generatedContent} />
+                    <NonCommodityComplianceChecker
+                      content={generatedContent}
+                      onContentUpdate={setGeneratedContent}
+                      useFirstPerson={useFirstPerson}
+                    />
                     
 
                     
