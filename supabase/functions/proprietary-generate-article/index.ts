@@ -1079,7 +1079,7 @@ async function runSection(input: {
   articleTitle: string;
   model: string;
   sectionBudgetWords: number;
-  retrievedChunks?: Array<{ content: string; similarity: number }>;
+  retrievedChunks?: RetrievedChunk[];
 }) {
   const assembled = assembleSectionPrompt(input);
   const isBody = input.section.type === "body";
@@ -1258,6 +1258,7 @@ Deno.serve(async (req) => {
       contradicted: boolean;
       appliedRules: number[];
     }> = [];
+    const allRetrievedChunks: RetrievedChunk[] = [];
 
     for (const section of plan) {
       const mappedUnit =
@@ -1265,7 +1266,7 @@ Deno.serve(async (req) => {
 
       // Semantic retrieval: embed (topic + section heading) and pull top 3 chunks
       // from brain_chunks. Additive — runs alongside the keyword-matched pickUnit unit.
-      let retrievedChunks: Array<{ content: string; similarity: number }> = [];
+      let retrievedChunks: RetrievedChunk[] = [];
       if (section.type === "body") {
         try {
           const queryVec = await embedQuery(`${body.topic}\n${section.heading}`);
@@ -1281,6 +1282,8 @@ Deno.serve(async (req) => {
             const rawChunks = matches.map((m: any) => ({
               content: m.content,
               similarity: typeof m.similarity === "number" ? m.similarity : 0,
+              brain_file_id: m.brain_file_id ?? null,
+              context_document_id: m.context_document_id ?? null,
             }));
             retrievedChunks = rawChunks.filter((c) => c.similarity >= SIMILARITY_FLOOR);
             const topRaw = rawChunks[0]?.similarity?.toFixed(3) ?? "n/a";
@@ -1289,6 +1292,7 @@ Deno.serve(async (req) => {
         } catch (e) {
           console.warn(`RETRIEVAL: embed/query failed for "${section.heading}" (non-fatal):`, e);
         }
+        allRetrievedChunks.push(...retrievedChunks);
       }
 
       const result = await runSection({
