@@ -1,4 +1,12 @@
 
+## 2026-05-29 — Usefulness & Value-Gain Guard
+- New isolated sidebar component ContentUsefulnessChecker scoring 5 reader-utility rules: actionable manual verbs vs textbook openers, operational failure trap, structured data layout, definitive answer proximity, methodology disclosure.
+- Shares Fix this / Fix all pattern with NonCommodity guard via voice-edit-content; passes green-fixed styling.
+- Mounted in src/pages/Index.tsx right-hand panel directly under NonCommodityComplianceChecker.
+- Files: src/components/ContentUsefulnessChecker.tsx (new), src/pages/Index.tsx (import + mount).
+- Verify: open right sidebar, confirm guard renders below Non-Commodity Compliance Guard, rules flip red/green as content changes, Fix this triggers voice-edit-content and updates article.
+- Verified broken: nothing. Checked: pre-flight grep found no ContentUsefulness collision; NonCommodityComplianceChecker, BlogPostSettings, custom transcript panel, generation handlers, edge function payloads untouched (only an additive import + sibling JSX block).
+
 ## 2026-05-29 — Global Paragraph Density rule + Rule 11
 - Enforced ≤60 words and ≤3 sentences per paragraph globally so readers can jump between paragraphs without hitting walls of text.
 - generate-content: added PARAGRAPH DENSITY rule to system prompt requiring splits at logical pivots in intro, TL;DR, H2 answers, FAQs.

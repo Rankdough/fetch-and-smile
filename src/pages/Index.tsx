@@ -53,6 +53,7 @@ import { UniqueAnglesPanel } from "@/components/UniqueAnglesPanel";
 import { GapAnalysisSelector } from "@/components/GapAnalysisSelector";
 import { QualityScoringPanel } from "@/components/QualityScoringPanel";
 import { NonCommodityComplianceChecker } from "@/components/NonCommodityComplianceChecker";
+import { ContentUsefulnessChecker } from "@/components/ContentUsefulnessChecker";
 import { Switch } from "@/components/ui/switch";
 import { ArticleNavigationPanel, extractNavigationFromContent, generateNavigationHtml } from "@/components/ArticleNavigationPanel";
 import { FAQAccordion, extractFAQFromContent, removeFAQSection, generateFAQHtml } from "@/components/FAQAccordion";
@@ -6018,6 +6019,15 @@ CRITICAL EXPANSION RULES:
                       onContentUpdate={setGeneratedContent}
                       useFirstPerson={useFirstPerson}
                     />
+
+                    {/* Usefulness & Value-Gain Guard */}
+                    <ContentUsefulnessChecker
+                      content={generatedContent}
+                      onContentUpdate={setGeneratedContent}
+                      useFirstPerson={useFirstPerson}
+                    />
+                    
+
                     
 
                     
