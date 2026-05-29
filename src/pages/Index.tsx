@@ -6012,6 +6012,11 @@ CRITICAL EXPANSION RULES:
                       onCreditUsed={(action, type, details) => trackUsage(action, type, details)}
                     />
                     
+                    {/* Non-Commodity Compliance Guard */}
+                    <NonCommodityComplianceChecker content={generatedContent} />
+                    
+
+                    
                     {/* Credit Usage Display */}
                     <CreditUsageDisplay
                       voiceEditCredits={getVoiceEditCredits()}
