@@ -1,4 +1,11 @@
 
+## 2026-05-29 — Deterministic paragraph density guard
+- What: Added a mechanical paragraph splitter to generation, voice edits, and the client clean-up path. Any prose paragraph over 55 words or 3 sentences is split at sentence boundaries before it is returned, saved, displayed, or persisted in localStorage.
+- Why: Prompt-only paragraph rules were not enough; newly generated articles could still show dense 80-100 word blocks. The safeguard now runs deterministically instead of relying on model compliance.
+- Files: supabase/functions/generate-content/index.ts, supabase/functions/voice-edit-content/index.ts, src/pages/Index.tsx.
+- Verify: Generate or edit an article with a long prose paragraph; the output should be split into smaller paragraphs automatically. Headings, lists, tables, blockquotes, code blocks, and structured HTML blocks are skipped by the splitter.
+- Verified broken: nothing. Checked: splitter only touches prose blocks separated by blank lines; skip guards leave headings, markdown lists, tables, blockquotes, code fences, and structured HTML/table/list blocks unchanged; generated content still flows through the existing cleanContent/setGeneratedContent path.
+
 ## 2026-05-29 — Verify-and-retry loop for Fix this / Fix all
 - Root cause of "still red after Fix": the deterministic checker is correct (Rule 1 still 51w, Rule 4 still 2 data points, Rule 7 still 3 hedges, Rule 8 still 0 numbers in top 30 percent); the AI rewrite returned content that did not meet the thresholds and we only ran it once.
 - Both NonCommodityComplianceChecker and ContentUsefulnessChecker now re-evaluate the returned content, and if any targeted rule still fails, retry up to 2 more times. Each retry includes the measured shortfall so the model knows exactly what to hit.
