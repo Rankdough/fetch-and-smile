@@ -1461,6 +1461,7 @@ Deno.serve(async (req) => {
       // Semantic retrieval: embed (topic + section heading) and pull top 3 chunks
       // from brain_chunks. Additive — runs alongside the keyword-matched pickUnit unit.
       let retrievedChunks: RetrievedChunk[] = [];
+      let retrievedKnowledge: Array<{ content: string; sourceTitle?: string | null }> = [];
       if (section.type === "body") {
         try {
           const queryVec = await embedQuery(`${body.topic}\n${section.heading}`);
@@ -1485,6 +1486,23 @@ Deno.serve(async (req) => {
           }
         } catch (e) {
           console.warn(`RETRIEVAL: embed/query failed for "${section.heading}" (non-fatal):`, e);
+        }
+        const contextSnippets = await retrieveContextDocumentSnippets(sb, body.topic, section.heading);
+        if (contextSnippets.length > 0) {
+          console.log(`CONTEXT: section="${section.heading}" matched ${contextSnippets.length} context document snippet(s).`);
+          retrievedKnowledge = contextSnippets.map((s) => ({ content: s.content, sourceTitle: s.sourceTitle }));
+          const existingContextIds = new Set(retrievedChunks.map((c) => c.context_document_id).filter(Boolean));
+          for (const snippet of contextSnippets) {
+            if (existingContextIds.has(snippet.context_document_id)) continue;
+            retrievedChunks.push({
+              content: snippet.content,
+              similarity: 1,
+              brain_file_id: null,
+              context_document_id: snippet.context_document_id,
+            });
+          }
+        } else {
+          retrievedKnowledge = retrievedChunks.map((c) => ({ content: c.content }));
         }
         allRetrievedChunks.push(...retrievedChunks);
       }
@@ -1521,6 +1539,7 @@ Deno.serve(async (req) => {
         model,
         sectionBudgetWords,
         retrievedChunks,
+        retrievedKnowledge,
         allowedSourceUrls,
       });
 
