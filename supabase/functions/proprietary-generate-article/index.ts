@@ -220,7 +220,7 @@ function buildClinicalUserMessage(input: {
   // source of raw data points, named timelines, and clinical criteria.
   if (input.contextFiles && input.contextFiles.length > 0) {
     const contextBlock = input.contextFiles
-      .map((f) => `--- ${f.name} ---\n${stripBodyNumericCitationMarkers(f.content).out}`)
+      .map((f) => `--- ${f.name} ---\n${stripCrossDomainFallbackBullets(stripBodyNumericCitationMarkers(f.content).out, input.articleTitle).out}`)
       .join("\n\n");
     lines.push(
       "",
@@ -631,7 +631,12 @@ function stripCrossDomainFallbackBullets(markdown: string, topic: string): { out
       return false;
     })
     .join("\n")
+    .replace(/[^.!?\n]*(?:changing\s+diet|dietary\s+change|food\s+exposure|bloating|long-term\s+restriction|restriction\s+before\s+testing|symptom\s+timing|digestive\s+mechanisms)[^.!?\n]*[.!?]/gi, () => {
+      removed += 1;
+      return "";
+    })
     .replace(/\n{3,}/g, "\n\n")
+    .replace(/[ \t]{2,}/g, " ")
     .trimEnd();
   return { out: `${cleanedBody}${references ? `\n\n${references.trimStart()}` : ""}`.trim(), removed };
 }
