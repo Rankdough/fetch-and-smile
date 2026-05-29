@@ -1,4 +1,19 @@
+## 2026-05-29 - proprietary articles: dynamic failure-mode H2 heading (BUILD-2026-05-29-K)
+
+**What:** `supabase/functions/proprietary-generate-article/index.ts` — replaced the hardcoded `"Where this commonly goes wrong"` H2 (previously injected on every healthcare-clinical / service article) with `generateFailureModeHeading(topic, articleTitle, model)`. New helper asks the model for a 4–10-word on-topic pitfall heading, strips quotes/markdown/trailing punctuation, validates length, and falls back to `Where <topic> commonly goes wrong` if the model returns garbage or errors. Section position, kind, and body-generation logic are unchanged.
+
+**Why:** User reported the identical heading appeared on every article. Make it dynamic and relevant to the topic per their request.
+
+**What may break:** Adds one extra small AI call (~60 tokens, sys+user prompt) per generation when `includeFailureMode` is true. Section count and downstream `pickUnit` / word-budget math are unaffected (heading text is the only thing that changes). Fallback preserves prior behaviour shape on failure.
+
+**Files:** `supabase/functions/proprietary-generate-article/index.ts`.
+
+**Verify:** `deno check` passes. Generate two articles on different topics with Proprietary Mode + healthcare-clinical business type; confirm the failure-mode H2 differs between them and reads naturally.
+
+---
+
 ## 2026-05-29 - proprietary articles: References block escaped-HTML regression fix (BUILD-2026-05-29-J)
+
 
 **What:** `supabase/functions/proprietary-generate-article/index.ts` — added `!/^</.test(trimmed)` guard to the punctuation-completion pass in `sanitiseGeneratedMarkdown` (L509–525). Previously, raw HTML lines emitted by `renderReferencesList` (e.g. `<li style="…line-height: 1.6;…">Title</li>`) were sliced at the last `.` in the line, which happened to sit inside `1.6` — truncating the line to `<li style="…line-height: 1.` and destroying the closing tags. The downstream markdown renderer then escaped the broken fragment and rendered it as visible source text under the `## References` heading (see attached screenshot).
 
