@@ -1617,6 +1617,26 @@ const Index = () => {
       if (useProprietaryMode) {
         // Demo path: shortest end-to-end proprietary pipeline.
         // No mapping screen — server auto-picks brain units by token overlap.
+
+        // Merge uploaded context files with an optional pasted transcript.
+        // The transcript is wrapped with a `[TRANSCRIPT: <title>]` header token
+        // so the backend treats it as a primary non-commodity source and the
+        // citation engine renders it cleanly in the ## References block.
+        const trimmedTranscript = transcriptText.trim();
+        const proprietaryContextFiles: { name: string; content: string }[] = [
+          ...contextFiles,
+        ];
+        if (trimmedTranscript) {
+          const safeTitle = (transcriptTitle.trim() || "Pasted Transcript")
+            .replace(/[\r\n]+/g, " ")
+            .slice(0, 200);
+          const headerToken = `[TRANSCRIPT: ${safeTitle}]`;
+          proprietaryContextFiles.push({
+            name: headerToken,
+            content: `${headerToken}\n\n${trimmedTranscript}`,
+          });
+        }
+
         const { data, error } = await supabase.functions.invoke(
           "proprietary-generate-article",
           {
@@ -1627,6 +1647,7 @@ const Index = () => {
               // Defaults are sensible; the full UI for these comes in Stage 3+.
               businessType: "healthcare-clinical",
               publicationDestination: "both",
+              contextFiles: proprietaryContextFiles.length > 0 ? proprietaryContextFiles : undefined,
             },
           },
         );
