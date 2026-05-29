@@ -481,6 +481,19 @@ em dashes, en dashes, or horizontal rules.`;
     // Rules 9–16 — AI extraction rules, every body section, every business type.
     ruleBlocks.push(AI_EXTRACTION_RULES);
     applied.push(9, 10, 11, 12, 13, 14, 15, 16);
+
+    // Atomic structure (standalone answer + exactly 3 bullets) and inline
+    // source link — baked into generation so post-hoc guards rarely need to
+    // fire.
+    ruleBlocks.push(ATOMIC_BODY_STRUCTURE_RULE);
+    applied.push(18);
+    const allowed = (input.allowedSourceUrls || []).filter((s) => s && s.url && /^https?:\/\//i.test(s.url));
+    if (allowed.length > 0) {
+      ruleBlocks.push(INLINE_SOURCE_LINK_RULE_WITH_URLS(allowed.slice(0, 8)));
+    } else {
+      ruleBlocks.push(INLINE_SOURCE_LINK_RULE_NO_URLS);
+    }
+    applied.push(19);
   } else {
     ruleBlocks.push(FRAMING_LITE_RULES);
     ruleBlocks.push(KEYWORD_NATURAL_LANGUAGE_RULE);
