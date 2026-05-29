@@ -724,6 +724,22 @@ const Index = () => {
     return saved ? JSON.parse(saved) : [];
   });
   const [isUploadingFile, setIsUploadingFile] = useState(false);
+  // Raw transcript paste (Podcast / YouTube). Stored locally; folded into
+  // contextFiles only at submit time with a `[TRANSCRIPT: …]` header token so
+  // the backend cleanReferenceTitle/citation engine can recognise it as a
+  // first-class primary source alongside uploaded .docx/.pdf research files.
+  const [transcriptTitle, setTranscriptTitle] = useState<string>(() => {
+    return localStorage.getItem("seo-generator-transcriptTitle") || "";
+  });
+  const [transcriptText, setTranscriptText] = useState<string>(() => {
+    return localStorage.getItem("seo-generator-transcriptText") || "";
+  });
+  useEffect(() => {
+    localStorage.setItem("seo-generator-transcriptTitle", transcriptTitle);
+  }, [transcriptTitle]);
+  useEffect(() => {
+    localStorage.setItem("seo-generator-transcriptText", transcriptText);
+  }, [transcriptText]);
   const [keywords, setKeywords] = useState<string[]>(() => {
     const saved = localStorage.getItem("seo-generator-keywords");
     const parsed: string[] = saved ? JSON.parse(saved) : [];
