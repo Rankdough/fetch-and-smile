@@ -482,6 +482,25 @@ function sanitiseGeneratedMarkdown(markdown: string, articleTitle: string): stri
   return result.replace(/\n{3,}/g, "\n\n").trim();
 }
 
+function stripExpertInputPlaceholders(markdown: string): { out: string; removed: number } {
+  let removed = 0;
+  const out = markdown
+    .split("\n")
+    .map((line) => {
+      if (!/\[NEEDS EXPERT INPUT/i.test(line)) return line;
+      const cleaned = line.replace(/[^.!?\n]*\[NEEDS EXPERT INPUT[^\]]*\][^.!?\n]*[.!?]?/gi, () => {
+        removed += 1;
+        return "";
+      }).replace(/\s{2,}/g, " ").trim();
+      return /^[-*+]\s*$/.test(cleaned) ? "" : cleaned;
+    })
+    .filter((line) => line.trim() !== "")
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+  return { out, removed };
+}
+
 function buildFallbackBullets(_heading: string, _body: string): string[] {
   return [];
 }
@@ -562,8 +581,6 @@ function fallbackTopicTable(topic: string, sectionHeading?: string): string {
 | End total | Arrow values in the same end are added before the next end starts | Mixing scores between ends or sets |
 | Tie-break detail | Closest-to-centre arrows can decide tied results | Recording only totals and losing the arrow-by-arrow detail |`;
   }
-  // Universal fallback: topic-aware comparison so every article meets the
-  // table quota even when no section-specific regex matched.
   if (/implant|dentist|dental/.test(t)) {
     return `| Setting | Training Duration | Annual Implant Volume | Success Rate with Strict Criteria | Best For |
 | --- | --- | --- | --- | --- |
@@ -571,12 +588,7 @@ function fallbackTopicTable(topic: string, sectionHeading?: string): string {
 | Board-Certified Specialist (Periodontist or Oral Surgeon) | Three or more years of accredited residency after dental school | Consistently high through residency and ongoing practice | Higher in published series, particularly for complex cases | Complex anatomy, bone grafting, full-arch and compromised sites |
 | Academic or Hospital Setting | Faculty-level training with a supervised teaching caseload | High and protocol-driven through institutional volume | Highest reported in long-term published studies | Medically complex patients and reconstructive cases |`;
   }
-  const focus = deriveSectionPhrase(sectionHeading || topic).replace(/\|/g, "").trim() || topicNoun(topic).toLowerCase();
-  return `| Decision factor | What to check for ${focus} | Why it matters |
-| --- | --- | --- |
-| Evidence | Look for the specific rule, source, or example behind the claim | Prevents a broad answer being treated as proof |
-| Fit | Check whether the advice applies to this exact situation | Prevents a correct general point being used in the wrong case |
-| Failure point | Identify what would make the recommendation break down | Shows the limit of the advice before acting on it |`;
+  return "";
 }
 
 function tableSignature(tableMarkdown: string): string {
