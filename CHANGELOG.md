@@ -1272,3 +1272,10 @@
 - Why: Function was hitting the 150s edge idle timeout, producing a blank screen for the user.
 - Files: supabase/functions/insert-internal-links/index.ts
 - Verified broken: None (graceful fallback preserves prior content). To verify: trigger internal-link insertion on a long article; confirm no 504 and either links inserted or original content returned with `note`.
+
+## 2026-05-29 BUILD-U — Replace CLINICAL_SYSTEM_PROMPT_HEALTHCARE with Non-Commodity Core directive
+- What: Overwrote system prompt (lines 168-206) in `supabase/functions/proprietary-generate-article/index.ts` with the user-supplied directive enforcing RULE 5/9/10, Failure Mode Mandate, and Workspace Data Firewall.
+- Why: Previous prompt allowed commodity hedging and cross-vertical pollution.
+- Files: supabase/functions/proprietary-generate-article/index.ts, CHANGELOG.md
+- Verify: deno check passes.
+- What may break: Downstream prompt assemblers append `atomicBlock` + `noFillerBlock` + `sourceBlock` — still concatenate cleanly (string template unchanged in shape).
