@@ -1061,6 +1061,15 @@ function scoreTextForTopic(text: string, topic: string, sectionHeading = ""): nu
   return tokens.reduce((sum, token) => sum + (haystack.includes(token) ? 1 : 0), 0);
 }
 
+function hasStrongTopicAnchor(text: string, topic: string): boolean {
+  const anchors = [...tokenize(topic)]
+    .filter((t) => t.length >= 6)
+    .filter((t) => !/^(because|should|could|would|people|reason|causes?|choosing|choose|belly)$/.test(t));
+  if (anchors.length === 0) return true;
+  const haystack = text.toLowerCase();
+  return anchors.some((token) => haystack.includes(token));
+}
+
 async function retrieveContextDocumentSnippets(
   // deno-lint-ignore no-explicit-any
   supabase: any,
@@ -1077,7 +1086,7 @@ async function retrieveContextDocumentSnippets(
   }
   return ((data || []) as ContextDocumentRow[])
     .map((doc) => ({ doc, score: scoreTextForTopic(`${doc.file_name}\n${doc.content || ""}`, topic, sectionHeading) }))
-    .filter((row) => row.score > 0)
+    .filter((row) => row.score >= 2 && hasStrongTopicAnchor(`${row.doc.file_name}\n${row.doc.content || ""}`, topic))
     .sort((a, b) => b.score - a.score)
     .slice(0, 2)
     .map(({ doc }) => ({
