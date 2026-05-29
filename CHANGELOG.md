@@ -1,3 +1,19 @@
+## 2026-05-29 - Remove bracketed numeric citation markers from article body (BUILD-2026-05-29-U)
+
+**What:**
+- `supabase/functions/proprietary-generate-article/index.ts`: replaced the narrow citation-marker scrubber with one shared body-only guard that removes `[1]`, `[3, 4]`, `[7-10]`, `[7 and 10]`, and equivalent numeric-only citation clusters before `## References`. The same guard now runs on uploaded context content before model injection, after article stitching, and after final internal-link formatting so markers cannot reappear at the response boundary.
+- `src/pages/Index.tsx`: extended the existing `cleanContent` cache/display normaliser to remove the same numeric-only body markers from stale localStorage articles while preserving the `## References` section untouched.
+
+**Why:** The preview still showed bracketed footnote markers such as `[7]`, `[3, 4]`, `[1]`, and `[7 and 10]` in body prose. The previous backend regex did not cover word-joined citation clusters like `[7 and 10]`, and it ran before later formatting paths could return content to the browser.
+
+**Verified broken:** Nothing verified broken. Checked: pending final validation in this turn.
+
+**Files:** `supabase/functions/proprietary-generate-article/index.ts`, `src/pages/Index.tsx`, `CHANGELOG.md`.
+
+**Verify:** Generate or reload a proprietary dental article containing footnote-style source markers. Body prose must contain zero numeric-only bracket citations, while footer `## References` links must remain intact.
+
+---
+
 ## 2026-05-29 - Remove gluten/bloating fallback bullets that polluted every domain (BUILD-2026-05-29-T)
 
 **What:**
