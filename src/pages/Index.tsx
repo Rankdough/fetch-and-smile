@@ -2614,7 +2614,11 @@ const Index = () => {
             setActiveTool("generator");
             pendingApplyFormatRef.current = true;
           }}
-        />
+                     />
+                     
+                     {/* Non-Commodity Compliance Guard */}
+                     <NonCommodityComplianceChecker content={generatedContent} />
+                     
       ) : (
       <>
       {/* Action Toolbar */}
