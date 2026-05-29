@@ -5,10 +5,16 @@ import { Check, X, Gauge, Loader2, Wand2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 
+interface ContextFile {
+  name: string;
+  content: string;
+}
+
 interface ContentUsefulnessCheckerProps {
   content: string;
   onContentUpdate?: (newContent: string) => void;
   useFirstPerson?: boolean;
+  contextFiles?: ContextFile[];
 }
 
 interface RuleResult {
@@ -79,6 +85,44 @@ function evaluate(content: string): RuleResult[] {
   const methodology = /\b(methodology|how\s+(?:we|this\s+(?:guide|article))\s+(?:was\s+)?(?:compiled|researched|built)|auditing\s+primary\s+source|primary[- ]source\s+(?:records?|review)|sources?\s+reviewed|criteria\s+applied)\b/i;
   const r5Pass = methodology.test(plain);
 
+  // Rule 6: Source citations + References section.
+  // (a) Final ## References section with ≥3 markdown/HTML links.
+  // (b) Every top-level H2 body section (excluding structural/utility sections) contains ≥1 link.
+  const SKIP_H2 = /^\s*(tl;?dr|quick tips|in this article|how to choose|frequently asked questions|faq|final thoughts|references|sources?|methodology)\s*$/i;
+  const refSectionMatch = text.match(/(^|\n)#{1,3}\s*(references|sources)\b[\s\S]*$/i);
+  const refSection = refSectionMatch ? refSectionMatch[0] : "";
+  const refLinks =
+    (refSection.match(/\[[^\]]+\]\((https?:[^)\s]+)\)/g) || []).length +
+    (refSection.match(/<a\s+[^>]*href=["']https?:[^"']+["']/gi) || []).length;
+  const refsOk = !!refSection && refLinks >= 3;
+
+  const h2Blocks: { heading: string; body: string }[] = [];
+  const h2Re = /(^|\n)##\s+([^\n]+)\n([\s\S]*?)(?=\n##\s+|$)/g;
+  let m: RegExpExecArray | null;
+  while ((m = h2Re.exec(text)) !== null) {
+    h2Blocks.push({ heading: m[2].trim(), body: m[3] || "" });
+  }
+  const bodyH2 = h2Blocks.filter(b => !SKIP_H2.test(b.heading));
+  const sectionsWithoutLink = bodyH2.filter(
+    b =>
+      !/\[[^\]]+\]\(https?:[^)\s]+\)/.test(b.body) &&
+      !/<a\s+[^>]*href=["']https?:[^"']+["']/i.test(b.body),
+  );
+  const inlineOk = bodyH2.length === 0 || sectionsWithoutLink.length === 0;
+
+  const r6Pass = refsOk && inlineOk;
+  const r6Detail = r6Pass
+    ? `${refLinks} refs · ${bodyH2.length}/${bodyH2.length} sections cited`
+    : `${refSection ? `${refLinks}/3 refs` : "no References section"}${
+        sectionsWithoutLink.length
+          ? ` · ${sectionsWithoutLink.length} section(s) missing citation: ${sectionsWithoutLink
+              .slice(0, 2)
+              .map(s => `"${s.heading.slice(0, 30)}"`)
+              .join(", ")}`
+          : ""
+      }`;
+
+
   return [
     {
       id: 1,
@@ -125,6 +169,15 @@ function evaluate(content: string): RuleResult[] {
       fixInstruction:
         "Add a short, explicit methodology disclosure (2-4 sentences) describing the real-world research friction undertaken to compile the data — e.g. primary-source records audited, clinical studies reviewed, criteria applied, evaluation process used. Place it near the top after the TL;DR or near the bottom before References. Use the heading 'Methodology'. Preserve all other content. Return the full article.",
     },
+    {
+      id: 6,
+      title: "Source Citations & References",
+      description: "References section (≥3 links) + a citation in every H2 section",
+      pass: r6Pass,
+      detail: r6Detail,
+      fixInstruction:
+        "Ensure the article cites real sources. Requirements: (a) Every top-level H2 body section (excluding TL;DR, Quick Tips, In This Article, How to Choose, FAQ, Final Thoughts, References) must end with at least one inline citation as a markdown link [Source name](https://…) drawn from the context sources provided. (b) The article must end with a '## References' section containing a bulleted list of at least 3 distinct markdown links to sources. Reuse links already present in the article first, then draw any missing ones from the context source URLs provided below. Do not invent URLs. Do not delete or reword existing facts, headings, tables, lists, images, or CTAs — only append citations and the References section. Return the full article.",
+    },
   ];
 }
 
@@ -132,12 +185,22 @@ export function ContentUsefulnessChecker({
   content,
   onContentUpdate,
   useFirstPerson = false,
+  contextFiles = [],
 }: ContentUsefulnessCheckerProps) {
   const results = useMemo(() => evaluate(content || ""), [content]);
   const passed = results.filter(r => r.pass).length;
   const failing = results.filter(r => !r.pass);
   const [fixingId, setFixingId] = useState<number | null>(null);
   const [fixingAll, setFixingAll] = useState(false);
+
+  const contextSourceUrls = useMemo(() => {
+    const urls = new Set<string>();
+    for (const f of contextFiles) {
+      const matches = (f.content || "").match(/https?:\/\/[^\s)<>"']+/g) || [];
+      for (const u of matches) urls.add(u.replace(/[.,;:!?)]+$/, ""));
+    }
+    return Array.from(urls).slice(0, 30);
+  }, [contextFiles]);
 
   const runFix = async (rules: RuleResult[], label: string) => {
     if (!onContentUpdate) {
@@ -148,7 +211,14 @@ export function ContentUsefulnessChecker({
       toast({ title: "No content", description: "Generate an article first.", variant: "destructive" });
       return;
     }
-    const instruction = `Apply the following Usefulness & Value-Gain fixes to the article. Do not rewrite anything that already passes. Preserve markdown structure, headings, tables, lists, links, images, and CTA blocks unless a rule explicitly requires changing them.\n\n${rules.map(r => `• Rule ${r.id} — ${r.title}: ${r.fixInstruction}`).join("\n\n")}`;
+    const needsSources = rules.some(r => r.id === 6);
+    const sourceBlock =
+      needsSources && contextSourceUrls.length > 0
+        ? `\n\nCONTEXT SOURCE URLS (use these as citation links — do not invent URLs):\n${contextSourceUrls.map(u => `- ${u}`).join("\n")}`
+        : needsSources
+          ? `\n\nNOTE: No context source URLs were provided. Only reuse URLs already present in the article; do not invent new ones.`
+          : "";
+    const instruction = `Apply the following Usefulness & Value-Gain fixes to the article. Do not rewrite anything that already passes. Preserve markdown structure, headings, tables, lists, links, images, and CTA blocks unless a rule explicitly requires changing them.\n\n${rules.map(r => `• Rule ${r.id} — ${r.title}: ${r.fixInstruction}`).join("\n\n")}${sourceBlock}`;
     try {
       const { data, error } = await supabase.functions.invoke("voice-edit-content", {
         body: { content, instruction, useFirstPerson },

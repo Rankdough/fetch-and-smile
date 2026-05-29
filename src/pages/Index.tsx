@@ -6025,6 +6025,7 @@ CRITICAL EXPANSION RULES:
                       content={generatedContent}
                       onContentUpdate={setGeneratedContent}
                       useFirstPerson={useFirstPerson}
+                      contextFiles={contextFiles}
                     />
                     
 
