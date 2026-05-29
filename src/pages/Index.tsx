@@ -2615,9 +2615,7 @@ const Index = () => {
             pendingApplyFormatRef.current = true;
           }}
                      />
-                     
-                     {/* Non-Commodity Compliance Guard */}
-                     <NonCommodityComplianceChecker content={generatedContent} />
+
                      
       ) : (
       <>
