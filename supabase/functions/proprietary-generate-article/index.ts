@@ -969,6 +969,25 @@ function collectBrainUrls(units: BrainUnit[]): BrainUrl[] {
   return out;
 }
 
+function collectChunkUrls(chunks: RetrievedChunk[]): BrainUrl[] {
+  const out: BrainUrl[] = [];
+  const seen = new Set<string>();
+  const re = /https?:\/\/[^\s)<>"'\]]+/g;
+  for (const c of chunks) {
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(c.content || "")) !== null) {
+      const url = m[0].replace(/[)\]\.,;]+$/, "");
+      if (seen.has(url)) continue;
+      try {
+        const host = new URL(url).hostname.replace(/^www\./, "");
+        seen.add(url);
+        out.push({ url, title: host });
+      } catch { /* skip */ }
+    }
+  }
+  return out;
+}
+
 async function collectSourceReferences(
   // deno-lint-ignore no-explicit-any
   supabase: any,
@@ -1022,31 +1041,23 @@ function attachInlineCitations(markdown: string, urls: BrainUrl[]): { out: strin
   const lines = markdown.split("\n");
   let urlIdx = 0;
   let attached = 0;
-  const fixed: string[] = [];
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    fixed.push(line);
     const m = line.match(/^##\s+(.+?)\s*$/);
     if (!m) continue;
     if (STRUCT_SKIP_RE.test(m[1])) continue;
-    // Find end of this section
     let endIdx = lines.length;
     for (let j = i + 1; j < lines.length; j++) {
       if (/^##\s+/.test(lines[j])) { endIdx = j; break; }
     }
     const sectionBody = lines.slice(i + 1, endIdx).join("\n");
     if (/\]\(https?:\/\//.test(sectionBody)) continue; // already cited
-    if (urlIdx >= urls.length) continue;
-    const u = urls[urlIdx++];
-    // Append a citation footnote line right before next H2 (we'll do it on
-    // the matching end position via splice on the output array later — simpler:
-    // we record an inline edit). Insert a citation paragraph immediately after
-    // the heading's first paragraph break by mutating the source lines.
-    // Find the end of the first paragraph after heading
+    // Cycle through URLs so every body section gets at least one citation,
+    // even when fewer URLs than sections are available.
+    const u = urls[urlIdx % urls.length];
+    urlIdx++;
     let pEnd = i + 1;
     while (pEnd < endIdx && lines[pEnd].trim() !== "") pEnd++;
-    // We're rebuilding fixed[] as we go; instead splice into lines and let
-    // subsequent iterations see the change.
     const citationLine = `\nSource: [${u.title}](${u.url})`;
     lines.splice(pEnd, 0, citationLine);
     attached++;
@@ -1081,8 +1092,18 @@ async function runSection(input: {
   model: string;
   sectionBudgetWords: number;
   retrievedChunks?: RetrievedChunk[];
+  allowedSourceUrls?: Array<{ url: string; title: string }>;
 }) {
-  const assembled = assembleSectionPrompt(input);
+  const assembled = assembleSectionPrompt({
+    businessType: input.businessType,
+    mappedUnit: input.mappedUnit,
+    audienceSentence: input.audienceSentence,
+    publicationDestination: input.publicationDestination,
+    section: input.section,
+    surroundingContext: input.surroundingContext,
+    articleTitle: input.articleTitle,
+    allowedSourceUrls: input.allowedSourceUrls,
+  });
   const isBody = input.section.type === "body";
   // Scale token budget with the word budget so the model writes to the right length.
   // Floor at 600 (enough for a concise 90-word section), ceiling at 2400.
@@ -1091,7 +1112,15 @@ async function runSection(input: {
     : input.section.kind === "tldr" ? 200 : 900;
   let content: string;
   if (isBody && input.businessType === "healthcare-clinical") {
-    content = (await callClinicalWriter(CLINICAL_SYSTEM_PROMPT_HEALTHCARE, buildClinicalUserMessage({
+    // Clinical writer uses its own prompt; append the same atomic-structure +
+    // inline-source-link contract so healthcare articles match parity.
+    const allowed = (input.allowedSourceUrls || []).filter((s) => s && s.url && /^https?:\/\//i.test(s.url)).slice(0, 8);
+    const sourceBlock = allowed.length > 0
+      ? `\n\nINLINE SOURCE LINK (mandatory): Include exactly ONE inline markdown link "[anchor text](URL)" in this section, choosing the most relevant URL from the list below. Anchor must be a natural noun phrase from your prose. Never invent URLs.\nALLOWED SOURCES:\n${allowed.map((s, i) => `${i + 1}. ${s.title} — ${s.url}`).join("\n")}`
+      : `\n\nINLINE SOURCE LINK: No allow-listed URLs are available; do not insert inline links — the system will list context documents in the References section.`;
+    const atomicBlock = `\n\nATOMIC SECTION STRUCTURE (mandatory): Write exactly one standalone answer paragraph (1-3 sentences) that fully answers the heading, then a blank line, then exactly 3 markdown bullets ("- "), each one concrete and ≤22 words. Nothing else.`;
+    const clinicalSystem = CLINICAL_SYSTEM_PROMPT_HEALTHCARE + atomicBlock + sourceBlock;
+    content = (await callClinicalWriter(clinicalSystem, buildClinicalUserMessage({
       mappedUnit: input.mappedUnit,
       audienceSentence: input.audienceSentence,
       publicationDestination: input.publicationDestination,
@@ -1132,7 +1161,7 @@ async function runSection(input: {
 
 /* ── handler ──────────────────────────────────────────────────────────── */
 
-const BUILD_MARKER = "BUILD-2026-05-29-D proprietary-generate-article scoped-context-source-references";
+const BUILD_MARKER = "BUILD-2026-05-29-E proprietary-generate-article atomic-structure-and-inline-source-link-at-generation";
 Deno.serve(async (req) => {
   console.log(BUILD_MARKER);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -1296,6 +1325,27 @@ Deno.serve(async (req) => {
         allRetrievedChunks.push(...retrievedChunks);
       }
 
+      // Build the allow-listed source URL pool for THIS section: brain-unit
+      // URLs (from mapped unit + globally available), retrieved-chunk URLs,
+      // then topic-trusted fallbacks. Always passed to the writer so the
+      // citation is generated inline, not bolted on after.
+      let allowedSourceUrls: BrainUrl[] = [];
+      if (section.type === "body") {
+        const unitUrls = collectBrainUrls(mappedUnit ? [mappedUnit as BrainUnit] : []);
+        const chunkUrls = collectChunkUrls(retrievedChunks);
+        const globalUnitUrls = collectBrainUrls(units);
+        const fallback = trustedFallbackSources(body.topic);
+        const seen = new Set<string>();
+        for (const list of [unitUrls, chunkUrls, globalUnitUrls, fallback]) {
+          for (const u of list) {
+            if (seen.has(u.url)) continue;
+            seen.add(u.url);
+            allowedSourceUrls.push(u);
+          }
+        }
+        allowedSourceUrls = allowedSourceUrls.slice(0, 8);
+      }
+
       const result = await runSection({
         businessType,
         mappedUnit,
@@ -1307,6 +1357,7 @@ Deno.serve(async (req) => {
         model,
         sectionBudgetWords,
         retrievedChunks,
+        allowedSourceUrls,
       });
 
       const sectionPlaceholderGuard = stripExpertInputPlaceholders(result.content);

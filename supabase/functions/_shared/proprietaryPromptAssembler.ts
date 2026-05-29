@@ -46,6 +46,11 @@ export interface SectionSpec {
   type: "body" | "framing";
 }
 
+export interface AllowedSourceUrl {
+  url: string;
+  title: string;
+}
+
 export interface AssemblerInput {
   businessType: BusinessType;
   mappedUnit: MappedUnit | null;
@@ -56,6 +61,8 @@ export interface AssemblerInput {
   surroundingContext?: Array<{ heading: string; content: string }>;
   /** Article-wide topic / title, for grounding. */
   articleTitle: string;
+  /** Allow-listed external URLs the model may cite inline in this body section. */
+  allowedSourceUrls?: AllowedSourceUrl[];
 }
 
 export interface AssembledPrompt {
@@ -288,6 +295,42 @@ No prose paragraph may exceed 3 sentences. If a point requires more than
 immediately below the paragraph. Never write more than 3 consecutive
 sentences in a single paragraph block in any section.`.trim();
 
+const ATOMIC_BODY_STRUCTURE_RULE = `
+ATOMIC SECTION STRUCTURE (mandatory for every body section):
+Write this section in this exact order, with nothing else inserted:
+  1. ONE standalone answer paragraph (1-3 sentences, max 3) that fully answers
+     the section heading on its own. It must read as a complete answer if
+     extracted in isolation by an AI assistant.
+  2. A blank line.
+  3. EXACTLY 3 markdown bullets ("- " prefix), each one a single concrete,
+     specific, actionable point that supports or expands the answer. Each
+     bullet is 1 sentence, max 22 words. No sub-bullets. No nested lists. No
+     fewer than 3, no more than 3.
+Do NOT add a sub-heading inside the section. Do NOT add a second paragraph
+after the bullets. Do NOT use phrases like "as mentioned above", "as we saw
+earlier", "continuing from earlier", "in the previous section", or any
+reference to other sections — every section stands alone.`.trim();
+
+const INLINE_SOURCE_LINK_RULE_WITH_URLS = (allowed: AllowedSourceUrl[]) => `
+INLINE SOURCE LINK (mandatory for this body section):
+Include EXACTLY ONE inline markdown link in this section, formatted as
+"[anchor text](URL)", with the URL chosen from the ALLOWED SOURCES list
+below. Pick the single URL most relevant to this section's heading. The
+anchor text must be a natural noun phrase from your prose (3-7 words) — not
+the bare URL, not "click here", not "source", not the publication name on
+its own. Place the link inside the standalone answer paragraph OR inside one
+of the three bullets, wherever it reads most naturally. Do NOT invent URLs.
+Do NOT use any URL not on this list. Do NOT add more than one link.
+
+ALLOWED SOURCES (pick exactly one URL):
+${allowed.map((s, i) => `${i + 1}. ${s.title} — ${s.url}`).join("\n")}`.trim();
+
+const INLINE_SOURCE_LINK_RULE_NO_URLS = `
+INLINE SOURCE LINK (context-only mode):
+No allow-listed external URLs are available for this article. Do NOT invent
+URLs and do NOT insert inline markdown links. The system will list the
+underlying context documents in a final References section automatically.`.trim();
+
 const FRAMING_LITE_RULES = `
 FRAMING SECTION RULES:
 - Lead with a direct sentence, no filler openers (Rule 2).
@@ -438,6 +481,19 @@ em dashes, en dashes, or horizontal rules.`;
     // Rules 9–16 — AI extraction rules, every body section, every business type.
     ruleBlocks.push(AI_EXTRACTION_RULES);
     applied.push(9, 10, 11, 12, 13, 14, 15, 16);
+
+    // Atomic structure (standalone answer + exactly 3 bullets) and inline
+    // source link — baked into generation so post-hoc guards rarely need to
+    // fire.
+    ruleBlocks.push(ATOMIC_BODY_STRUCTURE_RULE);
+    applied.push(18);
+    const allowed = (input.allowedSourceUrls || []).filter((s) => s && s.url && /^https?:\/\//i.test(s.url));
+    if (allowed.length > 0) {
+      ruleBlocks.push(INLINE_SOURCE_LINK_RULE_WITH_URLS(allowed.slice(0, 8)));
+    } else {
+      ruleBlocks.push(INLINE_SOURCE_LINK_RULE_NO_URLS);
+    }
+    applied.push(19);
   } else {
     ruleBlocks.push(FRAMING_LITE_RULES);
     ruleBlocks.push(KEYWORD_NATURAL_LANGUAGE_RULE);
