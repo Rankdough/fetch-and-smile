@@ -482,6 +482,26 @@ function sanitiseGeneratedMarkdown(markdown: string, articleTitle: string): stri
   return result.replace(/\n{3,}/g, "\n\n").trim();
 }
 
+function stripExpertInputPlaceholders(markdown: string): { out: string; removed: number } {
+  let removed = 0;
+  const out = markdown
+    .split("\n")
+    .map((line) => {
+      if (!/\[NEEDS EXPERT INPUT/i.test(line)) return line;
+      removed += 1;
+      if (!/\]/.test(line)) return "";
+      const cleaned = line.replace(/[^.!?\n]*\[NEEDS EXPERT INPUT[^\]]*\][^.!?\n]*[.!?]?/gi, () => {
+        return "";
+      }).replace(/\s{2,}/g, " ").trim();
+      return /^[-*+]\s*$/.test(cleaned) ? "" : cleaned;
+    })
+    .filter((line) => line.trim() !== "")
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+  return { out, removed };
+}
+
 function buildFallbackBullets(_heading: string, _body: string): string[] {
   return [];
 }
@@ -562,8 +582,6 @@ function fallbackTopicTable(topic: string, sectionHeading?: string): string {
 | End total | Arrow values in the same end are added before the next end starts | Mixing scores between ends or sets |
 | Tie-break detail | Closest-to-centre arrows can decide tied results | Recording only totals and losing the arrow-by-arrow detail |`;
   }
-  // Universal fallback: topic-aware comparison so every article meets the
-  // table quota even when no section-specific regex matched.
   if (/implant|dentist|dental/.test(t)) {
     return `| Setting | Training Duration | Annual Implant Volume | Success Rate with Strict Criteria | Best For |
 | --- | --- | --- | --- | --- |
@@ -571,12 +589,7 @@ function fallbackTopicTable(topic: string, sectionHeading?: string): string {
 | Board-Certified Specialist (Periodontist or Oral Surgeon) | Three or more years of accredited residency after dental school | Consistently high through residency and ongoing practice | Higher in published series, particularly for complex cases | Complex anatomy, bone grafting, full-arch and compromised sites |
 | Academic or Hospital Setting | Faculty-level training with a supervised teaching caseload | High and protocol-driven through institutional volume | Highest reported in long-term published studies | Medically complex patients and reconstructive cases |`;
   }
-  const focus = deriveSectionPhrase(sectionHeading || topic).replace(/\|/g, "").trim() || topicNoun(topic).toLowerCase();
-  return `| Decision factor | What to check for ${focus} | Why it matters |
-| --- | --- | --- |
-| Evidence | Look for the specific rule, source, or example behind the claim | Prevents a broad answer being treated as proof |
-| Fit | Check whether the advice applies to this exact situation | Prevents a correct general point being used in the wrong case |
-| Failure point | Identify what would make the recommendation break down | Shows the limit of the advice before acting on it |`;
+  return "";
 }
 
 function tableSignature(tableMarkdown: string): string {
@@ -851,9 +864,11 @@ function ensureMinimumTables(markdown: string, topic: string, targetWords: numbe
 // so they never reach the rendered article. If a brand string is later added
 // to the request body, swap the empty replacement for that value.
 function stripBrandPlaceholders(markdown: string): string {
-  const PLACEHOLDER_INNER = "practice\\s*name|your\\s*practice|clinic\\s*name|business\\s*name|brand\\s*name|company\\s*name";
+  const PLACEHOLDER_INNER = "practice\\s*name|your\\s*practice|your\\s*business\\s*name|clinic\\s*name|business\\s*name|brand\\s*name|company\\s*name";
+  const placeholderSentenceRe = new RegExp(`[^.!?\\n]*\\[(?:${PLACEHOLDER_INNER})\\][^.!?\\n]*[.!?]?`, "gi");
+  let out = markdown.replace(placeholderSentenceRe, "");
   // Replace preposition + placeholder ("at [PRACTICE NAME]" → "at the practice")
-  let out = markdown.replace(
+  out = out.replace(
     new RegExp(`\\b(at|in|by|from|to|for|with|the|our|your|of)\\s+\\[(?:${PLACEHOLDER_INNER})\\]\\b['']?s?`, "gi"),
     (_, prep) => {
       const p = prep.toLowerCase();
@@ -1051,7 +1066,7 @@ async function runSection(input: {
 
 /* ── handler ──────────────────────────────────────────────────────────── */
 
-const BUILD_MARKER = "BUILD-2026-05-29-A proprietary-generate-article references-tables-rpc";
+const BUILD_MARKER = "BUILD-2026-05-29-B proprietary-generate-article placeholder-table-guard";
 Deno.serve(async (req) => {
   console.log(BUILD_MARKER);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -1224,7 +1239,11 @@ Deno.serve(async (req) => {
         retrievedChunks,
       });
 
-      surrounding.push({ heading: section.heading, content: result.content });
+      const sectionPlaceholderGuard = stripExpertInputPlaceholders(result.content);
+      const sectionContent = sectionPlaceholderGuard.out;
+      if (sectionPlaceholderGuard.removed > 0) console.warn(`PLACEHOLDER GUARD: removed ${sectionPlaceholderGuard.removed} expert-input placeholder sentence(s) from section "${section.heading}".`);
+
+      surrounding.push({ heading: section.heading, content: sectionContent });
       sectionsOut.push({
         id: section.id,
         heading: section.heading,
@@ -1232,7 +1251,7 @@ Deno.serve(async (req) => {
         type: section.type,
         mappedUnitId: mappedUnit?.id ?? null,
         mappedUnitType: mappedUnit?.unit_type ?? null,
-        content: result.content,
+        content: sectionContent,
         needsExpertInput: result.needsExpertInput,
         ruleFlags: result.ruleFlags,
         contradicted: result.contradicted,
@@ -1319,6 +1338,9 @@ Deno.serve(async (req) => {
     const refsEmitted = /^##\s+references/im.test(stitched);
     if (!refsEmitted) console.warn(`REFERENCES: no References section emitted — brain units contain no URLs.`);
     stitched = stripBrandPlaceholders(stitched);
+    const expertPlaceholders = stripExpertInputPlaceholders(stitched);
+    stitched = expertPlaceholders.out;
+    if (expertPlaceholders.removed > 0) console.warn(`PLACEHOLDER GUARD: removed ${expertPlaceholders.removed} expert-input placeholder sentence(s).`);
     let content = sanitiseGeneratedMarkdown(stitched, articleTitle);
     const internalLinkResult = await insertInternalLinksIntoArticle(content, body.internalLinks, body.topic);
     content = internalLinkResult.content;

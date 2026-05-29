@@ -1,3 +1,21 @@
+## 2026-05-29 - proprietary article guard: remove expert placeholders and stop generic universal tables
+
+**What:**
+- `supabase/functions/proprietary-generate-article/index.ts`: added `stripExpertInputPlaceholders`, a deterministic guard that removes any line or sentence containing `[NEEDS EXPERT INPUT...]` from both returned article content and per-section telemetry, including malformed unclosed placeholders.
+- `supabase/functions/proprietary-generate-article/index.ts`: removed the universal generic fallback table. Tables are now only inserted by the deterministic fallback when there is a recognised topic-specific table, currently dental implant, underbite/aligner, or archery scoring. Otherwise, no fallback table is forced.
+- `supabase/functions/proprietary-generate-article/index.ts`: strengthened `stripBrandPlaceholders` so bracketed brand placeholders, including `[Your Business Name]`, remove the whole sentence rather than leaking into final thoughts.
+- `supabase/functions/proprietary-generate-article/index.ts`: updated the build marker for deployment verification.
+
+**Why:** The previous smoke test verified one broken output: an archery article contained `[NEEDS EXPERT INPUT]`. The generic fallback table also risked creating technically present but weak tables for topics without a recognised comparison structure. A missing fallback table is safer than a generic table that is not naturally meaningful to the topic.
+
+**Files:**
+- supabase/functions/proprietary-generate-article/index.ts
+- CHANGELOG.md
+
+**Verified broken:** Pending final smoke test after edge-function deployment. Previous verified breakage was one `[NEEDS EXPERT INPUT]` placeholder in the smoke-generated archery article and the raw section telemetry, one malformed unclosed `[NEEDS EXPERT INPUT...]` line that polluted the References block, plus one `[Your Business Name]` placeholder in final thoughts.
+
+---
+
 ## 2026-05-29 - proprietary articles: restore context retrieval, archery references, and non-generic fallback tables
 
 **What:**
