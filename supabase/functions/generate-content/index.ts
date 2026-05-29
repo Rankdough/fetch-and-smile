@@ -20,6 +20,67 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+const MAX_PARAGRAPH_WORDS = 55;
+const MAX_PARAGRAPH_SENTENCES = 3;
+
+function splitSentences(text: string): string[] {
+  return text.match(/[^.!?]+[.!?]+(?:["')\]]+)?|[^.!?]+$/g)?.map((s) => s.trim()).filter(Boolean) || [];
+}
+
+function splitLongSentence(sentence: string): string[] {
+  const words = sentence.split(/\s+/).filter(Boolean);
+  if (words.length <= MAX_PARAGRAPH_WORDS) return [sentence];
+  const chunks: string[] = [];
+  for (let i = 0; i < words.length; i += MAX_PARAGRAPH_WORDS) {
+    chunks.push(words.slice(i, i + MAX_PARAGRAPH_WORDS).join(" "));
+  }
+  return chunks;
+}
+
+function shouldSkipParagraphBlock(block: string): boolean {
+  const trimmed = block.trim();
+  if (!trimmed) return true;
+  if (trimmed.includes("```")) return true;
+  const lines = trimmed.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  if (lines.some((line) => /^#{1,6}\s+/.test(line))) return true;
+  if (lines.some((line) => /^[-*+]\s+/.test(line) || /^\d+\.\s+/.test(line))) return true;
+  if (lines.some((line) => /^>\s*/.test(line) || /^\|/.test(line))) return true;
+  if (/<\/?(?:table|thead|tbody|tr|td|th|ul|ol|li|pre|code|figure|aside|nav|script|style)\b/i.test(trimmed)) return true;
+  return false;
+}
+
+function splitDenseParagraph(block: string): string {
+  if (shouldSkipParagraphBlock(block)) return block;
+  const paragraph = block.replace(/\s+/g, " ").trim();
+  const sentences = splitSentences(paragraph).flatMap(splitLongSentence);
+  if (countWords(paragraph) <= MAX_PARAGRAPH_WORDS && sentences.length <= MAX_PARAGRAPH_SENTENCES) return paragraph;
+
+  const chunks: string[] = [];
+  let current: string[] = [];
+  let currentWords = 0;
+  for (const sentence of sentences) {
+    const words = countWords(sentence);
+    if (current.length > 0 && (currentWords + words > MAX_PARAGRAPH_WORDS || current.length >= MAX_PARAGRAPH_SENTENCES)) {
+      chunks.push(current.join(" "));
+      current = [];
+      currentWords = 0;
+    }
+    current.push(sentence);
+    currentWords += words;
+  }
+  if (current.length > 0) chunks.push(current.join(" "));
+  return chunks.join("\n\n");
+}
+
+function enforceParagraphDensity(markdown: string): string {
+  return markdown
+    .split(/\n{2,}/)
+    .map(splitDenseParagraph)
+    .join("\n\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 const BUILD_MARKER = "BUILD-2026-05-27-C generate-content";
 serve(async (req) => {
   console.log(BUILD_MARKER);
