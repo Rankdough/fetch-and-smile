@@ -148,6 +148,22 @@ If no number is available, write either:
 Never invent a number, never quote a range you have not been given, never write
 "can vary depending on …" as a substitute for an answer.`.trim();
 
+// BUILD-2026-05-29-I: hard ban on passive AI filler. Pairs with RULE 5 and the
+// Rule-5 repair gate so generated prose ships without hedge openers in the
+// first place, rather than depending on a post-hoc rewrite.
+const NO_PASSIVE_FILLER_RULE = `
+CRITICAL — NO PASSIVE FILLER:
+You are completely forbidden from writing soft, defensive AI filler phrases.
+Banned constructions include, but are not limited to: "typically symptoms of",
+"may experience", "can experience", "results from a range of factors", "is
+often caused by", "is generally considered", "is commonly associated with",
+"plays a role in", "a variety of", "a range of", "a number of", "in some
+cases", "for many people", "it is important to note", "it is worth noting".
+Every statement must be direct, authoritative, and anchored to a concrete
+data node from the mapped unit, retrieved chunks, or context files. If the
+underlying fact is not in the supplied evidence, write [NEEDS EXPERT INPUT]
+instead of generating a hedged sentence.`.trim();
+
 const KEYWORD_NATURAL_LANGUAGE_RULE = `
 KEYWORD NATURAL-LANGUAGE RULE:
 Treat the article title as a topic, not a phrase to stuff into sentences. If the
@@ -490,6 +506,9 @@ Name], or [NEEDS EXPERT INPUT].`;
     ruleBlocks.push(SPECIFIC_NUMBERS_RULE);
     applied.push(5);
 
+    // BUILD-2026-05-29-I — hard ban on passive AI filler in body prose.
+    ruleBlocks.push(NO_PASSIVE_FILLER_RULE);
+
     ruleBlocks.push(KEYWORD_NATURAL_LANGUAGE_RULE);
 
     // Rule 6 — h2-question sections always get contrarian licence when no
@@ -526,6 +545,7 @@ Name], or [NEEDS EXPERT INPUT].`;
     applied.push(19);
   } else {
     ruleBlocks.push(FRAMING_LITE_RULES);
+    ruleBlocks.push(NO_PASSIVE_FILLER_RULE);
     ruleBlocks.push(KEYWORD_NATURAL_LANGUAGE_RULE);
     ruleBlocks.push(QUOTE_ATTRIBUTION_RULE);
     ruleBlocks.push(SOURCED_FIGURES_RULE);
@@ -580,19 +600,32 @@ sections — not a generic platitude.`);
     ruleBlocks.join("\n\n"),
   ].join("\n\n");
 
-  // User message: the unit + surrounding context + the explicit ask
+  // User message: BUILD-2026-05-29-I — context files are promoted to the FIRST
+  // structural block so the model treats them as the authoritative ground
+  // truth, ahead of the mapped unit and retrieved chunks. Followed by an
+  // explicit extraction directive ordering raw data nodes, named timelines,
+  // and specific clinical/medical criteria — not summarised paraphrase.
   const userParts: string[] = [];
-  userParts.push(describeMappedUnit(mappedUnit));
-  const retrieved = describeRetrievedKnowledge(input.retrievedKnowledge);
-  if (retrieved) userParts.push(retrieved);
   if (input.contextFiles && input.contextFiles.length > 0) {
     const contextBlock = input.contextFiles
       .map((f) => `--- ${f.name} ---\n${f.content}`)
       .join("\n\n");
     userParts.push(
-      "🚨 PRIMARY SOURCE OF TRUTH — CONTEXT FILES (use only facts present here; do not fabricate):\n\n" + contextBlock,
+      "🚨 PRIMARY SOURCE OF TRUTH — UPLOADED CONTEXT FILES (HIGHEST PRIORITY).\n" +
+        "These files override every other knowledge source for this section. Pull " +
+        "raw, unvarnished data points directly from them: exact numbers, named " +
+        "timelines, dosages, eligibility criteria, contraindications, study " +
+        "names, percentages, and specific medical/clinical criteria. Quote the " +
+        "files verbatim where a phrase is diagnostic. Do not paraphrase a fact " +
+        "into a softer summary. Do not invent figures absent from these files. " +
+        "If a required fact is missing, write [NEEDS EXPERT INPUT] instead of " +
+        "filling the gap with general knowledge.\n\n" +
+        contextBlock,
     );
   }
+  userParts.push(describeMappedUnit(mappedUnit));
+  const retrieved = describeRetrievedKnowledge(input.retrievedKnowledge);
+  if (retrieved) userParts.push(retrieved);
   const ctx = describeSurroundingContext(input.surroundingContext);
   if (ctx) userParts.push(ctx);
   userParts.push(`TASK: Write the body of the section "${section.heading}" now.

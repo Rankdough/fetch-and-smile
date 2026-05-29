@@ -226,8 +226,32 @@ function buildClinicalUserMessage(input: {
     `Audience: ${input.audienceSentence}`,
     `Publication destination: ${input.publicationDestination}`,
     ...(input.targetWordCount ? [`Target section length: approximately ${input.targetWordCount} words — include all mandatory structural elements but scale depth accordingly.`] : []),
-    `Knowledge input: ${knowledgeInput}`,
   ];
+
+  // BUILD-2026-05-29-I: context files are emitted FIRST in the clinical
+  // writer payload (ahead of mapped unit + retrieved chunks) with an explicit
+  // extraction directive. The model must treat them as the authoritative
+  // source of raw data points, named timelines, and clinical criteria.
+  if (input.contextFiles && input.contextFiles.length > 0) {
+    const contextBlock = input.contextFiles
+      .map((f) => `--- ${f.name} ---\n${f.content}`)
+      .join("\n\n");
+    lines.push(
+      "",
+      "🚨 PRIMARY SOURCE OF TRUTH — UPLOADED CONTEXT FILES (HIGHEST PRIORITY).",
+      "These files override every other knowledge source. Pull raw, unvarnished",
+      "data points directly from them: exact numbers, named timelines, dosages,",
+      "eligibility criteria, contraindications, study names, percentages, and",
+      "specific medical/clinical criteria. Quote verbatim where a phrase is",
+      "diagnostic. Do not paraphrase a fact into a softer summary. If a required",
+      "fact is missing from these files, write [NEEDS EXPERT INPUT] rather than",
+      "falling back to a generic summary.",
+      "",
+      contextBlock,
+    );
+  }
+
+  lines.push("", `Knowledge input: ${knowledgeInput}`);
 
   if (input.retrievedChunks && input.retrievedChunks.length > 0) {
     const block = input.retrievedChunks
@@ -237,17 +261,6 @@ function buildClinicalUserMessage(input: {
       "",
       "RETRIEVED KNOWLEDGE — specific facts, numbers, and clinical details from the research brief relevant to this section. Use these specifics in your response.",
       block,
-    );
-  }
-
-  if (input.contextFiles && input.contextFiles.length > 0) {
-    const contextBlock = input.contextFiles
-      .map((f) => `--- ${f.name} ---\n${f.content}`)
-      .join("\n\n");
-    lines.push(
-      "",
-      "🚨 PRIMARY SOURCE OF TRUTH — CONTEXT FILES (use only facts present here; do not fabricate):",
-      contextBlock,
     );
   }
 
@@ -1473,7 +1486,9 @@ async function runSection(input: {
       ? `\n\nINLINE SOURCE LINK (mandatory): Include exactly ONE inline markdown link "[anchor text](URL)" in this section, choosing the most relevant URL from the list below. Anchor must be a natural noun phrase from your prose. Never invent URLs.\nALLOWED SOURCES:\n${allowed.map((s, i) => `${i + 1}. ${s.title} — ${s.url}`).join("\n")}`
       : `\n\nINLINE SOURCE LINK: No allow-listed URLs are available; do not insert inline links — the system will list context documents in the References section.`;
     const atomicBlock = `\n\nATOMIC SECTION STRUCTURE (mandatory): Write exactly one standalone answer paragraph (1-3 sentences) that fully answers the heading, then a blank line, then exactly 3 markdown bullets ("- "), each one concrete and ≤22 words. Nothing else.`;
-    const clinicalSystem = CLINICAL_SYSTEM_PROMPT_HEALTHCARE + atomicBlock + sourceBlock;
+    // BUILD-2026-05-29-I: hard ban on passive AI filler in clinical body prose.
+    const noFillerBlock = `\n\nCRITICAL — NO PASSIVE FILLER: You are completely forbidden from writing soft, defensive AI filler phrases such as "typically symptoms of", "may experience", "can experience", "results from a range of factors", "is often caused by", "is generally considered", "plays a role in", "a variety of", "a range of", "a number of", "in some cases", "for many people", "it is important to note", "it is worth noting". Every statement must be direct, authoritative, and isolated to a concrete data node from the uploaded context files, mapped unit, or retrieved chunks. If the fact is not in the supplied evidence, write [NEEDS EXPERT INPUT] instead of generating a hedged sentence.`;
+    const clinicalSystem = CLINICAL_SYSTEM_PROMPT_HEALTHCARE + atomicBlock + noFillerBlock + sourceBlock;
     content = (await callClinicalWriter(clinicalSystem, buildClinicalUserMessage({
       mappedUnit: input.mappedUnit,
       audienceSentence: input.audienceSentence,
@@ -1527,7 +1542,7 @@ async function runSection(input: {
 
 /* ── handler ──────────────────────────────────────────────────────────── */
 
-const BUILD_MARKER = "BUILD-2026-05-29-H proprietary-generate-article references-html-anchors";
+const BUILD_MARKER = "BUILD-2026-05-29-I proprietary-generate-article context-binding no-passive-filler";
 Deno.serve(async (req) => {
   console.log(BUILD_MARKER);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
