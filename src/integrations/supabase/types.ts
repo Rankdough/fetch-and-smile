@@ -615,19 +615,16 @@ export type Database = {
         Row: {
           created_at: string
           id: string
-          project_id: string | null
           url: string
         }
         Insert: {
           created_at?: string
           id?: string
-          project_id?: string | null
           url: string
         }
         Update: {
           created_at?: string
           id?: string
-          project_id?: string | null
           url?: string
         }
         Relationships: []
@@ -1060,7 +1057,7 @@ export type Database = {
     }
     Functions: {
       match_brain_chunks: {
-        Args: { match_count?: number; query_embedding: string; p_project_id?: string | null }
+        Args: { match_count?: number; query_embedding: string }
         Returns: {
           brain_file_id: string
           chunk_index: number
