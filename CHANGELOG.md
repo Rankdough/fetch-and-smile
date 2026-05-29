@@ -6,7 +6,7 @@
 
 **Why:** The preview still showed bracketed footnote markers such as `[7]`, `[3, 4]`, `[1]`, and `[7 and 10]` in body prose. The previous backend regex did not cover word-joined citation clusters like `[7 and 10]`, and it ran before later formatting paths could return content to the browser.
 
-**Verified broken:** Nothing verified broken. Checked: pending final validation in this turn.
+**Verified broken:** Nothing verified broken. Checked: `deno check supabase/functions/proprietary-generate-article/index.ts` passes; local fixture removes `[7]`, `[3, 4]`, `[1]`, `[7 and 10]`, and `[7-10]` from body prose while preserving real markdown links (`[7](https://example.com/inline)`) and footer `## References` links; deployed `proprietary-generate-article`; live edge-function call using context content containing `[7]`, `[3, 4]`, `[1]`, and `[7 and 10]` returned article content with zero bracketed numeric markers in body prose.
 
 **Files:** `supabase/functions/proprietary-generate-article/index.ts`, `src/pages/Index.tsx`, `CHANGELOG.md`.
 
