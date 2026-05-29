@@ -664,38 +664,24 @@ function stripAllBracketPlaceholders(markdown: string): { out: string; removed: 
   return { out, removed };
 }
 
-function buildFallbackBullets(heading: string, body: string): string[] {
-  const phrase = deriveSectionPhrase(heading) || "the topic";
-  const hasDiagnosis = /diagnos|test|screen|coeliac|celiac|allergy|sensitivity|medical|clinical/i.test(`${heading} ${body}`);
-  const hasPrevention = /prevent|avoid|reduce|manage|treat|diet|plan|restrict/i.test(`${heading} ${body}`);
-  const hasFailure = /wrong|mistake|risk|fail|misdiagnos|cross-contamination|deficien/i.test(`${heading} ${body}`);
-  if (hasDiagnosis) {
-    return [
-      `- Separate ${phrase} into named categories before changing diet, because each category has a different test and risk profile.`,
-      `- Keep symptom timing, food exposure, and severity together so bloating patterns can be checked against clinical causes.`,
-      `- Avoid long-term restriction before testing, because removing the trigger first can make later diagnosis less reliable.`,
-    ];
-  }
-  if (hasPrevention) {
-    return [
-      `- Match the prevention step to the confirmed cause, not the broad label people use for symptoms.`,
-      `- Track response after each dietary change so improvement is tied to one clear intervention at a time.`,
-      `- Review nutrient intake when foods are removed, because symptom control should not create a separate deficiency problem.`,
-    ];
-  }
-  if (hasFailure) {
-    return [
-      `- The main failure is treating a symptom label as a diagnosis before ruling out adjacent causes.`,
-      `- Cross-check assumptions against testing history, because similar bloating can come from different digestive mechanisms.`,
-      `- Escalate persistent or severe symptoms instead of repeatedly narrowing the diet without a clearer clinical reason.`,
-    ];
-  }
+function buildFallbackBullets(heading: string, _body: string): string[] {
+  // BUILD-2026-05-29-T: previously branched on body keywords (`diagnos|test|
+  // clinical|prevent|treat|wrong|fail|...`) and emitted hardcoded gluten /
+  // bloating / dietary-restriction templates. Any dental, legal, automotive,
+  // or finance article that mentioned "test", "treat", or "fail" got those
+  // gluten bullets injected verbatim ("track response after each dietary
+  // change", "Separate <heading> into named categories before changing diet").
+  // Replaced with topic-agnostic, heading-derived bullets that don't smuggle
+  // a domain into the output.
+  const phrase = (deriveSectionPhrase(heading) || "this question").trim();
+  const headingClean = heading.replace(/[?:.!]+$/g, "").trim();
   return [
-    `- Define the exact mechanism behind ${phrase} before choosing a diet, product, treatment, or next step.`,
-    `- Compare named categories instead of broad labels, because broad labels hide different risks and decisions.`,
-    `- Use one measurable symptom change to judge progress rather than relying on a general impression of improvement.`,
+    `- Anchor the answer to ${phrase} on a specific, verifiable criterion rather than a general impression.`,
+    `- Compare named options or categories side by side, because broad labels hide the differences that actually drive the decision.`,
+    `- Treat ${headingClean.toLowerCase()} as a sequence of trade-offs, and judge each one against a measurable outcome instead of a vague benefit.`,
   ];
 }
+
 
 
 function enforceThreeBulletsPerBodySection(markdown: string): string {
