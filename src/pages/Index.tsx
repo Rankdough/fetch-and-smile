@@ -54,6 +54,7 @@ import { GapAnalysisSelector } from "@/components/GapAnalysisSelector";
 import { QualityScoringPanel } from "@/components/QualityScoringPanel";
 import { NonCommodityComplianceChecker } from "@/components/NonCommodityComplianceChecker";
 import { ContentUsefulnessChecker } from "@/components/ContentUsefulnessChecker";
+import { SourceGroundingChecker } from "@/components/SourceGroundingChecker";
 import { Switch } from "@/components/ui/switch";
 import { ArticleNavigationPanel, extractNavigationFromContent, generateNavigationHtml } from "@/components/ArticleNavigationPanel";
 import { FAQAccordion, extractFAQFromContent, removeFAQSection, generateFAQHtml } from "@/components/FAQAccordion";
@@ -194,6 +195,67 @@ The right choice depends on the scale of change you want, how long you want resu
 
 [Dental Veneers: Benefits, Procedure, Costs, and Results - Healthline](https://www.healthline.com/health/dental-veneers)
 `;
+
+const MAX_PARAGRAPH_WORDS = 55;
+const MAX_PARAGRAPH_SENTENCES = 3;
+
+const paragraphWordCount = (text: string) => text.split(/\s+/).filter(Boolean).length;
+
+const splitParagraphSentences = (text: string): string[] =>
+  text.match(/[^.!?]+[.!?]+(?:["')\]]+)?|[^.!?]+$/g)?.map((sentence) => sentence.trim()).filter(Boolean) || [];
+
+const splitLongSentence = (sentence: string): string[] => {
+  const words = sentence.split(/\s+/).filter(Boolean);
+  if (words.length <= MAX_PARAGRAPH_WORDS) return [sentence];
+  const chunks: string[] = [];
+  for (let i = 0; i < words.length; i += MAX_PARAGRAPH_WORDS) {
+    chunks.push(words.slice(i, i + MAX_PARAGRAPH_WORDS).join(" "));
+  }
+  return chunks;
+};
+
+const shouldSkipParagraphBlock = (block: string): boolean => {
+  const trimmed = block.trim();
+  if (!trimmed || trimmed.includes("```")) return true;
+  const lines = trimmed.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  if (lines.some((line) => /^#{1,6}\s+/.test(line))) return true;
+  if (lines.some((line) => /^[-*+]\s+/.test(line) || /^\d+\.\s+/.test(line))) return true;
+  if (lines.some((line) => /^>\s*/.test(line) || /^\|/.test(line))) return true;
+  if (/<\/?(?:table|thead|tbody|tr|td|th|ul|ol|li|pre|code|figure|aside|nav|script|style)\b/i.test(trimmed)) return true;
+  return false;
+};
+
+const splitDenseParagraphBlock = (block: string): string => {
+  if (shouldSkipParagraphBlock(block)) return block;
+  const paragraph = block.replace(/\s+/g, " ").trim();
+  const sentences = splitParagraphSentences(paragraph).flatMap(splitLongSentence);
+  if (paragraphWordCount(paragraph) <= MAX_PARAGRAPH_WORDS && sentences.length <= MAX_PARAGRAPH_SENTENCES) return paragraph;
+
+  const chunks: string[] = [];
+  let current: string[] = [];
+  let currentWords = 0;
+  for (const sentence of sentences) {
+    const words = paragraphWordCount(sentence);
+    if (current.length > 0 && (currentWords + words > MAX_PARAGRAPH_WORDS || current.length >= MAX_PARAGRAPH_SENTENCES)) {
+      chunks.push(current.join(" "));
+      current = [];
+      currentWords = 0;
+    }
+    current.push(sentence);
+    currentWords += words;
+  }
+  if (current.length > 0) chunks.push(current.join(" "));
+  return chunks.join("\n\n");
+};
+
+const enforceParagraphDensity = (content: string): string =>
+  content
+    .split(/\n{2,}/)
+    .map(splitDenseParagraphBlock)
+    .join("\n\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+
 // Helper to auto-clean prohibited characters from content
 const cleanContent = (content: string): string => {
   let cleaned = content
@@ -217,6 +279,8 @@ const cleanContent = (content: string): string => {
     .replace(/[^.!?\n]*(?:changing\s+diet|dietary\s+change|food\s+exposure|bloating|long-term\s+restriction|restriction\s+before\s+testing|symptom\s+timing|digestive\s+mechanisms)[^.!?\n]*[.!?]/gi, "")
     .replace(/\n{3,}/g, "\n\n")
     .replace(/[ \t]{2,}/g, " ");
+
+  cleaned = enforceParagraphDensity(cleaned);
 
   // Fix inline numbered lists rendered as a single paragraph
   // e.g., "1. Foo: text here. 2. Bar: text here." → separate lines
@@ -6026,6 +6090,17 @@ CRITICAL EXPANSION RULES:
                       onContentUpdate={setGeneratedContent}
                       useFirstPerson={useFirstPerson}
                       contextFiles={contextFiles}
+                    />
+
+                    {/* Source Grounding Validator */}
+                    <SourceGroundingChecker
+                      content={generatedContent}
+                      contextFiles={contextFiles}
+                      transcriptText={transcriptText}
+                      transcriptTitle={transcriptTitle}
+                      onContentUpdate={setGeneratedContent}
+                      useFirstPerson={useFirstPerson}
+                      benchmarkPct={50}
                     />
                     
 

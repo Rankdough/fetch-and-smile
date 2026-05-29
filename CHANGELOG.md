@@ -1,4 +1,11 @@
 
+## 2026-05-29 — Deterministic paragraph density guard
+- What: Added a mechanical paragraph splitter to generation, voice edits, and the client clean-up path. Any prose paragraph over 55 words or 3 sentences is split at sentence boundaries before it is returned, saved, displayed, or persisted in localStorage.
+- Why: Prompt-only paragraph rules were not enough; newly generated articles could still show dense 80-100 word blocks. The safeguard now runs deterministically instead of relying on model compliance.
+- Files: supabase/functions/generate-content/index.ts, supabase/functions/voice-edit-content/index.ts, src/pages/Index.tsx.
+- Verify: Generate or edit an article with a long prose paragraph; the output should be split into smaller paragraphs automatically. Headings, lists, tables, blockquotes, code blocks, and structured HTML blocks are skipped by the splitter.
+- Verified broken: nothing. Checked: splitter only touches prose blocks separated by blank lines; skip guards leave headings, markdown lists, tables, blockquotes, code fences, and structured HTML/table/list blocks unchanged; generated content still flows through the existing cleanContent/setGeneratedContent path.
+
 ## 2026-05-29 — Verify-and-retry loop for Fix this / Fix all
 - Root cause of "still red after Fix": the deterministic checker is correct (Rule 1 still 51w, Rule 4 still 2 data points, Rule 7 still 3 hedges, Rule 8 still 0 numbers in top 30 percent); the AI rewrite returned content that did not meet the thresholds and we only ran it once.
 - Both NonCommodityComplianceChecker and ContentUsefulnessChecker now re-evaluate the returned content, and if any targeted rule still fails, retry up to 2 more times. Each retry includes the measured shortfall so the model knows exactly what to hit.
@@ -1389,3 +1396,10 @@
 - Files: src/components/NonCommodityComplianceChecker.tsx
 - Verify: Articles with only one number in the intro now fail Rule 8; fix instruction asks AI to surface 3.
 - What may break: Articles previously passing Rule 8 with a single number will now fail until remediated.
+
+## 2026-05-29 — Source Grounding Validator
+**What:** New sidebar validator measuring % of body-prose sentences derived from uploaded context files vs pasted transcript vs model-invented. Uses 5-gram shingle overlap (≥34% per sentence) over normalised text. Benchmark: combined ≥50% (configurable). Three progress bars (context / transcript / unattributed), green tick when passing, samples of ungrounded sentences, and a "Re-ground article" fix with verify-and-retry (max 3 attempts) that instructs voice-edit-content to rewrite ungrounded sentences using ONLY source material — no invented stats.
+**Why:** User requested visibility into article sourcing and a ≥50% sourcing benchmark.
+**Files:** `src/components/SourceGroundingChecker.tsx` (new), `src/pages/Index.tsx` (import + mount under ContentUsefulnessChecker).
+**Verify:** Build green; existing checkers untouched; voice-edit-content body contract unchanged.
+**Verified broken:** Nothing verified broken. Checked: file reads of Index.tsx mount block, ContentUsefulnessChecker untouched, voice-edit-content payload shape `{ content, instruction, useFirstPerson }` identical to existing callers.
