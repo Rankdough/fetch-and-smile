@@ -1448,6 +1448,12 @@ async function collectSourceReferences(
     seen.add(key);
     references.push({ title: cleanTitle || cleanUrl, url: cleanUrl || undefined });
   };
+  const addUrlsFromText = (text?: string | null) => {
+    for (const link of extractUrls(text || "")) add(link.title, link.url);
+  };
+
+  units.forEach((u) => addUrlsFromText(`${u.summary || ""}\n${u.full_text || ""}`));
+  chunks.forEach((c) => addUrlsFromText(c.content));
 
   const brainFileIds = new Set<string>();
   const contextDocumentIds = new Set<string>();
@@ -1463,9 +1469,12 @@ async function collectSourceReferences(
       .select("id, title, file_url")
       .in("id", [...brainFileIds]);
     if (error) console.warn("REFERENCES: brain_files source lookup failed:", error.message);
-    (data || []).forEach((file: { title?: string | null; file_url?: string | null }) =>
-      add(cleanReferenceTitle(file.title), file.file_url),
-    );
+    (data || []).forEach((file: { title?: string | null; file_url?: string | null }) => {
+      const title = cleanReferenceTitle(file.title);
+      if (!/\b(deep\s+research|seo\s+content\s+research\s+report|research\s+report)\b/i.test(title)) {
+        add(title, file.file_url);
+      }
+    });
   }
 
   if (contextDocumentIds.size > 0) {
@@ -1474,9 +1483,7 @@ async function collectSourceReferences(
       .select("id, file_name, content")
       .in("id", [...contextDocumentIds]);
     if (error) console.warn("REFERENCES: context_documents source lookup failed:", error.message);
-    (data || []).forEach((doc: { file_name?: string | null; content?: string | null }) =>
-      add(cleanReferenceTitle(doc.file_name, doc.content)),
-    );
+    (data || []).forEach((doc: { file_name?: string | null; content?: string | null }) => addUrlsFromText(doc.content));
   }
 
   return references;
@@ -1505,7 +1512,16 @@ async function fallbackContextReferencesForTopic(
     })
     .filter((row) => row.score > 0)
     .sort((a, b) => b.score - a.score);
-  const refs = scored.slice(0, 3).map(({ doc }) => ({ title: cleanReferenceTitle(doc.file_name, doc.content) }));
+  const refs: SourceReference[] = [];
+  const seen = new Set<string>();
+  for (const { doc } of scored.slice(0, 3)) {
+    for (const link of extractUrls(doc.content || "")) {
+      const key = link.url.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      refs.push({ title: link.title, url: link.url });
+    }
+  }
   if (refs.length > 0) console.log(`REFERENCES: fallback matched ${refs.length} context document(s) for topic tokens.`);
   return refs;
 }
