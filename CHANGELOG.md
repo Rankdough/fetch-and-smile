@@ -1,3 +1,18 @@
+## 2026-05-29 - References: extract source URLs from context reports, never cite report titles (BUILD-2026-05-29-R)
+
+**What:**
+- `supabase/functions/proprietary-generate-article/index.ts`: changed the remaining context-reference producers so matched context documents contribute only external URLs found inside their content. `fallbackContextReferencesForTopic` no longer emits file names like "Deep Research Report: ..." or "SEO Content Research Report: ..." as title-only references. `collectSourceReferences` now also extracts URLs from used brain-unit text, retrieved chunk text, and context document content, while skipping report-title brain files as citations.
+
+**Why:** Context reports are evidence containers, not public citations. The References block must cite the online sources found inside those reports, not the internal report names themselves.
+
+**Verified broken:** Pending live generation check in this build entry until the deployed function returns a fresh sample.
+
+**Files:** `supabase/functions/proprietary-generate-article/index.ts`, `CHANGELOG.md`.
+
+**Verify:** Generate a proprietary article from context reports and inspect the raw `## References` block. It must contain markdown bullets with valid `https://` URLs only, with zero context-file/report titles.
+
+---
+
 ## 2026-05-29 - References: external URLs only — context-file titles dropped (BUILD-2026-05-29-Q)
 
 **What:**
