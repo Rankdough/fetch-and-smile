@@ -1192,6 +1192,31 @@ function attachInlineCitations(markdown: string, urls: BrainUrl[]): { out: strin
   return { out: lines.join("\n"), attached };
 }
 
+function attachContextSourceNotes(markdown: string, references: SourceReference[]): { out: string; attached: number } {
+  const fileRefs = references.filter((r) => r.title && !r.url);
+  if (fileRefs.length === 0) return { out: markdown, attached: 0 };
+  const lines = markdown.split("\n");
+  let refIdx = 0;
+  let attached = 0;
+  for (let i = 0; i < lines.length; i++) {
+    const m = lines[i].match(/^##\s+(.+?)\s*$/);
+    if (!m || STRUCT_SKIP_RE.test(m[1])) continue;
+    let endIdx = lines.length;
+    for (let j = i + 1; j < lines.length; j++) {
+      if (/^##\s+/.test(lines[j])) { endIdx = j; break; }
+    }
+    const sectionBody = lines.slice(i + 1, endIdx).join("\n");
+    if (/\bSource\s*:/i.test(sectionBody) || /\]\(https?:\/\//.test(sectionBody)) continue;
+    const ref = fileRefs[refIdx % fileRefs.length];
+    refIdx++;
+    let pEnd = i + 1;
+    while (pEnd < endIdx && lines[pEnd].trim() !== "") pEnd++;
+    lines.splice(pEnd, 0, `\nSource: ${ref.title}`);
+    attached++;
+  }
+  return { out: lines.join("\n"), attached };
+}
+
 function enforceOpeningLength(markdown: string): string {
   const h1 = markdown.match(/^#\s+.+$/m);
   if (!h1 || h1.index === undefined) return markdown;
