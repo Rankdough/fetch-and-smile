@@ -80,6 +80,7 @@ CRITICAL RULES:
 - NEVER add horizontal rules (---, ***, ___)
 - Preserve all source citations and references
 - Return ONLY the edited content, no explanations
+- PARAGRAPH DENSITY (GLOBAL): No paragraph may exceed 60 words or 3 sentences. If the edit produces or leaves any longer paragraph, split it into multiple shorter paragraphs at logical pivots so the reader can jump easily between them. Never create walls of text.
 ${maxWordLimit ? `- HARD CONSTRAINT: Final output must be ${maxWordLimit} words maximum` : ""}
 
 PERSPECTIVE RULE (NON-NEGOTIABLE — do NOT change this regardless of the instruction):

@@ -105,6 +105,42 @@ function evaluate(content: string): RuleResult[] {
     }
   }
 
+  // Rule 11: Paragraph density — no paragraph > 60 words or > 3 sentences.
+  // Strip headings, list items, blockquotes, table rows, code fences, and HTML/CTA blocks
+  // so we only evaluate genuine prose paragraphs.
+  const proseOnly = text
+    .replace(/```[\s\S]*?```/g, "")
+    .replace(/<table[\s\S]*?<\/table>/gi, "")
+    .replace(/<(?:ul|ol|blockquote|pre|figure|aside|nav|header|footer)[\s\S]*?<\/(?:ul|ol|blockquote|pre|figure|aside|nav|header|footer)>/gi, "")
+    .replace(/<\/?(?:p|div|span|strong|em|a|br|h[1-6])[^>]*>/gi, "\n")
+    .replace(/<[^>]+>/g, "");
+  const paragraphs = proseOnly
+    .split(/\n{2,}/)
+    .map(p => p.trim())
+    .filter(p =>
+      p.length > 0 &&
+      !/^#{1,6}\s/.test(p) &&
+      !/^[-*+]\s/.test(p) &&
+      !/^\d+\.\s/.test(p) &&
+      !/^>\s/.test(p) &&
+      !/^\|/.test(p)
+    );
+  let r11Pass = true;
+  let r11Detail = "";
+  let r11WorstWords = 0;
+  for (const p of paragraphs) {
+    const wc = p.split(/\s+/).filter(Boolean).length;
+    const sc = (p.match(/[.!?]+(?:\s|$)/g) || []).length;
+    if (wc > 60 || sc > 3) {
+      if (wc > r11WorstWords) {
+        r11WorstWords = wc;
+        r11Detail = `${wc}w / ${sc} sentences: "${p.slice(0, 50)}…"`;
+      }
+      r11Pass = false;
+    }
+  }
+
+
   return [
     {
       id: 1, title: "Under-45-Word Snippet Blocks",
@@ -165,6 +201,12 @@ function evaluate(content: string): RuleResult[] {
       description: "No bare trailing numbers or unclosed tags",
       pass: r10Pass, detail: r10Detail,
       fixInstruction: "Find any sentence or list item that ends on a bare trailing number with no punctuation, or any unclosed HTML tag, and close it cleanly (add the missing word, punctuation, or closing tag). Preserve headings, tables, lists, links, images, and CTAs. Return the full article.",
+    },
+    {
+      id: 11, title: "Paragraph Density (No Walls of Text)",
+      description: "Every paragraph ≤ 60 words and ≤ 3 sentences",
+      pass: r11Pass, detail: r11Detail,
+      fixInstruction: "Find every prose paragraph longer than 60 words or 3 sentences and split it into multiple shorter paragraphs at logical pivots (new idea, contrast, example, evidence, consequence). Do not delete or reword facts, headings, tables, lists, links, images, or CTAs — only insert paragraph breaks so the reader can jump easily between paragraphs. Return the full article.",
     },
   ];
 }
