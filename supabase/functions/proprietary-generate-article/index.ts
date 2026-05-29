@@ -2009,6 +2009,12 @@ Deno.serve(async (req) => {
     // Context-document references now rendered only in the footer References section.
     stitched = injectReferences(stitched, usedUnits, sourceReferences);
     stitched = ensureTrustedReferences(stitched, body.topic);
+    const sourceFragments = stripInlineSourceFragments(stitched);
+    stitched = sourceFragments.out;
+    if (sourceFragments.removed > 0) console.warn(`SOURCE GUARD: stripped ${sourceFragments.removed} inline Source fragment(s) from body copy.`);
+    const sourceLinkGuard = stripMismatchedInlineLinks(stitched, body.topic);
+    stitched = sourceLinkGuard.out;
+    if (sourceLinkGuard.removed > 0) console.warn(`SOURCE GUARD: removed ${sourceLinkGuard.removed} off-topic inline link(s).`);
     const refsEmitted = /^##\s+references/im.test(stitched);
     if (!refsEmitted) console.warn(`REFERENCES: no References section emitted — no source files, source URLs, or trusted fallbacks found.`);
     stitched = stripBrandPlaceholders(stitched);
@@ -2027,6 +2033,9 @@ Deno.serve(async (req) => {
     let content = sanitiseGeneratedMarkdown(stitched, articleTitle);
     const internalLinkResult = await insertInternalLinksIntoArticle(content, body.internalLinks, body.topic);
     content = internalLinkResult.content;
+    const internalLinkGuard = stripMismatchedInlineLinks(content, body.topic);
+    content = internalLinkGuard.out;
+    if (internalLinkGuard.removed > 0) console.warn(`SOURCE GUARD: removed ${internalLinkGuard.removed} off-topic link(s) after internal-link insertion.`);
     console.log(`INTERNAL LINKS: inserted=${internalLinkResult.insertedCount} skipped=${internalLinkResult.skippedUrls.length} total=${internalLinkResult.totalProvided}${internalLinkResult.note ? ` note=${internalLinkResult.note}` : ""}`);
 
 
