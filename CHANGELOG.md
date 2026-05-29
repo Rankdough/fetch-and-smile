@@ -1,3 +1,22 @@
+## 2026-05-29 - proprietary articles: restore context retrieval, archery references, and non-generic fallback tables
+
+**What:**
+- `supabase/migrations/20260529105300_5038f312-d53e-44d9-8a60-e658091391df.sql`: replaced the failing `match_brain_chunks(vector, integer, uuid)` overload with `match_brain_chunks(vector, integer, text)`, because the generator sends the Lovable Cloud project key as text. Preserved legacy unscoped behaviour and allowed existing untagged context chunks to be searched.
+- `supabase/functions/proprietary-generate-article/index.ts`: added an archery-specific fallback reference set and an archery-specific scoring table fallback. Replaced the old generic fallback table labels that matched the sanitiser's removal pattern.
+- `src/pages/Index.tsx`: narrowed the internal-link-history query type escape to avoid the existing TypeScript deep-instantiation error at the project-id filter line.
+
+**Why:** Latest logs still showed `RETRIEVAL: rpc failed ... invalid input syntax for type uuid: "lipkcsgbotjzmzuwsdeu"`, so no chunks were available for source grounding. The same run then logged `REFERENCES: no References section emitted` and `PROPRIETARY SANITISER: removed 1 generic table(s)`. The table fallback was being inserted but then stripped because it used generic labels such as `Entry-level`, `Standard`, and `Advanced`.
+
+**Files:**
+- supabase/migrations/20260529105300_5038f312-d53e-44d9-8a60-e658091391df.sql
+- supabase/functions/proprietary-generate-article/index.ts
+- src/pages/Index.tsx
+- CHANGELOG.md
+
+**Verified broken:** The smoke-generated archery article still contains one `[NEEDS EXPERT INPUT]` placeholder in the perfect-score section. Checked: edge function deployed successfully; direct RPC smoke query returned 3 callable rows instead of the previous uuid type error; `/proprietary-generate-article` smoke call returned status 200; output includes an archery scoring table and a `## References` section with 3 URLs; fresh logs show `CITATIONS: using 3 trusted fallback source(s)` and no `REFERENCES: no References section emitted` warning for the smoke run.
+
+---
+
 ## 2026-05-28 - injectHowToChoose: remove hardcoded clinical phrasing from universal checklist
 
 **What:**
