@@ -1685,12 +1685,13 @@ Deno.serve(async (req) => {
         ? [
             {
               id: "failure",
-              heading: "Where this commonly goes wrong",
+              heading: await generateFailureModeHeading(body.topic, articleTitle, model),
               kind: "failure-mode" as const,
               type: "body" as const,
             },
           ]
         : []),
+
       { id: "faq", heading: "Frequently Asked Questions", kind: "faq", type: "framing" },
       {
         id: "final",
