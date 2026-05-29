@@ -563,12 +563,51 @@ function fallbackTopicTable(topic: string, sectionHeading?: string): string {
 | Board-Certified Specialist (Periodontist or Oral Surgeon) | Three or more years of accredited residency after dental school | Consistently high through residency and ongoing practice | Higher in published series, particularly for complex cases | Complex anatomy, bone grafting, full-arch and compromised sites |
 | Academic or Hospital Setting | Faculty-level training with a supervised teaching caseload | High and protocol-driven through institutional volume | Highest reported in long-term published studies | Medically complex patients and reconstructive cases |`;
   }
-  // Generic three-column comparison — no topic string interpolated into cells.
-  return `| Approach | Key Advantage | Primary Limitation |
+  // Topic-keyword-derived tables for common non-dental subjects.
+  if (/\b(archery|bow|arrow|recurve|compound|longbow|quiver)\b/.test(t)) {
+    return `| Bow type | Best suited for | Key limitation |
 | --- | --- | --- |
-| Entry-level | Lower cost and easier access | Narrower scope and fewer safeguards |
-| Standard | Balanced quality, cost, and availability | Trade-offs between depth and convenience |
-| Advanced | Highest reported consistency and oversight | Higher cost and limited availability |`;
+| Recurve | Beginners and Olympic-style target shooting | Requires strong technique for consistent groupings |
+| Compound | Hunters and precision target archers | More maintenance due to cams and cables |
+| Longbow | Traditional and instinctive shooting styles | Steepest learning curve of the three |`;
+  }
+  if (/\b(running|runner|marathon|sprint|track|jogging|5k|10k)\b/.test(t)) {
+    return `| Training phase | Primary goal | Common mistake |
+| --- | --- | --- |
+| Base building | Build aerobic capacity and injury resilience | Running easy sessions too fast |
+| Threshold training | Raise sustainable race pace | Skipping recovery between hard efforts |
+| Race-specific work | Sharpen speed and mental readiness | Peaking too early before the event |`;
+  }
+  if (/\b(cycling|cyclist|triathlon|swimming|swimmer|bike)\b/.test(t)) {
+    return `| Intensity zone | Session purpose | Minimum recovery |
+| --- | --- | --- |
+| Aerobic base | Build endurance without fatigue accumulation | 24 hours |
+| Threshold intervals | Raise sustainable power or pace | 48 hours |
+| VO2 max efforts | Develop top-end aerobic capacity | 72 hours |`;
+  }
+  if (/\b(golf|golfer|iron|driver|wedge|putter|fairway)\b/.test(t)) {
+    return `| Club type | Typical situation | Key challenge |
+| --- | --- | --- |
+| Driver | Maximum distance off the tee | Small margin for off-centre contact |
+| Iron | Controlled approach shots to the green | Consistent ball-striking requires practice |
+| Wedge | Short-game precision and bunker escape | High skill ceiling for spin control |`;
+  }
+  if (/\b(seo|content|marketing|keyword|ranking|backlink)\b/.test(t)) {
+    return `| Channel | Time to measurable result | Primary risk |
+| --- | --- | --- |
+| Organic search | 3–6 months for consistent traffic | Algorithm changes can erode rankings |
+| Paid search | Immediate traffic from launch | Results stop when budget stops |
+| Content marketing | 6–12 months for compounding returns | High effort with delayed payoff |`;
+  }
+  // True generic fallback: derive row-label noun from the primary topic keyword.
+  const FALLBACK_STOP = new Set(["how","what","why","when","the","a","an","and","or","for","to","in","on","with","of","your","best","top","guide","tips","ways","use","using"]);
+  const primaryKw = t.replace(/[^a-z0-9\s]/g," ").split(/\s+/).find(w => w.length > 3 && !FALLBACK_STOP.has(w)) ?? "approach";
+  const capKw = primaryKw.charAt(0).toUpperCase() + primaryKw.slice(1);
+  return `| ${capKw} level | Key advantage | Primary limitation |
+| --- | --- | --- |
+| Foundational | Lowest cost and easiest entry point | Narrower scope and fewer performance safeguards |
+| Intermediate | Balance of capability, cost, and accessibility | Requires consistent time investment to see gains |
+| Advanced | Highest performance ceiling available | Greater upfront cost and steeper technical demands |`;
 }
 
 function tableSignature(tableMarkdown: string): string {
@@ -1293,13 +1332,13 @@ Deno.serve(async (req) => {
     // injecting cross-topic (e.g. dental) URLs into unrelated articles.
     const usedUnitIds = new Set(sectionsOut.map(s => s.mappedUnitId).filter(Boolean));
     const usedUnits = units.filter(u => usedUnitIds.has(u.id));
-    const brainUrls = collectBrainUrls(usedUnits);
+    const brainUrls = collectBrainUrls(usedUnits.length ? usedUnits : units);
     const citationUrls = brainUrls.length > 0 ? brainUrls : trustedFallbackSources(body.topic);
     if (brainUrls.length === 0 && citationUrls.length > 0) console.log(`CITATIONS: using ${citationUrls.length} trusted fallback source(s).`);
     const cite = attachInlineCitations(stitched, citationUrls);
     stitched = cite.out;
     if (cite.attached > 0) console.log(`CITATIONS: attached ${cite.attached} inline source(s) from brain URLs.`);
-    stitched = injectReferences(stitched, usedUnits);
+    stitched = injectReferences(stitched, units);
     stitched = ensureTrustedReferences(stitched, body.topic);
     const refsEmitted = /^##\s+references/im.test(stitched);
     if (!refsEmitted) console.warn(`REFERENCES: no References section emitted — brain units contain no URLs.`);

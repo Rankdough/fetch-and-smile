@@ -5167,12 +5167,7 @@ const Index = () => {
                         // function fixes and cross-project brain data leakage.
                         contentWithoutNav = (() => {
                           let md = contentWithoutNav;
-                          // 1. Strip bigleagueshirts.com links — unwrap to anchor text only
-                          md = md.replace(
-                            /\[([^\]]+)\]\(https?:\/\/(?:www\.)?bigleagueshirts\.com[^\s)]*\)/gi,
-                            "$1",
-                          );
-                          // 2. Strip dental consultation CTA sentences/paragraphs
+                          // 1. Strip dental consultation CTA sentences/paragraphs
                           md = md
                             .split(/\n{2,}/)
                             .filter(
@@ -5180,7 +5175,7 @@ const Index = () => {
                                 !/Book a consultation with a clinician who will categorise your case/i.test(p),
                             )
                             .join("\n\n");
-                          // 3. Strip "How to Choose the Right..." H2 section through to next H2
+                          // 2. Strip "How to Choose the Right..." H2 section through to next H2
                           const lines = md.split("\n");
                           const kept: string[] = [];
                           let dropping = false;
