@@ -935,6 +935,8 @@ function ensureMinimumTables(markdown: string, topic: string, targetWords: numbe
     seenSignatures.add(sig);
     inserted++;
   }
+  if (inserted > 0) console.log(`TABLES: ensureMinimumTables inserted ${inserted} topic-specific table(s); required=${required}; before=${current}.`);
+  if (current + inserted < required) console.warn(`TABLES: ensureMinimumTables could not meet required count; required=${required}; before=${current}; inserted=${inserted}; topic="${topic}".`);
   return out;
 }
 
