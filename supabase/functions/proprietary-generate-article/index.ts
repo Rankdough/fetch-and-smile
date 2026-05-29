@@ -233,8 +233,15 @@ function buildClinicalUserMessage(input: {
   // extraction directive. The model must treat them as the authoritative
   // source of raw data points, named timelines, and clinical criteria.
   if (input.contextFiles && input.contextFiles.length > 0) {
+    // BUILD-2026-05-29-Q: scrub orphan numeric citation markers ([1], [2,3],
+    // [12-15]) from context-file content BEFORE injection. Context files
+    // (research reports) carry footnote-style markers that have no referent
+    // in the generated article; if left in, the model echoes them verbatim
+    // into body prose, producing stray "[1]" text. Strip at the source.
+    const stripNumericCitationMarkers = (s: string): string =>
+      s.replace(/\s?\[\d{1,3}(?:\s*[,\-–]\s*\d{1,3})*\]/g, "");
     const contextBlock = input.contextFiles
-      .map((f) => `--- ${f.name} ---\n${f.content}`)
+      .map((f) => `--- ${f.name} ---\n${stripNumericCitationMarkers(f.content)}`)
       .join("\n\n");
     lines.push(
       "",
@@ -245,11 +252,13 @@ function buildClinicalUserMessage(input: {
       "specific medical/clinical criteria. Quote verbatim where a phrase is",
       "diagnostic. Do not paraphrase a fact into a softer summary. If a required",
       "fact is missing from these files, write [NEEDS EXPERT INPUT] rather than",
-      "falling back to a generic summary.",
+      "falling back to a generic summary. Never reproduce bracketed footnote",
+      "markers like [1] or [2,3] in your output — cite sources inline as prose.",
       "",
       contextBlock,
     );
   }
+
 
   lines.push("", `Knowledge input: ${knowledgeInput}`);
 
