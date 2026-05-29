@@ -54,6 +54,7 @@ import { GapAnalysisSelector } from "@/components/GapAnalysisSelector";
 import { QualityScoringPanel } from "@/components/QualityScoringPanel";
 import { NonCommodityComplianceChecker } from "@/components/NonCommodityComplianceChecker";
 import { ContentUsefulnessChecker } from "@/components/ContentUsefulnessChecker";
+import { SourceGroundingChecker } from "@/components/SourceGroundingChecker";
 import { Switch } from "@/components/ui/switch";
 import { ArticleNavigationPanel, extractNavigationFromContent, generateNavigationHtml } from "@/components/ArticleNavigationPanel";
 import { FAQAccordion, extractFAQFromContent, removeFAQSection, generateFAQHtml } from "@/components/FAQAccordion";
@@ -6026,6 +6027,17 @@ CRITICAL EXPANSION RULES:
                       onContentUpdate={setGeneratedContent}
                       useFirstPerson={useFirstPerson}
                       contextFiles={contextFiles}
+                    />
+
+                    {/* Source Grounding Validator */}
+                    <SourceGroundingChecker
+                      content={generatedContent}
+                      contextFiles={contextFiles}
+                      transcriptText={transcriptText}
+                      transcriptTitle={transcriptTitle}
+                      onContentUpdate={setGeneratedContent}
+                      useFirstPerson={useFirstPerson}
+                      benchmarkPct={50}
                     />
                     
 

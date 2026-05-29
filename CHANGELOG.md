@@ -1389,3 +1389,10 @@
 - Files: src/components/NonCommodityComplianceChecker.tsx
 - Verify: Articles with only one number in the intro now fail Rule 8; fix instruction asks AI to surface 3.
 - What may break: Articles previously passing Rule 8 with a single number will now fail until remediated.
+
+## 2026-05-29 — Source Grounding Validator
+**What:** New sidebar validator measuring % of body-prose sentences derived from uploaded context files vs pasted transcript vs model-invented. Uses 5-gram shingle overlap (≥34% per sentence) over normalised text. Benchmark: combined ≥50% (configurable). Three progress bars (context / transcript / unattributed), green tick when passing, samples of ungrounded sentences, and a "Re-ground article" fix with verify-and-retry (max 3 attempts) that instructs voice-edit-content to rewrite ungrounded sentences using ONLY source material — no invented stats.
+**Why:** User requested visibility into article sourcing and a ≥50% sourcing benchmark.
+**Files:** `src/components/SourceGroundingChecker.tsx` (new), `src/pages/Index.tsx` (import + mount under ContentUsefulnessChecker).
+**Verify:** Build green; existing checkers untouched; voice-edit-content body contract unchanged.
+**Verified broken:** Nothing verified broken. Checked: file reads of Index.tsx mount block, ContentUsefulnessChecker untouched, voice-edit-content payload shape `{ content, instruction, useFirstPerson }` identical to existing callers.
