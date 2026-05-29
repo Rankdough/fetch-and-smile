@@ -2049,23 +2049,9 @@ Deno.serve(async (req) => {
     const sourceFragments = stripInlineSourceFragments(stitched);
     stitched = sourceFragments.out;
     if (sourceFragments.removed > 0) console.warn(`SOURCE GUARD: stripped ${sourceFragments.removed} inline Source fragment(s) from body copy.`);
-    // BUILD-2026-05-29-Q: scrub orphan numeric citation markers ("[1]", "[2, 3]",
-    // "[12-15]") from BODY ONLY (preserve the ## References section). The
-    // model occasionally echoes them from retrievedChunks / mappedUnit
-    // full_text, neither of which goes through the context-file strip.
-    {
-      const refMatch = stitched.match(/^##\s+references\b/im);
-      const cutoff = refMatch?.index ?? stitched.length;
-      const body = stitched.slice(0, cutoff);
-      const tail = stitched.slice(cutoff);
-      const re = /\s?\[\d{1,3}(?:\s*[,\-–]\s*\d{1,3})*\]/g;
-      const scrubbed = body.replace(re, "").replace(/[ \t]+([,.;:!?])/g, "$1");
-      if (scrubbed !== body) {
-        const removed = (body.match(re) || []).length;
-        console.warn(`CITATION GUARD: removed ${removed} orphan numeric citation marker(s) from body.`);
-        stitched = scrubbed + tail;
-      }
-    }
+    const numericMarkers = stripBodyNumericCitationMarkers(stitched);
+    stitched = numericMarkers.out;
+    if (numericMarkers.removed > 0) console.warn(`CITATION GUARD: removed ${numericMarkers.removed} orphan numeric citation marker(s) from body.`);
 
     const sourceLinkGuard = stripMismatchedInlineLinks(stitched, body.topic);
     stitched = sourceLinkGuard.out;
@@ -2091,6 +2077,9 @@ Deno.serve(async (req) => {
     const internalLinkGuard = stripMismatchedInlineLinks(content, body.topic);
     content = internalLinkGuard.out;
     if (internalLinkGuard.removed > 0) console.warn(`SOURCE GUARD: removed ${internalLinkGuard.removed} off-topic link(s) after internal-link insertion.`);
+    const finalNumericMarkers = stripBodyNumericCitationMarkers(content);
+    content = finalNumericMarkers.out;
+    if (finalNumericMarkers.removed > 0) console.warn(`CITATION GUARD: removed ${finalNumericMarkers.removed} orphan numeric citation marker(s) after final formatting.`);
     console.log(`INTERNAL LINKS: inserted=${internalLinkResult.insertedCount} skipped=${internalLinkResult.skippedUrls.length} total=${internalLinkResult.totalProvided}${internalLinkResult.note ? ` note=${internalLinkResult.note}` : ""}`);
 
 
