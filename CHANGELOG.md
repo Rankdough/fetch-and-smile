@@ -1,4 +1,12 @@
 
+## 2026-05-29 — Usefulness Rule 6: Source Citations & References
+- Adds Rule 6 to ContentUsefulnessChecker validating (a) a final ## References section with ≥3 markdown/HTML links, and (b) at least one inline citation link inside every body H2 section (TL;DR, Quick Tips, Nav, How to Choose, FAQ, Final Thoughts, References, Methodology excluded).
+- New optional contextFiles prop; component extracts up to 30 source URLs from context file contents and ships them to voice-edit-content inside the Fix this / Fix all instruction so the AI can append real citations without inventing URLs.
+- Index.tsx mount now passes the existing contextFiles state through.
+- Files: src/components/ContentUsefulnessChecker.tsx, src/pages/Index.tsx.
+- Verify: with context files containing URLs, generate an article missing citations, confirm Rule 6 fails with offending section names, click Fix this, confirm References section appears with ≥3 real links from context and each body H2 gains an inline citation.
+- Verified broken: nothing. Checked: file reads of both edits applied cleanly, ContentUsefulnessChecker still defaults contextFiles to [] so existing usages without the prop continue to work, voice-edit-content payload contract unchanged (instruction string only).
+
 ## 2026-05-29 — Usefulness & Value-Gain Guard
 - New isolated sidebar component ContentUsefulnessChecker scoring 5 reader-utility rules: actionable manual verbs vs textbook openers, operational failure trap, structured data layout, definitive answer proximity, methodology disclosure.
 - Shares Fix this / Fix all pattern with NonCommodity guard via voice-edit-content; passes green-fixed styling.
