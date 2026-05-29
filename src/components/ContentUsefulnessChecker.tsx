@@ -85,6 +85,44 @@ function evaluate(content: string): RuleResult[] {
   const methodology = /\b(methodology|how\s+(?:we|this\s+(?:guide|article))\s+(?:was\s+)?(?:compiled|researched|built)|auditing\s+primary\s+source|primary[- ]source\s+(?:records?|review)|sources?\s+reviewed|criteria\s+applied)\b/i;
   const r5Pass = methodology.test(plain);
 
+  // Rule 6: Source citations + References section.
+  // (a) Final ## References section with ≥3 markdown/HTML links.
+  // (b) Every top-level H2 body section (excluding structural/utility sections) contains ≥1 link.
+  const SKIP_H2 = /^\s*(tl;?dr|quick tips|in this article|how to choose|frequently asked questions|faq|final thoughts|references|sources?|methodology)\s*$/i;
+  const refSectionMatch = text.match(/(^|\n)#{1,3}\s*(references|sources)\b[\s\S]*$/i);
+  const refSection = refSectionMatch ? refSectionMatch[0] : "";
+  const refLinks =
+    (refSection.match(/\[[^\]]+\]\((https?:[^)\s]+)\)/g) || []).length +
+    (refSection.match(/<a\s+[^>]*href=["']https?:[^"']+["']/gi) || []).length;
+  const refsOk = !!refSection && refLinks >= 3;
+
+  const h2Blocks: { heading: string; body: string }[] = [];
+  const h2Re = /(^|\n)##\s+([^\n]+)\n([\s\S]*?)(?=\n##\s+|$)/g;
+  let m: RegExpExecArray | null;
+  while ((m = h2Re.exec(text)) !== null) {
+    h2Blocks.push({ heading: m[2].trim(), body: m[3] || "" });
+  }
+  const bodyH2 = h2Blocks.filter(b => !SKIP_H2.test(b.heading));
+  const sectionsWithoutLink = bodyH2.filter(
+    b =>
+      !/\[[^\]]+\]\(https?:[^)\s]+\)/.test(b.body) &&
+      !/<a\s+[^>]*href=["']https?:[^"']+["']/i.test(b.body),
+  );
+  const inlineOk = bodyH2.length === 0 || sectionsWithoutLink.length === 0;
+
+  const r6Pass = refsOk && inlineOk;
+  const r6Detail = r6Pass
+    ? `${refLinks} refs · ${bodyH2.length}/${bodyH2.length} sections cited`
+    : `${refSection ? `${refLinks}/3 refs` : "no References section"}${
+        sectionsWithoutLink.length
+          ? ` · ${sectionsWithoutLink.length} section(s) missing citation: ${sectionsWithoutLink
+              .slice(0, 2)
+              .map(s => `"${s.heading.slice(0, 30)}"`)
+              .join(", ")}`
+          : ""
+      }`;
+
+
   return [
     {
       id: 1,
