@@ -969,6 +969,53 @@ function collectBrainUrls(units: BrainUnit[]): BrainUrl[] {
   return out;
 }
 
+async function collectSourceReferences(
+  // deno-lint-ignore no-explicit-any
+  supabase: any,
+  units: BrainUnit[],
+  chunks: RetrievedChunk[],
+): Promise<SourceReference[]> {
+  const references: SourceReference[] = [];
+  const seen = new Set<string>();
+  const add = (title?: string | null, url?: string | null) => {
+    const cleanTitle = (title || "").trim();
+    const cleanUrl = (url || "").trim();
+    if (!cleanTitle && !cleanUrl) return;
+    const key = `${cleanUrl || "file"}:${cleanTitle || cleanUrl}`.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    references.push({ title: cleanTitle || cleanUrl, url: cleanUrl || undefined });
+  };
+
+  const brainFileIds = new Set<string>();
+  const contextDocumentIds = new Set<string>();
+  units.forEach((u) => { if (u.source_file_id) brainFileIds.add(u.source_file_id); });
+  chunks.forEach((c) => {
+    if (c.brain_file_id) brainFileIds.add(c.brain_file_id);
+    if (c.context_document_id) contextDocumentIds.add(c.context_document_id);
+  });
+
+  if (brainFileIds.size > 0) {
+    const { data, error } = await supabase
+      .from("brain_files")
+      .select("id, title, file_url")
+      .in("id", [...brainFileIds]);
+    if (error) console.warn("REFERENCES: brain_files source lookup failed:", error.message);
+    (data || []).forEach((file: { title?: string | null; file_url?: string | null }) => add(file.title, file.file_url));
+  }
+
+  if (contextDocumentIds.size > 0) {
+    const { data, error } = await supabase
+      .from("context_documents")
+      .select("id, file_name")
+      .in("id", [...contextDocumentIds]);
+    if (error) console.warn("REFERENCES: context_documents source lookup failed:", error.message);
+    (data || []).forEach((doc: { file_name?: string | null }) => add(doc.file_name));
+  }
+
+  return references;
+}
+
 function attachInlineCitations(markdown: string, urls: BrainUrl[]): { out: string; attached: number } {
   if (urls.length === 0) return { out: markdown, attached: 0 };
   const lines = markdown.split("\n");
