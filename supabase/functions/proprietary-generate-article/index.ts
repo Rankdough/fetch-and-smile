@@ -512,125 +512,6 @@ function enforceThreeBulletsPerBodySection(markdown: string): string {
   return [intro, ...rebuilt].filter(Boolean).join("\n\n").trim();
 }
 
-function countMarkdownTables(md: string): number {
-  const lines = md.split("\n");
-  let count = 0;
-  for (let i = 0; i < lines.length - 1; i++) {
-    if (lines[i].includes("|") && /^\s*\|?[\s\-:|]+\|[\s\-:|]+$/.test(lines[i + 1])) count++;
-  }
-  return count;
-}
-
-function deriveSectionPhrase(heading: string): string {
-  return heading
-    .toLowerCase()
-    .replace(/^\s*(how|what|when|why|where|which|are|is|do|does|can|should|will|who)\s+/i, "")
-    .replace(/[?.!:]+\s*$/, "")
-    .trim()
-    .split(/\s+/)
-    .slice(0, 6)
-    .join(" ");
-}
-
-function fallbackTopicTable(topic: string, sectionHeading?: string): string {
-  const t = topic.toLowerCase();
-  const h = (sectionHeading ?? "").toLowerCase();
-  // Section-aware: only inject a topic table when the SECTION HEADING itself is
-  // about the table's subject. Prevents the same retention table being dropped
-  // into unrelated sections (training, failure modes, complications, etc.).
-  const retentionHeading = /retention|retain|cement|screw|abutment|morse|crown\s+fix|fixation/.test(h);
-  const underbiteHeading = /underbite|aligner|invisalign|class\s*iii|bite\s+correction/.test(h);
-  if (retentionHeading && /screwless|implant|morse|cement|crown|abutment|prosthe/.test(t)) {
-    return `| System type | How retention works | Screw visible in crown? | Common failure | Best-fit case |
-| --- | --- | --- | --- | --- |
-| Cement-retained crown | Cement bonds the crown to an abutment | No | Residual cement can inflame tissue | Aesthetic zones where an access hole would show |
-| Friction-fit or Morse taper | Precision taper locks components mechanically | No | Retrieval can be difficult if repair is needed | Accurate single-tooth component seating |
-| Screw-retained crown | Prosthetic screw fixes the crown to the implant | Yes | Access-channel aesthetics or screw loosening | Maintenance-heavy or retrievable cases |`;
-  }
-  if (underbiteHeading && /invisalign|aligner|underbite|class\s*iii|orthodontic/.test(t)) {
-    return `| Case type | What drives the bite | Aligner suitability | Common failure | Consultation question |
-| --- | --- | --- | --- | --- |
-| Dental underbite | Tooth position creates the reverse bite | Stronger when movement is tooth-led | Treating the wrong mechanism wastes months | Is the problem dental or skeletal? |
-| Skeletal underbite | Jaw relationship drives the bite | Limited without surgical assessment | Camouflage can worsen facial balance | Is surgery part of the realistic plan? |
-| Combined pattern | Teeth and jaw both contribute | Case-dependent after diagnosis | Relapse or incomplete bite correction | Which part is being corrected first? |`;
-  }
-  // Universal fallback: topic-aware comparison so every article meets the
-  // table quota even when no section-specific regex matched.
-  if (/implant|dentist|dental/.test(t)) {
-    return `| Setting | Training Duration | Annual Implant Volume | Success Rate with Strict Criteria | Best For |
-| --- | --- | --- | --- | --- |
-| General Dentist | DDS or DMD plus optional continuing-education courses | Variable, often low outside high-volume practices | Lower in published series compared with specialist settings | Routine single-tooth cases with straightforward anatomy |
-| Board-Certified Specialist (Periodontist or Oral Surgeon) | Three or more years of accredited residency after dental school | Consistently high through residency and ongoing practice | Higher in published series, particularly for complex cases | Complex anatomy, bone grafting, full-arch and compromised sites |
-| Academic or Hospital Setting | Faculty-level training with a supervised teaching caseload | High and protocol-driven through institutional volume | Highest reported in long-term published studies | Medically complex patients and reconstructive cases |`;
-  }
-  // Topic-keyword-derived tables for common non-dental subjects.
-  if (/\b(archery|bow|arrow|recurve|compound|longbow|quiver)\b/.test(t)) {
-    return `| Bow type | Best suited for | Key limitation |
-| --- | --- | --- |
-| Recurve | Beginners and Olympic-style target shooting | Requires strong technique for consistent groupings |
-| Compound | Hunters and precision target archers | More maintenance due to cams and cables |
-| Longbow | Traditional and instinctive shooting styles | Steepest learning curve of the three |`;
-  }
-  if (/\b(running|runner|marathon|sprint|track|jogging|5k|10k)\b/.test(t)) {
-    return `| Training phase | Primary goal | Common mistake |
-| --- | --- | --- |
-| Base building | Build aerobic capacity and injury resilience | Running easy sessions too fast |
-| Threshold training | Raise sustainable race pace | Skipping recovery between hard efforts |
-| Race-specific work | Sharpen speed and mental readiness | Peaking too early before the event |`;
-  }
-  if (/\b(cycling|cyclist|triathlon|swimming|swimmer|bike)\b/.test(t)) {
-    return `| Intensity zone | Session purpose | Minimum recovery |
-| --- | --- | --- |
-| Aerobic base | Build endurance without fatigue accumulation | 24 hours |
-| Threshold intervals | Raise sustainable power or pace | 48 hours |
-| VO2 max efforts | Develop top-end aerobic capacity | 72 hours |`;
-  }
-  if (/\b(golf|golfer|iron|driver|wedge|putter|fairway)\b/.test(t)) {
-    return `| Club type | Typical situation | Key challenge |
-| --- | --- | --- |
-| Driver | Maximum distance off the tee | Small margin for off-centre contact |
-| Iron | Controlled approach shots to the green | Consistent ball-striking requires practice |
-| Wedge | Short-game precision and bunker escape | High skill ceiling for spin control |`;
-  }
-  if (/\b(seo|content|marketing|keyword|ranking|backlink)\b/.test(t)) {
-    return `| Channel | Time to measurable result | Primary risk |
-| --- | --- | --- |
-| Organic search | 3–6 months for consistent traffic | Algorithm changes can erode rankings |
-| Paid search | Immediate traffic from launch | Results stop when budget stops |
-| Content marketing | 6–12 months for compounding returns | High effort with delayed payoff |`;
-  }
-  // True generic fallback: derive row-label noun from the primary topic keyword.
-  const FALLBACK_STOP = new Set(["how","what","why","when","the","a","an","and","or","for","to","in","on","with","of","your","best","top","guide","tips","ways","use","using"]);
-  const primaryKw = t.replace(/[^a-z0-9\s]/g," ").split(/\s+/).find(w => w.length > 3 && !FALLBACK_STOP.has(w)) ?? "approach";
-  const capKw = primaryKw.charAt(0).toUpperCase() + primaryKw.slice(1);
-  return `| ${capKw} level | Key advantage | Primary limitation |
-| --- | --- | --- |
-| Foundational | Lowest cost and easiest entry point | Narrower scope and fewer performance safeguards |
-| Intermediate | Balance of capability, cost, and accessibility | Requires consistent time investment to see gains |
-| Advanced | Highest performance ceiling available | Greater upfront cost and steeper technical demands |`;
-}
-
-function tableSignature(tableMarkdown: string): string {
-  return tableMarkdown.replace(/\s+/g, " ").trim().toLowerCase();
-}
-
-function collectTableSignatures(markdown: string): Set<string> {
-  const sigs = new Set<string>();
-  const lines = markdown.split("\n");
-  let cur: string[] = [];
-  const flush = () => {
-    if (cur.length >= 2 && /^\s*\|?[\s\-:|]+\|[\s\-:|]+\s*$/.test(cur[1] ?? "")) {
-      sigs.add(tableSignature(cur.join("\n")));
-    }
-    cur = [];
-  };
-  for (const l of lines) {
-    if (l.includes("|")) cur.push(l);
-    else flush();
-  }
-  flush();
-  return sigs;
-}
 
 /* ── normal-mode parity: structural normalisers ───────────────────────── */
 
@@ -834,38 +715,6 @@ async function insertInternalLinksIntoArticle(
   }
 }
 
-function ensureMinimumTables(markdown: string, topic: string, targetWords: number): string {
-  const required = Math.max(1, Math.round(targetWords / 600));
-  let current = countMarkdownTables(markdown);
-  if (current >= required) return markdown;
-  let out = markdown;
-  const seenSignatures = collectTableSignatures(out);
-  const lines = out.split("\n");
-  const bodyH2s = lines.map((line, i) => ({ line, i })).filter(({ line }) => /^##\s+/.test(line) && !STRUCT_SKIP_RE.test(line));
-  let inserted = 0;
-  for (let bIdx = 0; bIdx < bodyH2s.length && current + inserted < required; bIdx++) {
-    const heading = bodyH2s[bIdx].line.replace(/^##\s+/, "").trim();
-    const table = fallbackTopicTable(topic, heading);
-    if (!table) continue;
-    const sig = tableSignature(table);
-    if (seenSignatures.has(sig)) continue; // dedup: identical table already exists somewhere in article
-    const freshLines = out.split("\n");
-    // Find heading by text match so prior insertions don't shift the index.
-    const headingLine = freshLines.findIndex(l => /^##\s+/.test(l) && l.replace(/^##\s+/, "").trim() === heading);
-    if (headingLine === -1) break;
-    let endIdx = freshLines.length;
-    for (let j = headingLine + 1; j < freshLines.length; j++) {
-      if (/^##\s+/.test(freshLines[j])) { endIdx = j; break; }
-    }
-    const sectionSlice = freshLines.slice(headingLine, endIdx).join("\n");
-    if (sectionSlice.includes("|")) continue; // already has a table
-    freshLines.splice(endIdx, 0, "", table, "");
-    out = freshLines.join("\n");
-    seenSignatures.add(sig);
-    inserted++;
-  }
-  return out;
-}
 
 /* ── brand-name placeholder strip ────────────────────────────────────── */
 // The assembler instructs the model to reference the brand/business name, but
@@ -1324,7 +1173,6 @@ Deno.serve(async (req) => {
     if (atomic.removed > 0) console.warn(`ATOMIC GUARD: stripped ${atomic.removed} dependency phrase(s).`);
     stitched = enforceThreeBulletsPerBodySection(stitched);
     stitched = injectInThisArticle(stitched, body.topic);
-    stitched = ensureMinimumTables(stitched, body.topic, targetWords);
     stitched = ensureFinalThoughtsCta(stitched, businessType);
     // Inline citations from brain-unit URLs, with trusted dental fallbacks when
     // proprietary files have no URLs.
