@@ -1040,31 +1040,23 @@ function attachInlineCitations(markdown: string, urls: BrainUrl[]): { out: strin
   const lines = markdown.split("\n");
   let urlIdx = 0;
   let attached = 0;
-  const fixed: string[] = [];
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    fixed.push(line);
     const m = line.match(/^##\s+(.+?)\s*$/);
     if (!m) continue;
     if (STRUCT_SKIP_RE.test(m[1])) continue;
-    // Find end of this section
     let endIdx = lines.length;
     for (let j = i + 1; j < lines.length; j++) {
       if (/^##\s+/.test(lines[j])) { endIdx = j; break; }
     }
     const sectionBody = lines.slice(i + 1, endIdx).join("\n");
     if (/\]\(https?:\/\//.test(sectionBody)) continue; // already cited
-    if (urlIdx >= urls.length) continue;
-    const u = urls[urlIdx++];
-    // Append a citation footnote line right before next H2 (we'll do it on
-    // the matching end position via splice on the output array later — simpler:
-    // we record an inline edit). Insert a citation paragraph immediately after
-    // the heading's first paragraph break by mutating the source lines.
-    // Find the end of the first paragraph after heading
+    // Cycle through URLs so every body section gets at least one citation,
+    // even when fewer URLs than sections are available.
+    const u = urls[urlIdx % urls.length];
+    urlIdx++;
     let pEnd = i + 1;
     while (pEnd < endIdx && lines[pEnd].trim() !== "") pEnd++;
-    // We're rebuilding fixed[] as we go; instead splice into lines and let
-    // subsequent iterations see the change.
     const citationLine = `\nSource: [${u.title}](${u.url})`;
     lines.splice(pEnd, 0, citationLine);
     attached++;
