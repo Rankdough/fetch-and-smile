@@ -1332,6 +1332,27 @@ Deno.serve(async (req) => {
         allRetrievedChunks.push(...retrievedChunks);
       }
 
+      // Build the allow-listed source URL pool for THIS section: brain-unit
+      // URLs (from mapped unit + globally available), retrieved-chunk URLs,
+      // then topic-trusted fallbacks. Always passed to the writer so the
+      // citation is generated inline, not bolted on after.
+      let allowedSourceUrls: BrainUrl[] = [];
+      if (section.type === "body") {
+        const unitUrls = collectBrainUrls(mappedUnit ? [mappedUnit as BrainUnit] : []);
+        const chunkUrls = collectChunkUrls(retrievedChunks);
+        const globalUnitUrls = collectBrainUrls(units);
+        const fallback = trustedFallbackSources(body.topic);
+        const seen = new Set<string>();
+        for (const list of [unitUrls, chunkUrls, globalUnitUrls, fallback]) {
+          for (const u of list) {
+            if (seen.has(u.url)) continue;
+            seen.add(u.url);
+            allowedSourceUrls.push(u);
+          }
+        }
+        allowedSourceUrls = allowedSourceUrls.slice(0, 8);
+      }
+
       const result = await runSection({
         businessType,
         mappedUnit,
@@ -1343,6 +1364,7 @@ Deno.serve(async (req) => {
         model,
         sectionBudgetWords,
         retrievedChunks,
+        allowedSourceUrls,
       });
 
       const sectionPlaceholderGuard = stripExpertInputPlaceholders(result.content);
