@@ -600,19 +600,32 @@ sections — not a generic platitude.`);
     ruleBlocks.join("\n\n"),
   ].join("\n\n");
 
-  // User message: the unit + surrounding context + the explicit ask
+  // User message: BUILD-2026-05-29-I — context files are promoted to the FIRST
+  // structural block so the model treats them as the authoritative ground
+  // truth, ahead of the mapped unit and retrieved chunks. Followed by an
+  // explicit extraction directive ordering raw data nodes, named timelines,
+  // and specific clinical/medical criteria — not summarised paraphrase.
   const userParts: string[] = [];
-  userParts.push(describeMappedUnit(mappedUnit));
-  const retrieved = describeRetrievedKnowledge(input.retrievedKnowledge);
-  if (retrieved) userParts.push(retrieved);
   if (input.contextFiles && input.contextFiles.length > 0) {
     const contextBlock = input.contextFiles
       .map((f) => `--- ${f.name} ---\n${f.content}`)
       .join("\n\n");
     userParts.push(
-      "🚨 PRIMARY SOURCE OF TRUTH — CONTEXT FILES (use only facts present here; do not fabricate):\n\n" + contextBlock,
+      "🚨 PRIMARY SOURCE OF TRUTH — UPLOADED CONTEXT FILES (HIGHEST PRIORITY).\n" +
+        "These files override every other knowledge source for this section. Pull " +
+        "raw, unvarnished data points directly from them: exact numbers, named " +
+        "timelines, dosages, eligibility criteria, contraindications, study " +
+        "names, percentages, and specific medical/clinical criteria. Quote the " +
+        "files verbatim where a phrase is diagnostic. Do not paraphrase a fact " +
+        "into a softer summary. Do not invent figures absent from these files. " +
+        "If a required fact is missing, write [NEEDS EXPERT INPUT] instead of " +
+        "filling the gap with general knowledge.\n\n" +
+        contextBlock,
     );
   }
+  userParts.push(describeMappedUnit(mappedUnit));
+  const retrieved = describeRetrievedKnowledge(input.retrievedKnowledge);
+  if (retrieved) userParts.push(retrieved);
   const ctx = describeSurroundingContext(input.surroundingContext);
   if (ctx) userParts.push(ctx);
   userParts.push(`TASK: Write the body of the section "${section.heading}" now.
