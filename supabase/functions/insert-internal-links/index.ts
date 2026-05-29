@@ -75,6 +75,7 @@ serve(async (req) => {
         .split(/[^a-z0-9]+/)
         .filter((t) => t && t.length > 2 && !STOP.has(t))
     );
+    const weakUrlTokens = new Set(["dental", "dentist", "dentists", "clinic", "clinics", "implant", "implants"]);
 
     const urlContexts: { url: string; keywords: string[] }[] = [];
     const skippedOffTopic: string[] = [];
@@ -86,7 +87,9 @@ serve(async (req) => {
         continue;
       }
       const expanded = new Set(kws.flatMap(expand));
-      const hit = [...expanded].some((k) => articleTokens.has(k));
+      const hits = [...expanded].filter((k) => articleTokens.has(k));
+      const strongHits = hits.filter((k) => !weakUrlTokens.has(k));
+      const hit = strongHits.length > 0 || hits.length >= 2;
       if (hit) {
         urlContexts.push({ url, keywords: kws });
       } else {
@@ -245,6 +248,16 @@ ${contentWithoutReferences}`;
       return _m;
     });
     const allowedUrls = new Set(validUrls.map(norm));
+    const keywordByUrl = new Map(urlContexts.map((c) => [norm(c.url), c.keywords]));
+    const anchorMatchesDestination = (anchor: string, keywords: string[]) => {
+      if (keywords.length === 0) return true;
+      const anchorTokens = new Set(
+        anchor.toLowerCase().split(/[^a-z0-9]+/).filter((t) => t && t.length > 2 && !STOP.has(t))
+      );
+      const expanded = new Set(keywords.flatMap(expand));
+      const hits = [...expanded].filter((k) => anchorTokens.has(k));
+      return hits.some((k) => !weakUrlTokens.has(k)) || hits.length >= 2;
+    };
     const seenUrls = new Set<string>();
     linkedContent = linkedContent.replace(
       /\[([^\]]+)\]\((https?:\/\/[^\s)]+|\/[^\s)]+)\)/g,
@@ -252,6 +265,7 @@ ${contentWithoutReferences}`;
         const key = norm(url);
         if (originalLinkedUrls.has(key)) return `[${anchor}](${url})`; // preserve existing references/sources
         if (!allowedUrls.has(key)) return anchor; // hallucinated / not whitelisted
+        if (!anchorMatchesDestination(anchor, keywordByUrl.get(key) || [])) return anchor; // mismatched destination/anchor
         if (seenUrls.has(key)) return anchor; // duplicate
         seenUrls.add(key);
         return `[${anchor}](${url})`;

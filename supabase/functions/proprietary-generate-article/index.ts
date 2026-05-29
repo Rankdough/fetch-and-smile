@@ -577,6 +577,34 @@ function sanitiseGeneratedMarkdown(markdown: string, articleTitle: string): stri
   return result.replace(/\n{3,}/g, "\n\n").trim();
 }
 
+function stripInlineSourceFragments(markdown: string): { out: string; removed: number } {
+  const refMatch = markdown.match(/^##\s+references\b/im);
+  const body = refMatch?.index !== undefined ? markdown.slice(0, refMatch.index) : markdown;
+  const references = refMatch?.index !== undefined ? markdown.slice(refMatch.index) : "";
+  let removed = 0;
+  const cleaned = body
+    .split("\n")
+    .map((line) => {
+      let next = line.replace(/\s*\((?:Source|Sources?)\s*:\s*[^)]{1,240}\)/gi, () => {
+        removed += 1;
+        return "";
+      });
+      if (/^\s*(?:Source|Sources?)\s*:\s*(?!\[[^\]]+\]\(https?:\/\/)/i.test(next)) {
+        removed += 1;
+        return "";
+      }
+      next = next.replace(/^(\s*)(?:Source|Sources?)\s*:\s*(\[[^\]]+\]\(https?:\/\/[^)]+\))\s*$/i, "$1$2");
+      return next
+        .replace(/\s+([,.;:!?])/g, "$1")
+        .replace(/([.!?]){2,}/g, "$1")
+        .trimEnd();
+    })
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trimEnd();
+  return { out: `${cleaned}${references ? `\n\n${references.trimStart()}` : ""}`.trim(), removed };
+}
+
 function stripExpertInputPlaceholders(markdown: string): { out: string; removed: number } {
   let removed = 0;
   const out = markdown
@@ -944,6 +972,51 @@ function injectReferences(markdown: string, units: BrainUnit[], sourceReferences
   return `${markdown.trimEnd()}\n\n## References\n\n${renderReferencesList(items)}\n`;
 }
 
+function sectionLinkLooksRelevant(anchor: string, url: string, sectionText: string, topic: string): boolean {
+  if (!/^https?:\/\//i.test(url)) return true;
+  const destinationHits = urlTopicHits(url, `${topic} ${anchor}`);
+  if (!destinationHits.some((token) => !WEAK_URL_TOKENS.has(token)) && destinationHits.length < 2) return false;
+  const anchorTokens = [...tokenize(anchor)].filter((t) => t.length >= 5);
+  if (anchorTokens.length === 0) return false;
+  const local = `${topic} ${sectionText}`.toLowerCase();
+  return anchorTokens.some((token) => local.includes(token));
+}
+
+function stripMismatchedInlineLinks(markdown: string, topic: string): { out: string; removed: number } {
+  const lines = markdown.split("\n");
+  let removed = 0;
+  const out: string[] = [];
+  let sectionBuffer: string[] = [];
+  let inReferences = false;
+  const flush = () => {
+    if (sectionBuffer.length === 0) return;
+    const sectionText = sectionBuffer.join("\n");
+    out.push(...sectionBuffer.map((line) =>
+      line.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, (match, anchor: string, url: string) => {
+        if (sectionLinkLooksRelevant(anchor, url, sectionText, topic)) return match;
+        removed += 1;
+        return anchor;
+      })
+    ));
+    sectionBuffer = [];
+  };
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (/^##\s+references\b/i.test(line)) {
+      flush();
+      out.push(line);
+      sectionBuffer = [];
+      inReferences = true;
+      continue;
+    }
+    if (inReferences) { out.push(line); continue; }
+    if (/^##\s+/.test(line)) flush();
+    sectionBuffer.push(line);
+  }
+  flush();
+  return { out: out.join("\n"), removed };
+}
+
 function trustedFallbackSources(topic: string): BrainUrl[] {
   if (/\b(archery|archer|arrow|target|bow|olympic|scoring)\b/i.test(topic)) {
     return [
@@ -1296,6 +1369,27 @@ function scoreTextForTopic(text: string, topic: string, sectionHeading = ""): nu
   return tokens.reduce((sum, token) => sum + (haystack.includes(token) ? 1 : 0), 0);
 }
 
+const WEAK_URL_TOKENS = new Set(["dental", "dentist", "dentists", "clinic", "clinics", "implant", "implants"]);
+
+function urlTopicHits(url: string, text: string): string[] {
+  try {
+    const parsed = new URL(url);
+    const urlText = `${parsed.hostname} ${decodeURIComponent(parsed.pathname)}`.toLowerCase();
+    return [...tokenize(text)].filter((token) => token.length >= 5 && urlText.includes(token));
+  } catch {
+    return [];
+  }
+}
+
+function filterUrlsForTopic(urls: BrainUrl[], topic: string): BrainUrl[] {
+  const topicTokens = [...tokenize(topic)].filter((t) => t.length >= 5);
+  if (topicTokens.length === 0) return urls;
+  return urls.filter((u) => {
+    const hits = urlTopicHits(u.url, topic);
+    return hits.some((token) => !WEAK_URL_TOKENS.has(token)) || hits.length >= 2;
+  });
+}
+
 function hasStrongTopicAnchor(text: string, topic: string): boolean {
   const anchors = [...tokenize(topic)]
     .filter((t) => t.length >= 6)
@@ -1596,7 +1690,7 @@ async function runSection(input: {
 
 /* ── handler ──────────────────────────────────────────────────────────── */
 
-const BUILD_MARKER = "BUILD-2026-05-29-I proprietary-generate-article context-binding no-passive-filler";
+const BUILD_MARKER = "BUILD-2026-05-29-M proprietary-generate-article reference-link-guards";
 Deno.serve(async (req) => {
   console.log(BUILD_MARKER);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -1789,7 +1883,7 @@ Deno.serve(async (req) => {
       if (section.type === "body") {
         const unitUrls = collectBrainUrls(mappedUnit ? [mappedUnit as BrainUnit] : []);
         const chunkUrls = collectChunkUrls(retrievedChunks);
-        const globalUnitUrls = collectBrainUrls(units);
+        const globalUnitUrls = filterUrlsForTopic(collectBrainUrls(units), body.topic);
         const fallback = trustedFallbackSources(body.topic);
         const seen = new Set<string>();
         for (const list of [unitUrls, chunkUrls, globalUnitUrls, fallback]) {
@@ -1911,7 +2005,7 @@ Deno.serve(async (req) => {
     let sourceReferences = await collectSourceReferences(sb, usedUnits, allRetrievedChunks);
     if (sourceReferences.length === 0) sourceReferences = await fallbackContextReferencesForTopic(sb, body.topic);
     if (sourceReferences.length > 0) console.log(`REFERENCES: collected ${sourceReferences.length} context source reference(s).`);
-    const brainUrls = collectBrainUrls(usedUnits);
+    const brainUrls = filterUrlsForTopic(collectBrainUrls(usedUnits), body.topic);
     const citationUrls = brainUrls.length > 0 ? brainUrls : trustedFallbackSources(body.topic);
     if (brainUrls.length === 0 && citationUrls.length > 0) console.log(`CITATIONS: using ${citationUrls.length} trusted fallback source(s).`);
     const cite = attachInlineCitations(stitched, citationUrls);
@@ -1921,6 +2015,12 @@ Deno.serve(async (req) => {
     // Context-document references now rendered only in the footer References section.
     stitched = injectReferences(stitched, usedUnits, sourceReferences);
     stitched = ensureTrustedReferences(stitched, body.topic);
+    const sourceFragments = stripInlineSourceFragments(stitched);
+    stitched = sourceFragments.out;
+    if (sourceFragments.removed > 0) console.warn(`SOURCE GUARD: stripped ${sourceFragments.removed} inline Source fragment(s) from body copy.`);
+    const sourceLinkGuard = stripMismatchedInlineLinks(stitched, body.topic);
+    stitched = sourceLinkGuard.out;
+    if (sourceLinkGuard.removed > 0) console.warn(`SOURCE GUARD: removed ${sourceLinkGuard.removed} off-topic inline link(s).`);
     const refsEmitted = /^##\s+references/im.test(stitched);
     if (!refsEmitted) console.warn(`REFERENCES: no References section emitted — no source files, source URLs, or trusted fallbacks found.`);
     stitched = stripBrandPlaceholders(stitched);
@@ -1939,6 +2039,9 @@ Deno.serve(async (req) => {
     let content = sanitiseGeneratedMarkdown(stitched, articleTitle);
     const internalLinkResult = await insertInternalLinksIntoArticle(content, body.internalLinks, body.topic);
     content = internalLinkResult.content;
+    const internalLinkGuard = stripMismatchedInlineLinks(content, body.topic);
+    content = internalLinkGuard.out;
+    if (internalLinkGuard.removed > 0) console.warn(`SOURCE GUARD: removed ${internalLinkGuard.removed} off-topic link(s) after internal-link insertion.`);
     console.log(`INTERNAL LINKS: inserted=${internalLinkResult.insertedCount} skipped=${internalLinkResult.skippedUrls.length} total=${internalLinkResult.totalProvided}${internalLinkResult.note ? ` note=${internalLinkResult.note}` : ""}`);
 
 
