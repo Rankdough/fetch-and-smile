@@ -5,10 +5,16 @@ import { Check, X, Gauge, Loader2, Wand2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 
+interface ContextFile {
+  name: string;
+  content: string;
+}
+
 interface ContentUsefulnessCheckerProps {
   content: string;
   onContentUpdate?: (newContent: string) => void;
   useFirstPerson?: boolean;
+  contextFiles?: ContextFile[];
 }
 
 interface RuleResult {
