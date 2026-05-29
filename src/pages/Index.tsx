@@ -203,7 +203,7 @@ const cleanContent = (content: string): string => {
   const referencesMatch = cleaned.match(/^##\s+References:?\s*$/im);
   const bodyEnd = referencesMatch?.index ?? cleaned.length;
   const bodyOnly = cleaned.slice(0, bodyEnd)
-    .replace(/\s?\[(?:\d{1,3})(?:\s*(?:,|and|&|\-|–|—)\s*\d{1,3})*\]/gi, "")
+    .replace(/\s?\[(?:\d{1,3})(?:\s*(?:,|and|&|\-|–|—)\s*\d{1,3})*\](?!\s*\()/gi, "")
     .replace(/[ \t]+([,.;:!?])/g, "$1")
     .replace(/ {2,}/g, " ");
   cleaned = bodyOnly + cleaned.slice(bodyEnd);
