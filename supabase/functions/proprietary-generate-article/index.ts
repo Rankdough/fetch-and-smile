@@ -1102,6 +1102,34 @@ async function collectSourceReferences(
   return references;
 }
 
+async function fallbackContextReferencesForTopic(
+  // deno-lint-ignore no-explicit-any
+  supabase: any,
+  topic: string,
+): Promise<SourceReference[]> {
+  const tokens = [...tokenize(topic)].filter((t) => t.length >= 5).slice(0, 8);
+  if (tokens.length === 0) return [];
+  const { data, error } = await supabase
+    .from("context_documents")
+    .select("id, file_name, content")
+    .limit(100);
+  if (error) {
+    console.warn("REFERENCES: fallback context lookup failed:", error.message);
+    return [];
+  }
+  const scored = ((data || []) as ContextDocumentRow[])
+    .map((doc) => {
+      const haystack = `${doc.file_name || ""}\n${(doc.content || "").slice(0, 3000)}`.toLowerCase();
+      const score = tokens.reduce((sum, token) => sum + (haystack.includes(token) ? 1 : 0), 0);
+      return { doc, score };
+    })
+    .filter((row) => row.score > 0)
+    .sort((a, b) => b.score - a.score);
+  const refs = scored.slice(0, 3).map(({ doc }) => ({ title: doc.file_name }));
+  if (refs.length > 0) console.log(`REFERENCES: fallback matched ${refs.length} context document(s) for topic tokens.`);
+  return refs;
+}
+
 function attachInlineCitations(markdown: string, urls: BrainUrl[]): { out: string; attached: number } {
   if (urls.length === 0) return { out: markdown, attached: 0 };
   const lines = markdown.split("\n");
