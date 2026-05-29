@@ -1,3 +1,16 @@
+## 2026-05-29 - Raise Rule 4 threshold from ≥3 to ≥5 data points
+
+**What:**
+- `src/components/NonCommodityComplianceChecker.tsx`: Rule 4 ("Explicit Information-Gain Disclosures") threshold raised from `numericMatches >= 3` to `numericMatches >= 5`. Description updated from "≥3 concrete data points" to "≥5 concrete data points". Fix instruction updated from "Add at least three" to "Add at least five".
+
+**Why:** User requested stricter information-gain density so commodity-sounding articles must carry more quantified, unit-bearing evidence before passing.
+
+**Verified broken:** Nothing verified broken. Checked: `r4Pass` variable used only for the Rule 4 result object; no other call sites depend on the threshold value. Build passes. No impact on Rules 1-3, 5-10.
+
+**Files:** `src/components/NonCommodityComplianceChecker.tsx`, `CHANGELOG.md`.
+
+---
+
 ## 2026-05-29 - Non-Commodity Compliance Guard: add per-rule and bulk Fix actions
 
 **What:**
