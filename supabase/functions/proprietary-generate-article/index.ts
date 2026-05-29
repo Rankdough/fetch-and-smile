@@ -1254,6 +1254,7 @@ async function runSection(input: {
   model: string;
   sectionBudgetWords: number;
   retrievedChunks?: RetrievedChunk[];
+  retrievedKnowledge?: Array<{ content: string; sourceTitle?: string | null }>;
   allowedSourceUrls?: Array<{ url: string; title: string }>;
 }) {
   const assembled = assembleSectionPrompt({
@@ -1265,6 +1266,7 @@ async function runSection(input: {
     surroundingContext: input.surroundingContext,
     articleTitle: input.articleTitle,
     allowedSourceUrls: input.allowedSourceUrls,
+    retrievedKnowledge: input.retrievedKnowledge,
   });
   const isBody = input.section.type === "body";
   // Scale token budget with the word budget so the model writes to the right length.
