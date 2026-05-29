@@ -919,6 +919,135 @@ async function insertInternalLinksIntoArticle(
   }
 }
 
+/* ── deterministic structural normalisers (BUILD-2026-05-29-G):
+       table unwrap, citation-title hygiene, Rule-5 hedge repair ────────── */
+
+function stripFileExtension(name: string): string {
+  return (name || "").replace(/\.(docx?|txt|pdf|md|html?|rtf|odt|csv)$/i, "");
+}
+
+function firstMeaningfulLine(content: string | null | undefined): string {
+  if (!content) return "";
+  for (const raw of content.split("\n")) {
+    const line = raw.trim();
+    if (!line) continue;
+    if (/^[#>*\-|`]/.test(line)) continue;          // skip headings/lists/tables/quotes/code fences
+    if (line.length < 5 || line.length > 140) continue;
+    return line;
+  }
+  return "";
+}
+
+function cleanReferenceTitle(rawName: string | null | undefined, content?: string | null): string {
+  const fromContent = firstMeaningfulLine(content);
+  if (fromContent) return fromContent;
+  return stripFileExtension((rawName || "").trim())
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * Detect pipe-table sequences that landed inside list items or bullet
+ * indents, strip the list markers + leading indent, and guarantee a blank
+ * line on both sides of the table block so the client-side markdown parser
+ * renders the table as a true top-level <table> sibling (never nested
+ * inside <li>). Triggers only when the second line of a candidate run is a
+ * pipe-table separator (`|---|---|`), so prose with stray pipes is left
+ * alone.
+ */
+function unwrapTablesFromLists(markdown: string): { out: string; unwrapped: number } {
+  const lines = markdown.split("\n");
+  const stripPrefix = (l: string) => l.replace(/^\s*[-*+]\s+/, "").replace(/^\s+/, "");
+  const isRow = (l: string) => /\|.*\|/.test(stripPrefix(l));
+  const isSep = (l: string) => {
+    const s = stripPrefix(l);
+    return /^\|?[\s:\-|]+\|[\s:\-|]+\|?$/.test(s) && s.includes("-");
+  };
+  const out: string[] = [];
+  let unwrapped = 0;
+  let i = 0;
+  while (i < lines.length) {
+    if (isRow(lines[i]) && i + 1 < lines.length && isSep(lines[i + 1])) {
+      let j = i;
+      const original: string[] = [];
+      const block: string[] = [];
+      while (j < lines.length && isRow(lines[j])) {
+        original.push(lines[j]);
+        block.push(stripPrefix(lines[j]));
+        j++;
+      }
+      const wasNested = original.some(
+        (l) => /^\s*[-*+]\s+\|/.test(l) || /^\s+\|/.test(l),
+      );
+      if (out.length > 0 && out[out.length - 1].trim() !== "") out.push("");
+      out.push(...block);
+      if (j < lines.length && lines[j].trim() !== "") out.push("");
+      if (wasNested) unwrapped++;
+      i = j;
+      continue;
+    }
+    out.push(lines[i]);
+    i++;
+  }
+  return { out: out.join("\n"), unwrapped };
+}
+
+/**
+ * Rule-5 repair gate: exactly ONE low-latency micro-call that rewrites
+ * lintRule5-flagged hedge sentences ("typically / usually / varies / depends
+ * on" with no number in the same sentence) into direct factual statements.
+ * Caller invokes this at most once per section and re-lints afterwards
+ * without invoking again — no loop, bounded blast radius.
+ */
+async function repairHedgeSentences(
+  sectionContent: string,
+  flagged: string[],
+  fallbackModel: string,
+): Promise<string> {
+  if (flagged.length === 0) return sectionContent;
+  const numbered = flagged.map((s, idx) => `${idx + 1}. ${s}`).join("\n");
+  const system = `You rewrite hedged sentences into direct, factual statements.
+Rules:
+- Strip vague qualifiers ("typically", "usually", "varies", "depends on") unless followed by a specific number in the same sentence.
+- Keep the same factual scope; never invent statistics, percentages, or numbers that are not in the original.
+- If the original has no number, produce a direct claim without inventing one.
+- Preserve British English and the surrounding tone.
+- Output ONLY the rewritten sentences, one per line, numbered identically to the input. No preamble, no commentary, no markdown fences.`;
+  const user = `Rewrite each numbered sentence below into a direct, un-hedged statement:\n\n${numbered}`;
+  let rewritten = "";
+  try {
+    rewritten = await callModel(system, user, "google/gemini-2.5-flash-lite", 500);
+  } catch (e) {
+    try {
+      rewritten = await callModel(system, user, fallbackModel, 500);
+    } catch (e2) {
+      console.warn("LINT-R5 repair: micro-call failed (non-fatal):", e2);
+      return sectionContent;
+    }
+  }
+  const repaired = new Map<number, string>();
+  for (const raw of rewritten.split("\n")) {
+    const m = raw.match(/^\s*(\d+)[.)]\s*(.+?)\s*$/);
+    if (!m) continue;
+    const idx = parseInt(m[1], 10) - 1;
+    if (idx >= 0 && idx < flagged.length) repaired.set(idx, m[2]);
+  }
+  if (repaired.size === 0) return sectionContent;
+  let out = sectionContent;
+  let replaced = 0;
+  for (let i = 0; i < flagged.length; i++) {
+    const next = repaired.get(i);
+    if (!next || next === flagged[i]) continue;
+    if (out.includes(flagged[i])) {
+      out = out.replace(flagged[i], next);
+      replaced++;
+    }
+  }
+  if (replaced > 0) console.log(`LINT-R5: repaired ${replaced}/${flagged.length} hedge sentence(s).`);
+  return out;
+}
+
 function ensureMinimumTables(markdown: string, topic: string, targetWords: number): string {
   const required = Math.max(1, Math.round(targetWords / 600));
   let current = countMarkdownTables(markdown);
@@ -1142,16 +1271,20 @@ async function collectSourceReferences(
       .select("id, title, file_url")
       .in("id", [...brainFileIds]);
     if (error) console.warn("REFERENCES: brain_files source lookup failed:", error.message);
-    (data || []).forEach((file: { title?: string | null; file_url?: string | null }) => add(file.title, file.file_url));
+    (data || []).forEach((file: { title?: string | null; file_url?: string | null }) =>
+      add(cleanReferenceTitle(file.title), file.file_url),
+    );
   }
 
   if (contextDocumentIds.size > 0) {
     const { data, error } = await supabase
       .from("context_documents")
-      .select("id, file_name")
+      .select("id, file_name, content")
       .in("id", [...contextDocumentIds]);
     if (error) console.warn("REFERENCES: context_documents source lookup failed:", error.message);
-    (data || []).forEach((doc: { file_name?: string | null }) => add(doc.file_name));
+    (data || []).forEach((doc: { file_name?: string | null; content?: string | null }) =>
+      add(cleanReferenceTitle(doc.file_name, doc.content)),
+    );
   }
 
   return references;
@@ -1180,7 +1313,7 @@ async function fallbackContextReferencesForTopic(
     })
     .filter((row) => row.score > 0)
     .sort((a, b) => b.score - a.score);
-  const refs = scored.slice(0, 3).map(({ doc }) => ({ title: doc.file_name }));
+  const refs = scored.slice(0, 3).map(({ doc }) => ({ title: cleanReferenceTitle(doc.file_name, doc.content) }));
   if (refs.length > 0) console.log(`REFERENCES: fallback matched ${refs.length} context document(s) for topic tokens.`);
   return refs;
 }
@@ -1214,30 +1347,12 @@ function attachInlineCitations(markdown: string, urls: BrainUrl[]): { out: strin
   return { out: lines.join("\n"), attached };
 }
 
-function attachContextSourceNotes(markdown: string, references: SourceReference[]): { out: string; attached: number } {
-  const fileRefs = references.filter((r) => r.title && !r.url);
-  if (fileRefs.length === 0) return { out: markdown, attached: 0 };
-  const lines = markdown.split("\n");
-  let refIdx = 0;
-  let attached = 0;
-  for (let i = 0; i < lines.length; i++) {
-    const m = lines[i].match(/^##\s+(.+?)\s*$/);
-    if (!m || STRUCT_SKIP_RE.test(m[1])) continue;
-    let endIdx = lines.length;
-    for (let j = i + 1; j < lines.length; j++) {
-      if (/^##\s+/.test(lines[j])) { endIdx = j; break; }
-    }
-    const sectionBody = lines.slice(i + 1, endIdx).join("\n");
-    if (/\bSource\s*:/i.test(sectionBody) || /\]\(https?:\/\//.test(sectionBody)) continue;
-    const ref = fileRefs[refIdx % fileRefs.length];
-    refIdx++;
-    let pEnd = i + 1;
-    while (pEnd < endIdx && lines[pEnd].trim() !== "") pEnd++;
-    lines.splice(pEnd, 0, `\nSource: ${ref.title}.`);
-    attached++;
-  }
-  return { out: lines.join("\n"), attached };
-}
+// attachContextSourceNotes removed (BUILD-2026-05-29-G):
+// the prose-leak path that appended "Source: filename.docx" lines into body
+// paragraphs has been deleted. Context-document references are now rendered
+// EXCLUSIVELY in the footer References section via injectReferences, after
+// filename sanitisation via cleanReferenceTitle (strips .docx/.txt/.pdf and
+// prefers the first meaningful line of the file as the human-readable title).
 
 function enforceOpeningLength(markdown: string): string {
   const h1 = markdown.match(/^#\s+.+$/m);
@@ -1350,7 +1465,18 @@ async function runSection(input: {
     content = trimSectionToBudget(content, input.sectionBudgetWords);
   }
   const needsExpertInput = /^\[NEEDS EXPERT INPUT\]\s*$/i.test(content);
-  const ruleFlags = needsExpertInput ? [] : lintRule5(content);
+  let ruleFlags = needsExpertInput ? [] : lintRule5(content);
+
+  // RULE-5 REPAIR GATE (BUILD-2026-05-29-G): exactly ONE targeted micro-call
+  // to strip un-numericized hedges from body sections. Re-lint after repair
+  // but do NOT invoke the repair again — no loop, bounded blast radius.
+  if (isBody && ruleFlags.length > 0) {
+    const repaired = await repairHedgeSentences(content, ruleFlags, input.model);
+    if (repaired !== content) {
+      content = repaired;
+      ruleFlags = lintRule5(content);
+    }
+  }
 
   let contradicted = false;
   if (!needsExpertInput && input.mappedUnit?.unit_type === "contrarian") {
@@ -1375,7 +1501,7 @@ async function runSection(input: {
 
 /* ── handler ──────────────────────────────────────────────────────────── */
 
-const BUILD_MARKER = "BUILD-2026-05-29-F proprietary-generate-article context-doc-references-tables-atomic-structure";
+const BUILD_MARKER = "BUILD-2026-05-29-G proprietary-generate-article table-unwrap citation-hygiene lint5-repair-gate";
 Deno.serve(async (req) => {
   console.log(BUILD_MARKER);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -1695,9 +1821,8 @@ Deno.serve(async (req) => {
     const cite = attachInlineCitations(stitched, citationUrls);
     stitched = cite.out;
     if (cite.attached > 0) console.log(`CITATIONS: attached ${cite.attached} inline source(s) from brain URLs.`);
-    const contextNotes = attachContextSourceNotes(stitched, sourceReferences);
-    stitched = contextNotes.out;
-    if (contextNotes.attached > 0) console.log(`CITATIONS: attached ${contextNotes.attached} context source note(s).`);
+    // attachContextSourceNotes call removed (BUILD-2026-05-29-G) — see helpers block.
+    // Context-document references now rendered only in the footer References section.
     stitched = injectReferences(stitched, usedUnits, sourceReferences);
     stitched = ensureTrustedReferences(stitched, body.topic);
     const refsEmitted = /^##\s+references/im.test(stitched);
@@ -1709,6 +1834,12 @@ Deno.serve(async (req) => {
     const expertPlaceholders = stripExpertInputPlaceholders(stitched);
     stitched = expertPlaceholders.out;
     if (expertPlaceholders.removed > 0) console.warn(`PLACEHOLDER GUARD: removed ${expertPlaceholders.removed} expert-input placeholder sentence(s).`);
+    // TABLE UNWRAP (BUILD-2026-05-29-G): strip list markers / leading indent
+    // from pipe-table runs and guarantee \n\n fences so the client renders them
+    // as top-level <table> siblings, never nested inside <li>.
+    const tableUnwrap = unwrapTablesFromLists(stitched);
+    stitched = tableUnwrap.out;
+    if (tableUnwrap.unwrapped > 0) console.log(`TABLES: unwrapped ${tableUnwrap.unwrapped} pipe-table block(s) from list/indent context.`);
     let content = sanitiseGeneratedMarkdown(stitched, articleTitle);
     const internalLinkResult = await insertInternalLinksIntoArticle(content, body.internalLinks, body.topic);
     content = internalLinkResult.content;
