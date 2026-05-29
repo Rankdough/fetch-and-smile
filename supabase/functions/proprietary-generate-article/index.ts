@@ -909,17 +909,21 @@ function escapeHtml(value: string): string {
 }
 
 function renderReferenceItem(title: string, url?: string): string {
-  const safeTitle = escapeHtml(title.trim());
+  // Emit as plain markdown bullets so the preview renderer (which escapes raw
+  // HTML) and the HTML export both render a clean clickable list. The previous
+  // raw-HTML <li> approach leaked literal markup into the preview when the
+  // markdown renderer escaped it (see screenshot).
+  const cleanTitle = title.trim().replace(/[\[\]]/g, ""); // strip [] to avoid breaking md link syntax
   if (url && /^https?:\/\//i.test(url)) {
-    const safeUrl = escapeHtml(url.trim());
-    return `<li style="margin: 8px 0; line-height: 1.6; color: #374151;"><a href="${safeUrl}" target="_blank" rel="noopener noreferrer" style="color: #2563eb; text-decoration: underline;">${safeTitle}</a></li>`;
+    return `- [${cleanTitle}](${url.trim()})`;
   }
-  return `<li style="margin: 8px 0; line-height: 1.6; color: #374151;">${safeTitle}</li>`;
+  return `- ${cleanTitle}`;
 }
 
 function renderReferencesList(items: string[]): string {
-  return `<ul style="margin: 0; padding-left: 20px; list-style: disc;">\n${items.join("\n")}\n</ul>`;
+  return items.join("\n");
 }
+
 
 function injectReferences(markdown: string, units: BrainUnit[], sourceReferences: SourceReference[] = []): string {
   if (/^##\s+references/im.test(markdown)) return markdown;
