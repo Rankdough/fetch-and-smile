@@ -1,5 +1,13 @@
 
 ## 2026-05-29 — Verify-and-retry loop for Fix this / Fix all
+- Root cause of "still red after Fix": the deterministic checker is correct (Rule 1 still 51w, Rule 4 still 2 data points, Rule 7 still 3 hedges, Rule 8 still 0 numbers in top 30 percent); the AI rewrite returned content that did not meet the thresholds and we only ran it once.
+- Both NonCommodityComplianceChecker and ContentUsefulnessChecker now re-evaluate the returned content, and if any targeted rule still fails, retry up to 2 more times. Each retry includes the measured shortfall so the model knows exactly what to hit.
+- Toast reports whether the rule actually passes after the loop, or which rule IDs remain broken so the user can retry or edit manually instead of seeing a false success.
+- Files: src/components/NonCommodityComplianceChecker.tsx, src/components/ContentUsefulnessChecker.tsx.
+- Verify: click Fix this on a failing rule, watch the toast — should say "now passes" with attempt count, and the row flips to green Fixed. If model still fails after 3 attempts, toast shows "Partial fix" with the remaining rule IDs.
+- Verified broken: nothing. Checked: both file edits applied cleanly; voice-edit-content body contract unchanged; busy/spinner state still gated on fixingId/fixingAll so UI remains locked during the multi-attempt loop; non-targeted rules are not touched by the loop.
+
+## 2026-05-29 — Verify-and-retry loop for Fix this / Fix all
 - Root cause of "still red after Fix": the deterministic checker is correct (Rule 1 still 51w, Rule 4 still 2 data points, Rule 7 still 3 hedges, Rule 8 still 0 numbers in top 30
 ## 2026-05-29 — Usefulness Rule 6: Source Citations & References
 - Adds Rule 6 to ContentUsefulnessChecker validating (a) a final ## References section with ≥3 markdown/HTML links, and (b) at least one inline citation link inside every body H2 section (TL;DR, Quick Tips, Nav, How to Choose, FAQ, Final Thoughts, References, Methodology excluded).
