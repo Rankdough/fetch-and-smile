@@ -1324,6 +1324,21 @@ function scoreTextForTopic(text: string, topic: string, sectionHeading = ""): nu
   return tokens.reduce((sum, token) => sum + (haystack.includes(token) ? 1 : 0), 0);
 }
 
+function scoreUrlForTopic(url: string, topic: string): number {
+  try {
+    const parsed = new URL(url);
+    return scoreTextForTopic(`${parsed.hostname} ${decodeURIComponent(parsed.pathname)}`, topic);
+  } catch {
+    return 0;
+  }
+}
+
+function filterUrlsForTopic(urls: BrainUrl[], topic: string): BrainUrl[] {
+  const topicTokens = [...tokenize(topic)].filter((t) => t.length >= 5);
+  if (topicTokens.length === 0) return urls;
+  return urls.filter((u) => scoreUrlForTopic(u.url, topic) >= 1);
+}
+
 function hasStrongTopicAnchor(text: string, topic: string): boolean {
   const anchors = [...tokenize(topic)]
     .filter((t) => t.length >= 6)
