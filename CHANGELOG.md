@@ -1,3 +1,20 @@
+## 2026-05-29 - proprietary articles: cite context files in References
+
+**What:**
+- `supabase/functions/proprietary-generate-article/index.ts`: added source-reference collection from the context chunks and mapped brain files used during generation.
+- `injectReferences` now emits source-file references even when the file itself has no public URL, while still using real URLs when available and still avoiding fabricated citation titles.
+- Retrieval now preserves `brain_file_id` and `context_document_id` from matched chunks so the final article can cite the exact context-file source.
+
+**Why:** Articles generated from context files were failing to produce `## References` when the source content contained no URL. The generator only scanned generated markdown and brain text for URLs, so uploaded context documents with just a file name had no referenceable source despite being used for retrieval.
+
+**Files:**
+- supabase/functions/proprietary-generate-article/index.ts
+- CHANGELOG.md
+
+**Verified broken:** Pending deployment smoke test. Checked by grep and file read that the reference call now receives source references and the previous no-URL guard no longer blocks context-file references.
+
+---
+
 ## 2026-05-29 - proprietary article guard: remove expert placeholders and stop generic universal tables
 
 **What:**
