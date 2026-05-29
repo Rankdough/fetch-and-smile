@@ -5,7 +5,7 @@
 
 **Why:** Context reports are evidence containers, not public citations. The References block must cite the online sources found inside those reports, not the internal report names themselves.
 
-**Verified broken:** Pending live generation check in this build entry until the deployed function returns a fresh sample.
+**Verified broken:** Nothing verified broken. Checked: `deno check supabase/functions/proprietary-generate-article/index.ts` passes; deployed `proprietary-generate-article`; live `supabase--curl_edge_functions` generation for "What Defines an Implant Specialist’s Clinical Expertise?" returned a raw `## References` block with 3 markdown bullets, 3 valid `https://` URLs, zero `<ul>/<li>/<a>` HTML, zero "Deep Research Report" titles, and zero "SEO Content Research Report" titles.
 
 **Files:** `supabase/functions/proprietary-generate-article/index.ts`, `CHANGELOG.md`.
 
