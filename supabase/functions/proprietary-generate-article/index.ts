@@ -233,15 +233,8 @@ function buildClinicalUserMessage(input: {
   // extraction directive. The model must treat them as the authoritative
   // source of raw data points, named timelines, and clinical criteria.
   if (input.contextFiles && input.contextFiles.length > 0) {
-    // BUILD-2026-05-29-Q: scrub orphan numeric citation markers ([1], [2,3],
-    // [12-15]) from context-file content BEFORE injection. Context files
-    // (research reports) carry footnote-style markers that have no referent
-    // in the generated article; if left in, the model echoes them verbatim
-    // into body prose, producing stray "[1]" text. Strip at the source.
-    const stripNumericCitationMarkers = (s: string): string =>
-      s.replace(/\s?\[\d{1,3}(?:\s*[,\-–]\s*\d{1,3})*\]/g, "");
     const contextBlock = input.contextFiles
-      .map((f) => `--- ${f.name} ---\n${stripNumericCitationMarkers(f.content)}`)
+      .map((f) => `--- ${f.name} ---\n${stripBodyNumericCitationMarkers(f.content).out}`)
       .join("\n\n");
     lines.push(
       "",
