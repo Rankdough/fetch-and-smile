@@ -1527,7 +1527,7 @@ async function runSection(input: {
 
 /* ── handler ──────────────────────────────────────────────────────────── */
 
-const BUILD_MARKER = "BUILD-2026-05-29-G proprietary-generate-article table-unwrap citation-hygiene lint5-repair-gate";
+const BUILD_MARKER = "BUILD-2026-05-29-H proprietary-generate-article references-html-anchors";
 Deno.serve(async (req) => {
   console.log(BUILD_MARKER);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
