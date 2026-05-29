@@ -71,6 +71,19 @@ interface BrainUnit {
   summary: string | null;
   full_text: string | null;
   unit_type: UnitType | "legacy" | null;
+  source_file_id?: string | null;
+}
+
+interface RetrievedChunk {
+  content: string;
+  similarity: number;
+  brain_file_id?: string | null;
+  context_document_id?: string | null;
+}
+
+interface SourceReference {
+  title: string;
+  url?: string;
 }
 
 interface InternalLinkResult {
@@ -191,7 +204,7 @@ function buildClinicalUserMessage(input: {
   publicationDestination: "ai-search" | "human-blog" | "both";
   section: SectionSpec;
   articleTitle: string;
-  retrievedChunks?: Array<{ content: string; similarity: number }>;
+  retrievedChunks?: RetrievedChunk[];
   targetWordCount?: number;
 }): string {
   const knowledgeInput = input.mappedUnit?.full_text?.trim()
