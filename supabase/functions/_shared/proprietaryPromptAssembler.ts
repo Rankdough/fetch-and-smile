@@ -63,6 +63,8 @@ export interface AssemblerInput {
   articleTitle: string;
   /** Allow-listed external URLs the model may cite inline in this body section. */
   allowedSourceUrls?: AllowedSourceUrl[];
+  /** Retrieved context snippets from uploaded research/context files for this exact section. */
+  retrievedKnowledge?: Array<{ content: string; sourceTitle?: string | null }>;
 }
 
 export interface AssembledPrompt {
@@ -425,6 +427,15 @@ function describeSurroundingContext(prev: AssemblerInput["surroundingContext"]):
   return `SURROUNDING CONTEXT — sections already written in this article. Do NOT repeat their claims; build on them.\n\n${items}`;
 }
 
+function describeRetrievedKnowledge(snippets: AssemblerInput["retrievedKnowledge"]): string {
+  if (!snippets || snippets.length === 0) return "";
+  const block = snippets
+    .slice(0, 4)
+    .map((s, i) => `### Context source ${i + 1}${s.sourceTitle ? `: ${s.sourceTitle}` : ""}\n${s.content.slice(0, 1400)}${s.content.length > 1400 ? "…" : ""}`)
+    .join("\n\n");
+  return `RETRIEVED CONTEXT FILE EVIDENCE — use these facts, distinctions, tables, and named source documents for this section. Prefer this evidence over general knowledge.\n\n${block}`;
+}
+
 export function assembleSectionPrompt(input: AssemblerInput): AssembledPrompt {
   const { businessType, mappedUnit, audienceSentence, publicationDestination, section, articleTitle } = input;
   const isBody = section.type === "body";
@@ -572,6 +583,8 @@ sections — not a generic platitude.`);
   // User message: the unit + surrounding context + the explicit ask
   const userParts: string[] = [];
   userParts.push(describeMappedUnit(mappedUnit));
+  const retrieved = describeRetrievedKnowledge(input.retrievedKnowledge);
+  if (retrieved) userParts.push(retrieved);
   const ctx = describeSurroundingContext(input.surroundingContext);
   if (ctx) userParts.push(ctx);
   userParts.push(`TASK: Write the body of the section "${section.heading}" now.
