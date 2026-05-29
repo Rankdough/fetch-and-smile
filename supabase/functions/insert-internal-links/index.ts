@@ -75,6 +75,7 @@ serve(async (req) => {
         .split(/[^a-z0-9]+/)
         .filter((t) => t && t.length > 2 && !STOP.has(t))
     );
+    const weakUrlTokens = new Set(["dental", "dentist", "dentists", "clinic", "clinics", "implant", "implants"]);
 
     const urlContexts: { url: string; keywords: string[] }[] = [];
     const skippedOffTopic: string[] = [];
@@ -86,7 +87,9 @@ serve(async (req) => {
         continue;
       }
       const expanded = new Set(kws.flatMap(expand));
-      const hit = [...expanded].some((k) => articleTokens.has(k));
+      const hits = [...expanded].filter((k) => articleTokens.has(k));
+      const strongHits = hits.filter((k) => !weakUrlTokens.has(k));
+      const hit = strongHits.length > 0 || hits.length >= 2;
       if (hit) {
         urlContexts.push({ url, keywords: kws });
       } else {
