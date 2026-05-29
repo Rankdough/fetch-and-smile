@@ -1,3 +1,19 @@
+## 2026-05-29 - Add Non-Commodity Compliance Guard sidebar panel
+
+**What:**
+- New `src/components/NonCommodityComplianceChecker.tsx`: read-only sidebar panel running 10 deterministic string-pattern checks (snippet length under H2/H3, pronoun-chain isolation, table syntax presence, numeric data density, marketing hyperbole, methodology mention, defensive hedging, top-30% data proximity, timeline/deadline coverage, structural terminus). Renders green check / red X per rule with brief failure detail.
+- `src/pages/Index.tsx`: imported and mounted `<NonCommodityComplianceChecker content={generatedContent} />` directly under the existing `QualityScoringPanel`. No other JSX, props, or scoring math touched.
+
+**Why:** Give writers an at-a-glance non-commodity compliance signal next to the existing quality score, without altering generation or scoring logic.
+
+**Verified broken:** Nothing verified broken. Checked: build TS errors cleared after relocating the insertion (initial line_replace hit a wrong match; reverted that block and re-inserted at the correct position). `QualityScoringPanel` props unchanged. No edits to form submission handlers or generation logic. Grep confirms the new component is referenced only in the import and the single mount site.
+
+**Files:** `src/components/NonCommodityComplianceChecker.tsx`, `src/pages/Index.tsx`, `CHANGELOG.md`.
+
+**Verify:** Open the right-hand verification sidebar with a generated article present. The "Non-Commodity Compliance Guard" card appears directly below "Quality Analysis" with a 10-rule checklist and an N/10 counter.
+
+---
+
 ## 2026-05-29 - Remove stale diet and bloating bullets from non-diet articles (BUILD-2026-05-29-V)
 
 **What:**

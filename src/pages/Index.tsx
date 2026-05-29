@@ -52,6 +52,7 @@ import { ToneProfilePanel } from "@/components/ToneProfilePanel";
 import { UniqueAnglesPanel } from "@/components/UniqueAnglesPanel";
 import { GapAnalysisSelector } from "@/components/GapAnalysisSelector";
 import { QualityScoringPanel } from "@/components/QualityScoringPanel";
+import { NonCommodityComplianceChecker } from "@/components/NonCommodityComplianceChecker";
 import { Switch } from "@/components/ui/switch";
 import { ArticleNavigationPanel, extractNavigationFromContent, generateNavigationHtml } from "@/components/ArticleNavigationPanel";
 import { FAQAccordion, extractFAQFromContent, removeFAQSection, generateFAQHtml } from "@/components/FAQAccordion";
@@ -2613,7 +2614,9 @@ const Index = () => {
             setActiveTool("generator");
             pendingApplyFormatRef.current = true;
           }}
-        />
+                     />
+
+                     
       ) : (
       <>
       {/* Action Toolbar */}
@@ -6008,6 +6011,11 @@ CRITICAL EXPANSION RULES:
                       onContentUpdate={setGeneratedContent}
                       onCreditUsed={(action, type, details) => trackUsage(action, type, details)}
                     />
+                    
+                    {/* Non-Commodity Compliance Guard */}
+                    <NonCommodityComplianceChecker content={generatedContent} />
+                    
+
                     
                     {/* Credit Usage Display */}
                     <CreditUsageDisplay
