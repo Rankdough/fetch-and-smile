@@ -987,6 +987,7 @@ function stripMismatchedInlineLinks(markdown: string, topic: string): { out: str
   let removed = 0;
   const out: string[] = [];
   let sectionBuffer: string[] = [];
+  let inReferences = false;
   const flush = () => {
     if (sectionBuffer.length === 0) return;
     const sectionText = sectionBuffer.join("\n");
@@ -999,13 +1000,16 @@ function stripMismatchedInlineLinks(markdown: string, topic: string): { out: str
     ));
     sectionBuffer = [];
   };
-  for (const line of lines) {
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
     if (/^##\s+references\b/i.test(line)) {
       flush();
-      out.push(line, ...lines.slice(lines.indexOf(line) + 1));
+      out.push(line);
       sectionBuffer = [];
-      break;
+      inReferences = true;
+      continue;
     }
+    if (inReferences) { out.push(line); continue; }
     if (/^##\s+/.test(line)) flush();
     sectionBuffer.push(line);
   }
