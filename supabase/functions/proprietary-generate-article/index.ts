@@ -1378,10 +1378,25 @@ function scoreUrlForTopic(url: string, topic: string): number {
   }
 }
 
+const WEAK_URL_TOKENS = new Set(["dental", "dentist", "dentists", "clinic", "clinics", "implant", "implants"]);
+
+function urlTopicHits(url: string, text: string): string[] {
+  try {
+    const parsed = new URL(url);
+    const urlText = `${parsed.hostname} ${decodeURIComponent(parsed.pathname)}`.toLowerCase();
+    return [...tokenize(text)].filter((token) => token.length >= 5 && urlText.includes(token));
+  } catch {
+    return [];
+  }
+}
+
 function filterUrlsForTopic(urls: BrainUrl[], topic: string): BrainUrl[] {
   const topicTokens = [...tokenize(topic)].filter((t) => t.length >= 5);
   if (topicTokens.length === 0) return urls;
-  return urls.filter((u) => scoreUrlForTopic(u.url, topic) >= 1);
+  return urls.filter((u) => {
+    const hits = urlTopicHits(u.url, topic);
+    return hits.some((token) => !WEAK_URL_TOKENS.has(token)) || hits.length >= 2;
+  });
 }
 
 function hasStrongTopicAnchor(text: string, topic: string): boolean {
