@@ -1172,7 +1172,7 @@ Deno.serve(async (req) => {
     // are tagged with this project — prevents cross-client content leakage.
     let insightsQuery = sb
       .from("brain_insights")
-      .select("id, title, summary, full_text, unit_type")
+        .select("id, title, summary, full_text, unit_type, source_file_id")
       .limit(100);
     if (projectId) {
       // Fetch brain_file_ids for this project from brain_chunks.
@@ -1396,16 +1396,18 @@ Deno.serve(async (req) => {
     // injecting cross-topic (e.g. dental) URLs into unrelated articles.
     const usedUnitIds = new Set(sectionsOut.map(s => s.mappedUnitId).filter(Boolean));
     const usedUnits = units.filter(u => usedUnitIds.has(u.id));
+    const sourceReferences = await collectSourceReferences(sb, usedUnits.length ? usedUnits : units, allRetrievedChunks);
+    if (sourceReferences.length > 0) console.log(`REFERENCES: collected ${sourceReferences.length} context source reference(s).`);
     const brainUrls = collectBrainUrls(usedUnits.length ? usedUnits : units);
     const citationUrls = brainUrls.length > 0 ? brainUrls : trustedFallbackSources(body.topic);
     if (brainUrls.length === 0 && citationUrls.length > 0) console.log(`CITATIONS: using ${citationUrls.length} trusted fallback source(s).`);
     const cite = attachInlineCitations(stitched, citationUrls);
     stitched = cite.out;
     if (cite.attached > 0) console.log(`CITATIONS: attached ${cite.attached} inline source(s) from brain URLs.`);
-    stitched = injectReferences(stitched, units);
+    stitched = injectReferences(stitched, units, sourceReferences);
     stitched = ensureTrustedReferences(stitched, body.topic);
     const refsEmitted = /^##\s+references/im.test(stitched);
-    if (!refsEmitted) console.warn(`REFERENCES: no References section emitted — brain units contain no URLs.`);
+    if (!refsEmitted) console.warn(`REFERENCES: no References section emitted — no source files, source URLs, or trusted fallbacks found.`);
     stitched = stripBrandPlaceholders(stitched);
     const expertPlaceholders = stripExpertInputPlaceholders(stitched);
     stitched = expertPlaceholders.out;
