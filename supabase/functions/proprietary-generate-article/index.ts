@@ -935,38 +935,33 @@ function refsToMarkdown(refs: Array<{ title: string; url?: string }>): string {
   }).join("\n");
 }
 
-// BUILD-2026-05-29-P: Dedupe refs by hostname+path (case-insensitive, ignoring
-// www. and trailing slash) and drop entries whose URL is malformed or not https?.
-// Refs without any URL are kept as plain bullets, deduped by title.
+// BUILD-2026-05-29-Q: References must be EXTERNAL CITATIONS ONLY.
+// A reference without a real https?:// URL is a context-file name (e.g.
+// "Deep Research Report: ...") — that's an internal document, not a citation,
+// and must never appear in the public References block. Drop it.
+// Dedupe by lowercased hostname (www. stripped) + pathname (trailing slash stripped).
 function dedupeAndValidateRefs(
   refs: Array<{ title: string; url?: string }>,
-): Array<{ title: string; url?: string }> {
+): Array<{ title: string; url: string }> {
   const seen = new Set<string>();
-  const out: Array<{ title: string; url?: string }> = [];
+  const out: Array<{ title: string; url: string }> = [];
   for (const ref of refs) {
     const title = (ref.title || "").trim();
-    if (!title) continue;
     const rawUrl = (ref.url || "").trim();
-    let key: string;
-    let normalisedUrl: string | undefined;
-    if (rawUrl) {
-      if (!/^https?:\/\//i.test(rawUrl)) continue;
-      try {
-        const u = new URL(rawUrl);
-        const host = u.hostname.replace(/^www\./i, "").toLowerCase();
-        const path = u.pathname.replace(/\/+$/, "");
-        if (!host) continue;
-        key = `url:${host}${path}`;
-        normalisedUrl = rawUrl;
-      } catch {
-        continue;
-      }
-    } else {
-      key = `title:${title.toLowerCase()}`;
+    if (!title || !rawUrl) continue;
+    if (!/^https?:\/\//i.test(rawUrl)) continue;
+    try {
+      const u = new URL(rawUrl);
+      const host = u.hostname.replace(/^www\./i, "").toLowerCase();
+      if (!host) continue;
+      const path = u.pathname.replace(/\/+$/, "");
+      const key = `${host}${path}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push({ title, url: rawUrl });
+    } catch {
+      continue;
     }
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push({ title, url: normalisedUrl });
   }
   return out;
 }
