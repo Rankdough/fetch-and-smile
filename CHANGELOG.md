@@ -1,3 +1,24 @@
+## 2026-05-29 - proprietary articles: restore context-file references, tables, and atomic sections
+
+**What:**
+- `supabase/functions/_shared/proprietaryPromptAssembler.ts`: tightened generation rules so openings stay concise, final thoughts are split into two short paragraphs, body sections require a fuller standalone answer plus exactly 3 useful bullets, and bracket placeholders are forbidden at prompt level.
+- `supabase/functions/proprietary-generate-article/index.ts`: added direct context-document matching for uploaded research files when vector chunks are missing, so context files can still ground the section and appear in `## References`.
+- Added context-file source notes per body section when source files have no public URL, while still listing the files in the References section.
+- Added a gluten-specific topic table and table logging so table injection is visible in function logs.
+- Added stronger placeholder stripping and tightened retrieval filtering so unrelated vector hits are not cited.
+- Build marker: `BUILD-2026-05-29-F`.
+
+**Why:** The gluten article proved the previous fix still depended too heavily on vector-indexed chunks. The relevant gluten files existed in `context_documents`, but no matching `brain_chunks` existed, so references were empty and unrelated fallback retrieval could leak into citations. Tables also needed a topic-specific gluten comparison rather than a generic fallback.
+
+**Files:**
+- supabase/functions/_shared/proprietaryPromptAssembler.ts
+- supabase/functions/proprietary-generate-article/index.ts
+- CHANGELOG.md
+
+**Verified broken:** Pending final smoke test after the last retrieval-filter tightening. Earlier smoke in this change confirmed HTTP 200, a gluten-specific condition table, split final thoughts, no bracket placeholders, and a References section, but also exposed unrelated friendship context references before the final filter tightening.
+
+---
+
 ## 2026-05-29 - atomic sections + inline source link baked into generation
 
 **What:**

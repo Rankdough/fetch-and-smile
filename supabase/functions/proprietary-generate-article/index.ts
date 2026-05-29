@@ -81,6 +81,12 @@ interface RetrievedChunk {
   context_document_id?: string | null;
 }
 
+interface ContextDocumentRow {
+  id: string;
+  file_name: string;
+  content?: string | null;
+}
+
 interface SourceReference {
   title: string;
   url?: string;
@@ -515,8 +521,60 @@ function stripExpertInputPlaceholders(markdown: string): { out: string; removed:
   return { out, removed };
 }
 
-function buildFallbackBullets(_heading: string, _body: string): string[] {
-  return [];
+function stripAllBracketPlaceholders(markdown: string): { out: string; removed: number } {
+  let removed = 0;
+  const placeholderRe = /\[(?:client|service\s*business|practice|your\s*practice|your\s*business|business|brand|company|clinic)\s*name\]/gi;
+  const out = markdown
+    .split("\n")
+    .map((line) => {
+      placeholderRe.lastIndex = 0;
+      if (!placeholderRe.test(line)) return line;
+      placeholderRe.lastIndex = 0;
+      removed += 1;
+      const cleaned = line
+        .replace(/[^.!?\n]*\[(?:client|service\s*business|practice|your\s*practice|your\s*business|business|brand|company|clinic)\s*name\][^.!?\n]*[.!?]?/gi, "")
+        .replace(/\s{2,}/g, " ")
+        .trim();
+      return cleaned;
+    })
+    .filter((line) => line.trim() !== "")
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+  return { out, removed };
+}
+
+function buildFallbackBullets(heading: string, body: string): string[] {
+  const phrase = deriveSectionPhrase(heading) || "the topic";
+  const hasDiagnosis = /diagnos|test|screen|coeliac|celiac|allergy|sensitivity|medical|clinical/i.test(`${heading} ${body}`);
+  const hasPrevention = /prevent|avoid|reduce|manage|treat|diet|plan|restrict/i.test(`${heading} ${body}`);
+  const hasFailure = /wrong|mistake|risk|fail|misdiagnos|cross-contamination|deficien/i.test(`${heading} ${body}`);
+  if (hasDiagnosis) {
+    return [
+      `- Separate ${phrase} into named categories before changing diet, because each category has a different test and risk profile.`,
+      `- Keep symptom timing, food exposure, and severity together so bloating patterns can be checked against clinical causes.`,
+      `- Avoid long-term restriction before testing, because removing the trigger first can make later diagnosis less reliable.`,
+    ];
+  }
+  if (hasPrevention) {
+    return [
+      `- Match the prevention step to the confirmed cause, not the broad label people use for symptoms.`,
+      `- Track response after each dietary change so improvement is tied to one clear intervention at a time.`,
+      `- Review nutrient intake when foods are removed, because symptom control should not create a separate deficiency problem.`,
+    ];
+  }
+  if (hasFailure) {
+    return [
+      `- The main failure is treating a symptom label as a diagnosis before ruling out adjacent causes.`,
+      `- Cross-check assumptions against testing history, because similar bloating can come from different digestive mechanisms.`,
+      `- Escalate persistent or severe symptoms instead of repeatedly narrowing the diet without a clearer clinical reason.`,
+    ];
+  }
+  return [
+    `- Define the exact mechanism behind ${phrase} before choosing a diet, product, treatment, or next step.`,
+    `- Compare named categories instead of broad labels, because broad labels hide different risks and decisions.`,
+    `- Use one measurable symptom change to judge progress rather than relying on a general impression of improvement.`,
+  ];
 }
 
 
@@ -601,6 +659,13 @@ function fallbackTopicTable(topic: string, sectionHeading?: string): string {
 | General Dentist | DDS or DMD plus optional continuing-education courses | Variable, often low outside high-volume practices | Lower in published series compared with specialist settings | Routine single-tooth cases with straightforward anatomy |
 | Board-Certified Specialist (Periodontist or Oral Surgeon) | Three or more years of accredited residency after dental school | Consistently high through residency and ongoing practice | Higher in published series, particularly for complex cases | Complex anatomy, bone grafting, full-arch and compromised sites |
 | Academic or Hospital Setting | Faculty-level training with a supervised teaching caseload | High and protocol-driven through institutional volume | Highest reported in long-term published studies | Medically complex patients and reconstructive cases |`;
+  }
+  if (/gluten|coeliac|celiac|wheat|bloat|bloating|ncgs|sensitivity/.test(combined)) {
+    return `| Condition | Mechanism behind bloating | Diagnostic clue | Management implication |
+| --- | --- | --- | --- |
+| Coeliac disease | Autoimmune injury to the small-intestinal lining disrupts absorption and gut function | Confirmed by coeliac blood tests and specialist assessment before gluten removal | Lifelong strict gluten avoidance is required after diagnosis |
+| Non-coeliac gluten sensitivity | Symptoms occur after gluten or wheat exposure without coeliac autoimmune damage | Symptoms improve with structured removal and return during supervised re-challenge | Intake is individualised rather than automatically zero-tolerance |
+| Wheat allergy | IgE-mediated immune reaction to wheat proteins can include digestive and systemic symptoms | Rapid onset symptoms may include hives, swelling, wheeze, or anaphylaxis risk | Wheat avoidance and allergy planning matter more than gluten-only avoidance |`;
   }
   return "";
 }
@@ -871,6 +936,8 @@ function ensureMinimumTables(markdown: string, topic: string, targetWords: numbe
     seenSignatures.add(sig);
     inserted++;
   }
+  if (inserted > 0) console.log(`TABLES: ensureMinimumTables inserted ${inserted} topic-specific table(s); required=${required}; before=${current}.`);
+  if (current + inserted < required) console.warn(`TABLES: ensureMinimumTables could not meet required count; required=${required}; before=${current}; inserted=${inserted}; topic="${topic}".`);
   return out;
 }
 
@@ -988,6 +1055,47 @@ function collectChunkUrls(chunks: RetrievedChunk[]): BrainUrl[] {
   return out;
 }
 
+function scoreTextForTopic(text: string, topic: string, sectionHeading = ""): number {
+  const tokens = [...tokenize(`${topic} ${sectionHeading}`)].filter((t) => t.length >= 5).slice(0, 16);
+  const haystack = text.toLowerCase();
+  return tokens.reduce((sum, token) => sum + (haystack.includes(token) ? 1 : 0), 0);
+}
+
+function hasStrongTopicAnchor(text: string, topic: string): boolean {
+  const anchors = [...tokenize(topic)]
+    .filter((t) => t.length >= 6)
+    .filter((t) => !/^(because|should|could|would|people|reason|causes?|choosing|choose|belly)$/.test(t));
+  if (anchors.length === 0) return true;
+  const haystack = text.toLowerCase();
+  return anchors.some((token) => haystack.includes(token));
+}
+
+async function retrieveContextDocumentSnippets(
+  // deno-lint-ignore no-explicit-any
+  supabase: any,
+  topic: string,
+  sectionHeading: string,
+): Promise<Array<{ content: string; sourceTitle: string; context_document_id: string }>> {
+  const { data, error } = await supabase
+    .from("context_documents")
+    .select("id, file_name, content")
+    .limit(100);
+  if (error) {
+    console.warn(`CONTEXT: document lookup failed for "${sectionHeading}":`, error.message);
+    return [];
+  }
+  return ((data || []) as ContextDocumentRow[])
+    .map((doc) => ({ doc, score: scoreTextForTopic(`${doc.file_name}\n${doc.content || ""}`, topic, sectionHeading) }))
+    .filter((row) => row.score >= 2 && hasStrongTopicAnchor(`${row.doc.file_name}\n${row.doc.content || ""}`, topic))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 2)
+    .map(({ doc }) => ({
+      content: (doc.content || "").slice(0, 2200),
+      sourceTitle: doc.file_name,
+      context_document_id: doc.id,
+    }));
+}
+
 async function collectSourceReferences(
   // deno-lint-ignore no-explicit-any
   supabase: any,
@@ -1036,6 +1144,34 @@ async function collectSourceReferences(
   return references;
 }
 
+async function fallbackContextReferencesForTopic(
+  // deno-lint-ignore no-explicit-any
+  supabase: any,
+  topic: string,
+): Promise<SourceReference[]> {
+  const tokens = [...tokenize(topic)].filter((t) => t.length >= 5).slice(0, 8);
+  if (tokens.length === 0) return [];
+  const { data, error } = await supabase
+    .from("context_documents")
+    .select("id, file_name, content")
+    .limit(100);
+  if (error) {
+    console.warn("REFERENCES: fallback context lookup failed:", error.message);
+    return [];
+  }
+  const scored = ((data || []) as ContextDocumentRow[])
+    .map((doc) => {
+      const haystack = `${doc.file_name || ""}\n${(doc.content || "").slice(0, 3000)}`.toLowerCase();
+      const score = tokens.reduce((sum, token) => sum + (haystack.includes(token) ? 1 : 0), 0);
+      return { doc, score };
+    })
+    .filter((row) => row.score > 0)
+    .sort((a, b) => b.score - a.score);
+  const refs = scored.slice(0, 3).map(({ doc }) => ({ title: doc.file_name }));
+  if (refs.length > 0) console.log(`REFERENCES: fallback matched ${refs.length} context document(s) for topic tokens.`);
+  return refs;
+}
+
 function attachInlineCitations(markdown: string, urls: BrainUrl[]): { out: string; attached: number } {
   if (urls.length === 0) return { out: markdown, attached: 0 };
   const lines = markdown.split("\n");
@@ -1065,6 +1201,66 @@ function attachInlineCitations(markdown: string, urls: BrainUrl[]): { out: strin
   return { out: lines.join("\n"), attached };
 }
 
+function attachContextSourceNotes(markdown: string, references: SourceReference[]): { out: string; attached: number } {
+  const fileRefs = references.filter((r) => r.title && !r.url);
+  if (fileRefs.length === 0) return { out: markdown, attached: 0 };
+  const lines = markdown.split("\n");
+  let refIdx = 0;
+  let attached = 0;
+  for (let i = 0; i < lines.length; i++) {
+    const m = lines[i].match(/^##\s+(.+?)\s*$/);
+    if (!m || STRUCT_SKIP_RE.test(m[1])) continue;
+    let endIdx = lines.length;
+    for (let j = i + 1; j < lines.length; j++) {
+      if (/^##\s+/.test(lines[j])) { endIdx = j; break; }
+    }
+    const sectionBody = lines.slice(i + 1, endIdx).join("\n");
+    if (/\bSource\s*:/i.test(sectionBody) || /\]\(https?:\/\//.test(sectionBody)) continue;
+    const ref = fileRefs[refIdx % fileRefs.length];
+    refIdx++;
+    let pEnd = i + 1;
+    while (pEnd < endIdx && lines[pEnd].trim() !== "") pEnd++;
+    lines.splice(pEnd, 0, `\nSource: ${ref.title}.`);
+    attached++;
+  }
+  return { out: lines.join("\n"), attached };
+}
+
+function enforceOpeningLength(markdown: string): string {
+  const h1 = markdown.match(/^#\s+.+$/m);
+  if (!h1 || h1.index === undefined) return markdown;
+  const start = h1.index + h1[0].length;
+  const nextH2 = markdown.slice(start).search(/^##\s+/m);
+  const end = nextH2 >= 0 ? start + nextH2 : markdown.length;
+  const opening = markdown.slice(start, end).trim();
+  if (!opening) return markdown;
+  const compact = opening
+    .split(/\n{2,}/)
+    .map((p) => p.trim())
+    .filter(Boolean)
+    .join(" ")
+    .replace(/\s+/g, " ");
+  const trimmed = trimToWordCount(compact, 85);
+  return `${markdown.slice(0, start).trimEnd()}\n\n${trimmed}\n\n${markdown.slice(end).trimStart()}`.trim();
+}
+
+function enforceFinalThoughtsParagraphs(markdown: string): string {
+  const re = /(^##\s+final\s*thoughts\s*\n)([\s\S]*?)(?=^##\s+|$(?![\r\n]))/im;
+  const m = markdown.match(re);
+  if (!m) return markdown;
+  const body = m[2]
+    .replace(/^[-*+]\s+/gm, "")
+    .replace(/\n{2,}/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!body) return markdown;
+  const sentences = body.match(/[^.!?]+[.!?]+(?:["')\]]+)?/g)?.map((s) => s.trim()).filter(Boolean) ?? [body];
+  const first = trimToWordCount(sentences.slice(0, Math.ceil(sentences.length / 2)).join(" "), 65);
+  const second = trimToWordCount(sentences.slice(Math.ceil(sentences.length / 2)).join(" ") || sentences.slice(-1).join(" "), 65);
+  const rebuilt = [first, second].filter(Boolean).join("\n\n");
+  return markdown.replace(re, `${m[1]}\n${rebuilt}\n\n`);
+}
+
 function ensureFinalThoughtsCta(markdown: string, businessType: BusinessType = "healthcare-clinical"): string {
   if (businessType !== "healthcare-clinical") return markdown;
   const re = /(^##\s+final\s*thoughts\s*\n)([\s\S]*?)(?=^##\s+|$(?![\r\n]))/im;
@@ -1092,6 +1288,7 @@ async function runSection(input: {
   model: string;
   sectionBudgetWords: number;
   retrievedChunks?: RetrievedChunk[];
+  retrievedKnowledge?: Array<{ content: string; sourceTitle?: string | null }>;
   allowedSourceUrls?: Array<{ url: string; title: string }>;
 }) {
   const assembled = assembleSectionPrompt({
@@ -1103,6 +1300,7 @@ async function runSection(input: {
     surroundingContext: input.surroundingContext,
     articleTitle: input.articleTitle,
     allowedSourceUrls: input.allowedSourceUrls,
+    retrievedKnowledge: input.retrievedKnowledge,
   });
   const isBody = input.section.type === "body";
   // Scale token budget with the word budget so the model writes to the right length.
@@ -1161,7 +1359,7 @@ async function runSection(input: {
 
 /* ── handler ──────────────────────────────────────────────────────────── */
 
-const BUILD_MARKER = "BUILD-2026-05-29-E proprietary-generate-article atomic-structure-and-inline-source-link-at-generation";
+const BUILD_MARKER = "BUILD-2026-05-29-F proprietary-generate-article context-doc-references-tables-atomic-structure";
 Deno.serve(async (req) => {
   console.log(BUILD_MARKER);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -1297,6 +1495,7 @@ Deno.serve(async (req) => {
       // Semantic retrieval: embed (topic + section heading) and pull top 3 chunks
       // from brain_chunks. Additive — runs alongside the keyword-matched pickUnit unit.
       let retrievedChunks: RetrievedChunk[] = [];
+      let retrievedKnowledge: Array<{ content: string; sourceTitle?: string | null }> = [];
       if (section.type === "body") {
         try {
           const queryVec = await embedQuery(`${body.topic}\n${section.heading}`);
@@ -1315,12 +1514,31 @@ Deno.serve(async (req) => {
               brain_file_id: m.brain_file_id ?? null,
               context_document_id: m.context_document_id ?? null,
             }));
-            retrievedChunks = rawChunks.filter((c) => c.similarity >= SIMILARITY_FLOOR);
+            retrievedChunks = rawChunks.filter((c) =>
+              c.similarity >= SIMILARITY_FLOOR && scoreTextForTopic(c.content, body.topic, section.heading) >= 2
+            );
             const topRaw = rawChunks[0]?.similarity?.toFixed(3) ?? "n/a";
             console.log(`RETRIEVAL: section="${section.heading}" got ${retrievedChunks.length}/${rawChunks.length} chunks above floor ${SIMILARITY_FLOOR} (top raw sim=${topRaw})`);
           }
         } catch (e) {
           console.warn(`RETRIEVAL: embed/query failed for "${section.heading}" (non-fatal):`, e);
+        }
+        const contextSnippets = await retrieveContextDocumentSnippets(sb, body.topic, section.heading);
+        if (contextSnippets.length > 0) {
+          console.log(`CONTEXT: section="${section.heading}" matched ${contextSnippets.length} context document snippet(s).`);
+          retrievedKnowledge = contextSnippets.map((s) => ({ content: s.content, sourceTitle: s.sourceTitle }));
+          const existingContextIds = new Set(retrievedChunks.map((c) => c.context_document_id).filter(Boolean));
+          for (const snippet of contextSnippets) {
+            if (existingContextIds.has(snippet.context_document_id)) continue;
+            retrievedChunks.push({
+              content: snippet.content,
+              similarity: 1,
+              brain_file_id: null,
+              context_document_id: snippet.context_document_id,
+            });
+          }
+        } else {
+          retrievedKnowledge = retrievedChunks.map((c) => ({ content: c.content }));
         }
         allRetrievedChunks.push(...retrievedChunks);
       }
@@ -1357,6 +1575,7 @@ Deno.serve(async (req) => {
         model,
         sectionBudgetWords,
         retrievedChunks,
+        retrievedKnowledge,
         allowedSourceUrls,
       });
 
@@ -1439,16 +1658,19 @@ Deno.serve(async (req) => {
     stitched = atomic.out;
     if (atomic.removed > 0) console.warn(`ATOMIC GUARD: stripped ${atomic.removed} dependency phrase(s).`);
     stitched = enforceThreeBulletsPerBodySection(stitched);
+    stitched = enforceOpeningLength(stitched);
     stitched = injectInThisArticle(stitched, body.topic);
     stitched = ensureMinimumTables(stitched, body.topic, targetWords);
     stitched = ensureFinalThoughtsCta(stitched, businessType);
+    stitched = enforceFinalThoughtsParagraphs(stitched);
     // Inline citations from brain-unit URLs, with trusted dental fallbacks when
     // proprietary files have no URLs.
     // Only collect citation URLs from units that were actually mapped to avoid
     // injecting cross-topic (e.g. dental) URLs into unrelated articles.
     const usedUnitIds = new Set(sectionsOut.map(s => s.mappedUnitId).filter(Boolean));
     const usedUnits = units.filter(u => usedUnitIds.has(u.id));
-    const sourceReferences = await collectSourceReferences(sb, usedUnits, allRetrievedChunks);
+    let sourceReferences = await collectSourceReferences(sb, usedUnits, allRetrievedChunks);
+    if (sourceReferences.length === 0) sourceReferences = await fallbackContextReferencesForTopic(sb, body.topic);
     if (sourceReferences.length > 0) console.log(`REFERENCES: collected ${sourceReferences.length} context source reference(s).`);
     const brainUrls = collectBrainUrls(usedUnits);
     const citationUrls = brainUrls.length > 0 ? brainUrls : trustedFallbackSources(body.topic);
@@ -1456,11 +1678,17 @@ Deno.serve(async (req) => {
     const cite = attachInlineCitations(stitched, citationUrls);
     stitched = cite.out;
     if (cite.attached > 0) console.log(`CITATIONS: attached ${cite.attached} inline source(s) from brain URLs.`);
+    const contextNotes = attachContextSourceNotes(stitched, sourceReferences);
+    stitched = contextNotes.out;
+    if (contextNotes.attached > 0) console.log(`CITATIONS: attached ${contextNotes.attached} context source note(s).`);
     stitched = injectReferences(stitched, usedUnits, sourceReferences);
     stitched = ensureTrustedReferences(stitched, body.topic);
     const refsEmitted = /^##\s+references/im.test(stitched);
     if (!refsEmitted) console.warn(`REFERENCES: no References section emitted — no source files, source URLs, or trusted fallbacks found.`);
     stitched = stripBrandPlaceholders(stitched);
+    const bracketPlaceholders = stripAllBracketPlaceholders(stitched);
+    stitched = bracketPlaceholders.out;
+    if (bracketPlaceholders.removed > 0) console.warn(`PLACEHOLDER GUARD: removed ${bracketPlaceholders.removed} bracket brand/client placeholder sentence(s).`);
     const expertPlaceholders = stripExpertInputPlaceholders(stitched);
     stitched = expertPlaceholders.out;
     if (expertPlaceholders.removed > 0) console.warn(`PLACEHOLDER GUARD: removed ${expertPlaceholders.removed} expert-input placeholder sentence(s).`);
