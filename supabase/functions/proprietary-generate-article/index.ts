@@ -618,7 +618,7 @@ function stripBodyNumericCitationMarkers(markdown: string): { out: string; remov
   const refMatch = markdown.match(/^##\s+references\b/im);
   const body = refMatch?.index !== undefined ? markdown.slice(0, refMatch.index) : markdown;
   const references = refMatch?.index !== undefined ? markdown.slice(refMatch.index) : "";
-  const markerRe = /\s?\[(?:\d{1,3})(?:\s*(?:,|and|&|\-|–|—)\s*\d{1,3})*\]/gi;
+  const markerRe = /\s?\[(?:\d{1,3})(?:\s*(?:,|and|&|\-|–|—)\s*\d{1,3})*\](?!\s*\()/gi;
   const removed = (body.match(markerRe) || []).length;
   if (removed === 0) return { out: markdown, removed: 0 };
   const cleanedBody = body
