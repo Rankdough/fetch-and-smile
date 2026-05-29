@@ -1,4 +1,24 @@
+## 2026-05-29 - proprietary mode: transcript paste UI (frontend)
+
+**What:**
+- `src/pages/Index.tsx`:
+  - Added `transcriptTitle` and `transcriptText` state (persisted to localStorage under `seo-generator-transcriptTitle` / `seo-generator-transcriptText`).
+  - In Section 5 (Context Files), appended a dashed-border panel with a title `Input` ("Source/Title Name") and a `Textarea` ("🎙️ Paste Podcast / YouTube Transcript (Optional)"), plus a live word-count + header-token preview.
+  - In the proprietary-mode submit branch (around L1617), built `proprietaryContextFiles` by merging existing `contextFiles` with a synthesised `{ name: "[TRANSCRIPT: <title>]", content: "[TRANSCRIPT: <title>]\n\n<pasted>" }` entry (only when transcript is non-empty), and passed it through `body.contextFiles` to `proprietary-generate-article`.
+  - Title is sanitised: newlines collapsed, capped at 200 chars; defaults to "Pasted Transcript" when empty.
+
+**Why:** UI counterpart to the existing backend `contextFiles` array — lets users feed raw podcast/YouTube transcripts as primary non-commodity sources without uploading a file.
+
+**Files:** `src/pages/Index.tsx`, `CHANGELOG.md`.
+
+**Verify:** Grep confirms `proprietaryContextFiles` is built and forwarded only inside the `useProprietaryMode` branch; Textarea/Input imports already present (lines 4–5); CollapsibleSection structure intact (closing tag re-emitted exactly once). Backend already accepts `contextFiles?: Array<{ name; content }>` at `supabase/functions/proprietary-generate-article/index.ts:66,216,1460` — no schema change required.
+
+**Verified broken:** Nothing verified broken. Checked: grep for `proprietaryContextFiles` (1 build site, 1 forward site, both inside `useProprietaryMode`); grep for `</CollapsibleSection>` count around Section 5 (still 1); no other invocation of `proprietary-generate-article` exists in `src/` (only `src/pages/Index.tsx:1641`); other generation paths (Human Mode, quick generation, regen, format reference) untouched and continue to use the standalone `contextFiles` array.
+
+---
+
 ## 2026-05-29 - proprietary articles: forced context binding + passive-filler ban (BUILD-2026-05-29-I)
+
 
 **What:**
 - `supabase/functions/_shared/proprietaryPromptAssembler.ts`:

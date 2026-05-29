@@ -724,6 +724,22 @@ const Index = () => {
     return saved ? JSON.parse(saved) : [];
   });
   const [isUploadingFile, setIsUploadingFile] = useState(false);
+  // Raw transcript paste (Podcast / YouTube). Stored locally; folded into
+  // contextFiles only at submit time with a `[TRANSCRIPT: …]` header token so
+  // the backend cleanReferenceTitle/citation engine can recognise it as a
+  // first-class primary source alongside uploaded .docx/.pdf research files.
+  const [transcriptTitle, setTranscriptTitle] = useState<string>(() => {
+    return localStorage.getItem("seo-generator-transcriptTitle") || "";
+  });
+  const [transcriptText, setTranscriptText] = useState<string>(() => {
+    return localStorage.getItem("seo-generator-transcriptText") || "";
+  });
+  useEffect(() => {
+    localStorage.setItem("seo-generator-transcriptTitle", transcriptTitle);
+  }, [transcriptTitle]);
+  useEffect(() => {
+    localStorage.setItem("seo-generator-transcriptText", transcriptText);
+  }, [transcriptText]);
   const [keywords, setKeywords] = useState<string[]>(() => {
     const saved = localStorage.getItem("seo-generator-keywords");
     const parsed: string[] = saved ? JSON.parse(saved) : [];
@@ -1601,6 +1617,26 @@ const Index = () => {
       if (useProprietaryMode) {
         // Demo path: shortest end-to-end proprietary pipeline.
         // No mapping screen — server auto-picks brain units by token overlap.
+
+        // Merge uploaded context files with an optional pasted transcript.
+        // The transcript is wrapped with a `[TRANSCRIPT: <title>]` header token
+        // so the backend treats it as a primary non-commodity source and the
+        // citation engine renders it cleanly in the ## References block.
+        const trimmedTranscript = transcriptText.trim();
+        const proprietaryContextFiles: { name: string; content: string }[] = [
+          ...contextFiles,
+        ];
+        if (trimmedTranscript) {
+          const safeTitle = (transcriptTitle.trim() || "Pasted Transcript")
+            .replace(/[\r\n]+/g, " ")
+            .slice(0, 200);
+          const headerToken = `[TRANSCRIPT: ${safeTitle}]`;
+          proprietaryContextFiles.push({
+            name: headerToken,
+            content: `${headerToken}\n\n${trimmedTranscript}`,
+          });
+        }
+
         const { data, error } = await supabase.functions.invoke(
           "proprietary-generate-article",
           {
@@ -1611,6 +1647,7 @@ const Index = () => {
               // Defaults are sensible; the full UI for these comes in Stage 3+.
               businessType: "healthcare-clinical",
               publicationDestination: "both",
+              contextFiles: proprietaryContextFiles.length > 0 ? proprietaryContextFiles : undefined,
             },
           },
         );
@@ -4034,7 +4071,45 @@ const Index = () => {
                     });
                   }}
                 />
+
+                <Separator className="my-3" />
+
+                {/* Proprietary Mode: raw transcript paste (Podcast / YouTube).
+                    Folded into contextFiles at submit time with a
+                    `[TRANSCRIPT: <title>]` header token so the backend
+                    cleanReferenceTitle pass renders it as a first-class source
+                    in the ## References block. */}
+                <div className="space-y-2 rounded-md border border-dashed border-border bg-muted/30 p-3">
+                  <Label htmlFor="transcript-title" className="text-sm font-medium">
+                    Source/Title Name (e.g., Huberman Lab Ep 24)
+                  </Label>
+                  <Input
+                    id="transcript-title"
+                    type="text"
+                    value={transcriptTitle}
+                    onChange={(e) => setTranscriptTitle(e.target.value)}
+                    placeholder="Huberman Lab Ep 24"
+                    maxLength={200}
+                  />
+                  <Label htmlFor="transcript-text" className="text-sm font-medium">
+                    🎙️ Paste Podcast / YouTube Transcript (Optional)
+                  </Label>
+                  <Textarea
+                    id="transcript-text"
+                    value={transcriptText}
+                    onChange={(e) => setTranscriptText(e.target.value)}
+                    placeholder="Paste a raw transcript here. It will be sent as a primary source with a [TRANSCRIPT: …] header token alongside any uploaded files."
+                    className="min-h-[140px] font-mono text-xs"
+                  />
+                  {transcriptText.trim().length > 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      {transcriptText.trim().split(/\s+/).length.toLocaleString()} words ready ·
+                      will be sent as <code>[TRANSCRIPT: {(transcriptTitle.trim() || "Pasted Transcript").slice(0, 80)}]</code>
+                    </p>
+                  )}
+                </div>
               </CollapsibleSection>
+
 
               {/* Section 6: Tone of Voice Profiles */}
               <CollapsibleSection
