@@ -1,7 +1,7 @@
 ## 2026-05-29 - proprietary article guard: remove expert placeholders and stop generic universal tables
 
 **What:**
-- `supabase/functions/proprietary-generate-article/index.ts`: added `stripExpertInputPlaceholders`, a deterministic post-processing guard that removes any sentence containing `[NEEDS EXPERT INPUT...]` before the article is returned.
+- `supabase/functions/proprietary-generate-article/index.ts`: added `stripExpertInputPlaceholders`, a deterministic guard that removes any sentence containing `[NEEDS EXPERT INPUT...]` from both returned article content and per-section telemetry.
 - `supabase/functions/proprietary-generate-article/index.ts`: removed the universal generic fallback table. Tables are now only inserted by the deterministic fallback when there is a recognised topic-specific table, currently dental implant, underbite/aligner, or archery scoring. Otherwise, no fallback table is forced.
 - `supabase/functions/proprietary-generate-article/index.ts`: updated the build marker for deployment verification.
 
@@ -11,7 +11,7 @@
 - supabase/functions/proprietary-generate-article/index.ts
 - CHANGELOG.md
 
-**Verified broken:** Pending final smoke test after edge-function deployment. Previous verified breakage was one `[NEEDS EXPERT INPUT]` placeholder in the smoke-generated archery article.
+**Verified broken:** Pending final smoke test after edge-function deployment. Previous verified breakage was one `[NEEDS EXPERT INPUT]` placeholder in the smoke-generated archery article and the raw section telemetry.
 
 ---
 
