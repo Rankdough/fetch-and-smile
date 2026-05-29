@@ -210,6 +210,28 @@ const cleanContent = (content: string): string => {
   // e.g., "**Income Requirements:** text - **Residency Status:** text" → separate bullets
   cleaned = cleaned.replace(/([.!?])\s+-\s+\*\*/g, "$1\n- **");
 
+  // BUILD-2026-05-29-O: Scrub stale raw-HTML References blocks cached in
+  // localStorage from prior BUILD-H runs. Scope is limited to the trailing
+  // `## References` section so body content is never touched.
+  const refMatch = cleaned.match(/^##\s+References:?\s*$/im);
+  if (refMatch && refMatch.index !== undefined) {
+    const head = cleaned.slice(0, refMatch.index + refMatch[0].length);
+    let tail = cleaned.slice(refMatch.index + refMatch[0].length);
+    if (/<\s*(ul|ol|li|a\s)/i.test(tail)) {
+      tail = tail
+        .replace(/<\/?\s*(ul|ol)[^>]*>/gi, "")
+        .replace(/<li[^>]*>\s*<a\s[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>\s*<\/li>/gi,
+          (_m, url, title) => `\n- [${String(title).replace(/<[^>]+>/g, "").trim()}](${url.trim()})`)
+        .replace(/<li[^>]*>([\s\S]*?)<\/li>/gi,
+          (_m, inner) => `\n- ${String(inner).replace(/<[^>]+>/g, "").trim()}`)
+        .replace(/<a\s[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi,
+          (_m, url, title) => `[${String(title).replace(/<[^>]+>/g, "").trim()}](${url.trim()})`)
+        .replace(/<[^>]+>/g, "")
+        .replace(/\n{3,}/g, "\n\n");
+      cleaned = `${head}\n${tail.trimStart()}`;
+    }
+  }
+
   return cleaned;
 };
 
