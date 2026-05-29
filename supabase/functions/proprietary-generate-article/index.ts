@@ -614,6 +614,20 @@ function stripInlineSourceFragments(markdown: string): { out: string; removed: n
   return { out: `${cleaned}${references ? `\n\n${references.trimStart()}` : ""}`.trim(), removed };
 }
 
+function stripBodyNumericCitationMarkers(markdown: string): { out: string; removed: number } {
+  const refMatch = markdown.match(/^##\s+references\b/im);
+  const body = refMatch?.index !== undefined ? markdown.slice(0, refMatch.index) : markdown;
+  const references = refMatch?.index !== undefined ? markdown.slice(refMatch.index) : "";
+  const markerRe = /\s?\[(?:\d{1,3})(?:\s*(?:,|and|&|\-|–|—)\s*\d{1,3})*\]/gi;
+  const removed = (body.match(markerRe) || []).length;
+  if (removed === 0) return { out: markdown, removed: 0 };
+  const cleanedBody = body
+    .replace(markerRe, "")
+    .replace(/[ \t]+([,.;:!?])/g, "$1")
+    .replace(/ {2,}/g, " ");
+  return { out: cleanedBody + references, removed };
+}
+
 function stripExpertInputPlaceholders(markdown: string): { out: string; removed: number } {
   let removed = 0;
   const out = markdown
