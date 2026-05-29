@@ -46,6 +46,11 @@ export interface SectionSpec {
   type: "body" | "framing";
 }
 
+export interface AllowedSourceUrl {
+  url: string;
+  title: string;
+}
+
 export interface AssemblerInput {
   businessType: BusinessType;
   mappedUnit: MappedUnit | null;
@@ -56,6 +61,11 @@ export interface AssemblerInput {
   surroundingContext?: Array<{ heading: string; content: string }>;
   /** Article-wide topic / title, for grounding. */
   articleTitle: string;
+  /** Allow-listed external URLs the model may cite inline in this body section. */
+  allowedSourceUrls?: AllowedSourceUrl[];
+  /** Retrieved context snippets from uploaded research/context files for this exact section. */
+  retrievedKnowledge?: Array<{ content: string; sourceTitle?: string | null }>;
+  /** Full context files passed through from the request — used as PRIMARY SOURCE OF TRUTH. */
   contextFiles?: Array<{ name: string; content: string }>;
 }
 
@@ -287,6 +297,44 @@ No prose paragraph may exceed 3 sentences. If a point requires more than
 immediately below the paragraph. Never write more than 3 consecutive
 sentences in a single paragraph block in any section.`.trim();
 
+const ATOMIC_BODY_STRUCTURE_RULE = `
+ATOMIC SECTION STRUCTURE (mandatory for every body section):
+Write this section in this exact order, with nothing else inserted:
+  1. ONE standalone answer paragraph (2-3 sentences, max 3; aim for 80-130
+     words in medium or longer articles) that fully answers the section heading
+     on its own. It must read as a complete answer if extracted in isolation by
+     an AI assistant.
+  2. A blank line.
+  3. EXACTLY 3 markdown bullets ("- " prefix), each one a single concrete,
+     specific, actionable point that supports or expands the answer. Each
+      bullet is 1 sentence, 14-22 words. No sub-bullets. No nested lists. No
+      fewer than 3, no more than 3. Each bullet must add a concrete detail not
+      already stated word-for-word in the answer paragraph.
+Do NOT add a sub-heading inside the section. Do NOT add a second paragraph
+after the bullets. Do NOT use phrases like "as mentioned above", "as we saw
+earlier", "continuing from earlier", "in the previous section", or any
+reference to other sections — every section stands alone.`.trim();
+
+const INLINE_SOURCE_LINK_RULE_WITH_URLS = (allowed: AllowedSourceUrl[]) => `
+INLINE SOURCE LINK (mandatory for this body section):
+Include EXACTLY ONE inline markdown link in this section, formatted as
+"[anchor text](URL)", with the URL chosen from the ALLOWED SOURCES list
+below. Pick the single URL most relevant to this section's heading. The
+anchor text must be a natural noun phrase from your prose (3-7 words) — not
+the bare URL, not "click here", not "source", not the publication name on
+its own. Place the link inside the standalone answer paragraph OR inside one
+of the three bullets, wherever it reads most naturally. Do NOT invent URLs.
+Do NOT use any URL not on this list. Do NOT add more than one link.
+
+ALLOWED SOURCES (pick exactly one URL):
+${allowed.map((s, i) => `${i + 1}. ${s.title} — ${s.url}`).join("\n")}`.trim();
+
+const INLINE_SOURCE_LINK_RULE_NO_URLS = `
+INLINE SOURCE LINK (context-only mode):
+No allow-listed external URLs are available for this article. Do NOT invent
+URLs and do NOT insert inline markdown links. The system will list the
+underlying context documents in a final References section automatically.`.trim();
+
 const FRAMING_LITE_RULES = `
 FRAMING SECTION RULES:
 - Lead with a direct sentence, no filler openers (Rule 2).
@@ -294,7 +342,22 @@ FRAMING SECTION RULES:
   contains numbers, you may summarise them; do not introduce new ones.
 - Avoid "varies / depends on / typically / usually" without a specific number
   carried over from the body (Rule 5).
+- Never write bracket placeholders such as [Client Name], [Service Business
+  Name], [Practice Name], or [NEEDS EXPERT INPUT]. Omit the sentence instead.
 - Stay within the section's word budget and structural format.`.trim();
+
+const OPENING_LENGTH_RULE = `
+OPENING LENGTH RULE:
+Write one concise opening paragraph only, 55-85 words. Do not add a second
+paragraph. Do not mention a business, clinic, brand, editorial team, or service
+name unless the exact name was supplied in the prompt. No bracket placeholders.`.trim();
+
+const FINAL_THOUGHTS_RULE = `
+FINAL THOUGHTS RULE:
+Write exactly two short paragraphs, 1-2 sentences each, 90-130 words total.
+The first paragraph must summarise the decision or distinction. The second
+paragraph must give the practical next step. Do not use bullets, tables, brand
+placeholders, client placeholders, or [NEEDS EXPERT INPUT].`.trim();
 
 const OPENING_REFRAME_RULE = `
 OPENING REFRAME (mandatory for marketing-umbrella topics):
@@ -364,6 +427,15 @@ function describeSurroundingContext(prev: AssemblerInput["surroundingContext"]):
   return `SURROUNDING CONTEXT — sections already written in this article. Do NOT repeat their claims; build on them.\n\n${items}`;
 }
 
+function describeRetrievedKnowledge(snippets: AssemblerInput["retrievedKnowledge"]): string {
+  if (!snippets || snippets.length === 0) return "";
+  const block = snippets
+    .slice(0, 4)
+    .map((s, i) => `### Context source ${i + 1}${s.sourceTitle ? `: ${s.sourceTitle}` : ""}\n${s.content.slice(0, 1400)}${s.content.length > 1400 ? "…" : ""}`)
+    .join("\n\n");
+  return `RETRIEVED CONTEXT FILE EVIDENCE — use these facts, distinctions, tables, and named source documents for this section. Prefer this evidence over general knowledge.\n\n${block}`;
+}
+
 export function assembleSectionPrompt(input: AssemblerInput): AssembledPrompt {
   const { businessType, mappedUnit, audienceSentence, publicationDestination, section, articleTitle } = input;
   const isBody = section.type === "body";
@@ -375,7 +447,9 @@ You write sections one at a time. You produce non-commodity content grounded in 
 mapped knowledge unit provided for THIS section, or — when no unit is mapped — in
 direct clinical reasoning. You never invent specific numbers, case counts, named
 patients, or fabricated citations. You never write generic filler. You never use
-em dashes, en dashes, or horizontal rules.`;
+em dashes, en dashes, or horizontal rules. You never output bracket placeholders
+such as [Client Name], [Service Business Name], [Practice Name], [Your Business
+Name], or [NEEDS EXPERT INPUT].`;
 
   const audienceBlock = `AUDIENCE: ${audienceSentence}`;
   const destinationBlock = `PUBLICATION DESTINATION: ${publicationDestination} — ${
@@ -437,6 +511,19 @@ em dashes, en dashes, or horizontal rules.`;
     // Rules 9–16 — AI extraction rules, every body section, every business type.
     ruleBlocks.push(AI_EXTRACTION_RULES);
     applied.push(9, 10, 11, 12, 13, 14, 15, 16);
+
+    // Atomic structure (standalone answer + exactly 3 bullets) and inline
+    // source link — baked into generation so post-hoc guards rarely need to
+    // fire.
+    ruleBlocks.push(ATOMIC_BODY_STRUCTURE_RULE);
+    applied.push(18);
+    const allowed = (input.allowedSourceUrls || []).filter((s) => s && s.url && /^https?:\/\//i.test(s.url));
+    if (allowed.length > 0) {
+      ruleBlocks.push(INLINE_SOURCE_LINK_RULE_WITH_URLS(allowed.slice(0, 8)));
+    } else {
+      ruleBlocks.push(INLINE_SOURCE_LINK_RULE_NO_URLS);
+    }
+    applied.push(19);
   } else {
     ruleBlocks.push(FRAMING_LITE_RULES);
     ruleBlocks.push(KEYWORD_NATURAL_LANGUAGE_RULE);
@@ -452,8 +539,13 @@ em dashes, en dashes, or horizontal rules.`;
 
     // Opening framing section: enforce the marketing-umbrella reframe.
     if (section.kind === "opening") {
+      ruleBlocks.push(OPENING_LENGTH_RULE);
       ruleBlocks.push(OPENING_REFRAME_RULE);
       applied.push(6);
+    }
+
+    if (section.kind === "final-thoughts") {
+      ruleBlocks.push(FINAL_THOUGHTS_RULE);
     }
 
     // FAQ framing section: enforce direct-answer contract.
@@ -491,6 +583,8 @@ sections — not a generic platitude.`);
   // User message: the unit + surrounding context + the explicit ask
   const userParts: string[] = [];
   userParts.push(describeMappedUnit(mappedUnit));
+  const retrieved = describeRetrievedKnowledge(input.retrievedKnowledge);
+  if (retrieved) userParts.push(retrieved);
   if (input.contextFiles && input.contextFiles.length > 0) {
     const contextBlock = input.contextFiles
       .map((f) => `--- ${f.name} ---\n${f.content}`)

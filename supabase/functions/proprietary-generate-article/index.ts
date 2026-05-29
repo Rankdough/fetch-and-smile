@@ -29,7 +29,6 @@ import {
 } from "../_shared/proprietaryPromptAssembler.ts";
 import { NON_COMMODITY_TITLE_RULES, isCommodityStyleTitle } from "../_shared/nonCommodityTitleRules.ts";
 import { trimSectionToBudget, trimToWordCount } from "../_shared/articleSectionBudget.ts";
-import { enforceSourcesAndReferences, type CitationEngineContext } from "../_shared/citationEngine.ts";
 
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -73,6 +72,25 @@ interface BrainUnit {
   summary: string | null;
   full_text: string | null;
   unit_type: UnitType | "legacy" | null;
+  source_file_id?: string | null;
+}
+
+interface RetrievedChunk {
+  content: string;
+  similarity: number;
+  brain_file_id?: string | null;
+  context_document_id?: string | null;
+}
+
+interface ContextDocumentRow {
+  id: string;
+  file_name: string;
+  content?: string | null;
+}
+
+interface SourceReference {
+  title: string;
+  url?: string;
 }
 
 interface InternalLinkResult {
@@ -193,7 +211,7 @@ function buildClinicalUserMessage(input: {
   publicationDestination: "ai-search" | "human-blog" | "both";
   section: SectionSpec;
   articleTitle: string;
-  retrievedChunks?: Array<{ content: string; similarity: number }>;
+  retrievedChunks?: RetrievedChunk[];
   targetWordCount?: number;
   contextFiles?: Array<{ name: string; content: string }>;
 }): string {
@@ -496,8 +514,80 @@ function sanitiseGeneratedMarkdown(markdown: string, articleTitle: string): stri
   return result.replace(/\n{3,}/g, "\n\n").trim();
 }
 
-function buildFallbackBullets(_heading: string, _body: string): string[] {
-  return [];
+function stripExpertInputPlaceholders(markdown: string): { out: string; removed: number } {
+  let removed = 0;
+  const out = markdown
+    .split("\n")
+    .map((line) => {
+      if (!/\[NEEDS EXPERT INPUT/i.test(line)) return line;
+      removed += 1;
+      if (!/\]/.test(line)) return "";
+      const cleaned = line.replace(/[^.!?\n]*\[NEEDS EXPERT INPUT[^\]]*\][^.!?\n]*[.!?]?/gi, () => {
+        return "";
+      }).replace(/\s{2,}/g, " ").trim();
+      return /^[-*+]\s*$/.test(cleaned) ? "" : cleaned;
+    })
+    .filter((line) => line.trim() !== "")
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+  return { out, removed };
+}
+
+function stripAllBracketPlaceholders(markdown: string): { out: string; removed: number } {
+  let removed = 0;
+  const placeholderRe = /\[(?:client|service\s*business|practice|your\s*practice|your\s*business|business|brand|company|clinic)\s*name\]/gi;
+  const out = markdown
+    .split("\n")
+    .map((line) => {
+      placeholderRe.lastIndex = 0;
+      if (!placeholderRe.test(line)) return line;
+      placeholderRe.lastIndex = 0;
+      removed += 1;
+      const cleaned = line
+        .replace(/[^.!?\n]*\[(?:client|service\s*business|practice|your\s*practice|your\s*business|business|brand|company|clinic)\s*name\][^.!?\n]*[.!?]?/gi, "")
+        .replace(/\s{2,}/g, " ")
+        .trim();
+      return cleaned;
+    })
+    .filter((line) => line.trim() !== "")
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+  return { out, removed };
+}
+
+function buildFallbackBullets(heading: string, body: string): string[] {
+  const phrase = deriveSectionPhrase(heading) || "the topic";
+  const hasDiagnosis = /diagnos|test|screen|coeliac|celiac|allergy|sensitivity|medical|clinical/i.test(`${heading} ${body}`);
+  const hasPrevention = /prevent|avoid|reduce|manage|treat|diet|plan|restrict/i.test(`${heading} ${body}`);
+  const hasFailure = /wrong|mistake|risk|fail|misdiagnos|cross-contamination|deficien/i.test(`${heading} ${body}`);
+  if (hasDiagnosis) {
+    return [
+      `- Separate ${phrase} into named categories before changing diet, because each category has a different test and risk profile.`,
+      `- Keep symptom timing, food exposure, and severity together so bloating patterns can be checked against clinical causes.`,
+      `- Avoid long-term restriction before testing, because removing the trigger first can make later diagnosis less reliable.`,
+    ];
+  }
+  if (hasPrevention) {
+    return [
+      `- Match the prevention step to the confirmed cause, not the broad label people use for symptoms.`,
+      `- Track response after each dietary change so improvement is tied to one clear intervention at a time.`,
+      `- Review nutrient intake when foods are removed, because symptom control should not create a separate deficiency problem.`,
+    ];
+  }
+  if (hasFailure) {
+    return [
+      `- The main failure is treating a symptom label as a diagnosis before ruling out adjacent causes.`,
+      `- Cross-check assumptions against testing history, because similar bloating can come from different digestive mechanisms.`,
+      `- Escalate persistent or severe symptoms instead of repeatedly narrowing the diet without a clearer clinical reason.`,
+    ];
+  }
+  return [
+    `- Define the exact mechanism behind ${phrase} before choosing a diet, product, treatment, or next step.`,
+    `- Compare named categories instead of broad labels, because broad labels hide different risks and decisions.`,
+    `- Use one measurable symptom change to judge progress rather than relying on a general impression of improvement.`,
+  ];
 }
 
 
@@ -549,6 +639,7 @@ function deriveSectionPhrase(heading: string): string {
 function fallbackTopicTable(topic: string, sectionHeading?: string): string {
   const t = topic.toLowerCase();
   const h = (sectionHeading ?? "").toLowerCase();
+  const combined = `${t} ${h}`;
   // Section-aware: only inject a topic table when the SECTION HEADING itself is
   // about the table's subject. Prevents the same retention table being dropped
   // into unrelated sections (training, failure modes, complications, etc.).
@@ -568,8 +659,13 @@ function fallbackTopicTable(topic: string, sectionHeading?: string): string {
 | Skeletal underbite | Jaw relationship drives the bite | Limited without surgical assessment | Camouflage can worsen facial balance | Is surgery part of the realistic plan? |
 | Combined pattern | Teeth and jaw both contribute | Case-dependent after diagnosis | Relapse or incomplete bite correction | Which part is being corrected first? |`;
   }
-  // Universal fallback: topic-aware comparison so every article meets the
-  // table quota even when no section-specific regex matched.
+  if (/archery|archer|arrow|target|bow|olympic|scoring/.test(combined)) {
+    return `| Scoring factor | How it is counted | Mistake that changes the result |
+| --- | --- | --- |
+| Ring value | Each arrow earns the value of the scoring ring it lands in | Reading the lower ring when the shaft touches a higher scoring line |
+| End total | Arrow values in the same end are added before the next end starts | Mixing scores between ends or sets |
+| Tie-break detail | Closest-to-centre arrows can decide tied results | Recording only totals and losing the arrow-by-arrow detail |`;
+  }
   if (/implant|dentist|dental/.test(t)) {
     return `| Setting | Training Duration | Annual Implant Volume | Success Rate with Strict Criteria | Best For |
 | --- | --- | --- | --- | --- |
@@ -577,12 +673,14 @@ function fallbackTopicTable(topic: string, sectionHeading?: string): string {
 | Board-Certified Specialist (Periodontist or Oral Surgeon) | Three or more years of accredited residency after dental school | Consistently high through residency and ongoing practice | Higher in published series, particularly for complex cases | Complex anatomy, bone grafting, full-arch and compromised sites |
 | Academic or Hospital Setting | Faculty-level training with a supervised teaching caseload | High and protocol-driven through institutional volume | Highest reported in long-term published studies | Medically complex patients and reconstructive cases |`;
   }
-  // Generic three-column comparison — no topic string interpolated into cells.
-  return `| Approach | Key Advantage | Primary Limitation |
-| --- | --- | --- |
-| Entry-level | Lower cost and easier access | Narrower scope and fewer safeguards |
-| Standard | Balanced quality, cost, and availability | Trade-offs between depth and convenience |
-| Advanced | Highest reported consistency and oversight | Higher cost and limited availability |`;
+  if (/gluten|coeliac|celiac|wheat|bloat|bloating|ncgs|sensitivity/.test(combined)) {
+    return `| Condition | Mechanism behind bloating | Diagnostic clue | Management implication |
+| --- | --- | --- | --- |
+| Coeliac disease | Autoimmune injury to the small-intestinal lining disrupts absorption and gut function | Confirmed by coeliac blood tests and specialist assessment before gluten removal | Lifelong strict gluten avoidance is required after diagnosis |
+| Non-coeliac gluten sensitivity | Symptoms occur after gluten or wheat exposure without coeliac autoimmune damage | Symptoms improve with structured removal and return during supervised re-challenge | Intake is individualised rather than automatically zero-tolerance |
+| Wheat allergy | IgE-mediated immune reaction to wheat proteins can include digestive and systemic symptoms | Rapid onset symptoms may include hives, swelling, wheeze, or anaphylaxis risk | Wheat avoidance and allergy planning matter more than gluten-only avoidance |`;
+  }
+  return "";
 }
 
 function tableSignature(tableMarkdown: string): string {
@@ -734,21 +832,33 @@ function extractUrls(text: string): Array<{ url: string; title: string }> {
   return out;
 }
 
-function injectReferences(markdown: string, units: BrainUnit[]): string {
+function injectReferences(markdown: string, units: BrainUnit[], sourceReferences: SourceReference[] = []): string {
   if (/^##\s+references/im.test(markdown)) return markdown;
   const corpus = [
     markdown,
     ...units.map((u) => `${u.summary || ""}\n${u.full_text || ""}`),
   ].join("\n");
-  const links = extractUrls(corpus).slice(0, 8);
-  // Only emit a References section when we have real URLs. Never fabricate
-  // citations from brain-unit titles — that produced false references.
-  if (links.length === 0) return markdown;
-  const items = links.map((l) => `- [${l.title}](${l.url})`).join("\n");
+  const seen = new Set<string>();
+  const links = extractUrls(corpus).map((l) => ({ title: l.title, url: l.url }));
+  const references = [...sourceReferences, ...links].filter((ref) => {
+    const key = `${ref.url || "file"}:${ref.title}`.toLowerCase().trim();
+    if (!ref.title.trim() || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  }).slice(0, 8);
+  if (references.length === 0) return markdown;
+  const items = references.map((ref) => ref.url ? `- [${ref.title}](${ref.url})` : `- ${ref.title}`).join("\n");
   return `${markdown.trimEnd()}\n\n## References\n\n${items}\n`;
 }
 
 function trustedFallbackSources(topic: string): BrainUrl[] {
+  if (/\b(archery|archer|arrow|target|bow|olympic|scoring)\b/i.test(topic)) {
+    return [
+      { title: "World Archery - Rulebook", url: "https://www.worldarchery.sport/rulebook" },
+      { title: "Olympics - Archery rules, equipment and scoring", url: "https://olympics.com/en/news/archery-rules-equipment-scoring-techniques-olympics" },
+      { title: "World Archery - Target archery", url: "https://www.worldarchery.sport/disciplines/target" },
+    ];
+  }
   if (!/\b(dental|implant|implants|screwless|conometric|abutment)\b/i.test(topic)) return [];
   return [
     { title: "FDA - Dental Implants: What You Should Know", url: "https://www.fda.gov/medical-devices/dental-devices/dental-implants-what-you-should-know" },
@@ -839,6 +949,8 @@ function ensureMinimumTables(markdown: string, topic: string, targetWords: numbe
     seenSignatures.add(sig);
     inserted++;
   }
+  if (inserted > 0) console.log(`TABLES: ensureMinimumTables inserted ${inserted} topic-specific table(s); required=${required}; before=${current}.`);
+  if (current + inserted < required) console.warn(`TABLES: ensureMinimumTables could not meet required count; required=${required}; before=${current}; inserted=${inserted}; topic="${topic}".`);
   return out;
 }
 
@@ -850,9 +962,11 @@ function ensureMinimumTables(markdown: string, topic: string, targetWords: numbe
 // so they never reach the rendered article. If a brand string is later added
 // to the request body, swap the empty replacement for that value.
 function stripBrandPlaceholders(markdown: string): string {
-  const PLACEHOLDER_INNER = "practice\\s*name|your\\s*practice|clinic\\s*name|business\\s*name|brand\\s*name|company\\s*name";
+  const PLACEHOLDER_INNER = "practice\\s*name|your\\s*practice|your\\s*business\\s*name|clinic\\s*name|business\\s*name|brand\\s*name|company\\s*name";
+  const placeholderSentenceRe = new RegExp(`[^.!?\\n]*\\[(?:${PLACEHOLDER_INNER})\\][^.!?\\n]*[.!?]?`, "gi");
+  let out = markdown.replace(placeholderSentenceRe, "");
   // Replace preposition + placeholder ("at [PRACTICE NAME]" → "at the practice")
-  let out = markdown.replace(
+  out = out.replace(
     new RegExp(`\\b(at|in|by|from|to|for|with|the|our|your|of)\\s+\\[(?:${PLACEHOLDER_INNER})\\]\\b['']?s?`, "gi"),
     (_, prep) => {
       const p = prep.toLowerCase();
@@ -935,41 +1049,229 @@ function collectBrainUrls(units: BrainUnit[]): BrainUrl[] {
   return out;
 }
 
+function collectChunkUrls(chunks: RetrievedChunk[]): BrainUrl[] {
+  const out: BrainUrl[] = [];
+  const seen = new Set<string>();
+  const re = /https?:\/\/[^\s)<>"'\]]+/g;
+  for (const c of chunks) {
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(c.content || "")) !== null) {
+      const url = m[0].replace(/[)\]\.,;]+$/, "");
+      if (seen.has(url)) continue;
+      try {
+        const host = new URL(url).hostname.replace(/^www\./, "");
+        seen.add(url);
+        out.push({ url, title: host });
+      } catch { /* skip */ }
+    }
+  }
+  return out;
+}
+
+function scoreTextForTopic(text: string, topic: string, sectionHeading = ""): number {
+  const tokens = [...tokenize(`${topic} ${sectionHeading}`)].filter((t) => t.length >= 5).slice(0, 16);
+  const haystack = text.toLowerCase();
+  return tokens.reduce((sum, token) => sum + (haystack.includes(token) ? 1 : 0), 0);
+}
+
+function hasStrongTopicAnchor(text: string, topic: string): boolean {
+  const anchors = [...tokenize(topic)]
+    .filter((t) => t.length >= 6)
+    .filter((t) => !/^(because|should|could|would|people|reason|causes?|choosing|choose|belly)$/.test(t));
+  if (anchors.length === 0) return true;
+  const haystack = text.toLowerCase();
+  return anchors.some((token) => haystack.includes(token));
+}
+
+async function retrieveContextDocumentSnippets(
+  // deno-lint-ignore no-explicit-any
+  supabase: any,
+  topic: string,
+  sectionHeading: string,
+): Promise<Array<{ content: string; sourceTitle: string; context_document_id: string }>> {
+  const { data, error } = await supabase
+    .from("context_documents")
+    .select("id, file_name, content")
+    .limit(100);
+  if (error) {
+    console.warn(`CONTEXT: document lookup failed for "${sectionHeading}":`, error.message);
+    return [];
+  }
+  return ((data || []) as ContextDocumentRow[])
+    .map((doc) => ({ doc, score: scoreTextForTopic(`${doc.file_name}\n${doc.content || ""}`, topic, sectionHeading) }))
+    .filter((row) => row.score >= 2 && hasStrongTopicAnchor(`${row.doc.file_name}\n${row.doc.content || ""}`, topic))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 2)
+    .map(({ doc }) => ({
+      content: (doc.content || "").slice(0, 2200),
+      sourceTitle: doc.file_name,
+      context_document_id: doc.id,
+    }));
+}
+
+async function collectSourceReferences(
+  // deno-lint-ignore no-explicit-any
+  supabase: any,
+  units: BrainUnit[],
+  chunks: RetrievedChunk[],
+): Promise<SourceReference[]> {
+  const references: SourceReference[] = [];
+  const seen = new Set<string>();
+  const add = (title?: string | null, url?: string | null) => {
+    const cleanTitle = (title || "").trim();
+    const rawUrl = (url || "").trim();
+    const cleanUrl = /^https?:\/\//i.test(rawUrl) ? rawUrl : "";
+    if (!cleanTitle && !cleanUrl) return;
+    const key = `${cleanUrl || "file"}:${cleanTitle || cleanUrl}`.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    references.push({ title: cleanTitle || cleanUrl, url: cleanUrl || undefined });
+  };
+
+  const brainFileIds = new Set<string>();
+  const contextDocumentIds = new Set<string>();
+  units.forEach((u) => { if (u.source_file_id) brainFileIds.add(u.source_file_id); });
+  chunks.forEach((c) => {
+    if (c.brain_file_id) brainFileIds.add(c.brain_file_id);
+    if (c.context_document_id) contextDocumentIds.add(c.context_document_id);
+  });
+
+  if (brainFileIds.size > 0) {
+    const { data, error } = await supabase
+      .from("brain_files")
+      .select("id, title, file_url")
+      .in("id", [...brainFileIds]);
+    if (error) console.warn("REFERENCES: brain_files source lookup failed:", error.message);
+    (data || []).forEach((file: { title?: string | null; file_url?: string | null }) => add(file.title, file.file_url));
+  }
+
+  if (contextDocumentIds.size > 0) {
+    const { data, error } = await supabase
+      .from("context_documents")
+      .select("id, file_name")
+      .in("id", [...contextDocumentIds]);
+    if (error) console.warn("REFERENCES: context_documents source lookup failed:", error.message);
+    (data || []).forEach((doc: { file_name?: string | null }) => add(doc.file_name));
+  }
+
+  return references;
+}
+
+async function fallbackContextReferencesForTopic(
+  // deno-lint-ignore no-explicit-any
+  supabase: any,
+  topic: string,
+): Promise<SourceReference[]> {
+  const tokens = [...tokenize(topic)].filter((t) => t.length >= 5).slice(0, 8);
+  if (tokens.length === 0) return [];
+  const { data, error } = await supabase
+    .from("context_documents")
+    .select("id, file_name, content")
+    .limit(100);
+  if (error) {
+    console.warn("REFERENCES: fallback context lookup failed:", error.message);
+    return [];
+  }
+  const scored = ((data || []) as ContextDocumentRow[])
+    .map((doc) => {
+      const haystack = `${doc.file_name || ""}\n${(doc.content || "").slice(0, 3000)}`.toLowerCase();
+      const score = tokens.reduce((sum, token) => sum + (haystack.includes(token) ? 1 : 0), 0);
+      return { doc, score };
+    })
+    .filter((row) => row.score > 0)
+    .sort((a, b) => b.score - a.score);
+  const refs = scored.slice(0, 3).map(({ doc }) => ({ title: doc.file_name }));
+  if (refs.length > 0) console.log(`REFERENCES: fallback matched ${refs.length} context document(s) for topic tokens.`);
+  return refs;
+}
+
 function attachInlineCitations(markdown: string, urls: BrainUrl[]): { out: string; attached: number } {
   if (urls.length === 0) return { out: markdown, attached: 0 };
   const lines = markdown.split("\n");
   let urlIdx = 0;
   let attached = 0;
-  const fixed: string[] = [];
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    fixed.push(line);
     const m = line.match(/^##\s+(.+?)\s*$/);
     if (!m) continue;
     if (STRUCT_SKIP_RE.test(m[1])) continue;
-    // Find end of this section
     let endIdx = lines.length;
     for (let j = i + 1; j < lines.length; j++) {
       if (/^##\s+/.test(lines[j])) { endIdx = j; break; }
     }
     const sectionBody = lines.slice(i + 1, endIdx).join("\n");
     if (/\]\(https?:\/\//.test(sectionBody)) continue; // already cited
-    if (urlIdx >= urls.length) continue;
-    const u = urls[urlIdx++];
-    // Append a citation footnote line right before next H2 (we'll do it on
-    // the matching end position via splice on the output array later — simpler:
-    // we record an inline edit). Insert a citation paragraph immediately after
-    // the heading's first paragraph break by mutating the source lines.
-    // Find the end of the first paragraph after heading
+    // Cycle through URLs so every body section gets at least one citation,
+    // even when fewer URLs than sections are available.
+    const u = urls[urlIdx % urls.length];
+    urlIdx++;
     let pEnd = i + 1;
     while (pEnd < endIdx && lines[pEnd].trim() !== "") pEnd++;
-    // We're rebuilding fixed[] as we go; instead splice into lines and let
-    // subsequent iterations see the change.
     const citationLine = `\nSource: [${u.title}](${u.url})`;
     lines.splice(pEnd, 0, citationLine);
     attached++;
   }
   return { out: lines.join("\n"), attached };
+}
+
+function attachContextSourceNotes(markdown: string, references: SourceReference[]): { out: string; attached: number } {
+  const fileRefs = references.filter((r) => r.title && !r.url);
+  if (fileRefs.length === 0) return { out: markdown, attached: 0 };
+  const lines = markdown.split("\n");
+  let refIdx = 0;
+  let attached = 0;
+  for (let i = 0; i < lines.length; i++) {
+    const m = lines[i].match(/^##\s+(.+?)\s*$/);
+    if (!m || STRUCT_SKIP_RE.test(m[1])) continue;
+    let endIdx = lines.length;
+    for (let j = i + 1; j < lines.length; j++) {
+      if (/^##\s+/.test(lines[j])) { endIdx = j; break; }
+    }
+    const sectionBody = lines.slice(i + 1, endIdx).join("\n");
+    if (/\bSource\s*:/i.test(sectionBody) || /\]\(https?:\/\//.test(sectionBody)) continue;
+    const ref = fileRefs[refIdx % fileRefs.length];
+    refIdx++;
+    let pEnd = i + 1;
+    while (pEnd < endIdx && lines[pEnd].trim() !== "") pEnd++;
+    lines.splice(pEnd, 0, `\nSource: ${ref.title}.`);
+    attached++;
+  }
+  return { out: lines.join("\n"), attached };
+}
+
+function enforceOpeningLength(markdown: string): string {
+  const h1 = markdown.match(/^#\s+.+$/m);
+  if (!h1 || h1.index === undefined) return markdown;
+  const start = h1.index + h1[0].length;
+  const nextH2 = markdown.slice(start).search(/^##\s+/m);
+  const end = nextH2 >= 0 ? start + nextH2 : markdown.length;
+  const opening = markdown.slice(start, end).trim();
+  if (!opening) return markdown;
+  const compact = opening
+    .split(/\n{2,}/)
+    .map((p) => p.trim())
+    .filter(Boolean)
+    .join(" ")
+    .replace(/\s+/g, " ");
+  const trimmed = trimToWordCount(compact, 85);
+  return `${markdown.slice(0, start).trimEnd()}\n\n${trimmed}\n\n${markdown.slice(end).trimStart()}`.trim();
+}
+
+function enforceFinalThoughtsParagraphs(markdown: string): string {
+  const re = /(^##\s+final\s*thoughts\s*\n)([\s\S]*?)(?=^##\s+|$(?![\r\n]))/im;
+  const m = markdown.match(re);
+  if (!m) return markdown;
+  const body = m[2]
+    .replace(/^[-*+]\s+/gm, "")
+    .replace(/\n{2,}/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!body) return markdown;
+  const sentences = body.match(/[^.!?]+[.!?]+(?:["')\]]+)?/g)?.map((s) => s.trim()).filter(Boolean) ?? [body];
+  const first = trimToWordCount(sentences.slice(0, Math.ceil(sentences.length / 2)).join(" "), 65);
+  const second = trimToWordCount(sentences.slice(Math.ceil(sentences.length / 2)).join(" ") || sentences.slice(-1).join(" "), 65);
+  const rebuilt = [first, second].filter(Boolean).join("\n\n");
+  return markdown.replace(re, `${m[1]}\n${rebuilt}\n\n`);
 }
 
 function ensureFinalThoughtsCta(markdown: string, businessType: BusinessType = "healthcare-clinical"): string {
@@ -998,10 +1300,23 @@ async function runSection(input: {
   articleTitle: string;
   model: string;
   sectionBudgetWords: number;
-  retrievedChunks?: Array<{ content: string; similarity: number }>;
+  retrievedChunks?: RetrievedChunk[];
+  retrievedKnowledge?: Array<{ content: string; sourceTitle?: string | null }>;
+  allowedSourceUrls?: Array<{ url: string; title: string }>;
   contextFiles?: Array<{ name: string; content: string }>;
 }) {
-  const assembled = assembleSectionPrompt(input);
+  const assembled = assembleSectionPrompt({
+    businessType: input.businessType,
+    mappedUnit: input.mappedUnit,
+    audienceSentence: input.audienceSentence,
+    publicationDestination: input.publicationDestination,
+    section: input.section,
+    surroundingContext: input.surroundingContext,
+    articleTitle: input.articleTitle,
+    allowedSourceUrls: input.allowedSourceUrls,
+    retrievedKnowledge: input.retrievedKnowledge,
+    contextFiles: input.contextFiles,
+  });
   const isBody = input.section.type === "body";
   // Scale token budget with the word budget so the model writes to the right length.
   // Floor at 600 (enough for a concise 90-word section), ceiling at 2400.
@@ -1010,7 +1325,15 @@ async function runSection(input: {
     : input.section.kind === "tldr" ? 200 : 900;
   let content: string;
   if (isBody && input.businessType === "healthcare-clinical") {
-    content = (await callClinicalWriter(CLINICAL_SYSTEM_PROMPT_HEALTHCARE, buildClinicalUserMessage({
+    // Clinical writer uses its own prompt; append the same atomic-structure +
+    // inline-source-link contract so healthcare articles match parity.
+    const allowed = (input.allowedSourceUrls || []).filter((s) => s && s.url && /^https?:\/\//i.test(s.url)).slice(0, 8);
+    const sourceBlock = allowed.length > 0
+      ? `\n\nINLINE SOURCE LINK (mandatory): Include exactly ONE inline markdown link "[anchor text](URL)" in this section, choosing the most relevant URL from the list below. Anchor must be a natural noun phrase from your prose. Never invent URLs.\nALLOWED SOURCES:\n${allowed.map((s, i) => `${i + 1}. ${s.title} — ${s.url}`).join("\n")}`
+      : `\n\nINLINE SOURCE LINK: No allow-listed URLs are available; do not insert inline links — the system will list context documents in the References section.`;
+    const atomicBlock = `\n\nATOMIC SECTION STRUCTURE (mandatory): Write exactly one standalone answer paragraph (1-3 sentences) that fully answers the heading, then a blank line, then exactly 3 markdown bullets ("- "), each one concrete and ≤22 words. Nothing else.`;
+    const clinicalSystem = CLINICAL_SYSTEM_PROMPT_HEALTHCARE + atomicBlock + sourceBlock;
+    content = (await callClinicalWriter(clinicalSystem, buildClinicalUserMessage({
       mappedUnit: input.mappedUnit,
       audienceSentence: input.audienceSentence,
       publicationDestination: input.publicationDestination,
@@ -1052,7 +1375,7 @@ async function runSection(input: {
 
 /* ── handler ──────────────────────────────────────────────────────────── */
 
-const BUILD_MARKER = "BUILD-2026-05-28-M proprietary-generate-article three-fixes";
+const BUILD_MARKER = "BUILD-2026-05-29-F proprietary-generate-article context-doc-references-tables-atomic-structure";
 Deno.serve(async (req) => {
   console.log(BUILD_MARKER);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -1093,7 +1416,7 @@ Deno.serve(async (req) => {
     // are tagged with this project — prevents cross-client content leakage.
     let insightsQuery = sb
       .from("brain_insights")
-      .select("id, title, summary, full_text, unit_type")
+        .select("id, title, summary, full_text, unit_type, source_file_id")
       .limit(100);
     if (projectId) {
       // Fetch brain_file_ids for this project from brain_chunks.
@@ -1179,6 +1502,7 @@ Deno.serve(async (req) => {
       contradicted: boolean;
       appliedRules: number[];
     }> = [];
+    const allRetrievedChunks: RetrievedChunk[] = [];
 
     for (const section of plan) {
       const mappedUnit =
@@ -1186,7 +1510,8 @@ Deno.serve(async (req) => {
 
       // Semantic retrieval: embed (topic + section heading) and pull top 3 chunks
       // from brain_chunks. Additive — runs alongside the keyword-matched pickUnit unit.
-      let retrievedChunks: Array<{ content: string; similarity: number }> = [];
+      let retrievedChunks: RetrievedChunk[] = [];
+      let retrievedKnowledge: Array<{ content: string; sourceTitle?: string | null }> = [];
       if (section.type === "body") {
         try {
           const queryVec = await embedQuery(`${body.topic}\n${section.heading}`);
@@ -1202,14 +1527,57 @@ Deno.serve(async (req) => {
             const rawChunks = matches.map((m: any) => ({
               content: m.content,
               similarity: typeof m.similarity === "number" ? m.similarity : 0,
+              brain_file_id: m.brain_file_id ?? null,
+              context_document_id: m.context_document_id ?? null,
             }));
-            retrievedChunks = rawChunks.filter((c) => c.similarity >= SIMILARITY_FLOOR);
+            retrievedChunks = rawChunks.filter((c) =>
+              c.similarity >= SIMILARITY_FLOOR && scoreTextForTopic(c.content, body.topic, section.heading) >= 2
+            );
             const topRaw = rawChunks[0]?.similarity?.toFixed(3) ?? "n/a";
             console.log(`RETRIEVAL: section="${section.heading}" got ${retrievedChunks.length}/${rawChunks.length} chunks above floor ${SIMILARITY_FLOOR} (top raw sim=${topRaw})`);
           }
         } catch (e) {
           console.warn(`RETRIEVAL: embed/query failed for "${section.heading}" (non-fatal):`, e);
         }
+        const contextSnippets = await retrieveContextDocumentSnippets(sb, body.topic, section.heading);
+        if (contextSnippets.length > 0) {
+          console.log(`CONTEXT: section="${section.heading}" matched ${contextSnippets.length} context document snippet(s).`);
+          retrievedKnowledge = contextSnippets.map((s) => ({ content: s.content, sourceTitle: s.sourceTitle }));
+          const existingContextIds = new Set(retrievedChunks.map((c) => c.context_document_id).filter(Boolean));
+          for (const snippet of contextSnippets) {
+            if (existingContextIds.has(snippet.context_document_id)) continue;
+            retrievedChunks.push({
+              content: snippet.content,
+              similarity: 1,
+              brain_file_id: null,
+              context_document_id: snippet.context_document_id,
+            });
+          }
+        } else {
+          retrievedKnowledge = retrievedChunks.map((c) => ({ content: c.content }));
+        }
+        allRetrievedChunks.push(...retrievedChunks);
+      }
+
+      // Build the allow-listed source URL pool for THIS section: brain-unit
+      // URLs (from mapped unit + globally available), retrieved-chunk URLs,
+      // then topic-trusted fallbacks. Always passed to the writer so the
+      // citation is generated inline, not bolted on after.
+      let allowedSourceUrls: BrainUrl[] = [];
+      if (section.type === "body") {
+        const unitUrls = collectBrainUrls(mappedUnit ? [mappedUnit as BrainUnit] : []);
+        const chunkUrls = collectChunkUrls(retrievedChunks);
+        const globalUnitUrls = collectBrainUrls(units);
+        const fallback = trustedFallbackSources(body.topic);
+        const seen = new Set<string>();
+        for (const list of [unitUrls, chunkUrls, globalUnitUrls, fallback]) {
+          for (const u of list) {
+            if (seen.has(u.url)) continue;
+            seen.add(u.url);
+            allowedSourceUrls.push(u);
+          }
+        }
+        allowedSourceUrls = allowedSourceUrls.slice(0, 8);
       }
 
       const result = await runSection({
@@ -1223,10 +1591,16 @@ Deno.serve(async (req) => {
         model,
         sectionBudgetWords,
         retrievedChunks,
+        retrievedKnowledge,
+        allowedSourceUrls,
         contextFiles: body.contextFiles,
       });
 
-      surrounding.push({ heading: section.heading, content: result.content });
+      const sectionPlaceholderGuard = stripExpertInputPlaceholders(result.content);
+      const sectionContent = sectionPlaceholderGuard.out;
+      if (sectionPlaceholderGuard.removed > 0) console.warn(`PLACEHOLDER GUARD: removed ${sectionPlaceholderGuard.removed} expert-input placeholder sentence(s) from section "${section.heading}".`);
+
+      surrounding.push({ heading: section.heading, content: sectionContent });
       sectionsOut.push({
         id: section.id,
         heading: section.heading,
@@ -1234,7 +1608,7 @@ Deno.serve(async (req) => {
         type: section.type,
         mappedUnitId: mappedUnit?.id ?? null,
         mappedUnitType: mappedUnit?.unit_type ?? null,
-        content: result.content,
+        content: sectionContent,
         needsExpertInput: result.needsExpertInput,
         ruleFlags: result.ruleFlags,
         contradicted: result.contradicted,
@@ -1301,23 +1675,41 @@ Deno.serve(async (req) => {
     stitched = atomic.out;
     if (atomic.removed > 0) console.warn(`ATOMIC GUARD: stripped ${atomic.removed} dependency phrase(s).`);
     stitched = enforceThreeBulletsPerBodySection(stitched);
+    stitched = enforceOpeningLength(stitched);
     stitched = injectInThisArticle(stitched, body.topic);
     stitched = ensureMinimumTables(stitched, body.topic, targetWords);
     stitched = ensureFinalThoughtsCta(stitched, businessType);
-    // Unified citation engine — same layout engine as Classic Mode.
-    // Uses context files (if provided) as the allow-listed source list;
-    // falls back to Tier-1 web search when no context files are present.
+    stitched = enforceFinalThoughtsParagraphs(stitched);
+    // Inline citations from brain-unit URLs, with trusted dental fallbacks when
+    // proprietary files have no URLs.
+    // Only collect citation URLs from units that were actually mapped to avoid
+    // injecting cross-topic (e.g. dental) URLs into unrelated articles.
+    const usedUnitIds = new Set(sectionsOut.map(s => s.mappedUnitId).filter(Boolean));
+    const usedUnits = units.filter(u => usedUnitIds.has(u.id));
+    let sourceReferences = await collectSourceReferences(sb, usedUnits, allRetrievedChunks);
+    if (sourceReferences.length === 0) sourceReferences = await fallbackContextReferencesForTopic(sb, body.topic);
+    if (sourceReferences.length > 0) console.log(`REFERENCES: collected ${sourceReferences.length} context source reference(s).`);
+    const brainUrls = collectBrainUrls(usedUnits);
+    const citationUrls = brainUrls.length > 0 ? brainUrls : trustedFallbackSources(body.topic);
+    if (brainUrls.length === 0 && citationUrls.length > 0) console.log(`CITATIONS: using ${citationUrls.length} trusted fallback source(s).`);
+    const cite = attachInlineCitations(stitched, citationUrls);
+    stitched = cite.out;
+    if (cite.attached > 0) console.log(`CITATIONS: attached ${cite.attached} inline source(s) from brain URLs.`);
+    const contextNotes = attachContextSourceNotes(stitched, sourceReferences);
+    stitched = contextNotes.out;
+    if (contextNotes.attached > 0) console.log(`CITATIONS: attached ${contextNotes.attached} context source note(s).`);
+    stitched = injectReferences(stitched, usedUnits, sourceReferences);
+    stitched = ensureTrustedReferences(stitched, body.topic);
+    const refsEmitted = /^##\s+references/im.test(stitched);
+    if (!refsEmitted) console.warn(`REFERENCES: no References section emitted — no source files, source URLs, or trusted fallbacks found.`);
     stitched = stripBrandPlaceholders(stitched);
+    const bracketPlaceholders = stripAllBracketPlaceholders(stitched);
+    stitched = bracketPlaceholders.out;
+    if (bracketPlaceholders.removed > 0) console.warn(`PLACEHOLDER GUARD: removed ${bracketPlaceholders.removed} bracket brand/client placeholder sentence(s).`);
+    const expertPlaceholders = stripExpertInputPlaceholders(stitched);
+    stitched = expertPlaceholders.out;
+    if (expertPlaceholders.removed > 0) console.warn(`PLACEHOLDER GUARD: removed ${expertPlaceholders.removed} expert-input placeholder sentence(s).`);
     let content = sanitiseGeneratedMarkdown(stitched, articleTitle);
-    const citationCtx: CitationEngineContext = {
-      contextFiles: body.contextFiles,
-      skipSources: false,
-      topic: body.topic,
-      allowedUrls: [],
-      ownDomainHosts: [],
-    };
-    content = await enforceSourcesAndReferences(content, citationCtx);
-    console.log(`CITATIONS: enforceSourcesAndReferences complete (contextFiles=${(body.contextFiles || []).length})`);
     const internalLinkResult = await insertInternalLinksIntoArticle(content, body.internalLinks, body.topic);
     content = internalLinkResult.content;
     console.log(`INTERNAL LINKS: inserted=${internalLinkResult.insertedCount} skipped=${internalLinkResult.skippedUrls.length} total=${internalLinkResult.totalProvided}${internalLinkResult.note ? ` note=${internalLinkResult.note}` : ""}`);
