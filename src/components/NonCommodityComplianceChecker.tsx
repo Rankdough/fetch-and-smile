@@ -227,16 +227,51 @@ export function NonCommodityComplianceChecker({ content, onContentUpdate, useFir
       toast({ title: "No content", description: "Generate an article first.", variant: "destructive" });
       return;
     }
-    const instruction = `Apply the following Non-Commodity Compliance fixes to the article. Do not rewrite anything that already passes. Preserve markdown structure, headings, tables, lists, links, images, and CTA blocks unless a rule explicitly requires changing them.\n\n${rules.map(r => `• Rule ${r.id} — ${r.title}: ${r.fixInstruction}`).join("\n\n")}`;
+
+    const targetIds = new Set(rules.map(r => r.id));
+    let working = content;
+    let lastResults = results;
+    const MAX_ATTEMPTS = 3;
+    let attempt = 0;
+
     try {
-      const { data, error } = await supabase.functions.invoke("voice-edit-content", {
-        body: { content, instruction, useFirstPerson },
-      });
-      if (error) throw new Error(error.message || "Edge function failed");
-      if (data?.error) throw new Error(data.error);
-      if (!data?.content) throw new Error("No content returned");
-      onContentUpdate(data.content);
-      toast({ title: "Fix applied", description: `${label} rewritten.` });
+      while (attempt < MAX_ATTEMPTS) {
+        attempt++;
+        const currentEval = evaluate(working);
+        const stillFailing = currentEval.filter(r => targetIds.has(r.id) && !r.pass);
+        if (stillFailing.length === 0) break;
+
+        const retryPreamble =
+          attempt > 1
+            ? `RETRY ${attempt - 1}/${MAX_ATTEMPTS - 1} — the previous rewrite did NOT satisfy the deterministic checks below. You MUST hit every numeric threshold this time. Measured shortfalls:\n${stillFailing
+                .map(r => `  – Rule ${r.id} (${r.title}): still failing → ${r.detail || "no detail"}`)
+                .join("\n")}\n\n`
+            : "";
+
+        const instruction = `${retryPreamble}Apply the following Non-Commodity Compliance fixes to the article. Hit every numeric threshold exactly. Do not rewrite anything that already passes. Preserve markdown structure, headings, tables, lists, links, images, and CTA blocks unless a rule explicitly requires changing them.\n\n${stillFailing.map(r => `• Rule ${r.id} — ${r.title}: ${r.fixInstruction}`).join("\n\n")}\n\nReturn the FULL article in markdown, not a diff or summary.`;
+
+        const { data, error } = await supabase.functions.invoke("voice-edit-content", {
+          body: { content: working, instruction, useFirstPerson },
+        });
+        if (error) throw new Error(error.message || "Edge function failed");
+        if (data?.error) throw new Error(data.error);
+        if (!data?.content) throw new Error("No content returned");
+        working = data.content;
+        lastResults = evaluate(working);
+      }
+
+      onContentUpdate(working);
+
+      const stillBroken = lastResults.filter(r => targetIds.has(r.id) && !r.pass);
+      if (stillBroken.length === 0) {
+        toast({ title: "Fix applied", description: `${label} now passes${attempt > 1 ? ` (took ${attempt} attempts)` : ""}.` });
+      } else {
+        toast({
+          title: "Partial fix",
+          description: `${attempt} attempt(s). Still failing: ${stillBroken.map(r => `Rule ${r.id}`).join(", ")}. Try Fix again or edit manually.`,
+          variant: "destructive",
+        });
+      }
     } catch (err) {
       console.error("NonCommodity fix error:", err);
       toast({ title: "Fix failed", description: err instanceof Error ? err.message : "Unknown error", variant: "destructive" });
