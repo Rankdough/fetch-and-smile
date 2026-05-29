@@ -1327,3 +1327,10 @@
 - Files: supabase/functions/proprietary-generate-article/index.ts, CHANGELOG.md
 - Verify: deno check passes.
 - What may break: Downstream prompt assemblers append `atomicBlock` + `noFillerBlock` + `sourceBlock` — still concatenate cleanly (string template unchanged in shape).
+
+## 2026-05-29 — Rule 8 stricter threshold
+- What: Rule 8 now requires ≥3 numeric data points (with units) in the first 30% instead of any single digit.
+- Why: User requested stricter "literal intent proximity" enforcement.
+- Files: src/components/NonCommodityComplianceChecker.tsx
+- Verify: Articles with only one number in the intro now fail Rule 8; fix instruction asks AI to surface 3.
+- What may break: Articles previously passing Rule 8 with a single number will now fail until remediated.
