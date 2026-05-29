@@ -545,6 +545,7 @@ Name], or [NEEDS EXPERT INPUT].`;
     applied.push(19);
   } else {
     ruleBlocks.push(FRAMING_LITE_RULES);
+    ruleBlocks.push(NO_PASSIVE_FILLER_RULE);
     ruleBlocks.push(KEYWORD_NATURAL_LANGUAGE_RULE);
     ruleBlocks.push(QUOTE_ATTRIBUTION_RULE);
     ruleBlocks.push(SOURCED_FIGURES_RULE);
