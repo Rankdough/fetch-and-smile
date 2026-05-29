@@ -577,6 +577,34 @@ function sanitiseGeneratedMarkdown(markdown: string, articleTitle: string): stri
   return result.replace(/\n{3,}/g, "\n\n").trim();
 }
 
+function stripInlineSourceFragments(markdown: string): { out: string; removed: number } {
+  const refMatch = markdown.match(/^##\s+references\b/im);
+  const body = refMatch?.index !== undefined ? markdown.slice(0, refMatch.index) : markdown;
+  const references = refMatch?.index !== undefined ? markdown.slice(refMatch.index) : "";
+  let removed = 0;
+  const cleaned = body
+    .split("\n")
+    .map((line) => {
+      let next = line.replace(/\s*\((?:Source|Sources?)\s*:\s*[^)]{1,240}\)/gi, () => {
+        removed += 1;
+        return "";
+      });
+      if (/^\s*(?:Source|Sources?)\s*:\s*(?!\[[^\]]+\]\(https?:\/\/)/i.test(next)) {
+        removed += 1;
+        return "";
+      }
+      next = next.replace(/^(\s*)(?:Source|Sources?)\s*:\s*(\[[^\]]+\]\(https?:\/\/[^)]+\))\s*$/i, "$1$2");
+      return next
+        .replace(/\s+([,.;:!?])/g, "$1")
+        .replace(/([.!?]){2,}/g, "$1")
+        .trimEnd();
+    })
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trimEnd();
+  return { out: `${cleaned}${references ? `\n\n${references.trimStart()}` : ""}`.trim(), removed };
+}
+
 function stripExpertInputPlaceholders(markdown: string): { out: string; removed: number } {
   let removed = 0;
   const out = markdown
