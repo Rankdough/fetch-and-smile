@@ -527,6 +527,7 @@ function stripAllBracketPlaceholders(markdown: string): { out: string; removed: 
   const out = markdown
     .split("\n")
     .map((line) => {
+      placeholderRe.lastIndex = 0;
       if (!placeholderRe.test(line)) return line;
       placeholderRe.lastIndex = 0;
       removed += 1;
