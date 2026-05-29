@@ -1056,17 +1056,33 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      match_brain_chunks: {
-        Args: { match_count?: number; query_embedding: string }
-        Returns: {
-          brain_file_id: string
-          chunk_index: number
-          content: string
-          context_document_id: string
-          id: string
-          similarity: number
-        }[]
-      }
+      match_brain_chunks:
+        | {
+            Args: { match_count?: number; query_embedding: string }
+            Returns: {
+              brain_file_id: string
+              chunk_index: number
+              content: string
+              context_document_id: string
+              id: string
+              similarity: number
+            }[]
+          }
+        | {
+            Args: {
+              match_count: number
+              p_project_id: string
+              query_embedding: string
+            }
+            Returns: {
+              brain_file_id: string
+              chunk_index: number
+              content: string
+              context_document_id: string
+              id: string
+              similarity: number
+            }[]
+          }
     }
     Enums: {
       [_ in never]: never
