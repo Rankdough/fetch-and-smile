@@ -1,3 +1,19 @@
+## 2026-05-29 - Non-Commodity Compliance Guard: add per-rule and bulk Fix actions
+
+**What:**
+- `src/components/NonCommodityComplianceChecker.tsx`: each failing rule now exposes a "Fix this" button, plus a top-level "Fix all N failing rules" button. Both call the existing `voice-edit-content` edge function with a rule-specific instruction set that preserves headings, tables, lists, links, images, and CTAs. Results are returned via `onContentUpdate` so the article re-renders and the checklist re-evaluates immediately.
+- `src/pages/Index.tsx`: pass `onContentUpdate={setGeneratedContent}` and `useFirstPerson` to the compliance guard mount.
+
+**Why:** The previous version only diagnosed failures with no remediation path. The screenshot showed three failing rules (snippet length, methodology, hedging) with no in-product way to address them.
+
+**Verified broken:** Nothing verified broken. Checked: existing props on `QualityScoringPanel`, `CreditUsageDisplay`, and other sidebar mounts unchanged; `voice-edit-content` invocation pattern matches the one already used in `QualityScoringPanel.handleApplyImprovements`; buttons are only rendered when `onContentUpdate` is defined and rule is failing; busy state disables every Fix button to prevent concurrent calls. No edits to generation, scoring, or export pipelines.
+
+**Files:** `src/components/NonCommodityComplianceChecker.tsx`, `src/pages/Index.tsx`, `CHANGELOG.md`.
+
+**Verify:** With a generated article that fails one or more rules, click "Fix this" on a single row or "Fix all failing rules" at the top. The article should rewrite, the checklist should re-tick the resolved rules, and headings/tables/CTAs should remain intact.
+
+---
+
 ## 2026-05-29 - Add Non-Commodity Compliance Guard sidebar panel
 
 **What:**
