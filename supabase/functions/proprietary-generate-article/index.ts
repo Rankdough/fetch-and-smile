@@ -1055,6 +1055,38 @@ function collectChunkUrls(chunks: RetrievedChunk[]): BrainUrl[] {
   return out;
 }
 
+function scoreTextForTopic(text: string, topic: string, sectionHeading = ""): number {
+  const tokens = [...tokenize(`${topic} ${sectionHeading}`)].filter((t) => t.length >= 5).slice(0, 16);
+  const haystack = text.toLowerCase();
+  return tokens.reduce((sum, token) => sum + (haystack.includes(token) ? 1 : 0), 0);
+}
+
+async function retrieveContextDocumentSnippets(
+  // deno-lint-ignore no-explicit-any
+  supabase: any,
+  topic: string,
+  sectionHeading: string,
+): Promise<Array<{ content: string; sourceTitle: string; context_document_id: string }>> {
+  const { data, error } = await supabase
+    .from("context_documents")
+    .select("id, file_name, content")
+    .limit(100);
+  if (error) {
+    console.warn(`CONTEXT: document lookup failed for "${sectionHeading}":`, error.message);
+    return [];
+  }
+  return ((data || []) as ContextDocumentRow[])
+    .map((doc) => ({ doc, score: scoreTextForTopic(`${doc.file_name}\n${doc.content || ""}`, topic, sectionHeading) }))
+    .filter((row) => row.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 2)
+    .map(({ doc }) => ({
+      content: (doc.content || "").slice(0, 2200),
+      sourceTitle: doc.file_name,
+      context_document_id: doc.id,
+    }));
+}
+
 async function collectSourceReferences(
   // deno-lint-ignore no-explicit-any
   supabase: any,
