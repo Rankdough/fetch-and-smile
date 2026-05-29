@@ -1690,7 +1690,7 @@ async function runSection(input: {
 
 /* ── handler ──────────────────────────────────────────────────────────── */
 
-const BUILD_MARKER = "BUILD-2026-05-29-I proprietary-generate-article context-binding no-passive-filler";
+const BUILD_MARKER = "BUILD-2026-05-29-M proprietary-generate-article reference-link-guards";
 Deno.serve(async (req) => {
   console.log(BUILD_MARKER);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
