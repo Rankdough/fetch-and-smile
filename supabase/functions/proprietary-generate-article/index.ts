@@ -1648,10 +1648,10 @@ Deno.serve(async (req) => {
     if (atomic.removed > 0) console.warn(`ATOMIC GUARD: stripped ${atomic.removed} dependency phrase(s).`);
     stitched = enforceThreeBulletsPerBodySection(stitched);
     stitched = enforceOpeningLength(stitched);
-    stitched = enforceFinalThoughtsParagraphs(stitched);
     stitched = injectInThisArticle(stitched, body.topic);
     stitched = ensureMinimumTables(stitched, body.topic, targetWords);
     stitched = ensureFinalThoughtsCta(stitched, businessType);
+    stitched = enforceFinalThoughtsParagraphs(stitched);
     // Inline citations from brain-unit URLs, with trusted dental fallbacks when
     // proprietary files have no URLs.
     // Only collect citation URLs from units that were actually mapped to avoid
@@ -1667,6 +1667,9 @@ Deno.serve(async (req) => {
     const cite = attachInlineCitations(stitched, citationUrls);
     stitched = cite.out;
     if (cite.attached > 0) console.log(`CITATIONS: attached ${cite.attached} inline source(s) from brain URLs.`);
+    const contextNotes = attachContextSourceNotes(stitched, sourceReferences);
+    stitched = contextNotes.out;
+    if (contextNotes.attached > 0) console.log(`CITATIONS: attached ${contextNotes.attached} context source note(s).`);
     stitched = injectReferences(stitched, usedUnits, sourceReferences);
     stitched = ensureTrustedReferences(stitched, body.topic);
     const refsEmitted = /^##\s+references/im.test(stitched);
