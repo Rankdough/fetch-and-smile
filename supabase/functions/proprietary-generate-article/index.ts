@@ -1159,6 +1159,41 @@ function attachInlineCitations(markdown: string, urls: BrainUrl[]): { out: strin
   return { out: lines.join("\n"), attached };
 }
 
+function enforceOpeningLength(markdown: string): string {
+  const h1 = markdown.match(/^#\s+.+$/m);
+  if (!h1 || h1.index === undefined) return markdown;
+  const start = h1.index + h1[0].length;
+  const nextH2 = markdown.slice(start).search(/^##\s+/m);
+  const end = nextH2 >= 0 ? start + nextH2 : markdown.length;
+  const opening = markdown.slice(start, end).trim();
+  if (!opening) return markdown;
+  const compact = opening
+    .split(/\n{2,}/)
+    .map((p) => p.trim())
+    .filter(Boolean)
+    .join(" ")
+    .replace(/\s+/g, " ");
+  const trimmed = trimToWordCount(compact, 85);
+  return `${markdown.slice(0, start).trimEnd()}\n\n${trimmed}\n\n${markdown.slice(end).trimStart()}`.trim();
+}
+
+function enforceFinalThoughtsParagraphs(markdown: string): string {
+  const re = /(^##\s+final\s*thoughts\s*\n)([\s\S]*?)(?=^##\s+|$(?![\r\n]))/im;
+  const m = markdown.match(re);
+  if (!m) return markdown;
+  const body = m[2]
+    .replace(/^[-*+]\s+/gm, "")
+    .replace(/\n{2,}/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!body) return markdown;
+  const sentences = body.match(/[^.!?]+[.!?]+(?:["')\]]+)?/g)?.map((s) => s.trim()).filter(Boolean) ?? [body];
+  const first = trimToWordCount(sentences.slice(0, Math.ceil(sentences.length / 2)).join(" "), 65);
+  const second = trimToWordCount(sentences.slice(Math.ceil(sentences.length / 2)).join(" ") || sentences.slice(-1).join(" "), 65);
+  const rebuilt = [first, second].filter(Boolean).join("\n\n");
+  return markdown.replace(re, `${m[1]}\n${rebuilt}\n\n`);
+}
+
 function ensureFinalThoughtsCta(markdown: string, businessType: BusinessType = "healthcare-clinical"): string {
   if (businessType !== "healthcare-clinical") return markdown;
   const re = /(^##\s+final\s*thoughts\s*\n)([\s\S]*?)(?=^##\s+|$(?![\r\n]))/im;
