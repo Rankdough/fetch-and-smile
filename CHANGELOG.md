@@ -1,4 +1,26 @@
-## 2026-05-29 - verification: scoped context references deployed
+## 2026-05-29 - atomic sections + inline source link baked into generation
+
+**What:**
+- `_shared/proprietaryPromptAssembler.ts`: every body section now gets an `ATOMIC SECTION STRUCTURE` rule (1 standalone answer paragraph + exactly 3 bullets, max 22 words each) and an `INLINE SOURCE LINK` rule that supplies an allow-listed URL pool and requires the writer to cite exactly one of them inline.
+- `proprietary-generate-article/index.ts`: handler now builds the per-section allow-listed URL pool from (a) the mapped brain unit, (b) retrieved chunks, (c) the article-wide brain units, (d) topic-trusted fallbacks; pool is passed to both the generic and clinical writers.
+- Clinical writer prompt mirrors the same atomic + inline-source contract so healthcare-clinical articles match parity.
+- `attachInlineCitations` post-pass now cycles URLs (modulo) so every body section still gets a citation when the pool is smaller than the section count — but only kicks in for sections the writer left without a link.
+- Build marker: `BUILD-2026-05-29-E`.
+
+**Why:** The verifier was repeatedly flagging "Atomic sections (exactly 3 bullets)" and "Source link in every section" because both contracts only existed as post-hoc guards. The model was never told to produce them during generation, so the post-pass had to invent them and often left gaps (e.g. friendship topic with no fallback URLs). Baking both into the prompt makes the output correct by construction.
+
+**Files:**
+- supabase/functions/_shared/proprietaryPromptAssembler.ts
+- supabase/functions/proprietary-generate-article/index.ts
+- CHANGELOG.md
+
+**Verified broken:** Nothing verified broken. Checked: edge function deployed successfully; assembler type change is additive (`allowedSourceUrls?` optional); existing `proprietary-generate-section` consumer continues to compile against the same `assembleSectionPrompt` signature because the new field is optional; `attachInlineCitations` change preserves the "already cited" short-circuit so writer-produced links are not duplicated; clinical writer fallback path still runs when no URLs are available (uses the no-URLs variant of the rule).
+
+**What may break:** Token usage per body section rises slightly (~150-300 input tokens) because the allow-listed URL list is included in the prompt. If a future caller of `assembleSectionPrompt` relies on the absence of the atomic rule (e.g. a non-AEO body section that wants longer prose), it will need to opt out — none in the current codebase do.
+
+---
+
+
 
 **What:**
 - Verified the deployed `proprietary-generate-article` function after the scoped source-reference fix.
