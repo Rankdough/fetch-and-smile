@@ -863,9 +863,11 @@ function ensureMinimumTables(markdown: string, topic: string, targetWords: numbe
 // so they never reach the rendered article. If a brand string is later added
 // to the request body, swap the empty replacement for that value.
 function stripBrandPlaceholders(markdown: string): string {
-  const PLACEHOLDER_INNER = "practice\\s*name|your\\s*practice|clinic\\s*name|business\\s*name|brand\\s*name|company\\s*name";
+  const PLACEHOLDER_INNER = "practice\\s*name|your\\s*practice|your\\s*business\\s*name|clinic\\s*name|business\\s*name|brand\\s*name|company\\s*name";
+  const placeholderSentenceRe = new RegExp(`[^.!?\\n]*\\[(?:${PLACEHOLDER_INNER})\\][^.!?\\n]*[.!?]?`, "gi");
+  let out = markdown.replace(placeholderSentenceRe, "");
   // Replace preposition + placeholder ("at [PRACTICE NAME]" → "at the practice")
-  let out = markdown.replace(
+  out = out.replace(
     new RegExp(`\\b(at|in|by|from|to|for|with|the|our|your|of)\\s+\\[(?:${PLACEHOLDER_INNER})\\]\\b['']?s?`, "gi"),
     (_, prep) => {
       const p = prep.toLowerCase();
