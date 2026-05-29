@@ -83,7 +83,8 @@ function evaluate(content: string): RuleResult[] {
   const r7Pass = hedgeCount <= 2;
 
   const top = plain.slice(0, Math.max(400, Math.floor(plain.length * 0.3)));
-  const r8Pass = /\b\d/.test(top);
+  const topNumericMatches = (top.match(/\b\d{1,3}(?:[.,]\d+)?\s?(?:%|percent|years?|months?|days?|hours?|minutes?|weeks?|mm|cm|kg|mg|usd|eur|£|\$)/gi) || []).length;
+  const r8Pass = topNumericMatches >= 3;
 
   const r9Pass = /\b(timeline|deadline|week\s*\d|day\s*\d|month\s*\d|within\s+\d+\s+(?:days|weeks|months|hours)|by\s+(?:day|week|month)\s*\d)\b/i.test(plain);
 
