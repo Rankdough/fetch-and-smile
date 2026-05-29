@@ -1331,6 +1331,9 @@ Deno.serve(async (req) => {
     const refsEmitted = /^##\s+references/im.test(stitched);
     if (!refsEmitted) console.warn(`REFERENCES: no References section emitted — brain units contain no URLs.`);
     stitched = stripBrandPlaceholders(stitched);
+    const expertPlaceholders = stripExpertInputPlaceholders(stitched);
+    stitched = expertPlaceholders.out;
+    if (expertPlaceholders.removed > 0) console.warn(`PLACEHOLDER GUARD: removed ${expertPlaceholders.removed} expert-input placeholder sentence(s).`);
     let content = sanitiseGeneratedMarkdown(stitched, articleTitle);
     const internalLinkResult = await insertInternalLinksIntoArticle(content, body.internalLinks, body.topic);
     content = internalLinkResult.content;
