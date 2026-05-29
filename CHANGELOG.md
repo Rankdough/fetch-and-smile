@@ -1,4 +1,19 @@
+## 2026-05-29 - proprietary articles: References render as markdown bullets (BUILD-2026-05-29-L)
+
+**What:** `supabase/functions/proprietary-generate-article/index.ts` — `renderReferenceItem` / `renderReferencesList` now emit plain markdown (`- [Title](url)`) instead of raw inline-styled `<ul><li>…</li></ul>` HTML. Square brackets in titles are stripped to keep md link syntax intact.
+
+**Why:** The preview's markdown renderer escapes raw HTML, so the entire `<ul style="…">…</ul>` block was printed as literal source text under `## References` (screenshot). Switching to markdown bullets renders correctly in the preview and is converted to a real clickable `<ul>` by the HTML export pipeline. Root-cause fix that supersedes the J-build sanitiser guard.
+
+**What may break:** References list no longer carries the inline `color: #374151` / `line-height: 1.6` styling — visual styling now comes from the export's CSS/typography. URL escaping is also dropped (URLs are passed through verbatim into the markdown link), which is the standard md-link behaviour.
+
+**Files:** `supabase/functions/proprietary-generate-article/index.ts`.
+
+**Verify:** `deno check` passes. Generate a proprietary article; confirm `## References` renders as a clean bulleted list of clickable links in preview, copy-HTML, and Excel export.
+
+---
+
 ## 2026-05-29 - proprietary articles: dynamic failure-mode H2 heading (BUILD-2026-05-29-K)
+
 
 **What:** `supabase/functions/proprietary-generate-article/index.ts` — replaced the hardcoded `"Where this commonly goes wrong"` H2 (previously injected on every healthcare-clinical / service article) with `generateFailureModeHeading(topic, articleTitle, model)`. New helper asks the model for a 4–10-word on-topic pitfall heading, strips quotes/markdown/trailing punctuation, validates length, and falls back to `Where <topic> commonly goes wrong` if the model returns garbage or errors. Section position, kind, and body-generation logic are unchanged.
 
