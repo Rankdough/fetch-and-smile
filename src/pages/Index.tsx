@@ -4794,7 +4794,7 @@ const Index = () => {
                     </Button>
                   )}
                   Generated Content
-                  {commodityGrade && (
+                  {commodityGrade && generatedContent.trim().length > 0 && !isGenerating && (
                     <VerificationReport report={commodityGrade} hasBrain={hasBrainForGrade} className="ml-2 align-middle" />
                   )}
                 </CardTitle>
