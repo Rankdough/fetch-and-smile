@@ -1132,7 +1132,7 @@ async function runSection(input: {
 
 /* ── handler ──────────────────────────────────────────────────────────── */
 
-const BUILD_MARKER = "BUILD-2026-05-29-C proprietary-generate-article context-source-references";
+const BUILD_MARKER = "BUILD-2026-05-29-D proprietary-generate-article scoped-context-source-references";
 Deno.serve(async (req) => {
   console.log(BUILD_MARKER);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -1397,15 +1397,15 @@ Deno.serve(async (req) => {
     // injecting cross-topic (e.g. dental) URLs into unrelated articles.
     const usedUnitIds = new Set(sectionsOut.map(s => s.mappedUnitId).filter(Boolean));
     const usedUnits = units.filter(u => usedUnitIds.has(u.id));
-    const sourceReferences = await collectSourceReferences(sb, usedUnits.length ? usedUnits : units, allRetrievedChunks);
+    const sourceReferences = await collectSourceReferences(sb, usedUnits, allRetrievedChunks);
     if (sourceReferences.length > 0) console.log(`REFERENCES: collected ${sourceReferences.length} context source reference(s).`);
-    const brainUrls = collectBrainUrls(usedUnits.length ? usedUnits : units);
+    const brainUrls = collectBrainUrls(usedUnits);
     const citationUrls = brainUrls.length > 0 ? brainUrls : trustedFallbackSources(body.topic);
     if (brainUrls.length === 0 && citationUrls.length > 0) console.log(`CITATIONS: using ${citationUrls.length} trusted fallback source(s).`);
     const cite = attachInlineCitations(stitched, citationUrls);
     stitched = cite.out;
     if (cite.attached > 0) console.log(`CITATIONS: attached ${cite.attached} inline source(s) from brain URLs.`);
-    stitched = injectReferences(stitched, units, sourceReferences);
+    stitched = injectReferences(stitched, usedUnits, sourceReferences);
     stitched = ensureTrustedReferences(stitched, body.topic);
     const refsEmitted = /^##\s+references/im.test(stitched);
     if (!refsEmitted) console.warn(`REFERENCES: no References section emitted — no source files, source URLs, or trusted fallbacks found.`);
