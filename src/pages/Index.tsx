@@ -200,6 +200,14 @@ const cleanContent = (content: string): string => {
     .replace(/^\s*[-*_]{3,}\s*$/gm, "")  // Remove horizontal lines
     .replace(/^(\s*[-*])\s+[-–—]\s*/gm, "$1 ");  // Remove dashes after bullet points (e.g., "- - text" -> "- text")
 
+  const referencesMatch = cleaned.match(/^##\s+References:?\s*$/im);
+  const bodyEnd = referencesMatch?.index ?? cleaned.length;
+  const bodyOnly = cleaned.slice(0, bodyEnd)
+    .replace(/\s?\[(?:\d{1,3})(?:\s*(?:,|and|&|\-|–|—)\s*\d{1,3})*\]/gi, "")
+    .replace(/[ \t]+([,.;:!?])/g, "$1")
+    .replace(/ {2,}/g, " ");
+  cleaned = bodyOnly + cleaned.slice(bodyEnd);
+
   // Fix inline numbered lists rendered as a single paragraph
   // e.g., "1. Foo: text here. 2. Bar: text here." → separate lines
   cleaned = cleaned.replace(/^(\d+\.\s+\*\*[^*]+\*\*[:\s].+?)(?=\s+\d+\.\s+\*\*)/gm, "$1");
