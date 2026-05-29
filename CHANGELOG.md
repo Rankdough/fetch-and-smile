@@ -1,4 +1,20 @@
+## 2026-05-29 - Remove gluten/bloating fallback bullets that polluted every domain (BUILD-2026-05-29-T)
+
+**What:**
+- `supabase/functions/proprietary-generate-article/index.ts` → `buildFallbackBullets`: deleted the three hardcoded branches (`hasDiagnosis`, `hasPrevention`, `hasFailure`) and their gluten/diet/bloating bullet templates ("Separate <heading> into named categories before changing diet", "Track response after each dietary change", "Cross-check assumptions against testing history, because similar bloating can come from different digestive mechanisms", etc.). Replaced with a single topic-agnostic 3-bullet fallback derived only from the section heading (`phrase` + `headingClean`). The `body` parameter is now unused (kept for signature compatibility, renamed to `_body`).
+
+**Why:** Gemini's review of a generated dental-implant article surfaced bullets such as "Keep symptom timing, food exposure, and severity together so bloating patterns can be checked against clinical causes." under "How to pick a dental implant specialist?". This was misdiagnosed by the reviewer as context cross-pollination — the actual root cause was these hardcoded fallback templates firing because the dental body contained words like `test`, `clinical`, and `treat`, which matched the `hasDiagnosis` / `hasPrevention` regexes. Any non-gluten article that under-bulleted a section got gluten content stitched in deterministically by our own code.
+
+**Verified broken:** Nothing verified broken. Checked: `deno check supabase/functions/proprietary-generate-article/index.ts` passes; `rg "buildFallbackBullets"` shows the only caller is `enforceThreeBulletsPerBodySection` at line 716 which passes `(heading, body)` and ignores the function's internals; signature unchanged so the call site needs no edit. No other file in the project references gluten/bloating fallback wording (`rg "bloating|coeliac|celiac|dietary change"` over `supabase/functions` returns only the now-removed lines in git diff).
+
+**Files:** `supabase/functions/proprietary-generate-article/index.ts`, `CHANGELOG.md`.
+
+**Verify:** Generate a dental-implant article (or any non-gluten topic). Inspect any H2 section that previously got under three bullets — the injected bullets must reference the section heading and contain zero mentions of diet, bloating, symptoms, food exposure, dietary change, nutrient intake, or digestive mechanisms.
+
+---
+
 ## 2026-05-29 - Orphan "[1]" markers in body + mid-number sentence truncation (BUILD-2026-05-29-S)
+
 
 **What:**
 - `supabase/functions/proprietary-generate-article/index.ts`:
