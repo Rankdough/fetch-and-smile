@@ -754,17 +754,22 @@ function extractUrls(text: string): Array<{ url: string; title: string }> {
   return out;
 }
 
-function injectReferences(markdown: string, units: BrainUnit[]): string {
+function injectReferences(markdown: string, units: BrainUnit[], sourceReferences: SourceReference[] = []): string {
   if (/^##\s+references/im.test(markdown)) return markdown;
   const corpus = [
     markdown,
     ...units.map((u) => `${u.summary || ""}\n${u.full_text || ""}`),
   ].join("\n");
-  const links = extractUrls(corpus).slice(0, 8);
-  // Only emit a References section when we have real URLs. Never fabricate
-  // citations from brain-unit titles — that produced false references.
-  if (links.length === 0) return markdown;
-  const items = links.map((l) => `- [${l.title}](${l.url})`).join("\n");
+  const seen = new Set<string>();
+  const links = extractUrls(corpus).map((l) => ({ title: l.title, url: l.url }));
+  const references = [...sourceReferences, ...links].filter((ref) => {
+    const key = `${ref.url || "file"}:${ref.title}`.toLowerCase().trim();
+    if (!ref.title.trim() || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  }).slice(0, 8);
+  if (references.length === 0) return markdown;
+  const items = references.map((ref) => ref.url ? `- [${ref.title}](${ref.url})` : `- ${ref.title}`).join("\n");
   return `${markdown.trimEnd()}\n\n## References\n\n${items}\n`;
 }
 
