@@ -299,6 +299,7 @@ Content Guidelines:
 - Start with a compelling hook that addresses the reader's pain point
 - Each section answers its heading question directly in the first 1-2 sentences
 - Include comparison tables when comparing options
+- PARAGRAPH DENSITY (GLOBAL, NON-NEGOTIABLE): No paragraph may exceed 60 words or 3 sentences. Break every longer chunk into multiple shorter paragraphs at logical pivots (new idea, contrast, example, evidence, consequence). The reader must be able to jump from one paragraph to the next easily — no walls of text anywhere, including intro, TL;DR, H2 answers, and FAQ answers.
 - Use short paragraphs (2-3 sentences max)
 - Add a strong conclusion with a clear call-to-action
 - Write naturally, avoiding keyword stuffing
