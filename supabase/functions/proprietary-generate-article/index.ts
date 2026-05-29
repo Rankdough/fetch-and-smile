@@ -1622,6 +1622,8 @@ Deno.serve(async (req) => {
     stitched = atomic.out;
     if (atomic.removed > 0) console.warn(`ATOMIC GUARD: stripped ${atomic.removed} dependency phrase(s).`);
     stitched = enforceThreeBulletsPerBodySection(stitched);
+    stitched = enforceOpeningLength(stitched);
+    stitched = enforceFinalThoughtsParagraphs(stitched);
     stitched = injectInThisArticle(stitched, body.topic);
     stitched = ensureMinimumTables(stitched, body.topic, targetWords);
     stitched = ensureFinalThoughtsCta(stitched, businessType);
@@ -1631,7 +1633,8 @@ Deno.serve(async (req) => {
     // injecting cross-topic (e.g. dental) URLs into unrelated articles.
     const usedUnitIds = new Set(sectionsOut.map(s => s.mappedUnitId).filter(Boolean));
     const usedUnits = units.filter(u => usedUnitIds.has(u.id));
-    const sourceReferences = await collectSourceReferences(sb, usedUnits, allRetrievedChunks);
+    let sourceReferences = await collectSourceReferences(sb, usedUnits, allRetrievedChunks);
+    if (sourceReferences.length === 0) sourceReferences = await fallbackContextReferencesForTopic(sb, body.topic);
     if (sourceReferences.length > 0) console.log(`REFERENCES: collected ${sourceReferences.length} context source reference(s).`);
     const brainUrls = collectBrainUrls(usedUnits);
     const citationUrls = brainUrls.length > 0 ? brainUrls : trustedFallbackSources(body.topic);
@@ -1644,6 +1647,9 @@ Deno.serve(async (req) => {
     const refsEmitted = /^##\s+references/im.test(stitched);
     if (!refsEmitted) console.warn(`REFERENCES: no References section emitted — no source files, source URLs, or trusted fallbacks found.`);
     stitched = stripBrandPlaceholders(stitched);
+    const bracketPlaceholders = stripAllBracketPlaceholders(stitched);
+    stitched = bracketPlaceholders.out;
+    if (bracketPlaceholders.removed > 0) console.warn(`PLACEHOLDER GUARD: removed ${bracketPlaceholders.removed} bracket brand/client placeholder sentence(s).`);
     const expertPlaceholders = stripExpertInputPlaceholders(stitched);
     stitched = expertPlaceholders.out;
     if (expertPlaceholders.removed > 0) console.warn(`PLACEHOLDER GUARD: removed ${expertPlaceholders.removed} expert-input placeholder sentence(s).`);
