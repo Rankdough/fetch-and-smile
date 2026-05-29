@@ -923,35 +923,18 @@ function extractUrls(text: string): Array<{ url: string; title: string }> {
   return out;
 }
 
-// BUILD-2026-05-29-H: References list items are emitted as raw HTML <li><a>
-// anchors (wrapped in <ul>) so they render as clickable hyperlinks regardless
-// of how the downstream markdown→HTML pipeline handles list items. Markdown
-// parsers (marked) preserve raw inline HTML blocks unchanged.
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
+// BUILD-2026-05-29-O: References are emitted as pure markdown bullets at the
+// source. No raw-HTML helpers — the preview renderer (ReactMarkdown) escapes
+// raw HTML, so any <ul>/<li> string would render as literal text.
+function refsToMarkdown(refs: Array<{ title: string; url?: string }>): string {
+  return refs.map((ref) => {
+    const title = ref.title.trim().replace(/[\[\]]/g, "");
+    if (ref.url && /^https?:\/\//i.test(ref.url)) {
+      return `- [${title}](${ref.url.trim()})`;
+    }
+    return `- ${title}`;
+  }).join("\n");
 }
-
-function renderReferenceItem(title: string, url?: string): string {
-  // Emit as plain markdown bullets so the preview renderer (which escapes raw
-  // HTML) and the HTML export both render a clean clickable list. The previous
-  // raw-HTML <li> approach leaked literal markup into the preview when the
-  // markdown renderer escaped it (see screenshot).
-  const cleanTitle = title.trim().replace(/[\[\]]/g, ""); // strip [] to avoid breaking md link syntax
-  if (url && /^https?:\/\//i.test(url)) {
-    return `- [${cleanTitle}](${url.trim()})`;
-  }
-  return `- ${cleanTitle}`;
-}
-
-function renderReferencesList(items: string[]): string {
-  return items.join("\n");
-}
-
 
 function injectReferences(markdown: string, units: BrainUnit[], sourceReferences: SourceReference[] = []): string {
   if (/^##\s+references/im.test(markdown)) return markdown;
@@ -968,8 +951,7 @@ function injectReferences(markdown: string, units: BrainUnit[], sourceReferences
     return true;
   }).slice(0, 8);
   if (references.length === 0) return markdown;
-  const items = references.map((ref) => renderReferenceItem(ref.title, ref.url));
-  return `${markdown.trimEnd()}\n\n## References\n\n${renderReferencesList(items)}\n`;
+  return `${markdown.trimEnd()}\n\n## References\n\n${refsToMarkdown(references)}\n`;
 }
 
 function sectionLinkLooksRelevant(anchor: string, url: string, sectionText: string, topic: string): boolean {
@@ -1037,8 +1019,7 @@ function ensureTrustedReferences(markdown: string, topic: string): string {
   if (/^##\s+references/im.test(markdown)) return markdown;
   const sources = trustedFallbackSources(topic);
   if (sources.length === 0) return markdown;
-  const items = sources.map((s) => renderReferenceItem(s.title, s.url));
-  return `${markdown.trimEnd()}\n\n## References\n\n${renderReferencesList(items)}\n`;
+  return `${markdown.trimEnd()}\n\n## References\n\n${refsToMarkdown(sources)}\n`;
 }
 
 async function insertInternalLinksIntoArticle(
