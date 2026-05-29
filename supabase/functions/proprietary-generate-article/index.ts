@@ -544,10 +544,9 @@ function sanitiseGeneratedMarkdown(markdown: string, articleTitle: string): stri
     }
 
     // Punctuation completion: snap a stray prose line back to its last terminal
-    // mark. Must skip raw HTML lines (e.g. the <ul>/<li> references block
-    // emitted by renderReferencesList) — otherwise a `.` inside an inline
-    // style like `line-height: 1.6` truncates the entire tag and the browser
-    // renders escaped HTML as plain text. See BUILD-2026-05-29-H regression.
+    // mark. Defensive: skip raw HTML lines so an inline style like
+    // `line-height: 1.6` cannot be truncated at the `.` and rendered as
+    // escaped HTML text. (References are now pure markdown — BUILD-O.)
     if (
       trimmed &&
       !/^#{1,6}\s/.test(trimmed) &&
