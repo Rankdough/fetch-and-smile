@@ -298,14 +298,16 @@ sentences in a single paragraph block in any section.`.trim();
 const ATOMIC_BODY_STRUCTURE_RULE = `
 ATOMIC SECTION STRUCTURE (mandatory for every body section):
 Write this section in this exact order, with nothing else inserted:
-  1. ONE standalone answer paragraph (1-3 sentences, max 3) that fully answers
-     the section heading on its own. It must read as a complete answer if
-     extracted in isolation by an AI assistant.
+  1. ONE standalone answer paragraph (2-3 sentences, max 3; aim for 80-130
+     words in medium or longer articles) that fully answers the section heading
+     on its own. It must read as a complete answer if extracted in isolation by
+     an AI assistant.
   2. A blank line.
   3. EXACTLY 3 markdown bullets ("- " prefix), each one a single concrete,
      specific, actionable point that supports or expands the answer. Each
-     bullet is 1 sentence, max 22 words. No sub-bullets. No nested lists. No
-     fewer than 3, no more than 3.
+      bullet is 1 sentence, 14-22 words. No sub-bullets. No nested lists. No
+      fewer than 3, no more than 3. Each bullet must add a concrete detail not
+      already stated word-for-word in the answer paragraph.
 Do NOT add a sub-heading inside the section. Do NOT add a second paragraph
 after the bullets. Do NOT use phrases like "as mentioned above", "as we saw
 earlier", "continuing from earlier", "in the previous section", or any
@@ -338,7 +340,22 @@ FRAMING SECTION RULES:
   contains numbers, you may summarise them; do not introduce new ones.
 - Avoid "varies / depends on / typically / usually" without a specific number
   carried over from the body (Rule 5).
+- Never write bracket placeholders such as [Client Name], [Service Business
+  Name], [Practice Name], or [NEEDS EXPERT INPUT]. Omit the sentence instead.
 - Stay within the section's word budget and structural format.`.trim();
+
+const OPENING_LENGTH_RULE = `
+OPENING LENGTH RULE:
+Write one concise opening paragraph only, 55-85 words. Do not add a second
+paragraph. Do not mention a business, clinic, brand, editorial team, or service
+name unless the exact name was supplied in the prompt. No bracket placeholders.`.trim();
+
+const FINAL_THOUGHTS_RULE = `
+FINAL THOUGHTS RULE:
+Write exactly two short paragraphs, 1-2 sentences each, 90-130 words total.
+The first paragraph must summarise the decision or distinction. The second
+paragraph must give the practical next step. Do not use bullets, tables, brand
+placeholders, client placeholders, or [NEEDS EXPERT INPUT].`.trim();
 
 const OPENING_REFRAME_RULE = `
 OPENING REFRAME (mandatory for marketing-umbrella topics):
@@ -419,7 +436,9 @@ You write sections one at a time. You produce non-commodity content grounded in 
 mapped knowledge unit provided for THIS section, or — when no unit is mapped — in
 direct clinical reasoning. You never invent specific numbers, case counts, named
 patients, or fabricated citations. You never write generic filler. You never use
-em dashes, en dashes, or horizontal rules.`;
+em dashes, en dashes, or horizontal rules. You never output bracket placeholders
+such as [Client Name], [Service Business Name], [Practice Name], [Your Business
+Name], or [NEEDS EXPERT INPUT].`;
 
   const audienceBlock = `AUDIENCE: ${audienceSentence}`;
   const destinationBlock = `PUBLICATION DESTINATION: ${publicationDestination} — ${
@@ -509,8 +528,13 @@ em dashes, en dashes, or horizontal rules.`;
 
     // Opening framing section: enforce the marketing-umbrella reframe.
     if (section.kind === "opening") {
+      ruleBlocks.push(OPENING_LENGTH_RULE);
       ruleBlocks.push(OPENING_REFRAME_RULE);
       applied.push(6);
+    }
+
+    if (section.kind === "final-thoughts") {
+      ruleBlocks.push(FINAL_THOUGHTS_RULE);
     }
 
     // FAQ framing section: enforce direct-answer contract.
