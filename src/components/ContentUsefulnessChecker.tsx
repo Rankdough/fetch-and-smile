@@ -131,6 +131,15 @@ function evaluate(content: string): RuleResult[] {
       fixInstruction:
         "Add a short, explicit methodology disclosure (2-4 sentences) describing the real-world research friction undertaken to compile the data — e.g. primary-source records audited, clinical studies reviewed, criteria applied, evaluation process used. Place it near the top after the TL;DR or near the bottom before References. Use the heading 'Methodology'. Preserve all other content. Return the full article.",
     },
+    {
+      id: 6,
+      title: "Source Citations & References",
+      description: "References section (≥3 links) + a citation in every H2 section",
+      pass: r6Pass,
+      detail: r6Detail,
+      fixInstruction:
+        "Ensure the article cites real sources. Requirements: (a) Every top-level H2 body section (excluding TL;DR, Quick Tips, In This Article, How to Choose, FAQ, Final Thoughts, References) must end with at least one inline citation as a markdown link [Source name](https://…) drawn from the context sources provided. (b) The article must end with a '## References' section containing a bulleted list of at least 3 distinct markdown links to sources. Reuse links already present in the article first, then draw any missing ones from the context source URLs provided below. Do not invent URLs. Do not delete or reword existing facts, headings, tables, lists, images, or CTAs — only append citations and the References section. Return the full article.",
+    },
   ];
 }
 
