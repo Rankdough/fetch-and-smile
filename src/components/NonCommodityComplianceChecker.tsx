@@ -126,9 +126,9 @@ function evaluate(content: string): RuleResult[] {
     },
     {
       id: 4, title: "Explicit Information-Gain Disclosures",
-      description: "≥3 concrete data points (numbers/units)",
+      description: "≥5 concrete data points (numbers/units)",
       pass: r4Pass, detail: `${numericMatches} data points`,
-      fixInstruction: "Add at least three concrete, defensible data points with units (percentages, durations, counts, prices, measurements) drawn from the existing context. Integrate them into the prose; do not invent statistics. Preserve headings, tables, lists, links, images, and CTAs. Return the full article.",
+      fixInstruction: "Add at least five concrete, defensible data points with units (percentages, durations, counts, prices, measurements) drawn from the existing context. Integrate them into the prose; do not invent statistics. Preserve headings, tables, lists, links, images, and CTAs. Return the full article.",
     },
     {
       id: 5, title: "Zero Marketing Hyperbole",
