@@ -21,19 +21,20 @@ interface SourceGroundingCheckerProps {
   benchmarkPct?: number;
 }
 
-const SHINGLE_SIZE = 5;
-// Sentence is considered "grounded" if at least this fraction of its shingles
-// appear in the source corpus. Tuned to allow paraphrasing without rewarding
-// hallucinated content.
-const SENTENCE_MATCH_THRESHOLD = 0.34;
-// Sentences shorter than this many words are skipped (greetings, headings, etc.).
+// Grounding scorer — designed to recognise paraphrased content, not just
+// verbatim copies. A sentence is "grounded" when a meaningful share of its
+// content tokens (unigrams) AND at least one bigram appear in the source
+// corpus. Pure 5-word shingle matching was far too strict and scored real
+// paraphrased articles at near-zero.
+const UNIGRAM_RECALL_THRESHOLD = 0.55; // ≥55% of content tokens must exist in sources
+const MIN_BIGRAM_HITS = 1;             // and at least one shared bigram
 const MIN_SENTENCE_WORDS = 6;
 
 const SKIP_H2 =
   /^\s*(tl;?dr|quick tips|in this article|how to choose|frequently asked questions|faq|final thoughts|references|sources?|methodology)\s*$/i;
 
 const STOPWORDS = new Set(
-  "a an the and or but if then so of in on at to for from by with as is are was were be been being it its this that these those you your we our they their he she his her i me my".split(
+  "a an the and or but if then so of in on at to for from by with as is are was were be been being it its this that these those you your we our they their he she his her i me my do does did has have had can could should would will shall may might must about into over under more most than such also very just only because while when where which what who whom whose how why".split(
     /\s+/,
   ),
 );
@@ -50,23 +51,28 @@ function normalize(s: string): string {
     .trim();
 }
 
+// Light stemmer: strips common English suffixes so "implants" matches "implant".
+function stem(w: string): string {
+  if (w.length <= 4) return w;
+  for (const suf of ["ingly", "edly", "ies", "ing", "ed", "es", "ly", "s"]) {
+    if (w.endsWith(suf) && w.length - suf.length >= 3) return w.slice(0, -suf.length);
+  }
+  return w;
+}
+
 function tokens(s: string): string[] {
   return normalize(s)
     .split(" ")
-    .filter(w => w && !STOPWORDS.has(w) && w.length > 2);
+    .filter(w => w && !STOPWORDS.has(w) && w.length > 2)
+    .map(stem);
 }
 
-function buildShingles(text: string, n = SHINGLE_SIZE): Set<string> {
+function buildVocab(text: string): { unigrams: Set<string>; bigrams: Set<string> } {
   const toks = tokens(text);
-  const out = new Set<string>();
-  if (toks.length < n) {
-    if (toks.length > 0) out.add(toks.join(" "));
-    return out;
-  }
-  for (let i = 0; i <= toks.length - n; i++) {
-    out.add(toks.slice(i, i + n).join(" "));
-  }
-  return out;
+  const unigrams = new Set(toks);
+  const bigrams = new Set<string>();
+  for (let i = 0; i < toks.length - 1; i++) bigrams.add(toks[i] + " " + toks[i + 1]);
+  return { unigrams, bigrams };
 }
 
 /** Strip structural / utility sections so we only score actual body prose. */
@@ -119,8 +125,8 @@ function evaluateGrounding(
   const contextCorpus = (contextFiles || []).map(f => f.content || "").join("\n\n");
   const transcriptCorpus = transcriptText || "";
 
-  const contextShingles = buildShingles(contextCorpus);
-  const transcriptShingles = buildShingles(transcriptCorpus);
+  const ctx = buildVocab(contextCorpus);
+  const tr = buildVocab(transcriptCorpus);
 
   const sentences = extractProseSentences(content);
   let contextOnly = 0;
@@ -130,18 +136,22 @@ function evaluateGrounding(
   const ungroundedSamples: string[] = [];
 
   for (const sent of sentences) {
-    const sentShingles = buildShingles(sent);
-    if (sentShingles.size === 0) continue;
-    let ctxHits = 0;
-    let trHits = 0;
-    for (const sh of sentShingles) {
-      if (contextShingles.has(sh)) ctxHits++;
-      if (transcriptShingles.has(sh)) trHits++;
-    }
-    const ctxRatio = ctxHits / sentShingles.size;
-    const trRatio = trHits / sentShingles.size;
-    const inCtx = ctxRatio >= SENTENCE_MATCH_THRESHOLD;
-    const inTr = trRatio >= SENTENCE_MATCH_THRESHOLD;
+    const toks = tokens(sent);
+    if (toks.length === 0) continue;
+    const uniq = Array.from(new Set(toks));
+    const bigrams: string[] = [];
+    for (let i = 0; i < toks.length - 1; i++) bigrams.push(toks[i] + " " + toks[i + 1]);
+
+    const ctxUni = uniq.filter(t => ctx.unigrams.has(t)).length;
+    const trUni = uniq.filter(t => tr.unigrams.has(t)).length;
+    const ctxBi = bigrams.filter(b => ctx.bigrams.has(b)).length;
+    const trBi = bigrams.filter(b => tr.bigrams.has(b)).length;
+
+    const ctxRecall = uniq.length ? ctxUni / uniq.length : 0;
+    const trRecall = uniq.length ? trUni / uniq.length : 0;
+    const inCtx = ctxRecall >= UNIGRAM_RECALL_THRESHOLD && ctxBi >= MIN_BIGRAM_HITS;
+    const inTr = trRecall >= UNIGRAM_RECALL_THRESHOLD && trBi >= MIN_BIGRAM_HITS;
+
     if (inCtx && inTr) both++;
     else if (inCtx) contextOnly++;
     else if (inTr) transcriptOnly++;
@@ -150,6 +160,7 @@ function evaluateGrounding(
       if (ungroundedSamples.length < 3) ungroundedSamples.push(sent.slice(0, 140));
     }
   }
+
 
   const total = sentences.length || 1;
   const contextPct = Math.round(((contextOnly + both) / total) * 100);
