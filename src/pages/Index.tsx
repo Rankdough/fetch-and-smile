@@ -5162,7 +5162,39 @@ const Index = () => {
                         // Remove "In This Article" and FAQ sections from markdown for custom rendering
                         let contentWithoutNav = removeInThisArticleSection(generatedContent);
                         contentWithoutNav = removeFAQSection(contentWithoutNav);
-                        
+
+                        // Display-layer sanitisation — catches artefacts from undeployed edge
+                        // function fixes and cross-project brain data leakage.
+                        contentWithoutNav = (() => {
+                          let md = contentWithoutNav;
+                          // 1. Strip bigleagueshirts.com links — unwrap to anchor text only
+                          md = md.replace(
+                            /\[([^\]]+)\]\(https?:\/\/(?:www\.)?bigleagueshirts\.com[^\s)]*\)/gi,
+                            "$1",
+                          );
+                          // 2. Strip dental consultation CTA sentences/paragraphs
+                          md = md
+                            .split(/\n{2,}/)
+                            .filter(
+                              (p) =>
+                                !/Book a consultation with a clinician who will categorise your case/i.test(p),
+                            )
+                            .join("\n\n");
+                          // 3. Strip "How to Choose the Right..." H2 section through to next H2
+                          const lines = md.split("\n");
+                          const kept: string[] = [];
+                          let dropping = false;
+                          for (const line of lines) {
+                            if (/^##\s+How to Choose the Right/i.test(line)) {
+                              dropping = true;
+                              continue;
+                            }
+                            if (dropping && /^##\s+/.test(line)) dropping = false;
+                            if (!dropping) kept.push(line);
+                          }
+                          return kept.join("\n").replace(/\n{3,}/g, "\n\n");
+                        })();
+
                         // Extract inline CTA divs and replace with markers for rendering
                         const ctaDivRegex = /<div class="cta-banner">\s*<div class="cta-headline">([^<]+)<\/div>\s*<div class="cta-description">([^<]+)<\/div>\s*<a href="([^"]+)" class="cta-button">([^<]+)<\/a>\s*<\/div>/gi;
                         const inlineCTAs: { headline: string; description: string; url: string; buttonText: string }[] = [];
