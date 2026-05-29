@@ -1,4 +1,23 @@
+## 2026-05-29 - Orphan "[1]" markers in body + mid-number sentence truncation (BUILD-2026-05-29-S)
+
+**What:**
+- `supabase/functions/proprietary-generate-article/index.ts`:
+  1. `buildClinicalUserMessage` now strips numeric footnote markers (`[1]`, `[2,3]`, `[12-15]`) from every `contextFiles[].content` BEFORE injection, and instructs the model not to reproduce them.
+  2. Added a defensive post-strip on the stitched body (everything before `## References`) that removes the same pattern in case markers leak in via `retrievedChunks` or `mappedUnit.full_text`.
+  3. Replaced the punctuation-completion logic in `sanitiseGeneratedMarkdown` (line ~559). The old `Math.max(trimmed.lastIndexOf("."), ...)` matched decimal points (e.g. "32.5%"), slicing sentences mid-number ("The PEARL Network study showed a 32."). New regex `(?:(?<!\d)\.|[!?])(?=["')\]\s]|$)` only matches true sentence terminators — `.` not preceded by a digit, or `!`/`?`, followed by whitespace/quote/end.
+
+**Why:** Users saw stray `[1]` text inside body prose (no footnote list referent) and truncated sentences ending in a bare number plus period. Both symptoms were visible in the same generated article. The bracket markers came verbatim from context-file research reports; the truncation came from a sanitiser that treated decimal points as sentence terminators.
+
+**Verified broken:** Nothing verified broken. Checked: `deno check supabase/functions/proprietary-generate-article/index.ts` passes. No other call sites use `lastIndexOf(".")` for sentence detection in this file (`rg "lastIndexOf"` returns only the replaced line). The new regex preserves all genuine sentence ends — manually traced "a sentence ending here." (matches), "32.5% rate" (no match), "saw a 32." (matches the final `.`).
+
+**Files:** `supabase/functions/proprietary-generate-article/index.ts`, `CHANGELOG.md`.
+
+**Verify:** Generate an article whose context files contain "[1]"-style footnote markers and a statistic like "32.5% failure rate at 10 years". The body must contain zero `[1]`/`[2,3]` markers and the statistic must render in full, not truncate at the decimal point.
+
+---
+
 ## 2026-05-29 - References: extract source URLs from context reports, never cite report titles (BUILD-2026-05-29-R)
+
 
 **What:**
 - `supabase/functions/proprietary-generate-article/index.ts`: changed the remaining context-reference producers so matched context documents contribute only external URLs found inside their content. `fallbackContextReferencesForTopic` no longer emits file names like "Deep Research Report: ..." or "SEO Content Research Report: ..." as title-only references. `collectSourceReferences` now also extracts URLs from used brain-unit text, retrieved chunk text, and context document content, while skipping report-title brain files as citations.

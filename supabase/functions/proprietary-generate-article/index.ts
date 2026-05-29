@@ -233,8 +233,15 @@ function buildClinicalUserMessage(input: {
   // extraction directive. The model must treat them as the authoritative
   // source of raw data points, named timelines, and clinical criteria.
   if (input.contextFiles && input.contextFiles.length > 0) {
+    // BUILD-2026-05-29-Q: scrub orphan numeric citation markers ([1], [2,3],
+    // [12-15]) from context-file content BEFORE injection. Context files
+    // (research reports) carry footnote-style markers that have no referent
+    // in the generated article; if left in, the model echoes them verbatim
+    // into body prose, producing stray "[1]" text. Strip at the source.
+    const stripNumericCitationMarkers = (s: string): string =>
+      s.replace(/\s?\[\d{1,3}(?:\s*[,\-–]\s*\d{1,3})*\]/g, "");
     const contextBlock = input.contextFiles
-      .map((f) => `--- ${f.name} ---\n${f.content}`)
+      .map((f) => `--- ${f.name} ---\n${stripNumericCitationMarkers(f.content)}`)
       .join("\n\n");
     lines.push(
       "",
@@ -245,11 +252,13 @@ function buildClinicalUserMessage(input: {
       "specific medical/clinical criteria. Quote verbatim where a phrase is",
       "diagnostic. Do not paraphrase a fact into a softer summary. If a required",
       "fact is missing from these files, write [NEEDS EXPERT INPUT] rather than",
-      "falling back to a generic summary.",
+      "falling back to a generic summary. Never reproduce bracketed footnote",
+      "markers like [1] or [2,3] in your output — cite sources inline as prose.",
       "",
       contextBlock,
     );
   }
+
 
   lines.push("", `Knowledge input: ${knowledgeInput}`);
 
@@ -547,6 +556,10 @@ function sanitiseGeneratedMarkdown(markdown: string, articleTitle: string): stri
     // mark. Defensive: skip raw HTML lines so an inline style like
     // `line-height: 1.6` cannot be truncated at the `.` and rendered as
     // escaped HTML text. (References are now pure markdown — BUILD-O.)
+    // BUILD-2026-05-29-Q: only treat `.` `!` `?` as terminators when they
+    // are followed by whitespace/quote/end-of-string AND, for `.`, are NOT
+    // preceded by a digit (decimals like "32.5%" or "1.6" would otherwise
+    // be sliced mid-number, producing fragments like "showed a 32.").
     if (
       trimmed &&
       !/^#{1,6}\s/.test(trimmed) &&
@@ -556,9 +569,13 @@ function sanitiseGeneratedMarkdown(markdown: string, articleTitle: string): stri
       !/^</.test(trimmed) &&
       !/[.!?:)]\s*$/.test(trimmed)
     ) {
-      const lastTerm = Math.max(trimmed.lastIndexOf("."), trimmed.lastIndexOf("!"), trimmed.lastIndexOf("?"));
+      const termRe = /(?:(?<!\d)\.|[!?])(?=["')\]\s]|$)/g;
+      let lastTerm = -1;
+      let m: RegExpExecArray | null;
+      while ((m = termRe.exec(trimmed)) !== null) lastTerm = m.index;
       if (lastTerm > 20) out = out.slice(0, out.indexOf(trimmed) + lastTerm + 1);
     }
+
 
     kept.push(out);
   }
@@ -2039,6 +2056,24 @@ Deno.serve(async (req) => {
     const sourceFragments = stripInlineSourceFragments(stitched);
     stitched = sourceFragments.out;
     if (sourceFragments.removed > 0) console.warn(`SOURCE GUARD: stripped ${sourceFragments.removed} inline Source fragment(s) from body copy.`);
+    // BUILD-2026-05-29-Q: scrub orphan numeric citation markers ("[1]", "[2, 3]",
+    // "[12-15]") from BODY ONLY (preserve the ## References section). The
+    // model occasionally echoes them from retrievedChunks / mappedUnit
+    // full_text, neither of which goes through the context-file strip.
+    {
+      const refMatch = stitched.match(/^##\s+references\b/im);
+      const cutoff = refMatch?.index ?? stitched.length;
+      const body = stitched.slice(0, cutoff);
+      const tail = stitched.slice(cutoff);
+      const re = /\s?\[\d{1,3}(?:\s*[,\-–]\s*\d{1,3})*\]/g;
+      const scrubbed = body.replace(re, "").replace(/[ \t]+([,.;:!?])/g, "$1");
+      if (scrubbed !== body) {
+        const removed = (body.match(re) || []).length;
+        console.warn(`CITATION GUARD: removed ${removed} orphan numeric citation marker(s) from body.`);
+        stitched = scrubbed + tail;
+      }
+    }
+
     const sourceLinkGuard = stripMismatchedInlineLinks(stitched, body.topic);
     stitched = sourceLinkGuard.out;
     if (sourceLinkGuard.removed > 0) console.warn(`SOURCE GUARD: removed ${sourceLinkGuard.removed} off-topic inline link(s).`);
