@@ -13,7 +13,7 @@
 - src/pages/Index.tsx
 - CHANGELOG.md
 
-**Verified broken:** Pending final smoke test after edge-function deployment. The previous generated archery article is still broken in logs: RPC retrieval failed, no References section emitted, and one generic table was removed by the sanitiser.
+**Verified broken:** The smoke-generated archery article still contains one `[NEEDS EXPERT INPUT]` placeholder in the perfect-score section. Checked: edge function deployed successfully; direct RPC smoke query returned 3 callable rows instead of the previous uuid type error; `/proprietary-generate-article` smoke call returned status 200; output includes an archery scoring table and a `## References` section with 3 URLs; fresh logs show `CITATIONS: using 3 trusted fallback source(s)` and no `REFERENCES: no References section emitted` warning for the smoke run.
 
 ---
 
