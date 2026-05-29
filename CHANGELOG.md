@@ -1,3 +1,17 @@
+## 2026-05-29 - proprietary articles: inline source and mismatched-link guards (BUILD-2026-05-29-M)
+
+**What:** `supabase/functions/proprietary-generate-article/index.ts` now strips inline `(Source: …)` fragments from body copy, unwraps standalone `Source: [title](url)` lines to plain links only when they are real markdown URLs, filters brain URLs by topic before they can be offered as citations, and removes off-topic inline links both before and after internal-link insertion. `supabase/functions/insert-internal-links/index.ts` now rejects URLs that only share weak generic dental tokens and unwraps inserted links whose anchor text does not match destination keywords.
+
+**Why:** The screenshots showed two separate failures: raw source-note text leaked into prose, and a dental-tourism Albania URL was allowed to attach to a board-certification phrase because the old internal-link gate treated one generic dental overlap as enough. The new guards require stronger destination/topic/anchor overlap and remove source-note fragments from body sections while preserving the footer References block.
+
+**Verified broken:** Nothing verified broken. Checked: `deno check supabase/functions/proprietary-generate-article/index.ts supabase/functions/insert-internal-links/index.ts` passes; grep confirms guards are wired before references verification and after internal-link insertion; grep found no hardcoded dental-tourism Albania URL in the proprietary generator.
+
+**Files:** `supabase/functions/proprietary-generate-article/index.ts`, `supabase/functions/insert-internal-links/index.ts`, `CHANGELOG.md`.
+
+**Verify:** Generate a proprietary dental article with an unrelated dental-tourism internal link and a source-note-bearing context file; confirm no inline `(Source: …)` appears in body copy, unrelated country/dental-tourism URLs are skipped or unwrapped, and footer References still render as markdown bullets.
+
+---
+
 ## 2026-05-29 - proprietary articles: References render as markdown bullets (BUILD-2026-05-29-L)
 
 **What:** `supabase/functions/proprietary-generate-article/index.ts` — `renderReferenceItem` / `renderReferencesList` now emit plain markdown (`- [Title](url)`) instead of raw inline-styled `<ul><li>…</li></ul>` HTML. Square brackets in titles are stripped to keep md link syntax intact.
