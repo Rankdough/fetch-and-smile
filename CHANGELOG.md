@@ -1,3 +1,19 @@
+## 2026-05-29 - References root-cause fix: pure markdown + cache scrubber (BUILD-2026-05-29-O)
+
+**What:**
+- `supabase/functions/proprietary-generate-article/index.ts`: deleted `escapeHtml`, `renderReferenceItem`, `renderReferencesList`. Added `refsToMarkdown(refs)` that emits pure markdown bullets (`- [Title](url)` or `- Title`). `injectReferences` and `ensureTrustedReferences` now produce the References block as plain markdown only, fenced with `\n\n## References\n\n…\n`.
+- `src/pages/Index.tsx`: extended `cleanContent` with a scoped scrubber that runs ONLY inside the trailing `## References` block. Strips `<ul>/<ol>/<li>` wrappers and converts any cached `<a href="…">Title</a>` into `[Title](url)`. Body content is never touched.
+
+**Why:** The screenshot showed literal `<ul style=…><li …><a …>` markup under `## References` because BUILD-H emitted raw HTML strings into a markdown-only viewport (ReactMarkdown escapes raw HTML). Killing the helpers at source guarantees no future article ever carries raw HTML in References; the frontend scrubber instantly cleans stale localStorage payloads from prior BUILD-H runs.
+
+**Verified broken:** Nothing verified broken. Checked: `deno check supabase/functions/proprietary-generate-article/index.ts` passes; `rg renderReferenceItem|renderReferencesList|escapeHtml` returns zero hits in the edge function and `src/pages/Index.tsx`; fixture test (Node) on the exact screenshot HTML payload produced 3 clean markdown bullets with zero residual `<ul>/<li>/<a` tags. Internal-link function and inline-source guards untouched.
+
+**Files:** `supabase/functions/proprietary-generate-article/index.ts`, `src/pages/Index.tsx`, `CHANGELOG.md`.
+
+**Verify:** Generate a fresh proprietary article — References render as a clickable bulleted list in preview. Reload the app with the broken article still in localStorage — the scrubber converts cached HTML to markdown bullets on the next state set.
+
+---
+
 ## 2026-05-29 - hide stale Signal/Verify badges during generation (BUILD-2026-05-29-N)
 
 **What:** `src/pages/Index.tsx` now clears `commodityGrade` and `hasBrainForGrade` at the start of every generation, and the `VerificationReport` badges next to "Generated Content" only render when there is non-empty content and generation is not in progress.
