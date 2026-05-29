@@ -29,6 +29,7 @@ import {
 } from "../_shared/proprietaryPromptAssembler.ts";
 import { NON_COMMODITY_TITLE_RULES, isCommodityStyleTitle } from "../_shared/nonCommodityTitleRules.ts";
 import { trimSectionToBudget, trimToWordCount } from "../_shared/articleSectionBudget.ts";
+import { enforceSourcesAndReferences, type CitationEngineContext } from "../_shared/citationEngine.ts";
 
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -63,6 +64,7 @@ interface RequestBody {
   publicationDestination?: "ai-search" | "human-blog" | "both";
   model?: string;
   projectId?: string;
+  contextFiles?: Array<{ name: string; content: string }>;
 }
 
 interface BrainUnit {
@@ -193,6 +195,7 @@ function buildClinicalUserMessage(input: {
   articleTitle: string;
   retrievedChunks?: Array<{ content: string; similarity: number }>;
   targetWordCount?: number;
+  contextFiles?: Array<{ name: string; content: string }>;
 }): string {
   const knowledgeInput = input.mappedUnit?.full_text?.trim()
     ? input.mappedUnit.full_text.trim()
@@ -216,6 +219,17 @@ function buildClinicalUserMessage(input: {
       "",
       "RETRIEVED KNOWLEDGE — specific facts, numbers, and clinical details from the research brief relevant to this section. Use these specifics in your response.",
       block,
+    );
+  }
+
+  if (input.contextFiles && input.contextFiles.length > 0) {
+    const contextBlock = input.contextFiles
+      .map((f) => `--- ${f.name} ---\n${f.content}`)
+      .join("\n\n");
+    lines.push(
+      "",
+      "🚨 PRIMARY SOURCE OF TRUTH — CONTEXT FILES (use only facts present here; do not fabricate):",
+      contextBlock,
     );
   }
 
@@ -985,6 +999,7 @@ async function runSection(input: {
   model: string;
   sectionBudgetWords: number;
   retrievedChunks?: Array<{ content: string; similarity: number }>;
+  contextFiles?: Array<{ name: string; content: string }>;
 }) {
   const assembled = assembleSectionPrompt(input);
   const isBody = input.section.type === "body";
@@ -1003,6 +1018,7 @@ async function runSection(input: {
       articleTitle: input.articleTitle,
       retrievedChunks: input.retrievedChunks,
       targetWordCount: input.sectionBudgetWords,
+      contextFiles: input.contextFiles,
     }), tokenBudget)).trim();
   } else {
     content = (await callModel(assembled.system, assembled.user, input.model, tokenBudget)).trim();
@@ -1207,6 +1223,7 @@ Deno.serve(async (req) => {
         model,
         sectionBudgetWords,
         retrievedChunks,
+        contextFiles: body.contextFiles,
       });
 
       surrounding.push({ heading: section.heading, content: result.content });
@@ -1287,24 +1304,20 @@ Deno.serve(async (req) => {
     stitched = injectInThisArticle(stitched, body.topic);
     stitched = ensureMinimumTables(stitched, body.topic, targetWords);
     stitched = ensureFinalThoughtsCta(stitched, businessType);
-    // Inline citations from brain-unit URLs, with trusted dental fallbacks when
-    // proprietary files have no URLs.
-    // Only collect citation URLs from units that were actually mapped to avoid
-    // injecting cross-topic (e.g. dental) URLs into unrelated articles.
-    const usedUnitIds = new Set(sectionsOut.map(s => s.mappedUnitId).filter(Boolean));
-    const usedUnits = units.filter(u => usedUnitIds.has(u.id));
-    const brainUrls = collectBrainUrls(usedUnits.length ? usedUnits : units);
-    const citationUrls = brainUrls.length > 0 ? brainUrls : trustedFallbackSources(body.topic);
-    if (brainUrls.length === 0 && citationUrls.length > 0) console.log(`CITATIONS: using ${citationUrls.length} trusted fallback source(s).`);
-    const cite = attachInlineCitations(stitched, citationUrls);
-    stitched = cite.out;
-    if (cite.attached > 0) console.log(`CITATIONS: attached ${cite.attached} inline source(s) from brain URLs.`);
-    stitched = injectReferences(stitched, units);
-    stitched = ensureTrustedReferences(stitched, body.topic);
-    const refsEmitted = /^##\s+references/im.test(stitched);
-    if (!refsEmitted) console.warn(`REFERENCES: no References section emitted — brain units contain no URLs.`);
+    // Unified citation engine — same layout engine as Classic Mode.
+    // Uses context files (if provided) as the allow-listed source list;
+    // falls back to Tier-1 web search when no context files are present.
     stitched = stripBrandPlaceholders(stitched);
     let content = sanitiseGeneratedMarkdown(stitched, articleTitle);
+    const citationCtx: CitationEngineContext = {
+      contextFiles: body.contextFiles,
+      skipSources: false,
+      topic: body.topic,
+      allowedUrls: [],
+      ownDomainHosts: [],
+    };
+    content = await enforceSourcesAndReferences(content, citationCtx);
+    console.log(`CITATIONS: enforceSourcesAndReferences complete (contextFiles=${(body.contextFiles || []).length})`);
     const internalLinkResult = await insertInternalLinksIntoArticle(content, body.internalLinks, body.topic);
     content = internalLinkResult.content;
     console.log(`INTERNAL LINKS: inserted=${internalLinkResult.insertedCount} skipped=${internalLinkResult.skippedUrls.length} total=${internalLinkResult.totalProvided}${internalLinkResult.note ? ` note=${internalLinkResult.note}` : ""}`);

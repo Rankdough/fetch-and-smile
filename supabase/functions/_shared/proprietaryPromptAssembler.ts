@@ -56,6 +56,7 @@ export interface AssemblerInput {
   surroundingContext?: Array<{ heading: string; content: string }>;
   /** Article-wide topic / title, for grounding. */
   articleTitle: string;
+  contextFiles?: Array<{ name: string; content: string }>;
 }
 
 export interface AssembledPrompt {
@@ -188,25 +189,23 @@ motivated. Do NOT manufacture a contradiction where the consensus is genuinely
 correct.`.trim();
 
 const TABLE_GUARD_RULE = `
-RULE 7 — TOPIC-DERIVED TABLE COLUMNS (no generic placeholders):
-If a comparison table fits this section, derive BOTH the columns and the rows
-from the actual technical categories of the topic.
-  - Columns must be dimensions a clinician/buyer would compare on
-    (e.g. "System Type | How Retention Works | Screw Present? | Primary Risk",
-    or "Material | Tensile Strength | Cure Time | Failure Mode").
-  - Rows must be the real named alternatives in this topic (e.g. for dental
-    implants: "Cement-retained crown", "Friction-fit / Morse taper",
-    "Traditional screw-retained" — NOT "Option A / B / C").
-ABSOLUTELY FORBIDDEN row or column labels: "Option A/B/C", "Type 1/2/3",
-"Beginner / Intermediate / Advanced", "Best for: beginners", "Choice 1/2/3",
-or any other template placeholder. If you cannot name the real categories with
-confidence, do NOT include a table — write a prose comparison instead. A
-missing table is always better than a generic one.
-If the topic is clear-aligner underbite correction, the comparison table should
-use real rows such as "Dental underbite", "Skeletal underbite", and "Combined
-pattern", with columns such as "Definition", "Invisalign suitable?", "Typical
-timeline", and "Key risk if misdiagnosed". Do NOT translate those clinical
-categories into generic options.`.trim();
+RULE 7 — MANDATORY MARKDOWN TABLE FOR COMPARATIVE DATA:
+When this section presents 2 or more alternatives, options, or items that share
+comparable attributes (cost, timeline, suitability, risk, mechanism, material),
+you MUST render the comparison as a Markdown pipe table — NOT as prose paragraphs
+or bullet points.
+
+Required format — standard Markdown pipe syntax only:
+  | Column A | Column B | Column C |
+  | --- | --- | --- |
+  | row data | row data | row data |
+
+Columns must be real decision dimensions (e.g. "System Type | Retention Mechanism | Primary Risk").
+Rows must be the real named alternatives (never "Option A/B/C", "Type 1/2/3",
+"Beginner / Intermediate / Advanced", or any other template placeholder).
+
+When NO comparative data is present in this section, do NOT fabricate a table.
+A missing table is always better than a table with invented rows.`.trim();
 
 const AI_EXTRACTION_RULES = `
 AI EXTRACTION RULES (apply to every section, every business type — additive to Rules 1–8; do NOT override any earlier rule):
@@ -492,6 +491,14 @@ sections — not a generic platitude.`);
   // User message: the unit + surrounding context + the explicit ask
   const userParts: string[] = [];
   userParts.push(describeMappedUnit(mappedUnit));
+  if (input.contextFiles && input.contextFiles.length > 0) {
+    const contextBlock = input.contextFiles
+      .map((f) => `--- ${f.name} ---\n${f.content}`)
+      .join("\n\n");
+    userParts.push(
+      "🚨 PRIMARY SOURCE OF TRUTH — CONTEXT FILES (use only facts present here; do not fabricate):\n\n" + contextBlock,
+    );
+  }
   const ctx = describeSurroundingContext(input.surroundingContext);
   if (ctx) userParts.push(ctx);
   userParts.push(`TASK: Write the body of the section "${section.heading}" now.
