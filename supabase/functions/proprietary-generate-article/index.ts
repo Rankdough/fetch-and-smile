@@ -71,6 +71,19 @@ interface BrainUnit {
   summary: string | null;
   full_text: string | null;
   unit_type: UnitType | "legacy" | null;
+  source_file_id?: string | null;
+}
+
+interface RetrievedChunk {
+  content: string;
+  similarity: number;
+  brain_file_id?: string | null;
+  context_document_id?: string | null;
+}
+
+interface SourceReference {
+  title: string;
+  url?: string;
 }
 
 interface InternalLinkResult {
@@ -191,7 +204,7 @@ function buildClinicalUserMessage(input: {
   publicationDestination: "ai-search" | "human-blog" | "both";
   section: SectionSpec;
   articleTitle: string;
-  retrievedChunks?: Array<{ content: string; similarity: number }>;
+  retrievedChunks?: RetrievedChunk[];
   targetWordCount?: number;
 }): string {
   const knowledgeInput = input.mappedUnit?.full_text?.trim()
@@ -741,17 +754,22 @@ function extractUrls(text: string): Array<{ url: string; title: string }> {
   return out;
 }
 
-function injectReferences(markdown: string, units: BrainUnit[]): string {
+function injectReferences(markdown: string, units: BrainUnit[], sourceReferences: SourceReference[] = []): string {
   if (/^##\s+references/im.test(markdown)) return markdown;
   const corpus = [
     markdown,
     ...units.map((u) => `${u.summary || ""}\n${u.full_text || ""}`),
   ].join("\n");
-  const links = extractUrls(corpus).slice(0, 8);
-  // Only emit a References section when we have real URLs. Never fabricate
-  // citations from brain-unit titles — that produced false references.
-  if (links.length === 0) return markdown;
-  const items = links.map((l) => `- [${l.title}](${l.url})`).join("\n");
+  const seen = new Set<string>();
+  const links = extractUrls(corpus).map((l) => ({ title: l.title, url: l.url }));
+  const references = [...sourceReferences, ...links].filter((ref) => {
+    const key = `${ref.url || "file"}:${ref.title}`.toLowerCase().trim();
+    if (!ref.title.trim() || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  }).slice(0, 8);
+  if (references.length === 0) return markdown;
+  const items = references.map((ref) => ref.url ? `- [${ref.title}](${ref.url})` : `- ${ref.title}`).join("\n");
   return `${markdown.trimEnd()}\n\n## References\n\n${items}\n`;
 }
 
@@ -951,6 +969,54 @@ function collectBrainUrls(units: BrainUnit[]): BrainUrl[] {
   return out;
 }
 
+async function collectSourceReferences(
+  // deno-lint-ignore no-explicit-any
+  supabase: any,
+  units: BrainUnit[],
+  chunks: RetrievedChunk[],
+): Promise<SourceReference[]> {
+  const references: SourceReference[] = [];
+  const seen = new Set<string>();
+  const add = (title?: string | null, url?: string | null) => {
+    const cleanTitle = (title || "").trim();
+    const rawUrl = (url || "").trim();
+    const cleanUrl = /^https?:\/\//i.test(rawUrl) ? rawUrl : "";
+    if (!cleanTitle && !cleanUrl) return;
+    const key = `${cleanUrl || "file"}:${cleanTitle || cleanUrl}`.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    references.push({ title: cleanTitle || cleanUrl, url: cleanUrl || undefined });
+  };
+
+  const brainFileIds = new Set<string>();
+  const contextDocumentIds = new Set<string>();
+  units.forEach((u) => { if (u.source_file_id) brainFileIds.add(u.source_file_id); });
+  chunks.forEach((c) => {
+    if (c.brain_file_id) brainFileIds.add(c.brain_file_id);
+    if (c.context_document_id) contextDocumentIds.add(c.context_document_id);
+  });
+
+  if (brainFileIds.size > 0) {
+    const { data, error } = await supabase
+      .from("brain_files")
+      .select("id, title, file_url")
+      .in("id", [...brainFileIds]);
+    if (error) console.warn("REFERENCES: brain_files source lookup failed:", error.message);
+    (data || []).forEach((file: { title?: string | null; file_url?: string | null }) => add(file.title, file.file_url));
+  }
+
+  if (contextDocumentIds.size > 0) {
+    const { data, error } = await supabase
+      .from("context_documents")
+      .select("id, file_name")
+      .in("id", [...contextDocumentIds]);
+    if (error) console.warn("REFERENCES: context_documents source lookup failed:", error.message);
+    (data || []).forEach((doc: { file_name?: string | null }) => add(doc.file_name));
+  }
+
+  return references;
+}
+
 function attachInlineCitations(markdown: string, urls: BrainUrl[]): { out: string; attached: number } {
   if (urls.length === 0) return { out: markdown, attached: 0 };
   const lines = markdown.split("\n");
@@ -1014,7 +1080,7 @@ async function runSection(input: {
   articleTitle: string;
   model: string;
   sectionBudgetWords: number;
-  retrievedChunks?: Array<{ content: string; similarity: number }>;
+  retrievedChunks?: RetrievedChunk[];
 }) {
   const assembled = assembleSectionPrompt(input);
   const isBody = input.section.type === "body";
@@ -1066,7 +1132,7 @@ async function runSection(input: {
 
 /* ── handler ──────────────────────────────────────────────────────────── */
 
-const BUILD_MARKER = "BUILD-2026-05-29-B proprietary-generate-article placeholder-table-guard";
+const BUILD_MARKER = "BUILD-2026-05-29-D proprietary-generate-article scoped-context-source-references";
 Deno.serve(async (req) => {
   console.log(BUILD_MARKER);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -1107,7 +1173,7 @@ Deno.serve(async (req) => {
     // are tagged with this project — prevents cross-client content leakage.
     let insightsQuery = sb
       .from("brain_insights")
-      .select("id, title, summary, full_text, unit_type")
+        .select("id, title, summary, full_text, unit_type, source_file_id")
       .limit(100);
     if (projectId) {
       // Fetch brain_file_ids for this project from brain_chunks.
@@ -1193,6 +1259,7 @@ Deno.serve(async (req) => {
       contradicted: boolean;
       appliedRules: number[];
     }> = [];
+    const allRetrievedChunks: RetrievedChunk[] = [];
 
     for (const section of plan) {
       const mappedUnit =
@@ -1200,7 +1267,7 @@ Deno.serve(async (req) => {
 
       // Semantic retrieval: embed (topic + section heading) and pull top 3 chunks
       // from brain_chunks. Additive — runs alongside the keyword-matched pickUnit unit.
-      let retrievedChunks: Array<{ content: string; similarity: number }> = [];
+      let retrievedChunks: RetrievedChunk[] = [];
       if (section.type === "body") {
         try {
           const queryVec = await embedQuery(`${body.topic}\n${section.heading}`);
@@ -1216,6 +1283,8 @@ Deno.serve(async (req) => {
             const rawChunks = matches.map((m: any) => ({
               content: m.content,
               similarity: typeof m.similarity === "number" ? m.similarity : 0,
+              brain_file_id: m.brain_file_id ?? null,
+              context_document_id: m.context_document_id ?? null,
             }));
             retrievedChunks = rawChunks.filter((c) => c.similarity >= SIMILARITY_FLOOR);
             const topRaw = rawChunks[0]?.similarity?.toFixed(3) ?? "n/a";
@@ -1224,6 +1293,7 @@ Deno.serve(async (req) => {
         } catch (e) {
           console.warn(`RETRIEVAL: embed/query failed for "${section.heading}" (non-fatal):`, e);
         }
+        allRetrievedChunks.push(...retrievedChunks);
       }
 
       const result = await runSection({
@@ -1327,16 +1397,18 @@ Deno.serve(async (req) => {
     // injecting cross-topic (e.g. dental) URLs into unrelated articles.
     const usedUnitIds = new Set(sectionsOut.map(s => s.mappedUnitId).filter(Boolean));
     const usedUnits = units.filter(u => usedUnitIds.has(u.id));
-    const brainUrls = collectBrainUrls(usedUnits.length ? usedUnits : units);
+    const sourceReferences = await collectSourceReferences(sb, usedUnits, allRetrievedChunks);
+    if (sourceReferences.length > 0) console.log(`REFERENCES: collected ${sourceReferences.length} context source reference(s).`);
+    const brainUrls = collectBrainUrls(usedUnits);
     const citationUrls = brainUrls.length > 0 ? brainUrls : trustedFallbackSources(body.topic);
     if (brainUrls.length === 0 && citationUrls.length > 0) console.log(`CITATIONS: using ${citationUrls.length} trusted fallback source(s).`);
     const cite = attachInlineCitations(stitched, citationUrls);
     stitched = cite.out;
     if (cite.attached > 0) console.log(`CITATIONS: attached ${cite.attached} inline source(s) from brain URLs.`);
-    stitched = injectReferences(stitched, units);
+    stitched = injectReferences(stitched, usedUnits, sourceReferences);
     stitched = ensureTrustedReferences(stitched, body.topic);
     const refsEmitted = /^##\s+references/im.test(stitched);
-    if (!refsEmitted) console.warn(`REFERENCES: no References section emitted — brain units contain no URLs.`);
+    if (!refsEmitted) console.warn(`REFERENCES: no References section emitted — no source files, source URLs, or trusted fallbacks found.`);
     stitched = stripBrandPlaceholders(stitched);
     const expertPlaceholders = stripExpertInputPlaceholders(stitched);
     stitched = expertPlaceholders.out;

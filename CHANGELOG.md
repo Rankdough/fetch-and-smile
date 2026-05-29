@@ -1,3 +1,36 @@
+## 2026-05-29 - verification: scoped context references deployed
+
+**What:**
+- Verified the deployed `proprietary-generate-article` function after the scoped source-reference fix.
+- Smoke-generated an Invisalign underbite article from existing context files.
+
+**Why:** The first reference fix correctly emitted a References section but leaked unrelated SEO source-file names from the wider knowledge base. This verification confirms the deployed scoped fix only cites the context file actually used by retrieval.
+
+**Files:**
+- CHANGELOG.md
+
+**Verified broken:** Nothing verified broken. Checked: deployed edge function successfully; smoke call returned HTTP 200; article includes a natural underbite-specific comparison table; article includes `## References`; references list contains `Invisalign Underbite Correction Research Brief.docx`; unrelated SEO source filenames from the first smoke test are no longer present; function logs show `REFERENCES: collected 1 context source reference(s)` for the final smoke run.
+
+---
+
+## 2026-05-29 - proprietary articles: cite only used context files in References
+
+**What:**
+- `supabase/functions/proprietary-generate-article/index.ts`: added source-reference collection from the context chunks and mapped brain files used during generation.
+- `injectReferences` now emits source-file references even when the file itself has no public URL, while still using real URLs when available and still avoiding fabricated citation titles.
+- Retrieval now preserves `brain_file_id` and `context_document_id` from matched chunks so the final article can cite the exact context-file source.
+- Tightened the final reference pass so it uses only mapped units and retrieved chunks, not the full knowledge base.
+
+**Why:** Articles generated from context files were failing to produce `## References` when the source content contained no URL. The generator only scanned generated markdown and brain text for URLs, so uploaded context documents with just a file name had no referenceable source despite being used for retrieval. First smoke test also exposed an unrelated-reference leak from falling back to all brain units when no unit was mapped, so the source set is now scoped to actually used chunks/files only.
+
+**Files:**
+- supabase/functions/proprietary-generate-article/index.ts
+- CHANGELOG.md
+
+**Verified broken:** First smoke test after the initial fix produced a References section, table, and HTTP 200, but listed unrelated SEO source files because the reference call fell back to all brain units when no unit was mapped. This entry includes the scoped fix; final smoke test pending after redeploy.
+
+---
+
 ## 2026-05-29 - proprietary article guard: remove expert placeholders and stop generic universal tables
 
 **What:**
