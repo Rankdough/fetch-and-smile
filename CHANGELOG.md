@@ -1,4 +1,19 @@
+## 2026-05-29 - proprietary articles: References block escaped-HTML regression fix (BUILD-2026-05-29-J)
+
+**What:** `supabase/functions/proprietary-generate-article/index.ts` — added `!/^</.test(trimmed)` guard to the punctuation-completion pass in `sanitiseGeneratedMarkdown` (L509–525). Previously, raw HTML lines emitted by `renderReferencesList` (e.g. `<li style="…line-height: 1.6;…">Title</li>`) were sliced at the last `.` in the line, which happened to sit inside `1.6` — truncating the line to `<li style="…line-height: 1.` and destroying the closing tags. The downstream markdown renderer then escaped the broken fragment and rendered it as visible source text under the `## References` heading (see attached screenshot).
+
+**Why:** Restore clickable reference rendering shipped in BUILD-2026-05-29-H. Pure formatting fix; no prompt changes.
+
+**Files:** `supabase/functions/proprietary-generate-article/index.ts`, `CHANGELOG.md`.
+
+**Verify:** `deno check supabase/functions/proprietary-generate-article/index.ts` passes; edge function deployed via `supabase--deploy_edge_functions`. Manually traced: line `<li style="margin: 8px 0; line-height: 1.6; color: #374151;">X</li>` now matches `^<` and skips the snap-back; ends with `>` so the existing `[.!?:)]\s*$` exit would not have fired anyway. Prose handling unchanged: paragraphs/bullets/quotes/tables still go through the same logic.
+
+**Verified broken:** Nothing verified broken. Checked: only one call site of `sanitiseGeneratedMarkdown` (L1884); the new condition narrows behaviour (skips more lines), it never widens; prose lines starting with `<` were already pathological for this pass (e.g. `<em>foo</em>` would have been truncated), so the guard is strictly safer. Not exercised: did not regenerate a full article to visually confirm the rendered `<ul>` shows in the browser — recommend re-running a proprietary generation to confirm the References block renders as a bulleted list of clickable links.
+
+---
+
 ## 2026-05-29 - proprietary mode: transcript paste UI (frontend)
+
 
 **What:**
 - `src/pages/Index.tsx`:
