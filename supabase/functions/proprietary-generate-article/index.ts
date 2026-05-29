@@ -512,6 +512,86 @@ function enforceThreeBulletsPerBodySection(markdown: string): string {
   return [intro, ...rebuilt].filter(Boolean).join("\n\n").trim();
 }
 
+function countMarkdownTables(md: string): number {
+  const lines = md.split("\n");
+  let count = 0;
+  for (let i = 0; i < lines.length - 1; i++) {
+    if (lines[i].includes("|") && /^\s*\|?[\s\-:|]+\|[\s\-:|]+$/.test(lines[i + 1])) count++;
+  }
+  return count;
+}
+
+function deriveSectionPhrase(heading: string): string {
+  return heading
+    .toLowerCase()
+    .replace(/^\s*(how|what|when|why|where|which|are|is|do|does|can|should|will|who)\s+/i, "")
+    .replace(/[?.!:]+\s*$/, "")
+    .trim()
+    .split(/\s+/)
+    .slice(0, 6)
+    .join(" ");
+}
+
+function fallbackTopicTable(topic: string, sectionHeading?: string): string {
+  const t = topic.toLowerCase();
+  const h = (sectionHeading ?? "").toLowerCase();
+  // Section-aware: only inject a topic table when the SECTION HEADING itself is
+  // about the table's subject. Prevents the same retention table being dropped
+  // into unrelated sections (training, failure modes, complications, etc.).
+  const retentionHeading = /retention|retain|cement|screw|abutment|morse|crown\s+fix|fixation/.test(h);
+  const underbiteHeading = /underbite|aligner|invisalign|class\s*iii|bite\s+correction/.test(h);
+  if (retentionHeading && /screwless|implant|morse|cement|crown|abutment|prosthe/.test(t)) {
+    return `| System type | How retention works | Screw visible in crown? | Common failure | Best-fit case |
+| --- | --- | --- | --- | --- |
+| Cement-retained crown | Cement bonds the crown to an abutment | No | Residual cement can inflame tissue | Aesthetic zones where an access hole would show |
+| Friction-fit or Morse taper | Precision taper locks components mechanically | No | Retrieval can be difficult if repair is needed | Accurate single-tooth component seating |
+| Screw-retained crown | Prosthetic screw fixes the crown to the implant | Yes | Access-channel aesthetics or screw loosening | Maintenance-heavy or retrievable cases |`;
+  }
+  if (underbiteHeading && /invisalign|aligner|underbite|class\s*iii|orthodontic/.test(t)) {
+    return `| Case type | What drives the bite | Aligner suitability | Common failure | Consultation question |
+| --- | --- | --- | --- | --- |
+| Dental underbite | Tooth position creates the reverse bite | Stronger when movement is tooth-led | Treating the wrong mechanism wastes months | Is the problem dental or skeletal? |
+| Skeletal underbite | Jaw relationship drives the bite | Limited without surgical assessment | Camouflage can worsen facial balance | Is surgery part of the realistic plan? |
+| Combined pattern | Teeth and jaw both contribute | Case-dependent after diagnosis | Relapse or incomplete bite correction | Which part is being corrected first? |`;
+  }
+  // Universal fallback: topic-aware comparison so every article meets the
+  // table quota even when no section-specific regex matched.
+  if (/implant|dentist|dental/.test(t)) {
+    return `| Setting | Training Duration | Annual Implant Volume | Success Rate with Strict Criteria | Best For |
+| --- | --- | --- | --- | --- |
+| General Dentist | DDS or DMD plus optional continuing-education courses | Variable, often low outside high-volume practices | Lower in published series compared with specialist settings | Routine single-tooth cases with straightforward anatomy |
+| Board-Certified Specialist (Periodontist or Oral Surgeon) | Three or more years of accredited residency after dental school | Consistently high through residency and ongoing practice | Higher in published series, particularly for complex cases | Complex anatomy, bone grafting, full-arch and compromised sites |
+| Academic or Hospital Setting | Faculty-level training with a supervised teaching caseload | High and protocol-driven through institutional volume | Highest reported in long-term published studies | Medically complex patients and reconstructive cases |`;
+  }
+  // Generic three-column comparison — no topic string interpolated into cells.
+  return `| Approach | Key Advantage | Primary Limitation |
+| --- | --- | --- |
+| Entry-level | Lower cost and easier access | Narrower scope and fewer safeguards |
+| Standard | Balanced quality, cost, and availability | Trade-offs between depth and convenience |
+| Advanced | Highest reported consistency and oversight | Higher cost and limited availability |`;
+}
+
+function tableSignature(tableMarkdown: string): string {
+  return tableMarkdown.replace(/\s+/g, " ").trim().toLowerCase();
+}
+
+function collectTableSignatures(markdown: string): Set<string> {
+  const sigs = new Set<string>();
+  const lines = markdown.split("\n");
+  let cur: string[] = [];
+  const flush = () => {
+    if (cur.length >= 2 && /^\s*\|?[\s\-:|]+\|[\s\-:|]+\s*$/.test(cur[1] ?? "")) {
+      sigs.add(tableSignature(cur.join("\n")));
+    }
+    cur = [];
+  };
+  for (const l of lines) {
+    if (l.includes("|")) cur.push(l);
+    else flush();
+  }
+  flush();
+  return sigs;
+}
 
 /* ── normal-mode parity: structural normalisers ───────────────────────── */
 
@@ -715,6 +795,38 @@ async function insertInternalLinksIntoArticle(
   }
 }
 
+function ensureMinimumTables(markdown: string, topic: string, targetWords: number): string {
+  const required = Math.max(1, Math.round(targetWords / 600));
+  let current = countMarkdownTables(markdown);
+  if (current >= required) return markdown;
+  let out = markdown;
+  const seenSignatures = collectTableSignatures(out);
+  const lines = out.split("\n");
+  const bodyH2s = lines.map((line, i) => ({ line, i })).filter(({ line }) => /^##\s+/.test(line) && !STRUCT_SKIP_RE.test(line));
+  let inserted = 0;
+  for (let bIdx = 0; bIdx < bodyH2s.length && current + inserted < required; bIdx++) {
+    const heading = bodyH2s[bIdx].line.replace(/^##\s+/, "").trim();
+    const table = fallbackTopicTable(topic, heading);
+    if (!table) continue;
+    const sig = tableSignature(table);
+    if (seenSignatures.has(sig)) continue; // dedup: identical table already exists somewhere in article
+    const freshLines = out.split("\n");
+    // Find heading by text match so prior insertions don't shift the index.
+    const headingLine = freshLines.findIndex(l => /^##\s+/.test(l) && l.replace(/^##\s+/, "").trim() === heading);
+    if (headingLine === -1) break;
+    let endIdx = freshLines.length;
+    for (let j = headingLine + 1; j < freshLines.length; j++) {
+      if (/^##\s+/.test(freshLines[j])) { endIdx = j; break; }
+    }
+    const sectionSlice = freshLines.slice(headingLine, endIdx).join("\n");
+    if (sectionSlice.includes("|")) continue; // already has a table
+    freshLines.splice(endIdx, 0, "", table, "");
+    out = freshLines.join("\n");
+    seenSignatures.add(sig);
+    inserted++;
+  }
+  return out;
+}
 
 /* ── brand-name placeholder strip ────────────────────────────────────── */
 // The assembler instructs the model to reference the brand/business name, but
@@ -1173,6 +1285,7 @@ Deno.serve(async (req) => {
     if (atomic.removed > 0) console.warn(`ATOMIC GUARD: stripped ${atomic.removed} dependency phrase(s).`);
     stitched = enforceThreeBulletsPerBodySection(stitched);
     stitched = injectInThisArticle(stitched, body.topic);
+    stitched = ensureMinimumTables(stitched, body.topic, targetWords);
     stitched = ensureFinalThoughtsCta(stitched, businessType);
     // Inline citations from brain-unit URLs, with trusted dental fallbacks when
     // proprietary files have no URLs.
