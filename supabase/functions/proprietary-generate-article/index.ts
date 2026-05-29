@@ -81,6 +81,12 @@ interface RetrievedChunk {
   context_document_id?: string | null;
 }
 
+interface ContextDocumentRow {
+  id: string;
+  file_name: string;
+  content?: string | null;
+}
+
 interface SourceReference {
   title: string;
   url?: string;
@@ -515,8 +521,59 @@ function stripExpertInputPlaceholders(markdown: string): { out: string; removed:
   return { out, removed };
 }
 
-function buildFallbackBullets(_heading: string, _body: string): string[] {
-  return [];
+function stripAllBracketPlaceholders(markdown: string): { out: string; removed: number } {
+  let removed = 0;
+  const placeholderRe = /\[(?:client|service\s*business|practice|your\s*practice|your\s*business|business|brand|company|clinic)\s*name\]/gi;
+  const out = markdown
+    .split("\n")
+    .map((line) => {
+      if (!placeholderRe.test(line)) return line;
+      placeholderRe.lastIndex = 0;
+      removed += 1;
+      const cleaned = line
+        .replace(/[^.!?\n]*\[(?:client|service\s*business|practice|your\s*practice|your\s*business|business|brand|company|clinic)\s*name\][^.!?\n]*[.!?]?/gi, "")
+        .replace(/\s{2,}/g, " ")
+        .trim();
+      return cleaned;
+    })
+    .filter((line) => line.trim() !== "")
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+  return { out, removed };
+}
+
+function buildFallbackBullets(heading: string, body: string): string[] {
+  const phrase = deriveSectionPhrase(heading) || "the topic";
+  const hasDiagnosis = /diagnos|test|screen|coeliac|celiac|allergy|sensitivity|medical|clinical/i.test(`${heading} ${body}`);
+  const hasPrevention = /prevent|avoid|reduce|manage|treat|diet|plan|restrict/i.test(`${heading} ${body}`);
+  const hasFailure = /wrong|mistake|risk|fail|misdiagnos|cross-contamination|deficien/i.test(`${heading} ${body}`);
+  if (hasDiagnosis) {
+    return [
+      `- Separate ${phrase} into named categories before changing diet, because each category has a different test and risk profile.`,
+      `- Keep symptom timing, food exposure, and severity together so bloating patterns can be checked against clinical causes.`,
+      `- Avoid long-term restriction before testing, because removing the trigger first can make later diagnosis less reliable.`,
+    ];
+  }
+  if (hasPrevention) {
+    return [
+      `- Match the prevention step to the confirmed cause, not the broad label people use for symptoms.`,
+      `- Track response after each dietary change so improvement is tied to one clear intervention at a time.`,
+      `- Review nutrient intake when foods are removed, because symptom control should not create a separate deficiency problem.`,
+    ];
+  }
+  if (hasFailure) {
+    return [
+      `- The main failure is treating a symptom label as a diagnosis before ruling out adjacent causes.`,
+      `- Cross-check assumptions against testing history, because similar bloating can come from different digestive mechanisms.`,
+      `- Escalate persistent or severe symptoms instead of repeatedly narrowing the diet without a clearer clinical reason.`,
+    ];
+  }
+  return [
+    `- Define the exact mechanism behind ${phrase} before choosing a diet, product, treatment, or next step.`,
+    `- Compare named categories instead of broad labels, because broad labels hide different risks and decisions.`,
+    `- Use one measurable symptom change to judge progress rather than relying on a general impression of improvement.`,
+  ];
 }
 
 
