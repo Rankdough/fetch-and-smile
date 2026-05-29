@@ -1486,7 +1486,9 @@ async function runSection(input: {
       ? `\n\nINLINE SOURCE LINK (mandatory): Include exactly ONE inline markdown link "[anchor text](URL)" in this section, choosing the most relevant URL from the list below. Anchor must be a natural noun phrase from your prose. Never invent URLs.\nALLOWED SOURCES:\n${allowed.map((s, i) => `${i + 1}. ${s.title} — ${s.url}`).join("\n")}`
       : `\n\nINLINE SOURCE LINK: No allow-listed URLs are available; do not insert inline links — the system will list context documents in the References section.`;
     const atomicBlock = `\n\nATOMIC SECTION STRUCTURE (mandatory): Write exactly one standalone answer paragraph (1-3 sentences) that fully answers the heading, then a blank line, then exactly 3 markdown bullets ("- "), each one concrete and ≤22 words. Nothing else.`;
-    const clinicalSystem = CLINICAL_SYSTEM_PROMPT_HEALTHCARE + atomicBlock + sourceBlock;
+    // BUILD-2026-05-29-I: hard ban on passive AI filler in clinical body prose.
+    const noFillerBlock = `\n\nCRITICAL — NO PASSIVE FILLER: You are completely forbidden from writing soft, defensive AI filler phrases such as "typically symptoms of", "may experience", "can experience", "results from a range of factors", "is often caused by", "is generally considered", "plays a role in", "a variety of", "a range of", "a number of", "in some cases", "for many people", "it is important to note", "it is worth noting". Every statement must be direct, authoritative, and isolated to a concrete data node from the uploaded context files, mapped unit, or retrieved chunks. If the fact is not in the supplied evidence, write [NEEDS EXPERT INPUT] instead of generating a hedged sentence.`;
+    const clinicalSystem = CLINICAL_SYSTEM_PROMPT_HEALTHCARE + atomicBlock + noFillerBlock + sourceBlock;
     content = (await callClinicalWriter(clinicalSystem, buildClinicalUserMessage({
       mappedUnit: input.mappedUnit,
       audienceSentence: input.audienceSentence,
