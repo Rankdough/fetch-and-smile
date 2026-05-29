@@ -212,7 +212,9 @@ const cleanContent = (content: string): string => {
     .split("\n")
     .filter((line) => !/^\s*[-*+]\s+.*\b(?:changing\s+diet|dietary\s+change|food\s+exposure|bloating|long-term\s+restriction|restriction\s+before\s+testing|symptom\s+timing|digestive\s+mechanisms)\b.*$/i.test(line))
     .join("\n")
-    .replace(/\n{3,}/g, "\n\n");
+    .replace(/[^.!?\n]*(?:changing\s+diet|dietary\s+change|food\s+exposure|bloating|long-term\s+restriction|restriction\s+before\s+testing|symptom\s+timing|digestive\s+mechanisms)[^.!?\n]*[.!?]/gi, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .replace(/[ \t]{2,}/g, " ");
 
   // Fix inline numbered lists rendered as a single paragraph
   // e.g., "1. Foo: text here. 2. Bar: text here." → separate lines
