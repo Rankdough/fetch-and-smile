@@ -1,4 +1,14 @@
 
+## 2026-05-29 — Global Paragraph Density rule + Rule 11
+- Enforced ≤60 words and ≤3 sentences per paragraph globally so readers can jump between paragraphs without hitting walls of text.
+- generate-content: added PARAGRAPH DENSITY rule to system prompt requiring splits at logical pivots in intro, TL;DR, H2 answers, FAQs.
+- voice-edit-content: added same rule so any "Fix this" rewrite also splits long paragraphs.
+- NonCommodityComplianceChecker: added Rule 11 "Paragraph Density" — scans prose-only paragraphs (strips headings, lists, tables, code, HTML wrappers, CTAs), flags any >60w or >3 sentences with worst offender preview, ships with one-click Fix this.
+- Memory: added Core formatting line + mem://style/paragraph-density entry.
+- Files: supabase/functions/generate-content/index.ts, supabase/functions/voice-edit-content/index.ts, src/components/NonCommodityComplianceChecker.tsx, mem://index.md, mem://style/paragraph-density.
+- Verify: regenerate an article; confirm intro/TL;DR/answers split into multiple short paragraphs and Rule 11 lights green. On an existing wall-of-text article, Rule 11 should fail with the offending paragraph preview, and Fix this should return content with the paragraph split.
+- Verified broken: nothing. Checked: file reads of all 3 edits applied cleanly; rule logic strips headings/lists/tables/HTML before measuring so CTAs and code blocks cannot trigger false positives; no other call sites depend on the existing 10-rule count.
+
 ## 2026-05-29 — NonCommodity Guard: visible "Fixed" state
 - Passed rules now render with emerald background tint, filled green checkmark badge, and a "✓ Fixed" label so it is immediately clear which rules have been remediated.
 - Failing rules unchanged (red X + Fix this button).
