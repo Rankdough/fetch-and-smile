@@ -1160,7 +1160,7 @@ async function runSection(input: {
 
 /* ── handler ──────────────────────────────────────────────────────────── */
 
-const BUILD_MARKER = "BUILD-2026-05-29-D proprietary-generate-article scoped-context-source-references";
+const BUILD_MARKER = "BUILD-2026-05-29-E proprietary-generate-article atomic-structure-and-inline-source-link-at-generation";
 Deno.serve(async (req) => {
   console.log(BUILD_MARKER);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
