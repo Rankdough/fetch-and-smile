@@ -6019,6 +6019,15 @@ CRITICAL EXPANSION RULES:
                       onContentUpdate={setGeneratedContent}
                       useFirstPerson={useFirstPerson}
                     />
+
+                    {/* Usefulness & Value-Gain Guard */}
+                    <ContentUsefulnessChecker
+                      content={generatedContent}
+                      onContentUpdate={setGeneratedContent}
+                      useFirstPerson={useFirstPerson}
+                    />
+                    
+
                     
 
                     
