@@ -1,3 +1,19 @@
+## 2026-05-29 - Remove stale diet and bloating bullets from non-diet articles (BUILD-2026-05-29-V)
+
+**What:**
+- `supabase/functions/proprietary-generate-article/index.ts`: added a final topic-aware body guard that removes bullet lines containing the old contaminated diet, food exposure, symptom timing, bloating, long-term restriction, or digestive-mechanism language when the requested topic is not a dietary or gastrointestinal topic.
+- `src/pages/Index.tsx`: added the same stale-bullet scrub to `cleanContent` so already cached articles in the browser stop displaying the bad fallback bullets without changing References handling.
+
+**Why:** The preview still showed old dental-article bullets mentioning changing diet, food exposure, bloating patterns, and long-term restriction. The previous source fix removed the fallback producer, but stale generated content and any echoed prompt examples still needed a response-boundary and display-boundary guard.
+
+**Verified broken:** Nothing verified broken. Checked: `deno check supabase/functions/proprietary-generate-article/index.ts` passes; targeted regex scan confirms the exact stale screenshot phrases are only present in guard patterns or documentation, not as fallback output strings; deployed `proprietary-generate-article`.
+
+**Files:** `supabase/functions/proprietary-generate-article/index.ts`, `src/pages/Index.tsx`, `CHANGELOG.md`.
+
+**Verify:** Reload an existing dental article or generate a new one. Bullets must not mention changing diet, food exposure, symptom timing, bloating, long-term restriction, or digestive mechanisms unless the article topic itself is dietary or gastrointestinal.
+
+---
+
 ## 2026-05-29 - Remove bracketed numeric citation markers from article body (BUILD-2026-05-29-U)
 
 **What:**
