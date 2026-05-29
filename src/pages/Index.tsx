@@ -4071,7 +4071,45 @@ const Index = () => {
                     });
                   }}
                 />
+
+                <Separator className="my-3" />
+
+                {/* Proprietary Mode: raw transcript paste (Podcast / YouTube).
+                    Folded into contextFiles at submit time with a
+                    `[TRANSCRIPT: <title>]` header token so the backend
+                    cleanReferenceTitle pass renders it as a first-class source
+                    in the ## References block. */}
+                <div className="space-y-2 rounded-md border border-dashed border-border bg-muted/30 p-3">
+                  <Label htmlFor="transcript-title" className="text-sm font-medium">
+                    Source/Title Name (e.g., Huberman Lab Ep 24)
+                  </Label>
+                  <Input
+                    id="transcript-title"
+                    type="text"
+                    value={transcriptTitle}
+                    onChange={(e) => setTranscriptTitle(e.target.value)}
+                    placeholder="Huberman Lab Ep 24"
+                    maxLength={200}
+                  />
+                  <Label htmlFor="transcript-text" className="text-sm font-medium">
+                    🎙️ Paste Podcast / YouTube Transcript (Optional)
+                  </Label>
+                  <Textarea
+                    id="transcript-text"
+                    value={transcriptText}
+                    onChange={(e) => setTranscriptText(e.target.value)}
+                    placeholder="Paste a raw transcript here. It will be sent as a primary source with a [TRANSCRIPT: …] header token alongside any uploaded files."
+                    className="min-h-[140px] font-mono text-xs"
+                  />
+                  {transcriptText.trim().length > 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      {transcriptText.trim().split(/\s+/).length.toLocaleString()} words ready ·
+                      will be sent as <code>[TRANSCRIPT: {(transcriptTitle.trim() || "Pasted Transcript").slice(0, 80)}]</code>
+                    </p>
+                  )}
+                </div>
               </CollapsibleSection>
+
 
               {/* Section 6: Tone of Voice Profiles */}
               <CollapsibleSection
