@@ -1,3 +1,18 @@
+## 2026-05-29 - References: external URLs only — context-file titles dropped (BUILD-2026-05-29-Q)
+
+**What:**
+- `supabase/functions/proprietary-generate-article/index.ts`: `dedupeAndValidateRefs` now REQUIRES a valid `https?://` URL. Refs without a URL (i.e. context-file names like "Deep Research Report: ...", "SEO Content Research Report: ...", "The United Kingdom Benchmark: ...") are dropped entirely. Return type tightened from `{ title; url? }[]` to `{ title; url }[]`.
+
+**Why:** Context files are internal documents, not citations. Emitting their titles as plain bullets in a public References block was wrong — references must point to external, citable URLs that a reader can actually open. Last build (BUILD-P) preserved URL-less titles as plain bullets; that was the bug.
+
+**Verified broken:** Nothing verified broken. Checked: `deno check` passes; deployed to live; `supabase--curl_edge_functions` POST to `/proprietary-generate-article` with topic "dental implants overview" returned a References block containing only 3 external https citations (FDA, NCBI, PMC) — zero context-file titles, zero plain-text bullets, zero HTML. `refsToMarkdown` still tolerates URL-less refs in its signature (`url?: string`) so no other callers break; `dedupeAndValidateRefs` is the only producer of refs reaching it and now guarantees a URL.
+
+**Files:** `supabase/functions/proprietary-generate-article/index.ts`, `CHANGELOG.md`.
+
+**Verify:** Generate any proprietary article — References block contains only clickable `https://` links. Context-file names never appear.
+
+---
+
 ## 2026-05-29 - References: hostname+path dedupe + URL validation (BUILD-2026-05-29-P)
 
 **What:**
