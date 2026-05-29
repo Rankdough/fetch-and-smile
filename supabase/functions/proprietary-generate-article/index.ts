@@ -972,6 +972,47 @@ function injectReferences(markdown: string, units: BrainUnit[], sourceReferences
   return `${markdown.trimEnd()}\n\n## References\n\n${renderReferencesList(items)}\n`;
 }
 
+function sectionLinkLooksRelevant(anchor: string, url: string, sectionText: string, topic: string): boolean {
+  if (!/^https?:\/\//i.test(url)) return true;
+  const destinationScore = scoreUrlForTopic(url, `${topic} ${anchor}`);
+  if (destinationScore === 0) return false;
+  const anchorTokens = [...tokenize(anchor)].filter((t) => t.length >= 5);
+  if (anchorTokens.length === 0) return false;
+  const local = `${topic} ${sectionText}`.toLowerCase();
+  return anchorTokens.some((token) => local.includes(token));
+}
+
+function stripMismatchedInlineLinks(markdown: string, topic: string): { out: string; removed: number } {
+  const lines = markdown.split("\n");
+  let removed = 0;
+  const out: string[] = [];
+  let sectionBuffer: string[] = [];
+  const flush = () => {
+    if (sectionBuffer.length === 0) return;
+    const sectionText = sectionBuffer.join("\n");
+    out.push(...sectionBuffer.map((line) =>
+      line.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, (match, anchor: string, url: string) => {
+        if (sectionLinkLooksRelevant(anchor, url, sectionText, topic)) return match;
+        removed += 1;
+        return anchor;
+      })
+    ));
+    sectionBuffer = [];
+  };
+  for (const line of lines) {
+    if (/^##\s+references\b/i.test(line)) {
+      flush();
+      out.push(line, ...lines.slice(lines.indexOf(line) + 1));
+      sectionBuffer = [];
+      break;
+    }
+    if (/^##\s+/.test(line)) flush();
+    sectionBuffer.push(line);
+  }
+  flush();
+  return { out: out.join("\n"), removed };
+}
+
 function trustedFallbackSources(topic: string): BrainUrl[] {
   if (/\b(archery|archer|arrow|target|bow|olympic|scoring)\b/i.test(topic)) {
     return [
