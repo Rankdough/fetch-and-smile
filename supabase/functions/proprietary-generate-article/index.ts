@@ -1081,8 +1081,18 @@ async function runSection(input: {
   model: string;
   sectionBudgetWords: number;
   retrievedChunks?: RetrievedChunk[];
+  allowedSourceUrls?: Array<{ url: string; title: string }>;
 }) {
-  const assembled = assembleSectionPrompt(input);
+  const assembled = assembleSectionPrompt({
+    businessType: input.businessType,
+    mappedUnit: input.mappedUnit,
+    audienceSentence: input.audienceSentence,
+    publicationDestination: input.publicationDestination,
+    section: input.section,
+    surroundingContext: input.surroundingContext,
+    articleTitle: input.articleTitle,
+    allowedSourceUrls: input.allowedSourceUrls,
+  });
   const isBody = input.section.type === "body";
   // Scale token budget with the word budget so the model writes to the right length.
   // Floor at 600 (enough for a concise 90-word section), ceiling at 2400.
@@ -1091,7 +1101,15 @@ async function runSection(input: {
     : input.section.kind === "tldr" ? 200 : 900;
   let content: string;
   if (isBody && input.businessType === "healthcare-clinical") {
-    content = (await callClinicalWriter(CLINICAL_SYSTEM_PROMPT_HEALTHCARE, buildClinicalUserMessage({
+    // Clinical writer uses its own prompt; append the same atomic-structure +
+    // inline-source-link contract so healthcare articles match parity.
+    const allowed = (input.allowedSourceUrls || []).filter((s) => s && s.url && /^https?:\/\//i.test(s.url)).slice(0, 8);
+    const sourceBlock = allowed.length > 0
+      ? `\n\nINLINE SOURCE LINK (mandatory): Include exactly ONE inline markdown link "[anchor text](URL)" in this section, choosing the most relevant URL from the list below. Anchor must be a natural noun phrase from your prose. Never invent URLs.\nALLOWED SOURCES:\n${allowed.map((s, i) => `${i + 1}. ${s.title} — ${s.url}`).join("\n")}`
+      : `\n\nINLINE SOURCE LINK: No allow-listed URLs are available; do not insert inline links — the system will list context documents in the References section.`;
+    const atomicBlock = `\n\nATOMIC SECTION STRUCTURE (mandatory): Write exactly one standalone answer paragraph (1-3 sentences) that fully answers the heading, then a blank line, then exactly 3 markdown bullets ("- "), each one concrete and ≤22 words. Nothing else.`;
+    const clinicalSystem = CLINICAL_SYSTEM_PROMPT_HEALTHCARE + atomicBlock + sourceBlock;
+    content = (await callClinicalWriter(clinicalSystem, buildClinicalUserMessage({
       mappedUnit: input.mappedUnit,
       audienceSentence: input.audienceSentence,
       publicationDestination: input.publicationDestination,
