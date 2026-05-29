@@ -535,6 +535,7 @@ function deriveSectionPhrase(heading: string): string {
 function fallbackTopicTable(topic: string, sectionHeading?: string): string {
   const t = topic.toLowerCase();
   const h = (sectionHeading ?? "").toLowerCase();
+  const combined = `${t} ${h}`;
   // Section-aware: only inject a topic table when the SECTION HEADING itself is
   // about the table's subject. Prevents the same retention table being dropped
   // into unrelated sections (training, failure modes, complications, etc.).
@@ -554,6 +555,13 @@ function fallbackTopicTable(topic: string, sectionHeading?: string): string {
 | Skeletal underbite | Jaw relationship drives the bite | Limited without surgical assessment | Camouflage can worsen facial balance | Is surgery part of the realistic plan? |
 | Combined pattern | Teeth and jaw both contribute | Case-dependent after diagnosis | Relapse or incomplete bite correction | Which part is being corrected first? |`;
   }
+  if (/archery|archer|arrow|target|bow|olympic|scoring/.test(combined)) {
+    return `| Scoring factor | How it is counted | Mistake that changes the result |
+| --- | --- | --- |
+| Ring value | Each arrow earns the value of the scoring ring it lands in | Reading the lower ring when the shaft touches a higher scoring line |
+| End total | Arrow values in the same end are added before the next end starts | Mixing scores between ends or sets |
+| Tie-break detail | Closest-to-centre arrows can decide tied results | Recording only totals and losing the arrow-by-arrow detail |`;
+  }
   // Universal fallback: topic-aware comparison so every article meets the
   // table quota even when no section-specific regex matched.
   if (/implant|dentist|dental/.test(t)) {
@@ -563,12 +571,12 @@ function fallbackTopicTable(topic: string, sectionHeading?: string): string {
 | Board-Certified Specialist (Periodontist or Oral Surgeon) | Three or more years of accredited residency after dental school | Consistently high through residency and ongoing practice | Higher in published series, particularly for complex cases | Complex anatomy, bone grafting, full-arch and compromised sites |
 | Academic or Hospital Setting | Faculty-level training with a supervised teaching caseload | High and protocol-driven through institutional volume | Highest reported in long-term published studies | Medically complex patients and reconstructive cases |`;
   }
-  // Generic three-column comparison — no topic string interpolated into cells.
-  return `| Approach | Key Advantage | Primary Limitation |
+  const focus = deriveSectionPhrase(sectionHeading || topic).replace(/\|/g, "").trim() || topicNoun(topic).toLowerCase();
+  return `| Decision factor | What to check for ${focus} | Why it matters |
 | --- | --- | --- |
-| Entry-level | Lower cost and easier access | Narrower scope and fewer safeguards |
-| Standard | Balanced quality, cost, and availability | Trade-offs between depth and convenience |
-| Advanced | Highest reported consistency and oversight | Higher cost and limited availability |`;
+| Evidence | Look for the specific rule, source, or example behind the claim | Prevents a broad answer being treated as proof |
+| Fit | Check whether the advice applies to this exact situation | Prevents a correct general point being used in the wrong case |
+| Failure point | Identify what would make the recommendation break down | Shows the limit of the advice before acting on it |`;
 }
 
 function tableSignature(tableMarkdown: string): string {
@@ -735,6 +743,13 @@ function injectReferences(markdown: string, units: BrainUnit[]): string {
 }
 
 function trustedFallbackSources(topic: string): BrainUrl[] {
+  if (/\b(archery|archer|arrow|target|bow|olympic|scoring)\b/i.test(topic)) {
+    return [
+      { title: "World Archery - Rulebook", url: "https://www.worldarchery.sport/rulebook" },
+      { title: "Olympics - Archery rules, equipment and scoring", url: "https://olympics.com/en/news/archery-rules-equipment-scoring-techniques-olympics" },
+      { title: "World Archery - Target archery", url: "https://www.worldarchery.sport/disciplines/target" },
+    ];
+  }
   if (!/\b(dental|implant|implants|screwless|conometric|abutment)\b/i.test(topic)) return [];
   return [
     { title: "FDA - Dental Implants: What You Should Know", url: "https://www.fda.gov/medical-devices/dental-devices/dental-implants-what-you-should-know" },
