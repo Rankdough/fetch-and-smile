@@ -1607,6 +1607,8 @@ const Index = () => {
     setIsGenerating(true);
     setGeneratedContent("");
     setAppliedRules(null);
+    setCommodityGrade(null);
+    setHasBrainForGrade(false);
 
     try {
       let content: string;
