@@ -1,3 +1,17 @@
+## 2026-05-29 - hide stale Signal/Verify badges during generation (BUILD-2026-05-29-N)
+
+**What:** `src/pages/Index.tsx` now clears `commodityGrade` and `hasBrainForGrade` at the start of every generation, and the `VerificationReport` badges next to "Generated Content" only render when there is non-empty content and generation is not in progress.
+
+**Why:** Screenshot showed "Signal 100" + "Verify: no brain" pills shown while "Generating…" was still running and the preview pane was empty — leftover grade state from a previous run, misleading the user.
+
+**Verified broken:** Nothing verified broken. Checked: file reads of the two edits; grep confirms `setCommodityGrade(null)` exists at generation start; badge render is gated on `generatedContent.trim().length > 0 && !isGenerating`. Did not run live generation.
+
+**Files:** `src/pages/Index.tsx`, `CHANGELOG.md`.
+
+**Verify:** Click Generate — Signal/Verify badges should disappear immediately and only reappear after the new article finishes streaming.
+
+---
+
 ## 2026-05-29 - proprietary articles: inline source and mismatched-link guards (BUILD-2026-05-29-M)
 
 **What:** `supabase/functions/proprietary-generate-article/index.ts` now strips inline `(Source: …)` fragments from body copy, unwraps standalone `Source: [title](url)` lines to plain links only when they are real markdown URLs, filters brain URLs by topic before they can be offered as citations, and removes off-topic inline links both before and after internal-link insertion. `supabase/functions/insert-internal-links/index.ts` now rejects URLs that only share weak generic dental tokens and unwraps inserted links whose anchor text does not match destination keywords.
