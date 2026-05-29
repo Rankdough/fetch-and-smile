@@ -506,6 +506,9 @@ Name], or [NEEDS EXPERT INPUT].`;
     ruleBlocks.push(SPECIFIC_NUMBERS_RULE);
     applied.push(5);
 
+    // BUILD-2026-05-29-I — hard ban on passive AI filler in body prose.
+    ruleBlocks.push(NO_PASSIVE_FILLER_RULE);
+
     ruleBlocks.push(KEYWORD_NATURAL_LANGUAGE_RULE);
 
     // Rule 6 — h2-question sections always get contrarian licence when no
