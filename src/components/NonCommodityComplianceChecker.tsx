@@ -202,6 +202,12 @@ function evaluate(content: string): RuleResult[] {
       pass: r10Pass, detail: r10Detail,
       fixInstruction: "Find any sentence or list item that ends on a bare trailing number with no punctuation, or any unclosed HTML tag, and close it cleanly (add the missing word, punctuation, or closing tag). Preserve headings, tables, lists, links, images, and CTAs. Return the full article.",
     },
+    {
+      id: 11, title: "Paragraph Density (No Walls of Text)",
+      description: "Every paragraph ≤ 60 words and ≤ 3 sentences",
+      pass: r11Pass, detail: r11Detail,
+      fixInstruction: "Find every prose paragraph longer than 60 words or 3 sentences and split it into multiple shorter paragraphs at logical pivots (new idea, contrast, example, evidence, consequence). Do not delete or reword facts, headings, tables, lists, links, images, or CTAs — only insert paragraph breaks so the reader can jump easily between paragraphs. Return the full article.",
+    },
   ];
 }
 
