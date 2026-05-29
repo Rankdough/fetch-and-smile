@@ -1505,7 +1505,9 @@ Deno.serve(async (req) => {
               brain_file_id: m.brain_file_id ?? null,
               context_document_id: m.context_document_id ?? null,
             }));
-            retrievedChunks = rawChunks.filter((c) => c.similarity >= SIMILARITY_FLOOR);
+            retrievedChunks = rawChunks.filter((c) =>
+              c.similarity >= SIMILARITY_FLOOR && scoreTextForTopic(c.content, body.topic, section.heading) >= 2
+            );
             const topRaw = rawChunks[0]?.similarity?.toFixed(3) ?? "n/a";
             console.log(`RETRIEVAL: section="${section.heading}" got ${retrievedChunks.length}/${rawChunks.length} chunks above floor ${SIMILARITY_FLOOR} (top raw sim=${topRaw})`);
           }
