@@ -185,12 +185,22 @@ export function ContentUsefulnessChecker({
   content,
   onContentUpdate,
   useFirstPerson = false,
+  contextFiles = [],
 }: ContentUsefulnessCheckerProps) {
   const results = useMemo(() => evaluate(content || ""), [content]);
   const passed = results.filter(r => r.pass).length;
   const failing = results.filter(r => !r.pass);
   const [fixingId, setFixingId] = useState<number | null>(null);
   const [fixingAll, setFixingAll] = useState(false);
+
+  const contextSourceUrls = useMemo(() => {
+    const urls = new Set<string>();
+    for (const f of contextFiles) {
+      const matches = (f.content || "").match(/https?:\/\/[^\s)<>"']+/g) || [];
+      for (const u of matches) urls.add(u.replace(/[.,;:!?)]+$/, ""));
+    }
+    return Array.from(urls).slice(0, 30);
+  }, [contextFiles]);
 
   const runFix = async (rules: RuleResult[], label: string) => {
     if (!onContentUpdate) {
@@ -201,7 +211,14 @@ export function ContentUsefulnessChecker({
       toast({ title: "No content", description: "Generate an article first.", variant: "destructive" });
       return;
     }
-    const instruction = `Apply the following Usefulness & Value-Gain fixes to the article. Do not rewrite anything that already passes. Preserve markdown structure, headings, tables, lists, links, images, and CTA blocks unless a rule explicitly requires changing them.\n\n${rules.map(r => `• Rule ${r.id} — ${r.title}: ${r.fixInstruction}`).join("\n\n")}`;
+    const needsSources = rules.some(r => r.id === 6);
+    const sourceBlock =
+      needsSources && contextSourceUrls.length > 0
+        ? `\n\nCONTEXT SOURCE URLS (use these as citation links — do not invent URLs):\n${contextSourceUrls.map(u => `- ${u}`).join("\n")}`
+        : needsSources
+          ? `\n\nNOTE: No context source URLs were provided. Only reuse URLs already present in the article; do not invent new ones.`
+          : "";
+    const instruction = `Apply the following Usefulness & Value-Gain fixes to the article. Do not rewrite anything that already passes. Preserve markdown structure, headings, tables, lists, links, images, and CTA blocks unless a rule explicitly requires changing them.\n\n${rules.map(r => `• Rule ${r.id} — ${r.title}: ${r.fixInstruction}`).join("\n\n")}${sourceBlock}`;
     try {
       const { data, error } = await supabase.functions.invoke("voice-edit-content", {
         body: { content, instruction, useFirstPerson },
