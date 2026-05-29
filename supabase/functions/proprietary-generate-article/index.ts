@@ -488,8 +488,9 @@ function stripExpertInputPlaceholders(markdown: string): { out: string; removed:
     .split("\n")
     .map((line) => {
       if (!/\[NEEDS EXPERT INPUT/i.test(line)) return line;
+      removed += 1;
+      if (!/\]/.test(line)) return "";
       const cleaned = line.replace(/[^.!?\n]*\[NEEDS EXPERT INPUT[^\]]*\][^.!?\n]*[.!?]?/gi, () => {
-        removed += 1;
         return "";
       }).replace(/\s{2,}/g, " ").trim();
       return /^[-*+]\s*$/.test(cleaned) ? "" : cleaned;
