@@ -1236,7 +1236,11 @@ Deno.serve(async (req) => {
         retrievedChunks,
       });
 
-      surrounding.push({ heading: section.heading, content: result.content });
+      const sectionPlaceholderGuard = stripExpertInputPlaceholders(result.content);
+      const sectionContent = sectionPlaceholderGuard.out;
+      if (sectionPlaceholderGuard.removed > 0) console.warn(`PLACEHOLDER GUARD: removed ${sectionPlaceholderGuard.removed} expert-input placeholder sentence(s) from section "${section.heading}".`);
+
+      surrounding.push({ heading: section.heading, content: sectionContent });
       sectionsOut.push({
         id: section.id,
         heading: section.heading,
@@ -1244,7 +1248,7 @@ Deno.serve(async (req) => {
         type: section.type,
         mappedUnitId: mappedUnit?.id ?? null,
         mappedUnitType: mappedUnit?.unit_type ?? null,
-        content: result.content,
+        content: sectionContent,
         needsExpertInput: result.needsExpertInput,
         ruleFlags: result.ruleFlags,
         contradicted: result.contradicted,
