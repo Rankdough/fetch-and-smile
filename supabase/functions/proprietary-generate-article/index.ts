@@ -506,7 +506,20 @@ function sanitiseGeneratedMarkdown(markdown: string, articleTitle: string): stri
       out = out.replace(/\s*;\s*weigh\s+against\s+[^|]+/gi, "");
     }
 
-    if (trimmed && !/^#{1,6}\s/.test(trimmed) && !/^\s*(\||[-*+]|\d+\.)\s?/.test(out) && !out.includes("|") && !/^>/.test(trimmed) && !/[.!?:)]\s*$/.test(trimmed)) {
+    // Punctuation completion: snap a stray prose line back to its last terminal
+    // mark. Must skip raw HTML lines (e.g. the <ul>/<li> references block
+    // emitted by renderReferencesList) — otherwise a `.` inside an inline
+    // style like `line-height: 1.6` truncates the entire tag and the browser
+    // renders escaped HTML as plain text. See BUILD-2026-05-29-H regression.
+    if (
+      trimmed &&
+      !/^#{1,6}\s/.test(trimmed) &&
+      !/^\s*(\||[-*+]|\d+\.)\s?/.test(out) &&
+      !out.includes("|") &&
+      !/^>/.test(trimmed) &&
+      !/^</.test(trimmed) &&
+      !/[.!?:)]\s*$/.test(trimmed)
+    ) {
       const lastTerm = Math.max(trimmed.lastIndexOf("."), trimmed.lastIndexOf("!"), trimmed.lastIndexOf("?"));
       if (lastTerm > 20) out = out.slice(0, out.indexOf(trimmed) + lastTerm + 1);
     }
