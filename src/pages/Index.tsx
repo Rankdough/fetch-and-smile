@@ -953,12 +953,12 @@ const Index = () => {
   // Load internal link history from database on mount — scoped to this project.
   useEffect(() => {
     const loadHistory = async () => {
-      let q = supabase
+      let q: any = supabase
         .from("internal_link_history")
         .select("url")
         .order("created_at", { ascending: false })
         .limit(100);
-      if (PROJECT_ID) q = q.eq("project_id", PROJECT_ID) as typeof q;
+      if (PROJECT_ID) q = q.eq("project_id", PROJECT_ID);
       const { data } = await q;
       if (data && data.length > 0) {
         setInternalLinkHistory(data.map(d => d.url));
