@@ -125,8 +125,8 @@ function evaluateGrounding(
   const contextCorpus = (contextFiles || []).map(f => f.content || "").join("\n\n");
   const transcriptCorpus = transcriptText || "";
 
-  const contextShingles = buildShingles(contextCorpus);
-  const transcriptShingles = buildShingles(transcriptCorpus);
+  const ctx = buildVocab(contextCorpus);
+  const tr = buildVocab(transcriptCorpus);
 
   const sentences = extractProseSentences(content);
   let contextOnly = 0;
@@ -136,18 +136,22 @@ function evaluateGrounding(
   const ungroundedSamples: string[] = [];
 
   for (const sent of sentences) {
-    const sentShingles = buildShingles(sent);
-    if (sentShingles.size === 0) continue;
-    let ctxHits = 0;
-    let trHits = 0;
-    for (const sh of sentShingles) {
-      if (contextShingles.has(sh)) ctxHits++;
-      if (transcriptShingles.has(sh)) trHits++;
-    }
-    const ctxRatio = ctxHits / sentShingles.size;
-    const trRatio = trHits / sentShingles.size;
-    const inCtx = ctxRatio >= SENTENCE_MATCH_THRESHOLD;
-    const inTr = trRatio >= SENTENCE_MATCH_THRESHOLD;
+    const toks = tokens(sent);
+    if (toks.length === 0) continue;
+    const uniq = Array.from(new Set(toks));
+    const bigrams: string[] = [];
+    for (let i = 0; i < toks.length - 1; i++) bigrams.push(toks[i] + " " + toks[i + 1]);
+
+    const ctxUni = uniq.filter(t => ctx.unigrams.has(t)).length;
+    const trUni = uniq.filter(t => tr.unigrams.has(t)).length;
+    const ctxBi = bigrams.filter(b => ctx.bigrams.has(b)).length;
+    const trBi = bigrams.filter(b => tr.bigrams.has(b)).length;
+
+    const ctxRecall = uniq.length ? ctxUni / uniq.length : 0;
+    const trRecall = uniq.length ? trUni / uniq.length : 0;
+    const inCtx = ctxRecall >= UNIGRAM_RECALL_THRESHOLD && ctxBi >= MIN_BIGRAM_HITS;
+    const inTr = trRecall >= UNIGRAM_RECALL_THRESHOLD && trBi >= MIN_BIGRAM_HITS;
+
     if (inCtx && inTr) both++;
     else if (inCtx) contextOnly++;
     else if (inTr) transcriptOnly++;
@@ -156,6 +160,7 @@ function evaluateGrounding(
       if (ungroundedSamples.length < 3) ungroundedSamples.push(sent.slice(0, 140));
     }
   }
+
 
   const total = sentences.length || 1;
   const contextPct = Math.round(((contextOnly + both) / total) * 100);
