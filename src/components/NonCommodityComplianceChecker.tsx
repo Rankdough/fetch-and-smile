@@ -1,9 +1,14 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Check, X, ShieldCheck } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Check, X, ShieldCheck, Loader2, Wand2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "@/hooks/use-toast";
 
 interface NonCommodityComplianceCheckerProps {
   content: string;
+  onContentUpdate?: (newContent: string) => void;
+  useFirstPerson?: boolean;
 }
 
 interface RuleResult {
@@ -12,6 +17,7 @@ interface RuleResult {
   description: string;
   pass: boolean;
   detail?: string;
+  fixInstruction: string;
 }
 
 const HYPERBOLE = [
@@ -31,9 +37,7 @@ function evaluate(content: string): RuleResult[] {
   const text = content || "";
   const plain = stripCodeAndHtml(text);
   const lines = text.split(/\r?\n/);
-  const totalWords = plain.split(/\s+/).filter(Boolean).length;
 
-  // 1. Under-45-word snippet blocks immediately below H2/H3
   let r1Pass = true;
   let r1Detail = "";
   for (let i = 0; i < lines.length; i++) {
@@ -54,7 +58,6 @@ function evaluate(content: string): RuleResult[] {
     }
   }
 
-  // 2. Heavy relative-pronoun chains (this/it/they) starting consecutive sentences
   const sentences = plain.split(/(?<=[.!?])\s+/).filter(Boolean);
   let chain = 0;
   let maxChain = 0;
@@ -66,32 +69,24 @@ function evaluate(content: string): RuleResult[] {
   }
   const r2Pass = maxChain < 3;
 
-  // 3. Server-rendered table syntax (markdown pipe table or <table>)
   const r3Pass = /\|[^\n]+\|\s*\n\s*\|?\s*:?-{2,}/.test(text) || /<table[\s>]/i.test(text);
 
-  // 4. Information-gain disclosures: at least one number/statistic/data point
   const numericMatches = (plain.match(/\b\d{1,3}(?:[.,]\d+)?\s?(?:%|percent|years?|months?|days?|hours?|mm|cm|kg|mg|usd|eur|£|\$)/gi) || []).length;
   const r4Pass = numericMatches >= 3;
 
-  // 5. Zero marketing hyperbole
   const foundHyperbole = HYPERBOLE.filter(w => new RegExp(`\\b${w.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&")}\\b`, "i").test(plain));
   const r5Pass = foundHyperbole.length === 0;
 
-  // 6. Methodology statement
   const r6Pass = /\bmethodology\b/i.test(plain);
 
-  // 7. Defensive hedging (count unquantified hedges)
   const hedgeCount = HEDGES.reduce((acc, h) => acc + (plain.match(new RegExp(`\\b${h}\\b`, "gi")) || []).length, 0);
   const r7Pass = hedgeCount <= 2;
 
-  // 8. Literal intent proximity: numeric data within top 30%
   const top = plain.slice(0, Math.max(400, Math.floor(plain.length * 0.3)));
   const r8Pass = /\b\d/.test(top);
 
-  // 9. Chronological risk mitigation: timelines/deadlines language
   const r9Pass = /\b(timeline|deadline|week\s*\d|day\s*\d|month\s*\d|within\s+\d+\s+(?:days|weeks|months|hours)|by\s+(?:day|week|month)\s*\d)\b/i.test(plain);
 
-  // 10. Structural terminus guard: bare trailing number or unclosed tag at line end
   let r10Pass = true;
   let r10Detail = "";
   for (const ln of lines) {
@@ -110,22 +105,113 @@ function evaluate(content: string): RuleResult[] {
   }
 
   return [
-    { id: 1, title: "Under-45-Word Snippet Blocks", description: "First block under each H2/H3 ≤ 45 words", pass: r1Pass, detail: r1Detail },
-    { id: 2, title: "Complete Conceptual Sentence Isolation", description: "No 3+ consecutive sentences leaning on this/it/they", pass: r2Pass, detail: maxChain >= 3 ? `${maxChain}-sentence pronoun chain` : "" },
-    { id: 3, title: "Server-Rendered Table Layouts", description: "Hardcoded table syntax present", pass: r3Pass },
-    { id: 4, title: "Explicit Information-Gain Disclosures", description: "≥3 concrete data points (numbers/units)", pass: r4Pass, detail: `${numericMatches} data points` },
-    { id: 5, title: "Zero Marketing Hyperbole", description: "No fluff adjectives", pass: r5Pass, detail: foundHyperbole.join(", ") },
-    { id: 6, title: "Hard Procedural Methodology Statements", description: "Contains a 'Methodology' description", pass: r6Pass },
-    { id: 7, title: "Zero Defensive Hedging", description: "≤2 unquantified hedges (typically/varies/depends)", pass: r7Pass, detail: `${hedgeCount} hedges` },
-    { id: 8, title: "Literal Intent Proximity", description: "Top 30% contains immediate data", pass: r8Pass },
-    { id: 9, title: "Chronological Risk Mitigation", description: "Maps timelines/deadlines/hurdles", pass: r9Pass },
-    { id: 10, title: "Structural Terminus Guard", description: "No bare trailing numbers or unclosed tags", pass: r10Pass, detail: r10Detail },
+    {
+      id: 1, title: "Under-45-Word Snippet Blocks",
+      description: "First block under each H2/H3 ≤ 45 words",
+      pass: r1Pass, detail: r1Detail,
+      fixInstruction: "For every H2 and H3 heading, condense the first paragraph immediately below it to 45 words or fewer. Keep all facts and data; only tighten the prose. Do not delete headings, tables, lists, links, images, CTAs, or any subsequent paragraphs. Return the full article.",
+    },
+    {
+      id: 2, title: "Complete Conceptual Sentence Isolation",
+      description: "No 3+ consecutive sentences leaning on this/it/they",
+      pass: r2Pass, detail: maxChain >= 3 ? `${maxChain}-sentence pronoun chain` : "",
+      fixInstruction: "Find any run of three or more consecutive sentences that begin with 'This', 'It', 'They', 'These', or 'Those' and rewrite each so the subject is named explicitly. Preserve meaning, headings, tables, lists, links, images, and CTAs. Return the full article.",
+    },
+    {
+      id: 3, title: "Server-Rendered Table Layouts",
+      description: "Hardcoded table syntax present",
+      pass: r3Pass,
+      fixInstruction: "Insert at least one markdown pipe table containing genuine structured data drawn from the article (criteria, options, prices, timelines, or similar). Place it where it adds the most clarity. Do not remove existing content, headings, lists, links, images, or CTAs. Return the full article.",
+    },
+    {
+      id: 4, title: "Explicit Information-Gain Disclosures",
+      description: "≥3 concrete data points (numbers/units)",
+      pass: r4Pass, detail: `${numericMatches} data points`,
+      fixInstruction: "Add at least three concrete, defensible data points with units (percentages, durations, counts, prices, measurements) drawn from the existing context. Integrate them into the prose; do not invent statistics. Preserve headings, tables, lists, links, images, and CTAs. Return the full article.",
+    },
+    {
+      id: 5, title: "Zero Marketing Hyperbole",
+      description: "No fluff adjectives",
+      pass: r5Pass, detail: foundHyperbole.join(", "),
+      fixInstruction: `Remove marketing hyperbole and fluff adjectives such as: ${foundHyperbole.join(", ") || "world-class, affordable, premium, seamless, cutting-edge"}. Replace each with a concrete, verifiable detail or delete it. Preserve headings, tables, lists, links, images, and CTAs. Return the full article.`,
+    },
+    {
+      id: 6, title: "Hard Procedural Methodology Statements",
+      description: "Contains a 'Methodology' description",
+      pass: r6Pass,
+      fixInstruction: "Add a short 'Methodology' paragraph (2-4 sentences) explaining how the recommendations were derived (sources reviewed, criteria applied, evaluation process). Place it near the top after the TL;DR or near the bottom before References. Preserve all other content. Return the full article.",
+    },
+    {
+      id: 7, title: "Zero Defensive Hedging",
+      description: "≤2 unquantified hedges (typically/varies/depends)",
+      pass: r7Pass, detail: `${hedgeCount} hedges`,
+      fixInstruction: "Remove unquantified hedging words such as 'typically', 'varies', 'depends', 'generally', 'often', 'usually', 'may vary', 'in some cases'. Replace each with a specific range, threshold, condition, or definite statement. Preserve headings, tables, lists, links, images, and CTAs. Return the full article.",
+    },
+    {
+      id: 8, title: "Literal Intent Proximity",
+      description: "Top 30% contains immediate data",
+      pass: r8Pass,
+      fixInstruction: "Within the first 30% of the article (intro and first one or two sections), surface at least one concrete numeric data point (percentage, duration, count, price, threshold) so the reader gets immediate value. Do not add fluff or remove existing structure. Return the full article.",
+    },
+    {
+      id: 9, title: "Chronological Risk Mitigation",
+      description: "Maps timelines/deadlines/hurdles",
+      pass: r9Pass,
+      fixInstruction: "Add an explicit timeline section or inline timeline cues (e.g. 'within 7 days', 'Week 1', 'Day 30') that map out deadlines, sequencing, and operational hurdles the reader must navigate. Use a short ordered list or table if it improves clarity. Preserve all existing content. Return the full article.",
+    },
+    {
+      id: 10, title: "Structural Terminus Guard",
+      description: "No bare trailing numbers or unclosed tags",
+      pass: r10Pass, detail: r10Detail,
+      fixInstruction: "Find any sentence or list item that ends on a bare trailing number with no punctuation, or any unclosed HTML tag, and close it cleanly (add the missing word, punctuation, or closing tag). Preserve headings, tables, lists, links, images, and CTAs. Return the full article.",
+    },
   ];
 }
 
-export function NonCommodityComplianceChecker({ content }: NonCommodityComplianceCheckerProps) {
+export function NonCommodityComplianceChecker({ content, onContentUpdate, useFirstPerson = false }: NonCommodityComplianceCheckerProps) {
   const results = useMemo(() => evaluate(content || ""), [content]);
   const passed = results.filter(r => r.pass).length;
+  const failing = results.filter(r => !r.pass);
+  const [fixingId, setFixingId] = useState<number | null>(null);
+  const [fixingAll, setFixingAll] = useState(false);
+
+  const runFix = async (rules: RuleResult[], label: string) => {
+    if (!onContentUpdate) {
+      toast({ title: "Cannot apply fix", description: "Content updater unavailable in this view.", variant: "destructive" });
+      return;
+    }
+    if (!content.trim()) {
+      toast({ title: "No content", description: "Generate an article first.", variant: "destructive" });
+      return;
+    }
+    const instruction = `Apply the following Non-Commodity Compliance fixes to the article. Do not rewrite anything that already passes. Preserve markdown structure, headings, tables, lists, links, images, and CTA blocks unless a rule explicitly requires changing them.\n\n${rules.map(r => `• Rule ${r.id} — ${r.title}: ${r.fixInstruction}`).join("\n\n")}`;
+    try {
+      const { data, error } = await supabase.functions.invoke("voice-edit-content", {
+        body: { content, instruction, useFirstPerson },
+      });
+      if (error) throw new Error(error.message || "Edge function failed");
+      if (data?.error) throw new Error(data.error);
+      if (!data?.content) throw new Error("No content returned");
+      onContentUpdate(data.content);
+      toast({ title: "Fix applied", description: `${label} rewritten.` });
+    } catch (err) {
+      console.error("NonCommodity fix error:", err);
+      toast({ title: "Fix failed", description: err instanceof Error ? err.message : "Unknown error", variant: "destructive" });
+    }
+  };
+
+  const handleFixOne = async (rule: RuleResult) => {
+    setFixingId(rule.id);
+    try { await runFix([rule], `Rule ${rule.id}`); } finally { setFixingId(null); }
+  };
+
+  const handleFixAll = async () => {
+    if (failing.length === 0) return;
+    setFixingAll(true);
+    try { await runFix(failing, `${failing.length} failing rule${failing.length === 1 ? "" : "s"}`); } finally { setFixingAll(false); }
+  };
+
+  const busy = fixingId !== null || fixingAll;
 
   return (
     <Card className="border-border">
@@ -141,6 +227,18 @@ export function NonCommodityComplianceChecker({ content }: NonCommodityComplianc
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-2">
+        {onContentUpdate && failing.length > 0 && (
+          <Button
+            size="sm"
+            variant="default"
+            className="w-full"
+            disabled={busy}
+            onClick={handleFixAll}
+          >
+            {fixingAll ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5 mr-1.5" />}
+            Fix all {failing.length} failing rule{failing.length === 1 ? "" : "s"}
+          </Button>
+        )}
         {results.map(r => (
           <div
             key={r.id}
@@ -164,6 +262,21 @@ export function NonCommodityComplianceChecker({ content }: NonCommodityComplianc
                 <div className="mt-1 text-[11px] text-destructive/80 truncate">
                   {r.detail}
                 </div>
+              )}
+              {!r.pass && onContentUpdate && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-6 mt-1.5 px-2 text-[11px]"
+                  disabled={busy}
+                  onClick={() => handleFixOne(r)}
+                >
+                  {fixingId === r.id ? (
+                    <><Loader2 className="h-3 w-3 mr-1 animate-spin" /> Fixing…</>
+                  ) : (
+                    <><Wand2 className="h-3 w-3 mr-1" /> Fix this</>
+                  )}
+                </Button>
               )}
             </div>
           </div>
