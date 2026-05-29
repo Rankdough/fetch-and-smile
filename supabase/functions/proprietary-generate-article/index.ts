@@ -1211,7 +1211,7 @@ function attachContextSourceNotes(markdown: string, references: SourceReference[
     refIdx++;
     let pEnd = i + 1;
     while (pEnd < endIdx && lines[pEnd].trim() !== "") pEnd++;
-    lines.splice(pEnd, 0, `\nSource: ${ref.title}`);
+    lines.splice(pEnd, 0, `\nSource: ${ref.title}.`);
     attached++;
   }
   return { out: lines.join("\n"), attached };
