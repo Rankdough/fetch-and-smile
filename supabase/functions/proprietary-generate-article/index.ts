@@ -326,6 +326,43 @@ async function rewriteTitleNonCommodity(
   }
 }
 
+/**
+ * Generate a topic-specific H2 heading for the failure-mode section.
+ * Replaces the previous hardcoded "Where this commonly goes wrong" string so
+ * every article gets a unique, on-topic framing. Falls back to a sensible
+ * generic phrasing if the model call fails or returns garbage.
+ */
+async function generateFailureModeHeading(
+  topic: string,
+  articleTitle: string,
+  model: string,
+): Promise<string> {
+  const fallback = `Where ${topic.toLowerCase()} commonly goes wrong`;
+  const sys = `You write a single H2 heading (4–10 words) that names the most common failure mode, mistake, or pitfall readers make on the given topic. Return ONLY the heading text — no quotes, no markdown, no "#", no trailing punctuation. British English. No buzzwords ("ultimate", "navigate", "unlock"). It must read like a real editorial sub-heading, not a template.`;
+  const user = `Topic: ${topic}\nArticle title: ${articleTitle}\n\nWrite the H2 heading.`;
+  try {
+    const raw = (await callModel(sys, user, model, 60)).trim();
+    const cleaned = raw
+      .replace(/^#+\s*/, "")
+      .replace(/^["'“”']|["'“”']$/g, "")
+      .replace(/[.!?]+\s*$/, "")
+      .split(/\r?\n/)[0]
+      .trim();
+    const wordCount = cleaned.split(/\s+/).filter(Boolean).length;
+    if (cleaned.length < 8 || cleaned.length > 120 || wordCount < 3 || wordCount > 14) {
+      console.warn(`FAILURE HEADING: out-of-range (${cleaned.length} chars, ${wordCount} words), using fallback`);
+      return fallback;
+    }
+    console.log(`FAILURE HEADING: "${cleaned}"`);
+    return cleaned;
+  } catch (e) {
+    console.warn("FAILURE HEADING generation failed (non-fatal):", e);
+    return fallback;
+  }
+}
+
+
+
 
 /* ── deterministic unit auto-mapping ──────────────────────────────────── */
 
