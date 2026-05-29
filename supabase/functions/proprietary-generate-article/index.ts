@@ -969,6 +969,24 @@ function collectBrainUrls(units: BrainUnit[]): BrainUrl[] {
   return out;
 }
 
+function collectChunkUrls(chunks: RetrievedChunk[]): BrainUrl[] {
+  const out: BrainUrl[] = [];
+  const seen = new Set<string>();
+  const re = /https?:\/\/[^\s)<>"'\]]+/g;
+  for (const c of chunks) {
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(c.content || "")) !== null) {
+      const url = m[0].replace(/[)\]\.,;]+$/, "");
+      if (seen.has(url)) continue;
+      try {
+        const host = new URL(url).hostname.replace(/^www\./, "");
+        seen.add(url);
+        out.push({ url, title: host });
+      } catch { /* skip */ }
+    }
+  }
+  return out;
+
 async function collectSourceReferences(
   // deno-lint-ignore no-explicit-any
   supabase: any,
