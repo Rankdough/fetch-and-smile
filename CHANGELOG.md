@@ -1,3 +1,18 @@
+## 2026-05-29 - verification: scoped context references deployed
+
+**What:**
+- Verified the deployed `proprietary-generate-article` function after the scoped source-reference fix.
+- Smoke-generated an Invisalign underbite article from existing context files.
+
+**Why:** The first reference fix correctly emitted a References section but leaked unrelated SEO source-file names from the wider knowledge base. This verification confirms the deployed scoped fix only cites the context file actually used by retrieval.
+
+**Files:**
+- CHANGELOG.md
+
+**Verified broken:** Nothing verified broken. Checked: deployed edge function successfully; smoke call returned HTTP 200; article includes a natural underbite-specific comparison table; article includes `## References`; references list contains `Invisalign Underbite Correction Research Brief.docx`; unrelated SEO source filenames from the first smoke test are no longer present; function logs show `REFERENCES: collected 1 context source reference(s)` for the final smoke run.
+
+---
+
 ## 2026-05-29 - proprietary articles: cite only used context files in References
 
 **What:**
