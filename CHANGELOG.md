@@ -1,3 +1,29 @@
+## 2026-05-29 - proprietary articles: table unwrap, citation hygiene, Rule-5 repair gate (BUILD-2026-05-29-G)
+
+**What:**
+- `supabase/functions/proprietary-generate-article/index.ts`:
+  - Added `unwrapTablesFromLists(markdown)` — detects pipe-table runs nested inside `- |`, `* |`, `+ |`, or indented list contexts (separator line `|---|---|` required to trigger), strips the list marker / leading indent, and guarantees `\n\n` fences above and below the table block. Wired into the stitching pipeline immediately before `sanitiseGeneratedMarkdown` so tables render as top-level `<table>` siblings, never inside `<li>`.
+  - Removed `attachContextSourceNotes` (function definition + invocation). The path that appended `Source: filename.docx` lines into body paragraphs is gone. Context-document references are now rendered exclusively in the footer References section via `injectReferences`.
+  - Added `cleanReferenceTitle(rawName, content?)` + helpers `stripFileExtension` and `firstMeaningfulLine`. Applied at every reference-collection site (`collectSourceReferences` brain_files + context_documents, `fallbackContextReferencesForTopic`). Strips `.docx/.txt/.pdf/.md/.html/.rtf/.odt/.csv`, replaces `_-` with spaces, and — when the file content is available — prefers the first meaningful line (5-140 chars, not a markdown/list/table marker) as the human-readable title.
+  - Converted the Rule-5 hedge linter into a repair gate: `let ruleFlags = lintRule5(content)` followed by exactly ONE `repairHedgeSentences` micro-call on `google/gemini-2.5-flash-lite` (fallback to the section model). The micro-call rewrites the flagged sentences into direct un-hedged statements, the section is re-linted once, no further repair invoked.
+  - Build marker bumped to `BUILD-2026-05-29-G`.
+
+**Why:** Three failure modes were verified in the gluten article: (a) markdown tables emitted as bullet text and parsed as `<li>` content rather than `<table>`, (b) `Source: gluten-overview.docx` strings leaking into body prose with raw file extensions, and (c) per-section hedges like "varies between cases" / "typically depends on" with no numbers and no downstream consequence beyond a telemetry flag. All three are now intercepted deterministically inside the proprietary pipeline.
+
+**Files:**
+- supabase/functions/proprietary-generate-article/index.ts
+- CHANGELOG.md
+
+**What may break:**
+- Article shape: any body section that previously displayed an inline `Source: <file>.` note will no longer carry that note. The reference still appears in `## References` with a cleaned title. Confirmed by removing the call site and the function — no other path emits the same string.
+- Reference titles: titles previously rendered as raw `filename.docx` now render as either the first meaningful line of the file (when content is available, e.g. via `context_documents.content`) or the bare filename with extension stripped and underscores/hyphens replaced. `brain_files.title` is normally already clean; the extra `cleanReferenceTitle` call is a no-op for already-clean titles.
+- Latency: body sections that trigger `lintRule5` now make ONE extra AI micro-call (`gemini-2.5-flash-lite`, 500 max tokens) before returning. Sections with zero flags are unchanged. Failure of the micro-call is non-fatal (logged + original content kept).
+- Type-check: `deno check supabase/functions/proprietary-generate-article/index.ts` passes.
+
+**Verified broken:** Nothing verified broken at runtime. Checked: `deno check` clean; grep confirms `attachContextSourceNotes` exists only inside the explanatory removal comment (no callsites); grep confirms `unwrapTablesFromLists` / `repairHedgeSentences` / `cleanReferenceTitle` are defined once and called from the expected sites; new build marker present. Live verification against the previously-failing gluten payload still pending.
+
+---
+
 ## 2026-05-29 - proprietary articles: restore context-file references, tables, and atomic sections
 
 **What:**
