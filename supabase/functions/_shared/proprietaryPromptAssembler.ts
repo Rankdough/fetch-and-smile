@@ -46,6 +46,11 @@ export interface SectionSpec {
   type: "body" | "framing";
 }
 
+export interface AllowedSourceUrl {
+  url: string;
+  title: string;
+}
+
 export interface AssemblerInput {
   businessType: BusinessType;
   mappedUnit: MappedUnit | null;
@@ -56,6 +61,8 @@ export interface AssemblerInput {
   surroundingContext?: Array<{ heading: string; content: string }>;
   /** Article-wide topic / title, for grounding. */
   articleTitle: string;
+  /** Allow-listed external URLs the model may cite inline in this body section. */
+  allowedSourceUrls?: AllowedSourceUrl[];
 }
 
 export interface AssembledPrompt {
