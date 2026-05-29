@@ -974,8 +974,8 @@ function injectReferences(markdown: string, units: BrainUnit[], sourceReferences
 
 function sectionLinkLooksRelevant(anchor: string, url: string, sectionText: string, topic: string): boolean {
   if (!/^https?:\/\//i.test(url)) return true;
-  const destinationScore = scoreUrlForTopic(url, `${topic} ${anchor}`);
-  if (destinationScore === 0) return false;
+  const destinationHits = urlTopicHits(url, `${topic} ${anchor}`);
+  if (!destinationHits.some((token) => !WEAK_URL_TOKENS.has(token)) && destinationHits.length < 2) return false;
   const anchorTokens = [...tokenize(anchor)].filter((t) => t.length >= 5);
   if (anchorTokens.length === 0) return false;
   const local = `${topic} ${sectionText}`.toLowerCase();
