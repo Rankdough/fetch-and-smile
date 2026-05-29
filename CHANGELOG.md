@@ -1,3 +1,9 @@
+
+## 2026-05-29 — NonCommodity Guard: visible "Fixed" state
+- Passed rules now render with emerald background tint, filled green checkmark badge, and a "✓ Fixed" label so it is immediately clear which rules have been remediated.
+- Failing rules unchanged (red X + Fix this button).
+- Files: src/components/NonCommodityComplianceChecker.tsx
+- Verify: trigger a fix on a failing rule and confirm the row flips to green with the Fixed label once content updates.
 ## 2026-05-29 - Raise Rule 4 threshold from ≥3 to ≥5 data points
 
 **What:**
