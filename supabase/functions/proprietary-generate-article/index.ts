@@ -935,20 +935,50 @@ function refsToMarkdown(refs: Array<{ title: string; url?: string }>): string {
   }).join("\n");
 }
 
+// BUILD-2026-05-29-P: Dedupe refs by hostname+path (case-insensitive, ignoring
+// www. and trailing slash) and drop entries whose URL is malformed or not https?.
+// Refs without any URL are kept as plain bullets, deduped by title.
+function dedupeAndValidateRefs(
+  refs: Array<{ title: string; url?: string }>,
+): Array<{ title: string; url?: string }> {
+  const seen = new Set<string>();
+  const out: Array<{ title: string; url?: string }> = [];
+  for (const ref of refs) {
+    const title = (ref.title || "").trim();
+    if (!title) continue;
+    const rawUrl = (ref.url || "").trim();
+    let key: string;
+    let normalisedUrl: string | undefined;
+    if (rawUrl) {
+      if (!/^https?:\/\//i.test(rawUrl)) continue;
+      try {
+        const u = new URL(rawUrl);
+        const host = u.hostname.replace(/^www\./i, "").toLowerCase();
+        const path = u.pathname.replace(/\/+$/, "");
+        if (!host) continue;
+        key = `url:${host}${path}`;
+        normalisedUrl = rawUrl;
+      } catch {
+        continue;
+      }
+    } else {
+      key = `title:${title.toLowerCase()}`;
+    }
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({ title, url: normalisedUrl });
+  }
+  return out;
+}
+
 function injectReferences(markdown: string, units: BrainUnit[], sourceReferences: SourceReference[] = []): string {
   if (/^##\s+references/im.test(markdown)) return markdown;
   const corpus = [
     markdown,
     ...units.map((u) => `${u.summary || ""}\n${u.full_text || ""}`),
   ].join("\n");
-  const seen = new Set<string>();
   const links = extractUrls(corpus).map((l) => ({ title: l.title, url: l.url }));
-  const references = [...sourceReferences, ...links].filter((ref) => {
-    const key = `${ref.url || "file"}:${ref.title}`.toLowerCase().trim();
-    if (!ref.title.trim() || seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  }).slice(0, 8);
+  const references = dedupeAndValidateRefs([...sourceReferences, ...links]).slice(0, 8);
   if (references.length === 0) return markdown;
   return `${markdown.trimEnd()}\n\n## References\n\n${refsToMarkdown(references)}\n`;
 }
@@ -1016,7 +1046,7 @@ function trustedFallbackSources(topic: string): BrainUrl[] {
 
 function ensureTrustedReferences(markdown: string, topic: string): string {
   if (/^##\s+references/im.test(markdown)) return markdown;
-  const sources = trustedFallbackSources(topic);
+  const sources = dedupeAndValidateRefs(trustedFallbackSources(topic));
   if (sources.length === 0) return markdown;
   return `${markdown.trimEnd()}\n\n## References\n\n${refsToMarkdown(sources)}\n`;
 }

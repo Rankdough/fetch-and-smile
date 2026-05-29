@@ -1,3 +1,18 @@
+## 2026-05-29 - References: hostname+path dedupe + URL validation (BUILD-2026-05-29-P)
+
+**What:**
+- `supabase/functions/proprietary-generate-article/index.ts`: added `dedupeAndValidateRefs(refs)`. Deduplicates by lowercased `hostname` (www. stripped) + `pathname` (trailing slash stripped); drops refs whose URL is not `^https?://` or fails `new URL()` parsing; refs without any URL are kept as plain bullets and deduped by lowercased title. `injectReferences` and `ensureTrustedReferences` now route every ref through this validator before emission. `refsToMarkdown` still owns final markdown rendering.
+
+**Why:** Previous dedupe key (`url:title`) let the same URL through twice when titles differed, and let through `mailto:`, relative, or malformed URLs unchanged. The new key guarantees one entry per distinct page and rejects anything that wouldn't render as a clickable `https://` link.
+
+**Verified broken:** Nothing verified broken. Checked: `deno check` on the edge function passes; `rg "escapeHtml|renderReferenceItem|renderReferencesList" supabase/functions/` returns zero hits; live `supabase--curl_edge_functions` call to deployed `proprietary-generate-article` for topic "dental implants overview" returned a clean References block — 6 pure markdown bullets, 3 valid `https://` links (FDA, NCBI, PMC), 3 plain-title context refs, zero `<ul>/<li>/<a` tags, zero duplicates. Inline source stripping (`stripInlineSourceFragments`) and the frontend cache scrubber from BUILD-O are unchanged and still active.
+
+**Files:** `supabase/functions/proprietary-generate-article/index.ts`, `CHANGELOG.md`.
+
+**Verify:** Generate any proprietary article whose topic resolves trusted fallback sources or has brain URLs — References block renders as bulleted clickable markdown only; same-URL duplicates collapse to one entry; any non-https or malformed entry is silently dropped.
+
+---
+
 ## 2026-05-29 - References root-cause fix: pure markdown + cache scrubber (BUILD-2026-05-29-O)
 
 **What:**
