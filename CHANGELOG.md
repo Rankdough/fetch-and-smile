@@ -1,3 +1,23 @@
+## 2026-05-29 - proprietary articles: References rendered as HTML anchors (BUILD-2026-05-29-H)
+
+**What:**
+- `supabase/functions/proprietary-generate-article/index.ts`:
+  - Added helpers `escapeHtml`, `renderReferenceItem(title, url?)`, `renderReferencesList(items)`.
+  - `injectReferences` and `ensureTrustedReferences` now emit a raw HTML `<ul>` block. Each reference with an `http(s)` URL is rendered as `<li style="..."><a href="..." target="_blank" rel="noopener noreferrer" style="color:#2563eb;text-decoration:underline;">title</a></li>`; references without a URL fall back to a styled plain-text `<li>`. Titles and URLs are HTML-escaped.
+  - Build marker bumped to `BUILD-2026-05-29-H`. `deno check` passes.
+
+**Why:** Cleaned reference titles were rendering as inert text inside `<li>` tags because some downstream paths surfaced the References block before markdown link parsing. Emitting raw HTML anchors guarantees clickable links regardless of which renderer touches the References section.
+
+**What may break:** Any consumer that post-processed the References block as pure markdown list items (`- [title](url)`) will now see a raw HTML `<ul>` instead. Verified: `marked.parse` (client-side `markdownToStyledHtml`) passes raw HTML through unchanged.
+
+**Files:**
+- supabase/functions/proprietary-generate-article/index.ts
+- CHANGELOG.md
+
+**Verify:** Generate any proprietary article; the footer `## References` section now contains a `<ul>` whose `<li>` rows each wrap an `<a href>` with blue underline styling and `target="_blank"`.
+
+---
+
 ## 2026-05-29 - proprietary articles: table unwrap, citation hygiene, Rule-5 repair gate (BUILD-2026-05-29-G)
 
 **What:**

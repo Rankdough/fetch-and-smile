@@ -832,6 +832,32 @@ function extractUrls(text: string): Array<{ url: string; title: string }> {
   return out;
 }
 
+// BUILD-2026-05-29-H: References list items are emitted as raw HTML <li><a>
+// anchors (wrapped in <ul>) so they render as clickable hyperlinks regardless
+// of how the downstream markdown→HTML pipeline handles list items. Markdown
+// parsers (marked) preserve raw inline HTML blocks unchanged.
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function renderReferenceItem(title: string, url?: string): string {
+  const safeTitle = escapeHtml(title.trim());
+  if (url && /^https?:\/\//i.test(url)) {
+    const safeUrl = escapeHtml(url.trim());
+    return `<li style="margin: 8px 0; line-height: 1.6; color: #374151;"><a href="${safeUrl}" target="_blank" rel="noopener noreferrer" style="color: #2563eb; text-decoration: underline;">${safeTitle}</a></li>`;
+  }
+  return `<li style="margin: 8px 0; line-height: 1.6; color: #374151;">${safeTitle}</li>`;
+}
+
+function renderReferencesList(items: string[]): string {
+  return `<ul style="margin: 0; padding-left: 20px; list-style: disc;">\n${items.join("\n")}\n</ul>`;
+}
+
 function injectReferences(markdown: string, units: BrainUnit[], sourceReferences: SourceReference[] = []): string {
   if (/^##\s+references/im.test(markdown)) return markdown;
   const corpus = [
@@ -847,8 +873,8 @@ function injectReferences(markdown: string, units: BrainUnit[], sourceReferences
     return true;
   }).slice(0, 8);
   if (references.length === 0) return markdown;
-  const items = references.map((ref) => ref.url ? `- [${ref.title}](${ref.url})` : `- ${ref.title}`).join("\n");
-  return `${markdown.trimEnd()}\n\n## References\n\n${items}\n`;
+  const items = references.map((ref) => renderReferenceItem(ref.title, ref.url));
+  return `${markdown.trimEnd()}\n\n## References\n\n${renderReferencesList(items)}\n`;
 }
 
 function trustedFallbackSources(topic: string): BrainUrl[] {
@@ -871,8 +897,8 @@ function ensureTrustedReferences(markdown: string, topic: string): string {
   if (/^##\s+references/im.test(markdown)) return markdown;
   const sources = trustedFallbackSources(topic);
   if (sources.length === 0) return markdown;
-  const items = sources.map((s) => `- [${s.title}](${s.url})`).join("\n");
-  return `${markdown.trimEnd()}\n\n## References\n\n${items}\n`;
+  const items = sources.map((s) => renderReferenceItem(s.title, s.url));
+  return `${markdown.trimEnd()}\n\n## References\n\n${renderReferencesList(items)}\n`;
 }
 
 async function insertInternalLinksIntoArticle(
@@ -1501,7 +1527,7 @@ async function runSection(input: {
 
 /* ── handler ──────────────────────────────────────────────────────────── */
 
-const BUILD_MARKER = "BUILD-2026-05-29-G proprietary-generate-article table-unwrap citation-hygiene lint5-repair-gate";
+const BUILD_MARKER = "BUILD-2026-05-29-H proprietary-generate-article references-html-anchors";
 Deno.serve(async (req) => {
   console.log(BUILD_MARKER);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
