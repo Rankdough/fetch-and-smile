@@ -986,6 +986,7 @@ function collectChunkUrls(chunks: RetrievedChunk[]): BrainUrl[] {
     }
   }
   return out;
+}
 
 async function collectSourceReferences(
   // deno-lint-ignore no-explicit-any
