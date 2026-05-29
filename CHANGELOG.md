@@ -1,4 +1,6 @@
 
+## 2026-05-29 — Verify-and-retry loop for Fix this / Fix all
+- Root cause of "still red after Fix": the deterministic checker is correct (Rule 1 still 51w, Rule 4 still 2 data points, Rule 7 still 3 hedges, Rule 8 still 0 numbers in top 30
 ## 2026-05-29 — Usefulness Rule 6: Source Citations & References
 - Adds Rule 6 to ContentUsefulnessChecker validating (a) a final ## References section with ≥3 markdown/HTML links, and (b) at least one inline citation link inside every body H2 section (TL;DR, Quick Tips, Nav, How to Choose, FAQ, Final Thoughts, References, Methodology excluded).
 - New optional contextFiles prop; component extracts up to 30 source URLs from context file contents and ships them to voice-edit-content inside the Fix this / Fix all instruction so the AI can append real citations without inventing URLs.
