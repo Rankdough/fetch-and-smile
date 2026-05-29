@@ -1,3 +1,4 @@
+- 2026-05-29: Recalibrated SourceGroundingChecker scoring to unigram-recall + bigram-presence with light stemming. Why: previous 5-word shingle matcher scored real paraphrased articles at <10% even when the content clearly derived from context files. What may break: scores will rise globally; the ≥50% benchmark is now reachable. Files: src/components/SourceGroundingChecker.tsx. Verify: grounding panel shows realistic % on existing article.
 
 ## 2026-05-29 — Deterministic paragraph density guard
 - What: Added a mechanical paragraph splitter to generation, voice edits, and the client clean-up path. Any prose paragraph over 55 words or 3 sentences is split at sentence boundaries before it is returned, saved, displayed, or persisted in localStorage.
