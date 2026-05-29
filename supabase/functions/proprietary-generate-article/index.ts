@@ -1046,7 +1046,7 @@ function trustedFallbackSources(topic: string): BrainUrl[] {
 
 function ensureTrustedReferences(markdown: string, topic: string): string {
   if (/^##\s+references/im.test(markdown)) return markdown;
-  const sources = trustedFallbackSources(topic);
+  const sources = dedupeAndValidateRefs(trustedFallbackSources(topic));
   if (sources.length === 0) return markdown;
   return `${markdown.trimEnd()}\n\n## References\n\n${refsToMarkdown(sources)}\n`;
 }
