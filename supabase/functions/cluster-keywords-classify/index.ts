@@ -114,7 +114,7 @@ RULES:
     ? (isAppendMode 
       ? "You are in APPEND mode. Assign keywords to existing silos whenever possible. You may create AT MOST 3 new silos — fewer is better. If all keywords share a theme, put them in ONE silo." 
       : "Prefer assigning keywords to existing silos. Only create new silos if keywords genuinely don't fit any existing silo.")
-    : "Create at most 20 topic silos. HARD LIMIT: 20 silos maximum. If you have more than 20 potential groups, merge the smallest/most-similar ones until you have exactly 20 or fewer."}
+    : "Create between 15 and 35 topic silos. HARD LIMIT: 35 silos maximum. Preserve meaningful sub-themes (e.g. distinct modifiers like 'bat rules', 'pitching rules', 'glove sizing') as their own silo when at least 3 keywords share that modifier — do NOT collapse them into the broader parent. Only merge silos that describe genuinely the same intent."}
 - Every keyword must be assigned to exactly one topic
 - Topic names MUST be based on the main/highest-volume keywords in that silo — use the actual keyword phrases as silo names (e.g. "dental implants cost" not "Dental Implant Pricing Information")
 - Numbers in brackets are search volumes — use them to inform grouping but don't output them
