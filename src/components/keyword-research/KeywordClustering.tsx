@@ -1643,7 +1643,7 @@ const KeywordClustering = () => {
     }
   };
 
-  const createCustomIdea = async (clusterTopic: string, title: string) => {
+  const createCustomIdea = async (clusterTopic: string, title: string, hint?: string, autoBookmark?: boolean) => {
     if (!result || !title.trim()) return;
     const cluster = result.clusters.find(c => c.topic === clusterTopic);
     if (!cluster) return;
