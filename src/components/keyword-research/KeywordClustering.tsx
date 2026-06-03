@@ -1666,6 +1666,7 @@ const KeywordClustering = () => {
           singleIdea: true,
           focusKeyword: allKws[0],
           customTitle: title.trim(),
+          customHint: hint?.trim() || undefined,
         },
       });
 
