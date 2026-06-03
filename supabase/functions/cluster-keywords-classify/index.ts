@@ -111,7 +111,7 @@ CRITICAL GROUPING LOGIC:
 RULES:
 - ${allKnownSilos.length > 0 
     ? (isAppendMode 
-      ? "You are in APPEND mode. Assign keywords to existing silos whenever possible. You may create AT MOST 3 new silos — fewer is better. If all keywords share a theme, put them in ONE silo." 
+      ? "You are in APPEND mode. The added batch MUST end up in AT MOST 3 silos total (existing or new combined). Prefer existing silos. If all keywords share a theme, put them in ONE silo." 
       : "Prefer assigning keywords to existing silos. Only create new silos if keywords genuinely don't fit any existing silo.")
     : "Create between 15 and 35 topic silos. HARD LIMIT: 35 silos maximum. Preserve meaningful sub-themes (e.g. distinct modifiers like 'bat rules', 'pitching rules', 'glove sizing') as their own silo when at least 3 keywords share that modifier — do NOT collapse them into the broader parent. Only merge silos that describe genuinely the same intent."}
 - Every keyword must be assigned to exactly one topic
