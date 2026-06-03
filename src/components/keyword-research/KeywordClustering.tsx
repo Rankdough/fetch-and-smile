@@ -692,30 +692,125 @@ const KeywordClustering = () => {
     abortRef.current = controller;
 
     try {
-      // PASS 1: Classify keywords into topics
-      const classifyResponse = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/cluster-keywords-classify`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-          },
-          body: JSON.stringify({ 
-            keywords,
-            volumeMap: Object.keys(volumeMap).length > 0 ? volumeMap : undefined,
-            suggestedTopics: suggestedSilos.trim() ? suggestedSilos.split("\n").map(s => s.trim()).filter(Boolean) : undefined,
-          }),
-          signal: controller.signal,
-        }
-      );
+      let classifyData: { clusters: any[]; total_keywords_clustered: number; unclustered: string[] };
 
-      if (!classifyResponse.ok) {
-        const errData = await classifyResponse.json().catch(() => ({}));
-        throw new Error(errData.error || `Classification failed: ${classifyResponse.status}`);
+      const CLIENT_ORCHESTRATION_THRESHOLD = 1500;
+      const CLIENT_BATCH_SIZE = 500;
+
+      if (keywords.length > CLIENT_ORCHESTRATION_THRESHOLD) {
+        // ─────────────────────────────────────────────────────────
+        // Client-orchestrated path (large datasets >1500 kws).
+        // Avoids edge-function timeouts by sending one batch per request,
+        // accumulating silos in the browser, then a single consolidate call.
+        // Falls back to single-call behavior on any phase error.
+        // ─────────────────────────────────────────────────────────
+        const totalBatches = Math.ceil(keywords.length / CLIENT_BATCH_SIZE);
+        const suggested = suggestedSilos.trim() ? suggestedSilos.split("\n").map(s => s.trim()).filter(Boolean) : undefined;
+        const accumulated: Record<string, string[]> = {};
+        const discoveredSilos: string[] = [];
+        const assignedSet = new Set<string>();
+
+        for (let i = 0; i < totalBatches; i++) {
+          const batchKws = keywords.slice(i * CLIENT_BATCH_SIZE, (i + 1) * CLIENT_BATCH_SIZE);
+          const resp = await fetch(
+            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/cluster-keywords-classify`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+              },
+              body: JSON.stringify({
+                phase: "classify-batch",
+                batchKeywords: batchKws,
+                volumeMap: Object.keys(volumeMap).length > 0 ? volumeMap : undefined,
+                suggestedTopics: suggested,
+                existingSilos: discoveredSilos,
+                batchIndex: i,
+                totalBatches,
+              }),
+              signal: controller.signal,
+            }
+          );
+          if (!resp.ok) {
+            const errData = await resp.json().catch(() => ({}));
+            throw new Error(errData.error || `Batch ${i + 1}/${totalBatches} failed: ${resp.status}`);
+          }
+          const { assignments } = await resp.json();
+          for (const [kw, topic] of Object.entries(assignments || {})) {
+            const t = String(topic).trim();
+            if (!t || ["other","others","miscellaneous","uncategorized","general"].includes(t.toLowerCase())) continue;
+            const kwLower = String(kw).toLowerCase();
+            if (!accumulated[t]) {
+              accumulated[t] = [];
+              if (!discoveredSilos.includes(t)) discoveredSilos.push(t);
+            }
+            accumulated[t].push(kwLower);
+            assignedSet.add(kwLower);
+          }
+          toast({
+            title: `Batch ${i + 1}/${totalBatches} classified`,
+            description: `${discoveredSilos.length} silos so far, ${assignedSet.size}/${keywords.length} keywords assigned`,
+          });
+        }
+
+        // Pass unassigned as "Other" so consolidate's reclassify pass can rescue them
+        const unassigned = keywords.filter(k => !assignedSet.has(k.toLowerCase()));
+        if (unassigned.length > 0) accumulated["Other"] = unassigned.map(k => k.toLowerCase());
+
+        setAnalysisStage("classify");
+        toast({ title: "Consolidating silos…", description: `Merging duplicates across ${discoveredSilos.length} silos` });
+
+        const consolidateResp = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/cluster-keywords-classify`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            },
+            body: JSON.stringify({
+              phase: "consolidate",
+              topicKeywords: accumulated,
+              volumeMap: Object.keys(volumeMap).length > 0 ? volumeMap : undefined,
+            }),
+            signal: controller.signal,
+          }
+        );
+        if (!consolidateResp.ok) {
+          const errData = await consolidateResp.json().catch(() => ({}));
+          throw new Error(errData.error || `Consolidation failed: ${consolidateResp.status}`);
+        }
+        classifyData = await consolidateResp.json();
+      } else {
+        // ─────────────────────────────────────────────────────────
+        // Default single-call path (≤1500 kws) — unchanged behavior.
+        // ─────────────────────────────────────────────────────────
+        const classifyResponse = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/cluster-keywords-classify`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            },
+            body: JSON.stringify({
+              keywords,
+              volumeMap: Object.keys(volumeMap).length > 0 ? volumeMap : undefined,
+              suggestedTopics: suggestedSilos.trim() ? suggestedSilos.split("\n").map(s => s.trim()).filter(Boolean) : undefined,
+            }),
+            signal: controller.signal,
+          }
+        );
+
+        if (!classifyResponse.ok) {
+          const errData = await classifyResponse.json().catch(() => ({}));
+          throw new Error(errData.error || `Classification failed: ${classifyResponse.status}`);
+        }
+
+        classifyData = await classifyResponse.json();
       }
 
-      const classifyData = await classifyResponse.json();
       
       // Stop after Pass 1 — show silo results immediately without blog ideas
       const siloResult: ClusteringResult = {
