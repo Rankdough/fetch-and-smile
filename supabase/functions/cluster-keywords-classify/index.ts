@@ -86,12 +86,11 @@ async function classifyBatch(
     if (isAppendMode) {
       siloBlock += `\n\nSTRICT APPEND RULES (YOU MUST FOLLOW THESE — NO EXCEPTIONS):
 - These keywords are being ADDED to an existing project. The silos above already exist.
-- STEP 1: For EACH keyword, check if it fits ANY existing silo. If yes, assign it there. Be generous — even loose thematic overlap counts.
-- STEP 2: Only keywords with ZERO connection to ANY existing silo can go into new silos.
-- STEP 3: Group ALL remaining keywords into AT MOST 3 new silos. If there are fewer than 10 unmatched keywords, use only 1 new silo.
-- HARD LIMIT: Maximum 3 new silo names in your output. If your output contains more than 3 silo names that are NOT in the existing list above, your response is INVALID.
-- Keywords that are variations of the same query (e.g. "X vs Y", "Y vs X", "X or Y") MUST go into the SAME silo.
-- Prefer assigning to existing silos even if the fit isn't perfect — creating new silos is a LAST RESORT.`;
+- HARD LIMIT: The entire batch of added keywords MUST be distributed across AT MOST 3 silos total (existing or new combined). If your output uses more than 3 distinct silo names, your response is INVALID.
+- STEP 1: Identify the 1-3 best-fitting silos for this batch. Prefer reusing existing silos from the list above when there is any thematic overlap.
+- STEP 2: Assign EVERY keyword to one of those 1-3 silos. Group loosely-related keywords together rather than spawning a new silo.
+- STEP 3: Only introduce a NEW silo name when a meaningful chunk of keywords has zero connection to any existing silo AND cannot be folded into another chosen silo. Even then, the total silo count for this batch must stay ≤ 3.
+- Keywords that are variations of the same query (e.g. "X vs Y", "Y vs X", "X or Y") MUST go into the SAME silo.`;
     } else {
       siloBlock += `\n\nYou may create new silos for keywords that don't fit any existing silo, but group related new keywords together — never one silo per keyword.`;
     }
