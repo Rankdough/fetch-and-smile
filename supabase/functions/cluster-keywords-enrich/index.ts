@@ -74,7 +74,10 @@ ${isCustom ? `- You are given the FULL list of keywords in this silo. Your job i
         ? c.keywords.map((kw: string) => `${kw} (${c.keyword_volumes[kw] ?? c.keyword_volumes[kw.toLowerCase()] ?? "?"})`)
         : c.keywords;
       const kwList = kwWithVols.join(", ");
-      const userMsg = `Cluster: "${c.topic}" (~${c.estimated_monthly_volume} monthly volume)\nAll keywords in silo (with search volume): ${kwList}\n\n${isCustom ? `Custom article title: "${customTitle}"\nFrom the keywords above, select ONLY those that are directly and specifically relevant to this exact article topic. Be very strict — topical mismatch is worse than having few keywords.` : `Focus keyword: "${focusKeyword}"`}`;
+      const hintBlock = isCustom && typeof customHint === "string" && customHint.trim()
+        ? `\n\nADDITIONAL CONTEXT FROM AUTHOR (use this to shape the angle, description, value promises, and keyword selection — DO NOT change the title):\n"""\n${customHint.trim()}\n"""`
+        : "";
+      const userMsg = `Cluster: "${c.topic}" (~${c.estimated_monthly_volume} monthly volume)\nAll keywords in silo (with search volume): ${kwList}\n\n${isCustom ? `Custom article title: "${customTitle}"\nFrom the keywords above, select ONLY those that are directly and specifically relevant to this exact article topic. Be very strict — topical mismatch is worse than having few keywords.` : `Focus keyword: "${focusKeyword}"`}${hintBlock}`;
 
       const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
