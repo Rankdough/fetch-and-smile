@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { NON_COMMODITY_TITLE_RULES } from "../_shared/nonCommodityTitleRules.ts";
+import { VALUE_PROMISE_RULES } from "../_shared/valuePromiseRules.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
