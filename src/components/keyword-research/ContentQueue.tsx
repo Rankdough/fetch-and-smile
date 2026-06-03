@@ -61,6 +61,8 @@ interface ContentQueueProps {
   onAddKeywordToIdea?: (clusterTopic: string, ideaTitle: string, keyword: string, sourceClusterTopic: string) => void;
   queueState: ContentQueueState;
   onUpdateQueueState: (updater: (prev: ContentQueueState) => ContentQueueState) => void;
+  onAddCustomIdea?: (clusterTopic: string, title: string, hint?: string) => void | Promise<void>;
+  isCreatingCustomIdea?: boolean;
 }
 
 const EditableTitleCQ = ({ title, onSave, className = "" }: { title: string; onSave: (newTitle: string) => void; className?: string }) => {
