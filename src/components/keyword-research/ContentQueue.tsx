@@ -132,6 +132,24 @@ const ContentQueue = ({ queuedIdeas, onUseForArticle, onRemoveFromQueue, formatV
   const [completedSort, setCompletedSort] = useState<"date-desc" | "date-asc" | "month">("date-desc");
   const [cqKwSearch, setCqKwSearch] = useState("");
 
+  // Add Custom Article dialog state
+  const [customDialogOpen, setCustomDialogOpen] = useState(false);
+  const [customTitle, setCustomTitle] = useState("");
+  const [customHint, setCustomHint] = useState("");
+  const [customSilo, setCustomSilo] = useState<string>("");
+  const siloOptions = useMemo(() => (allClusters || []).map(c => c.topic).filter(t => t && t !== "Other"), [allClusters]);
+  useEffect(() => {
+    if (customDialogOpen && !customSilo && siloOptions.length > 0) setCustomSilo(siloOptions[0]);
+  }, [customDialogOpen, customSilo, siloOptions]);
+
+  const submitCustomIdea = useCallback(async () => {
+    if (!onAddCustomIdea || !customTitle.trim() || !customSilo) return;
+    await onAddCustomIdea(customSilo, customTitle.trim(), customHint.trim() || undefined);
+    setCustomDialogOpen(false);
+    setCustomTitle("");
+    setCustomHint("");
+  }, [onAddCustomIdea, customTitle, customSilo, customHint]);
+
   interface NoteItem {
     text: string;
     createdAt: string;
