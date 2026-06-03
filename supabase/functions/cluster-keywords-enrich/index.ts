@@ -135,17 +135,7 @@ OUTPUT ONLY valid JSON, no markdown fences.
 JSON FORMAT:
 {"enrichments":[{"topic":"Exact Topic Name","description":"1-sentence description of this cluster","content_type":"blog_post|landing_page|guide|comparison|listicle|how_to","difficulty":"low|medium|high","priority":"high|medium|low","blog_ideas":[{"title":"...","description":"...","reason":"...","target_keywords":["keyword1","keyword2","keyword3"],"value_promises":["Promise 1","Promise 2","Promise 3","Promise 4","Promise 5"]}]}]}
 
-VALUE PROMISE RULES (apply to every blog idea):
-Value promises state what the reader will UNDERSTAND or be able to EVALUATE after reading — NOT what they will do.
-They must be tightly aligned with the target_keywords, naturally incorporating their search intent.
-1. Each promise describes a tangible OUTCOME the reader walks away with, tied to the keywords.
-2. Focus on: exact factors/criteria/components, clear comparisons between options, specific risks/mistakes/failure points, cost/performance/outcome differences, and what "good"/"safe"/"high-quality" looks like in real terms.
-3. Include structured thinking where relevant (comparison tables, breakdowns, checklists, benchmarks).
-4. Reflect the search intent behind the keywords (informational, commercial, or decision-making).
-5. Keep each value promise to ONE concise sentence.
-- Example: "The real per-square-metre construction costs for villas in Bali — broken down by material quality, location, and finish level."
-- Example: "How leasehold and freehold ownership structures compare — including legal risk, resale value, and long-term cost differences for foreign buyers."
-- BANNED: "Learn", "Understand", "Explore", "Discover", "Use", "Follow", "Check", "tips", "guide", action verbs directed at the reader, generic filler, revealing actual answers.
+${VALUE_PROMISE_RULES}
 
 BLOG IDEA TITLE RULES:
 ${NON_COMMODITY_TITLE_RULES}
