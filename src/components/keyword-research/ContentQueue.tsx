@@ -579,6 +579,7 @@ const ContentQueue = ({ queuedIdeas, onUseForArticle, onRemoveFromQueue, formatV
   }
 
   return (
+    <>
     <Collapsible defaultOpen>
       <Card className="border-primary/30 bg-primary/[0.02]">
         <CardHeader className="py-3">
