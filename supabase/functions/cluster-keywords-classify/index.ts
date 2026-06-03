@@ -487,7 +487,7 @@ serve(async (req) => {
         existing,
         LOVABLE_API_KEY,
         batchIndex || 0,
-        totalBatches || 1
+        incomingTotalBatches || 1
       );
       return new Response(JSON.stringify(result), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
