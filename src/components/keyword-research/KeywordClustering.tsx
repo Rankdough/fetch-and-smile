@@ -3693,7 +3693,10 @@ const KeywordClustering = () => {
               }}
               queueState={queueState}
               onUpdateQueueState={updateQueueState}
+              onAddCustomIdea={(clusterTopic, title, hint) => createCustomIdea(clusterTopic, title, hint, true)}
+              isCreatingCustomIdea={isCreatingCustomIdea}
             />
+
           );
         })()}
         </div>
