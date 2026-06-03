@@ -1119,6 +1119,8 @@ const ContentQueue = ({ queuedIdeas, onUseForArticle, onRemoveFromQueue, formatV
         </CollapsibleContent>
       </Card>
     </Collapsible>
+    {customIdeaDialog}
+    </>
   );
 };
 
