@@ -8,8 +8,11 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
-  ChevronDown, TrendingUp, ArrowRight, Search, Bookmark, FileText, Download, CheckCircle2, Plus, Loader2, Lightbulb, Pencil, Star, CalendarIcon, StickyNote, Trash2, X,
+  ChevronDown, TrendingUp, ArrowRight, Search, Bookmark, FileText, Download, CheckCircle2, Plus, Loader2, Lightbulb, Pencil, Star, CalendarIcon, StickyNote, Trash2, X, FilePlus2,
 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
