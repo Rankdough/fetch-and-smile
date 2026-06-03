@@ -687,9 +687,9 @@ JSON FORMAT:
     // absorbs tiny silos (≤2 keywords or <50 vol) into the closest larger silo.
     // Loops up to 3 passes until silo count ≤ MAX_SILOS.
     // ═══════════════════════════════════════════════
-    const MAX_SILOS = 20;
-    const TINY_KEYWORD_THRESHOLD = 2; // silos with ≤2 keywords are forced to merge
-    const TINY_VOLUME_THRESHOLD = 50; // or <50 total volume
+    const MAX_SILOS = 35;
+    const TINY_KEYWORD_THRESHOLD = 1; // only true singletons are forced to consider merging
+    const TINY_VOLUME_THRESHOLD = 10; // or <10 total volume
 
     const siloVolume = (name: string) => {
       const kws = topicKeywords[name] || [];
