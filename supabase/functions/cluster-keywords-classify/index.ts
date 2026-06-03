@@ -326,9 +326,9 @@ JSON FORMAT:
   }
 
   // Merge passes (mirrors default pipeline)
-  const MAX_SILOS = 20;
-  const TINY_KEYWORD_THRESHOLD = 2;
-  const TINY_VOLUME_THRESHOLD = 50;
+  const MAX_SILOS = 35;
+  const TINY_KEYWORD_THRESHOLD = 1;
+  const TINY_VOLUME_THRESHOLD = 10;
 
   const siloVolume = (name: string) => {
     const kws = topicKeywords[name] || [];
