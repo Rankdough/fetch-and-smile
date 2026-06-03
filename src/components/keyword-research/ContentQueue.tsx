@@ -8,8 +8,11 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
-  ChevronDown, TrendingUp, ArrowRight, Search, Bookmark, FileText, Download, CheckCircle2, Plus, Loader2, Lightbulb, Pencil, Star, CalendarIcon, StickyNote, Trash2, X,
+  ChevronDown, TrendingUp, ArrowRight, Search, Bookmark, FileText, Download, CheckCircle2, Plus, Loader2, Lightbulb, Pencil, Star, CalendarIcon, StickyNote, Trash2, X, FilePlus2,
 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
@@ -58,6 +61,8 @@ interface ContentQueueProps {
   onAddKeywordToIdea?: (clusterTopic: string, ideaTitle: string, keyword: string, sourceClusterTopic: string) => void;
   queueState: ContentQueueState;
   onUpdateQueueState: (updater: (prev: ContentQueueState) => ContentQueueState) => void;
+  onAddCustomIdea?: (clusterTopic: string, title: string, hint?: string) => void | Promise<void>;
+  isCreatingCustomIdea?: boolean;
 }
 
 const EditableTitleCQ = ({ title, onSave, className = "" }: { title: string; onSave: (newTitle: string) => void; className?: string }) => {
@@ -95,7 +100,7 @@ const EditableTitleCQ = ({ title, onSave, className = "" }: { title: string; onS
   );
 };
 
-const ContentQueue = ({ queuedIdeas, onUseForArticle, onRemoveFromQueue, formatVolume, projectName, allClusters, onReassignKeyword, onCreateIdeaFromKeyword, generatingIdeaForKw, onEditIdeaTitle, onAddKeywordToIdea, queueState, onUpdateQueueState }: ContentQueueProps) => {
+const ContentQueue = ({ queuedIdeas, onUseForArticle, onRemoveFromQueue, formatVolume, projectName, allClusters, onReassignKeyword, onCreateIdeaFromKeyword, generatingIdeaForKw, onEditIdeaTitle, onAddKeywordToIdea, queueState, onUpdateQueueState, onAddCustomIdea, isCreatingCustomIdea }: ContentQueueProps) => {
   // Returns YYYY-MM-DD in local timezone (avoids UTC shifting dates)
   const localDateStr = () => {
     const d = new Date();
@@ -126,6 +131,24 @@ const ContentQueue = ({ queuedIdeas, onUseForArticle, onRemoveFromQueue, formatV
   const [completedSectionOpen, setCompletedSectionOpen] = useState(true);
   const [completedSort, setCompletedSort] = useState<"date-desc" | "date-asc" | "month">("date-desc");
   const [cqKwSearch, setCqKwSearch] = useState("");
+
+  // Add Custom Article dialog state
+  const [customDialogOpen, setCustomDialogOpen] = useState(false);
+  const [customTitle, setCustomTitle] = useState("");
+  const [customHint, setCustomHint] = useState("");
+  const [customSilo, setCustomSilo] = useState<string>("");
+  const siloOptions = useMemo(() => (allClusters || []).map(c => c.topic).filter(t => t && t !== "Other"), [allClusters]);
+  useEffect(() => {
+    if (customDialogOpen && !customSilo && siloOptions.length > 0) setCustomSilo(siloOptions[0]);
+  }, [customDialogOpen, customSilo, siloOptions]);
+
+  const submitCustomIdea = useCallback(async () => {
+    if (!onAddCustomIdea || !customTitle.trim() || !customSilo) return;
+    await onAddCustomIdea(customSilo, customTitle.trim(), customHint.trim() || undefined);
+    setCustomDialogOpen(false);
+    setCustomTitle("");
+    setCustomHint("");
+  }, [onAddCustomIdea, customTitle, customSilo, customHint]);
 
   interface NoteItem {
     text: string;
@@ -345,15 +368,80 @@ const ContentQueue = ({ queuedIdeas, onUseForArticle, onRemoveFromQueue, formatV
     );
   };
 
+  const customIdeaDialog = onAddCustomIdea ? (
+    <Dialog open={customDialogOpen} onOpenChange={(open) => { setCustomDialogOpen(open); if (!open) { setCustomTitle(""); setCustomHint(""); } }}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Add Custom Article to Content Queue</DialogTitle>
+          <p className="text-sm text-muted-foreground">
+            Give a title and any angle/edge you have in mind. We'll generate the description, value promises, and pick the most relevant keywords from the chosen silo. The article is added to the queue automatically.
+          </p>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div className="space-y-1.5">
+            <Label className="text-xs font-semibold">Title</Label>
+            <Input
+              placeholder="e.g. The Ultimate Drop Physics: A Data-Driven Guide to Baseball Bat Performance"
+              value={customTitle}
+              onChange={e => setCustomTitle(e.target.value)}
+              autoFocus
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs font-semibold">Silo</Label>
+            <Select value={customSilo} onValueChange={setCustomSilo}>
+              <SelectTrigger><SelectValue placeholder="Select silo" /></SelectTrigger>
+              <SelectContent>
+                {siloOptions.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs font-semibold">Angle / Edge / Notes <span className="text-muted-foreground font-normal">(optional)</span></Label>
+            <Textarea
+              rows={5}
+              placeholder="e.g. A data study comparing swing speed, exit velocity, and barrel control across -13, -10, and -5 drop bats. Includes lab testing and expert teardown of popular models."
+              value={customHint}
+              onChange={e => setCustomHint(e.target.value)}
+            />
+            <p className="text-[11px] text-muted-foreground">Used to shape the angle, value promises, and keyword selection. Title is preserved exactly.</p>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => setCustomDialogOpen(false)}>Cancel</Button>
+          <Button
+            onClick={submitCustomIdea}
+            disabled={!customTitle.trim() || !customSilo || !!isCreatingCustomIdea}
+            className="gap-1.5"
+          >
+            {isCreatingCustomIdea ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FilePlus2 className="h-3.5 w-3.5" />}
+            {isCreatingCustomIdea ? "Generating..." : "Generate & Add to Queue"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  ) : null;
+
   if (queuedIdeas.length === 0) return (
-    <Card className="border-dashed border-muted-foreground/30">
-      <CardContent className="py-8 text-center">
-        <FileText className="h-8 w-8 text-muted-foreground/40 mx-auto mb-2" />
-        <p className="text-sm text-muted-foreground">Content Queue is empty</p>
-        <p className="text-xs text-muted-foreground/60 mt-1">Bookmark blog ideas using the <Bookmark className="h-3 w-3 inline" /> icon to add them here</p>
-      </CardContent>
-    </Card>
+    <>
+      <Card className="border-dashed border-muted-foreground/30">
+        <CardContent className="py-8 text-center">
+          <FileText className="h-8 w-8 text-muted-foreground/40 mx-auto mb-2" />
+          <p className="text-sm text-muted-foreground">Content Queue is empty</p>
+          <p className="text-xs text-muted-foreground/60 mt-1">Bookmark blog ideas using the <Bookmark className="h-3 w-3 inline" /> icon to add them here</p>
+          {onAddCustomIdea && siloOptions.length > 0 && (
+            <Button variant="outline" size="sm" className="mt-4 gap-1.5" onClick={() => setCustomDialogOpen(true)}>
+              <FilePlus2 className="h-3.5 w-3.5" />
+              Add Custom Article
+            </Button>
+          )}
+        </CardContent>
+      </Card>
+      {customIdeaDialog}
+    </>
   );
+
+
 
   const copyDeepResearch = (cluster: KeywordCluster, idea: BlogIdea) => {
     const prompt = buildDeepResearchPrompt({
@@ -491,6 +579,7 @@ const ContentQueue = ({ queuedIdeas, onUseForArticle, onRemoveFromQueue, formatV
   }
 
   return (
+    <>
     <Collapsible defaultOpen>
       <Card className="border-primary/30 bg-primary/[0.02]">
         <CardHeader className="py-3">
@@ -501,6 +590,17 @@ const ContentQueue = ({ queuedIdeas, onUseForArticle, onRemoveFromQueue, formatV
               <Badge variant="default" className="text-[10px]">{queuedIdeas.length}</Badge>
             </CardTitle>
             <div className="flex items-center gap-2">
+              {onAddCustomIdea && siloOptions.length > 0 && (
+                <Button
+                  variant="default"
+                  size="sm"
+                  className="gap-1.5 text-xs h-7 px-2"
+                  onClick={() => setCustomDialogOpen(true)}
+                >
+                  <FilePlus2 className="h-3 w-3" />
+                  Add Custom Article
+                </Button>
+              )}
               <Button
                 variant="outline"
                 size="sm"
@@ -1019,6 +1119,8 @@ const ContentQueue = ({ queuedIdeas, onUseForArticle, onRemoveFromQueue, formatV
         </CollapsibleContent>
       </Card>
     </Collapsible>
+    {customIdeaDialog}
+    </>
   );
 };
 

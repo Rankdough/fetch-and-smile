@@ -1643,7 +1643,7 @@ const KeywordClustering = () => {
     }
   };
 
-  const createCustomIdea = async (clusterTopic: string, title: string) => {
+  const createCustomIdea = async (clusterTopic: string, title: string, hint?: string, autoBookmark?: boolean) => {
     if (!result || !title.trim()) return;
     const cluster = result.clusters.find(c => c.topic === clusterTopic);
     if (!cluster) return;
@@ -1666,6 +1666,7 @@ const KeywordClustering = () => {
           singleIdea: true,
           focusKeyword: allKws[0],
           customTitle: title.trim(),
+          customHint: hint?.trim() || undefined,
         },
       });
 
@@ -1722,7 +1723,11 @@ const KeywordClustering = () => {
       setResult(updatedResult);
       setCustomIdeaSilo(null);
       setCustomIdeaTitle("");
-      toast({ title: "Custom idea created", description: `"${title.trim()}" added to ${clusterTopic}` });
+      if (autoBookmark) {
+        const key = makeIdeaKey(clusterTopic, title.trim());
+        updateQueueState(prev => prev.bookmarked.includes(key) ? prev : { ...prev, bookmarked: [...prev.bookmarked, key] });
+      }
+      toast({ title: "Custom idea created", description: `"${title.trim()}" added to ${clusterTopic}${autoBookmark ? " and Content Queue" : ""}` });
 
       if (activeResultId) {
         await supabase
@@ -3688,7 +3693,10 @@ const KeywordClustering = () => {
               }}
               queueState={queueState}
               onUpdateQueueState={updateQueueState}
+              onAddCustomIdea={(clusterTopic, title, hint) => createCustomIdea(clusterTopic, title, hint, true)}
+              isCreatingCustomIdea={isCreatingCustomIdea}
             />
+
           );
         })()}
         </div>
