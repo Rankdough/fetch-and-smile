@@ -1723,7 +1723,11 @@ const KeywordClustering = () => {
       setResult(updatedResult);
       setCustomIdeaSilo(null);
       setCustomIdeaTitle("");
-      toast({ title: "Custom idea created", description: `"${title.trim()}" added to ${clusterTopic}` });
+      if (autoBookmark) {
+        const key = makeIdeaKey(clusterTopic, title.trim());
+        updateQueueState(prev => prev.bookmarked.includes(key) ? prev : { ...prev, bookmarked: [...prev.bookmarked, key] });
+      }
+      toast({ title: "Custom idea created", description: `"${title.trim()}" added to ${clusterTopic}${autoBookmark ? " and Content Queue" : ""}` });
 
       if (activeResultId) {
         await supabase
