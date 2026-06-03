@@ -353,18 +353,18 @@ JSON FORMAT:
       .join("\n");
     const tinyList = siloSummaries.filter((s) => s.count <= TINY_KEYWORD_THRESHOLD || s.volume < TINY_VOLUME_THRESHOLD);
 
-    const mergeSystem = `You are a senior SEO strategist consolidating a fragmented topic silo list. The same theme has likely been split across multiple silos by parallel batches.
+    const mergeSystem = `You are a senior SEO strategist consolidating a fragmented topic silo list. Some silos may describe genuinely the same theme; others are legitimate sub-themes that must be PRESERVED.
 
 CURRENT SILOS (${siloNames.length} total — must end with at most ${MAX_SILOS}):
 ${siloList}
 
 YOUR JOB:
-1. Identify silos describing the SAME or OVERLAPPING theme and merge them into ONE.
-2. Absorb every TINY silo (≤${TINY_KEYWORD_THRESHOLD} keywords OR <${TINY_VOLUME_THRESHOLD} volume) into the closest larger silo.
+1. Merge ONLY silos that describe genuinely the SAME intent (e.g. "what is archery" + "archery basics" + "introduction to archery"). Different modifiers = different silos: a "bat rules" silo, a "pitching rules" silo, and a "glove sizing" silo are SEPARATE silos even if they share a parent topic.
+2. Absorb singleton silos (≤${TINY_KEYWORD_THRESHOLD} keyword AND <${TINY_VOLUME_THRESHOLD} volume) into the closest larger silo, but ONLY if there is a clear thematic match. If no good match exists, leave it.
 3. Prefer the largest/highest-volume silo of each theme as the target name.
-4. Final silo count MUST be ≤ ${MAX_SILOS}.
+4. Final silo count MUST be ≤ ${MAX_SILOS}, but you are NOT required to hit ${MAX_SILOS} — fewer merges is better than wrong merges.
 
-Tiny silos that MUST be merged:
+Tiny silos to consider merging (only if a real thematic match exists):
 ${tinyList.length > 0 ? tinyList.map((s) => `- "${s.name}" (${s.count} kws, ~${s.volume} vol)`).join("\n") : "(none)"}
 
 OUTPUT RULES:
