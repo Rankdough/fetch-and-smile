@@ -589,6 +589,17 @@ const ContentQueue = ({ queuedIdeas, onUseForArticle, onRemoveFromQueue, formatV
               <Badge variant="default" className="text-[10px]">{queuedIdeas.length}</Badge>
             </CardTitle>
             <div className="flex items-center gap-2">
+              {onAddCustomIdea && siloOptions.length > 0 && (
+                <Button
+                  variant="default"
+                  size="sm"
+                  className="gap-1.5 text-xs h-7 px-2"
+                  onClick={() => setCustomDialogOpen(true)}
+                >
+                  <FilePlus2 className="h-3 w-3" />
+                  Add Custom Article
+                </Button>
+              )}
               <Button
                 variant="outline"
                 size="sm"
