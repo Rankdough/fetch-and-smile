@@ -219,16 +219,61 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { keywords, volumeMap, suggestedTopics } = await req.json();
+    const body = await req.json();
+    const { keywords, volumeMap, suggestedTopics, phase, batchKeywords, existingSilos, batchIndex, totalBatches, topicKeywords: incomingTopicKeywords } = body;
 
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
+
+    // ═══════════════════════════════════════════════
+    // PHASE: classify-batch — process ONE batch only, no consolidation.
+    // Used by the client when orchestrating large datasets (>1500 kws) to avoid
+    // edge-function timeouts. Default behavior (no phase) is unchanged.
+    // ═══════════════════════════════════════════════
+    if (phase === "classify-batch") {
+      if (!Array.isArray(batchKeywords) || batchKeywords.length === 0) {
+        return new Response(JSON.stringify({ error: "batchKeywords required for classify-batch phase" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const hasVol = volumeMap && Object.keys(volumeMap).length > 0;
+      const suggested = Array.isArray(suggestedTopics) && suggestedTopics.length > 0 ? suggestedTopics : null;
+      const existing = Array.isArray(existingSilos) ? existingSilos : [];
+      const result = await classifyBatchResilient(
+        batchKeywords.map((k: string) => k.toLowerCase().trim()),
+        volumeMap || null,
+        hasVol,
+        suggested,
+        existing,
+        LOVABLE_API_KEY,
+        batchIndex || 0,
+        totalBatches || 1
+      );
+      return new Response(JSON.stringify(result), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // ═══════════════════════════════════════════════
+    // PHASE: consolidate — accept accumulated topicKeywords, run merge + reclassify, return clusters.
+    // ═══════════════════════════════════════════════
+    if (phase === "consolidate") {
+      if (!incomingTopicKeywords || typeof incomingTopicKeywords !== "object") {
+        return new Response(JSON.stringify({ error: "topicKeywords required for consolidate phase" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      return await runConsolidation(incomingTopicKeywords, volumeMap || null, LOVABLE_API_KEY);
+    }
+
+    // ═══════════════════════════════════════════════
+    // DEFAULT PHASE: original single-call full pipeline (unchanged behavior).
+    // ═══════════════════════════════════════════════
     if (!keywords || !Array.isArray(keywords) || keywords.length === 0) {
       return new Response(JSON.stringify({ error: "Please provide an array of keywords" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
     const uniqueKeywords = [...new Set(keywords.map((k: string) => k.toLowerCase().trim()))];
     const hasVolume = volumeMap && Object.keys(volumeMap).length > 0;
