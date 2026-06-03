@@ -15,7 +15,7 @@ serve(async (req) => {
     // NOTE: `experiencePack` is accepted (back-compat) but intentionally ignored.
     // The non-commodity gate now applies to article generation only — blog ideas
     // are outline-level and have no slot for first-hand experience signals.
-    const { clusters, singleIdea, focusKeyword, customTitle } = body;
+    const { clusters, singleIdea, focusKeyword, customTitle, customHint } = body;
     const expPackBlock = "";
 
 
