@@ -215,6 +215,246 @@ async function classifyBatchResilient(
   }
 }
 
+// ═══════════════════════════════════════════════
+// Stand-alone consolidation runner for the client-orchestrated "consolidate" phase.
+// Mirrors the logic of the default pipeline's post-classification section
+// (re-classify Other + 3 merge passes + cluster build) without touching it.
+// ═══════════════════════════════════════════════
+async function runConsolidation(
+  incomingTopicKeywords: Record<string, string[]>,
+  volumeMap: Record<string, number> | null,
+  LOVABLE_API_KEY: string
+): Promise<Response> {
+  const hasVolume = volumeMap && Object.keys(volumeMap).length > 0;
+  const topicKeywords: Record<string, string[]> = {};
+  for (const [t, kws] of Object.entries(incomingTopicKeywords)) {
+    if (!Array.isArray(kws)) continue;
+    topicKeywords[t] = [...new Set(kws.map((k) => String(k).toLowerCase().trim()))];
+  }
+
+  let otherKeywords = topicKeywords["Other"] ? [...topicKeywords["Other"]] : [];
+  delete topicKeywords["Other"];
+  const existingTopics = Object.keys(topicKeywords);
+
+  console.log(`Consolidate phase: ${existingTopics.length} silos in, ${otherKeywords.length} unassigned`);
+
+  // Re-classify "Other" against existing silos
+  if (otherKeywords.length > 3 && existingTopics.length > 0) {
+    const reclassBatches = Math.ceil(otherKeywords.length / BATCH_SIZE);
+    const stillOther: string[] = [];
+    let totalRescued = 0;
+    const currentTopics = Object.keys(topicKeywords);
+    const allowNewSilos = otherKeywords.length >= 10;
+    const reclassifySystem = `You are an expert SEO strategist. These keywords were not properly classified in a first pass. Classify each one into the MOST RELEVANT existing silo.
+
+EXISTING SILOS:
+${currentTopics.map((t, idx) => `${idx + 1}. ${t}`).join("\n")}
+
+RULES:
+- Assign EVERY keyword to one of the existing silos above. Be generous — even loose thematic overlap counts.
+${allowNewSilos
+  ? "- You may create AT MOST 1 new silo, ONLY if at least 5 keywords share a clearly distinct theme that no existing silo covers."
+  : "- DO NOT create new silos. Force every keyword into the closest existing silo."}
+- Never put a single keyword into its own silo.
+- Only use "Other" as an absolute last resort.
+- Numbers in brackets are search volumes — don't output them.
+- Output ONLY valid JSON, no markdown fences.
+
+JSON FORMAT:
+{"assignments":{"keyword1":"Existing Silo Name",...}}`;
+
+    const reclassTasks: (() => Promise<{ batchKws: string[]; assignments: Record<string, string>; failed: boolean }>)[] = [];
+    for (let i = 0; i < reclassBatches; i++) {
+      const batchStart = i * BATCH_SIZE;
+      const batchKws = otherKeywords.slice(batchStart, batchStart + BATCH_SIZE);
+      const otherKwLines = batchKws.map((kw) => {
+        if (hasVolume && volumeMap![kw] > 0) return `${kw} [${volumeMap![kw]}]`;
+        return kw;
+      }).join("\n");
+      const reclassifyUser = `Classify these ${batchKws.length} keywords:\n\n${otherKwLines}`;
+
+      reclassTasks.push(async () => {
+        try {
+          const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+            method: "POST",
+            headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+            body: JSON.stringify({
+              model: "google/gemini-2.5-flash",
+              temperature: 0,
+              messages: [
+                { role: "system", content: reclassifySystem },
+                { role: "user", content: reclassifyUser },
+              ],
+            }),
+          });
+          if (!resp.ok) return { batchKws, assignments: {}, failed: true };
+          const data = await resp.json();
+          const content = data.choices?.[0]?.message?.content || "";
+          try {
+            const parsed = JSON.parse(cleanJson(content));
+            return { batchKws, assignments: parsed.assignments || {}, failed: false };
+          } catch {
+            return { batchKws, assignments: {}, failed: false };
+          }
+        } catch {
+          return { batchKws, assignments: {}, failed: true };
+        }
+      });
+    }
+
+    const reclassResults = await runWithConcurrency(reclassTasks, MAX_PARALLEL_BATCHES);
+    for (const { batchKws, assignments: reAssignments, failed } of reclassResults) {
+      if (failed) { stillOther.push(...batchKws); continue; }
+      for (const kw of batchKws) {
+        const topic = reAssignments[kw]?.trim() || reAssignments[kw.toLowerCase()]?.trim();
+        if (topic && !otherAliases.includes(topic.toLowerCase().trim())) {
+          if (!topicKeywords[topic]) topicKeywords[topic] = [];
+          topicKeywords[topic].push(kw);
+          totalRescued++;
+        } else {
+          stillOther.push(kw);
+        }
+      }
+    }
+    otherKeywords = stillOther;
+    console.log(`Consolidate re-classify: ${totalRescued} rescued, ${otherKeywords.length} still Other`);
+  }
+
+  if (otherKeywords.length > 0) {
+    if (!topicKeywords["Other"]) topicKeywords["Other"] = [];
+    topicKeywords["Other"].push(...otherKeywords);
+  }
+
+  // Merge passes (mirrors default pipeline)
+  const MAX_SILOS = 20;
+  const TINY_KEYWORD_THRESHOLD = 2;
+  const TINY_VOLUME_THRESHOLD = 50;
+
+  const siloVolume = (name: string) => {
+    const kws = topicKeywords[name] || [];
+    if (!hasVolume) return 0;
+    let v = 0;
+    for (const kw of kws) if (volumeMap![kw]) v += volumeMap![kw];
+    return v;
+  };
+
+  const runMergePass = async (label: string) => {
+    const siloNames = Object.keys(topicKeywords).filter((t) => t !== "Other");
+    if (siloNames.length === 0) return;
+    const siloSummaries = siloNames.map((name) => ({
+      name,
+      count: (topicKeywords[name] || []).length,
+      volume: siloVolume(name),
+      sampleKws: (topicKeywords[name] || []).slice(0, 6),
+    })).sort((a, b) => b.volume - a.volume || b.count - a.count);
+
+    const siloList = siloSummaries
+      .map((s) => `- "${s.name}" (${s.count} kws, ~${s.volume} vol) e.g. ${s.sampleKws.join(", ")}`)
+      .join("\n");
+    const tinyList = siloSummaries.filter((s) => s.count <= TINY_KEYWORD_THRESHOLD || s.volume < TINY_VOLUME_THRESHOLD);
+
+    const mergeSystem = `You are a senior SEO strategist consolidating a fragmented topic silo list. The same theme has likely been split across multiple silos by parallel batches.
+
+CURRENT SILOS (${siloNames.length} total — must end with at most ${MAX_SILOS}):
+${siloList}
+
+YOUR JOB:
+1. Identify silos describing the SAME or OVERLAPPING theme and merge them into ONE.
+2. Absorb every TINY silo (≤${TINY_KEYWORD_THRESHOLD} keywords OR <${TINY_VOLUME_THRESHOLD} volume) into the closest larger silo.
+3. Prefer the largest/highest-volume silo of each theme as the target name.
+4. Final silo count MUST be ≤ ${MAX_SILOS}.
+
+Tiny silos that MUST be merged:
+${tinyList.length > 0 ? tinyList.map((s) => `- "${s.name}" (${s.count} kws, ~${s.volume} vol)`).join("\n") : "(none)"}
+
+OUTPUT RULES:
+- Output a merge map. For every silo to be merged, give source → target (both EXACT existing names).
+- Output ONLY valid JSON, no markdown fences.
+
+JSON FORMAT:
+{"merges":{"Source Silo":"Target Silo", ...}}`;
+
+    console.log(`${label}: ${siloNames.length} silos, ${tinyList.length} tiny — merging...`);
+    try {
+      const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash",
+          temperature: 0,
+          messages: [
+            { role: "system", content: mergeSystem },
+            { role: "user", content: `Consolidate these ${siloNames.length} silos down to at most ${MAX_SILOS}.` },
+          ],
+        }),
+      });
+      if (!resp.ok) return;
+      const data = await resp.json();
+      const content = data.choices?.[0]?.message?.content || "";
+      let parsed: { merges: Record<string, string> };
+      try { parsed = JSON.parse(cleanJson(content)); } catch { return; }
+      const merges = parsed.merges || {};
+      const resolveTarget = (name: string, depth = 0): string => {
+        if (depth > 10) return name;
+        const next = merges[name];
+        if (!next || next === name) return name;
+        return resolveTarget(next, depth + 1);
+      };
+      let mergeCount = 0;
+      for (const source of Object.keys(merges)) {
+        const target = resolveTarget(source);
+        if (source === target) continue;
+        if (!topicKeywords[source]) continue;
+        if (!topicKeywords[target]) topicKeywords[target] = [];
+        topicKeywords[target].push(...topicKeywords[source]);
+        delete topicKeywords[source];
+        mergeCount++;
+      }
+      console.log(`${label}: merged ${mergeCount}, now ${Object.keys(topicKeywords).filter((t) => t !== "Other").length} silos`);
+    } catch (e) {
+      console.error(`${label} error (non-fatal):`, e);
+    }
+  };
+
+  const initialSilos = Object.keys(topicKeywords).filter((t) => t !== "Other");
+  const hasTiny = initialSilos.some((n) => (topicKeywords[n] || []).length <= TINY_KEYWORD_THRESHOLD || siloVolume(n) < TINY_VOLUME_THRESHOLD);
+  if (initialSilos.length > MAX_SILOS || hasTiny) await runMergePass("Consolidation pass 1");
+  if (Object.keys(topicKeywords).filter((t) => t !== "Other").length > MAX_SILOS) await runMergePass("Consolidation pass 2");
+  if (Object.keys(topicKeywords).filter((t) => t !== "Other").length > MAX_SILOS) await runMergePass("Consolidation pass 3");
+
+  const clusters = Object.entries(topicKeywords)
+    .map(([topic, kws]) => {
+      const dedupedKws = [...new Set(kws.map((k) => k.toLowerCase().trim()))];
+      let vol = 0;
+      const kwVols: Record<string, number> = {};
+      if (hasVolume) {
+        for (const kw of dedupedKws) {
+          if (volumeMap![kw] !== undefined) {
+            kwVols[kw] = volumeMap![kw];
+            vol += volumeMap![kw];
+          }
+        }
+      }
+      return {
+        topic,
+        keywords: dedupedKws,
+        estimated_monthly_volume: vol,
+        keyword_volumes: hasVolume ? kwVols : undefined,
+      };
+    })
+    .sort((a, b) => b.estimated_monthly_volume - a.estimated_monthly_volume || b.keywords.length - a.keywords.length);
+
+  const totalClustered = clusters.reduce((s, c) => s + c.keywords.length, 0);
+  const finalOther = topicKeywords["Other"] || [];
+  console.log(`Consolidate done: ${clusters.length} topics, ${totalClustered} keywords, ${finalOther.length} in Other`);
+
+  return new Response(JSON.stringify({ clusters, total_keywords_clustered: totalClustered, unclustered: finalOther }), {
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
+
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
