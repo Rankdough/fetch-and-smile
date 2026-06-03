@@ -1868,23 +1868,20 @@ const KeywordClustering = () => {
       const classifyData = await classifyResponse.json();
       let newClusters: KeywordCluster[] = classifyData.clusters || [];
 
-      // HARD CAP: If AI returned more than 3 new silos, merge extras into the largest new silo
-      const existingSiloNamesLower = new Set(result.clusters.map(c => c.topic.toLowerCase()));
-      const genuinelyNewSilos = newClusters.filter(nc => !existingSiloNamesLower.has(nc.topic.toLowerCase()));
-      const matchedSilos = newClusters.filter(nc => existingSiloNamesLower.has(nc.topic.toLowerCase()));
-
-      if (genuinelyNewSilos.length > 3) {
-        console.log(`Append returned ${genuinelyNewSilos.length} new silos — merging down to 3`);
-        // Sort by keyword count descending, keep top 3, merge rest into the largest
-        genuinelyNewSilos.sort((a, b) => b.keywords.length - a.keywords.length);
-        const kept = genuinelyNewSilos.slice(0, 3);
-        const merged = genuinelyNewSilos.slice(3);
+      // HARD CAP: the added batch may only touch AT MOST 3 silos total
+      // (existing or new combined). If more, keep the top 3 by keyword count
+      // and merge the rest into the largest.
+      if (newClusters.length > 3) {
+        console.log(`Append touched ${newClusters.length} silos — merging down to 3 total`);
+        newClusters.sort((a, b) => b.keywords.length - a.keywords.length);
+        const kept = newClusters.slice(0, 3);
+        const merged = newClusters.slice(3);
         for (const m of merged) {
           kept[0].keywords = [...kept[0].keywords, ...m.keywords];
           kept[0].keyword_volumes = { ...(kept[0].keyword_volumes || {}), ...(m.keyword_volumes || {}) };
           kept[0].estimated_monthly_volume = (kept[0].estimated_monthly_volume || 0) + (m.estimated_monthly_volume || 0);
         }
-        newClusters = [...matchedSilos, ...kept];
+        newClusters = kept;
       }
 
       // Merge new clusters into existing result
