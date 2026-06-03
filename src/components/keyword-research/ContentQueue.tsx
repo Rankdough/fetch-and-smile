@@ -368,15 +368,80 @@ const ContentQueue = ({ queuedIdeas, onUseForArticle, onRemoveFromQueue, formatV
     );
   };
 
+  const customIdeaDialog = onAddCustomIdea ? (
+    <Dialog open={customDialogOpen} onOpenChange={(open) => { setCustomDialogOpen(open); if (!open) { setCustomTitle(""); setCustomHint(""); } }}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Add Custom Article to Content Queue</DialogTitle>
+          <p className="text-sm text-muted-foreground">
+            Give a title and any angle/edge you have in mind. We'll generate the description, value promises, and pick the most relevant keywords from the chosen silo. The article is added to the queue automatically.
+          </p>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div className="space-y-1.5">
+            <Label className="text-xs font-semibold">Title</Label>
+            <Input
+              placeholder="e.g. The Ultimate Drop Physics: A Data-Driven Guide to Baseball Bat Performance"
+              value={customTitle}
+              onChange={e => setCustomTitle(e.target.value)}
+              autoFocus
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs font-semibold">Silo</Label>
+            <Select value={customSilo} onValueChange={setCustomSilo}>
+              <SelectTrigger><SelectValue placeholder="Select silo" /></SelectTrigger>
+              <SelectContent>
+                {siloOptions.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs font-semibold">Angle / Edge / Notes <span className="text-muted-foreground font-normal">(optional)</span></Label>
+            <Textarea
+              rows={5}
+              placeholder="e.g. A data study comparing swing speed, exit velocity, and barrel control across -13, -10, and -5 drop bats. Includes lab testing and expert teardown of popular models."
+              value={customHint}
+              onChange={e => setCustomHint(e.target.value)}
+            />
+            <p className="text-[11px] text-muted-foreground">Used to shape the angle, value promises, and keyword selection. Title is preserved exactly.</p>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => setCustomDialogOpen(false)}>Cancel</Button>
+          <Button
+            onClick={submitCustomIdea}
+            disabled={!customTitle.trim() || !customSilo || !!isCreatingCustomIdea}
+            className="gap-1.5"
+          >
+            {isCreatingCustomIdea ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FilePlus2 className="h-3.5 w-3.5" />}
+            {isCreatingCustomIdea ? "Generating..." : "Generate & Add to Queue"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  ) : null;
+
   if (queuedIdeas.length === 0) return (
-    <Card className="border-dashed border-muted-foreground/30">
-      <CardContent className="py-8 text-center">
-        <FileText className="h-8 w-8 text-muted-foreground/40 mx-auto mb-2" />
-        <p className="text-sm text-muted-foreground">Content Queue is empty</p>
-        <p className="text-xs text-muted-foreground/60 mt-1">Bookmark blog ideas using the <Bookmark className="h-3 w-3 inline" /> icon to add them here</p>
-      </CardContent>
-    </Card>
+    <>
+      <Card className="border-dashed border-muted-foreground/30">
+        <CardContent className="py-8 text-center">
+          <FileText className="h-8 w-8 text-muted-foreground/40 mx-auto mb-2" />
+          <p className="text-sm text-muted-foreground">Content Queue is empty</p>
+          <p className="text-xs text-muted-foreground/60 mt-1">Bookmark blog ideas using the <Bookmark className="h-3 w-3 inline" /> icon to add them here</p>
+          {onAddCustomIdea && siloOptions.length > 0 && (
+            <Button variant="outline" size="sm" className="mt-4 gap-1.5" onClick={() => setCustomDialogOpen(true)}>
+              <FilePlus2 className="h-3.5 w-3.5" />
+              Add Custom Article
+            </Button>
+          )}
+        </CardContent>
+      </Card>
+      {customIdeaDialog}
+    </>
   );
+
+
 
   const copyDeepResearch = (cluster: KeywordCluster, idea: BlogIdea) => {
     const prompt = buildDeepResearchPrompt({
