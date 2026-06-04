@@ -1735,7 +1735,7 @@ async function runSection(input: {
   // Scale token budget with the word budget so the model writes to the right length.
   // Floor at 600 (enough for a concise 90-word section), ceiling at 2400.
   const tokenBudget = isBody
-    ? Math.max(600, Math.min(2400, Math.round(input.sectionBudgetWords * 1.8)))
+    ? Math.max(800, Math.min(3200, Math.round(input.sectionBudgetWords * 2.5)))
     : input.section.kind === "tldr" ? 200 : 900;
   let content: string;
   if (isBody && input.businessType === "healthcare-clinical") {
@@ -1925,7 +1925,10 @@ Deno.serve(async (req) => {
       },
     ];
 
-    const fixedBudget = 40 + 70 + 45 + 120 + 55;
+    // fixedBudget: realistic estimate of words consumed by non-body sections
+    // opening(60) + tldr(70) + quicktips(50) + nav(40) + faq(300) + finalthoughts(80) = 600
+    // Using 550 to give body sections a slightly larger budget
+    const fixedBudget = 550;
     const bodySectionCount = plan.filter((s) => s.type === "body").length || 1;
     const sectionBudgetWords = Math.max(90, Math.round((targetWords - fixedBudget) / bodySectionCount));
 
