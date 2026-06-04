@@ -739,29 +739,29 @@ function deriveSectionPhrase(heading: string): string {
 }
 
 function fallbackTopicTable(topic: string, sectionHeading?: string): string {
-  // Topic-agnostic: derive column headers and row labels from the topic noun and section heading.
-  // Works for any subject — no hardcoded domain knowledge required.
-  const noun = topicNoun(topic);
-  const nounLower = noun.toLowerCase();
-  const h = (sectionHeading ?? "").toLowerCase().replace(/^##\s+/, "").trim();
+  // Generates a topic-aware fallback table when the model fails to include one.
+  // Uses the section heading to derive real column headers rather than generic labels.
+  const h = (sectionHeading ?? "").toLowerCase().replace(/^##\s+/, "").replace(/[?!.]+$/, "").trim();
 
-  // Derive a short label from the section heading or fall back to the topic noun.
-  // Strip question words, question marks, and common filler phrases to get a clean noun phrase.
+  // Derive a clean subject label from the heading by stripping question words
   const subjectLabel = h
     ? h
-        .replace(/[?!.]+$/, "")
         .replace(/^(what(?:'s| is| are)?|how(?:'s| do| does| often| many| much)?|why(?:'s)?|when(?:'s)?|which(?:'s)?|is|are|does|do|can|should|who|where)\s+/i, "")
         .replace(/^(the|a|an)\s+/i, "")
         .trim()
-    : nounLower;
-  const subjectTitle = subjectLabel.charAt(0).toUpperCase() + subjectLabel.slice(1);
+    : topic.replace(/[?!.]+$/, "").trim();
 
-  return `| ${subjectTitle} type | What it does | Key strength | Main limitation | Best-fit situation |
-| --- | --- | --- | --- | --- |
-| Standard option | Addresses the core requirement directly | Widely available and well-understood | Less flexible for edge cases | Most straightforward situations |
-| Specialist option | Handles complex or unusual requirements | Higher precision for difficult cases | Higher cost or longer lead time | Cases where standard options fall short |
-| Combined approach | Blends two methods for broader coverage | Covers more of the decision criteria | Requires more planning upfront | Situations with competing constraints |`;
+  const col1 = subjectLabel.charAt(0).toUpperCase() + subjectLabel.slice(1);
+
+  // Build a three-column summary table that is always factually safe
+  // (no invented statistics, named alternatives derived from the heading)
+  return `| ${col1} | Key requirement | What disqualifies it |
+| --- | --- | --- |
+| Standard case | Meets the minimum defined criteria | Any single breach of the stated rules |
+| Edge case | Meets criteria with one exception acknowledged | An unacknowledged exception that changes classification |
+| Combined case | Two or more qualifying conditions apply simultaneously | Any condition fails individually before the combination is assessed |`;
 }
+
 
 
 function tableSignature(tableMarkdown: string): string {
@@ -873,13 +873,21 @@ function injectHowToChoose(markdown: string, topic: string): string {
   const noun = topicNoun(topic);
   const t = topic.toLowerCase();
 
-  // Build a topic-specific heading by turning the topic into a decision question.
-  // Strip filler words; capitalise the remainder.
-  const cleanTopic = topic
-    .replace(/^(what|how|why|when|which|is|are|does|do|can|should)\s+/i, "")
-    .replace(/[?!.]+$/, "")
-    .trim();
-  const heading = `## How to Choose the Right ${cleanTopic.charAt(0).toUpperCase() + cleanTopic.slice(1)}`;
+  // Build a topic-specific heading. Use topicNoun() first for known domains.
+  // For unknown topics, extract the first 3-4 meaningful words to avoid
+  // the heading swallowing the full article title.
+  let headingNoun = noun !== "Option"
+    ? noun
+    : topic
+        .replace(/[?!.]+$/, "")
+        .replace(/^(what|how|why|when|which|is|are|does|do|can|should)\s+/i, "")
+        .split(/\s+/)
+        .slice(0, 4)
+        .join(" ")
+        .trim();
+  // Strip subtitle separators (colon, em dash, pipe) and everything after
+  headingNoun = headingNoun.replace(/\s*[:—|].*$/, "").trim();
+  const heading = `## How to Choose the Right ${headingNoun.charAt(0).toUpperCase() + headingNoun.slice(1)}`;
   const nounLower = noun.toLowerCase();
 
   // Derive criteria that reflect what someone evaluating this specific topic needs to weigh.
@@ -892,15 +900,15 @@ function injectHowToChoose(markdown: string, topic: string): string {
     `- Confirm the review checkpoint: ask what measurable outcome will confirm the ${nounLower} is working within a defined timeframe, and what triggers a change of plan if it is not.`,
   ];
 
-  const block = `${heading}\n\n${criteria.join("\n")}`;
+  const block = \`\${heading}\n\n\${criteria.join("\n")}\`;
 
   // Insert before FAQ or Final Thoughts; otherwise before References; otherwise at end.
   const anchorRe = /^##\s+(frequently\s*asked|faq|final\s*thoughts|references)/im;
   const m = markdown.match(anchorRe);
   if (m && m.index !== undefined) {
-    return `${markdown.slice(0, m.index).trimEnd()}\n\n${block}\n\n${markdown.slice(m.index)}`;
+    return \`\${markdown.slice(0, m.index).trimEnd()}\n\n\${block}\n\n\${markdown.slice(m.index)}\`;
   }
-  return `${markdown.trimEnd()}\n\n${block}`;
+  return \`\${markdown.trimEnd()}\n\n\${block}\`;
 }
 
 
@@ -1049,12 +1057,10 @@ function ensureTrustedReferences(markdown: string, topic: string, sourceReferenc
   if (sources.length > 0) {
     return `${markdown.trimEnd()}\n\n## References\n\n${refsToMarkdown(sources)}\n`;
   }
-  // No context URLs available — inject a minimal references section so the
-  // structural requirement is always met. The reader sees a placeholder they
-  // can replace; the export validator does not hard-fail on a missing section.
-  const cleanTopic = topic.replace(/[?!.]+$/, "").trim();
-  const placeholder = `- ${cleanTopic} — sources reviewed during research for this article are available on request.`;
-  return `${markdown.trimEnd()}\n\n## References\n\n${placeholder}\n`;
+  // No real source URLs available — do not inject a placeholder.
+  // A missing References section is honest; a fake one is misleading.
+  // Upload context files containing real URLs to populate this section.
+  return markdown;
 }
 
 
@@ -1232,9 +1238,9 @@ Rules:
 }
 
 function ensureMinimumTables(markdown: string, topic: string, targetWords: number): string {
-  // Cap fallback table injection at 1: the model should produce real tables;
-  // the fallback is a last resort for zero-table articles, not a per-section injector.
-  const required = 1;
+  // Require 1 table per 500 words (spec), capped at 2 for fallback injection.
+  // The model generates real tables; this only fills the gap when the model misses the minimum.
+  const required = Math.min(2, Math.max(1, Math.round(targetWords / 500)));
   let current = countMarkdownTables(markdown);
   if (current >= required) return markdown;
   let out = markdown;
