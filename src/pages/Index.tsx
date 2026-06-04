@@ -1811,24 +1811,10 @@ const Index = () => {
             const filtered = prev.filter(u => u !== ctaUrl.trim());
             return [ctaUrl.trim(), ...filtered].slice(0, 10);
           });
-          // Set generatedCTAs so the export path injects both middle and end CTAs.
-          // Use empty strings for headline/description — the CTABanner component
-          // renders correctly with just the URL and button text. Avoids the article
-          // title appearing as raw CTA headline copy.
-          if (!generatedCTAs) {
-            setGeneratedCTAs({
-              middle: {
-                headline: "",
-                description: "",
-                buttonText: "Learn More",
-              },
-              end: {
-                headline: "",
-                description: "",
-                buttonText: "Get Started",
-              },
-            });
-          }
+          // Proprietary mode embeds CTAs inline in the content via the edge function.
+          // Do NOT set generatedCTAs here — doing so causes a duplicate empty CTA
+          // to appear in the preview renderer at the end of the article.
+          // The inline CTAs from the proprietary pipeline are sufficient.
         }
         const validInternalUrls = internalLinks.filter((url) => url.trim()).map((url) => url.trim());
         if (validInternalUrls.length > 0) {
