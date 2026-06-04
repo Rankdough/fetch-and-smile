@@ -60,7 +60,7 @@ import { ContentUsefulnessChecker } from "@/components/ContentUsefulnessChecker"
 import { SourceGroundingChecker } from "@/components/SourceGroundingChecker";
 import { Switch } from "@/components/ui/switch";
 import { ArticleNavigationPanel, extractNavigationFromContent, generateNavigationHtml } from "@/components/ArticleNavigationPanel";
-import { FAQAccordion, extractFAQFromContent, removeFAQSection, generateFAQHtml } from "@/components/FAQAccordion";
+import { FAQAccordion, extractFAQFromContent, extractOrDeriveFAQ, removeFAQSection, generateFAQHtml } from "@/components/FAQAccordion";
 import { useSpeechToText } from "@/hooks/useSpeechToText";
 import { useCreditTracking } from "@/hooks/useCreditTracking";
 import { SectionIndicator } from "@/components/SectionIndicator";
@@ -2910,7 +2910,7 @@ const Index = () => {
                 
                 // Extract navigation and FAQ items from markdown
                 const navItems = getBestNavigationItems(generatedContent);
-                const faqItems = extractFAQFromContent(generatedContent);
+                const faqItems = extractOrDeriveFAQ(generatedContent);
                 
                 // Get article element for base HTML structure
                 const article = document.querySelector("article");
@@ -5434,7 +5434,7 @@ const Index = () => {
                         // Extract "In This Article" navigation items - robust parsing + fallback
                         const navItems = getBestNavigationItems(generatedContent);
                         // Extract FAQ items
-                        const faqItems = extractFAQFromContent(generatedContent);
+                        const faqItems = extractOrDeriveFAQ(generatedContent);
                         // Remove "In This Article" and FAQ sections from markdown for custom rendering
                         let contentWithoutNav = removeInThisArticleSection(generatedContent);
                         contentWithoutNav = removeFAQSection(contentWithoutNav);
