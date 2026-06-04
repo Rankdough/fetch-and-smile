@@ -2059,6 +2059,20 @@ Deno.serve(async (req) => {
     const usedUnitIds = new Set(sectionsOut.map(s => s.mappedUnitId).filter(Boolean));
     const usedUnits = units.filter(u => usedUnitIds.has(u.id));
     let sourceReferences = await collectSourceReferences(sb, usedUnits, allRetrievedChunks);
+    // Also extract URLs from context files passed directly in the request body.
+    // These are files uploaded in the UI that are not stored in Supabase context_documents.
+    if (body.contextFiles && body.contextFiles.length > 0) {
+      const seen = new Set(sourceReferences.map((r: SourceReference) => (r.url || "").toLowerCase()));
+      for (const cf of body.contextFiles) {
+        for (const link of extractUrls(cf.content || "")) {
+          const key = link.url.toLowerCase();
+          if (!seen.has(key)) {
+            seen.add(key);
+            sourceReferences.push({ title: link.title || cf.name, url: link.url });
+          }
+        }
+      }
+    }
     if (sourceReferences.length === 0) sourceReferences = await fallbackContextReferencesForTopic(sb, body.topic);
     if (sourceReferences.length > 0) console.log(`REFERENCES: collected ${sourceReferences.length} context source reference(s).`);
     const brainUrls = filterUrlsForTopic(collectBrainUrls(usedUnits), body.topic);
