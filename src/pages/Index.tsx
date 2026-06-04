@@ -5434,7 +5434,7 @@ const Index = () => {
                         // Extract "In This Article" navigation items - robust parsing + fallback
                         const navItems = getBestNavigationItems(generatedContent);
                         // Extract FAQ items
-                        const faqItems = extractFAQFromContent(generatedContent);
+                        const faqItems = extractOrDeriveFAQ(generatedContent);
                         // Remove "In This Article" and FAQ sections from markdown for custom rendering
                         let contentWithoutNav = removeInThisArticleSection(generatedContent);
                         contentWithoutNav = removeFAQSection(contentWithoutNav);
