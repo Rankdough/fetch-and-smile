@@ -1,3 +1,15 @@
+## 2026-06-04 — Replace src/pages/Index.tsx with uploaded version
+
+- **What:** Overwrote `src/pages/Index.tsx` (6207 lines) with user-supplied file, byte-for-byte (md5 3da7a971…).
+
+- **Why:** User instruction; no other edits.
+
+- **Files:** src/pages/Index.tsx
+
+- **Verify:** md5sum matches upload; line count 6207.
+
+- **What may break:** Any behaviour change vs prior version of this page (full-file replacement; not diffed line-by-line against previous).
+
 ## 2026-06-04 — Replace proprietary-generate-article/index.ts with uploaded version
 
 - **What:** Overwrote `supabase/functions/proprietary-generate-article/index.ts` (2137 lines) with user-supplied file, byte-for-byte (md5 f78998f4…).
