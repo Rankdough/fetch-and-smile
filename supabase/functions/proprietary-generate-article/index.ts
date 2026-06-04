@@ -1992,6 +1992,39 @@ Deno.serve(async (req) => {
       }
       return lines.slice(i).join("\n").trim();
     };
+    // 2026-06-04: FAQ count enforcement helpers. The model occasionally returns
+    // 3-4 Q&A pairs despite the "EXACTLY 5" instruction; this top-up appends
+    // deterministic generic pairs to guarantee the article always renders 5.
+    const buildFallbackFaq = (topic: string, count: number): string => {
+      const t = topic.replace(/[?!.]+$/, "").trim();
+      const pool: Array<[string, string]> = [
+        [`**What is the key difference between the main options for ${t}?**`,
+          "The primary distinction is in what each option is designed to prevent or solve. Each approach addresses a different failure mode, so confirming which failure mode applies to your situation is the first decision."],
+        [`**How do I know which option is right for my situation?**`,
+          "Start with the constraint that cannot be traded away — cost, timeline, location, or compatibility. Rule out options that fail on any hard constraint before comparing the remaining ones on outcome."],
+        [`**What should I ask before committing to a choice for ${t}?**`,
+          "Ask what measurable outcome will confirm the choice is working within a defined timeframe, and what triggers a change of plan if it is not delivering that result."],
+        [`**What are the most common mistakes people make with ${t}?**`,
+          "The recurring pattern is choosing on price or convenience first and validating fit afterwards. Reversing that order — fit first, price second — eliminates most regrettable decisions."],
+        [`**How long does it typically take to see results from ${t}?**`,
+          "Meaningful results usually appear within a defined evaluation window. Track the specific indicator that matches the chosen approach and review progress at the agreed checkpoint rather than reacting to short-term noise."],
+      ];
+      const pairs = pool.slice(0, Math.max(0, Math.min(count, pool.length)));
+      return pairs.map(([q, a]) => `${q}\n\n${a}`).join("\n\n");
+    };
+    const countFaqPairs = (faq: string): number => {
+      const re = /^\s*\*\*[^*\n]+\?\*\*\s*$/gm;
+      return (faq.match(re) || []).length;
+    };
+    const ensureFiveFaqPairs = (faq: string, topic: string): string => {
+      const have = countFaqPairs(faq);
+      if (have >= 5) return faq;
+      const need = 5 - have;
+      const fillers = buildFallbackFaq(topic, 5).split(/\n\n(?=\*\*)/).slice(-need).join("\n\n");
+      console.warn(`STITCH: FAQ had ${have} pair(s) — appended ${need} deterministic filler(s) to reach 5.`);
+      return faq.trimEnd() + "\n\n" + fillers;
+    };
+
     const md: string[] = [`# ${articleTitle}`, ""];
     const isEmptyOrPlaceholder = (s: string) => {
       const t = s.trim();
