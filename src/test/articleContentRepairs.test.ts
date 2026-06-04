@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { enforceUnder45SnippetBlocks, normalizeBrokenImageMarkdown } from "@/utils/articleContentRepairs";
+import { enforceUnder45SnippetBlocks, normalizeBrokenImageMarkdown, relocateImagesOutOfForbiddenSections } from "@/utils/articleContentRepairs";
 
 describe("articleContentRepairs", () => {
   it("splits only the first H2/H3 snippet block when it exceeds 45 words", () => {
@@ -49,5 +49,25 @@ dreamstimemedium_130102241.jpg)`;
     expect(normalizeBrokenImageMarkdown(input)).toBe(
       `![dreamstimemedium_130102241](https://lipkcsgbotjzmzuwsdeu.supabase.co/storage/v1/object/public/article-images/1775310246511-dreamstimemedium_130102241.jpg)`,
     );
+  });
+
+  it("moves images out of TL;DR to the first valid H2 section", () => {
+    const input = `# Title
+
+## TL;DR
+
+![Bad placement](https://example.com/article-images/bad.jpg)
+
+Short summary.
+
+## Proper Section
+
+Useful prose.`;
+
+    const output = relocateImagesOutOfForbiddenSections(input);
+    const tldrBlock = output.slice(output.indexOf("## TL;DR"), output.indexOf("## Proper Section"));
+
+    expect(tldrBlock).not.toContain("![Bad placement]");
+    expect(output).toMatch(/!\[Bad placement\]\(https:\/\/example\.com\/article-images\/bad\.jpg\)\n\n## Proper Section/);
   });
 });
