@@ -1,3 +1,10 @@
+## 2026-06-04 — Force minimum 5 FAQ items in render and export
+
+- **What:** Changed the FAQ accessor in `src/components/FAQAccordion.tsx` from "cap at 5" to "top up to 5". If explicit FAQ parsing or H2-derived fallback produces fewer than 5 items, deterministic article-topic fallback questions are appended until the accordion has 5. Updated `src/utils/markdownToStyledHtml.ts` to use the same `extractOrDeriveFAQ` path so styled HTML export also gets the minimum 5 behaviour.
+- **Why:** Articles without an explicit FAQ section were deriving only 3 FAQ items from the 3 body question H2s. The previous `.slice(0, 5)` only limited excess items and did not fill missing items.
+- **Verified broken:** Nothing verified broken. Checked: fallback only runs after parsed/derived FAQ items are collected; explicit FAQ removal still only removes a real FAQ section; render/export both use the same minimum-5 accessor.
+- **Files:** `src/components/FAQAccordion.tsx`, `src/utils/markdownToStyledHtml.ts`, `CHANGELOG.md`.
+
 ## 2026-06-04 — Enforce exactly 5 FAQs in proprietary generator
 
 What: Updated proprietary article generator's FAQ prompt from "3-5 Q&A pairs" to "EXACTLY 5 (no fewer, no more)" in `_shared/proprietaryPromptAssembler.ts`. Added deterministic top-up in `proprietary-generate-article/index.ts` that counts bold-question Q&A pairs in the FAQ section and appends generic filler pairs until exactly 5 are present. Extended the empty-FAQ fallback pool from 3 to 5 pairs.
