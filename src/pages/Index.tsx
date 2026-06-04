@@ -1896,6 +1896,26 @@ const Index = () => {
         }
       }
 
+      // Auto-inject FAQ if missing after Proprietary generation.
+      // apply-format generates it from the article content without needing context files.
+      if (useProprietaryMode && !/##\s*(FAQ|Frequently\s*Asked\s*Questions)/i.test(content) && !skipFaqs) {
+        try {
+          const faqResult = await supabase.functions.invoke("apply-format", {
+            body: {
+              content,
+              skipFaqs: false,
+              skipQuickTips: true,
+              ctaConfig: null,
+            },
+          });
+          if (!faqResult.error && faqResult.data?.content) {
+            content = faqResult.data.content;
+          }
+        } catch (e) {
+          console.warn("FAQ auto-inject failed:", e);
+        }
+      }
+
       setGeneratedContent(content, true);
 
       // Non-commodity gate: grade the finished article so the user can SEE
