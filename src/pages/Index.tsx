@@ -2839,6 +2839,12 @@ const Index = () => {
               )}
             </Button>
 
+            {qaState && (
+              <div className="w-full">
+                <ArticleQAPanel report={qaState.report} repair={qaState.repair} />
+              </div>
+            )}
+
             <Button
               variant="outline"
               size="default"
