@@ -876,7 +876,10 @@ const Index = () => {
     const saved = localStorage.getItem("seo-generator-ctaUrlHistory");
     return saved ? JSON.parse(saved) : [];
   });
-  const [internalLinkHistory, setInternalLinkHistory] = useState<string[]>([]);
+  const [internalLinkHistory, setInternalLinkHistory] = useState<string[]>(() => {
+    const saved = localStorage.getItem("seo-generator-internalLinkHistory");
+    return saved ? JSON.parse(saved) : [];
+  });
   
   const [selectedColorPalette, setSelectedColorPalette] = useState<ColorPalette | null>(() => {
     const saved = localStorage.getItem("seo-generator-colorPalette");
@@ -1097,6 +1100,7 @@ const Index = () => {
   
   useEffect(() => {
     localStorage.setItem("seo-generator-ctaUrlHistory", JSON.stringify(ctaUrlHistory));
+    localStorage.setItem("seo-generator-internalLinkHistory", JSON.stringify(internalLinkHistory));
   }, [ctaUrlHistory]);
   
   // Stable project identifier for scoping link history to this deployment.
@@ -1801,6 +1805,13 @@ const Index = () => {
         content = data.content as string;
         setAppliedRules(data.appliedRules || null);
         proprietaryMappedTexts = Array.isArray(data.mappedUnitTexts) ? data.mappedUnitTexts : [];
+        // Save CTA URL to history after proprietary generation
+        if (ctaUrl.trim()) {
+          setCtaUrlHistory(prev => {
+            const filtered = prev.filter(u => u !== ctaUrl.trim());
+            return [ctaUrl.trim(), ...filtered].slice(0, 10);
+          });
+        }
         const validInternalUrls = internalLinks.filter((url) => url.trim()).map((url) => url.trim());
         if (validInternalUrls.length > 0) {
           setInternalLinkHistory(prev => {
