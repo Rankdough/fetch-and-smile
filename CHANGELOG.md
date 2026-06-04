@@ -1,3 +1,11 @@
+## 2026-06-04 — Replace generate-content/index.ts with uploaded version
+
+- **What:** Overwrote `supabase/functions/generate-content/index.ts` (2244 lines, md5 8c7be1f7…) with user-supplied file, byte-for-byte.
+- **Why:** User instruction; no other edits.
+- **What may break:** Behaviour of generate-content edge function changes to match uploaded source.
+- **Files:** `supabase/functions/generate-content/index.ts`, `CHANGELOG.md`.
+- **Verify:** md5 matches upload; line count 2244; only the two intended files touched.
+
 ## 2026-06-04 — Replace proprietary-generate-article/index.ts with uploaded version (v4)
 
 - **What:** Overwrote `supabase/functions/proprietary-generate-article/index.ts` (2161 lines, md5 fc680a4e…) with user-supplied file, byte-for-byte.
