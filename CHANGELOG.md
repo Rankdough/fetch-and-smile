@@ -1,3 +1,15 @@
+## 2026-06-04 — Replace proprietary-generate-article/index.ts with uploaded version
+
+- **What:** Overwrote `supabase/functions/proprietary-generate-article/index.ts` (2137 lines) with user-supplied file, byte-for-byte (md5 f78998f4…).
+
+- **Why:** User instruction; no other edits.
+
+- **Files:** supabase/functions/proprietary-generate-article/index.ts
+
+- **Verify:** md5sum matches upload; line count 2137.
+
+- **What may break:** Any behaviour change vs prior version of this edge function (full-file replacement; not diffed line-by-line against previous).
+
 ## 2026-06-04 — Replace generate-content/index.ts with uploaded version
 - **What:** Overwrote `supabase/functions/generate-content/index.ts` (2237 lines) with user-supplied file, byte-for-byte (md5 db60dd4e…).
 - **Why:** User instruction; no other edits.
