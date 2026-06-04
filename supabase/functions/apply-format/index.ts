@@ -120,23 +120,25 @@ List ALL main H2 sections EXCEPT: TL;DR, Quick Tips, FAQ, References, Final Thou
 ` : "3. In This Article: Already present - keep as is"}
 
 ${!hasFaq ? `4. FAQ SECTION - MANDATORY FORMAT:
-Add BEFORE Final Thoughts/Conclusion/References. Use this EXACT format:
+Add BEFORE Final Thoughts/Conclusion/References.
+
+CRITICAL: Every question must be something a real reader would actually Google about THIS specific topic.
+NEVER generate generic questions like "What is the main point of [article title]?" or "How should someone use this information about [topic]?".
+Base every question on a specific claim, number, case, or decision point that appears in the article body.
+Each answer must be 1-2 sentences, direct, and use a specific fact or number from the article.
 
 ## Frequently Asked Questions
 
-**What is the first common question about this topic?**
-Answer in 1-2 clear sentences with specific information.
+**[A specific question about a key fact, statistic, or decision in this article]**
+Direct answer using a specific number or named source from the article.
 
-**What is another question readers commonly ask?**
-Answer in 1-2 clear sentences with specific information.
+**[A real question about the most important distinction or risk in this article]**
+Direct answer in 1-2 sentences.
 
-**How does this relate to [key topic aspect]?**
-Answer in 1-2 clear sentences with specific information.
+**[A question about the most important action the reader should take]**
+Direct answer in 1-2 sentences.
 
-**What should readers know about [another aspect]?**
-Answer in 1-2 clear sentences with specific information.
-
-CRITICAL: Create 4-5 relevant Q&As based on the article content. Each question in bold, answer as plain text paragraph.
+CRITICAL: Create 3-5 relevant Q&As based on the article content. Each question in bold, answer as plain text paragraph.
 ` : "4. FAQ: Already present - keep as is"}`;
 
     // Add CTA instructions if provided
