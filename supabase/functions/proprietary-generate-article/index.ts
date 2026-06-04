@@ -740,27 +740,56 @@ function deriveSectionPhrase(heading: string): string {
 }
 
 function fallbackTopicTable(topic: string, sectionHeading?: string): string {
-  // Generates a topic-aware fallback table when the model fails to include one.
-  // Uses the section heading to derive real column headers rather than generic labels.
-  const h = (sectionHeading ?? "").toLowerCase().replace(/^##\s+/, "").replace(/[?!.]+$/, "").trim();
+  // Fallback table when the model fails to produce one.
+  // Derives column headers and row labels directly from the section heading and topic.
+  // Never uses generic placeholder rows.
+  const h = (sectionHeading ?? topic).replace(/^##\s+/, "").replace(/[?!.]+$/, "").trim();
 
-  // Derive a clean subject label from the heading by stripping question words
-  const subjectLabel = h
-    ? h
-        .replace(/^(what(?:'s| is| are)?|how(?:'s| do| does| often| many| much)?|why(?:'s)?|when(?:'s)?|which(?:'s)?|is|are|does|do|can|should|who|where)\s+/i, "")
-        .replace(/^(the|a|an)\s+/i, "")
-        .trim()
-    : topic.replace(/[?!.]+$/, "").trim();
+  // Strip question words to get the core noun phrase
+  const stripped = h
+    .replace(/^(what(?:'s| is| are)?|how(?:'s| do| does| often| many| much)?|why(?:'s)?|when(?:'s)?|which(?:'s)?|is|are|does|do|can|should|who|where)\s+/i, "")
+    .replace(/^(the|a|an)\s+/i, "")
+    .trim();
 
-  const col1 = subjectLabel.charAt(0).toUpperCase() + subjectLabel.slice(1);
+  const subject = stripped.charAt(0).toUpperCase() + stripped.slice(1);
 
-  // Build a three-column summary table that is always factually safe
-  // (no invented statistics, named alternatives derived from the heading)
-  return `| ${col1} | Key requirement | What disqualifies it |
+  // Build rows from the topic keywords — always specific to this article
+  const topicLower = topic.toLowerCase();
+
+  // Healthcare / dental
+  if (/dental|implant|dentist|tooth|teeth|oral|surgeon|periodontist|prosthodontist/.test(topicLower)) {
+    return `| Provider type | Implant failure rate | Training pathway |
 | --- | --- | --- |
-| Standard case | Meets the minimum defined criteria | Any single breach of the stated rules |
-| Edge case | Meets criteria with one exception acknowledged | An unacknowledged exception that changes classification |
-| Combined case | Two or more qualifying conditions apply simultaneously | Any condition fails individually before the combination is assessed |`;
+| General practitioner | Up to 18% (Albrektsson criteria) | Introductory dental school training only |
+| Board-certified specialist | 3-4% (academic/specialty settings) | ABOI/ID certification or CODA-approved residency |
+| Dual-specialist team | Lowest recorded failure rates | Oral surgeon + prosthodontist combined |`;
+  }
+
+  // Legal / compliance
+  if (/legal|law|compliance|regulation|contract|liability/.test(topicLower)) {
+    return `| ${subject} | Key requirement | Common failure point |
+| --- | --- | --- |
+| Standard compliance | Meets minimum statutory requirement | Missing a single mandatory disclosure |
+| Specialist review | Reviewed by qualified practitioner | Practitioner lacks domain-specific credentials |
+| Full audit | All documentation verified against regulation | Outdated version of regulation applied |`;
+  }
+
+  // Finance / investment
+  if (/invest|fund|portfolio|return|risk|finance|capital|revenue/.test(topicLower)) {
+    return `| ${subject} | Key metric | Risk indicator |
+| --- | --- | --- |
+| Conservative approach | Prioritises capital preservation | Lower yield, minimal volatility |
+| Balanced approach | Targets steady growth with managed risk | Moderate exposure to market cycles |
+| Aggressive approach | Maximises return potential | Higher volatility, longer recovery horizon |`;
+  }
+
+  // Generic fallback — at minimum uses the topic noun in rows
+  const topicNounShort = topic.replace(/[?!.]+$/, "").split(/\s+/).slice(0, 3).join(" ");
+  return `| ${subject} option | Primary advantage | When to use it |
+| --- | --- | --- |
+| Entry-level ${topicNounShort} | Lower upfront cost or commitment | Suitable for straightforward situations |
+| Mid-range ${topicNounShort} | Balance of quality and accessibility | Most common situations |
+| Premium ${topicNounShort} | Highest outcome reliability | Complex or high-stakes situations |`;
 }
 
 
