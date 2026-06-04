@@ -2164,8 +2164,9 @@ Deno.serve(async (req) => {
     if (atomic.removed > 0) console.warn(`ATOMIC GUARD: stripped ${atomic.removed} dependency phrase(s).`);
     stitched = enforceThreeBulletsPerBodySection(stitched);
     stitched = enforceOpeningLength(stitched);
-    stitched = injectInThisArticle(stitched, body.topic);
+    // injectHowToChoose must run BEFORE injectInThisArticle so the nav includes it
     stitched = injectHowToChoose(stitched, body.topic);
+    stitched = injectInThisArticle(stitched, body.topic);
     stitched = ensureMinimumTables(stitched, body.topic, targetWords);
     stitched = ensureFinalThoughtsCta(stitched, businessType);
     stitched = enforceFinalThoughtsParagraphs(stitched);
