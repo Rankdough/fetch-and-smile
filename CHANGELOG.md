@@ -1,3 +1,10 @@
+## 2026-06-04 — Restore FAQ rendering after Index replacement
+
+- **What:** Re-applied the FAQ display decoupling in `src/pages/Index.tsx`: both preview rendering and HTML copy/export now call `extractFAQFromContent(generatedContent)` directly instead of hiding FAQ items behind `skipFaqs`.
+- **Why:** The uploaded `Index.tsx` replacement reverted the prior FAQ render fix. Generated markdown can contain `## Frequently Asked Questions`, but a stale or enabled "Skip FAQs" toggle was suppressing display/export.
+- **Verified broken:** Nothing verified broken. Checked: `rg` now shows no `skipFaqs ? [] : extractFAQFromContent(...)` gates; `skipFaqs` generation-time usage remains elsewhere.
+- **Files:** `src/pages/Index.tsx`, `CHANGELOG.md`.
+
 ## 2026-06-04 — Redeploy proprietary-generate-article (un-escape backticks on lines 903/909/911)
 
 - **What:** User requested redeploy. Initial deploy failed with `Expected unicode escape at ...index.ts:903:17` due to backslash-escaped backticks/`${` in the uploaded v6-2 file. Un-escaped lines 903, 909, 911 so Deno can parse the three template literals, then redeployed successfully.
