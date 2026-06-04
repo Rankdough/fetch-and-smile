@@ -65,6 +65,7 @@ interface RequestBody {
   projectId?: string;
   contextFiles?: Array<{ name: string; content: string }>;
   toneProfileId?: string | null;
+  valuePromiseClaims?: string[];
 }
 
 interface BrainUnit {
@@ -264,9 +265,12 @@ async function callClinicalWriter(system: string, user: string, maxTokens = 1400
 
 /* ── outline generation ───────────────────────────────────────────────── */
 
-async function generateH2Questions(topic: string, model: string): Promise<string[]> {
-  const sys = `You generate H2 question headings for non-commodity articles. Output exactly 3 question headings, one per line, no numbering, no bullets, no markdown. Each must be a real question a reader would type, phrased in 4-10 words. No filler openers. No "what is X" if there's a sharper question. The three questions MUST cover different angles (e.g. mechanism, benefit, failure mode) — never two near-duplicate questions.`;
-  const user = `Topic: ${topic}\n\nReturn 3 distinct H2 question headings.`;
+async function generateH2Questions(topic: string, model: string, valuePromiseClaims?: string[]): Promise<string[]> {
+  const promiseBlock = valuePromiseClaims && valuePromiseClaims.length > 0
+    ? `\n\nVALUE PROMISES — these are the specific outcomes the reader expects from this article. Every H2 must map to at least one of these promises:\n${valuePromiseClaims.map((p, i) => `${i + 1}. ${p}`).join("\n")}`
+    : "";
+  const sys = `You generate H2 question headings for non-commodity articles. Output exactly 3 question headings, one per line, no numbering, no bullets, no markdown. Each must be a real question a reader would type, phrased in 4-10 words. No filler openers. No "what is X" if there's a sharper question. The three questions MUST cover different angles (e.g. mechanism, benefit, failure mode) — never two near-duplicate questions. If value promises are provided, each H2 must directly address one of those specific outcomes.`;
+  const user = `Topic: ${topic}${promiseBlock}\n\nReturn 3 distinct H2 question headings that collectively address all the value promises above.`;
   const raw = await callModel(sys, user, model, 400);
   const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9 ]+/g, "").replace(/\s+/g, " ").trim();
   const seen = new Set<string>();
@@ -1717,6 +1721,7 @@ async function runSection(input: {
   allowedSourceUrls?: Array<{ url: string; title: string }>;
   contextFiles?: Array<{ name: string; content: string }>;
   toneProfile?: { summary: string | null; characteristics: Record<string, string>; example_phrases: string[] | null } | null;
+  valuePromiseBlock?: string;
 }) {
   const assembled = assembleSectionPrompt({
     businessType: input.businessType,
@@ -1730,6 +1735,7 @@ async function runSection(input: {
     retrievedKnowledge: input.retrievedKnowledge,
     contextFiles: input.contextFiles,
     toneProfile: input.toneProfile,
+    valuePromiseBlock: input.valuePromiseBlock,
   });
   const isBody = input.section.type === "body";
   // Scale token budget with the word budget so the model writes to the right length.
@@ -1830,6 +1836,13 @@ Deno.serve(async (req) => {
       "Adults researching this topic who want a direct, expert-level answer.";
     const publicationDestination = body.publicationDestination || "both";
 
+    // Build a value promise block to inject into every section prompt.
+    // Ensures the model writes to the specific outcomes the reader expects.
+    const valuePromiseBlock = body.valuePromiseClaims && body.valuePromiseClaims.length > 0
+      ? `VALUE PROMISES — the reader expects ALL of these specific outcomes. Every section must directly address at least one:\n${body.valuePromiseClaims.map((p: string, i: number) => `${i + 1}. ${p}`).join("\n")}`
+      : "";
+
+
     // Derive project isolation key from SUPABASE_URL (unique per Supabase project/deployment).
     // Falls back to body.projectId when explicitly provided by the caller.
     const projectId: string = body.projectId || (() => {
@@ -1877,7 +1890,7 @@ Deno.serve(async (req) => {
     const units: BrainUnit[] = (rawUnits as BrainUnit[]) || [];
 
     // 2. Outline (H2 generation uses original keyword-bearing topic)
-    const h2Questions = await generateH2Questions(body.topic, model);
+    const h2Questions = await generateH2Questions(body.topic, model, body.valuePromiseClaims);
     if (h2Questions.length === 0) {
       return new Response(
         JSON.stringify({ error: "Outline generation returned no questions" }),
@@ -2040,6 +2053,7 @@ Deno.serve(async (req) => {
         allowedSourceUrls,
         contextFiles: body.contextFiles,
         toneProfile,
+        valuePromiseBlock,
       });
 
       const sectionPlaceholderGuard = stripExpertInputPlaceholders(result.content);
