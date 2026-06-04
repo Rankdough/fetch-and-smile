@@ -109,7 +109,15 @@ export const extractFAQFromContent = (content: string): FAQItem[] => {
   const faqMatch = content.match(/## .*(?:FAQ|Frequently Asked Questions)\s*\n([\s\S]*?)(?=\n## [A-Z]|$)/i);
   if (!faqMatch) return items;
   
-  const faqContent = faqMatch[1];
+  // Strip CTA blocks before parsing — CTA markdown (> **HEADLINE**, > [BUTTON](url))
+  // bleeds into the FAQ section and gets picked up as bold "questions".
+  // Also strip any inline HTML CTA banners that may be embedded in the content.
+  let faqContent = faqMatch[1]
+    .replace(/^>\s+.*$/gm, "")           // strip blockquote lines (CTA copy)
+    .replace(/<[^>]*data-cta[^>]*>[\s\S]*?<\/[^>]+>/gi, "") // strip HTML CTA blocks
+    .replace(/\[SHOP [^\]]+\]\([^)]+\)/gi, "")  // strip [SHOP ...](url) links
+    .replace(/\*\*[A-Z][A-Z\s•·–—]{10,}\*\*/g, "") // strip ALL-CAPS bold (CTA headlines)
+    .trim();
 
   // Format A: **Question?**\n\nAnswer text
   const boldRegex = /\*\*([^*\n]+\??)\*\*\s*\n+([^\n*][^\n]*(?:\n(?!\s*\*\*|\s*Q:\s)[^\n]+)*)/g;
