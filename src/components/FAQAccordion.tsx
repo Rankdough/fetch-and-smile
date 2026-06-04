@@ -182,12 +182,68 @@ export const deriveFAQFromQuestionH2s = (content: string): FAQItem[] => {
   return items;
 };
 
+const getArticleTopic = (content: string): string => {
+  const h1 = content.match(/^#\s+(.+)$/m)?.[1]?.trim();
+  if (h1) return h1.replace(/[?.!:]+$/, "");
+  const firstLine = content.split("\n").map((line) => line.trim()).find(Boolean);
+  return (firstLine || "this topic").replace(/^#+\s*/, "").replace(/[?.!:]+$/, "");
+};
+
+const dedupeFaqItems = (items: FAQItem[]): FAQItem[] => {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    const key = item.question.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+};
+
+const buildFallbackFaqItems = (content: string): FAQItem[] => {
+  const topic = getArticleTopic(content);
+  return [
+    {
+      question: `What is the main point of ${topic}?`,
+      answer: `The main point is to compare the most important evidence, risks, and practical checks before making a decision about ${topic}.`,
+    },
+    {
+      question: `How should someone use this information about ${topic}?`,
+      answer: `Use it as a checklist for assessing options, asking better questions, and checking whether the available evidence supports the next step.`,
+    },
+    {
+      question: `What should be checked first when reviewing ${topic}?`,
+      answer: `Start with the article's core distinctions, then check the supporting references, definitions, and any warning signs mentioned in the body content.`,
+    },
+    {
+      question: `What mistakes should readers avoid with ${topic}?`,
+      answer: `Avoid relying on labels alone, ignoring the context behind quoted evidence, or treating a single claim as enough to make a confident decision.`,
+    },
+    {
+      question: `When is extra expert advice useful for ${topic}?`,
+      answer: `Extra expert advice is useful when the decision has meaningful cost, health, legal, or long-term consequences that require individual assessment.`,
+    },
+  ];
+};
+
+const ensureMinimumFaqItems = (items: FAQItem[], content: string, minimum = 5): FAQItem[] => {
+  const completeItems = dedupeFaqItems(items).filter((item) => item.question && item.answer);
+  if (completeItems.length >= minimum) return completeItems;
+
+  const fallbacks = buildFallbackFaqItems(content);
+  for (const fallback of fallbacks) {
+    if (completeItems.length >= minimum) break;
+    completeItems.push(fallback);
+  }
+
+  return dedupeFaqItems(completeItems).slice(0, Math.max(minimum, completeItems.length));
+};
+
 // Combined accessor: prefer explicit FAQ section, fall back to derived Q/A from H2s.
 export const extractOrDeriveFAQ = (content: string): FAQItem[] => {
   const explicit = extractFAQFromContent(content);
   const items = explicit.length > 0 ? explicit : deriveFAQFromQuestionH2s(content);
-  // Always cap to exactly 5 FAQs (target spec). Fewer is allowed if generation produced fewer.
-  return items.slice(0, 5);
+  // Always render at least 5 FAQs, even when generation only produced 3 question H2s.
+  return ensureMinimumFaqItems(items, content, 5).slice(0, 5);
 };
 
 
