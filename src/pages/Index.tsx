@@ -2910,7 +2910,7 @@ const Index = () => {
                 
                 // Extract navigation and FAQ items from markdown
                 const navItems = getBestNavigationItems(generatedContent);
-                const faqItems = extractFAQFromContent(generatedContent);
+                const faqItems = extractOrDeriveFAQ(generatedContent);
                 
                 // Get article element for base HTML structure
                 const article = document.querySelector("article");
