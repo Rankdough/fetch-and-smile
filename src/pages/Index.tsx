@@ -1812,18 +1812,18 @@ const Index = () => {
             return [ctaUrl.trim(), ...filtered].slice(0, 10);
           });
           // Set generatedCTAs so the export path injects both middle and end CTAs.
-          // Proprietary mode uses the topic to derive CTA copy; Classic mode uses generate-content.
-          // Without this, generatedCTAs is null and only the inline CTA appears.
+          // Use empty strings for headline/description — the CTABanner component
+          // renders correctly with just the URL and button text. Avoids the article
+          // title appearing as raw CTA headline copy.
           if (!generatedCTAs) {
-            const shortTopic = formData.topic.replace(/[?!.]+$/, "").slice(0, 60);
             setGeneratedCTAs({
               middle: {
-                headline: shortTopic,
+                headline: "",
                 description: "",
                 buttonText: "Learn More",
               },
               end: {
-                headline: shortTopic,
+                headline: "",
                 description: "",
                 buttonText: "Get Started",
               },
