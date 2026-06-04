@@ -1,4 +1,11 @@
-## 2026-06-04 — Restore FAQ rendering after Index replacement
+## 2026-06-04 — Force-clear stale skipFaqs=true (FAQs missing from generated articles)
+
+- **What:** Added a one-time localStorage migration in `src/pages/Index.tsx` (`useState` initialiser for `skipFaqs`). If `seo-generator-skipFaqs` is `true` and the migration marker `faq-default-reset-2026-06-04` is absent, set both to safe defaults (`skipFaqs=false`, marker `done`) and `console.warn` the user. Runs once per browser; user can still manually re-enable the toggle afterwards.
+- **Why:** User's generated article had no FAQ section despite the edge function logging `COMPLETENESS GUARD: All required sections present ✓`. Root cause: `skipFaqs=true` short-circuits both the prompt's FAQ block (`generate-content/index.ts:230`) and the completeness guard's FAQ check (`generate-content/index.ts:2034`), so the section is never written and never injected as fallback. The stale `true` value was persisted in localStorage from an earlier session and the user could not reach the toggle to flip it.
+- **Verified broken:** Nothing verified broken. Checked: only the `useState` initialiser changed; the setter, persistence effect (line 1125), generation payload (line 1843), and UI toggle (line 4816) are untouched. After migration runs once, the user can still set `skipFaqs=true` manually and it will persist as before.
+- **Files:** `src/pages/Index.tsx`, `CHANGELOG.md`.
+
+
 
 - **What:** Re-applied the FAQ display decoupling in `src/pages/Index.tsx`: both preview rendering and HTML copy/export now call `extractFAQFromContent(generatedContent)` directly instead of hiding FAQ items behind `skipFaqs`.
 - **Why:** The uploaded `Index.tsx` replacement reverted the prior FAQ render fix. Generated markdown can contain `## Frequently Asked Questions`, but a stale or enabled "Skip FAQs" toggle was suppressing display/export.
