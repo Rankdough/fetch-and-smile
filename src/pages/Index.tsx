@@ -46,6 +46,8 @@ import { ColorPaletteSelector, ColorPalette, COLOR_PALETTES } from "@/components
 import { KnowledgeBasePanel } from "@/components/KnowledgeBasePanel";
 import { SettingsPopover } from "@/components/SettingsPopover";
 import { VerificationReport } from "@/components/VerificationReport";
+import { ArticleQAPanel } from "@/components/ArticleQAPanel";
+import { repairAndValidate } from "@/utils/articleValidator";
 import { isExperienceGateEnabled, loadProjectSignals, gradeArticleTwoPass, stripHedges, type TwoPassReport } from "@/lib/experienceSignals";
 import { VoiceEditAgent } from "@/components/VoiceEditAgent";
 import { ToneProfilePanel } from "@/components/ToneProfilePanel";
