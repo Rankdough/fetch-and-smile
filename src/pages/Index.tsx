@@ -1781,6 +1781,8 @@ const Index = () => {
             body: {
               topic: formData.topic,
               length: formData.length,
+              // Pass explicit wordCount so the backend uses the exact target, not a lookup table.
+              wordCount: ({ short: 500, medium: 1000, "medium-long": 1500, long: 2000, extended: 3000, comprehensive: 3500 } as Record<string, number>)[formData.length] || 1500,
               internalLinks: internalLinks.filter((url) => url.trim()).map((url) => url.trim()),
               // Defaults are sensible; the full UI for these comes in Stage 3+.
               businessType: "service", // Auto-detected to healthcare-clinical by backend if topic matches
