@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Check, X, ShieldCheck, Loader2, Wand2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { enforceUnder45SnippetBlocks, normalizeBrokenImageMarkdown } from "@/utils/articleContentRepairs";
 
 interface NonCommodityComplianceCheckerProps {
   content: string;
@@ -248,7 +249,7 @@ export function NonCommodityComplianceChecker({ content, onContentUpdate, useFir
                 .join("\n")}\n\n`
             : "";
 
-        const instruction = `${retryPreamble}Apply the following Non-Commodity Compliance fixes to the article. Hit every numeric threshold exactly. Do not rewrite anything that already passes. Preserve markdown structure, headings, tables, lists, links, images, and CTA blocks unless a rule explicitly requires changing them.\n\n${stillFailing.map(r => `• Rule ${r.id} — ${r.title}: ${r.fixInstruction}`).join("\n\n")}\n\nReturn the FULL article in markdown, not a diff or summary.`;
+        const instruction = `${retryPreamble}Apply the following Non-Commodity Compliance fixes to the article. Hit every numeric threshold exactly. Do not rewrite anything that already passes. Preserve markdown structure, headings, tables, lists, links, images, and CTA blocks unless a rule explicitly requires changing them. For Rule 1, do not delete facts: split the first block below each H2/H3 after 45 words or fewer and move the overflow into the next paragraph. Never place images inside TL;DR, Quick Tips, FAQ, References, Sources, Final Thoughts, Conclusion, Summary, Introduction, or In This Article sections.\n\n${stillFailing.map(r => `• Rule ${r.id} — ${r.title}: ${r.fixInstruction}`).join("\n\n")}\n\nReturn the FULL article in markdown, not a diff or summary.`;
 
         const { data, error } = await supabase.functions.invoke("voice-edit-content", {
           body: { content: working, instruction, useFirstPerson },
@@ -256,7 +257,7 @@ export function NonCommodityComplianceChecker({ content, onContentUpdate, useFir
         if (error) throw new Error(error.message || "Edge function failed");
         if (data?.error) throw new Error(data.error);
         if (!data?.content) throw new Error("No content returned");
-        working = data.content;
+        working = enforceUnder45SnippetBlocks(normalizeBrokenImageMarkdown(data.content));
         lastResults = evaluate(working);
       }
 
