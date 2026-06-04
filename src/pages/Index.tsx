@@ -3489,12 +3489,47 @@ const Index = () => {
                   };
                   finalHtml += `\n<script type="application/ld+json">\n${JSON.stringify(faqSchema, null, 2)}\n</script>`;
                 }
-                
+
+                // ── Deterministic validator + auto-repair (last gate before export) ──
+                const targetWordsForQa =
+                  ({ short: 500, medium: 1000, "medium-long": 1500, long: 2000, extended: 3000, comprehensive: 3500 } as Record<string, number>)[
+                    formData.length
+                  ] || 1000;
+                const qa = repairAndValidate(finalHtml, {
+                  targetWordCount: targetWordsForQa,
+                  requireFAQ: faqItems.length > 0 || generateFaqSchema,
+                  requireReferences: true,
+                  requireQuickTips: true,
+                  requireExpertQuote: true,
+                  requireCTAs: !!(generatedCTAs && ctaUrl),
+                });
+                finalHtml = qa.html;
+                setQaState({ report: qa.report, repair: qa.repair });
+
+                if (!qa.report.passed) {
+                  const lines = qa.report.hardFailures
+                    .map((f) => `• ${f.label}${f.detail ? ` (${f.detail})` : ""}`)
+                    .join("\n");
+                  const proceed = window.confirm(
+                    `Article QA found ${qa.report.hardFailures.length} blocking issue(s):\n\n${lines}\n\nExport anyway?`,
+                  );
+                  if (!proceed) {
+                    toast({
+                      title: "Export blocked by QA",
+                      description: `${qa.report.hardFailures.length} blocking issue(s). See QA panel above the export buttons.`,
+                      variant: "destructive",
+                    });
+                    return;
+                  }
+                }
+
                 // Copy to clipboard
                 navigator.clipboard.writeText(finalHtml).then(() => {
+                  const repaired = qa.repair.applied.length > 0 ? ` Auto-repair: ${qa.repair.applied.join(", ")}.` : "";
+                  const warned = qa.report.warnings.length > 0 ? ` ${qa.report.warnings.length} warning(s).` : "";
                   toast({
-                    title: "HTML copied to clipboard!",
-                    description: "Clean, styled HTML ready for Shopify or WordPress.",
+                    title: qa.report.passed ? "HTML copied — all QA checks passed" : "HTML copied (with overrides)",
+                    description: `Clean styled HTML ready for Shopify or WordPress.${repaired}${warned}`,
                   });
                 }).catch(() => {
                   // Fallback: download as file
