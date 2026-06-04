@@ -68,6 +68,6 @@ Useful prose.`;
     const tldrBlock = output.slice(output.indexOf("## TL;DR"), output.indexOf("## Proper Section"));
 
     expect(tldrBlock).not.toContain("![Bad placement]");
-    expect(output).toMatch(/!\[Bad placement\]\(https:\/\/example\.com\/article-images\/bad\.jpg\)\n\n## Proper Section/);
+    expect(output).toMatch(/## Proper Section\n\n!\[Bad placement\]\(https:\/\/example\.com\/article-images\/bad\.jpg\)/);
   });
 });
