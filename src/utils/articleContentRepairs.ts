@@ -119,7 +119,12 @@ export function relocateImagesOutOfForbiddenSections(content: string): string {
 
   if (pendingImages.length > 0) {
     const firstValidH2 = output.findIndex(isValidImageHeading);
-    if (firstValidH2 >= 0) output.splice(firstValidH2, 0, ...pendingImages, "");
+    if (firstValidH2 >= 0) {
+      let insertAt = firstValidH2 + 1;
+      while (insertAt < output.length && !output[insertAt].trim()) insertAt++;
+      while (insertAt < output.length && output[insertAt].trim() && !/^##\s+/.test(output[insertAt].trim())) insertAt++;
+      output.splice(insertAt, 0, "", ...pendingImages);
+    }
     else output.push("", ...pendingImages);
   }
 
