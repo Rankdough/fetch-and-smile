@@ -430,17 +430,40 @@ function insertImagesLocally(content: string, images: ArticleImage[]): string {
   
   console.log(`Assigned ${breakAssignments.size} remaining images to paragraph breaks`);
   
+  // Build a map of H2-assigned images to the first paragraph break AFTER that H2.
+  // This ensures images land inside the section body, never above the heading
+  // (which would place them in the previous section visually).
+  const h2AfterParagraphMap: Map<number, ArticleImage> = new Map();
+  for (const [h2Idx, img] of assignedToH2.entries()) {
+    // Find the first empty line followed by non-empty content after this H2
+    let insertAt = -1;
+    for (let k = h2Idx + 1; k < lines.length - 1; k++) {
+      // Stop if we hit the next H2
+      if (/^##\s+/.test(lines[k].trim())) break;
+      // Find a paragraph break: empty line followed by content
+      if (lines[k].trim() === "" && lines[k + 1]?.trim() &&
+          !lines[k + 1].startsWith("#") && !lines[k + 1].startsWith("|") &&
+          !lines[k + 1].startsWith("!") && !lines[k + 1].startsWith("-")) {
+        insertAt = k;
+        break;
+      }
+    }
+    // If no paragraph break found, insert after the heading line itself
+    h2AfterParagraphMap.set(insertAt >= 0 ? insertAt : h2Idx, img);
+  }
+
   // Build result
   const result: string[] = [];
   for (let i = 0; i < lines.length; i++) {
-    // Insert image ABOVE H2 if assigned
-    if (assignedToH2.has(i)) {
-      const img = assignedToH2.get(i)!;
+    result.push(lines[i]);
+
+    // Insert image after the first paragraph break inside this H2 section
+    if (h2AfterParagraphMap.has(i)) {
+      const img = h2AfterParagraphMap.get(i)!;
+      result.push("");
       result.push(`![${img.alt}](${img.url})`);
       result.push("");
     }
-    
-    result.push(lines[i]);
     
     // Insert image AFTER paragraph break if assigned
     if (breakAssignments.has(i)) {
