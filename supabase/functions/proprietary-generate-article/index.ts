@@ -2010,15 +2010,8 @@ Deno.serve(async (req) => {
       if ((s.kind === "faq" || s.kind === "quick-tips") && isEmptyOrPlaceholder(cleanContent)) {
         // For FAQ: inject a deterministic fallback rather than silently dropping the section.
         if (s.kind === "faq") {
-          const t = body.topic.replace(/[?!.]+$/, "").trim();
-          const q1 = `**What is the key difference between the main options for ${t}?**`;
-          const a1 = "The primary distinction is in what each option is designed to prevent or solve. Each approach addresses a different failure mode, so confirming which failure mode applies to your situation is the first decision.";
-          const q2 = "**How do I know which option is right for my situation?**";
-          const a2 = "Start with the constraint that cannot be traded away — cost, timeline, location, or compatibility. Rule out options that fail on any hard constraint before comparing the remaining ones on outcome.";
-          const q3 = `**What should I ask before committing to a choice for ${t}?**`;
-          const a3 = "Ask what measurable outcome will confirm the choice is working within a defined timeframe, and what triggers a change of plan if it is not delivering that result.";
-          const fallbackFaq = [q1, a1, q2, a2, q3, a3].join("\n\n");
-          console.warn("STITCH: FAQ was empty — injected deterministic fallback.");
+          const fallbackFaq = buildFallbackFaq(body.topic, 5);
+          console.warn("STITCH: FAQ was empty — injected deterministic fallback (5 pairs).");
           md.push("## Frequently Asked Questions", "", fallbackFaq, "");
           continue;
         }
@@ -2032,7 +2025,9 @@ Deno.serve(async (req) => {
       } else if (s.kind === "quick-tips") {
         md.push("## Quick Tips", "", cleanContent, "");
       } else if (s.kind === "faq") {
-        md.push("## Frequently Asked Questions", "", cleanContent, "");
+        // Enforce EXACTLY 5 Q&A pairs: top-up with deterministic fillers if model produced fewer.
+        const topped = ensureFiveFaqPairs(cleanContent, body.topic);
+        md.push("## Frequently Asked Questions", "", topped, "");
       } else {
         md.push(`## ${s.heading}`, "", cleanContent, "");
       }
