@@ -1,3 +1,10 @@
+## 2026-06-04 — Redeploy proprietary-generate-article (un-escape backticks on lines 903/909/911)
+
+- **What:** User requested redeploy. Initial deploy failed with `Expected unicode escape at ...index.ts:903:17` due to backslash-escaped backticks/`${` in the uploaded v6-2 file. Un-escaped lines 903, 909, 911 so Deno can parse the three template literals, then redeployed successfully.
+- **Why:** Required to satisfy the redeploy request; runtime semantics of the three template literals are unchanged (they produce identical strings).
+- **Verified broken:** Nothing verified broken. Deploy succeeded. Three lines produce byte-identical output strings; no other lines changed.
+- **Files:** `supabase/functions/proprietary-generate-article/index.ts`, `CHANGELOG.md`.
+
 ## 2026-06-04 — Replace src/pages/Index.tsx with uploaded version
 
 - **What:** Overwrote `src/pages/Index.tsx` (6227 lines) byte-for-byte with user-supplied file `Index (2).tsx`. No other files changed.
