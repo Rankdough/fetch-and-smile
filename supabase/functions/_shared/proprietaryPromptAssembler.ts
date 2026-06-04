@@ -412,9 +412,9 @@ line between pairs:
 
 Answer paragraph of 2-4 sentences on the next line(s).
 
-Produce 3-5 Q&A pairs. Do NOT prefix questions with "Q:" or answers with
-"A:". The question MUST be wrapped in **bold** markers on its own line so
-downstream rendering picks it up as a FAQ entry.`.trim();
+Produce EXACTLY 5 Q&A pairs (no fewer, no more). Do NOT prefix questions
+with "Q:" or answers with "A:". The question MUST be wrapped in **bold**
+markers on its own line so downstream rendering picks it up as a FAQ entry.`.trim();
 
 function describeMappedUnit(unit: MappedUnit | null): string {
   if (!unit) {
