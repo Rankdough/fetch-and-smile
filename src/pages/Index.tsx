@@ -48,7 +48,7 @@ import { SettingsPopover } from "@/components/SettingsPopover";
 import { VerificationReport } from "@/components/VerificationReport";
 import { ArticleQAPanel } from "@/components/ArticleQAPanel";
 import { repairAndValidate } from "@/utils/articleValidator";
-import { enforceUnder45SnippetBlocks, normalizeBrokenImageMarkdown } from "@/utils/articleContentRepairs";
+import { enforceUnder45SnippetBlocks, normalizeBrokenImageMarkdown, relocateImagesOutOfForbiddenSections } from "@/utils/articleContentRepairs";
 import { isExperienceGateEnabled, loadProjectSignals, gradeArticleTwoPass, stripHedges, type TwoPassReport } from "@/lib/experienceSignals";
 import { VoiceEditAgent } from "@/components/VoiceEditAgent";
 import { ToneProfilePanel } from "@/components/ToneProfilePanel";
@@ -289,7 +289,7 @@ const cleanContent = (content: string): string => {
     .replace(/[ \t]{2,}/g, " ");
 
   cleaned = enforceParagraphDensity(cleaned);
-  cleaned = enforceUnder45SnippetBlocks(cleaned);
+  cleaned = relocateImagesOutOfForbiddenSections(enforceUnder45SnippetBlocks(cleaned));
 
   // Fix inline numbered lists rendered as a single paragraph
   // e.g., "1. Foo: text here. 2. Bar: text here." → separate lines
