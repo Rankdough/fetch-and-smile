@@ -694,16 +694,8 @@ ${contextContent}`;
         // citations; the post-processor below attaches sources deterministically from context files.
       }
 
-      // Add article images for AI placement
-      if (articleImages && Array.isArray(articleImages) && articleImages.length > 0) {
-        userPrompt += `
-
-ARTICLE IMAGES TO USE:
-You have ${articleImages.length} image(s) available to place in the article. Insert them at relevant points using markdown image syntax.
-${articleImages.map((img: { alt: string; url: string }, i: number) => `${i + 1}. ![${img.alt}](${img.url})`).join("\n")}
-
-Place these images throughout the article at logical locations, typically after relevant paragraphs. Distribute them evenly across different sections.`;
-      }
+      // Images are never inserted during generation.
+      // They are placed manually via "Allocate Logically" after generation (enhance-import edge function).
     }
 
 
