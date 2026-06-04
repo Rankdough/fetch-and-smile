@@ -40,6 +40,17 @@ const isStructuredSnippetLine = (line: string): boolean => {
   );
 };
 
+const FORBIDDEN_IMAGE_SECTION_RE = /^(tl;?dr|tldr|quick\s*tips|in\s+this\s+article|faq|frequently\s+asked\s+questions|references|sources|final\s+thoughts|conclusion|summary|introduction)\b/i;
+const imageLineRe = /^!\[[^\]]*\]\(https?:\/\/[^)]+\)\s*$/;
+
+const isForbiddenImageHeading = (line: string): boolean => {
+  const match = line.trim().match(/^##\s+(.+)$/);
+  return !!match && FORBIDDEN_IMAGE_SECTION_RE.test(match[1].trim());
+};
+
+const isValidImageHeading = (line: string): boolean =>
+  /^##\s+/.test(line.trim()) && !isForbiddenImageHeading(line);
+
 export function normalizeBrokenImageMarkdown(content: string): string {
   return content.replace(
     /(^|[^!])\[([^\]\n]+)\]\((https?:\/\/[^)\s]+)\)/g,
@@ -82,4 +93,35 @@ export function enforceUnder45SnippetBlocks(content: string, maxWords = 45): str
   }
 
   return lines.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+}
+
+export function relocateImagesOutOfForbiddenSections(content: string): string {
+  const lines = content.split(/\r?\n/);
+  const output: string[] = [];
+  const pendingImages: string[] = [];
+  let inForbiddenSection = false;
+
+  for (const line of lines) {
+    if (/^##\s+/.test(line.trim())) {
+      if (isValidImageHeading(line) && pendingImages.length > 0) {
+        output.push(...pendingImages.splice(0), "");
+      }
+      inForbiddenSection = isForbiddenImageHeading(line);
+    }
+
+    if (inForbiddenSection && imageLineRe.test(line.trim())) {
+      pendingImages.push(line.trim());
+      continue;
+    }
+
+    output.push(line);
+  }
+
+  if (pendingImages.length > 0) {
+    const firstValidH2 = output.findIndex(isValidImageHeading);
+    if (firstValidH2 >= 0) output.splice(firstValidH2, 0, ...pendingImages, "");
+    else output.push("", ...pendingImages);
+  }
+
+  return output.join("\n").replace(/\n{3,}/g, "\n\n").trim();
 }
