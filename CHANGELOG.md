@@ -1,3 +1,11 @@
+## 2026-06-04 — Replace proprietary-generate-article/index.ts with uploaded version (v3)
+
+- **What:** Overwrote `supabase/functions/proprietary-generate-article/index.ts` (2155 lines, md5 3f5946ba…) with user-supplied file, byte-for-byte. Redeployed the function.
+- **Why:** User instruction; no other edits.
+- **What may break:** Behaviour of proprietary article generation changes to match uploaded source.
+- **Files:** `supabase/functions/proprietary-generate-article/index.ts`, `CHANGELOG.md`.
+- **Verify:** md5 matches upload; line count 2155; only the two intended files touched; redeploy succeeded.
+
 ## 2026-06-04 — Replace _shared/proprietaryPromptAssembler.ts with uploaded version
 
 - **What:** Overwrote `supabase/functions/_shared/proprietaryPromptAssembler.ts` (697 lines) with user-supplied file, byte-for-byte (md5 30f89ec4…).

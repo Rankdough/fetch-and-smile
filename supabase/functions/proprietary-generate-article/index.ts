@@ -684,23 +684,12 @@ function stripAllBracketPlaceholders(markdown: string): { out: string; removed: 
   return { out, removed };
 }
 
-function buildFallbackBullets(heading: string, _body: string): string[] {
-  // BUILD-2026-05-29-T: previously branched on body keywords (`diagnos|test|
-  // clinical|prevent|treat|wrong|fail|...`) and emitted hardcoded gluten /
-  // bloating / dietary-restriction templates. Any dental, legal, automotive,
-  // or finance article that mentioned "test", "treat", or "fail" got those
-  // gluten bullets injected verbatim ("track response after each dietary
-  // change", "Separate <heading> into named categories before changing diet").
-  // Replaced with topic-agnostic, heading-derived bullets that don't smuggle
-  // a domain into the output.
-  const phrase = (deriveSectionPhrase(heading) || "this question").trim();
-  const headingClean = heading.replace(/[?:.!]+$/g, "").trim();
-  return [
-    `- Anchor the answer to ${phrase} on a specific, verifiable criterion rather than a general impression.`,
-    `- Compare named options or categories side by side, because broad labels hide the differences that actually drive the decision.`,
-    `- Treat ${headingClean.toLowerCase()} as a sequence of trade-offs, and judge each one against a measurable outcome instead of a vague benefit.`,
-  ];
+function buildFallbackBullets(_heading: string, _body: string): string[] {
+  // Returns empty array — fallback bullets were generic filler that polluted body sections.
+  // The model is responsible for producing real bullets; none are injected as fallback.
+  return [];
 }
+
 
 
 
@@ -903,15 +892,15 @@ function injectHowToChoose(markdown: string, topic: string): string {
     `- Confirm the review checkpoint: ask what measurable outcome will confirm the ${nounLower} is working within a defined timeframe, and what triggers a change of plan if it is not.`,
   ];
 
-  const block = \`\${heading}\n\n\${criteria.join("\n")}\`;
+  const block = `${heading}\n\n${criteria.join("\n")}`;
 
   // Insert before FAQ or Final Thoughts; otherwise before References; otherwise at end.
   const anchorRe = /^##\s+(frequently\s*asked|faq|final\s*thoughts|references)/im;
   const m = markdown.match(anchorRe);
   if (m && m.index !== undefined) {
-    return \`\${markdown.slice(0, m.index).trimEnd()}\n\n\${block}\n\n\${markdown.slice(m.index)}\`;
+    return `${markdown.slice(0, m.index).trimEnd()}\n\n${block}\n\n${markdown.slice(m.index)}`;
   }
-  return \`\${markdown.trimEnd()}\n\n\${block}\`;
+  return `${markdown.trimEnd()}\n\n${block}`;
 }
 
 
@@ -1243,7 +1232,9 @@ Rules:
 }
 
 function ensureMinimumTables(markdown: string, topic: string, targetWords: number): string {
-  const required = Math.max(1, Math.round(targetWords / 600));
+  // Cap fallback table injection at 1: the model should produce real tables;
+  // the fallback is a last resort for zero-table articles, not a per-section injector.
+  const required = 1;
   let current = countMarkdownTables(markdown);
   if (current >= required) return markdown;
   let out = markdown;
@@ -2012,24 +2003,16 @@ Deno.serve(async (req) => {
       // so the heading doesn't render alone above nothing.
       if ((s.kind === "faq" || s.kind === "quick-tips") && isEmptyOrPlaceholder(cleanContent)) {
         // For FAQ: inject a deterministic fallback rather than silently dropping the section.
-        // Three generic-but-honest Q&A pairs derived from the topic.
         if (s.kind === "faq") {
           const t = body.topic.replace(/[?!.]+$/, "").trim();
-          const fallbackFaq = [
-            `**What is the key difference between the main options for ${t}?**
-
-The primary distinction is in what each option is designed to prevent or solve. Each approach addresses a different failure mode, so confirming which failure mode applies to your situation is the first decision.`,
-            `**How do I know which option is right for my situation?**
-
-Start with the constraint that cannot be traded away — cost, timeline, location, or compatibility. Rule out options that fail on any hard constraint before comparing the remaining ones on outcome.`,
-            `**What question should I ask before committing to a choice for ${t}?**
-
-Ask what measurable outcome will confirm the choice is working within a defined timeframe, and what triggers a change of plan if it is not delivering that result.`,
-          ].join("\n\n");
-          sectionsOut[sectionsOut.indexOf(s)] = { ...s, content: fallbackFaq };
-          console.warn(\`STITCH: FAQ was empty — injected deterministic fallback for topic "${body.topic}".\`);
-          // Re-run cleanContent for this entry
-          const updatedS = { ...s, content: fallbackFaq };
+          const q1 = `**What is the key difference between the main options for ${t}?**`;
+          const a1 = "The primary distinction is in what each option is designed to prevent or solve. Each approach addresses a different failure mode, so confirming which failure mode applies to your situation is the first decision.";
+          const q2 = "**How do I know which option is right for my situation?**";
+          const a2 = "Start with the constraint that cannot be traded away — cost, timeline, location, or compatibility. Rule out options that fail on any hard constraint before comparing the remaining ones on outcome.";
+          const q3 = `**What should I ask before committing to a choice for ${t}?**`;
+          const a3 = "Ask what measurable outcome will confirm the choice is working within a defined timeframe, and what triggers a change of plan if it is not delivering that result.";
+          const fallbackFaq = [q1, a1, q2, a2, q3, a3].join("\n\n");
+          console.warn("STITCH: FAQ was empty — injected deterministic fallback.");
           md.push("## Frequently Asked Questions", "", fallbackFaq, "");
           continue;
         }
