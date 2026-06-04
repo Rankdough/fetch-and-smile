@@ -5420,8 +5420,9 @@ const Index = () => {
                       {(() => {
                         // Extract "In This Article" navigation items - robust parsing + fallback
                         const navItems = getBestNavigationItems(generatedContent);
-                        // Extract FAQ items
-                        const faqItems = skipFaqs ? [] : extractFAQFromContent(generatedContent);
+                        // Extract FAQ items — render whenever they exist in the markdown.
+                        // BUILD-2026-06-04-FAQ-RENDER: skipFaqs only affects generation, not display.
+                        const faqItems = extractFAQFromContent(generatedContent);
                         // Remove "In This Article" and FAQ sections from markdown for custom rendering
                         let contentWithoutNav = removeInThisArticleSection(generatedContent);
                         contentWithoutNav = removeFAQSection(contentWithoutNav);
