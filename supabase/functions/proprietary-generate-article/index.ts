@@ -900,15 +900,15 @@ function injectHowToChoose(markdown: string, topic: string): string {
     `- Confirm the review checkpoint: ask what measurable outcome will confirm the ${nounLower} is working within a defined timeframe, and what triggers a change of plan if it is not.`,
   ];
 
-  const block = `${heading}\n\n${criteria.join("\n")}`;
+  const block = \`\${heading}\n\n\${criteria.join("\n")}\`;
 
   // Insert before FAQ or Final Thoughts; otherwise before References; otherwise at end.
   const anchorRe = /^##\s+(frequently\s*asked|faq|final\s*thoughts|references)/im;
   const m = markdown.match(anchorRe);
   if (m && m.index !== undefined) {
-    return `${markdown.slice(0, m.index).trimEnd()}\n\n${block}\n\n${markdown.slice(m.index)}`;
+    return \`\${markdown.slice(0, m.index).trimEnd()}\n\n\${block}\n\n\${markdown.slice(m.index)}\`;
   }
-  return `${markdown.trimEnd()}\n\n${block}`;
+  return \`\${markdown.trimEnd()}\n\n\${block}\`;
 }
 
 
