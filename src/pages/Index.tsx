@@ -911,8 +911,23 @@ const Index = () => {
     return saved !== null ? JSON.parse(saved) : false;
   });
   const [skipFaqs, setSkipFaqs] = useState(() => {
+    // 2026-06-04 migration: forcibly clear stale `true` values left behind by an earlier
+    // session/toggle. Symptom: FAQ section silently missing from every generated article
+    // because the edge function honours skipFaqs=true and the completeness guard
+    // short-circuits its FAQ check (generate-content/index.ts:2034). Runs once per browser.
+    const MIGRATION_KEY = "faq-default-reset-2026-06-04";
     const saved = localStorage.getItem("seo-generator-skipFaqs");
-    return saved !== null ? JSON.parse(saved) : false;
+    const value = saved !== null ? JSON.parse(saved) : false;
+    if (value === true && localStorage.getItem(MIGRATION_KEY) !== "done") {
+      localStorage.setItem("seo-generator-skipFaqs", "false");
+      localStorage.setItem(MIGRATION_KEY, "done");
+      console.warn(
+        "[FAQ MIGRATION 2026-06-04] Cleared stale skipFaqs=true from localStorage. " +
+          "FAQ generation is now ON. Re-enable manually in advanced settings if intended."
+      );
+      return false;
+    }
+    return value;
   });
   const [skipQuickTips, setSkipQuickTips] = useState(() => {
     const saved = localStorage.getItem("seo-generator-skipQuickTips");
