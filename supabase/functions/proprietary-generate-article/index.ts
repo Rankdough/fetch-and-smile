@@ -750,51 +750,25 @@ function deriveSectionPhrase(heading: string): string {
 }
 
 function fallbackTopicTable(topic: string, sectionHeading?: string): string {
-  const t = topic.toLowerCase();
-  const h = (sectionHeading ?? "").toLowerCase();
-  const combined = `${t} ${h}`;
-  // Section-aware: only inject a topic table when the SECTION HEADING itself is
-  // about the table's subject. Prevents the same retention table being dropped
-  // into unrelated sections (training, failure modes, complications, etc.).
-  const retentionHeading = /retention|retain|cement|screw|abutment|morse|crown\s+fix|fixation/.test(h);
-  const underbiteHeading = /underbite|aligner|invisalign|class\s*iii|bite\s+correction/.test(h);
-  if (retentionHeading && /screwless|implant|morse|cement|crown|abutment|prosthe/.test(t)) {
-    return `| System type | How retention works | Screw visible in crown? | Common failure | Best-fit case |
+  // Topic-agnostic: derive column headers and row labels from the topic noun and section heading.
+  // Works for any subject — no hardcoded domain knowledge required.
+  const noun = topicNoun(topic);
+  const nounLower = noun.toLowerCase();
+  const h = (sectionHeading ?? "").toLowerCase().replace(/^##\s+/, "").trim();
+
+  // Derive a short label from the section heading or fall back to the topic noun.
+  const subjectLabel = h
+    ? h.replace(/[?!.]+$/, "").replace(/^(what|how|why|when|which|is|are|does|do|can|should)\s+/i, "").trim()
+    : nounLower;
+  const subjectTitle = subjectLabel.charAt(0).toUpperCase() + subjectLabel.slice(1);
+
+  return `| ${subjectTitle} type | What it does | Key strength | Main limitation | Best-fit situation |
 | --- | --- | --- | --- | --- |
-| Cement-retained crown | Cement bonds the crown to an abutment | No | Residual cement can inflame tissue | Aesthetic zones where an access hole would show |
-| Friction-fit or Morse taper | Precision taper locks components mechanically | No | Retrieval can be difficult if repair is needed | Accurate single-tooth component seating |
-| Screw-retained crown | Prosthetic screw fixes the crown to the implant | Yes | Access-channel aesthetics or screw loosening | Maintenance-heavy or retrievable cases |`;
-  }
-  if (underbiteHeading && /invisalign|aligner|underbite|class\s*iii|orthodontic/.test(t)) {
-    return `| Case type | What drives the bite | Aligner suitability | Common failure | Consultation question |
-| --- | --- | --- | --- | --- |
-| Dental underbite | Tooth position creates the reverse bite | Stronger when movement is tooth-led | Treating the wrong mechanism wastes months | Is the problem dental or skeletal? |
-| Skeletal underbite | Jaw relationship drives the bite | Limited without surgical assessment | Camouflage can worsen facial balance | Is surgery part of the realistic plan? |
-| Combined pattern | Teeth and jaw both contribute | Case-dependent after diagnosis | Relapse or incomplete bite correction | Which part is being corrected first? |`;
-  }
-  if (/archery|archer|arrow|target|bow|olympic|scoring/.test(combined)) {
-    return `| Scoring factor | How it is counted | Mistake that changes the result |
-| --- | --- | --- |
-| Ring value | Each arrow earns the value of the scoring ring it lands in | Reading the lower ring when the shaft touches a higher scoring line |
-| End total | Arrow values in the same end are added before the next end starts | Mixing scores between ends or sets |
-| Tie-break detail | Closest-to-centre arrows can decide tied results | Recording only totals and losing the arrow-by-arrow detail |`;
-  }
-  if (/implant|dentist|dental/.test(t)) {
-    return `| Setting | Training Duration | Annual Implant Volume | Success Rate with Strict Criteria | Best For |
-| --- | --- | --- | --- | --- |
-| General Dentist | DDS or DMD plus optional continuing-education courses | Variable, often low outside high-volume practices | Lower in published series compared with specialist settings | Routine single-tooth cases with straightforward anatomy |
-| Board-Certified Specialist (Periodontist or Oral Surgeon) | Three or more years of accredited residency after dental school | Consistently high through residency and ongoing practice | Higher in published series, particularly for complex cases | Complex anatomy, bone grafting, full-arch and compromised sites |
-| Academic or Hospital Setting | Faculty-level training with a supervised teaching caseload | High and protocol-driven through institutional volume | Highest reported in long-term published studies | Medically complex patients and reconstructive cases |`;
-  }
-  if (/gluten|coeliac|celiac|wheat|bloat|bloating|ncgs|sensitivity/.test(combined)) {
-    return `| Condition | Mechanism behind bloating | Diagnostic clue | Management implication |
-| --- | --- | --- | --- |
-| Coeliac disease | Autoimmune injury to the small-intestinal lining disrupts absorption and gut function | Confirmed by coeliac blood tests and specialist assessment before gluten removal | Lifelong strict gluten avoidance is required after diagnosis |
-| Non-coeliac gluten sensitivity | Symptoms occur after gluten or wheat exposure without coeliac autoimmune damage | Symptoms improve with structured removal and return during supervised re-challenge | Intake is individualised rather than automatically zero-tolerance |
-| Wheat allergy | IgE-mediated immune reaction to wheat proteins can include digestive and systemic symptoms | Rapid onset symptoms may include hives, swelling, wheeze, or anaphylaxis risk | Wheat avoidance and allergy planning matter more than gluten-only avoidance |`;
-  }
-  return "";
+| Standard option | Addresses the core requirement directly | Widely available and well-understood | Less flexible for edge cases | Most straightforward situations |
+| Specialist option | Handles complex or unusual requirements | Higher precision for difficult cases | Higher cost or longer lead time | Cases where standard options fall short |
+| Combined approach | Blends two methods for broader coverage | Covers more of the decision criteria | Requires more planning upfront | Situations with competing constraints |`;
 }
+
 
 function tableSignature(tableMarkdown: string): string {
   return tableMarkdown.replace(/\s+/g, " ").trim().toLowerCase();
@@ -899,25 +873,42 @@ function injectInThisArticle(markdown: string, topic: string): string {
 
 function injectHowToChoose(markdown: string, topic: string): string {
   if (/^##\s+how\s*to\s*(choose|pick)/im.test(markdown)) return markdown;
+
+  // Derive a topic-specific decision heading and criteria.
+  // The heading references the actual topic noun so it never reads as a generic template.
   const noun = topicNoun(topic);
-  const heading = `## How to Choose the Right ${noun} for You`;
+  const t = topic.toLowerCase();
+
+  // Build a topic-specific heading by turning the topic into a decision question.
+  // Strip filler words; capitalise the remainder.
+  const cleanTopic = topic
+    .replace(/^(what|how|why|when|which|is|are|does|do|can|should)\s+/i, "")
+    .replace(/[?!.]+$/, "")
+    .trim();
+  const heading = `## How to Choose the Right ${cleanTopic.charAt(0).toUpperCase() + cleanTopic.slice(1)}`;
   const nounLower = noun.toLowerCase();
+
+  // Derive criteria that reflect what someone evaluating this specific topic needs to weigh.
+  // Three criteria are always topic-derived; two are universal decision-quality criteria.
   const criteria = [
-    `- Establish the category first: confirm what type of ${nounLower} the situation actually calls for before comparing options.`,
-    `- Ask what the option is built to prevent or solve: each ${nounLower} should name the specific problem it is designed to address.`,
-    `- Demand specific numbers: timelines, success rates, and costs should come with concrete figures, not "varies" or "depends".`,
-    `- Check fit honestly: a good ${nounLower} for the wrong situation underperforms regardless of brand or price.`,
-    `- Confirm the review step: ask which checkpoint will confirm the choice is working and what triggers a change.`,
+    `- Confirm the category before comparing: establish what type of ${nounLower} the situation actually requires, because comparing across categories wastes time and leads to the wrong choice.`,
+    `- Ask what problem each option is specifically designed to solve: a ${nounLower} that addresses the wrong problem will underperform regardless of quality or price.`,
+    `- Demand specific numbers: costs, timelines, success rates, and limitations should come with concrete figures. Reject any option that answers with "it varies" or "it depends" without a range.`,
+    `- Check fit against your actual constraints: budget, timeline, location, and compatibility are decision criteria, not afterthoughts. Rule out options that fail on any hard constraint first.`,
+    `- Confirm the review checkpoint: ask what measurable outcome will confirm the ${nounLower} is working within a defined timeframe, and what triggers a change of plan if it is not.`,
   ];
-  const block = `${heading}\n\n${criteria.join("\n")}`;
-  // Insert before FAQ or Final Thoughts, else append before References, else at end.
+
+  const block = \`\${heading}\n\n\${criteria.join("\n")}\`;
+
+  // Insert before FAQ or Final Thoughts; otherwise before References; otherwise at end.
   const anchorRe = /^##\s+(frequently\s*asked|faq|final\s*thoughts|references)/im;
   const m = markdown.match(anchorRe);
   if (m && m.index !== undefined) {
-    return `${markdown.slice(0, m.index).trimEnd()}\n\n${block}\n\n${markdown.slice(m.index)}`;
+    return \`\${markdown.slice(0, m.index).trimEnd()}\n\n\${block}\n\n\${markdown.slice(m.index)}\`;
   }
-  return `${markdown.trimEnd()}\n\n${block}`;
+  return \`\${markdown.trimEnd()}\n\n\${block}\`;
 }
+
 
 function extractUrls(text: string): Array<{ url: string; title: string }> {
   const out: Array<{ url: string; title: string }> = [];
@@ -1046,28 +1037,25 @@ function stripMismatchedInlineLinks(markdown: string, topic: string): { out: str
   return { out: out.join("\n"), removed };
 }
 
-function trustedFallbackSources(topic: string): BrainUrl[] {
-  if (/\b(archery|archer|arrow|target|bow|olympic|scoring)\b/i.test(topic)) {
-    return [
-      { title: "World Archery - Rulebook", url: "https://www.worldarchery.sport/rulebook" },
-      { title: "Olympics - Archery rules, equipment and scoring", url: "https://olympics.com/en/news/archery-rules-equipment-scoring-techniques-olympics" },
-      { title: "World Archery - Target archery", url: "https://www.worldarchery.sport/disciplines/target" },
-    ];
-  }
-  if (!/\b(dental|implant|implants|screwless|conometric|abutment)\b/i.test(topic)) return [];
-  return [
-    { title: "FDA - Dental Implants: What You Should Know", url: "https://www.fda.gov/medical-devices/dental-devices/dental-implants-what-you-should-know" },
-    { title: "NCBI Bookshelf - Dental Implants", url: "https://www.ncbi.nlm.nih.gov/books/NBK470448/" },
-    { title: "PMC - Implant-abutment connection review", url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC4784146/" },
-  ];
+function trustedFallbackSources(topic: string, sourceReferences: SourceReference[] = []): BrainUrl[] {
+  // Use URLs extracted from the article's own sourceReferences (context files + supplied references) first.
+  // This makes the fallback topic-agnostic — it works for any subject.
+  const fromContext: BrainUrl[] = sourceReferences
+    .filter((r) => r.url && /^https?:\/\//i.test(r.url))
+    .slice(0, 3)
+    .map((r) => ({ title: r.title, url: r.url! }));
+  if (fromContext.length > 0) return fromContext;
+  // No context URLs available — return empty so the caller skips injection.
+  return [];
 }
 
-function ensureTrustedReferences(markdown: string, topic: string): string {
+function ensureTrustedReferences(markdown: string, topic: string, sourceReferences: SourceReference[] = []): string {
   if (/^##\s+references/im.test(markdown)) return markdown;
-  const sources = dedupeAndValidateRefs(trustedFallbackSources(topic));
+  const sources = dedupeAndValidateRefs(trustedFallbackSources(topic, sourceReferences));
   if (sources.length === 0) return markdown;
   return `${markdown.trimEnd()}\n\n## References\n\n${refsToMarkdown(sources)}\n`;
 }
+
 
 async function insertInternalLinksIntoArticle(
   content: string,
@@ -2058,7 +2046,7 @@ Deno.serve(async (req) => {
     // attachContextSourceNotes call removed (BUILD-2026-05-29-G) — see helpers block.
     // Context-document references now rendered only in the footer References section.
     stitched = injectReferences(stitched, usedUnits, sourceReferences);
-    stitched = ensureTrustedReferences(stitched, body.topic);
+    stitched = ensureTrustedReferences(stitched, body.topic, sourceReferences);
     const sourceFragments = stripInlineSourceFragments(stitched);
     stitched = sourceFragments.out;
     if (sourceFragments.removed > 0) console.warn(`SOURCE GUARD: stripped ${sourceFragments.removed} inline Source fragment(s) from body copy.`);
