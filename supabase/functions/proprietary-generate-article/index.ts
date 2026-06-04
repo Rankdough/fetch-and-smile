@@ -64,6 +64,7 @@ interface RequestBody {
   model?: string;
   projectId?: string;
   contextFiles?: Array<{ name: string; content: string }>;
+  toneProfileId?: string | null;
 }
 
 interface BrainUnit {
@@ -1647,6 +1648,7 @@ async function runSection(input: {
   retrievedKnowledge?: Array<{ content: string; sourceTitle?: string | null }>;
   allowedSourceUrls?: Array<{ url: string; title: string }>;
   contextFiles?: Array<{ name: string; content: string }>;
+  toneProfile?: { summary: string | null; characteristics: Record<string, string>; example_phrases: string[] | null } | null;
 }) {
   const assembled = assembleSectionPrompt({
     businessType: input.businessType,
@@ -1659,6 +1661,7 @@ async function runSection(input: {
     allowedSourceUrls: input.allowedSourceUrls,
     retrievedKnowledge: input.retrievedKnowledge,
     contextFiles: input.contextFiles,
+    toneProfile: input.toneProfile,
   });
   const isBody = input.section.type === "body";
   // Scale token budget with the word budget so the model writes to the right length.
@@ -1767,6 +1770,20 @@ Deno.serve(async (req) => {
 
     // 1. Load brain units scoped to this project.
     const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+    // Fetch tone profile if provided — enforces voice, sentence length, and writing style.
+    let toneProfile: { summary: string | null; characteristics: Record<string, string>; example_phrases: string[] | null } | null = null;
+    if (body.toneProfileId) {
+      const { data: profileData } = await sb
+        .from("tone_profiles")
+        .select("summary, characteristics, example_phrases")
+        .eq("id", body.toneProfileId)
+        .maybeSingle();
+      if (profileData) {
+        toneProfile = profileData;
+        console.log("TONE PROFILE: loaded", body.toneProfileId);
+      }
+    }
 
     // When a projectId is available, restrict brain_insights to files whose brain_chunks
     // are tagged with this project — prevents cross-client content leakage.
@@ -1951,6 +1968,7 @@ Deno.serve(async (req) => {
         retrievedKnowledge,
         allowedSourceUrls,
         contextFiles: body.contextFiles,
+        toneProfile,
       });
 
       const sectionPlaceholderGuard = stripExpertInputPlaceholders(result.content);
