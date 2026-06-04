@@ -1,3 +1,11 @@
+## 2026-06-04 — Replace proprietary-generate-article/index.ts with uploaded version (v6-2)
+
+- **What:** Overwrote `supabase/functions/proprietary-generate-article/index.ts` (2175 lines) byte-for-byte with user-supplied file `proprietary-generate-article_index_6-2.ts`. No other files changed. No redeploy requested.
+- **Why:** User instruction; replace only, CHANGELOG-only edit otherwise.
+- **Verified broken:** File still contains escaped backticks/`${` on lines 903/909/911 (same issue as prior v6 upload). The function will FAIL to bundle/deploy in its current state — Deno parser rejects `\``. Per user instruction "Do not change any other file", left exactly as uploaded; deploy will fail until those three lines are un-escaped or user requests the fix.
+- **What may break:** Next deploy of `proprietary-generate-article` will fail to bundle. Currently-deployed version continues to serve.
+- **Files:** `supabase/functions/proprietary-generate-article/index.ts`, `CHANGELOG.md`.
+
 ## 2026-06-04 — Always render FAQs that exist in markdown (BUILD-2026-06-04-FAQ-RENDER)
 
 - **What:** Removed the `skipFaqs` gate from `extractFAQFromContent` calls in `src/pages/Index.tsx` at the article-preview render path (was line 5422) and the HTML-copy path (was line 2898). FAQs now render whenever the markdown contains a `## Frequently Asked Questions` section, regardless of the toggle state.
