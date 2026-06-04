@@ -1,3 +1,15 @@
+## 2026-06-04 — Replace _shared/proprietaryPromptAssembler.ts with uploaded version
+
+- **What:** Overwrote `supabase/functions/_shared/proprietaryPromptAssembler.ts` (697 lines) with user-supplied file, byte-for-byte (md5 30f89ec4…).
+
+- **Why:** User instruction; no other edits.
+
+- **Files:** supabase/functions/_shared/proprietaryPromptAssembler.ts
+
+- **Verify:** md5sum matches upload; line count 697.
+
+- **Verified broken:** Nothing verified broken. Checked: md5 match against upload, line count, no other files touched.
+
 ## 2026-06-04 — Replace proprietary-generate-article/index.ts with uploaded version (v2)
 
 - **What:** Overwrote `supabase/functions/proprietary-generate-article/index.ts` (2172 lines) with user-supplied file, byte-for-byte (md5 8250feb4…).
