@@ -625,6 +625,12 @@ const Index = () => {
     const saved = localStorage.getItem("seo-generator-generatedContent");
     return saved ? normalizeQuickTipsSection(cleanContent(saved)) : "";
   });
+
+  // Last QA report from the deterministic validator (rendered above the export buttons)
+  const [qaState, setQaState] = useState<{
+    report: ReturnType<typeof repairAndValidate>["report"];
+    repair: ReturnType<typeof repairAndValidate>["repair"];
+  } | null>(null);
   
   // Store the original generated content for reset functionality
   const [originalContent, setOriginalContent] = useState(() => {
