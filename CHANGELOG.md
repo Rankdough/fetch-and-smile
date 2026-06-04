@@ -1,3 +1,10 @@
+## 2026-06-04 — Redeploy proprietary-generate-article (unescape lines 903/909/911)
+
+- **What:** Un-escaped backticks and `${` on lines 903/909/911 of `supabase/functions/proprietary-generate-article/index.ts` so Deno can parse the template literals, then redeployed.
+- **Why:** User requested redeploy; uploaded v6 file would not bundle as-is.
+- **Verified broken:** Nothing verified broken. Runtime semantics of the three lines unchanged (template literals produce identical strings). Deploy succeeded.
+- **Files:** `supabase/functions/proprietary-generate-article/index.ts`, `CHANGELOG.md`.
+
 ## 2026-06-04 — Replace proprietary-generate-article/index.ts with uploaded version (v6)
 
 - **What:** Overwrote `supabase/functions/proprietary-generate-article/index.ts` (2175 lines, md5 f3597ef0…) with user-supplied file, byte-for-byte. No redeploy requested.
