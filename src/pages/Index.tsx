@@ -60,7 +60,7 @@ import { ContentUsefulnessChecker } from "@/components/ContentUsefulnessChecker"
 import { SourceGroundingChecker } from "@/components/SourceGroundingChecker";
 import { Switch } from "@/components/ui/switch";
 import { ArticleNavigationPanel, extractNavigationFromContent, generateNavigationHtml } from "@/components/ArticleNavigationPanel";
-import { FAQAccordion, extractFAQFromContent, removeFAQSection, generateFAQHtml } from "@/components/FAQAccordion";
+import { FAQAccordion, extractFAQFromContent, extractOrDeriveFAQ, removeFAQSection, generateFAQHtml } from "@/components/FAQAccordion";
 import { useSpeechToText } from "@/hooks/useSpeechToText";
 import { useCreditTracking } from "@/hooks/useCreditTracking";
 import { SectionIndicator } from "@/components/SectionIndicator";
