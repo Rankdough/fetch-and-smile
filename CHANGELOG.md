@@ -1,4 +1,12 @@
-## 2026-06-04 — Redeploy proprietary-generate-article (unescape lines 903/909/911)
+## 2026-06-04 — Always render FAQs that exist in markdown (BUILD-2026-06-04-FAQ-RENDER)
+
+- **What:** Removed the `skipFaqs` gate from `extractFAQFromContent` calls in `src/pages/Index.tsx` at the article-preview render path (was line 5422) and the HTML-copy path (was line 2898). FAQs now render whenever the markdown contains a `## Frequently Asked Questions` section, regardless of the toggle state.
+- **Why:** User's generated article contained a fully-formed FAQ section in the markdown (confirmed in the 17:15:32Z 200 response body) but the FAQ accordion did not display. Root cause: `skipFaqs` is a generation-time preference but was also gating the display extractor, so a stale `true` value in `localStorage["seo-generator-skipFaqs"]` (or a toggle set before a generation that emitted FAQs anyway) hid the accordion. `skipFaqs` still controls generation (lines 1843, 1901, 2348, 2391) — only display is decoupled.
+- **Verified broken:** Nothing verified broken. Checked: (1) generation paths still read `skipFaqs` and skip prompt-side FAQ when on; (2) `extractFAQFromContent` returns `[]` when no FAQ section exists, so no FAQ panel appears for FAQ-less articles; (3) `FAQAccordion` early-returns null when items is empty (FAQAccordion.tsx:23); (4) HTML-export FAQ injection (line ~3433) was already gated only on `faqItems.length > 0` and that gate is unchanged.
+- **What may break:** If a user toggled "Skip FAQs" expecting it to suppress a FAQ section that was already in their existing markdown, that FAQ section will now appear in the preview. Generation-time suppression is unchanged.
+- **Files:** `src/pages/Index.tsx`, `CHANGELOG.md`.
+
+
 
 - **What:** Un-escaped backticks and `${` on lines 903/909/911 of `supabase/functions/proprietary-generate-article/index.ts` so Deno can parse the template literals, then redeployed.
 - **Why:** User requested redeploy; uploaded v6 file would not bundle as-is.
