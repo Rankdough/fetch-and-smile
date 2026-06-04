@@ -1786,6 +1786,7 @@ const Index = () => {
               businessType: "service", // Auto-detected to healthcare-clinical by backend if topic matches
               publicationDestination: "both",
               contextFiles: proprietaryContextFiles.length > 0 ? proprietaryContextFiles : undefined,
+              toneProfileId: selectedToneProfileId || undefined,
             },
           },
         );
