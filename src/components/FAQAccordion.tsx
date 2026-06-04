@@ -139,6 +139,57 @@ export const removeFAQSection = (content: string): string => {
   return content.replace(/## .*(?:FAQ|Frequently Asked Questions)\s*\n([\s\S]*?)(?=\n## [A-Z]|$)/i, "");
 };
 
+// 2026-06-04 fallback: when no `## Frequently Asked Questions` section exists in the
+// markdown (e.g. `skipFaqs=true` was stuck in localStorage, or the model omitted the
+// section despite the prompt), derive Q/A items from body question H2s + the first
+// paragraph beneath each. Guarantees an FAQ accordion renders even when generation
+// fails to produce a dedicated FAQ block. Excludes structural H2s (TL;DR, Quick Tips,
+// In This Article, How to Choose, Final Thoughts, References, Frequently Asked).
+const STRUCTURAL_H2_RE = /^(tl;?\s*dr|quick\s*tips|in\s*this\s*article|how\s+to\s+choose|final\s+thoughts?|references?|frequently\s+asked|faq|conclusion)\b/i;
+
+export const deriveFAQFromQuestionH2s = (content: string): FAQItem[] => {
+  const items: FAQItem[] = [];
+  if (!content) return items;
+  const lines = content.split("\n");
+  const h2Indices: number[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    if (/^##\s+\S/.test(lines[i])) h2Indices.push(i);
+  }
+  for (let k = 0; k < h2Indices.length; k++) {
+    const idx = h2Indices[k];
+    const headingText = lines[idx].replace(/^##\s+/, "").trim();
+    if (STRUCTURAL_H2_RE.test(headingText)) continue;
+    if (!headingText.endsWith("?")) continue; // only question H2s
+    const end = k + 1 < h2Indices.length ? h2Indices[k + 1] : lines.length;
+    // First non-empty paragraph below the heading, stopping at the next blank line
+    // or a list/table/blockquote marker. Skip CTA/image/blockquote noise.
+    let i = idx + 1;
+    while (i < end && lines[i].trim() === "") i++;
+    const buf: string[] = [];
+    while (i < end) {
+      const l = lines[i];
+      const t = l.trim();
+      if (t === "") break;
+      if (/^[-*+>|]/.test(t)) break; // list, table row, blockquote
+      if (/^!\[/.test(t)) break; // image
+      if (/^#/.test(t)) break; // sub-heading
+      buf.push(t);
+      i++;
+    }
+    const answer = buf.join(" ").replace(/\s+/g, " ").trim();
+    if (answer && answer.length >= 20) items.push({ question: headingText, answer });
+  }
+  return items;
+};
+
+// Combined accessor: prefer explicit FAQ section, fall back to derived Q/A from H2s.
+export const extractOrDeriveFAQ = (content: string): FAQItem[] => {
+  const explicit = extractFAQFromContent(content);
+  if (explicit.length > 0) return explicit;
+  return deriveFAQFromQuestionH2s(content);
+};
+
+
 // Generate HTML for FAQ accordion (for export)
 export const generateFAQHtml = (
   items: FAQItem[],
