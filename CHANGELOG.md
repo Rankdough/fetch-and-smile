@@ -1,3 +1,11 @@
+## 2026-06-04 — Enforce exactly 5 FAQs in proprietary generator
+
+What: Updated proprietary article generator's FAQ prompt from "3-5 Q&A pairs" to "EXACTLY 5 (no fewer, no more)" in `_shared/proprietaryPromptAssembler.ts`. Added deterministic top-up in `proprietary-generate-article/index.ts` that counts bold-question Q&A pairs in the FAQ section and appends generic filler pairs until exactly 5 are present. Extended the empty-FAQ fallback pool from 3 to 5 pairs.
+Why: Previous fix only touched `generate-content` edge function, but articles were generated via `proprietary-generate-article` which has its own prompt path. Sample articles consistently shipped with 3 FAQs.
+Files: supabase/functions/_shared/proprietaryPromptAssembler.ts, supabase/functions/proprietary-generate-article/index.ts.
+Verify: Regenerate an article and confirm the FAQ accordion shows 5 entries.
+Verified broken: Nothing verified broken. The slice(0,5) cap in FAQAccordion still applies, so extra pairs (should not occur) would be truncated. Filler pairs are generic and topic-templated.
+
 ## 2026-06-04 — Enforce exactly 5 FAQs
 
 - **What:** Changed generation prompt in `supabase/functions/generate-content/index.ts` from "4-6 Q&A pairs" to "EXACTLY 5 Q&A pairs (no fewer, no more)". Updated completeness-guard fallback FAQ block (case `"FAQ"`) to contain 5 Q&A pairs instead of 4. Capped `extractOrDeriveFAQ` in `src/components/FAQAccordion.tsx` to `.slice(0, 5)` so render and export never display more than 5 even if the model overshoots or derivation finds more question H2s.

@@ -1992,6 +1992,39 @@ Deno.serve(async (req) => {
       }
       return lines.slice(i).join("\n").trim();
     };
+    // 2026-06-04: FAQ count enforcement helpers. The model occasionally returns
+    // 3-4 Q&A pairs despite the "EXACTLY 5" instruction; this top-up appends
+    // deterministic generic pairs to guarantee the article always renders 5.
+    const buildFallbackFaq = (topic: string, count: number): string => {
+      const t = topic.replace(/[?!.]+$/, "").trim();
+      const pool: Array<[string, string]> = [
+        [`**What is the key difference between the main options for ${t}?**`,
+          "The primary distinction is in what each option is designed to prevent or solve. Each approach addresses a different failure mode, so confirming which failure mode applies to your situation is the first decision."],
+        [`**How do I know which option is right for my situation?**`,
+          "Start with the constraint that cannot be traded away — cost, timeline, location, or compatibility. Rule out options that fail on any hard constraint before comparing the remaining ones on outcome."],
+        [`**What should I ask before committing to a choice for ${t}?**`,
+          "Ask what measurable outcome will confirm the choice is working within a defined timeframe, and what triggers a change of plan if it is not delivering that result."],
+        [`**What are the most common mistakes people make with ${t}?**`,
+          "The recurring pattern is choosing on price or convenience first and validating fit afterwards. Reversing that order — fit first, price second — eliminates most regrettable decisions."],
+        [`**How long does it typically take to see results from ${t}?**`,
+          "Meaningful results usually appear within a defined evaluation window. Track the specific indicator that matches the chosen approach and review progress at the agreed checkpoint rather than reacting to short-term noise."],
+      ];
+      const pairs = pool.slice(0, Math.max(0, Math.min(count, pool.length)));
+      return pairs.map(([q, a]) => `${q}\n\n${a}`).join("\n\n");
+    };
+    const countFaqPairs = (faq: string): number => {
+      const re = /^\s*\*\*[^*\n]+\?\*\*\s*$/gm;
+      return (faq.match(re) || []).length;
+    };
+    const ensureFiveFaqPairs = (faq: string, topic: string): string => {
+      const have = countFaqPairs(faq);
+      if (have >= 5) return faq;
+      const need = 5 - have;
+      const fillers = buildFallbackFaq(topic, 5).split(/\n\n(?=\*\*)/).slice(-need).join("\n\n");
+      console.warn(`STITCH: FAQ had ${have} pair(s) — appended ${need} deterministic filler(s) to reach 5.`);
+      return faq.trimEnd() + "\n\n" + fillers;
+    };
+
     const md: string[] = [`# ${articleTitle}`, ""];
     const isEmptyOrPlaceholder = (s: string) => {
       const t = s.trim();
@@ -2010,15 +2043,8 @@ Deno.serve(async (req) => {
       if ((s.kind === "faq" || s.kind === "quick-tips") && isEmptyOrPlaceholder(cleanContent)) {
         // For FAQ: inject a deterministic fallback rather than silently dropping the section.
         if (s.kind === "faq") {
-          const t = body.topic.replace(/[?!.]+$/, "").trim();
-          const q1 = `**What is the key difference between the main options for ${t}?**`;
-          const a1 = "The primary distinction is in what each option is designed to prevent or solve. Each approach addresses a different failure mode, so confirming which failure mode applies to your situation is the first decision.";
-          const q2 = "**How do I know which option is right for my situation?**";
-          const a2 = "Start with the constraint that cannot be traded away — cost, timeline, location, or compatibility. Rule out options that fail on any hard constraint before comparing the remaining ones on outcome.";
-          const q3 = `**What should I ask before committing to a choice for ${t}?**`;
-          const a3 = "Ask what measurable outcome will confirm the choice is working within a defined timeframe, and what triggers a change of plan if it is not delivering that result.";
-          const fallbackFaq = [q1, a1, q2, a2, q3, a3].join("\n\n");
-          console.warn("STITCH: FAQ was empty — injected deterministic fallback.");
+          const fallbackFaq = buildFallbackFaq(body.topic, 5);
+          console.warn("STITCH: FAQ was empty — injected deterministic fallback (5 pairs).");
           md.push("## Frequently Asked Questions", "", fallbackFaq, "");
           continue;
         }
@@ -2032,7 +2058,9 @@ Deno.serve(async (req) => {
       } else if (s.kind === "quick-tips") {
         md.push("## Quick Tips", "", cleanContent, "");
       } else if (s.kind === "faq") {
-        md.push("## Frequently Asked Questions", "", cleanContent, "");
+        // Enforce EXACTLY 5 Q&A pairs: top-up with deterministic fillers if model produced fewer.
+        const topped = ensureFiveFaqPairs(cleanContent, body.topic);
+        md.push("## Frequently Asked Questions", "", topped, "");
       } else {
         md.push(`## ${s.heading}`, "", cleanContent, "");
       }
