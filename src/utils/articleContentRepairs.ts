@@ -42,6 +42,12 @@ const isStructuredSnippetLine = (line: string): boolean => {
 
 export function normalizeBrokenImageMarkdown(content: string): string {
   return content.replace(
+    /(^|[^!])\[([^\]\n]+)\]\((https?:\/\/[^)\s]+)\)/g,
+    (match, prefix: string, alt: string, url: string) => {
+      if (!IMAGE_URL_RE.test(url)) return match;
+      return `${prefix}![${alt.trim()}](${url})`;
+    },
+  ).replace(
     /(^|\n)(!?)\[([^\]\n]+)\]\s*\n+\s*\((https?:\/\/[^)\n]+(?:\n[^)\n]+)*)\)/g,
     (match, prefix: string, bang: string, alt: string, rawUrl: string) => {
       const url = rawUrl.replace(/\s+/g, "");
