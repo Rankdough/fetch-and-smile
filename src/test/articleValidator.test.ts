@@ -47,12 +47,10 @@ describe("articleValidator — repair", () => {
   });
 
   it("splits dense paragraphs (>60 words OR >3 sentences)", () => {
-    const { html, applied } = repairArticleHtml(brokenHtml);
-    const matches = applied.find((a) => a.startsWith("split-"));
-    expect(matches).toBeTruthy();
-    const beforeCount = (brokenHtml.match(/<p\b/gi) || []).length;
-    const afterCount = (html.match(/<p\b/gi) || []).length;
-    expect(afterCount).toBeGreaterThan(beforeCount);
+    const dense = `<p>This is a very long wall of text. It runs on and on without any breaks for the reader. Sentence one continues forever. Sentence two also continues. Sentence three keeps adding more words because the writer never paused. Sentence four piles even more onto the heap until the reader is exhausted and confused about what the actual point of the paragraph might be.</p>`;
+    const { html, applied } = repairArticleHtml(dense);
+    expect(applied.some((a) => a.startsWith("split-"))).toBe(true);
+    expect((html.match(/<p\b/gi) || []).length).toBeGreaterThan(1);
   });
 });
 
