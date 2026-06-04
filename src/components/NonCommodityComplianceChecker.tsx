@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Check, X, ShieldCheck, Loader2, Wand2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { enforceUnder45SnippetBlocks, normalizeBrokenImageMarkdown } from "@/utils/articleContentRepairs";
+import { enforceUnder45SnippetBlocks, normalizeBrokenImageMarkdown, relocateImagesOutOfForbiddenSections } from "@/utils/articleContentRepairs";
 
 interface NonCommodityComplianceCheckerProps {
   content: string;
@@ -257,7 +257,7 @@ export function NonCommodityComplianceChecker({ content, onContentUpdate, useFir
         if (error) throw new Error(error.message || "Edge function failed");
         if (data?.error) throw new Error(data.error);
         if (!data?.content) throw new Error("No content returned");
-        working = enforceUnder45SnippetBlocks(normalizeBrokenImageMarkdown(data.content));
+        working = relocateImagesOutOfForbiddenSections(enforceUnder45SnippetBlocks(normalizeBrokenImageMarkdown(data.content)));
         lastResults = evaluate(working);
       }
 
