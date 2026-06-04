@@ -229,7 +229,7 @@ serve(async (req) => {
       : "4. ## In This Article (~" + inThisArticleWords + " words) — navigation guide:\n   - Format as a BULLETED LIST: - 1. Section Title - DETAILED description (MINIMUM 150 characters)\n   - List ALL main H2 sections from the article (not TL;DR or References)\n   - DO NOT SKIP THIS SECTION";
     const faqSection = skipFaqs ? '' : `7. ## Frequently Asked Questions (~${faqWords} words) — MANDATORY SECTION, MUST BE INCLUDED.
    - Use the EXACT H2 heading: "## Frequently Asked Questions" (do not rename, do not skip)
-   - Include 4-6 Q&A pairs in this EXACT markdown format (the parser depends on it):
+   - Include EXACTLY 5 Q&A pairs (no fewer, no more) in this EXACT markdown format (the parser depends on it):
 
 \`\`\`
 **What is the typical cost?**
@@ -2076,7 +2076,7 @@ ${contextContent}`;
             case "In This Article":
               return `## In This Article\n- 1. Core topic questions - direct answers and key context\n- 2. Side-by-side comparison - practical differences that affect outcomes\n- 3. Decision framework - how to choose based on constraints\n- 4. FAQ and references - quick clarifications and credible sources`;
             case "FAQ":
-              return `## Frequently Asked Questions\n**What is the safest way to act on this advice?**\n\nPrioritise evidence-backed options, then validate against your budget, timeline, and constraints.\n\n**How should readers compare alternatives?**\n\nUse consistent criteria, including cost, reliability, and expected results.\n\n**What mistakes should be avoided first?**\n\nAvoid vague claims, missing data, and one-size-fits-all recommendations.\n\n**How often should this be reviewed?**\n\nRe-check assumptions whenever pricing, regulations, or market conditions change.`;
+              return `## Frequently Asked Questions\n**What is the safest way to act on this advice?**\n\nPrioritise evidence-backed options, then validate against your budget, timeline, and constraints.\n\n**How should readers compare alternatives?**\n\nUse consistent criteria, including cost, reliability, and expected results.\n\n**What mistakes should be avoided first?**\n\nAvoid vague claims, missing data, and one-size-fits-all recommendations.\n\n**How often should this be reviewed?**\n\nRe-check assumptions whenever pricing, regulations, or market conditions change.\n\n**Where can readers find trustworthy sources?**\n\nStart with peer-reviewed studies, official guidelines, and recognised industry bodies before consulting secondary commentary.`;
             case "Final Thoughts":
               return `## Final Thoughts\nThe strongest results come from clear criteria, grounded comparisons, and deliberate trade-offs. Use the framework above to choose confidently and execute the next step with evidence, not guesswork.`;
             case "References": {

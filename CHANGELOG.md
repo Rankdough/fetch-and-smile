@@ -1,3 +1,10 @@
+## 2026-06-04 — Enforce exactly 5 FAQs
+
+- **What:** Changed generation prompt in `supabase/functions/generate-content/index.ts` from "4-6 Q&A pairs" to "EXACTLY 5 Q&A pairs (no fewer, no more)". Updated completeness-guard fallback FAQ block (case `"FAQ"`) to contain 5 Q&A pairs instead of 4. Capped `extractOrDeriveFAQ` in `src/components/FAQAccordion.tsx` to `.slice(0, 5)` so render and export never display more than 5 even if the model overshoots or derivation finds more question H2s.
+- **Why:** User explicitly requested 5 FAQs per article.
+- **Verified broken:** Nothing verified broken. Checked: `extractFAQFromContent` and `deriveFAQFromQuestionH2s` are unchanged; cap is applied only at the combined accessor, so callers using the lower-level functions are untouched (`rg` shows only `Index.tsx` uses `extractOrDeriveFAQ`). Generation prompt change is text-only inside the existing `faqSection` template; no structural changes to the prompt assembly.
+- **Files:** `supabase/functions/generate-content/index.ts`, `src/components/FAQAccordion.tsx`, `CHANGELOG.md`.
+
 ## 2026-06-04 — Unconditional client-side FAQ fallback (derive from question H2s)
 
 - **What:** Added `deriveFAQFromQuestionH2s` and `extractOrDeriveFAQ` to `src/components/FAQAccordion.tsx`. Wired both preview-render and HTML-export call sites in `src/pages/Index.tsx` to `extractOrDeriveFAQ` instead of `extractFAQFromContent`. When the markdown has an explicit `## Frequently Asked Questions` section, behaviour is unchanged. When it does not, items are derived from body H2s ending with `?` (skipping structural H2s: TL;DR, Quick Tips, In This Article, How to Choose, Final Thoughts, References, FAQ, Conclusion) using the first non-list/non-blockquote paragraph below each as the answer. Items with answers shorter than 20 chars are dropped.
