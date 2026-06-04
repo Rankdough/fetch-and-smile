@@ -7,7 +7,13 @@ export function trimToWordCount(text: string, maxWords: number): string {
   const words = text.trim().split(/\s+/).filter(Boolean);
   if (words.length <= maxWords) return text.trim();
 
-  const sentences = text.match(/[^.!?]+[.!?]+(?:["')\]]+)?/g)?.map((s) => s.trim()).filter(Boolean) ?? [];
+  // Protect decimal numbers before sentence splitting so "7.36%" does not get
+  // split into "7." and "36%", producing truncated table cells and prose fragments.
+  const DECIMAL_PLACEHOLDER = "\x00DEC\x00";
+  const protectedText = text.replace(/(\d)\.(?=\d)/g, `$1${DECIMAL_PLACEHOLDER}`);
+  const sentences = protectedText.match(/[^.!?]+[.!?]+(?:["')\]]+)?/g)
+    ?.map((s) => s.replace(new RegExp(DECIMAL_PLACEHOLDER.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g"), ".").trim())
+    .filter(Boolean) ?? [];
   const completeSentences: string[] = [];
   let usedWords = 0;
   for (const sentence of sentences) {
