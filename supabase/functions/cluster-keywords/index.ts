@@ -157,30 +157,46 @@ JSON FORMAT:
 {"enrichments":[{"topic":"Exact Topic Name","description":"1-sentence description of this cluster","content_type":"blog_post|landing_page|guide|comparison|listicle|how_to","difficulty":"low|medium|high","priority":"high|medium|low","blog_ideas":[{"title":"...","description":"...","reason":"...","target_keywords":["keyword1","keyword2","keyword3"],"value_promises":["Promise 1","Promise 2","Promise 3","Promise 4","Promise 5"]},{"title":"...","description":"...","reason":"...","target_keywords":["keyword1","keyword2"],"value_promises":["Promise 1","Promise 2","Promise 3","Promise 4","Promise 5"]}]}]}
 
 VALUE PROMISE RULES (apply to every blog idea):
-Value promises state what the reader will UNDERSTAND or be able to EVALUATE after reading — NOT what they will do.
-They must be tightly aligned with the target_keywords, naturally incorporating their search intent.
+Value promises state what the reader will specifically UNDERSTAND or be able to EVALUATE after reading.
+They must map tightly to the target_keywords and the search intent behind them.
+
+SEARCH INTENT MATCHING — read the keywords first:
+- "What is X" / "X meaning" / "X explained" keywords → promises must answer the definitional question with specific criteria, named components, or numbered conditions
+- "How to X" / "X tips" keywords → promises must name specific actions, thresholds, or measurable outcomes
+- "X vs Y" / "best X" / "X comparison" keywords → promises must name the specific dimensions being compared with real values
+- "X cost" / "X price" / "X rate" keywords → promises must include numeric ranges, breakdowns, or cost drivers
+
+NON-COMMODITY REQUIREMENTS (every promise must pass all 3):
+1. SPECIFIC — names an exact mechanism, criterion, number, rule, or named entity from the topic (not a vague concept)
+2. NUMERIC ANCHOR — contains or implies a specific number, count, threshold, percentage, year, or named condition (e.g. "4 conditions", "before 1895", "15 runs after 5 innings")
+3. INFORMATION GAP — addresses something the top 10 Google results consistently fail to cover with precision
 
 HOW TO GENERATE VALUE PROMISES:
-1. Look at EVERY target keyword — each implies a specific information need or decision point.
-2. Each promise describes a tangible OUTCOME the reader walks away with, tied to those keywords.
-3. Focus on: exact factors/criteria/components tied to the keywords, clear comparisons between keyword-related options, specific risks/mistakes/failure points, cost/performance/outcome differences, and what "good", "safe", or "high-quality" looks like in real terms for that keyword topic.
-4. Include structured thinking where relevant (e.g., comparison tables, breakdowns, checklists, benchmarks, scenarios).
-5. Each promise must reflect the search intent behind the keywords (informational, commercial, or decision-making).
-6. Keep each value promise to ONE concise sentence.
+1. Read every target keyword — each implies a specific question the reader needs answered
+2. For each promise, identify: what specific thing will the reader know that they didn't before?
+3. Name the exact entity, number, rule, or mechanism — never describe a category ("the history of X")
+4. If keywords are definitional ("what is X"), promises must answer the sub-questions: what exactly qualifies, what specifically disqualifies, when exactly does it apply, what specifically does it prevent
+5. Keep each promise to ONE concise sentence with a numeric or named anchor
 
-EXAMPLES:
-- Keywords: "cost of building a villa in bali", "bali construction costs" → "The real per-square-metre construction costs for villas in Bali — broken down by material quality, location, and finish level."
-- Keywords: "leasehold vs freehold bali", "buying property bali foreigners" → "How leasehold and freehold ownership structures compare in Bali — including legal risk, resale value, and long-term cost differences for foreign buyers."
-- Keywords: "best areas to invest in bali", "bali property roi" → "Which Bali regions deliver the strongest rental yields and capital growth — with a comparison table of ROI benchmarks by area."
+STRONG EXAMPLES:
+- Keywords: "what is infield fly rule", "infield fly rule baseball" → "The 4 simultaneous conditions that must all be true for the infield fly rule to apply — and why a single missing condition means the rule does not trigger."
+- Keywords: "infield fly rule explained" → "The 2 specific double-play scenarios the rule was designed to eliminate, and the exact fielder manipulation tactic used before 1895 that made the rule necessary."
+- Keywords: "cost of building a villa in bali" → "Per-square-metre construction costs in Bali broken down by 3 finish levels — entry, mid-range, and luxury — with specific USD ranges for each."
+- Keywords: "leasehold vs freehold bali" → "How leasehold and freehold title compare across 4 dimensions: legal duration, resale value, foreign buyer eligibility, and inheritance rights."
+
+WEAK EXAMPLES (banned):
+- "The historical context and evolution of the infield fly rule" — topic description, no number, no specific gap
+- "How the rule shifts responsibility from base runners to the umpire" — too vague, no specific condition named
+- "The specific unfair defensive tactics the rule was designed to prevent" — "specific" without being specific
 
 RULES:
-- Generate exactly 5 value promises per blog idea.
-- Each promise MUST map to one or more of the blog idea's target_keywords — do NOT invent promises about topics not in the keywords.
-- Be specific: mention the exact entities, metrics, locations, or factors from the keywords.
-- Promise tables, comparisons, or breakdowns when keywords imply numerical or comparative answers.
-- Do NOT reveal the actual answer/numbers — describe what the reader will understand.
-- BANNED verbs/phrases: "Learn", "Understand", "Explore", "Discover", "Use", "Follow", "Check", "tips", "guide", generic filler without keyword-specific detail.
-- BANNED format: Action verbs directed at the reader (no "use X to...", "follow these steps...", "check whether...").
+- Generate exactly 5 value promises per blog idea
+- Each promise MUST map to one or more target_keywords — never invent promises about off-topic concepts
+- Every promise must contain a numeric anchor or named entity (a count, year, threshold, named rule, or specific condition)
+- Do NOT reveal the actual answer or numbers — describe what the reader will understand, not the answer itself
+- BANNED verbs/phrases: "Learn", "Understand", "Explore", "Discover", "Use", "Follow", "Check", "tips", "guide", "context", "evolution", "history of", "overview of"
+- BANNED format: Action verbs directed at the reader ("use X to...", "follow these steps...", "check whether...")
+- BANNED format: Topic descriptions without a specific gap ("the role of X in Y", "how X works", "what X means")
 RULES:
 - Exactly 5 blog ideas per cluster
 - Each blog idea MUST include "target_keywords": an array of 2-5 keywords from the cluster's keyword list that this article should target
