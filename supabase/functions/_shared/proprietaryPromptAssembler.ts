@@ -219,22 +219,25 @@ motivated. Do NOT manufacture a contradiction where the consensus is genuinely
 correct.`.trim();
 
 const TABLE_GUARD_RULE = `
-RULE 7 — MANDATORY MARKDOWN TABLE:
-Every body section MUST contain exactly one Markdown pipe table using real data from the section.
+RULE 7 — MANDATORY MARKDOWN TABLE WITH MINIMUM 4 ROWS:
+Every body section MUST contain exactly one Markdown pipe table. The table must have AT LEAST 4 data rows (not counting the header). Tables with fewer than 4 rows fail this rule.
 
 Required format:
   | Column A | Column B | Column C |
   | --- | --- | --- |
-  | row data | row data | row data |
+  | row 1 data | row 1 data | row 1 data |
+  | row 2 data | row 2 data | row 2 data |
+  | row 3 data | row 3 data | row 3 data |
+  | row 4 data | row 4 data | row 4 data |
 
 Rules:
-- Columns must be real decision dimensions from this section (e.g. "Provider Type | Failure Rate | Training Level").
-- Rows must be the real named alternatives or criteria from this section content.
+- MINIMUM 4 rows. If the section only has 2 or 3 distinct items, break each into sub-types, variants, time periods, or edge cases to reach 4 rows.
+- Columns must be real decision dimensions from this section (e.g. "Era | Rule | Game Length | Impact").
+- Rows must be named alternatives, criteria, time periods, player types, or specific cases from the section content.
+- At least ONE column must contain numeric data (percentages, counts, durations, measurements, years, rates).
 - NEVER use generic placeholder rows: "Standard case", "Edge case", "Option A/B/C", "Type 1/2/3".
-- If the section compares two or more things, use those things as rows with their real attributes.
-- If the section explains criteria or risk factors, use those as rows with real values.
-- Use only data that appears in this section — do not invent statistics.
-- A table with real but simple data is always better than no table.`.trim();
+- Do not invent statistics. If a number does not exist in the section, use a descriptive label instead.
+- A table with 4 real rows always beats a table with 2 perfect rows.`.trim();
 
 const AI_EXTRACTION_RULES = `
 AI EXTRACTION RULES (apply to every section, every business type — additive to Rules 1–8; do NOT override any earlier rule):
