@@ -2279,6 +2279,7 @@ Deno.serve(async (req) => {
           outlineProvided: true,
           customInstructionsProvided: false,
           knowledgeBaseUsed: units.length > 0,
+          toneProfileUsed: !!toneProfile,
         },
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
