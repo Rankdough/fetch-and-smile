@@ -581,12 +581,7 @@ Name], or [NEEDS EXPERT INPUT].`;
 
     // Quick Tips framing section: enforce exactly 3 actionable tips.
     if (section.kind === "quick-tips") {
-      ruleBlocks.push(`QUICK TIPS RULE:
-Output EXACTLY 3 markdown bullet points. Each bullet is one actionable
-sentence (max 18 words) that a reader can act on before their next clinical
-appointment. No filler ("consider", "think about", "be aware that"). Each
-tip must reference a real category, decision, or check from the body
-sections — not a generic platitude.`);
+      ruleBlocks.push(`QUICK TIPS RULE:\nOutput EXACTLY 3 quick tips using this EXACT blockquote format (required for circle icon rendering):\n\n> **Tip 1:** [One actionable sentence, max 18 words.]\n> **Tip 2:** [One actionable sentence, max 18 words.]\n> **Tip 3:** [One actionable sentence, max 18 words.]\n\nEach tip must be a real action the reader can take. No filler words like "consider" or "think about". Each tip must reference a real category, decision, or check from the body sections.`);
       applied.push(2);
     }
   }
