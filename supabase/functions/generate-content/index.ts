@@ -229,7 +229,7 @@ serve(async (req) => {
       : "4. ## In This Article (~" + inThisArticleWords + " words) — navigation guide:\n   - Format as a BULLETED LIST: - 1. Section Title - DETAILED description (MINIMUM 150 characters)\n   - List ALL main H2 sections from the article (not TL;DR or References)\n   - DO NOT SKIP THIS SECTION";
     const faqSection = skipFaqs ? '' : `7. ## Frequently Asked Questions (~${faqWords} words) — MANDATORY SECTION, MUST BE INCLUDED.
    - Use the EXACT H2 heading: "## Frequently Asked Questions" (do not rename, do not skip)
-   - Include 4-6 Q&A pairs in this EXACT markdown format (the parser depends on it):
+   - Include EXACTLY 5 Q&A pairs (no fewer, no more) in this EXACT markdown format (the parser depends on it):
 
 \`\`\`
 **What is the typical cost?**
