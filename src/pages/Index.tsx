@@ -48,6 +48,7 @@ import { SettingsPopover } from "@/components/SettingsPopover";
 import { VerificationReport } from "@/components/VerificationReport";
 import { ArticleQAPanel } from "@/components/ArticleQAPanel";
 import { repairAndValidate } from "@/utils/articleValidator";
+import { enforceUnder45SnippetBlocks, normalizeBrokenImageMarkdown, relocateImagesOutOfForbiddenSections } from "@/utils/articleContentRepairs";
 import { isExperienceGateEnabled, loadProjectSignals, gradeArticleTwoPass, stripHedges, type TwoPassReport } from "@/lib/experienceSignals";
 import { VoiceEditAgent } from "@/components/VoiceEditAgent";
 import { ToneProfilePanel } from "@/components/ToneProfilePanel";
@@ -265,7 +266,7 @@ const enforceParagraphDensity = (content: string): string =>
 
 // Helper to auto-clean prohibited characters from content
 const cleanContent = (content: string): string => {
-  let cleaned = content
+  let cleaned = normalizeBrokenImageMarkdown(content)
     .replace(/—/g, "-")  // Remove em dashes
     .replace(/–/g, "-")  // Remove en dashes
     .replace(/^\s*[-*_]{3,}\s*$/gm, "")  // Remove horizontal lines
@@ -288,6 +289,7 @@ const cleanContent = (content: string): string => {
     .replace(/[ \t]{2,}/g, " ");
 
   cleaned = enforceParagraphDensity(cleaned);
+  cleaned = relocateImagesOutOfForbiddenSections(enforceUnder45SnippetBlocks(cleaned));
 
   // Fix inline numbered lists rendered as a single paragraph
   // e.g., "1. Foo: text here. 2. Bar: text here." → separate lines
