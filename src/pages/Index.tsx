@@ -2895,7 +2895,9 @@ const Index = () => {
                 
                 // Extract navigation and FAQ items from markdown
                 const navItems = getBestNavigationItems(generatedContent);
-                const faqItems = skipFaqs ? [] : extractFAQFromContent(generatedContent);
+                // BUILD-2026-06-04-FAQ-RENDER: always render FAQs that exist in the markdown.
+                // skipFaqs is a generation-time toggle, not a display-time toggle.
+                const faqItems = extractFAQFromContent(generatedContent);
                 
                 // Get article element for base HTML structure
                 const article = document.querySelector("article");
