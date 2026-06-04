@@ -1,6 +1,6 @@
 import { marked } from "marked";
 import { extractNavigationFromContent, generateNavigationHtml } from "@/components/ArticleNavigationPanel";
-import { extractFAQFromContent, removeFAQSection, generateFAQHtml } from "@/components/FAQAccordion";
+import { extractOrDeriveFAQ, removeFAQSection, generateFAQHtml } from "@/components/FAQAccordion";
 import { buildTrustSignalHtml } from "@/components/TrustSignalBox";
 
 interface ColorPalette {
@@ -44,7 +44,7 @@ export function markdownToStyledHtml(
 
   // 1. Extract nav items and FAQ from the raw markdown BEFORE conversion
   const navItems = options.skipNavigation ? [] : extractNavigationFromContent(markdown);
-  const faqItems = options.skipFaqs ? [] : extractFAQFromContent(markdown);
+  const faqItems = options.skipFaqs ? [] : extractOrDeriveFAQ(markdown);
 
   // Remove FAQ section from markdown so it doesn't appear twice
   let cleanMarkdown = faqItems.length > 0 ? removeFAQSection(markdown) : markdown;
