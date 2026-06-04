@@ -24,7 +24,14 @@ const MAX_PARAGRAPH_WORDS = 55;
 const MAX_PARAGRAPH_SENTENCES = 3;
 
 function splitSentences(text: string): string[] {
-  return text.match(/[^.!?]+[.!?]+(?:["')\]]+)?|[^.!?]+$/g)?.map((s) => s.trim()).filter(Boolean) || [];
+  // Protect decimal numbers (e.g. "7.36%", "1.5x") from being treated as sentence boundaries.
+  // Replace decimal points with a placeholder, split on sentence terminals, then restore.
+  const placeholder = "\x00DECIMAL\x00";
+  const protected_ = text.replace(/(\d)\.(?=\d)/g, `$1${placeholder}`);
+  const sentences = protected_.match(/[^.!?]+[.!?]+(?:["')\]]+)?|[^.!?]+$/g)
+    ?.map((s) => s.replace(new RegExp(placeholder.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g"), ".").trim())
+    .filter(Boolean) || [];
+  return sentences;
 }
 
 function splitLongSentence(sentence: string): string[] {
