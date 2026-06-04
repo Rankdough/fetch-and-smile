@@ -1811,6 +1811,24 @@ const Index = () => {
             const filtered = prev.filter(u => u !== ctaUrl.trim());
             return [ctaUrl.trim(), ...filtered].slice(0, 10);
           });
+          // Set generatedCTAs so the export path injects both middle and end CTAs.
+          // Proprietary mode uses the topic to derive CTA copy; Classic mode uses generate-content.
+          // Without this, generatedCTAs is null and only the inline CTA appears.
+          if (!generatedCTAs) {
+            const shortTopic = formData.topic.replace(/[?!.]+$/, "").slice(0, 60);
+            setGeneratedCTAs({
+              middle: {
+                headline: shortTopic,
+                description: "",
+                buttonText: "Learn More",
+              },
+              end: {
+                headline: shortTopic,
+                description: "",
+                buttonText: "Get Started",
+              },
+            });
+          }
         }
         const validInternalUrls = internalLinks.filter((url) => url.trim()).map((url) => url.trim());
         if (validInternalUrls.length > 0) {
