@@ -1789,6 +1789,10 @@ const Index = () => {
               publicationDestination: "both",
               contextFiles: proprietaryContextFiles.length > 0 ? proprietaryContextFiles : undefined,
               toneProfileId: selectedToneProfileId || undefined,
+              // Value promises drive H2 generation and section content in Proprietary mode
+              valuePromiseClaims: valuePromiseClaims.filter(c => c.trim()).length > 0
+                ? valuePromiseClaims.filter(c => c.trim())
+                : undefined,
             },
           },
         );
