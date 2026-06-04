@@ -398,13 +398,15 @@ function insertImagesLocally(content: string, images: ArticleImage[]): string {
   
   console.log(`Assigned ${assignedToH2.size} images to H2s, ${remainingImages.length} remaining for paragraph breaks`);
   
-  // Find paragraph breaks between H2s for remaining images (not near headings)
+  // Find paragraph breaks between H2s for remaining images (not near headings,
+  // and never inside skipped sections like TL;DR / FAQ / References).
   const paragraphBreaks: number[] = [];
   for (let i = 1; i < lines.length - 1; i++) {
+    if (isInForbiddenRange(i) || isInForbiddenRange(i + 1)) continue;
     // Skip lines near H2 headings (within 2 lines)
     const nearH2 = h2Indices.some(h => Math.abs(h - i) <= 2);
     if (nearH2) continue;
-    
+
     if (lines[i].trim() === "" && lines[i + 1] && lines[i + 1].trim() &&
         !lines[i + 1].startsWith("#") && !lines[i + 1].startsWith("|") &&
         !lines[i + 1].startsWith("!") && !lines[i + 1].startsWith("-") &&
