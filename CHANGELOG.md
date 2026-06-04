@@ -1,3 +1,11 @@
+## 2026-06-04 — Replace src/pages/Index.tsx with uploaded version
+
+- **What:** Overwrote `src/pages/Index.tsx` (6227 lines) byte-for-byte with user-supplied file `Index (2).tsx`. No other files changed.
+- **Why:** User instruction; replace only, CHANGELOG-only edit otherwise.
+- **Verified broken:** Not verified (no build/typecheck run per user "do not change any other file" scope). Any prior in-file edits to Index.tsx not present in the uploaded version are overwritten, including the recent FAQ render decoupling (BUILD-2026-06-04-FAQ-RENDER) unless the uploaded file already contains that change.
+- **What may break:** FAQ render fix may be reverted if upload predates it; any other unmerged Index.tsx edits are lost.
+- **Files:** `src/pages/Index.tsx`, `CHANGELOG.md`.
+
 ## 2026-06-04 — Replace proprietary-generate-article/index.ts with uploaded version (v6-2)
 
 - **What:** Overwrote `supabase/functions/proprietary-generate-article/index.ts` (2175 lines) byte-for-byte with user-supplied file `proprietary-generate-article_index_6-2.ts`. No other files changed. No redeploy requested.
