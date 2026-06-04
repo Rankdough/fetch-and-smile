@@ -641,10 +641,19 @@ CRITICAL: If the tone is conversational, use short sentences under 20 words. Nev
   if (retrieved) userParts.push(retrieved);
   const ctx = describeSurroundingContext(input.surroundingContext);
   if (ctx) userParts.push(ctx);
+  // Hard requirements appended to the task — these are the rules most
+  // commonly failed at generation time. Stating them explicitly in the task
+  // (not just the system prompt) significantly improves compliance.
+  const hardRequirements = [
+    "OUTPUT FORMAT: Markdown only. No front-matter, no code fences. Do NOT repeat the H2 heading.",
+    "HARD REQUIREMENT — NUMERIC DENSITY: Include AT LEAST 3 specific numbers, percentages, or counts with units in this section. Example: '24 perfect games', '7.36%', '27 consecutive batters'. Vague claims without numbers fail.",
+    "HARD REQUIREMENT — NO HEDGING: Do NOT use the words 'typically', 'varies', 'depends', 'generally', 'often', 'usually', 'may vary', or 'in some cases' unless the sentence also contains a specific number. Replace hedges with facts.",
+    "HARD REQUIREMENT — METHODOLOGY (first data-containing section only): After the first sentence that contains a statistic or number, add one sentence in this exact format: 'This data was compiled from [specific named source].' Do this once per article, not per section.",
+    "HARD REQUIREMENT — FIRST PARAGRAPH ≤45 WORDS: The very first paragraph of this section must be 45 words or fewer. It must directly answer the section heading question. Count your words.",
+  ].join("\n");
   userParts.push(`TASK: Write the body of the section "${section.heading}" now.
-- Output Markdown only (no front-matter, no code fences).
-- Do NOT repeat the H2 heading; the system inserts it.
-- Obey every rule in the system message.`);
+
+${hardRequirements}`);
 
   return { system, user: userParts.join("\n\n"), appliedRules: applied };
 }
