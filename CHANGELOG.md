@@ -1,3 +1,10 @@
+## 2026-06-04 — Replace proprietary-generate-article/index.ts with uploaded version (v6)
+
+- **What:** Overwrote `supabase/functions/proprietary-generate-article/index.ts` (2175 lines, md5 f3597ef0…) with user-supplied file, byte-for-byte. No redeploy requested.
+- **Why:** User instruction; no other edits.
+- **Verified broken:** File contains escaped backticks/`${` on lines 903/909/911 (same as prior v5 upload). The function will FAIL to bundle/deploy in its current state — Deno parser rejects `\``. Last time this was fixed post-replace to enable deploy; this time user did not request redeploy and did not request edits, so file is left exactly as uploaded.
+- **Files:** `supabase/functions/proprietary-generate-article/index.ts`, `CHANGELOG.md`.
+
 ## 2026-06-04 — Replace src/pages/Index.tsx with uploaded version
 
 - **What:** Overwrote `src/pages/Index.tsx` (6227 lines, md5 485446bb…) with user-supplied file, byte-for-byte.
