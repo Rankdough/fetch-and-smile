@@ -655,6 +655,7 @@ CRITICAL: If the tone is conversational, use short sentences under 20 words. Nev
     "HARD REQUIREMENT — NO HEDGING: Do NOT use the words 'typically', 'varies', 'depends', 'generally', 'often', 'usually', 'may vary', or 'in some cases' unless the sentence also contains a specific number. Replace hedges with facts.",
     "HARD REQUIREMENT — METHODOLOGY (first data-containing section only): After the first sentence that contains a statistic or number, add one sentence in this exact format: 'This data was compiled from [specific named source].' Do this once per article, not per section.",
     "HARD REQUIREMENT — FIRST PARAGRAPH ≤45 WORDS: The very first paragraph of this section must be 45 words or fewer. It must directly answer the section heading question. Count your words.",
+    "HARD REQUIREMENT — TABLE MINIMUM 4 ROWS: Your Markdown table MUST have AT LEAST 4 data rows (not counting the header row). Count them before finishing. If you only have 2 or 3 natural rows, split each row into sub-cases, add a time-period row, or add an edge-case row to reach 4. A table with 4 rows always passes. A table with 3 rows always fails. Example of reaching 4 rows from 3 conditions: split one condition into two variants.",
   ].join("\n");
   // Inject value promises into task so every section knows what outcomes to address
   if (valuePromiseBlock) userParts.push(valuePromiseBlock);
