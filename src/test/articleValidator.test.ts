@@ -50,7 +50,9 @@ describe("articleValidator — repair", () => {
     const { html, applied } = repairArticleHtml(brokenHtml);
     const matches = applied.find((a) => a.startsWith("split-"));
     expect(matches).toBeTruthy();
-    expect(html.split(/<p[^>]*>/i).length).toBeGreaterThan(brokenHtml.split(/<p[^>]*>/i).length);
+    const beforeCount = (brokenHtml.match(/<p\b/gi) || []).length;
+    const afterCount = (html.match(/<p\b/gi) || []).length;
+    expect(afterCount).toBeGreaterThan(beforeCount);
   });
 });
 
