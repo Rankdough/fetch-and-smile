@@ -67,6 +67,8 @@ export interface AssemblerInput {
   retrievedKnowledge?: Array<{ content: string; sourceTitle?: string | null }>;
   /** Full context files passed through from the request — used as PRIMARY SOURCE OF TRUTH. */
   contextFiles?: Array<{ name: string; content: string }>;
+  /** Tone profile — enforces voice, sentence length, and writing style. Highest priority constraint. */
+  toneProfile?: { summary: string | null; characteristics: Record<string, string>; example_phrases: string[] | null } | null;
 }
 
 export interface AssembledPrompt {
@@ -215,23 +217,22 @@ motivated. Do NOT manufacture a contradiction where the consensus is genuinely
 correct.`.trim();
 
 const TABLE_GUARD_RULE = `
-RULE 7 — MANDATORY MARKDOWN TABLE FOR COMPARATIVE DATA:
-When this section presents 2 or more alternatives, options, or items that share
-comparable attributes (cost, timeline, suitability, risk, mechanism, material),
-you MUST render the comparison as a Markdown pipe table — NOT as prose paragraphs
-or bullet points.
+RULE 7 — MANDATORY MARKDOWN TABLE:
+Every body section MUST contain exactly one Markdown pipe table using real data from the section.
 
-Required format — standard Markdown pipe syntax only:
+Required format:
   | Column A | Column B | Column C |
   | --- | --- | --- |
   | row data | row data | row data |
 
-Columns must be real decision dimensions (e.g. "System Type | Retention Mechanism | Primary Risk").
-Rows must be the real named alternatives (never "Option A/B/C", "Type 1/2/3",
-"Beginner / Intermediate / Advanced", or any other template placeholder).
-
-When NO comparative data is present in this section, do NOT fabricate a table.
-A missing table is always better than a table with invented rows.`.trim();
+Rules:
+- Columns must be real decision dimensions from this section (e.g. "Provider Type | Failure Rate | Training Level").
+- Rows must be the real named alternatives or criteria from this section content.
+- NEVER use generic placeholder rows: "Standard case", "Edge case", "Option A/B/C", "Type 1/2/3".
+- If the section compares two or more things, use those things as rows with their real attributes.
+- If the section explains criteria or risk factors, use those as rows with real values.
+- Use only data that appears in this section — do not invent statistics.
+- A table with real but simple data is always better than no table.`.trim();
 
 const AI_EXTRACTION_RULES = `
 AI EXTRACTION RULES (apply to every section, every business type — additive to Rules 1–8; do NOT override any earlier rule):
@@ -453,7 +454,7 @@ function describeRetrievedKnowledge(snippets: AssemblerInput["retrievedKnowledge
 }
 
 export function assembleSectionPrompt(input: AssemblerInput): AssembledPrompt {
-  const { businessType, mappedUnit, audienceSentence, publicationDestination, section, articleTitle } = input;
+  const { businessType, mappedUnit, audienceSentence, publicationDestination, section, articleTitle, toneProfile } = input;
   const isBody = section.type === "body";
   const applied: number[] = [];
 
@@ -581,13 +582,30 @@ Name], or [NEEDS EXPERT INPUT].`;
 
     // Quick Tips framing section: enforce exactly 3 actionable tips.
     if (section.kind === "quick-tips") {
-      ruleBlocks.push(`QUICK TIPS RULE:\nOutput EXACTLY 3 quick tips using this EXACT blockquote format (required for circle icon rendering):\n\n> **Tip 1:** [One actionable sentence, max 18 words.]\n> **Tip 2:** [One actionable sentence, max 18 words.]\n> **Tip 3:** [One actionable sentence, max 18 words.]\n\nEach tip must be a real action the reader can take. No filler words like "consider" or "think about". Each tip must reference a real category, decision, or check from the body sections.`);
+      ruleBlocks.push(`QUICK TIPS RULE:\nOutput EXACTLY 3 bullet points. Each bullet is one actionable sentence (max 18 words) the reader can act on immediately. Use this format:\n\n- [Actionable tip referencing a specific criterion, check, or decision from this article.]\n- [Actionable tip referencing a specific criterion, check, or decision from this article.]\n- [Actionable tip referencing a specific criterion, check, or decision from this article.]\n\nNO filler. Each tip must name a specific action, check, or credential the reader can verify.`);
       applied.push(2);
     }
   }
 
+  const toneBlock = toneProfile ? (() => {
+    const chars = Object.entries(toneProfile.characteristics || {})
+      .map(([k, v]) => `- ${k}: ${v}`)
+      .join("\n");
+    const phrases = toneProfile.example_phrases?.length
+      ? `\nExample phrases that match this voice (write like this):\n${toneProfile.example_phrases.map((p: string, i: number) => `${i + 1}. "${p}"`).join("\n")}`
+      : "";
+    return `TONE OF VOICE — HIGHEST PRIORITY RULE:
+Your writing MUST match this tone profile. Short sentences. Plain language. Every sentence in this voice.
+
+Voice summary: ${toneProfile.summary || "Not specified"}
+${chars ? `\nVoice characteristics:\n${chars}` : ""}${phrases}
+
+CRITICAL: If the tone is conversational, use short sentences under 20 words. Never start with "While", "Although", "Given that", or "It is important to note".`;
+  })() : null;
+
   const system = [
     baseIdentity,
+    toneBlock,
     audienceBlock,
     destinationBlock,
     `ARTICLE TITLE: ${articleTitle}`,
