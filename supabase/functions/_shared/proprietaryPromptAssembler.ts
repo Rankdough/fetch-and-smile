@@ -69,6 +69,8 @@ export interface AssemblerInput {
   contextFiles?: Array<{ name: string; content: string }>;
   /** Tone profile — enforces voice, sentence length, and writing style. Highest priority constraint. */
   toneProfile?: { summary: string | null; characteristics: Record<string, string>; example_phrases: string[] | null } | null;
+  /** Value promise block — injected into every section so the model addresses all reader-expected outcomes. */
+  valuePromiseBlock?: string;
 }
 
 export interface AssembledPrompt {
@@ -454,7 +456,7 @@ function describeRetrievedKnowledge(snippets: AssemblerInput["retrievedKnowledge
 }
 
 export function assembleSectionPrompt(input: AssemblerInput): AssembledPrompt {
-  const { businessType, mappedUnit, audienceSentence, publicationDestination, section, articleTitle, toneProfile } = input;
+  const { businessType, mappedUnit, audienceSentence, publicationDestination, section, articleTitle, toneProfile, valuePromiseBlock } = input;
   const isBody = section.type === "body";
   const applied: number[] = [];
 
@@ -651,6 +653,9 @@ CRITICAL: If the tone is conversational, use short sentences under 20 words. Nev
     "HARD REQUIREMENT — METHODOLOGY (first data-containing section only): After the first sentence that contains a statistic or number, add one sentence in this exact format: 'This data was compiled from [specific named source].' Do this once per article, not per section.",
     "HARD REQUIREMENT — FIRST PARAGRAPH ≤45 WORDS: The very first paragraph of this section must be 45 words or fewer. It must directly answer the section heading question. Count your words.",
   ].join("\n");
+  // Inject value promises into task so every section knows what outcomes to address
+  if (valuePromiseBlock) userParts.push(valuePromiseBlock);
+
   userParts.push(`TASK: Write the body of the section "${section.heading}" now.
 
 ${hardRequirements}`);
