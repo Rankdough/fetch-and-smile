@@ -908,7 +908,7 @@ function injectHowToChoose(markdown: string, topic: string): string {
   if (m && m.index !== undefined) {
     return `${markdown.slice(0, m.index).trimEnd()}\n\n${block}\n\n${markdown.slice(m.index)}`;
   }
-  return \`\${markdown.trimEnd()}\n\n\${block}\`;
+  return `${markdown.trimEnd()}\n\n${block}`;
 }
 
 
