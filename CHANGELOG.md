@@ -6,6 +6,7 @@
 - **Files:** `src/pages/Index.tsx`, `CHANGELOG.md`.
 
 
+## 2026-06-04 — Restore FAQ rendering after Index replacement
 
 - **What:** Re-applied the FAQ display decoupling in `src/pages/Index.tsx`: both preview rendering and HTML copy/export now call `extractFAQFromContent(generatedContent)` directly instead of hiding FAQ items behind `skipFaqs`.
 - **Why:** The uploaded `Index.tsx` replacement reverted the prior FAQ render fix. Generated markdown can contain `## Frequently Asked Questions`, but a stale or enabled "Skip FAQs" toggle was suppressing display/export.
