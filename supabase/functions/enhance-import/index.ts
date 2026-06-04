@@ -337,10 +337,12 @@ function insertImagesLocally(content: string, images: ArticleImage[]): string {
   if (h2Indices.length === 0) {
     console.log("No H2 headings found, distributing images evenly through content");
     
-    // Find paragraph breaks (empty lines followed by content)
+    // Find paragraph breaks (empty lines followed by content), excluding the
+    // inside of skipped sections (TL;DR, FAQ, References, Final Thoughts, ...).
     const paragraphBreaks: number[] = [];
     for (let i = 1; i < lines.length - 1; i++) {
-      if (lines[i].trim() === "" && lines[i + 1] && lines[i + 1].trim() && 
+      if (isInForbiddenRange(i) || isInForbiddenRange(i + 1)) continue;
+      if (lines[i].trim() === "" && lines[i + 1] && lines[i + 1].trim() &&
           !lines[i + 1].startsWith("#") && !lines[i + 1].startsWith("|") &&
           !lines[i + 1].startsWith("!") && !lines[i + 1].startsWith("-")) {
         paragraphBreaks.push(i);
