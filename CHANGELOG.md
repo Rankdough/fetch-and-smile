@@ -1,3 +1,10 @@
+## 2026-06-04 — Replace generate-content/index.ts with uploaded version
+- **What:** Overwrote `supabase/functions/generate-content/index.ts` (2237 lines) with user-supplied file, byte-for-byte (md5 db60dd4e…).
+- **Why:** User instruction; no other edits.
+- **Files:** supabase/functions/generate-content/index.ts
+- **Verify:** md5sum matches upload; line count 2237.
+- **What may break:** Any behaviour change vs prior version of this edge function (full-file replacement; not diffed line-by-line against previous).
+
 ## 2026-06-04 — Fix: Rule 1 repair failures and broken image markdown recovery
 - What: Added `src/utils/articleContentRepairs.ts` with deterministic content repairs used before content is saved back into the editor. Rule 1 no longer depends on the AI hitting the under-45-word threshold: `enforceUnder45SnippetBlocks` splits only the first prose block below each H2/H3 at 45 words or fewer and moves overflow into the next paragraph without deleting facts. `normalizeBrokenImageMarkdown` recovers image markdown when the leading `!` is missing or when a storage URL was split across lines. `relocateImagesOutOfForbiddenSections` moves markdown image lines out of TL;DR, Quick Tips, FAQ, References, Sources, Final Thoughts, Conclusion, Summary, Introduction, and In This Article sections to the first valid H2. Wired these repairs into `cleanContent` in `src/pages/Index.tsx` and into the Non-Commodity fix retry loop in `src/components/NonCommodityComplianceChecker.tsx`. Added `src/test/articleContentRepairs.test.ts` with 5 regression tests.
 - Why: The screenshot showed Rule 1 still failing after Fix all and an uploaded image appearing as a broken markdown link inside TL;DR. The previous fix still relied on model compliance and did not recover the exact missing-bang image syntax shown in the screenshot.
