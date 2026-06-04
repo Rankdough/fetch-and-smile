@@ -104,7 +104,9 @@ export function relocateImagesOutOfForbiddenSections(content: string): string {
   for (const line of lines) {
     if (/^##\s+/.test(line.trim())) {
       if (isValidImageHeading(line) && pendingImages.length > 0) {
-        output.push(...pendingImages.splice(0), "");
+        output.push(line, "", ...pendingImages.splice(0), "");
+        inForbiddenSection = false;
+        continue;
       }
       inForbiddenSection = isForbiddenImageHeading(line);
     }
