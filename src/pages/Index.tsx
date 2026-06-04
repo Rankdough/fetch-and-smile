@@ -2895,7 +2895,7 @@ const Index = () => {
                 
                 // Extract navigation and FAQ items from markdown
                 const navItems = getBestNavigationItems(generatedContent);
-                const faqItems = skipFaqs ? [] : extractFAQFromContent(generatedContent);
+                const faqItems = extractFAQFromContent(generatedContent);
                 
                 // Get article element for base HTML structure
                 const article = document.querySelector("article");
@@ -5419,7 +5419,7 @@ const Index = () => {
                         // Extract "In This Article" navigation items - robust parsing + fallback
                         const navItems = getBestNavigationItems(generatedContent);
                         // Extract FAQ items
-                        const faqItems = skipFaqs ? [] : extractFAQFromContent(generatedContent);
+                        const faqItems = extractFAQFromContent(generatedContent);
                         // Remove "In This Article" and FAQ sections from markdown for custom rendering
                         let contentWithoutNav = removeInThisArticleSection(generatedContent);
                         contentWithoutNav = removeFAQSection(contentWithoutNav);
