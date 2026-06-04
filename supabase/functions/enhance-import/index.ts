@@ -287,14 +287,18 @@ function insertImagesLocally(content: string, images: ArticleImage[]): string {
   // Find all H2 heading indices that are valid for image placement
   // Also check for bold headings like **Heading** on their own line
   const h2Indices: number[] = [];
+  // Track ALL H2-style lines (including skipped ones) so we can compute the
+  // forbidden ranges spanned by skipped sections (TL;DR, FAQ, References, ...).
+  const allHeadingIndices: number[] = [];
+  const skippedHeadingIndices: number[] = [];
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
-    
+
     // Check for markdown H2 (## Heading)
     const isH2 = line.startsWith("## ");
     // Check for bold-style heading (**Heading**) on its own line
     const isBoldHeading = /^\*\*[^*]+\*\*$/.test(line);
-    
+
     if (isH2 || isBoldHeading) {
       const headingText = line
         .replace(/^## /, "")
@@ -302,28 +306,43 @@ function insertImagesLocally(content: string, images: ArticleImage[]): string {
         .replace(/\*\*$/, "")
         .toLowerCase()
         .trim();
-      
+
       const shouldSkip = skipHeadings.some(skip => headingText.includes(skip));
-      
+
       console.log(`Heading at line ${i}: "${headingText}" - skip: ${shouldSkip}`);
-      
-      if (!shouldSkip && isH2) {
-        h2Indices.push(i);
+
+      if (isH2) {
+        allHeadingIndices.push(i);
+        if (shouldSkip) skippedHeadingIndices.push(i);
+        else h2Indices.push(i);
       }
     }
   }
-  
+
+  // Build forbidden line ranges for every skipped section (heading line through
+  // the next H2). Images must never be inserted inside these ranges.
+  const forbiddenRanges: { start: number; end: number }[] = [];
+  for (const skipIdx of skippedHeadingIndices) {
+    const nextHeading = allHeadingIndices.find((h) => h > skipIdx);
+    forbiddenRanges.push({ start: skipIdx, end: nextHeading ?? lines.length });
+  }
+  const isInForbiddenRange = (lineIdx: number) =>
+    forbiddenRanges.some((r) => lineIdx >= r.start && lineIdx < r.end);
+
   console.log(`Found ${h2Indices.length} valid H2 headings for ${images.length} images`);
   console.log(`H2 indices: ${JSON.stringify(h2Indices)}`);
+  console.log(`Forbidden ranges (skipped sections): ${JSON.stringify(forbiddenRanges)}`);
   
   // If no valid H2s found, distribute images evenly throughout the content
   if (h2Indices.length === 0) {
     console.log("No H2 headings found, distributing images evenly through content");
     
-    // Find paragraph breaks (empty lines followed by content)
+    // Find paragraph breaks (empty lines followed by content), excluding the
+    // inside of skipped sections (TL;DR, FAQ, References, Final Thoughts, ...).
     const paragraphBreaks: number[] = [];
     for (let i = 1; i < lines.length - 1; i++) {
-      if (lines[i].trim() === "" && lines[i + 1] && lines[i + 1].trim() && 
+      if (isInForbiddenRange(i) || isInForbiddenRange(i + 1)) continue;
+      if (lines[i].trim() === "" && lines[i + 1] && lines[i + 1].trim() &&
           !lines[i + 1].startsWith("#") && !lines[i + 1].startsWith("|") &&
           !lines[i + 1].startsWith("!") && !lines[i + 1].startsWith("-")) {
         paragraphBreaks.push(i);
@@ -379,13 +398,15 @@ function insertImagesLocally(content: string, images: ArticleImage[]): string {
   
   console.log(`Assigned ${assignedToH2.size} images to H2s, ${remainingImages.length} remaining for paragraph breaks`);
   
-  // Find paragraph breaks between H2s for remaining images (not near headings)
+  // Find paragraph breaks between H2s for remaining images (not near headings,
+  // and never inside skipped sections like TL;DR / FAQ / References).
   const paragraphBreaks: number[] = [];
   for (let i = 1; i < lines.length - 1; i++) {
+    if (isInForbiddenRange(i) || isInForbiddenRange(i + 1)) continue;
     // Skip lines near H2 headings (within 2 lines)
     const nearH2 = h2Indices.some(h => Math.abs(h - i) <= 2);
     if (nearH2) continue;
-    
+
     if (lines[i].trim() === "" && lines[i + 1] && lines[i + 1].trim() &&
         !lines[i + 1].startsWith("#") && !lines[i + 1].startsWith("|") &&
         !lines[i + 1].startsWith("!") && !lines[i + 1].startsWith("-") &&

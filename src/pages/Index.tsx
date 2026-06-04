@@ -223,7 +223,12 @@ const shouldSkipParagraphBlock = (block: string): boolean => {
   if (lines.some((line) => /^#{1,6}\s+/.test(line))) return true;
   if (lines.some((line) => /^[-*+]\s+/.test(line) || /^\d+\.\s+/.test(line))) return true;
   if (lines.some((line) => /^>\s*/.test(line) || /^\|/.test(line))) return true;
-  if (/<\/?(?:table|thead|tbody|tr|td|th|ul|ol|li|pre|code|figure|aside|nav|script|style)\b/i.test(trimmed)) return true;
+  if (/<\/?(?:table|thead|tbody|tr|td|th|ul|ol|li|pre|code|figure|aside|nav|script|style|img)\b/i.test(trimmed)) return true;
+  // CRITICAL: never split blocks that contain a markdown image or a markdown link.
+  // Sentence-splitting on "." inside the URL shreds the syntax (e.g.
+  // "![alt](https://x.supabase.co/file.jpg)" → 4 broken paragraphs).
+  if (/!\[[^\]]*\]\([^)]+\)/.test(trimmed)) return true;
+  if (/\[[^\]]+\]\((?:https?:|\/)[^)]+\)/.test(trimmed)) return true;
   return false;
 };
 
