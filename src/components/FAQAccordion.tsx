@@ -185,8 +185,9 @@ export const deriveFAQFromQuestionH2s = (content: string): FAQItem[] => {
 // Combined accessor: prefer explicit FAQ section, fall back to derived Q/A from H2s.
 export const extractOrDeriveFAQ = (content: string): FAQItem[] => {
   const explicit = extractFAQFromContent(content);
-  if (explicit.length > 0) return explicit;
-  return deriveFAQFromQuestionH2s(content);
+  const items = explicit.length > 0 ? explicit : deriveFAQFromQuestionH2s(content);
+  // Always cap to exactly 5 FAQs (target spec). Fewer is allowed if generation produced fewer.
+  return items.slice(0, 5);
 };
 
 
