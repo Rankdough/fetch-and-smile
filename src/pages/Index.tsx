@@ -281,15 +281,12 @@ const cleanContent = (content: string): string => {
   cleaned = bodyOnly + cleaned.slice(bodyEnd);
 
   cleaned = cleaned
-    .split("\n")
-    .filter((line) => !/^\s*[-*+]\s+.*\b(?:changing\s+diet|dietary\s+change|food\s+exposure|bloating|long-term\s+restriction|restriction\s+before\s+testing|symptom\s+timing|digestive\s+mechanisms)\b.*$/i.test(line))
-    .join("\n")
-    .replace(/[^.!?\n]*(?:changing\s+diet|dietary\s+change|food\s+exposure|bloating|long-term\s+restriction|restriction\s+before\s+testing|symptom\s+timing|digestive\s+mechanisms)[^.!?\n]*[.!?]/gi, "")
     .replace(/\n{3,}/g, "\n\n")
     .replace(/[ \t]{2,}/g, " ");
 
   cleaned = enforceParagraphDensity(cleaned);
-  cleaned = relocateImagesOutOfForbiddenSections(enforceUnder45SnippetBlocks(cleaned));
+  // NOTE: enforceUnder45SnippetBlocks and relocateImagesOutOfForbiddenSections
+  // are applied once in setGeneratedContent when isNewGeneration=true, not on every edit.
 
   // Fix inline numbered lists rendered as a single paragraph
   // e.g., "1. Foo: text here. 2. Bar: text here." → separate lines
@@ -650,7 +647,12 @@ const Index = () => {
   
   // Wrapper that auto-cleans content before setting
   const setGeneratedContent = (content: string, isNewGeneration = false) => {
-    const cleaned = normalizeQuickTipsSection(cleanContent(content));
+    // On new generation: run structural repairs once before storing.
+    // On edits (Fix this, voice edit, manual): skip repairs so user edits are stable.
+    const repaired = isNewGeneration
+      ? relocateImagesOutOfForbiddenSections(enforceUnder45SnippetBlocks(normalizeBrokenImageMarkdown(content)))
+      : content;
+    const cleaned = normalizeQuickTipsSection(cleanContent(repaired));
     setGeneratedContentRaw(cleaned);
     // If this is a new generation (not an edit), save as original
     if (isNewGeneration) {
@@ -1766,7 +1768,7 @@ const Index = () => {
               length: formData.length,
               internalLinks: internalLinks.filter((url) => url.trim()).map((url) => url.trim()),
               // Defaults are sensible; the full UI for these comes in Stage 3+.
-              businessType: "healthcare-clinical",
+              businessType: "service", // Auto-detected to healthcare-clinical by backend if topic matches
               publicationDestination: "both",
               contextFiles: proprietaryContextFiles.length > 0 ? proprietaryContextFiles : undefined,
             },
