@@ -142,8 +142,8 @@ async function callModel(system: string, user: string, model: string, maxTokens 
   // If hit length cap, ask for continuation and stitch.
   if (first.finishReason === "length") {
     console.warn(`PROPRIETARY: hit max_tokens (${maxTokens}); requesting continuation`);
-    const contSys = system + "\n\nYou are continuing a partial response. Output ONLY the remaining text, starting at the exact point the previous response stopped. No restating, no preamble.";
-    const contUser = `${user}\n\n--- PARTIAL RESPONSE SO FAR (continue from the exact next character) ---\n${content}`;
+    const contSys = system + "\\n\\nYou are continuing a partial response. Output ONLY the remaining text, starting at the exact point the previous response stopped. No restating, no preamble.";
+    const contUser = `${user}\\n\\n--- PARTIAL RESPONSE SO FAR (continue from the exact next character) ---\\n${content}`;
     try {
       const second = await callModelRaw(contSys, contUser, model, maxTokens);
       // Join with no separator; trim leading whitespace from continuation.
@@ -220,8 +220,8 @@ function buildClinicalUserMessage(input: {
   // source of raw data points, named timelines, and clinical criteria.
   if (input.contextFiles && input.contextFiles.length > 0) {
     const contextBlock = input.contextFiles
-      .map((f) => `--- ${f.name} ---\n${stripCrossDomainFallbackBullets(stripBodyNumericCitationMarkers(f.content).out, input.articleTitle).out}`)
-      .join("\n\n");
+      .map((f) => `--- ${f.name} ---\\n${stripCrossDomainFallbackBullets(stripBodyNumericCitationMarkers(f.content).out, input.articleTitle).out}`)
+      .join("\\n\\n");
     lines.push(
       "",
       "🚨 PRIMARY SOURCE OF TRUTH — UPLOADED CONTEXT FILES (HIGHEST PRIORITY).",
@@ -243,8 +243,8 @@ function buildClinicalUserMessage(input: {
 
   if (input.retrievedChunks && input.retrievedChunks.length > 0) {
     const block = input.retrievedChunks
-      .map((c, i) => `[Chunk ${i + 1} | similarity ${c.similarity.toFixed(3)}]\n${c.content}`)
-      .join("\n\n");
+      .map((c, i) => `[Chunk ${i + 1} | similarity ${c.similarity.toFixed(3)}]\\n${c.content}`)
+      .join("\\n\\n");
     lines.push(
       "",
       "RETRIEVED KNOWLEDGE — specific facts, numbers, and clinical details from the research brief relevant to this section. Use these specifics in your response.",
@@ -253,7 +253,7 @@ function buildClinicalUserMessage(input: {
   }
 
   lines.push("", "Write this section now.");
-  return lines.join("\n");
+  return lines.join("\\n");
 }
 
 
@@ -265,12 +265,12 @@ async function callClinicalWriter(system: string, user: string, maxTokens = 1400
 
 async function generateH2Questions(topic: string, model: string): Promise<string[]> {
   const sys = `You generate H2 question headings for non-commodity articles. Output exactly 3 question headings, one per line, no numbering, no bullets, no markdown. Each must be a real question a reader would type, phrased in 4-10 words. No filler openers. No "what is X" if there's a sharper question. The three questions MUST cover different angles (e.g. mechanism, benefit, failure mode) — never two near-duplicate questions.`;
-  const user = `Topic: ${topic}\n\nReturn 3 distinct H2 question headings.`;
+  const user = `Topic: ${topic}\\n\\nReturn 3 distinct H2 question headings.`;
   const raw = await callModel(sys, user, model, 400);
   const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9 ]+/g, "").replace(/\s+/g, " ").trim();
   const seen = new Set<string>();
   const lines = raw
-    .split(/\r?\n/)
+    .split(/\r?\\n/)
     .map((l) => l.replace(/^[\d\-*.\s)#]+/, "").trim())
     .filter((l) => l.length > 5 && l.length < 140)
     .filter((l) => {
@@ -292,15 +292,15 @@ async function rewriteTitleNonCommodity(
     console.log(`TITLE REWRITE: input "${rawTitle}" already non-commodity, kept as-is`);
     return rawTitle;
   }
-  const sys = `You rewrite article titles to be non-commodity per the rules below. Return ONLY the rewritten title as a single line. No quotes, no explanation, no markdown.\n\n${NON_COMMODITY_TITLE_RULES}`;
-  const user = `Original title: ${rawTitle}\n\nRewrite per the rules. Pick the strongest framing (distinction, decision, failure mode, or contrarian) for this topic. Keep the primary keyword visible but reframed. Return only the new title.`;
+  const sys = `You rewrite article titles to be non-commodity per the rules below. Return ONLY the rewritten title as a single line. No quotes, no explanation, no markdown.\\n\\n${NON_COMMODITY_TITLE_RULES}`;
+  const user = `Original title: ${rawTitle}\\n\\nRewrite per the rules. Pick the strongest framing (distinction, decision, failure mode, or contrarian) for this topic. Keep the primary keyword visible but reframed. Return only the new title.`;
   try {
     const raw = (await callModel(sys, user, model, 200)).trim();
     // Strip surrounding quotes / markdown / leading "#" if model added any.
     const cleaned = raw
       .replace(/^#+\s*/, "")
       .replace(/^["'“”']|["'“”']$/g, "")
-      .split(/\r?\n/)[0]
+      .split(/\r?\\n/)[0]
       .trim();
     if (cleaned.length < 6 || cleaned.length > 160) {
       console.warn(`TITLE REWRITE: model returned out-of-range length (${cleaned.length}), keeping original`);
@@ -327,14 +327,14 @@ async function generateFailureModeHeading(
 ): Promise<string> {
   const fallback = `Where ${topic.toLowerCase()} commonly goes wrong`;
   const sys = `You write a single H2 heading (4–10 words) that names the most common failure mode, mistake, or pitfall readers make on the given topic. Return ONLY the heading text — no quotes, no markdown, no "#", no trailing punctuation. British English. No buzzwords ("ultimate", "navigate", "unlock"). It must read like a real editorial sub-heading, not a template.`;
-  const user = `Topic: ${topic}\nArticle title: ${articleTitle}\n\nWrite the H2 heading.`;
+  const user = `Topic: ${topic}\\nArticle title: ${articleTitle}\\n\\nWrite the H2 heading.`;
   try {
     const raw = (await callModel(sys, user, model, 60)).trim();
     const cleaned = raw
       .replace(/^#+\s*/, "")
       .replace(/^["'“”']|["'“”']$/g, "")
       .replace(/[.!?]+\s*$/, "")
-      .split(/\r?\n/)[0]
+      .split(/\r?\\n/)[0]
       .trim();
     const wordCount = cleaned.split(/\s+/).filter(Boolean).length;
     if (cleaned.length < 8 || cleaned.length > 120 || wordCount < 3 || wordCount > 14) {
@@ -429,7 +429,7 @@ function lineHasAttribution(line: string): boolean {
 }
 
 function stripFabricatedQuotes(markdown: string): { out: string; removed: number } {
-  const lines = markdown.split("\n");
+  const lines = markdown.split("\\n");
   const kept: string[] = [];
   let removed = 0;
 
@@ -461,11 +461,11 @@ function stripFabricatedQuotes(markdown: string): { out: string; removed: number
     });
   });
 
-  return { out: cleaned.join("\n"), removed };
+  return { out: cleaned.join("\\n"), removed };
 }
 
 function stripUnsourcedCurrencyClaims(markdown: string): { out: string; removed: number } {
-  const lines = markdown.split("\n");
+  const lines = markdown.split("\\n");
   let removed = 0;
   // Split paragraphs by lines, but evaluate sentence-by-sentence inside each line.
   const currencyRe = /[\$£€¥]\s?\d[\d,]*(?:\.\d+)?(?:\s?(?:USD|GBP|EUR|JPY))?/;
@@ -486,14 +486,14 @@ function stripUnsourcedCurrencyClaims(markdown: string): { out: string; removed:
     });
     return keptParts.join(" ");
   });
-  return { out: cleaned.join("\n"), removed };
+  return { out: cleaned.join("\\n"), removed };
 }
 
 function sanitiseGeneratedMarkdown(markdown: string, articleTitle: string): string {
   const titleIsLongQuery = articleTitle.trim().split(/\s+/).length >= 4;
   const titleRegex = titleIsLongQuery ? new RegExp(`\\b${escapeRegExp(articleTitle.trim())}\\b`, "gi") : null;
   const replacement = titleIsLongQuery ? naturaliseKeywordPhrase(articleTitle) : "";
-  const lines = markdown.split("\n");
+  const lines = markdown.split("\\n");
   const kept: string[] = [];
   let titleHeadingSeen = false;
   let removedTables = 0;
@@ -505,7 +505,7 @@ function sanitiseGeneratedMarkdown(markdown: string, articleTitle: string): stri
       const start = i;
       let end = i + 2;
       while (end < lines.length && lines[end].includes("|")) end++;
-      const table = lines.slice(start, end).join("\n");
+      const table = lines.slice(start, end).join("\\n");
       if (/\bOption\s+[ABC]\b|\bType\s+[123]\b|\bChoice\s+[123]\b|\b(Beginners?|Intermediate users?|Advanced needs?)\b/i.test(table)) {
         removedTables += 1;
         i = end - 1;
@@ -559,7 +559,7 @@ function sanitiseGeneratedMarkdown(markdown: string, articleTitle: string): stri
     kept.push(out);
   }
 
-  let result = kept.join("\n");
+  let result = kept.join("\\n");
   const q = stripFabricatedQuotes(result);
   result = q.out;
   const c = stripUnsourcedCurrencyClaims(result);
@@ -569,7 +569,7 @@ function sanitiseGeneratedMarkdown(markdown: string, articleTitle: string): stri
   if (rewrittenKeywords > 0) console.warn(`PROPRIETARY SANITISER: rewrote ${rewrittenKeywords} exact title-query injection(s).`);
   if (q.removed > 0) console.warn(`PROPRIETARY SANITISER: stripped ${q.removed} unattributed quote(s).`);
   if (c.removed > 0) console.warn(`PROPRIETARY SANITISER: stripped ${c.removed} unsourced currency claim sentence(s).`);
-  return result.replace(/\n{3,}/g, "\n\n").trim();
+  return result.replace(/\\n{3,}/g, "\\n\\n").trim();
 }
 
 function stripInlineSourceFragments(markdown: string): { out: string; removed: number } {
@@ -578,7 +578,7 @@ function stripInlineSourceFragments(markdown: string): { out: string; removed: n
   const references = refMatch?.index !== undefined ? markdown.slice(refMatch.index) : "";
   let removed = 0;
   const cleaned = body
-    .split("\n")
+    .split("\\n")
     .map((line) => {
       let next = line.replace(/\s*\((?:Source|Sources?)\s*:\s*[^)]{1,240}\)/gi, () => {
         removed += 1;
@@ -594,10 +594,10 @@ function stripInlineSourceFragments(markdown: string): { out: string; removed: n
         .replace(/([.!?]){2,}/g, "$1")
         .trimEnd();
     })
-    .join("\n")
-    .replace(/\n{3,}/g, "\n\n")
+    .join("\\n")
+    .replace(/\\n{3,}/g, "\\n\\n")
     .trimEnd();
-  return { out: `${cleaned}${references ? `\n\n${references.trimStart()}` : ""}`.trim(), removed };
+  return { out: `${cleaned}${references ? `\\n\\n${references.trimStart()}` : ""}`.trim(), removed };
 }
 
 function stripBodyNumericCitationMarkers(markdown: string): { out: string; removed: number } {
@@ -624,39 +624,39 @@ function stripCrossDomainFallbackBullets(markdown: string, topic: string): { out
   const contaminatedBullet = /^\s*[-*+]\s+.*\b(?:changing\s+diet|dietary\s+change|food\s+exposure|bloating|long-term\s+restriction|restriction\s+before\s+testing|symptom\s+timing|digestive\s+mechanisms)\b.*$/i;
   let removed = 0;
   const cleanedBody = body
-    .split("\n")
+    .split("\\n")
     .filter((line) => {
       if (!contaminatedBullet.test(line)) return true;
       removed += 1;
       return false;
     })
-    .join("\n")
-    .replace(/[^.!?\n]*(?:changing\s+diet|dietary\s+change|food\s+exposure|bloating|long-term\s+restriction|restriction\s+before\s+testing|symptom\s+timing|digestive\s+mechanisms)[^.!?\n]*[.!?]/gi, () => {
+    .join("\\n")
+    .replace(/[^.!?\\n]*(?:changing\s+diet|dietary\s+change|food\s+exposure|bloating|long-term\s+restriction|restriction\s+before\s+testing|symptom\s+timing|digestive\s+mechanisms)[^.!?\\n]*[.!?]/gi, () => {
       removed += 1;
       return "";
     })
-    .replace(/\n{3,}/g, "\n\n")
+    .replace(/\\n{3,}/g, "\\n\\n")
     .replace(/[ \t]{2,}/g, " ")
     .trimEnd();
-  return { out: `${cleanedBody}${references ? `\n\n${references.trimStart()}` : ""}`.trim(), removed };
+  return { out: `${cleanedBody}${references ? `\\n\\n${references.trimStart()}` : ""}`.trim(), removed };
 }
 
 function stripExpertInputPlaceholders(markdown: string): { out: string; removed: number } {
   let removed = 0;
   const out = markdown
-    .split("\n")
+    .split("\\n")
     .map((line) => {
       if (!/\[NEEDS EXPERT INPUT/i.test(line)) return line;
       removed += 1;
       if (!/\]/.test(line)) return "";
-      const cleaned = line.replace(/[^.!?\n]*\[NEEDS EXPERT INPUT[^\]]*\][^.!?\n]*[.!?]?/gi, () => {
+      const cleaned = line.replace(/[^.!?\\n]*\[NEEDS EXPERT INPUT[^\]]*\][^.!?\\n]*[.!?]?/gi, () => {
         return "";
       }).replace(/\s{2,}/g, " ").trim();
       return /^[-*+]\s*$/.test(cleaned) ? "" : cleaned;
     })
     .filter((line) => line.trim() !== "")
-    .join("\n")
-    .replace(/\n{3,}/g, "\n\n")
+    .join("\\n")
+    .replace(/\\n{3,}/g, "\\n\\n")
     .trim();
   return { out, removed };
 }
@@ -665,21 +665,21 @@ function stripAllBracketPlaceholders(markdown: string): { out: string; removed: 
   let removed = 0;
   const placeholderRe = /\[(?:client|service\s*business|practice|your\s*practice|your\s*business|business|brand|company|clinic)\s*name\]/gi;
   const out = markdown
-    .split("\n")
+    .split("\\n")
     .map((line) => {
       placeholderRe.lastIndex = 0;
       if (!placeholderRe.test(line)) return line;
       placeholderRe.lastIndex = 0;
       removed += 1;
       const cleaned = line
-        .replace(/[^.!?\n]*\[(?:client|service\s*business|practice|your\s*practice|your\s*business|business|brand|company|clinic)\s*name\][^.!?\n]*[.!?]?/gi, "")
+        .replace(/[^.!?\\n]*\[(?:client|service\s*business|practice|your\s*practice|your\s*business|business|brand|company|clinic)\s*name\][^.!?\\n]*[.!?]?/gi, "")
         .replace(/\s{2,}/g, " ")
         .trim();
       return cleaned;
     })
     .filter((line) => line.trim() !== "")
-    .join("\n")
-    .replace(/\n{3,}/g, "\n\n")
+    .join("\\n")
+    .replace(/\\n{3,}/g, "\\n\\n")
     .trim();
   return { out, removed };
 }
@@ -705,21 +705,21 @@ function enforceThreeBulletsPerBodySection(markdown: string): string {
     const headingLine = match[0];
     const heading = headingLine.replace(/^##\s+/, "").trim();
     const body = markdown.slice(start + headingLine.length, end).trim();
-    if (skipPattern.test(heading)) return `${headingLine}\n${body}`.trim();
-    const lines = body.split("\n");
+    if (skipPattern.test(heading)) return `${headingLine}\\n${body}`.trim();
+    const lines = body.split("\\n");
     const bullets = lines.filter((line) => /^\s*-\s+/.test(line)).slice(0, 3);
     for (const fallback of buildFallbackBullets(heading, body)) {
       if (bullets.length >= 3) break;
       bullets.push(fallback);
     }
-    const withoutExtraBullets = lines.filter((line) => !/^\s*[-*+]\s+/.test(line)).join("\n").trim();
-    return `${headingLine}\n${[withoutExtraBullets, bullets.slice(0, 3).join("\n")].filter(Boolean).join("\n\n")}`.trim();
+    const withoutExtraBullets = lines.filter((line) => !/^\s*[-*+]\s+/.test(line)).join("\\n").trim();
+    return `${headingLine}\\n${[withoutExtraBullets, bullets.slice(0, 3).join("\\n")].filter(Boolean).join("\\n\\n")}`.trim();
   });
-  return [intro, ...rebuilt].filter(Boolean).join("\n\n").trim();
+  return [intro, ...rebuilt].filter(Boolean).join("\\n\\n").trim();
 }
 
 function countMarkdownTables(md: string): number {
-  const lines = md.split("\n");
+  const lines = md.split("\\n");
   let count = 0;
   for (let i = 0; i < lines.length - 1; i++) {
     if (lines[i].includes("|") && /^\s*\|?[\s\-:|]+\|[\s\-:|]+$/.test(lines[i + 1])) count++;
@@ -770,11 +770,11 @@ function tableSignature(tableMarkdown: string): string {
 
 function collectTableSignatures(markdown: string): Set<string> {
   const sigs = new Set<string>();
-  const lines = markdown.split("\n");
+  const lines = markdown.split("\\n");
   let cur: string[] = [];
   const flush = () => {
     if (cur.length >= 2 && /^\s*\|?[\s\-:|]+\|[\s\-:|]+\s*$/.test(cur[1] ?? "")) {
-      sigs.add(tableSignature(cur.join("\n")));
+      sigs.add(tableSignature(cur.join("\\n")));
     }
     cur = [];
   };
@@ -791,7 +791,7 @@ function collectTableSignatures(markdown: string): Set<string> {
 const STRUCT_SKIP_RE = /tl;?dr|quick\s*tips|in\s*this\s*article|how\s*to\s*(choose|pick)|frequently\s*asked|faq|final\s*thoughts|references|sources/i;
 
 function getBodyH2s(markdown: string): Array<{ heading: string; index: number }> {
-  const lines = markdown.split("\n");
+  const lines = markdown.split("\\n");
   const out: Array<{ heading: string; index: number }> = [];
   const seen = new Set<string>();
   lines.forEach((line, i) => {
@@ -819,7 +819,7 @@ function firstSentenceOf(sectionBody: string): string {
   // Strip headings, blockquotes, list markers, table lines. Return first
   // ~30-word sentence ending in . ! or ?
   const clean = sectionBody
-    .split("\n")
+    .split("\\n")
     .filter((l) => l.trim() && !/^#{1,6}\s/.test(l) && !l.includes("|") && !/^\s*[-*+]\s/.test(l) && !/^\s*>/.test(l))
     .join(" ")
     .replace(/\s+/g, " ")
@@ -835,20 +835,20 @@ function injectInThisArticle(markdown: string, topic: string): string {
   const bodyH2s = getBodyH2s(markdown);
   if (bodyH2s.length === 0) return markdown;
   // Capture each section's body so we can use its real first sentence as desc.
-  const lines = markdown.split("\n");
+  const lines = markdown.split("\\n");
   const sectionBody = (lineIdx: number): string => {
     let end = lines.length;
     for (let j = lineIdx + 1; j < lines.length; j++) {
       if (/^##\s+/.test(lines[j])) { end = j; break; }
     }
-    return lines.slice(lineIdx + 1, end).join("\n");
+    return lines.slice(lineIdx + 1, end).join("\\n");
   };
   const items = bodyH2s.map((h, i) => {
     const real = firstSentenceOf(sectionBody(h.index));
     const desc = real || `${h.heading.replace(/[?!.]+$/, "")} — direct answer plus the honest failure mode and what to ask before deciding.`;
     return `- ${i + 1}. ${h.heading.replace(/[?!.]+$/, "")} - ${desc}`;
   });
-  const block = ["## In This Article", "", ...items].join("\n");
+  const block = ["## In This Article", "", ...items].join("\\n");
   // Insert after Quick Tips block, else after TL;DR, else after H1.
   const anchors = [
     /^##\s+quick\s*tips[\s\S]*?(?=^##\s+)/im,
@@ -859,10 +859,10 @@ function injectInThisArticle(markdown: string, topic: string): string {
     const m = markdown.match(re);
     if (m && m.index !== undefined) {
       const insertAt = m.index + m[0].length;
-      return `${markdown.slice(0, insertAt).trimEnd()}\n\n${block}\n\n${markdown.slice(insertAt).trimStart()}`;
+      return `${markdown.slice(0, insertAt).trimEnd()}\\n\\n${block}\\n\\n${markdown.slice(insertAt).trimStart()}`;
     }
   }
-  return `${block}\n\n${markdown}`;
+  return `${block}\\n\\n${markdown}`;
 }
 
 function injectHowToChoose(markdown: string, topic: string): string {
@@ -892,15 +892,15 @@ function injectHowToChoose(markdown: string, topic: string): string {
     `- Confirm the review checkpoint: ask what measurable outcome will confirm the ${nounLower} is working within a defined timeframe, and what triggers a change of plan if it is not.`,
   ];
 
-  const block = \`\${heading}\n\n\${criteria.join("\n")}\`;
+  const block = `${heading}\\n\\n${criteria.join("\\n")}`;
 
   // Insert before FAQ or Final Thoughts; otherwise before References; otherwise at end.
   const anchorRe = /^##\s+(frequently\s*asked|faq|final\s*thoughts|references)/im;
   const m = markdown.match(anchorRe);
   if (m && m.index !== undefined) {
-    return \`\${markdown.slice(0, m.index).trimEnd()}\n\n\${block}\n\n\${markdown.slice(m.index)}\`;
+    return `${markdown.slice(0, m.index).trimEnd()}\\n\\n${block}\\n\\n${markdown.slice(m.index)}`;
   }
-  return \`\${markdown.trimEnd()}\n\n\${block}\`;
+  return `${markdown.trimEnd()}\\n\\n${block}`;
 }
 
 
@@ -940,7 +940,7 @@ function refsToMarkdown(refs: Array<{ title: string; url?: string }>): string {
       return `- [${title}](${ref.url.trim()})`;
     }
     return `- ${title}`;
-  }).join("\n");
+  }).join("\\n");
 }
 
 // BUILD-2026-05-29-Q: References must be EXTERNAL CITATIONS ONLY.
@@ -978,12 +978,12 @@ function injectReferences(markdown: string, units: BrainUnit[], sourceReferences
   if (/^##\s+references/im.test(markdown)) return markdown;
   const corpus = [
     markdown,
-    ...units.map((u) => `${u.summary || ""}\n${u.full_text || ""}`),
-  ].join("\n");
+    ...units.map((u) => `${u.summary || ""}\\n${u.full_text || ""}`),
+  ].join("\\n");
   const links = extractUrls(corpus).map((l) => ({ title: l.title, url: l.url }));
   const references = dedupeAndValidateRefs([...sourceReferences, ...links]).slice(0, 8);
   if (references.length === 0) return markdown;
-  return `${markdown.trimEnd()}\n\n## References\n\n${refsToMarkdown(references)}\n`;
+  return `${markdown.trimEnd()}\\n\\n## References\\n\\n${refsToMarkdown(references)}\\n`;
 }
 
 function sectionLinkLooksRelevant(anchor: string, url: string, sectionText: string, topic: string): boolean {
@@ -997,14 +997,14 @@ function sectionLinkLooksRelevant(anchor: string, url: string, sectionText: stri
 }
 
 function stripMismatchedInlineLinks(markdown: string, topic: string): { out: string; removed: number } {
-  const lines = markdown.split("\n");
+  const lines = markdown.split("\\n");
   let removed = 0;
   const out: string[] = [];
   let sectionBuffer: string[] = [];
   let inReferences = false;
   const flush = () => {
     if (sectionBuffer.length === 0) return;
-    const sectionText = sectionBuffer.join("\n");
+    const sectionText = sectionBuffer.join("\\n");
     out.push(...sectionBuffer.map((line) =>
       line.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, (match, anchor: string, url: string) => {
         if (sectionLinkLooksRelevant(anchor, url, sectionText, topic)) return match;
@@ -1028,7 +1028,7 @@ function stripMismatchedInlineLinks(markdown: string, topic: string): { out: str
     sectionBuffer.push(line);
   }
   flush();
-  return { out: out.join("\n"), removed };
+  return { out: out.join("\\n"), removed };
 }
 
 function trustedFallbackSources(topic: string, sourceReferences: SourceReference[] = []): BrainUrl[] {
@@ -1047,14 +1047,14 @@ function ensureTrustedReferences(markdown: string, topic: string, sourceReferenc
   if (/^##\s+references/im.test(markdown)) return markdown;
   const sources = dedupeAndValidateRefs(trustedFallbackSources(topic, sourceReferences));
   if (sources.length > 0) {
-    return `${markdown.trimEnd()}\n\n## References\n\n${refsToMarkdown(sources)}\n`;
+    return `${markdown.trimEnd()}\\n\\n## References\\n\\n${refsToMarkdown(sources)}\\n`;
   }
   // No context URLs available — inject a minimal references section so the
   // structural requirement is always met. The reader sees a placeholder they
   // can replace; the export validator does not hard-fail on a missing section.
   const cleanTopic = topic.replace(/[?!.]+$/, "").trim();
   const placeholder = `- ${cleanTopic} — sources reviewed during research for this article are available on request.`;
-  return `${markdown.trimEnd()}\n\n## References\n\n${placeholder}\n`;
+  return `${markdown.trimEnd()}\\n\\n## References\\n\\n${placeholder}\\n`;
 }
 
 
@@ -1111,7 +1111,7 @@ function stripFileExtension(name: string): string {
 
 function firstMeaningfulLine(content: string | null | undefined): string {
   if (!content) return "";
-  for (const raw of content.split("\n")) {
+  for (const raw of content.split("\\n")) {
     const line = raw.trim();
     if (!line) continue;
     if (/^[#>*\-|`]/.test(line)) continue;          // skip headings/lists/tables/quotes/code fences
@@ -1140,7 +1140,7 @@ function cleanReferenceTitle(rawName: string | null | undefined, content?: strin
  * alone.
  */
 function unwrapTablesFromLists(markdown: string): { out: string; unwrapped: number } {
-  const lines = markdown.split("\n");
+  const lines = markdown.split("\\n");
   const stripPrefix = (l: string) => l.replace(/^\s*[-*+]\s+/, "").replace(/^\s+/, "");
   const isRow = (l: string) => /\|.*\|/.test(stripPrefix(l));
   const isSep = (l: string) => {
@@ -1173,7 +1173,7 @@ function unwrapTablesFromLists(markdown: string): { out: string; unwrapped: numb
     out.push(lines[i]);
     i++;
   }
-  return { out: out.join("\n"), unwrapped };
+  return { out: out.join("\\n"), unwrapped };
 }
 
 /**
@@ -1189,7 +1189,7 @@ async function repairHedgeSentences(
   fallbackModel: string,
 ): Promise<string> {
   if (flagged.length === 0) return sectionContent;
-  const numbered = flagged.map((s, idx) => `${idx + 1}. ${s}`).join("\n");
+  const numbered = flagged.map((s, idx) => `${idx + 1}. ${s}`).join("\\n");
   const system = `You rewrite hedged sentences into direct, factual statements.
 Rules:
 - Strip vague qualifiers ("typically", "usually", "varies", "depends on") unless followed by a specific number in the same sentence.
@@ -1197,7 +1197,7 @@ Rules:
 - If the original has no number, produce a direct claim without inventing one.
 - Preserve British English and the surrounding tone.
 - Output ONLY the rewritten sentences, one per line, numbered identically to the input. No preamble, no commentary, no markdown fences.`;
-  const user = `Rewrite each numbered sentence below into a direct, un-hedged statement:\n\n${numbered}`;
+  const user = `Rewrite each numbered sentence below into a direct, un-hedged statement:\\n\\n${numbered}`;
   let rewritten = "";
   try {
     rewritten = await callModel(system, user, "google/gemini-2.5-flash-lite", 500);
@@ -1210,7 +1210,7 @@ Rules:
     }
   }
   const repaired = new Map<number, string>();
-  for (const raw of rewritten.split("\n")) {
+  for (const raw of rewritten.split("\\n")) {
     const m = raw.match(/^\s*(\d+)[.)]\s*(.+?)\s*$/);
     if (!m) continue;
     const idx = parseInt(m[1], 10) - 1;
@@ -1239,7 +1239,7 @@ function ensureMinimumTables(markdown: string, topic: string, targetWords: numbe
   if (current >= required) return markdown;
   let out = markdown;
   const seenSignatures = collectTableSignatures(out);
-  const lines = out.split("\n");
+  const lines = out.split("\\n");
   const bodyH2s = lines.map((line, i) => ({ line, i })).filter(({ line }) => /^##\s+/.test(line) && !STRUCT_SKIP_RE.test(line));
   let inserted = 0;
   for (let bIdx = 0; bIdx < bodyH2s.length && current + inserted < required; bIdx++) {
@@ -1248,7 +1248,7 @@ function ensureMinimumTables(markdown: string, topic: string, targetWords: numbe
     if (!table) continue;
     const sig = tableSignature(table);
     if (seenSignatures.has(sig)) continue; // dedup: identical table already exists somewhere in article
-    const freshLines = out.split("\n");
+    const freshLines = out.split("\\n");
     // Find heading by text match so prior insertions don't shift the index.
     const headingLine = freshLines.findIndex(l => /^##\s+/.test(l) && l.replace(/^##\s+/, "").trim() === heading);
     if (headingLine === -1) break;
@@ -1256,10 +1256,10 @@ function ensureMinimumTables(markdown: string, topic: string, targetWords: numbe
     for (let j = headingLine + 1; j < freshLines.length; j++) {
       if (/^##\s+/.test(freshLines[j])) { endIdx = j; break; }
     }
-    const sectionSlice = freshLines.slice(headingLine, endIdx).join("\n");
+    const sectionSlice = freshLines.slice(headingLine, endIdx).join("\\n");
     if (sectionSlice.includes("|")) continue; // already has a table
     freshLines.splice(endIdx, 0, "", table, "");
-    out = freshLines.join("\n");
+    out = freshLines.join("\\n");
     seenSignatures.add(sig);
     inserted++;
   }
@@ -1277,7 +1277,7 @@ function ensureMinimumTables(markdown: string, topic: string, targetWords: numbe
 // to the request body, swap the empty replacement for that value.
 function stripBrandPlaceholders(markdown: string): string {
   const PLACEHOLDER_INNER = "practice\\s*name|your\\s*practice|your\\s*business\\s*name|clinic\\s*name|business\\s*name|brand\\s*name|company\\s*name";
-  const placeholderSentenceRe = new RegExp(`[^.!?\\n]*\\[(?:${PLACEHOLDER_INNER})\\][^.!?\\n]*[.!?]?`, "gi");
+  const placeholderSentenceRe = new RegExp(`[^.!?\\\n]*\\[(?:${PLACEHOLDER_INNER})\\][^.!?\\\n]*[.!?]?`, "gi");
   let out = markdown.replace(placeholderSentenceRe, "");
   // Replace preposition + placeholder ("at [PRACTICE NAME]" → "at the practice")
   out = out.replace(
@@ -1316,14 +1316,14 @@ function stripAtomicPhrases(markdown: string): { out: string; removed: number } 
     if (m) removed += m.length;
     out = out.replace(re, "");
   }
-  out = out.replace(/(^|\n|\. )([a-z])/g, (_m, p1, p2) => p1 + p2.toUpperCase());
+  out = out.replace(/(^|\\n|\. )([a-z])/g, (_m, p1, p2) => p1 + p2.toUpperCase());
   return { out, removed };
 }
 
 function splitGluedBullets(markdown: string): { out: string; split: number } {
   // Fix a common LLM defect: `- A: text *   B: text *   C: text` glued on one
   // line. Split on `*   ` or `*  ` markers that occur inside a `- ` list item.
-  const lines = markdown.split("\n");
+  const lines = markdown.split("\\n");
   let split = 0;
   const fixed: string[] = [];
   for (const line of lines) {
@@ -1339,7 +1339,7 @@ function splitGluedBullets(markdown: string): { out: string; split: number } {
     split += parts.length - 1;
     for (const p of parts) fixed.push(`${indent}${marker} ${p}`);
   }
-  return { out: fixed.join("\n"), split };
+  return { out: fixed.join("\\n"), split };
 }
 
 interface BrainUrl { url: string; title: string }
@@ -1348,7 +1348,7 @@ function collectBrainUrls(units: BrainUnit[]): BrainUrl[] {
   const seen = new Set<string>();
   const re = /https?:\/\/[^\s)<>"'\]]+/g;
   for (const u of units) {
-    const text = `${u.summary || ""}\n${u.full_text || ""}`;
+    const text = `${u.summary || ""}\\n${u.full_text || ""}`;
     let m: RegExpExecArray | null;
     while ((m = re.exec(text)) !== null) {
       const url = m[0].replace(/[)\]\.,;]+$/, "");
@@ -1433,8 +1433,8 @@ async function retrieveContextDocumentSnippets(
     return [];
   }
   return ((data || []) as ContextDocumentRow[])
-    .map((doc) => ({ doc, score: scoreTextForTopic(`${doc.file_name}\n${doc.content || ""}`, topic, sectionHeading) }))
-    .filter((row) => row.score >= 2 && hasStrongTopicAnchor(`${row.doc.file_name}\n${row.doc.content || ""}`, topic))
+    .map((doc) => ({ doc, score: scoreTextForTopic(`${doc.file_name}\\n${doc.content || ""}`, topic, sectionHeading) }))
+    .filter((row) => row.score >= 2 && hasStrongTopicAnchor(`${row.doc.file_name}\\n${row.doc.content || ""}`, topic))
     .sort((a, b) => b.score - a.score)
     .slice(0, 2)
     .map(({ doc }) => ({
@@ -1466,7 +1466,7 @@ async function collectSourceReferences(
     for (const link of extractUrls(text || "")) add(link.title, link.url);
   };
 
-  units.forEach((u) => addUrlsFromText(`${u.summary || ""}\n${u.full_text || ""}`));
+  units.forEach((u) => addUrlsFromText(`${u.summary || ""}\\n${u.full_text || ""}`));
   chunks.forEach((c) => addUrlsFromText(c.content));
 
   const brainFileIds = new Set<string>();
@@ -1520,7 +1520,7 @@ async function fallbackContextReferencesForTopic(
   }
   const scored = ((data || []) as ContextDocumentRow[])
     .map((doc) => {
-      const haystack = `${doc.file_name || ""}\n${(doc.content || "").slice(0, 3000)}`.toLowerCase();
+      const haystack = `${doc.file_name || ""}\\n${(doc.content || "").slice(0, 3000)}`.toLowerCase();
       const score = tokens.reduce((sum, token) => sum + (haystack.includes(token) ? 1 : 0), 0);
       return { doc, score };
     })
@@ -1542,7 +1542,7 @@ async function fallbackContextReferencesForTopic(
 
 function attachInlineCitations(markdown: string, urls: BrainUrl[]): { out: string; attached: number } {
   if (urls.length === 0) return { out: markdown, attached: 0 };
-  const lines = markdown.split("\n");
+  const lines = markdown.split("\\n");
   let urlIdx = 0;
   let attached = 0;
   for (let i = 0; i < lines.length; i++) {
@@ -1554,7 +1554,7 @@ function attachInlineCitations(markdown: string, urls: BrainUrl[]): { out: strin
     for (let j = i + 1; j < lines.length; j++) {
       if (/^##\s+/.test(lines[j])) { endIdx = j; break; }
     }
-    const sectionBody = lines.slice(i + 1, endIdx).join("\n");
+    const sectionBody = lines.slice(i + 1, endIdx).join("\\n");
     if (/\]\(https?:\/\//.test(sectionBody)) continue; // already cited
     // Cycle through URLs so every body section gets at least one citation,
     // even when fewer URLs than sections are available.
@@ -1562,11 +1562,11 @@ function attachInlineCitations(markdown: string, urls: BrainUrl[]): { out: strin
     urlIdx++;
     let pEnd = i + 1;
     while (pEnd < endIdx && lines[pEnd].trim() !== "") pEnd++;
-    const citationLine = `\nSource: [${u.title}](${u.url})`;
+    const citationLine = `\\nSource: [${u.title}](${u.url})`;
     lines.splice(pEnd, 0, citationLine);
     attached++;
   }
-  return { out: lines.join("\n"), attached };
+  return { out: lines.join("\\n"), attached };
 }
 
 // attachContextSourceNotes removed (BUILD-2026-05-29-G):
@@ -1585,41 +1585,41 @@ function enforceOpeningLength(markdown: string): string {
   const opening = markdown.slice(start, end).trim();
   if (!opening) return markdown;
   const compact = opening
-    .split(/\n{2,}/)
+    .split(/\\n{2,}/)
     .map((p) => p.trim())
     .filter(Boolean)
     .join(" ")
     .replace(/\s+/g, " ");
   const trimmed = trimToWordCount(compact, 85);
-  return `${markdown.slice(0, start).trimEnd()}\n\n${trimmed}\n\n${markdown.slice(end).trimStart()}`.trim();
+  return `${markdown.slice(0, start).trimEnd()}\\n\\n${trimmed}\\n\\n${markdown.slice(end).trimStart()}`.trim();
 }
 
 function enforceFinalThoughtsParagraphs(markdown: string): string {
-  const re = /(^##\s+final\s*thoughts\s*\n)([\s\S]*?)(?=^##\s+|$(?![\r\n]))/im;
+  const re = /(^##\s+final\s*thoughts\s*\\n)([\s\S]*?)(?=^##\s+|$(?![\r\\n]))/im;
   const m = markdown.match(re);
   if (!m) return markdown;
   const body = m[2]
     .replace(/^[-*+]\s+/gm, "")
-    .replace(/\n{2,}/g, " ")
+    .replace(/\\n{2,}/g, " ")
     .replace(/\s+/g, " ")
     .trim();
   if (!body) return markdown;
   const sentences = body.match(/[^.!?]+[.!?]+(?:["')\]]+)?/g)?.map((s) => s.trim()).filter(Boolean) ?? [body];
   const first = trimToWordCount(sentences.slice(0, Math.ceil(sentences.length / 2)).join(" "), 65);
   const second = trimToWordCount(sentences.slice(Math.ceil(sentences.length / 2)).join(" ") || sentences.slice(-1).join(" "), 65);
-  const rebuilt = [first, second].filter(Boolean).join("\n\n");
-  return markdown.replace(re, `${m[1]}\n${rebuilt}\n\n`);
+  const rebuilt = [first, second].filter(Boolean).join("\\n\\n");
+  return markdown.replace(re, `${m[1]}\\n${rebuilt}\\n\\n`);
 }
 
 function ensureFinalThoughtsCta(markdown: string, businessType: BusinessType = "healthcare-clinical"): string {
   if (businessType !== "healthcare-clinical") return markdown;
-  const re = /(^##\s+final\s*thoughts\s*\n)([\s\S]*?)(?=^##\s+|$(?![\r\n]))/im;
+  const re = /(^##\s+final\s*thoughts\s*\\n)([\s\S]*?)(?=^##\s+|$(?![\r\\n]))/im;
   const m = markdown.match(re);
   if (!m) return markdown;
   const body = m[2];
   if (/\b(book|schedule|contact|call|consultation|next step)\b/i.test(body)) return markdown;
-  const cta = "\n\nReady to act on this? Book a consultation with a clinician who will categorise your case first, name the failure mode they are preventing, and give you specific numbers before any plan is recommended.\n";
-  return markdown.replace(re, `${m[1]}${body.trimEnd()}${cta}\n`);
+  const cta = "\\n\\nReady to act on this? Book a consultation with a clinician who will categorise your case first, name the failure mode they are preventing, and give you specific numbers before any plan is recommended.\\n";
+  return markdown.replace(re, `${m[1]}${body.trimEnd()}${cta}\\n`);
 }
 
 
@@ -1666,11 +1666,11 @@ async function runSection(input: {
     // inline-source-link contract so healthcare articles match parity.
     const allowed = (input.allowedSourceUrls || []).filter((s) => s && s.url && /^https?:\/\//i.test(s.url)).slice(0, 8);
     const sourceBlock = allowed.length > 0
-      ? `\n\nINLINE SOURCE LINK (mandatory): Include exactly ONE inline markdown link "[anchor text](URL)" in this section, choosing the most relevant URL from the list below. Anchor must be a natural noun phrase from your prose. Never invent URLs.\nALLOWED SOURCES:\n${allowed.map((s, i) => `${i + 1}. ${s.title} — ${s.url}`).join("\n")}`
-      : `\n\nINLINE SOURCE LINK: No allow-listed URLs are available; do not insert inline links — the system will list context documents in the References section.`;
-    const atomicBlock = `\n\nATOMIC SECTION STRUCTURE (mandatory): Write exactly one standalone answer paragraph (1-3 sentences) that fully answers the heading, then a blank line, then exactly 3 markdown bullets ("- "), each one concrete and ≤22 words. Nothing else.`;
+      ? `\\n\\nINLINE SOURCE LINK (mandatory): Include exactly ONE inline markdown link "[anchor text](URL)" in this section, choosing the most relevant URL from the list below. Anchor must be a natural noun phrase from your prose. Never invent URLs.\\nALLOWED SOURCES:\\n${allowed.map((s, i) => `${i + 1}. ${s.title} — ${s.url}`).join("\\n")}`
+      : `\\n\\nINLINE SOURCE LINK: No allow-listed URLs are available; do not insert inline links — the system will list context documents in the References section.`;
+    const atomicBlock = `\\n\\nATOMIC SECTION STRUCTURE (mandatory): Write exactly one standalone answer paragraph (1-3 sentences) that fully answers the heading, then a blank line, then exactly 3 markdown bullets ("- "), each one concrete and ≤22 words. Nothing else.`;
     // BUILD-2026-05-29-I: hard ban on passive AI filler in clinical body prose.
-    const noFillerBlock = `\n\nCRITICAL — NO PASSIVE FILLER: You are completely forbidden from writing soft, defensive AI filler phrases such as "typically symptoms of", "may experience", "can experience", "results from a range of factors", "is often caused by", "is generally considered", "plays a role in", "a variety of", "a range of", "a number of", "in some cases", "for many people", "it is important to note", "it is worth noting". Every statement must be direct, authoritative, and isolated to a concrete data node from the uploaded context files, mapped unit, or retrieved chunks. If the fact is not in the supplied evidence, write [NEEDS EXPERT INPUT] instead of generating a hedged sentence.`;
+    const noFillerBlock = `\\n\\nCRITICAL — NO PASSIVE FILLER: You are completely forbidden from writing soft, defensive AI filler phrases such as "typically symptoms of", "may experience", "can experience", "results from a range of factors", "is often caused by", "is generally considered", "plays a role in", "a variety of", "a range of", "a number of", "in some cases", "for many people", "it is important to note", "it is worth noting". Every statement must be direct, authoritative, and isolated to a concrete data node from the uploaded context files, mapped unit, or retrieved chunks. If the fact is not in the supplied evidence, write [NEEDS EXPERT INPUT] instead of generating a hedged sentence.`;
     const clinicalSystem = CLINICAL_SYSTEM_PROMPT_HEALTHCARE + atomicBlock + noFillerBlock + sourceBlock;
     content = (await callClinicalWriter(clinicalSystem, buildClinicalUserMessage({
       mappedUnit: input.mappedUnit,
@@ -1865,7 +1865,7 @@ Deno.serve(async (req) => {
       let retrievedKnowledge: Array<{ content: string; sourceTitle?: string | null }> = [];
       if (section.type === "body") {
         try {
-          const queryVec = await embedQuery(`${body.topic}\n${section.heading}`);
+          const queryVec = await embedQuery(`${body.topic}\\n${section.heading}`);
           const { data: matches, error: matchErr } = await (sb as any).rpc("match_brain_chunks", {
             query_embedding: queryVec as unknown as string,
             match_count: 3,
@@ -1974,7 +1974,7 @@ Deno.serve(async (req) => {
       // Drop any leading H1/H2/H3/H4 whose normalised text equals the section heading.
       // Prevents "## X" + body that itself starts with "## X" or "### X" → duplicate heading.
       const target = normaliseHeadingText(heading);
-      const lines = content.split("\n");
+      const lines = content.split("\\n");
       let i = 0;
       while (i < lines.length && lines[i].trim() === "") i++;
       while (i < lines.length) {
@@ -1984,7 +1984,7 @@ Deno.serve(async (req) => {
         i++;
         while (i < lines.length && lines[i].trim() === "") i++;
       }
-      return lines.slice(i).join("\n").trim();
+      return lines.slice(i).join("\\n").trim();
     };
     const md: string[] = [`# ${articleTitle}`, ""];
     const isEmptyOrPlaceholder = (s: string) => {
@@ -2011,7 +2011,7 @@ Deno.serve(async (req) => {
           const a2 = "Start with the constraint that cannot be traded away — cost, timeline, location, or compatibility. Rule out options that fail on any hard constraint before comparing the remaining ones on outcome.";
           const q3 = `**What should I ask before committing to a choice for ${t}?**`;
           const a3 = "Ask what measurable outcome will confirm the choice is working within a defined timeframe, and what triggers a change of plan if it is not delivering that result.";
-          const fallbackFaq = [q1, a1, q2, a2, q3, a3].join("\n\n");
+          const fallbackFaq = [q1, a1, q2, a2, q3, a3].join("\\n\\n");
           console.warn("STITCH: FAQ was empty — injected deterministic fallback.");
           md.push("## Frequently Asked Questions", "", fallbackFaq, "");
           continue;
@@ -2031,7 +2031,7 @@ Deno.serve(async (req) => {
         md.push(`## ${s.heading}`, "", cleanContent, "");
       }
     }
-    let stitched = md.join("\n").trim();
+    let stitched = md.join("\\n").trim();
     // Normal-mode parity passes (deterministic, no extra AI calls):
     const splitBul = splitGluedBullets(stitched);
     stitched = splitBul.out;
@@ -2085,7 +2085,7 @@ Deno.serve(async (req) => {
     stitched = expertPlaceholders.out;
     if (expertPlaceholders.removed > 0) console.warn(`PLACEHOLDER GUARD: removed ${expertPlaceholders.removed} expert-input placeholder sentence(s).`);
     // TABLE UNWRAP (BUILD-2026-05-29-G): strip list markers / leading indent
-    // from pipe-table runs and guarantee \n\n fences so the client renders them
+    // from pipe-table runs and guarantee \\n\\n fences so the client renders them
     // as top-level <table> siblings, never nested inside <li>.
     const tableUnwrap = unwrapTablesFromLists(stitched);
     stitched = tableUnwrap.out;
