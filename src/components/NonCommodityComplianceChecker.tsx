@@ -41,8 +41,10 @@ function evaluate(content: string): RuleResult[] {
 
   let r1Pass = true;
   let r1Detail = "";
+  // Skip structural/nav headings — only check body H2/H3 sections
+  const SKIP_HEADINGS = /^#{2,3}\s+(in\s+this\s+article|tl;?dr|quick\s+tips|faq|frequently\s+asked|references|final\s+thoughts|how\s+to\s+choose)/i;
   for (let i = 0; i < lines.length; i++) {
-    if (/^#{2,3}\s+/.test(lines[i])) {
+    if (/^#{2,3}\s+/.test(lines[i]) && !SKIP_HEADINGS.test(lines[i])) {
       const block: string[] = [];
       for (let j = i + 1; j < lines.length; j++) {
         const ln = lines[j];
