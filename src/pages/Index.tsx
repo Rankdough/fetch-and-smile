@@ -832,6 +832,9 @@ const Index = () => {
     const saved = localStorage.getItem("seo-generator-competitorUrls");
     return saved ? JSON.parse(saved) : ["", "", ""];
   });
+  const [serpResults, setSerpResults] = useState<Array<{ url: string; title: string; domain: string }>>([]);
+  const [isFetchingSerp, setIsFetchingSerp] = useState(false);
+  const [selectedSerpUrls, setSelectedSerpUrls] = useState<Set<string>>(new Set());
   const [formatUrl, setFormatUrl] = useState(() => {
     const saved = localStorage.getItem("seo-generator-formatUrl");
     return saved || "";
@@ -1315,6 +1318,53 @@ const Index = () => {
       },
     ];
   }, [competitorUrls, gapAnalysis, formatReference, contextFiles, formData.topic, formData.length, keywords, valuePromise, selectedAngles, selectedGapInsights, selectedAngleGaps]);
+
+  const handleFetchSerp = async () => {
+    const topKeyword = keywords[0]?.trim() || formData.topic?.trim();
+    if (!topKeyword) {
+      toast({ title: "No keyword", description: "Add a keyword in settings first.", variant: "destructive" });
+      return;
+    }
+    setIsFetchingSerp(true);
+    setSerpResults([]);
+    setSelectedSerpUrls(new Set());
+    try {
+      const { data, error } = await supabase.functions.invoke("fetch-serp-urls", {
+        body: { keyword: topKeyword },
+      });
+      if (error) throw error;
+      if (data?.results?.length) {
+        setSerpResults(data.results);
+      } else {
+        toast({ title: "No results", description: "Could not fetch results for this keyword.", variant: "destructive" });
+      }
+    } catch (e) {
+      toast({ title: "Fetch failed", description: String(e), variant: "destructive" });
+    } finally {
+      setIsFetchingSerp(false);
+    }
+  };
+
+  const handleSerpSelect = (url: string) => {
+    setSelectedSerpUrls(prev => {
+      const next = new Set(prev);
+      if (next.has(url)) {
+        next.delete(url);
+      } else if (next.size < 3) {
+        next.add(url);
+      }
+      return next;
+    });
+  };
+
+  const handleSerpConfirm = () => {
+    const chosen = Array.from(selectedSerpUrls);
+    const newUrls = ["", "", ""];
+    chosen.forEach((url, i) => { newUrls[i] = url; });
+    setCompetitorUrls(newUrls);
+    setSerpResults([]);
+    setSelectedSerpUrls(new Set());
+  };
 
   const handleAnalyzeUrls = async () => {
     const validUrls = competitorUrls.filter((url) => url.trim());
@@ -4076,6 +4126,64 @@ const Index = () => {
                 <p className="text-sm text-muted-foreground">
                   Add up to 3 top-ranking article URLs for gap analysis
                 </p>
+
+                {/* Fetch top SERP results button */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full text-xs"
+                  onClick={handleFetchSerp}
+                  disabled={isFetchingSerp || (!keywords[0]?.trim() && !formData.topic?.trim())}
+                >
+                  {isFetchingSerp ? (
+                    <><Loader2 className="mr-2 h-3 w-3 animate-spin" />Fetching top results...</>
+                  ) : (
+                    <><Search className="mr-2 h-3 w-3" />Fetch top 6 Google results{keywords[0] ? ` for "${keywords[0]}"` : ""}</>
+                  )}
+                </Button>
+
+                {/* SERP picker */}
+                {serpResults.length > 0 && (
+                  <div className="rounded-md border border-border bg-muted/30 p-3 space-y-2">
+                    <p className="text-xs font-medium text-muted-foreground">
+                      Select up to 3 ({selectedSerpUrls.size}/3 selected)
+                    </p>
+                    {serpResults.map((r) => {
+                      const isSelected = selectedSerpUrls.has(r.url);
+                      const isDisabled = !isSelected && selectedSerpUrls.size >= 3;
+                      return (
+                        <div
+                          key={r.url}
+                          onClick={() => !isDisabled && handleSerpSelect(r.url)}
+                          className={`flex items-start gap-2 p-2 rounded cursor-pointer border text-xs transition-colors ${
+                            isSelected
+                              ? "border-primary bg-primary/10"
+                              : isDisabled
+                              ? "border-transparent opacity-40 cursor-not-allowed"
+                              : "border-transparent hover:border-border hover:bg-muted"
+                          }`}
+                        >
+                          <div className={`mt-0.5 h-4 w-4 rounded border flex-shrink-0 flex items-center justify-center ${isSelected ? "bg-primary border-primary" : "border-muted-foreground"}`}>
+                            {isSelected && <span className="text-primary-foreground text-[10px]">✓</span>}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="font-medium text-foreground truncate">{r.title}</p>
+                            <p className="text-muted-foreground truncate">{r.domain}</p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    <Button
+                      size="sm"
+                      className="w-full"
+                      disabled={selectedSerpUrls.size === 0}
+                      onClick={handleSerpConfirm}
+                    >
+                      Use selected ({selectedSerpUrls.size})
+                    </Button>
+                  </div>
+                )}
+
                 {competitorUrls.map((url, index) => (
                   <div key={index} className="flex gap-2">
                     <Input
