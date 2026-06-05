@@ -281,6 +281,7 @@ const KeywordDeduplicator = () => {
   const [saveName, setSaveName] = useState("");
   const [showSaveInput, setShowSaveInput] = useState(false);
   const [topicFilter, setTopicFilter] = useState("");
+  const [evergreenOnly, setEvergreenOnly] = useState(false);
 
   // Optional reference file (File B): keywords in File A that match (fuzzy or semantic) any
   // keyword in File B will be removed, leaving only the keywords unique to File A.
@@ -796,7 +797,7 @@ const KeywordDeduplicator = () => {
               "Content-Type": "application/json",
               Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
             },
-            body: JSON.stringify({ keywords: rawKeywords, mode: "topic-filter", topic: topicFilter.trim() }),
+            body: JSON.stringify({ keywords: rawKeywords, mode: "topic-filter", topic: topicFilter.trim(), evergreen: evergreenOnly }),
           }
         );
 
@@ -1438,6 +1439,15 @@ const KeywordDeduplicator = () => {
               </Button>
             )}
           </div>
+          <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={evergreenOnly}
+              onChange={(e) => setEvergreenOnly(e.target.checked)}
+              className="h-3.5 w-3.5 rounded"
+            />
+            <span>Evergreen only — remove time-sensitive queries (tonight, last night, who won, live score, watch now, this week)</span>
+          </label>
           {topicFilter && (
             <p className="text-xs text-muted-foreground ml-6">
               Keywords not related to <strong>"{topicFilter}"</strong> will be removed before deduplication.
