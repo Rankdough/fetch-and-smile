@@ -1490,6 +1490,17 @@ ${isPricingQuestion
                               {wc}w
                             </Button>
                           ))}
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-6 px-2 text-xs gap-1 text-destructive hover:text-destructive hover:bg-destructive/10"
+                            disabled={regenIdx === i}
+                            onClick={() => deleteRow(i)}
+                            title="Delete row"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                            Del
+                          </Button>
                         </div>
                       </TableCell>
                       <TableCell className="align-top text-xs max-w-[220px]">
