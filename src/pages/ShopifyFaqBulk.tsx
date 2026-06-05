@@ -207,7 +207,7 @@ const EXPERT_BOX_HTML = `
 </div>
 `;
 
-const TEAM_NAME_PILL_HTML = `<p style="margin: 20px 0; padding: 12px 18px; background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 9999px; display: inline-block; font-size: 0.95em; color: #065f46;">💡 <strong>Stuck on a team name?</strong> Try our free <a href="https://team.bigleagueshirts.com/" target="_blank" rel="noopener" style="color: #047857; font-weight: 600; text-decoration: underline;">Team Name Generator →</a></p>`;
+const TEAM_NAME_PILL_HTML = `<p style="margin: 20px 0; padding: 12px 18px; background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 9999px; display: block; font-size: 0.95em; color: #065f46;">💡 <strong>Stuck on a team name?</strong> Try our free <a href="https://team.bigleagueshirts.com/" target="_blank" rel="noopener" style="color: #047857; font-weight: 600; text-decoration: underline;">Team Name Generator →</a></p>`;
 
 function injectTeamNamePill(html: string): string {
   // Insert after first closing </p> so it sits below the opening paragraph.
