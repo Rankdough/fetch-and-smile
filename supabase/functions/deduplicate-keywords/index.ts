@@ -410,11 +410,34 @@ serve(async (req) => {
 
               const evergreenBlock = evergreen ? `
 
-EVERGREEN FILTER (ACTIVE): Also remove any keyword that is time-sensitive by nature — i.e. the answer changes day to day or week to week. Remove if the keyword contains or implies: tonight, today, this week, this weekend, last night, yesterday, now, live, streaming, watch live, score, result, who won, standings update, fixture today, next game, schedule tonight, breaking news, transfer news, latest, upcoming (when implying imminent dates).
-- REMOVE: "where to watch basketball tonight", "who won last night nba", "lakers score today", "nba standings this week"
-- KEEP: "how long is an nba game", "what is a double double in basketball", "how to improve basketball dribbling"
-- KEEP: "nba playoffs format", "basketball court dimensions", "what is a technical foul"
-The test: would this keyword still be useful and answerable in 2 years? If no, REMOVE it.` : "";
+EVERGREEN FILTER (ACTIVE): Also remove any keyword that is time-sensitive by nature — meaning the answer changes day to day, week to week, or season to season. This applies to ANY topic.
+
+REMOVE a keyword if it contains or implies any of the following signals:
+- Time words: tonight, today, this week, this weekend, last night, yesterday, right now, currently, this year, this season, this month
+- Live/broadcast intent: watch live, stream, where to watch, how to watch, on tv, channel, broadcast
+- Scores/results: score, result, who won, winner, standings, leaderboard, rankings today, latest results
+- Schedules: next game, fixture, schedule today, when does X play, upcoming match
+- Breaking/trending: breaking news, transfer news, latest news, just released, just launched, new today
+- Prices that fluctuate daily: stock price today, current price, live price
+
+REMOVE examples (topic-agnostic):
+- "where to watch [topic] tonight" — time-sensitive broadcast
+- "who won [topic] last night" — result, stale tomorrow
+- "[topic] score today" — live score, useless after the game
+- "best [topic] deals today" — promotional, changes daily
+- "latest [topic] news" — news cycle, not evergreen
+- "[topic] schedule this week" — fixture list, expires weekly
+- "is [topic] on tonight" — broadcast query
+
+KEEP examples (topic-agnostic):
+- "how does [topic] work" — evergreen explanation
+- "what is [topic]" — evergreen definition
+- "how to get better at [topic]" — evergreen skill
+- "how much does [topic] cost" — general pricing (not today's price)
+- "best [topic] for beginners" — evergreen buying guide
+- "[topic] rules explained" — evergreen reference
+
+THE TEST: Would this keyword still return a useful, accurate answer in 2 years without any changes? If yes, KEEP. If no, REMOVE.` : "";
 
               const systemPrompt = `You are an INCLUSIVE keyword relevance filter. Given a TOPIC and a numbered list of keywords, mark a keyword OFF-TOPIC ONLY when it is clearly about a completely different subject.
 
