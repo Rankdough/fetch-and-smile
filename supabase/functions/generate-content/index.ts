@@ -581,7 +581,7 @@ ${instructions}`;
       userPrompt = `Write a blog post about: ${topic}
 
 MUST FOLLOW (in priority order):
-1. STRUCTURE — Follow the AEO layout exactly: H1 → AI-quotable opening paragraph (30-50 words) → ## TL;DR (1 dense paragraph, no list) → ## Quick Tips (3 tips, max 15 words each) → ## In This Article (nav list) → question-based H2 sections (each H2 phrased as a question, immediately followed by a ~30-word direct answer paragraph, then EXACTLY THREE markdown bullet points using "- ", then a comparison table where relevant) → ## How to Choose (4-6 criteria as a bullet checklist) → ## Frequently Asked Questions → ## Final Thoughts. Do NOT add a ## References section — the system adds it post-generation.
+1. STRUCTURE — Follow the AEO layout exactly: H1 → AI-quotable opening paragraph (30-50 words) → ## TL;DR (1 dense paragraph, no list) → ${skipQuickTips ? "" : "## Quick Tips (3 tips, max 15 words each) →"} ## In This Article (nav list) → question-based H2 sections (each H2 phrased as a question, immediately followed by a ~30-word direct answer paragraph, then EXACTLY THREE markdown bullet points using "- ", then a comparison table where relevant) → ## How to Choose (4-6 criteria as a bullet checklist) → ## Frequently Asked Questions → ## Final Thoughts. Do NOT add a ## References section — the system adds it post-generation.
 2. WORD COUNT — Final article between ${wordFloor} and ${wordCeiling} words (target ${targetWords}). Count as you write.
 3. TABLES — Include exactly ${requiredTables} markdown comparison table${requiredTables > 1 ? 's' : ''} (1 per 600 words), each ≥3 columns and ≥4 data rows, spread evenly across body H2 sections. Markdown pipe syntax only.
 4. SOURCES — Do NOT add any "**Sources:**" lines, "Sources:" lines, "Source:" lines, bullet lists of URLs, inline numeric citations like [1][2], or inline markdown links to external URLs. Write clean prose only. The system attaches citations and the References section deterministically from the article's context files after you finish.
@@ -2208,6 +2208,14 @@ STRICT RULES — follow this exact pattern from a proven high-performing example
 
     content = enforceParagraphDensity(content);
     console.log("PARAGRAPH DENSITY GUARD: Applied deterministic sentence-boundary splits");
+
+    // Strip Quick Tips section if skipQuickTips is set — safety net in case model wrote it anyway
+    if (skipQuickTips) {
+      content = content.replace(
+        /(^|\n)#{1,3}\s*Quick Tips[^\n]*\n([\s\S]*?)(?=\n#{1,3}\s|$)/i,
+        "$1"
+      ).trim();
+    }
 
     // Build metadata about what was applied
     const appliedRules = {
