@@ -133,6 +133,9 @@ export async function generateMigrationArticle(
   let markdown: string = contentData?.content || contentData?.generatedContent || "";
   if (!markdown.trim()) throw new Error("No content returned from generation");
 
+  // Strip em dashes — model sometimes ignores the no-em-dash instruction
+  markdown = markdown.replace(/—/g, ",").replace(/ – /g, ", ");
+
   // Strip wrapping quotes the model occasionally adds around the whole article
   markdown = markdown.trim();
   if ((markdown.startsWith('"') && markdown.endsWith('"')) || (markdown.startsWith("'") && markdown.endsWith("'"))) {
