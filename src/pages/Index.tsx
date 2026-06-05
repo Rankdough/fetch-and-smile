@@ -4157,7 +4157,7 @@ const Index = () => {
                   {isFetchingSerp ? (
                     <><Loader2 className="mr-2 h-3 w-3 animate-spin" />Fetching top results...</>
                   ) : (
-                    <><Search className="mr-2 h-3 w-3" />Fetch top 6 Google results{(keywords[0] || formData.topic) ? ` for "${(keywords[0] || formData.topic || "").slice(0, 40)}"` : ""}</>
+                    <><Search className="mr-2 h-3 w-3" />Fetch top 6 Google results{(keywords[0] || formData.topic) ? ` for: ${(keywords[0] || formData.topic || "").slice(0, 40)}` : ""}</>
                   )}
                   </Button>
                 </div>
