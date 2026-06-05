@@ -142,17 +142,28 @@ function injectLinksDeterministic(markdown: string, urls: string[]): string {
   const inTldr = (i: number) => tldrStart !== -1 && i >= tldrStart && i < tldrEnd;
 
   const candidates: number[] = [];
-  for (let i = 0; i < lines.length; i++) if (isContent(lines[i]) && !inTldr(i)) candidates.push(i);
+  let firstContentFound = false;
+  for (let i = 0; i < lines.length; i++) {
+    if (isContent(lines[i]) && !inTldr(i)) {
+      // Skip the very first content line (opening paragraph) — links there look unnatural
+      if (!firstContentFound) { firstContentFound = true; continue; }
+      candidates.push(i);
+    }
+  }
   if (!candidates.length) return markdown;
 
+  // Only use multi-word phrases for matching — never inject on a single generic token
+  // This prevents "basketball" becoming the anchor for a 5-word slug
   const used = new Set<number>();
   const buckets = plans.length;
   for (let b = 0; b < buckets; b++) {
     const plan = plans[b];
+    // Only use phrases that are 2+ words for matching
+    const multiWordPhrases = plan.phrases.filter(p => p.includes(" "));
     const start = Math.floor((b * candidates.length) / buckets);
     const end = Math.max(start + 1, Math.floor(((b + 1) * candidates.length) / buckets));
     let injected = false;
-    for (const phrase of plan.phrases) {
+    for (const phrase of multiWordPhrases) {
       const re = new RegExp(`\\b(${escapeRe(phrase)})\\b`, "i");
       const ranges = [candidates.slice(start, end), candidates];
       for (const range of ranges) {
@@ -171,16 +182,7 @@ function injectLinksDeterministic(markdown: string, urls: string[]): string {
       }
       if (injected) break;
     }
-    if (!injected) {
-      const remaining = candidates.filter((i) => !used.has(i) && !/\]\([^)]*\)/.test(lines[i]));
-      if (remaining.length) {
-        remaining.sort((a, c) => lines[c].length - lines[a].length);
-        const idx = remaining[0];
-        const anchor = plan.phrases[0] || "related guide";
-        lines[idx] = lines[idx].replace(/\s*$/, ` See more on [${anchor}](${plan.url}).`);
-        used.add(idx);
-      }
-    }
+    // No fallback "See more on" — if no multi-word phrase matches, skip this URL silently
   }
   return lines.join("\n");
 }
