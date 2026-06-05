@@ -236,19 +236,45 @@ This test catches cases where different question words (what age / when / how ol
 SAME-ANSWER RULE (the most important rule — apply globally to any topic):
 Keywords are duplicates when they all resolve to the same factual answer, regardless of how differently they are phrased.
 
-Age/eligibility questions — ALL of these ask "what is the minimum age for X":
-- "what age can kids play tackle football" = "when can kids play tackle football" = "what age do kids start tackle football" = "when do kids start playing tackle football" = "when should kids play tackle football" = "what age is tackle football" = "how old do you have to be to play tackle football" = "at what age can you play tackle football"
-These all have the same answer: the minimum age. Group them all.
+TOPIC 1 — AGE/ELIGIBILITY (sport):
+"what age can kids play tackle football" = "when can kids play tackle football" = "what age do kids start tackle football" = "when do kids start playing tackle football" = "when should kids play tackle football" = "how old do you have to be to play tackle football" = "at what age can you play tackle football" = "what age is tackle football"
+→ One article on minimum age answers all of them.
 
-Timing questions — ALL of these ask "when does X happen/start":
-- "when does tackle football start" = "what age does tackle football start" = "when do kids start tackle football"
+TOPIC 2 — COST (dental):
+"how much do dental implants cost" = "dental implant price" = "cost of dental implants" = "how expensive are dental implants" = "dental implants fees" = "what do dental implants cost" = "average cost of a dental implant" = "dental implant cost uk"
+→ One article on dental implant pricing answers all of them.
 
-Safety questions — ALL of these ask "is X safe":
-- "is tackle football safe for kids" = "is tackle football safe for 10 year olds" = "should kids play tackle football" = "why kids should not play tackle football" = "is tackle football dangerous"
-These all resolve to: is it safe? Group them.
+TOPIC 3 — SAFETY (baby/parenting):
+"is it safe to give honey to babies" = "can babies eat honey" = "when can babies have honey" = "at what age can you give a baby honey" = "should babies eat honey" = "why can't babies eat honey" = "how old does a baby have to be to eat honey"
+→ One article on honey safety for infants answers all of them.
 
-Cost questions — ALL of these ask "how much does X cost":
-- "how much does X cost" = "X price" = "X cost" = "X fees" = "how expensive is X" = "cost of X"
+TOPIC 4 — DURATION (beauty):
+"how long does a spray tan last" = "how long do spray tans last" = "spray tan duration" = "how many days does a spray tan last" = "how long will my spray tan last" = "when does a spray tan fade" = "spray tan how long"
+→ One article on spray tan longevity answers all of them.
+
+TOPIC 5 — ELIGIBILITY/REQUIREMENTS (travel):
+"do you need a visa to visit bali" = "visa requirements for bali" = "do i need a visa for bali" = "bali visa requirements" = "is a visa required for bali" = "can you travel to bali without a visa" = "bali entry requirements visa"
+→ One article on Bali visa requirements answers all of them.
+
+TOPIC 6 — SIZE/AMOUNT (cooking):
+"how much coffee per cup" = "how many tablespoons of coffee per cup" = "coffee to water ratio" = "how much ground coffee for one cup" = "how many scoops of coffee per cup" = "correct amount of coffee per cup"
+→ One article on coffee measurement answers all of them.
+
+TOPIC 7 — PROCESS/HOW-TO (finance):
+"how to open a business bank account" = "how do i open a business bank account" = "opening a business bank account" = "what do you need to open a business bank account" = "steps to open a business bank account" = "setting up a business bank account"
+→ One article on opening a business bank account answers all of them.
+
+TOPIC 8 — COMPARISON (technology):
+"iphone vs android which is better" = "should i get an iphone or android" = "is iphone better than android" = "iphone or android which should i buy" = "android vs iphone comparison" = "differences between iphone and android"
+→ One article comparing iPhone and Android answers all of them.
+
+TOPIC 9 — TIMING/SEASON (gardening):
+"when to plant tomatoes" = "what time of year to plant tomatoes" = "best time to plant tomatoes" = "when should i plant tomatoes" = "what month do you plant tomatoes" = "when do you put tomatoes in the ground"
+→ One article on tomato planting season answers all of them.
+
+TOPIC 10 — SYMPTOMS/DIAGNOSIS (health):
+"signs of diabetes" = "symptoms of diabetes" = "how do you know if you have diabetes" = "what are the symptoms of diabetes" = "early signs of diabetes" = "how to tell if you have diabetes" = "diabetes warning signs" = "am i diabetic signs"
+→ One article on diabetes symptoms answers all of them.
 
 QUESTION-WORD EQUIVALENCE (apply to any topic):
 These question starters all ask the same thing when paired with the same subject:
