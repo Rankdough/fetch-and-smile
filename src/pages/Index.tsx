@@ -833,6 +833,7 @@ const Index = () => {
     return saved ? JSON.parse(saved) : ["", "", ""];
   });
   const [serpResults, setSerpResults] = useState<Array<{ url: string; title: string; domain: string }>>([]);
+  const [serpCountry, setSerpCountry] = useState<string>(() => localStorage.getItem("seo-generator-serpCountry") || "United Kingdom");
   const [isFetchingSerp, setIsFetchingSerp] = useState(false);
   const [selectedSerpUrls, setSelectedSerpUrls] = useState<Set<string>>(new Set());
   const [formatUrl, setFormatUrl] = useState(() => {
@@ -1333,7 +1334,7 @@ const Index = () => {
     setSelectedSerpUrls(new Set());
     try {
       const { data, error } = await supabase.functions.invoke("fetch-serp-urls", {
-        body: { keyword: topKeyword },
+        body: { keyword: topKeyword, country: serpCountry },
       });
       if (error) throw error;
       if (data?.results?.length) {
@@ -4130,20 +4131,33 @@ const Index = () => {
                   Add up to 3 top-ranking article URLs for gap analysis
                 </p>
 
-                {/* Fetch top SERP results button */}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full text-xs"
-                  onClick={handleFetchSerp}
-                  disabled={isFetchingSerp}
-                >
+                {/* Country selector + Fetch button */}
+                <div className="flex gap-2 items-center">
+                  <select
+                    value={serpCountry}
+                    onChange={(e) => {
+                      setSerpCountry(e.target.value);
+                      localStorage.setItem("seo-generator-serpCountry", e.target.value);
+                    }}
+                    className="h-8 rounded-md border border-input bg-background px-2 text-xs text-foreground flex-shrink-0"
+                  >
+                    <option value="United States">🇺🇸 US</option>
+                    <option value="United Kingdom">🇬🇧 UK</option>
+                  </select>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1 text-xs"
+                    onClick={handleFetchSerp}
+                    disabled={isFetchingSerp}
+                  >
                   {isFetchingSerp ? (
                     <><Loader2 className="mr-2 h-3 w-3 animate-spin" />Fetching top results...</>
                   ) : (
                     <><Search className="mr-2 h-3 w-3" />Fetch top 6 Google results{(keywords[0] || formData.topic) ? ` for "${(keywords[0] || formData.topic || "").slice(0, 40)}"` : ""}</>
                   )}
-                </Button>
+                  </Button>
+                </div>
 
                 {/* SERP picker */}
                 {serpResults.length > 0 && (
