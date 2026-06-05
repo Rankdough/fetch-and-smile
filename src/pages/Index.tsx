@@ -4161,7 +4161,6 @@ const Index = () => {
                   )}
                   </Button>
                 </div>
-                </div>
 
                 {/* SERP picker */}
                 {serpResults.length > 0 && (
