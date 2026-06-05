@@ -886,6 +886,17 @@ ${isPricingQuestion
         "$1"
       ).trim();
 
+      // Strip model-generated cross-domain link sentences e.g. "See more on proplayerteam."
+      // These appear when the model invents its own internal links
+      finalMarkdown = finalMarkdown.replace(
+        /\[?See more on[^\]\n.]*\.?\]?(?:\([^)]+\))?[.\s]*/gi, ""
+      );
+      // Strip filler sentences that add no information value
+      finalMarkdown = finalMarkdown
+        .replace(/Understanding [^.\n]+ is key to [^.\n]+\./gi, "")
+        .replace(/[A-Z][^.\n]+ is essential for [^.\n]+ performance\./gi, "")
+        .replace(/[A-Z][^.\n]+ plays? a (crucial|key|important|vital) role in [^.\n]+\./gi, "");
+
       // Deterministic internal-link injector — no AI, no hallucinations.
       // Each user-provided URL is wrapped around the best-matching phrase in body prose.
       const beforeLinkCount = (finalMarkdown.match(/\]\((https?:\/\/[^\s)]+|\/[^\s)]+)\)/g) || []).length;
