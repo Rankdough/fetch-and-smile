@@ -35,9 +35,9 @@ function getDomain(url: string): string {
   }
 }
 
-const COUNTRY_CONFIG: Record<string, { gl: string; hl: string }> = {
-  "United Kingdom": { gl: "gb", hl: "en" },
-  "United States":  { gl: "us", hl: "en" },
+const COUNTRY_CONFIG: Record<string, { gl: string; hl: string; location: string; tbs?: string }> = {
+  "United Kingdom": { gl: "gb", hl: "en", location: "United Kingdom" },
+  "United States":  { gl: "us", hl: "en", location: "United States" },
 };
 
 serve(async (req) => {
@@ -75,6 +75,7 @@ serve(async (req) => {
         q: keyword.trim(),
         gl: cfg.gl,
         hl: cfg.hl,
+        location: cfg.location,
         num: 20,
         type: "search",
       }),
