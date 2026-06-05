@@ -310,7 +310,7 @@ export function markdownToStyledHtml(
   const sec = colorPalette?.secondary || primaryColor;
 
   container.querySelectorAll("table").forEach((table) => {
-    table.setAttribute("style", `min-width: 100%; border-collapse: collapse; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border: 1px solid ${tableBorder}; table-layout: auto;`);
+    table.setAttribute("style", `min-width: 100%; border-collapse: collapse; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border: 1px solid ${tableBorder}; table-layout: auto; margin-bottom: 24px;`);
     table.removeAttribute("class");
 
     table.querySelectorAll("thead").forEach((thead) => {
