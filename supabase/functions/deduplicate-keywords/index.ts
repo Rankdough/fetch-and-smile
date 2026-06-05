@@ -244,6 +244,24 @@ Examples:
 TRAILING MODIFIER RULE:
 A trailing context word that doesn't change the question ("stats", "explained", "definition", "meaning", "term") should NOT prevent grouping. "what is war in baseball" and "what is war in baseball stats" are the same question.
 
+MEASUREMENT-EQUIVALENCE RULE (apply to any topic):
+These phrasings all ask the SAME question about a dimension or measurement — group them aggressively:
+"how tall is X" = "how high is X" = "what is the height of X" = "what height is X" = "what is regulation height for X" = "what is standard height for X" = "X height" = "X dimensions"
+Similarly: "how heavy is X" = "how much does X weigh" = "X weight" = "X mass"
+Similarly: "how long is X" = "X length" = "X size" = "how big is X"
+Similarly: "how wide is X" = "X width" = "X diameter"
+The lead question word (how tall / how high / what is the height) does NOT create a different question — they all have the same answer.
+Examples:
+- "how tall is a basketball hoop" = "how high is a basketball hoop" = "what is the height of a basketball hoop" = "regulation height basketball hoop" (ALL same group)
+- "how heavy is a bowling ball" = "how much does a bowling ball weigh" = "bowling ball weight" (ALL same group)
+- "how long is a football field" = "football field length" = "football field dimensions" (ALL same group)
+
+QUALIFIER-EQUIVALENCE RULE (apply to any topic):
+Qualifying words that specify the same standard version do NOT create separate questions:
+"regulation", "official", "standard", "professional", "competition", "NBA", "WNBA", "NCAA", "FIFA", "Olympic" — when these modify the same object, group them with the generic version.
+- "regulation basketball hoop height" = "NBA basketball hoop height" = "official basketball hoop height" = "basketball hoop height" (ALL same group)
+- "official soccer field size" = "regulation soccer field dimensions" = "FIFA soccer field size" (ALL same group)
+
 CRITICAL GROUPING RULE:
 When keywords share the SAME core question structure and differ ONLY by a type/material/brand modifier (e.g., "composite", "porcelain", "emax"), they ARE duplicates. The generic version and all type-specific versions belong in ONE group.
 
