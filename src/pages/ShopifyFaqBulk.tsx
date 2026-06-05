@@ -259,7 +259,7 @@ export default function ShopifyFaqBulk() {
   const [includeNav, setIncludeNav] = useState<boolean>(init.includeNav ?? false);
   const [skipQuickTips, setSkipQuickTips] = useState<boolean>(init.skipQuickTips ?? false);
   const [skipSources, setSkipSources] = useState<boolean>(init.skipSources ?? true);
-  const [stripTitle, setStripTitle] = useState<boolean>(init.stripTitle ?? false);
+  const [stripTitle, setStripTitle] = useState<boolean>(init.stripTitle ?? true);
   const [paletteId, setPaletteId] = useState<string | null>(init.paletteId ?? null);
   const [internalLinks, setInternalLinks] = useState<string[]>(
     Array.isArray(init.internalLinks)
@@ -917,9 +917,11 @@ ${isPricingQuestion
             skipFaqs: wc === 100 || wc === 300 ? true : !includeFaqs,
             skipSources: wc === 100 || wc === 300 ? true : skipSources,
           });
-      const baseHtml = stripTitle
-        ? finalHtml.replace(/<h1\b[^>]*>[\s\S]*?<\/h1>/i, "").trim()
-        : finalHtml;
+      // Always strip H1 from Body HTML — Shopify renders the article Title as H1 separately.
+      // Including an H1 in Body HTML causes a duplicate heading on every theme.
+      const baseHtml = finalHtml
+        .replace(/<h1\b[^>]*>[\s\S]*?<\/h1>/gi, "")
+        .trim();
       const baseWithPill = teamNameGenEnabled ? injectTeamNamePill(baseHtml) : baseHtml;
       const withCta = (result.ctaHtml && result.ctaHtml.trim()) ? `${baseWithPill}${result.ctaHtml}` : baseWithPill;
       const body = `${withCta}${EXPERT_BOX_HTML}`;
