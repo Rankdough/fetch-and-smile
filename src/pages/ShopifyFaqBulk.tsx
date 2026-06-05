@@ -211,12 +211,12 @@ const EXPERT_BOX_HTML = `
 
 const buildTeamNamePillHtml = (url: string) => `<p style="margin: 20px 0; padding: 12px 18px; background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 9999px; display: block; font-size: 0.95em; color: #065f46;">💡 <strong>Stuck on a team name?</strong> Try our free <a href="${url || 'https://team.bigleagueshirts.com/'}" target="_blank" rel="noopener" style="color: #047857; font-weight: 600; text-decoration: underline;">Team Name Generator →</a></p>`;
 
-function injectTeamNamePill(html: string): string {
+function injectTeamNamePill(html: string, pillHtml: string): string {
   // Insert after first closing </p> so it sits below the opening paragraph.
   const idx = html.search(/<\/p>/i);
-  if (idx === -1) return `${TEAM_NAME_PILL_HTML}${html}`;
+  if (idx === -1) return `${pillHtml}${html}`;
   const cut = idx + "</p>".length;
-  return html.slice(0, cut) + "\n" + TEAM_NAME_PILL_HTML + html.slice(cut);
+  return html.slice(0, cut) + "\n" + pillHtml + html.slice(cut);
 }
 
 const COLUMNS = [
@@ -946,7 +946,7 @@ ${isPricingQuestion
         .replace(/<h1\b[^>]*>[\s\S]*?<\/h1>/gi, "")
         .trim();
       const TEAM_NAME_PILL_HTML = buildTeamNamePillHtml(teamNameGenUrl);
-      const baseWithPill = teamNameGenEnabled ? injectTeamNamePill(baseHtml) : baseHtml;
+      const baseWithPill = teamNameGenEnabled ? injectTeamNamePill(baseHtml, TEAM_NAME_PILL_HTML) : baseHtml;
       const withCta = (result.ctaHtml && result.ctaHtml.trim()) ? `${baseWithPill}${result.ctaHtml}` : baseWithPill;
       const body = `${withCta}${EXPERT_BOX_HTML}`;
       const summary = truncate(result.subtitle || extractSummary(finalMarkdown), 300);
