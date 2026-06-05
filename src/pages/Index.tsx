@@ -1320,9 +1320,12 @@ const Index = () => {
   }, [competitorUrls, gapAnalysis, formatReference, contextFiles, formData.topic, formData.length, keywords, valuePromise, selectedAngles, selectedGapInsights, selectedAngleGaps]);
 
   const handleFetchSerp = async () => {
-    const topKeyword = keywords[0]?.trim() || formData.topic?.trim();
+    // Try keywords array first, then fall back to topic
+    const topKeyword = (keywords && keywords.length > 0 ? keywords[0] : "")?.trim()
+      || formData.topic?.trim()
+      || "";
     if (!topKeyword) {
-      toast({ title: "No keyword", description: "Add a keyword in settings first.", variant: "destructive" });
+      toast({ title: "No keyword found", description: "Enter a topic or add keywords in settings.", variant: "destructive" });
       return;
     }
     setIsFetchingSerp(true);
@@ -4133,12 +4136,12 @@ const Index = () => {
                   size="sm"
                   className="w-full text-xs"
                   onClick={handleFetchSerp}
-                  disabled={isFetchingSerp || (!keywords[0]?.trim() && !formData.topic?.trim())}
+                  disabled={isFetchingSerp}
                 >
                   {isFetchingSerp ? (
                     <><Loader2 className="mr-2 h-3 w-3 animate-spin" />Fetching top results...</>
                   ) : (
-                    <><Search className="mr-2 h-3 w-3" />Fetch top 6 Google results{keywords[0] ? ` for "${keywords[0]}"` : ""}</>
+                    <><Search className="mr-2 h-3 w-3" />Fetch top 6 Google results{(keywords[0] || formData.topic) ? ` for "${(keywords[0] || formData.topic || "").slice(0, 40)}"` : ""}</>
                   )}
                 </Button>
 
