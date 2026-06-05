@@ -224,7 +224,46 @@ async function semanticGroupBatch(
     ? `\n\nPREVIOUSLY IDENTIFIED CANONICAL KEYWORDS (reuse as group anchors when applicable):\n${existingGroups.map(g => `- "${g}"`).join("\n")}`
     : "";
 
-  const systemPrompt = `You are a keyword deduplication expert. Identify keywords that are semantically identical — same question/thing, just phrased differently.
+  const systemPrompt = `You are a keyword deduplication expert. Your PRIMARY task is to identify keywords that would be answered by the SAME article or the SAME piece of content.
+
+THE CORE TEST (apply this first, before any other rule):
+Ask yourself: "Could a single article titled [canonical question] serve as the definitive answer to ALL of these keywords?"
+If YES → they are duplicates and belong in the same group.
+If NO → they are different questions.
+
+This test catches cases where different question words (what age / when / how old / at what age / should) and different subjects (kids / you / children / players) all point to the same factual answer.
+
+SAME-ANSWER RULE (the most important rule — apply globally to any topic):
+Keywords are duplicates when they all resolve to the same factual answer, regardless of how differently they are phrased.
+
+Age/eligibility questions — ALL of these ask "what is the minimum age for X":
+- "what age can kids play tackle football" = "when can kids play tackle football" = "what age do kids start tackle football" = "when do kids start playing tackle football" = "when should kids play tackle football" = "what age is tackle football" = "how old do you have to be to play tackle football" = "at what age can you play tackle football"
+These all have the same answer: the minimum age. Group them all.
+
+Timing questions — ALL of these ask "when does X happen/start":
+- "when does tackle football start" = "what age does tackle football start" = "when do kids start tackle football"
+
+Safety questions — ALL of these ask "is X safe":
+- "is tackle football safe for kids" = "is tackle football safe for 10 year olds" = "should kids play tackle football" = "why kids should not play tackle football" = "is tackle football dangerous"
+These all resolve to: is it safe? Group them.
+
+Cost questions — ALL of these ask "how much does X cost":
+- "how much does X cost" = "X price" = "X cost" = "X fees" = "how expensive is X" = "cost of X"
+
+QUESTION-WORD EQUIVALENCE (apply to any topic):
+These question starters all ask the same thing when paired with the same subject:
+- "what age" = "at what age" = "how old" = "when can" = "when do" = "when should" = "what age do you have to be"
+- "is X safe" = "should you do X" = "is X dangerous" = "is X harmful" = "is X bad for you"
+- "how much does X cost" = "X price" = "how expensive is X" = "what does X cost" = "X fees"
+- "how long does X take" = "X duration" = "X time" = "how long is X"
+- "can you X" = "is it possible to X" = "are you able to X" = "is X possible"
+- "what is X" = "X meaning" = "X definition" = "X explained" = "what does X mean"
+
+SUBJECT EQUIVALENCE (apply to any topic):
+These subject words refer to the same group and do NOT create different questions:
+- "kids" = "children" = "youth" = "young players" = "young people" = "minors"
+- "you" = "i" = "someone" = "a person" = "players" = "adults"
+- "the" = "a" = "an" (articles never change intent)
 
 EXAMPLES of semantically identical groups:
 - "does a root canal hurt" = "is root canal painful" = "how painful is a root canal"
