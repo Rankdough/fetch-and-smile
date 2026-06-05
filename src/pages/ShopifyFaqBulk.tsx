@@ -978,7 +978,11 @@ ${isPricingQuestion
       const TEAM_NAME_PILL_HTML = buildTeamNamePillHtml(teamNameGenUrl);
       const baseWithPill = teamNameGenEnabled ? injectTeamNamePill(baseHtml, TEAM_NAME_PILL_HTML) : baseHtml;
       const withCta = (result.ctaHtml && result.ctaHtml.trim()) ? `${baseWithPill}${result.ctaHtml}` : baseWithPill;
-      const body = `${withCta}${EXPERT_BOX_HTML}`;
+      // AEO/GEO: Speakable JSON-LD — tells Google and LLMs which parts of the page
+      // contain the spoken/citable answer. #direct-answer = opening paragraph.
+      // #tldr = the TL;DR section. Both are high-retrieval candidates for AI Overviews.
+      const speakableSchema = `<script type="application/ld+json">{"@context":"https://schema.org","@type":"Article","speakable":{"@type":"SpeakableSpecification","cssSelector":["#direct-answer","#tldr"]},"name":${JSON.stringify(title)}}</script>`;
+      const body = `${speakableSchema}${withCta}${EXPERT_BOX_HTML}`;
       const summary = truncate(result.subtitle || extractSummary(finalMarkdown), 300);
       const descriptionTag = truncate(result.seoDescription || summary, 155);
       const handle = `${handlePrefix ? handlePrefix + "-" : ""}${slugify(q) || `q-${idx + 1}`}`;
