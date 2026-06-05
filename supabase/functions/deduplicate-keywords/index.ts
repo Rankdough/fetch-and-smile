@@ -365,7 +365,7 @@ serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { keywords, mode = "fuzzy", ungroupedKeywords, topic } = body;
+    const { keywords, mode = "fuzzy", ungroupedKeywords, topic, evergreen = false } = body;
 
     if (mode === "topic-filter") {
       // ── TOPIC FILTER: Remove off-topic keywords via AI ──
@@ -408,6 +408,14 @@ serve(async (req) => {
                 .map((k: any, idx: number) => `${idx}. ${k.keyword}`)
                 .join("\n");
 
+              const evergreenBlock = evergreen ? `
+
+EVERGREEN FILTER (ACTIVE): Also remove any keyword that is time-sensitive by nature — i.e. the answer changes day to day or week to week. Remove if the keyword contains or implies: tonight, today, this week, this weekend, last night, yesterday, now, live, streaming, watch live, score, result, who won, standings update, fixture today, next game, schedule tonight, breaking news, transfer news, latest, upcoming (when implying imminent dates).
+- REMOVE: "where to watch basketball tonight", "who won last night nba", "lakers score today", "nba standings this week"
+- KEEP: "how long is an nba game", "what is a double double in basketball", "how to improve basketball dribbling"
+- KEEP: "nba playoffs format", "basketball court dimensions", "what is a technical foul"
+The test: would this keyword still be useful and answerable in 2 years? If no, REMOVE it.` : "";
+
               const systemPrompt = `You are an INCLUSIVE keyword relevance filter. Given a TOPIC and a numbered list of keywords, mark a keyword OFF-TOPIC ONLY when it is clearly about a completely different subject.
 
 TOPIC: "${topic}"
@@ -426,7 +434,7 @@ EXAMPLES for topic "track and field":
 
 EXAMPLES for topic "dental fillings":
 - ON-TOPIC: "how long does a filling last", "cavity pain", "amalgam vs composite"
-- OFF-TOPIC: "how to make pie filling", "toilet not filling with water", "filling out tax forms"
+- OFF-TOPIC: "how to make pie filling", "toilet not filling with water", "filling out tax forms"${evergreenBlock}
 
 OUTPUT FORMAT (valid JSON only, no markdown):
 {"off_topic_indices":[0,3,7]}
