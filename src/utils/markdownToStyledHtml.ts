@@ -167,6 +167,7 @@ export function markdownToStyledHtml(
         if (skipped.length > 0 && sibling) {
           h.parentNode?.insertBefore(sibling, skipped[0]);
         }
+        h.setAttribute("id", "tldr");
         h.setAttribute("style", `background: ${panelBg}; color: ${panelText}; border-left: 4px solid ${primaryColor}; padding: 12px 16px; margin: 24px 0 0 0; border-radius: 0 8px 0 0;`);
         if (sibling.tagName === "UL") {
           sibling.setAttribute("style", `background: ${panelBg}; color: ${panelText}; border-left: 4px solid ${primaryColor}; padding: 16px 24px 16px 40px; margin: 0 0 24px 0; border-radius: 0 0 8px 0; list-style-type: disc;`);
