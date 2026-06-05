@@ -193,15 +193,32 @@ export async function generateMigrationArticle(
   // Append CTA if produced
   let endCtaHtml = "";
   const ctas = (contentData as any)?.ctas;
-  if (hasCtaUrl && ctas?.end) {
-    endCtaHtml = generateCTAHtml(
-      ctas.end.headline,
-      ctas.end.description,
-      ctas.end.buttonText,
-      cta!.url.trim(),
-      palette || null,
-      ctas.end.tagline
-    );
+  if (hasCtaUrl) {
+    if (ctas?.end) {
+      // Use AI-generated CTA copy when available
+      endCtaHtml = generateCTAHtml(
+        ctas.end.headline,
+        ctas.end.description,
+        ctas.end.buttonText,
+        cta!.url.trim(),
+        palette || null,
+        ctas.end.tagline
+      );
+    } else {
+      // Fallback: build CTA directly from URL and instruction — no AI dependency
+      // Derive button text from the URL slug
+      const urlSlug = cta!.url.trim().split("/").filter(Boolean).pop() || "products";
+      const buttonText = "SHOP " + urlSlug.replace(/-/g, " ").toUpperCase() + " →";
+      const headline = (cta?.instruction?.trim() || urlSlug.replace(/-/g, " ")).toUpperCase();
+      endCtaHtml = generateCTAHtml(
+        headline,
+        cta?.instruction?.trim() || "",
+        buttonText,
+        cta!.url.trim(),
+        palette || null,
+        undefined
+      );
+    }
   }
 
   const html = minifyHtmlForExport(styled + endCtaHtml);
