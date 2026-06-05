@@ -209,7 +209,7 @@ const EXPERT_BOX_HTML = `
 </div>
 `;
 
-const TEAM_NAME_PILL_HTML = `<p style="margin: 20px 0; padding: 12px 18px; background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 9999px; display: block; font-size: 0.95em; color: #065f46;">💡 <strong>Stuck on a team name?</strong> Try our free <a href="https://team.bigleagueshirts.com/" target="_blank" rel="noopener" style="color: #047857; font-weight: 600; text-decoration: underline;">Team Name Generator →</a></p>`;
+const buildTeamNamePillHtml = (url: string) => `<p style="margin: 20px 0; padding: 12px 18px; background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 9999px; display: block; font-size: 0.95em; color: #065f46;">💡 <strong>Stuck on a team name?</strong> Try our free <a href="${url || 'https://team.bigleagueshirts.com/'}" target="_blank" rel="noopener" style="color: #047857; font-weight: 600; text-decoration: underline;">Team Name Generator →</a></p>`;
 
 function injectTeamNamePill(html: string): string {
   // Insert after first closing </p> so it sits below the opening paragraph.
@@ -281,6 +281,7 @@ export default function ShopifyFaqBulk() {
   const [ctaUrl, setCtaUrl] = useState<string>(init.ctaUrl ?? "");
   const [ctaInstruction, setCtaInstruction] = useState<string>(init.ctaInstruction ?? "");
   const [teamNameGenEnabled, setTeamNameGenEnabled] = useState<boolean>(init.teamNameGenEnabled ?? false);
+  const [teamNameGenUrl, setTeamNameGenUrl] = useState<string>(init.teamNameGenUrl ?? "https://team.bigleagueshirts.com/");
   const [rows, setRows] = useState<Record<string, string>[]>(init.rows ?? []);
   const rowsRef = useRef<Record<string, string>[]>(init.rows ?? []);
   useEffect(() => { rowsRef.current = rows; }, [rows]);
@@ -329,7 +330,7 @@ export default function ShopifyFaqBulk() {
       }));
     } catch {}
   }, [questions, author, sport, globalTags, blogHandle, blogTitle, templateSuffix, handlePrefix, siteBaseUrl, wordCount,
-      includeFaqs, includeNav, skipQuickTips, skipSources, stripTitle, paletteId, toneProfileId, rows, filterRules, internalLinks, contextFiles,
+      includeFaqs, includeNav, skipQuickTips, skipSources, stripTitle, paletteId, toneProfileId, rows, filterRules, internalLinks, contextFiles, teamNameGenUrl,
       ctaEnabled, ctaUrl, ctaInstruction, teamNameGenEnabled]);
 
   const formatTitle = (q: string): string => {
@@ -944,6 +945,7 @@ ${isPricingQuestion
       const baseHtml = finalHtml
         .replace(/<h1\b[^>]*>[\s\S]*?<\/h1>/gi, "")
         .trim();
+      const TEAM_NAME_PILL_HTML = buildTeamNamePillHtml(teamNameGenUrl);
       const baseWithPill = teamNameGenEnabled ? injectTeamNamePill(baseHtml) : baseHtml;
       const withCta = (result.ctaHtml && result.ctaHtml.trim()) ? `${baseWithPill}${result.ctaHtml}` : baseWithPill;
       const body = `${withCta}${EXPERT_BOX_HTML}`;
@@ -1327,8 +1329,17 @@ ${isPricingQuestion
                 </label>
               </div>
               <p className="text-xs text-muted-foreground">
-                When enabled, a small pill linking to <a href="https://team.bigleagueshirts.com/" target="_blank" rel="noopener" className="underline">team.bigleagueshirts.com</a> is inserted near the top of each article (after the opening paragraph). Excluded from word count.
+                When enabled, a small pill is inserted near the top of each article linking to the URL below. Excluded from word count.
               </p>
+              {teamNameGenEnabled && (
+                <input
+                  type="url"
+                  value={teamNameGenUrl}
+                  onChange={(e) => setTeamNameGenUrl(e.target.value)}
+                  placeholder="https://team.bigleagueshirts.com/"
+                  className="mt-2 w-full max-w-md h-8 rounded-md border border-input bg-background px-3 text-xs text-foreground"
+                />
+              )}
             </div>
           </CardContent>
         </Card>
