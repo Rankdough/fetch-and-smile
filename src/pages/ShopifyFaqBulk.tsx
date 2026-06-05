@@ -200,6 +200,19 @@ function injectLinksDeterministic(markdown: string, urls: string[]): string {
         if (injected) break;
       }
     }
+    // Final fallback: append a natural reference sentence to the last available candidate
+    // Used when no phrase from the URL slug appears anywhere in the article text
+    if (!injected) {
+      const remaining = candidates.filter(i => !used.has(i) && !/\]\([^)]*\)/.test(lines[i]));
+      if (remaining.length) {
+        // Pick the last body candidate — least disruptive position
+        const idx = remaining[remaining.length - 1];
+        // Build readable anchor from the slug
+        const anchor = (plan.phrases[0] || "").replace(/-/g, " ") || "related gear";
+        lines[idx] = lines[idx].trimEnd() + ` For [${anchor}](${plan.url}), visit ProPlayerTeam.`;
+        used.add(idx);
+      }
+    }
   }
   return lines.join("\n");
 }
