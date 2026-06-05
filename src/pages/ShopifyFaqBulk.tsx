@@ -191,7 +191,7 @@ const EXPERT_BOX_HTML = `
 <div style="padding: 24px;">
 <h2 id="our-expert" style="margin: 0 0 16px 0; color: #0f172a;">Our Expert</h2>
 <div style="display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap;">
-<img style="width: 112px; height: 112px; border-radius: 12px; object-fit: cover; border: 2px solid #99f6e4; flex-shrink: 0;" src="https://cdn.shopify.com/s/files/1/1105/3556/files/nic_reese.avif?v=1775577558" alt="Nic Reese" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';"><div style="display:none; width: 112px; height: 112px; border-radius: 12px; border: 2px solid #99f6e4; flex-shrink: 0; background: linear-gradient(135deg, #0f766e 0%, #0d9488 100%); align-items: center; justify-content: center; font-size: 36px; font-weight: 700; color: #ffffff; letter-spacing: -1px;">NR</div>
+<img style="width: 112px; height: 112px; border-radius: 12px; object-fit: cover; border: 2px solid #99f6e4; flex-shrink: 0;" src="https://cdn.shopify.com/s/files/1/0760/1530/4950/files/nic_reese.avif?v=1780658483" alt="Nic Reese" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';"><div style="display:none; width: 112px; height: 112px; border-radius: 12px; border: 2px solid #99f6e4; flex-shrink: 0; background: linear-gradient(135deg, #0f766e 0%, #0d9488 100%); align-items: center; justify-content: center; font-size: 36px; font-weight: 700; color: #ffffff; letter-spacing: -1px;">NR</div>
 <div style="flex: 1; min-width: 220px;">
 <h3 style="margin: 0 0 6px 0; color: #0f172a;">Nic Reese</h3>
 <p style="margin: 0 0 12px 0; color: #0f766e; font-weight: 600; line-height: 1.5;">Our Sport Expert</p>
