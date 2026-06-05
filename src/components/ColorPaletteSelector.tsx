@@ -113,6 +113,15 @@ export const COLOR_PALETTES: ColorPalette[] = [
     text: "#FFFFFF",
   },
   {
+    id: "pitch-black",
+    name: "Pitch Black",
+    primary: "#000000",
+    secondary: "#111111",
+    accent: "#222222",
+    background: "#000000",
+    text: "#FFFFFF",
+  },
+  {
     id: "olive",
     name: "Olive",
     primary: "#5B5F3A",
