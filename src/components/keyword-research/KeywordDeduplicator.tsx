@@ -282,6 +282,7 @@ const KeywordDeduplicator = () => {
   const [showSaveInput, setShowSaveInput] = useState(false);
   const [topicFilter, setTopicFilter] = useState("");
   const [evergreenOnly, setEvergreenOnly] = useState(false);
+  const [excludeTerms, setExcludeTerms] = useState("");
 
   // Optional reference file (File B): keywords in File A that match (fuzzy or semantic) any
   // keyword in File B will be removed, leaving only the keywords unique to File A.
@@ -787,6 +788,23 @@ const KeywordDeduplicator = () => {
         : rawKeywords;
       let removedOffTopic: { keyword: string; volume: number }[] = [];
 
+      // Deterministic exclusion — remove any keyword containing excluded terms
+      let filteredKeywords = [...rawKeywords];
+      if (excludeTerms.trim()) {
+        const terms = excludeTerms
+          .split(",")
+          .map(t => t.trim().toLowerCase())
+          .filter(Boolean);
+        const excluded = filteredKeywords.filter(k =>
+          terms.some(t => k.keyword.toLowerCase().includes(t))
+        );
+        filteredKeywords = filteredKeywords.filter(k =>
+          !terms.some(t => k.keyword.toLowerCase().includes(t))
+        );
+        removedOffTopic.push(...excluded);
+        console.log(`Exclusion filter: removed ${excluded.length} keywords matching [${terms.join(", ")}]`);
+      }
+
       if (topicFilter.trim()) {
         console.log(`Topic filter active: "${topicFilter.trim()}", filtering ${rawKeywords.length} keywords...`);
         const filterResponse = await fetch(
@@ -797,7 +815,7 @@ const KeywordDeduplicator = () => {
               "Content-Type": "application/json",
               Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
             },
-            body: JSON.stringify({ keywords: rawKeywords, mode: "topic-filter", topic: topicFilter.trim(), evergreen: evergreenOnly }),
+            body: JSON.stringify({ keywords: filteredKeywords, mode: "topic-filter", topic: topicFilter.trim(), evergreen: evergreenOnly }),
           }
         );
 
@@ -1448,6 +1466,20 @@ const KeywordDeduplicator = () => {
             />
             <span>Evergreen only — remove time-sensitive queries (tonight, last night, who won, live score, watch now, this week)</span>
           </label>
+          <div className="flex items-center gap-2 mt-1">
+            <Filter className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+            <Input
+              value={excludeTerms}
+              onChange={(e) => setExcludeTerms(e.target.value)}
+              placeholder="Exclude keywords containing (optional) — e.g. tonight, who won, score, watch live"
+              className="max-w-lg h-8 text-sm"
+            />
+            {excludeTerms && (
+              <Button variant="ghost" size="icon" className="h-6 w-6 flex-shrink-0" onClick={() => setExcludeTerms("")}>
+                <X className="h-3 w-3" />
+              </Button>
+            )}
+          </div>
           {topicFilter && (
             <p className="text-xs text-muted-foreground ml-6">
               Keywords not related to <strong>"{topicFilter}"</strong> will be removed before deduplication.
