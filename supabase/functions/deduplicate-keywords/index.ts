@@ -21,6 +21,9 @@ const MODIFIER_TOKENS = new Set([
   "dental", "front", "back", "tooth", "teeth", "emax", "zirconia",
   "porcelain", "composite", "ceramic", "gold", "metal", "resin",
   "acrylic", "diy", "temporary", "permanent", "nhs",
+  // Sport/measurement modifiers — these qualify the same concept, not different ones
+  "regulation", "official", "standard", "professional", "collegiate",
+  "nba", "wnba", "ncaa", "nfl", "mlb", "nhl",
 ]);
 
 function tokenizeKeyword(kw: string): string[] {
@@ -92,6 +95,17 @@ function semanticToken(w: string): string {
     price: "cost", prices: "cost", pricing: "cost", cost: "cost", costs: "cost", expensive: "cost", cheap: "cost",
     mean: "definition", meaning: "definition", definition: "definition", define: "definition", stand: "definition", stands: "definition",
     cleat: "shoe", cleats: "shoe", shoes: "shoe", shoe: "shoe",
+    // Measurement / dimension synonyms — "how tall", "how high", "height" all mean the same
+    tall: "height", high: "height", height: "height", heights: "height",
+    deep: "depth", depth: "depth", wide: "width", width: "width",
+    long: "length", length: "length", dimension: "height", measure: "height",
+    // Modifier synonyms — "regulation", "standard", "official" don't change the core meaning
+    regulation: "standard", official: "standard", standard: "standard",
+    nba: "nba", wnba: "nba",
+    // Weight synonyms
+    weigh: "weight", weighs: "weight", weight: "weight", heavy: "weight", light: "weight",
+    // Count synonyms
+    many: "count", number: "count", count: "count", total: "count", much: "count",
   };
   return synonyms[s] || s;
 }
@@ -113,6 +127,8 @@ function semanticSortKey(kw: string): string {
   else if (tokenSet.has("age")) intent = "age";
   else if (/\bhow\s+long\b|\btake(s)?\b|\bduration\b/i.test(kw)) intent = "duration";
   else if (/\bhow\s+many\b|\bnumber\s+of\b/i.test(kw)) intent = "quantity";
+  else if (tokenSet.has("height") || /\bhow\s+(tall|high)\b|\bheight\b|\bdimension\b/i.test(kw)) intent = "measurement";
+  else if (tokenSet.has("weight") || /\bhow\s+(much|heavy)\b|\bweigh(s)?\b/i.test(kw)) intent = "weight";
 
   return `${intent}:${Array.from(new Set(tokens)).sort().join(" ")}`;
 }
