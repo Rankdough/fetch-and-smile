@@ -236,45 +236,47 @@ This test catches cases where different question words (what age / when / how ol
 SAME-ANSWER RULE (the most important rule — apply globally to any topic):
 Keywords are duplicates when they all resolve to the same factual answer, regardless of how differently they are phrased.
 
-TOPIC 1 — AGE/ELIGIBILITY (sport):
-"what age can kids play tackle football" = "when can kids play tackle football" = "what age do kids start tackle football" = "when do kids start playing tackle football" = "when should kids play tackle football" = "how old do you have to be to play tackle football" = "at what age can you play tackle football" = "what age is tackle football"
-→ One article on minimum age answers all of them.
+PATTERN A — AGE/ELIGIBILITY (applies to any topic involving minimum age, access, or permission):
+"what age can [subject] do [X]" = "when can [subject] do [X]" = "what age do [subject] start [X]" = "when do [subject] start [X]" = "when should [subject] do [X]" = "how old do you have to be to do [X]" = "at what age can you do [X]" = "what age is [X]"
+→ All ask: what is the minimum age/eligibility threshold for [X]?
 
-TOPIC 2 — COST (dental):
-"how much do dental implants cost" = "dental implant price" = "cost of dental implants" = "how expensive are dental implants" = "dental implants fees" = "what do dental implants cost" = "average cost of a dental implant" = "dental implant cost uk"
-→ One article on dental implant pricing answers all of them.
+PATTERN B — COST (applies to any topic involving price, fees, or expenditure):
+"how much does [X] cost" = "[X] price" = "cost of [X]" = "how expensive is [X]" = "[X] fees" = "what does [X] cost" = "average cost of [X]" = "[X] cost [location]"
+→ All ask: what is the price of [X]?
 
-TOPIC 3 — SAFETY (baby/parenting):
-"is it safe to give honey to babies" = "can babies eat honey" = "when can babies have honey" = "at what age can you give a baby honey" = "should babies eat honey" = "why can't babies eat honey" = "how old does a baby have to be to eat honey"
-→ One article on honey safety for infants answers all of them.
+PATTERN C — SAFETY (applies to any topic involving risk, danger, or harm):
+"is [X] safe" = "is [X] dangerous" = "is [X] harmful" = "can [subject] do [X]" = "should [subject] do [X]" = "why should [subject] not do [X]" = "is [X] bad for [subject]" = "is [X] safe for [subject]"
+→ All ask: is [X] safe or not?
 
-TOPIC 4 — DURATION (beauty):
-"how long does a spray tan last" = "how long do spray tans last" = "spray tan duration" = "how many days does a spray tan last" = "how long will my spray tan last" = "when does a spray tan fade" = "spray tan how long"
-→ One article on spray tan longevity answers all of them.
+PATTERN D — DURATION (applies to any topic involving time, longevity, or lifespan):
+"how long does [X] last" = "[X] duration" = "how many days does [X] last" = "how long will [X] last" = "when does [X] fade/expire/end" = "[X] how long" = "how long is [X]"
+→ All ask: what is the duration/lifespan of [X]?
 
-TOPIC 5 — ELIGIBILITY/REQUIREMENTS (travel):
-"do you need a visa to visit bali" = "visa requirements for bali" = "do i need a visa for bali" = "bali visa requirements" = "is a visa required for bali" = "can you travel to bali without a visa" = "bali entry requirements visa"
-→ One article on Bali visa requirements answers all of them.
+PATTERN E — REQUIREMENTS (applies to any topic involving rules, prerequisites, or permissions):
+"do you need [X] to do [Y]" = "[X] requirements for [Y]" = "do i need [X] for [Y]" = "is [X] required for [Y]" = "can you do [Y] without [X]" = "[Y] entry requirements [X]"
+→ All ask: is [X] required for [Y]?
 
-TOPIC 6 — SIZE/AMOUNT (cooking):
-"how much coffee per cup" = "how many tablespoons of coffee per cup" = "coffee to water ratio" = "how much ground coffee for one cup" = "how many scoops of coffee per cup" = "correct amount of coffee per cup"
-→ One article on coffee measurement answers all of them.
+PATTERN F — PROCESS (applies to any topic involving steps, instructions, or procedures):
+"how to [do X]" = "how do i [do X]" = "steps to [do X]" = "what do you need to [do X]" = "how do you [do X]" = "[doing X] process" = "guide to [doing X]"
+→ All ask: what are the steps to accomplish [X]?
 
-TOPIC 7 — PROCESS/HOW-TO (finance):
-"how to open a business bank account" = "how do i open a business bank account" = "opening a business bank account" = "what do you need to open a business bank account" = "steps to open a business bank account" = "setting up a business bank account"
-→ One article on opening a business bank account answers all of them.
+PATTERN G — COMPARISON (applies to any topic involving choice between two options):
+"[X] vs [Y] which is better" = "should i get [X] or [Y]" = "is [X] better than [Y]" = "[X] or [Y] which should i choose" = "[X] vs [Y] comparison" = "difference between [X] and [Y]"
+→ All ask: which is better, [X] or [Y]?
 
-TOPIC 8 — COMPARISON (technology):
-"iphone vs android which is better" = "should i get an iphone or android" = "is iphone better than android" = "iphone or android which should i buy" = "android vs iphone comparison" = "differences between iphone and android"
-→ One article comparing iPhone and Android answers all of them.
+PATTERN H — TIMING (applies to any topic involving when something should happen):
+"when to [do X]" = "what time of year to [do X]" = "best time to [do X]" = "when should i [do X]" = "what month do you [do X]" = "when do you [do X]"
+→ All ask: what is the optimal time to do [X]?
 
-TOPIC 9 — TIMING/SEASON (gardening):
-"when to plant tomatoes" = "what time of year to plant tomatoes" = "best time to plant tomatoes" = "when should i plant tomatoes" = "what month do you plant tomatoes" = "when do you put tomatoes in the ground"
-→ One article on tomato planting season answers all of them.
+PATTERN I — SYMPTOMS/SIGNS (applies to any topic involving identification, diagnosis, or recognition):
+"signs of [X]" = "symptoms of [X]" = "how do you know if you have [X]" = "what are the symptoms of [X]" = "early signs of [X]" = "how to tell if you have [X]" = "[X] warning signs" = "am i [adjective for X] signs"
+→ All ask: how do you recognise [X]?
 
-TOPIC 10 — SYMPTOMS/DIAGNOSIS (health):
-"signs of diabetes" = "symptoms of diabetes" = "how do you know if you have diabetes" = "what are the symptoms of diabetes" = "early signs of diabetes" = "how to tell if you have diabetes" = "diabetes warning signs" = "am i diabetic signs"
-→ One article on diabetes symptoms answers all of them.
+PATTERN J — QUANTITY/AMOUNT (applies to any topic involving ratios, measurements, or quantities):
+"how much [X] per [unit]" = "how many [X] per [unit]" = "[X] to [Y] ratio" = "how much [X] for [purpose]" = "correct amount of [X]" = "[X] measurement"
+→ All ask: what is the correct quantity of [X]?
+
+These patterns apply universally. When you see keywords that fit the same pattern with the same [X], they are duplicates regardless of topic.
 
 QUESTION-WORD EQUIVALENCE (apply to any topic):
 These question starters all ask the same thing when paired with the same subject:
