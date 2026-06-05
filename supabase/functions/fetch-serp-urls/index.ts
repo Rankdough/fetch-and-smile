@@ -5,22 +5,38 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Domains to exclude — not useful for competitor gap analysis
+// Domains to exclude — not useful for gap analysis
 const EXCLUDE_DOMAINS = [
   "youtube.com", "youtu.be",
   "reddit.com", "quora.com",
   "twitter.com", "x.com",
   "facebook.com", "instagram.com",
   "pinterest.com", "tiktok.com",
-  "amazon.com", "ebay.com",
+  "amazon.com", "amazon.co.uk",
+  "ebay.com", "ebay.co.uk",
   "etsy.com",
   "wikipedia.org",
+  "google.com", "google.co.uk",
+  "yelp.com",
+  "trustpilot.com",
+  "tripadvisor.com",
+];
+
+// URL path patterns that indicate paid/shopping/ad results
+const SPONSORED_PATH_PATTERNS = [
+  /\/aclk/,        // Google Ads click tracking
+  /\/pagead/,      // Google pageads
+  /[?&]gclid=/,    // Google click ID — paid traffic
+  /[?&]utm_source=google.*utm_medium=cpc/i,
+  /[?&]adurl=/,
 ];
 
 function isExcluded(url: string): boolean {
   try {
     const host = new URL(url).hostname.replace(/^www\./, "").toLowerCase();
-    return EXCLUDE_DOMAINS.some(d => host === d || host.endsWith("." + d));
+    if (EXCLUDE_DOMAINS.some(d => host === d || host.endsWith("." + d))) return true;
+    if (SPONSORED_PATH_PATTERNS.some(p => p.test(url))) return true;
+    return false;
   } catch {
     return true;
   }
@@ -33,6 +49,12 @@ function getDomain(url: string): string {
     return url;
   }
 }
+
+// Map country name to Google country code (gl param) and language
+const COUNTRY_MAP: Record<string, { gl: string; hl: string; location: string }> = {
+  "United Kingdom": { gl: "gb", hl: "en", location: "United Kingdom" },
+  "United States":  { gl: "us", hl: "en", location: "United States" },
+};
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -55,8 +77,11 @@ serve(async (req) => {
       });
     }
 
-    console.log("fetch-serp-urls: searching for", keyword);
+    const countryConfig = COUNTRY_MAP[country] || COUNTRY_MAP["United Kingdom"];
+    console.log(`fetch-serp-urls: searching "${keyword}" in ${countryConfig.location}`);
 
+    // Append gl/hl to query to force Google country targeting
+    // Firecrawl passes these through to the underlying search
     const searchResponse = await fetch("https://api.firecrawl.dev/v1/search", {
       method: "POST",
       headers: {
@@ -65,9 +90,11 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         query: keyword,
-        limit: 12, // fetch more so we have enough after filtering
-        location: country || "United Kingdom", // Google country for results
-        scrapeOptions: { formats: [] }, // metadata only, no content scraping
+        limit: 15,
+        location: countryConfig.location,
+        lang: countryConfig.hl,
+        country: countryConfig.gl,
+        scrapeOptions: { formats: [] },
       }),
     });
 
@@ -80,16 +107,22 @@ serve(async (req) => {
     }
 
     const searchData = await searchResponse.json();
-    const results = searchData.data || searchData.results || [];
+    console.log("Firecrawl raw response keys:", Object.keys(searchData));
+    
+    const results = searchData.data || searchData.results || searchData.organic || [];
+    console.log(`fetch-serp-urls: raw results count: ${results.length}`);
 
-    // Filter excluded domains, deduplicate by domain, take top 6
+    // Filter: exclude domains, deduplicate by domain, skip sponsored, take top 6
     const seen = new Set<string>();
     const filtered: Array<{ url: string; title: string; domain: string }> = [];
 
     for (const r of results) {
       const url = r.url || r.link || "";
       if (!url) continue;
-      if (isExcluded(url)) continue;
+      if (isExcluded(url)) {
+        console.log("Excluded:", url);
+        continue;
+      }
       const domain = getDomain(url);
       if (seen.has(domain)) continue;
       seen.add(domain);
@@ -101,9 +134,9 @@ serve(async (req) => {
       if (filtered.length >= 6) break;
     }
 
-    console.log(`fetch-serp-urls: returning ${filtered.length} results`);
+    console.log(`fetch-serp-urls: returning ${filtered.length} organic results for ${countryConfig.location}`);
 
-    return new Response(JSON.stringify({ results: filtered }), {
+    return new Response(JSON.stringify({ results: filtered, country: countryConfig.location }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 
