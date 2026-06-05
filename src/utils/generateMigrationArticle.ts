@@ -99,26 +99,31 @@ export async function generateMigrationArticle(
   const length =
     targetWordCount <= 500 ? "short" : targetWordCount <= 1200 ? "medium" : "long";
 
-  // Build context files — source content first, then user-uploaded context files
-  const contextFilesForGen: Array<{ name: string; content: string }> = [];
-  if (hasSource) contextFilesForGen.push({ name: "source-content", content: sourceMarkdown!.substring(0, 12000) });
-  if (Array.isArray(extraContextFiles)) {
-    for (const f of extraContextFiles) {
-      if (f?.content?.trim()) contextFilesForGen.push({ name: f.name || "context", content: f.content.substring(0, 12000) });
-    }
-  }
-
   const { data: contentData, error: contentError } = await supabase.functions.invoke(
-    "proprietary-generate-article",
+    "generate-content",
     {
       body: {
         topic,
         length,
         wordCount: targetWordCount,
-        contextFiles: contextFilesForGen.length ? contextFilesForGen : undefined,
+        instructions: buildInstructions(targetWordCount, hasSource, sourceHtml) + ctaInstructions + extras,
+        contextFiles: (() => {
+          const files: Array<{ name: string; content: string }> = [];
+          if (hasSource) files.push({ name: "source-content", content: sourceMarkdown!.substring(0, 12000) });
+          if (Array.isArray(extraContextFiles)) {
+            for (const f of extraContextFiles) {
+              if (f?.content?.trim()) files.push({ name: f.name || "context", content: f.content.substring(0, 12000) });
+            }
+          }
+          return files.length ? files : undefined;
+        })(),
         toneProfileId: toneProfileId || undefined,
-        publicationDestination: "both",
-        businessType: "service",
+        skipFaqs: convertOpts.skipFaqs,
+        skipQuickTips: convertOpts.skipQuickTips,
+        skipSources: convertOpts.skipSources,
+        migrationMode: true,
+        generateCTAs: hasCtaUrl,
+        ctaUrl: hasCtaUrl ? cta!.url.trim() : undefined,
       },
     }
   );
@@ -181,9 +186,21 @@ export async function generateMigrationArticle(
   // Convert to styled HTML
   const styled = markdownToStyledHtml(markdown, palette || null, convertOpts);
 
-  // Proprietary mode embeds CTAs inline in the content.
-  // No separate ctas object is returned — CTAs are already in the HTML.
-  const html = minifyHtmlForExport(styled);
+  // Append CTA if produced
+  let endCtaHtml = "";
+  const ctas = (contentData as any)?.ctas;
+  if (hasCtaUrl && ctas?.end) {
+    endCtaHtml = generateCTAHtml(
+      ctas.end.headline,
+      ctas.end.description,
+      ctas.end.buttonText,
+      cta!.url.trim(),
+      palette || null,
+      ctas.end.tagline
+    );
+  }
 
-  return { markdown, html, title, subtitle, seoTitle, seoDescription, ctaHtml: "" };
+  const html = minifyHtmlForExport(styled + endCtaHtml);
+
+  return { markdown, html, title, subtitle, seoTitle, seoDescription, ctaHtml: endCtaHtml ? minifyHtmlForExport(endCtaHtml) : "" };
 }
