@@ -639,8 +639,17 @@ const sanitizeGeneratedMarkdown = (markdown: string, title: string, urls: string
     setQaLoading((p) => ({ ...p, [idx]: true }));
     try {
       const hrefs = extractHrefs(body);
+      // Strip CTA banners, Expert Box, and Team Name pill before QA check
+      // — these are structural elements, not article content, and cause false positives
+      const bodyForQa = body
+        .replace(/<[^>]*data-cta[^>]*>[\s\S]*?<\/[^>]+>/gi, "")
+        .replace(/<section[^>]*our.expert[^>]*>[\s\S]*?<\/section>/gi, "")
+        .replace(/<[^>]*class="[^"]*expert[^"]*"[^>]*>[\s\S]*?<\/[^>]+>/gi, "")
+        .replace(/<p[^>]*team\.bigleagueshirts[^>]*>[\s\S]*?<\/p>/gi, "")
+        .replace(/[\s\S]*?SHOP\s+[A-Z\s]+→[\s\S]*?(?=<h[1-6]|<p|$)/gi, "")
+        .replace(/<details[^>]*data-trust[^>]*>[\s\S]*?<\/details>/gi, "");
       const [qaResp, linkResp] = await Promise.all([
-        supabase.functions.invoke("verify-faq-answer", { body: { title, body, targetWordCount } }),
+        supabase.functions.invoke("verify-faq-answer", { body: { title, body: bodyForQa, targetWordCount } }),
         hrefs.length > 0
           ? supabase.functions.invoke("verify-links", { body: { urls: hrefs } })
           : Promise.resolve({ data: { results: [] }, error: null }),
