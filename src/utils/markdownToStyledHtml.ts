@@ -377,6 +377,14 @@ export function markdownToStyledHtml(
   // 4. Get the cleaned HTML content
   let finalHtml = container.innerHTML;
 
+  // AEO/GEO: Mark the first paragraph as the direct answer for LLM retrieval.
+  // Adds id="direct-answer" and itemprop="description" to the opening <p> tag.
+  // This is the signal LLMs and Google AI Overviews use to identify the citable answer.
+  finalHtml = finalHtml.replace(
+    /(<p\s)/,
+    '<p id="direct-answer" itemprop="description" '
+  );
+
   // 4b. Strip any residual "In This Article" H2 + following UL that survived markdown cleanup
   finalHtml = finalHtml.replace(/<h2[^>]*>[\s\S]*?In This Article[\s\S]*?<\/h2>\s*(<ul[\s\S]*?<\/ul>)?/gi, '');
 
