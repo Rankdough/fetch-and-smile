@@ -63,6 +63,7 @@ CRITICAL - H2 SUBTITLES MUST ANSWER THE HEADING: Every H2 heading that is phrase
 ADDITIONAL RULES:
 - Do NOT include expert quotes or blockquote citations from named individuals
 - Do NOT duplicate any section - each structural element should appear exactly once
+- NEVER use em dashes (—) anywhere in the content. Use a comma, colon, or new sentence instead
 
 STRICT WORD COUNT RANGE (NON-NEGOTIABLE): The final article body MUST be between ${Math.round(targetWordCount * 0.8)} and ${Math.round(targetWordCount * 1.2)} words, targeting ${targetWordCount} words. Going BELOW ${Math.round(targetWordCount * 0.8)} words is just as much a failure as going over the upper limit. If you finish all planned sections before reaching ${Math.round(targetWordCount * 0.8)} words, expand existing sections with concrete detail, examples, and direct answers — do NOT stop short. Count your words as you write.${
     hasSource && sourceHtml
