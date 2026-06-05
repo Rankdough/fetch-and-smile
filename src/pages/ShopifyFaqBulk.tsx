@@ -182,7 +182,24 @@ function injectLinksDeterministic(markdown: string, urls: string[]): string {
       }
       if (injected) break;
     }
-    // No fallback "See more on" — if no multi-word phrase matches, skip this URL silently
+    // Fallback: try single tokens ≥5 chars that aren't ultra-generic
+    if (!injected) {
+      const GENERIC = new Set(["basketball","football","baseball","softball","soccer","tennis","hockey","volleyball","lacrosse","bowling","archery","sport","sports","game","games","play","player","players","team","teams","court","field","ball","gear","shoe","shoes","equipment","uniform","uniforms","jersey","jerseys","product","products","collection","shop"]);
+      const singleTokens = plan.phrases.filter(p => !p.includes(" ") && p.length >= 5 && !GENERIC.has(p));
+      for (const token of singleTokens) {
+        const re = new RegExp(`\\b(${escapeRe(token)})\\b`, "i");
+        const remaining = candidates.filter(i => !used.has(i) && !/\]\([^)]*\)/.test(lines[i]));
+        for (const idx of remaining) {
+          if (re.test(lines[idx])) {
+            lines[idx] = lines[idx].replace(re, `[$1](${plan.url})`);
+            used.add(idx);
+            injected = true;
+            break;
+          }
+        }
+        if (injected) break;
+      }
+    }
   }
   return lines.join("\n");
 }
@@ -326,7 +343,7 @@ export default function ShopifyFaqBulk() {
         includeFaqs, includeNav, skipQuickTips, skipSources, stripTitle, paletteId, toneProfileId, rows, filterRules,
         internalLinks,
         contextFiles,
-        ctaEnabled, ctaUrl, ctaInstruction, teamNameGenEnabled,
+        ctaEnabled, ctaUrl, ctaInstruction, teamNameGenEnabled, teamNameGenUrl,
       }));
     } catch {}
   }, [questions, author, sport, globalTags, blogHandle, blogTitle, templateSuffix, handlePrefix, siteBaseUrl, wordCount,
