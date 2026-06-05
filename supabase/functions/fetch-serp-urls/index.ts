@@ -5,7 +5,6 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Domains to exclude
 const EXCLUDE_DOMAINS = [
   "youtube.com", "youtu.be",
   "reddit.com", "quora.com",
@@ -36,11 +35,9 @@ function getDomain(url: string): string {
   }
 }
 
-// Country config: gl = Google country, hl = language, tbs = none
-// Using Firecrawl to scrape the actual Google SERP URL directly
-const COUNTRY_CONFIG: Record<string, { googleDomain: string; gl: string; hl: string }> = {
-  "United Kingdom": { googleDomain: "google.co.uk", gl: "gb", hl: "en" },
-  "United States":  { googleDomain: "google.com",   gl: "us", hl: "en" },
+const COUNTRY_CONFIG: Record<string, { gl: string; hl: string; location: string }> = {
+  "United Kingdom": { gl: "gb", hl: "en", location: "United Kingdom" },
+  "United States":  { gl: "us", hl: "en", location: "United States" },
 };
 
 serve(async (req) => {
@@ -65,125 +62,67 @@ serve(async (req) => {
     }
 
     const cfg = COUNTRY_CONFIG[country] || COUNTRY_CONFIG["United Kingdom"];
-    
-    // Build the actual Google search URL for the correct country
-    const encoded_kw = encodeURIComponent(keyword.trim());
-    const googleUrl = `https://www.${cfg.googleDomain}/search?q=${encoded_kw}&gl=${cfg.gl}&hl=${cfg.hl}&num=20&pws=0&nfpr=1`;
-    
-    console.log(`fetch-serp-urls: scraping ${googleUrl}`);
+    console.log(`fetch-serp-urls: v2 search for "${keyword}" — country: ${cfg.location} (gl=${cfg.gl})`);
 
-    // Use Firecrawl /v1/scrape to get the actual Google SERP page
-    // then extract organic result URLs from the HTML
-    const scrapeResponse = await fetch("https://api.firecrawl.dev/v1/scrape", {
+    // Use Firecrawl v2/search — the working endpoint in this codebase
+    const searchResponse = await fetch("https://api.firecrawl.dev/v2/search", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${FIRECRAWL_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        url: googleUrl,
-        formats: ["links", "html"],
-        onlyMainContent: false,
-        timeout: 15000,
+        query: keyword.trim(),
+        limit: 15,
+        gl: cfg.gl,
+        hl: cfg.hl,
+        location: cfg.location,
+        country: cfg.gl,
       }),
     });
 
-    if (!scrapeResponse.ok) {
-      const err = await scrapeResponse.text();
-      console.error("Firecrawl scrape error:", scrapeResponse.status, err);
-      // Fallback: try Firecrawl search API with all geo params
-      const fallbackResponse = await fetch("https://api.firecrawl.dev/v1/search", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${FIRECRAWL_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          query: keyword.trim(),
-          limit: 15,
-          location: country || "United Kingdom",
-          country: cfg.gl,
-          lang: cfg.hl,
-          scrapeOptions: { formats: [] },
-        }),
-      });
-      if (!fallbackResponse.ok) {
-        return new Response(JSON.stringify({ error: "Both search and scrape failed" }), {
-          status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      const fbData = await fallbackResponse.json();
-      const fbResults = fbData.data || fbData.results || [];
-      const seen = new Set<string>();
-      const filtered: Array<{ url: string; title: string; domain: string }> = [];
-      for (const r of fbResults) {
-        const url = r.url || r.link || "";
-        if (!url || isExcluded(url)) continue;
-        const domain = getDomain(url);
-        if (seen.has(domain)) continue;
-        seen.add(domain);
-        filtered.push({ url, title: r.title || domain, domain });
-        if (filtered.length >= 6) break;
-      }
-      return new Response(JSON.stringify({ results: filtered, source: "search_fallback" }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+    if (!searchResponse.ok) {
+      const err = await searchResponse.text();
+      console.error("Firecrawl v2 search error:", searchResponse.status, err);
+      return new Response(JSON.stringify({ error: "Search failed", detail: err }), {
+        status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const scrapeData = await scrapeResponse.json();
-    
-    // Extract links from the scraped SERP page
-    // Google SERP links that are organic results have /url?q= pattern or direct URLs
-    const allLinks: Array<{ url: string; text?: string }> = scrapeData.data?.links || scrapeData.links || [];
-    const html: string = scrapeData.data?.html || scrapeData.html || "";
-    
-    console.log(`fetch-serp-urls: got ${allLinks.length} links from SERP`);
+    const data = await searchResponse.json();
+    console.log("v2 response keys:", Object.keys(data));
 
-    // Extract organic result URLs from links
-    // Organic results are direct links to external sites, not google.com internal pages
+    // v2 response: { success, data: { web: [...] } } or { data: [...] }
+    const results: any[] =
+      data?.data?.web ||
+      (Array.isArray(data?.data) ? data.data : null) ||
+      data?.web ||
+      data?.results ||
+      [];
+
+    console.log(`fetch-serp-urls: ${results.length} raw results`);
+
     const seen = new Set<string>();
     const filtered: Array<{ url: string; title: string; domain: string }> = [];
 
-    // First try: links array (Firecrawl often returns these)
-    for (const link of allLinks) {
-      let url = link.url || "";
-      // Handle /url?q= Google redirect format
-      if (url.includes("google.com/url?") || url.includes("google.co.uk/url?")) {
-        const match = url.match(/[?&]q=([^&]+)/);
-        if (match) url = decodeURIComponent(match[1]);
-      }
-      if (!url.startsWith("http")) continue;
-      if (url.includes("google.com") || url.includes("google.co.uk")) continue;
+    for (const r of results) {
+      const url = r.url || r.link || "";
+      if (!url) continue;
       if (isExcluded(url)) continue;
       const domain = getDomain(url);
       if (seen.has(domain)) continue;
       seen.add(domain);
       filtered.push({
         url,
-        title: (link as any).text || domain,
+        title: r.title || r.metadata?.title || domain,
         domain,
       });
       if (filtered.length >= 6) break;
     }
 
-    // If we didn't get enough from links, try parsing HTML for cite tags (Google shows domain in <cite>)
-    if (filtered.length < 3 && html) {
-      const citeMatches = html.matchAll(/<cite[^>]*>([^<]+)<\/cite>/gi);
-      for (const m of citeMatches) {
-        const raw = m[1].replace(/›/g, "/").trim();
-        const domain = raw.split("/")[0].replace(/^www\./, "");
-        if (!domain.includes(".")) continue;
-        if (EXCLUDE_DOMAINS.some(d => domain === d)) continue;
-        if (seen.has(domain)) continue;
-        seen.add(domain);
-        filtered.push({ url: `https://${raw}`, title: domain, domain });
-        if (filtered.length >= 6) break;
-      }
-    }
+    console.log(`fetch-serp-urls: returning ${filtered.length} results`);
 
-    console.log(`fetch-serp-urls: returning ${filtered.length} results for ${cfg.googleDomain}`);
-
-    return new Response(JSON.stringify({ results: filtered, source: "scrape", country: cfg.googleDomain }), {
+    return new Response(JSON.stringify({ results: filtered, country: cfg.location }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 
