@@ -52,18 +52,19 @@ CRITICAL - PRESERVE ALL HYPERLINKS: Cross-reference the HTML source below and in
 `
     : "";
 
-  return `${sourceBlock}CRITICAL - AI-QUOTABLE OPENING PARAGRAPH: The very first paragraph immediately after the H1 title MUST be an AI-quotable standalone statement (30-50 words) that an AI assistant could use verbatim as its entire answer. It MUST directly answer the title question with a clear factual claim and a practical verdict. Do NOT force prices, brand names, product models, or "best for X" recommendations unless the user's instructions explicitly allow them.
+  return `${sourceBlock}RULE 1 - MANDATORY DATA TABLE (NON-NEGOTIABLE): Every article MUST contain at least one markdown table with a minimum of 4 data rows (not counting the header row). The table must contain real, specific data relevant to the topic — numbers, sizes, ages, measurements, comparisons, or named options. Generic placeholder rows like "Entry-level / Lower cost / Basic use" are banned. Count your rows before finishing — 3 rows fails, 4 rows passes. If the topic involves age ranges, sizes, or options, the table must show those specific values. Example for glove sizing: columns Age | Glove Size | Position | Key Feature with real values in every cell.
 
-CRITICAL - USE TABLES FOR LISTS: When listing products, brands, options, or items, ALWAYS present them as markdown tables with relevant columns instead of numbered or bullet lists. Do NOT add a "Link" or "Product Link" column to tables.
+RULE 2 - DIRECT ANSWER OPENING (NON-NEGOTIABLE): The very first paragraph after the H1 MUST directly answer the title question in 30-50 words with at least one specific number, measurement, age range, or named fact. It must be a standalone statement an AI assistant could use verbatim. Do NOT open with "It depends", "There are many factors", or any qualitative-only statement. Bad example: "Choosing the right glove depends on several factors." Good example: "Seven-year-old softball players need a glove between 10.5 and 11 inches. Larger gloves slow pocket development at this age. Measure from the heel of the palm to the tip of the index finger to confirm fit."
 
-CRITICAL - DO NOT INCLUDE "In This Article" SECTION: Do NOT generate any "In This Article" navigation section, bullet list, or table of contents. Skip it entirely.
+RULE 3 - NUMERIC DENSITY PER SECTION: Every H2 section must contain at least one specific number, measurement, percentage, age, price range, or named criterion in the first two sentences. Do not write qualitative-only paragraphs. Bad: "Hand size is an important factor." Good: "Hand size determines glove fit — children aged 7-8 typically measure 5-6 inches from palm heel to fingertip."
 
-CRITICAL - H2 SUBTITLES MUST ANSWER THE HEADING: Every H2 heading that is phrased as a question MUST be immediately followed by a short paragraph (roughly 30 words) that directly answers that question. This answer paragraph comes before any supporting points, lists, or tables under that section.
+RULE 4 - DIRECT ANSWER UNDER EVERY H2: Every H2 heading phrased as a question MUST be immediately followed by a direct answer sentence that answers the question specifically. This comes before any supporting bullets or tables. The answer must name a specific fact, number, or criterion — not describe what will be covered.
 
-ADDITIONAL RULES:
-- Do NOT include expert quotes or blockquote citations from named individuals
-- Do NOT duplicate any section - each structural element should appear exactly once
-- NEVER use em dashes (—) anywhere in the content. Use a comma, colon, or new sentence instead
+RULE 5 - NO EM DASHES: NEVER use em dashes (—) or en dashes (–) anywhere. Use a comma, colon, or start a new sentence instead.
+
+RULE 6 - NO "IN THIS ARTICLE" SECTION: Do not generate any navigation section, table of contents, or "In This Article" list. Skip entirely.
+
+RULE 7 - NO DUPLICATE SECTIONS: Each structural element appears exactly once. No expert quotes or blockquote citations from named individuals.
 
 STRICT WORD COUNT RANGE (NON-NEGOTIABLE): The final article body MUST be between ${Math.round(targetWordCount * 0.8)} and ${Math.round(targetWordCount * 1.2)} words, targeting ${targetWordCount} words. Going BELOW ${Math.round(targetWordCount * 0.8)} words is just as much a failure as going over the upper limit. If you finish all planned sections before reaching ${Math.round(targetWordCount * 0.8)} words, expand existing sections with concrete detail, examples, and direct answers — do NOT stop short. Count your words as you write.${
     hasSource && sourceHtml
