@@ -54,7 +54,14 @@ CRITICAL - PRESERVE ALL HYPERLINKS: Cross-reference the HTML source below and in
 
   return `${sourceBlock}RULE 1 - MANDATORY DATA TABLE (NON-NEGOTIABLE): Every article MUST contain at least one markdown table with a minimum of 4 data rows (not counting the header row). The table must contain real, specific data relevant to the topic — numbers, sizes, ages, measurements, comparisons, or named options. Generic placeholder rows like "Entry-level / Lower cost / Basic use" are banned. Count your rows before finishing — 3 rows fails, 4 rows passes. If the topic involves age ranges, sizes, or options, the table must show those specific values. Example for glove sizing: columns Age | Glove Size | Position | Key Feature with real values in every cell.
 
-RULE 2 - DIRECT ANSWER OPENING (NON-NEGOTIABLE): The very first paragraph after the H1 MUST directly answer the title question in 30-50 words with at least one specific number, measurement, age range, or named fact. It must be a standalone statement an AI assistant could use verbatim. Do NOT open with "It depends", "There are many factors", or any qualitative-only statement. Bad example: "Choosing the right glove depends on several factors." Good example: "Seven-year-old softball players need a glove between 10.5 and 11 inches. Larger gloves slow pocket development at this age. Measure from the heel of the palm to the tip of the index finger to confirm fit."
+RULE 2 - DIRECT ANSWER OPENING (NON-NEGOTIABLE): The very first paragraph after the H1 MUST directly answer the title question in 30-50 words. It MUST contain at least one specific number, measurement, distance, percentage, or named fact IN THE FIRST SENTENCE. Do NOT use qualitative-only statements in the opening. Do NOT start with broad context or general statements about importance. The opening must be citable as a standalone answer.
+Bad examples (BANNED):
+- "A field goal in basketball is a shot made during regular play. It counts for two or three points." — no specific data in first sentence
+- "Understanding field goals is key to following basketball strategy." — filler, zero information
+- "Choosing the right glove depends on several factors." — qualitative deflection
+Good examples:
+- "A field goal in basketball is any basket scored during live play, worth 2 points inside the arc (22 feet in the NBA) or 3 points beyond it. Free throws are excluded regardless of distance."
+- "Seven-year-old softball players need a glove between 10.5 and 11 inches. Above 11.5 slows pocket development. Measure from heel of palm to index fingertip to confirm fit."
 
 RULE 3 - NUMERIC DENSITY PER SECTION: Every H2 section must contain at least one specific number, measurement, percentage, age, price range, or named criterion in the first two sentences. Do not write qualitative-only paragraphs. Bad: "Hand size is an important factor." Good: "Hand size determines glove fit — children aged 7-8 typically measure 5-6 inches from palm heel to fingertip."
 
