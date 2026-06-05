@@ -40,7 +40,7 @@ serve(async (req) => {
   }
 
   try {
-    const { keyword } = await req.json();
+    const { keyword, country } = await req.json();
 
     if (!keyword || !keyword.trim()) {
       return new Response(JSON.stringify({ error: "keyword is required" }), {
@@ -66,6 +66,7 @@ serve(async (req) => {
       body: JSON.stringify({
         query: keyword,
         limit: 12, // fetch more so we have enough after filtering
+        location: country || "United Kingdom", // Google country for results
         scrapeOptions: { formats: [] }, // metadata only, no content scraping
       }),
     });
