@@ -35,15 +35,10 @@ function getDomain(url: string): string {
   }
 }
 
-// Build query with country-specific site filters so results come from that market
-function buildQuery(keyword: string, country: string): string {
-  if (country === "United Kingdom") {
-    // Force UK domains — site operator pulls .co.uk, .uk, .org.uk results
-    return `${keyword} (site:.co.uk OR site:.uk OR site:.org.uk)`;
-  }
-  // US: no modifier, Firecrawl defaults to US Google
-  return keyword;
-}
+const COUNTRY_CONFIG: Record<string, { gl: string; hl: string }> = {
+  "United Kingdom": { gl: "gb", hl: "en" },
+  "United States":  { gl: "us", hl: "en" },
+};
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -59,31 +54,35 @@ serve(async (req) => {
       });
     }
 
-    const FIRECRAWL_API_KEY = Deno.env.get("FIRECRAWL_API_KEY");
-    if (!FIRECRAWL_API_KEY) {
-      return new Response(JSON.stringify({ error: "FIRECRAWL_API_KEY not configured" }), {
+    const SERPER_API_KEY = Deno.env.get("SERPER_API_KEY");
+    if (!SERPER_API_KEY) {
+      return new Response(JSON.stringify({ error: "SERPER_API_KEY not configured" }), {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const query = buildQuery(keyword.trim(), country || "United Kingdom");
-    console.log(`fetch-serp-urls: query="${query}" country="${country}"`);
+    const cfg = COUNTRY_CONFIG[country] || COUNTRY_CONFIG["United Kingdom"];
+    console.log(`fetch-serp-urls: "${keyword}" gl=${cfg.gl}`);
 
-    const searchResponse = await fetch("https://api.firecrawl.dev/v2/search", {
+    // Serper.dev — real Google results with genuine country targeting
+    const searchResponse = await fetch("https://google.serper.dev/search", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${FIRECRAWL_API_KEY}`,
+        "X-API-KEY": SERPER_API_KEY,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        query,
-        limit: 15,
+        q: keyword.trim(),
+        gl: cfg.gl,
+        hl: cfg.hl,
+        num: 20,
+        type: "search",
       }),
     });
 
     if (!searchResponse.ok) {
       const err = await searchResponse.text();
-      console.error("Firecrawl v2 search error:", searchResponse.status, err);
+      console.error("Serper error:", searchResponse.status, err);
       return new Response(JSON.stringify({ error: "Search failed", detail: err }), {
         status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -91,22 +90,16 @@ serve(async (req) => {
 
     const data = await searchResponse.json();
 
-    // v2 response: { success, data: { web: [...] } } or { data: [...] }
-    const results: any[] =
-      data?.data?.web ||
-      (Array.isArray(data?.data) ? data.data : null) ||
-      data?.web ||
-      data?.results ||
-      [];
-
-    console.log(`fetch-serp-urls: ${results.length} raw results`);
-    if (results.length > 0) console.log("First result:", results[0]?.url);
+    // Serper returns organic results in data.organic
+    // Each item: { title, link, snippet, position }
+    const organic: any[] = data?.organic || [];
+    console.log(`fetch-serp-urls: ${organic.length} organic results from Serper`);
 
     const seen = new Set<string>();
     const filtered: Array<{ url: string; title: string; domain: string }> = [];
 
-    for (const r of results) {
-      const url = r.url || r.link || "";
+    for (const r of organic) {
+      const url = r.link || "";
       if (!url) continue;
       if (isExcluded(url)) continue;
       const domain = getDomain(url);
@@ -114,15 +107,15 @@ serve(async (req) => {
       seen.add(domain);
       filtered.push({
         url,
-        title: r.title || r.metadata?.title || domain,
+        title: r.title || domain,
         domain,
       });
       if (filtered.length >= 6) break;
     }
 
-    console.log(`fetch-serp-urls: returning ${filtered.length} results`);
+    console.log(`fetch-serp-urls: returning ${filtered.length} results for ${country}`);
 
-    return new Response(JSON.stringify({ results: filtered, country: country || "United Kingdom", query }), {
+    return new Response(JSON.stringify({ results: filtered, country, gl: cfg.gl }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 
