@@ -35,10 +35,15 @@ function getDomain(url: string): string {
   }
 }
 
-const COUNTRY_CONFIG: Record<string, { gl: string; hl: string; location: string }> = {
-  "United Kingdom": { gl: "gb", hl: "en", location: "United Kingdom" },
-  "United States":  { gl: "us", hl: "en", location: "United States" },
-};
+// Build query with country-specific site filters so results come from that market
+function buildQuery(keyword: string, country: string): string {
+  if (country === "United Kingdom") {
+    // Force UK domains — site operator pulls .co.uk, .uk, .org.uk results
+    return `${keyword} (site:.co.uk OR site:.uk OR site:.org.uk)`;
+  }
+  // US: no modifier, Firecrawl defaults to US Google
+  return keyword;
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -61,10 +66,9 @@ serve(async (req) => {
       });
     }
 
-    const cfg = COUNTRY_CONFIG[country] || COUNTRY_CONFIG["United Kingdom"];
-    console.log(`fetch-serp-urls: v2 search for "${keyword}" — country: ${cfg.location} (gl=${cfg.gl})`);
+    const query = buildQuery(keyword.trim(), country || "United Kingdom");
+    console.log(`fetch-serp-urls: query="${query}" country="${country}"`);
 
-    // Use Firecrawl v2/search — the working endpoint in this codebase
     const searchResponse = await fetch("https://api.firecrawl.dev/v2/search", {
       method: "POST",
       headers: {
@@ -72,12 +76,8 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        query: keyword.trim(),
+        query,
         limit: 15,
-        gl: cfg.gl,
-        hl: cfg.hl,
-        location: cfg.location,
-        country: cfg.gl,
       }),
     });
 
@@ -90,7 +90,6 @@ serve(async (req) => {
     }
 
     const data = await searchResponse.json();
-    console.log("v2 response keys:", Object.keys(data));
 
     // v2 response: { success, data: { web: [...] } } or { data: [...] }
     const results: any[] =
@@ -101,6 +100,7 @@ serve(async (req) => {
       [];
 
     console.log(`fetch-serp-urls: ${results.length} raw results`);
+    if (results.length > 0) console.log("First result:", results[0]?.url);
 
     const seen = new Set<string>();
     const filtered: Array<{ url: string; title: string; domain: string }> = [];
@@ -122,7 +122,7 @@ serve(async (req) => {
 
     console.log(`fetch-serp-urls: returning ${filtered.length} results`);
 
-    return new Response(JSON.stringify({ results: filtered, country: cfg.location }), {
+    return new Response(JSON.stringify({ results: filtered, country: country || "United Kingdom", query }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 
