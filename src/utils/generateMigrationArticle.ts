@@ -138,8 +138,8 @@ export async function generateMigrationArticle(
     sourceMarkdown,
     sourceHtml,
     contextFiles: extraContextFiles,
-  sport,
-  author,
+    sport,
+    author,
   } = input;
 
   const hasSource = !!(sourceMarkdown && sourceMarkdown.trim());
