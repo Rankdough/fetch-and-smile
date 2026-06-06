@@ -66,7 +66,46 @@ export function TrustSignalBox({
           className="px-5 py-4 text-sm leading-relaxed prose prose-sm max-w-none"
           style={{ color: textColor }}
         >
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
+          {/* Render author photo + name + bio as a flex block if content starts with ![...] */}
+          {(() => {
+            const imgMatch = content.match(/^!\[([^\]]*)\]\(([^)]+)\)
+
+\*\*([^*]+)\*\*[^
+]*
+
+([^
+]+(?:
+[^
+]+)*?)(?:
+
+---|
+
+\*\*)/s);
+            if (imgMatch) {
+              const [fullMatch, alt, src, name, bio] = imgMatch;
+              const rest = content.slice(fullMatch.length).replace(/^---
+
+/, '');
+              return (
+                <>
+                  <div style={{ display: "flex", gap: "16px", alignItems: "flex-start", marginBottom: "16px" }}>
+                    <img
+                      src={src}
+                      alt={alt || name}
+                      style={{ width: "72px", height: "72px", borderRadius: "50%", objectFit: "cover", flexShrink: 0, border: "2px solid #99f6e4" }}
+                      onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                    />
+                    <div>
+                      <div style={{ fontWeight: 700, marginBottom: "4px", color: textColor }}>{name}</div>
+                      <div style={{ lineHeight: 1.6, color: textColor }}>{bio.trim()}</div>
+                    </div>
+                  </div>
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{rest}</ReactMarkdown>
+                </>
+              );
+            }
+            return <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>;
+          })()}
         </div>
       </CollapsibleContent>
     </Collapsible>
