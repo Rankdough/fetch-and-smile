@@ -2414,6 +2414,21 @@ Deno.serve(async (req) => {
     const crossDomainFallbacks = stripCrossDomainFallbackBullets(content, body.topic);
     content = crossDomainFallbacks.out;
     if (crossDomainFallbacks.removed > 0) console.warn(`DOMAIN GUARD: removed ${crossDomainFallbacks.removed} cross-domain fallback bullet(s) after final formatting.`);
+
+    // YEAR-ANCHOR GUARD: ongoing facts must not be tied to past seasons/years.
+    // Deterministic strip — same patterns as the FAQ bulk generator. Historical
+    // milestones phrased as events ("recognised flag football in 2020") are untouched;
+    // only "as of / since / for the <year> season" anchors on current-state facts are removed.
+    const beforeYearStrip = content;
+    content = content
+      .replace(/\b(?:as of|for|in|during) the \d{4}[-\u2013]\d{2,4} (?:season|academic year|school year|competitive season)\b/gi, "currently")
+      .replace(/\bas of the \d{4} season\b/gi, "currently")
+      .replace(/\bas of \d{4}[-\u2013]?\d{0,4}\b/gi, "currently")
+      .replace(/\(as of \d{4}[-\u2013]?\d{0,4}\)/gi, "")
+      .replace(/\bsince \d{4}\b/gi, "")
+      .replace(/ {2,}/g, " ")
+      .replace(/ ([.,;])/g, "$1");
+    if (content !== beforeYearStrip) console.warn("YEAR GUARD: stripped past-year anchor(s) from ongoing facts.");
     console.log(`INTERNAL LINKS: inserted=${internalLinkResult.insertedCount} skipped=${internalLinkResult.skippedUrls.length} total=${internalLinkResult.totalProvided}${internalLinkResult.note ? ` note=${internalLinkResult.note}` : ""}`);
 
 
