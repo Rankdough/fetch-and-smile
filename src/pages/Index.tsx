@@ -1046,6 +1046,14 @@ const Index = () => {
   const [isHumanisingOnly, setIsHumanisingOnly] = useState(false);
   const [isGeneratingOutline, setIsGeneratingOutline] = useState(false);
 
+  // Value promise validation — checks each promise against context files,
+  // gap-fills missing data from credible web sources (retrieval, not hallucination)
+  const [promiseValidation, setPromiseValidation] = useState<{
+    results: Array<{ promise: string; status: string; evidence?: string; missingData?: string; gapFacts?: Array<{ fact: string; sourceUrl: string; sourceTitle: string }> }>;
+    researchBlock: string | null;
+  } | null>(null);
+  const [isValidatingPromises, setIsValidatingPromises] = useState(false);
+
   // Voice input for Value Promise
   const {
     isListening: isListeningValuePromise,
@@ -1786,6 +1794,33 @@ const Index = () => {
       });
     } finally {
       setIsHumanisingOnly(false);
+    }
+  };
+
+  const handleValidatePromises = async () => {
+    const claims = valuePromiseClaims.filter((c) => c.trim());
+    if (claims.length === 0) {
+      toast({ title: "No promises to validate", description: "Add at least one value promise first.", variant: "destructive" });
+      return;
+    }
+    setIsValidatingPromises(true);
+    setPromiseValidation(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("validate-value-promises", {
+        body: { topic: formData.topic, promises: claims, contextFiles },
+      });
+      if (error) throw error;
+      if (data.error) throw new Error(data.error);
+      setPromiseValidation({ results: data.results, researchBlock: data.researchBlock });
+      const s = data.summary || {};
+      toast({
+        title: "Promise validation complete",
+        description: `${s.covered ?? 0} covered by context, ${s.gapFilled ?? 0} gap-filled from web, ${s.unresolved ?? 0} unresolved.`,
+      });
+    } catch (e) {
+      toast({ title: "Validation failed", description: e instanceof Error ? e.message : "Unknown error", variant: "destructive" });
+    } finally {
+      setIsValidatingPromises(false);
     }
   };
 
@@ -4156,6 +4191,61 @@ const Index = () => {
                     Tip: Click "Auto-fill" to populate claims from your analysis
                   </p>
                 )}
+                {/* Promise feasibility validation — context audit + web gap-fill */}
+                <div className="mt-3 space-y-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="text-xs"
+                    disabled={isValidatingPromises || valuePromiseClaims.filter((c) => c.trim()).length === 0}
+                    onClick={handleValidatePromises}
+                  >
+                    <Wand2 className="h-3 w-3 mr-1" />
+                    {isValidatingPromises ? "Validating against context + web..." : "Validate promises (context + web)"}
+                  </Button>
+                  {promiseValidation && (
+                    <div className="space-y-1.5 rounded-md border border-border bg-muted/30 p-2">
+                      {promiseValidation.results.map((r, i) => {
+                        const gapFilled = r.gapFacts && r.gapFacts.length > 0;
+                        const domains = gapFilled
+                          ? [...new Set(r.gapFacts!.map((f) => { try { return new URL(f.sourceUrl).hostname.replace(/^www\./, ""); } catch { return f.sourceUrl; } }))]
+                          : [];
+                        return (
+                          <div key={i} className="text-xs flex items-start gap-2">
+                            <span className={r.status === "covered" ? "text-green-600 font-bold" : gapFilled ? "text-amber-600 font-bold" : "text-destructive font-bold"}>
+                              {r.status === "covered" ? "✓" : gapFilled ? "◐" : "✗"}
+                            </span>
+                            <span className="flex-1">
+                              <span className="font-medium">{r.promise.slice(0, 90)}{r.promise.length > 90 ? "…" : ""}</span>
+                              {r.status === "covered" && <span className="text-muted-foreground"> — covered by context file</span>}
+                              {gapFilled && <span className="text-muted-foreground"> — {r.gapFacts!.length} fact(s) retrieved from {domains.join(", ")}</span>}
+                              {r.status === "unresolved" && <span className="text-destructive"> — no credible source found; revise this promise or upload the data</span>}
+                              {r.status === "missing" && !gapFilled && <span className="text-destructive"> — not in context file</span>}
+                            </span>
+                          </div>
+                        );
+                      })}
+                      {promiseValidation.researchBlock && (
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          className="text-xs"
+                          onClick={() => {
+                            setContextFiles((prev) => [
+                              ...prev.filter((f) => f.name !== "gap-fill-research"),
+                              { name: "gap-fill-research", content: promiseValidation.researchBlock! },
+                            ]);
+                            toast({ title: "Verified research added", description: "Web-verified facts with source URLs appended to context files." });
+                          }}
+                        >
+                          Add verified research to context files
+                        </Button>
+                      )}
+                    </div>
+                  )}
+                </div>
               </CollapsibleSection>
 
               {/* Section 3: Competitor URLs Section */}
