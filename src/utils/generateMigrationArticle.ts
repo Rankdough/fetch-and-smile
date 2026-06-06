@@ -54,14 +54,35 @@ CRITICAL - PRESERVE ALL HYPERLINKS: Cross-reference the HTML source below and in
 
   return `${sourceBlock}RULE 1 - MANDATORY DATA TABLE (NON-NEGOTIABLE): Every article MUST contain at least one markdown table with a minimum of 4 data rows (not counting the header row). The table must contain real, specific data relevant to the topic — numbers, sizes, ages, measurements, comparisons, or named options. Generic placeholder rows like "Entry-level / Lower cost / Basic use" are banned. Count your rows before finishing — 3 rows fails, 4 rows passes. If the topic involves age ranges, sizes, or options, the table must show those specific values. Example for glove sizing: columns Age | Glove Size | Position | Key Feature with real values in every cell.
 
-RULE 2 - DIRECT ANSWER OPENING (NON-NEGOTIABLE): The very first paragraph after the H1 MUST directly answer the title question in 30-50 words. It MUST contain at least one specific number, measurement, distance, percentage, or named fact IN THE FIRST SENTENCE. Do NOT use qualitative-only statements in the opening. Do NOT start with broad context or general statements about importance. The opening must be citable as a standalone answer.
-Bad examples (BANNED):
-- "A field goal in basketball is a shot made during regular play. It counts for two or three points." — no specific data in first sentence
-- "Understanding field goals is key to following basketball strategy." — filler, zero information
-- "Choosing the right glove depends on several factors." — qualitative deflection
+RULE 2 - DIRECT ANSWER OPENING (NON-NEGOTIABLE — THIS IS THE MOST IMPORTANT RULE):
+The very first paragraph after the H1 is the DIRECT ANSWER BOX. It is marked with id="direct-answer" and is what Google AI Overviews and LLMs cite as the answer to the question. It must be the single best sentence or two that answers the question — specific, factual, and immediately useful.
+
+REQUIREMENTS FOR THE DIRECT ANSWER BOX:
+- 30-50 words maximum
+- MUST contain at least one specific number, measurement, distance, percentage, named rule, named fact, or named criterion IN THE FIRST SENTENCE
+- MUST answer the question in the title directly and completely — a reader should need nothing else to understand the core answer
+- MUST include at least one information gap fact — something the top 10 Google results consistently fail to state precisely (a specific threshold, a named exception, a precise measurement, a named condition)
+- Do NOT open with the topic name followed by a vague definition ("A blitz is a defensive play where...")
+- Do NOT use qualitative-only statements ("it is important", "it helps", "it affects")
+- Do NOT start with broad context ("In football,", "When playing,", "For players who...")
+
+BANNED opening patterns:
+- "[X] is a [category] that [vague description]." — category definition without data
+- "[X] involves [general activity]." — process description without specifics
+- "[X] is used to [general purpose]." — purpose statement without metrics
+- "Understanding [X] is key to..." — filler with zero information
+
+REQUIRED opening patterns — pick whichever fits:
+- NUMBER FIRST: "[X] requires/lasts/costs/measures [specific number + unit]. [Named condition or exception]."
+- NAMED RULE FIRST: "In [context], [X] means [specific named definition with threshold or measurement]."
+- THRESHOLD FIRST: "[X] applies only when [specific condition with number]. Without [condition], [consequence]."
+- COMPARISON FIRST: "[X] differs from [Y] by [specific measurable difference]."
+
 Good examples:
-- "A field goal in basketball is any basket scored during live play, worth 2 points inside the arc (22 feet in the NBA) or 3 points beyond it. Free throws are excluded regardless of distance."
-- "Seven-year-old softball players need a glove between 10.5 and 11 inches. Above 11.5 slows pocket development. Measure from heel of palm to index fingertip to confirm fit."
+- "A blitz in flag football requires the rusher to start at least 7 yards behind the line of scrimmage at the snap. Only designated rushers who identify themselves pre-snap are eligible — all others must wait for a handoff."
+- "A field goal in basketball is worth 2 points inside the arc (22 feet in the NBA, 20 feet 9 inches in college) or 3 points beyond it. Free throws are excluded regardless of distance."
+- "Seven-year-old softball players need a glove between 10.5 and 11 inches. Above 11.5 slows pocket development at this age. Measure from heel of palm to index fingertip to confirm fit."
+- "A spray tan typically lasts 5-7 days with standard maintenance, or up to 10 days with a DHA-based formula applied to properly exfoliated skin."
 
 RULE 3 - NUMERIC DENSITY PER SECTION: Every H2 section must contain at least one specific number, measurement, percentage, age, price range, or named criterion in the first two sentences. Do not write qualitative-only paragraphs. Bad: "Hand size is an important factor." Good: "Hand size determines glove fit — children aged 7-8 typically measure 5-6 inches from palm heel to fingertip."
 
@@ -72,6 +93,8 @@ RULE 5 - NO EM DASHES: NEVER use em dashes (—) or en dashes (–) anywhere. Us
 RULE 6 - NO "IN THIS ARTICLE" SECTION: Do not generate any navigation section, table of contents, or "In This Article" list. Skip entirely.
 
 RULE 7 - NO DUPLICATE SECTIONS: Each structural element appears exactly once. No expert quotes or blockquote citations from named individuals.
+
+RULE 8 - DRAW FACTS FROM CONTEXT FILES: If context files are provided, the direct answer opening (Rule 2) MUST use specific facts, numbers, measurements, or named criteria from those files — not from general knowledge. The information gap in the opening must come from the context files where possible. If the context files contain a specific threshold, rule, distance, weight, size, duration, or named condition relevant to the question, that fact belongs in the first sentence of the opening paragraph.
 
 STRICT WORD COUNT RANGE (NON-NEGOTIABLE): The final article body MUST be between ${Math.round(targetWordCount * 0.8)} and ${Math.round(targetWordCount * 1.2)} words, targeting ${targetWordCount} words. Going BELOW ${Math.round(targetWordCount * 0.8)} words is just as much a failure as going over the upper limit. If you finish all planned sections before reaching ${Math.round(targetWordCount * 0.8)} words, expand existing sections with concrete detail, examples, and direct answers — do NOT stop short. Count your words as you write.${
     hasSource && sourceHtml
