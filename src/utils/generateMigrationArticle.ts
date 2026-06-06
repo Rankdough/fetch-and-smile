@@ -106,6 +106,8 @@ RULE 4 - DIRECT ANSWER UNDER EVERY H2: Every H2 heading phrased as a question MU
 
 RULE 5 - NO EM DASHES: NEVER use em dashes (—) or en dashes (–) anywhere. Use a comma, colon, or start a new sentence instead.
 
+RULE 9 - NO PAST-YEAR ANCHORS ON ONGOING FACTS: When stating facts that are current and ongoing (number of schools, active programmes, current rules), do NOT anchor them to a specific past year or season. BANNED: "as of the 2023-2024 season", "since 2020", "as of 2024". CORRECT: "currently", "today", "at present". Exception: historical milestones with a fixed date may keep their year if genuinely historical. Even when the context file contains year-anchored data, restate ongoing facts as current.
+
 RULE 6 - NO "IN THIS ARTICLE" SECTION: Do not generate any navigation section, table of contents, or "In This Article" list. Skip entirely.
 
 RULE 7 - NO DUPLICATE SECTIONS: Each structural element appears exactly once. No expert quotes or blockquote citations from named individuals.
