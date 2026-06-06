@@ -122,8 +122,36 @@ serve(async (req) => {
             }
           }
           
-          textContent = paragraphs.join("\n\n");
-          console.log("Extracted text from docx using fflate, length:", textContent.length);
+          // Also extract table rows from <w:tbl> elements — tables often contain
+          // the most valuable structured data (e.g. lists of colleges, comparison tables)
+          // Put table content FIRST so it is always within any character cap
+          const tableRows: string[] = [];
+          const tableSections = documentXml.split(/<w:tbl[^>]*>/);
+          for (let t = 1; t < tableSections.length; t++) {
+            const rowSections = tableSections[t].split(/<w:tr[^>]*>/);
+            for (let r = 1; r < rowSections.length; r++) {
+              const cellSections = rowSections[r].split(/<w:tc[^>]*>/);
+              const cells: string[] = [];
+              for (let c = 1; c < cellSections.length; c++) {
+                const cellTextMatches = cellSections[c].match(/<w:t[^>]*>([^<]*)<\/w:t>/g);
+                if (cellTextMatches) {
+                  const cellText = cellTextMatches
+                    .map((m: string) => { const tm = m.match(/<w:t[^>]*>([^<]*)<\/w:t>/); return tm ? tm[1] : ""; })
+                    .join("").trim();
+                  if (cellText) cells.push(cellText);
+                }
+              }
+              if (cells.length > 0) tableRows.push(cells.join(" | "));
+            }
+          }
+
+          // Tables first, then prose paragraphs
+          const allContent = [
+            ...(tableRows.length > 0 ? ["=== TABLE DATA ===", ...tableRows, "=== END TABLE DATA ==="] : []),
+            ...paragraphs,
+          ];
+          textContent = allContent.join("\n\n");
+          console.log("Extracted text from docx using fflate, length:", textContent.length, "table rows:", tableRows.length);
         }
         
         if (!textContent || textContent.length < 20) {
