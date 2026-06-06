@@ -600,13 +600,23 @@ If the keyword shares a word but is about a different real-world subject → OFF
 
 ABSTRACT EXAMPLES (apply the pattern to any topic):
 - Topic "track and field" (the athletic sport) → "which country awards the victoria cross" uses "cross" as a military medal → OFF-TOPIC
-- Topic "track and field" → "what country flag is blue with yellow cross" uses "cross" as a flag design → OFF-TOPIC  
+- Topic "track and field" → "what country flag is blue with yellow cross" uses "cross" as a flag design → OFF-TOPIC
 - Topic "track and field" → "how long is cross country sprint" uses "cross country" as the athletic discipline → ON-TOPIC
+- Topic "track and field" → "can javelin be used against aircraft" uses "javelin" as a military missile system, not the athletic throwing event → OFF-TOPIC
+- Topic "track and field" → "how far can you throw a javelin" uses "javelin" as the athletic implement → ON-TOPIC
+- Topic "track and field" → "javelin world record" → ON-TOPIC
 - Topic "flag football" → "what does a yellow flag mean in football" uses "flag" as a penalty marker → OFF-TOPIC
 - Topic "flag football" → "how long is a flag football game" uses "flag football" as the sport → ON-TOPIC
 - Topic "bowling" → "bowling green council" uses "bowling" as a place name → OFF-TOPIC
 - Topic "archery" → "archery tag" = a sport variant → ON-TOPIC; "archery lane apartments" → OFF-TOPIC
 - Topic "softball" → "softball glove for 8 year old" → ON-TOPIC; "softball lighting requirements building code" → OFF-TOPIC
+
+MILITARY/WEAPON CONTEXT RULE: Sport equipment that also has a military namesake must be evaluated by context.
+- "javelin" in track and field = a throwing implement used in competition → ON-TOPIC for track and field
+- "javelin" as a missile system, weapon, or military vehicle → OFF-TOPIC for track and field
+- "hammer" in track and field = a throwing event → ON-TOPIC; "hammer" as a tool or weapon brand → context-dependent
+- "shot" in "shot put" = throwing event → ON-TOPIC; "shot" as in gunshot or military ammunition → OFF-TOPIC
+Apply: if the keyword's subject matter is military, weapons, aircraft, or armed forces — and the sport word is being used in that military sense — mark OFF-TOPIC.
 
 THE DISAMBIGUATION TEST:
 If you replaced the topic word with a synonym specific to the sport/activity and the keyword stopped making sense → the keyword was using a different meaning → OFF-TOPIC.
