@@ -1851,6 +1851,29 @@ const Index = () => {
               valuePromiseClaims: valuePromiseClaims.filter(c => c.trim()).length > 0
                 ? valuePromiseClaims.filter(c => c.trim())
                 : undefined,
+              // Entity Bridge Rule — connects informational content to brand commercial offer
+              // Only active when a CTA URL is configured pointing to a sport collection page
+              entityBridgeConfig: (() => {
+                const url = ctaUrl?.trim();
+                if (!url) return undefined;
+                // Derive sport label from collection URL slug
+                // e.g. /collections/hockey → "hockey", /collections/custom-softball → "softball"
+                const slug = url.replace(/^https?:\/\/[^/]+/, "").split("/").filter(Boolean).pop() || "";
+                const sportLabel = slug
+                  .replace(/^custom-?/, "")
+                  .replace(/-packages?$/, "")
+                  .replace(/-uniforms?$/, "")
+                  .replace(/-jerseys?$/, "")
+                  .replace(/-/g, " ")
+                  .trim();
+                if (!sportLabel) return undefined;
+                return {
+                  brandName: "Big League Shirts",
+                  collectionUrl: url.startsWith("http") ? url : url,
+                  productLabel: `custom ${sportLabel} jerseys`,
+                  sportLabel,
+                };
+              })(),
             },
           },
         );
