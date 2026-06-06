@@ -161,10 +161,10 @@ export async function generateMigrationArticle(
         instructions: buildInstructions(targetWordCount, hasSource, sourceHtml) + ctaInstructions + extras,
         contextFiles: (() => {
           const files: Array<{ name: string; content: string }> = [];
-          if (hasSource) files.push({ name: "source-content", content: sourceMarkdown!.substring(0, 24000) });
+          if (hasSource) files.push({ name: "source-content", content: sourceMarkdown! });
           if (Array.isArray(extraContextFiles)) {
             for (const f of extraContextFiles) {
-              if (f?.content?.trim()) files.push({ name: f.name || "context", content: f.content.substring(0, 28000) });
+              if (f?.content?.trim()) files.push({ name: f.name || "context", content: f.content });
             }
           }
           return files.length ? files : undefined;
