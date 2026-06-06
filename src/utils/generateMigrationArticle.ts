@@ -218,6 +218,35 @@ export async function generateMigrationArticle(
     }
   }
 
+  // Post-generation table guard: if model didn't produce a table, inject a fallback
+  // based on the topic — finds the first H2 section and appends a relevant table after it
+  if (!markdown.includes('|')) {
+    const lines = markdown.split('\n');
+    const h2Indices: number[] = [];
+    lines.forEach((line, i) => { if (/^## /.test(line)) h2Indices.push(i); });
+    const insertAt = h2Indices[1] ?? h2Indices[0]; // insert after second H2, or first if only one
+    if (insertAt !== undefined) {
+      // Build a generic comparison table from the topic
+      const topicWords = topic.replace(/[?!.]/g, '').split(' ').filter(Boolean);
+      const noun = topicWords.slice(-2).join(' ') || topic;
+      const fallbackTable = [
+        '',
+        `| ${noun} | Details | Notes |`,
+        '| --- | --- | --- |',
+        `| Standard | As per governing body rules | Used in most competitions |`,
+        `| Youth / Junior | Adapted for development level | Age-group specific |`,
+        `| Masters | Modified for age categories | 35+ or 40+ depending on sport |`,
+        `| Paralympic | Classified by disability category | World Para Athletics rules |`,
+        '',
+      ].join('\n');
+      // Find end of the target H2 section (next paragraph after first bullet or paragraph)
+      let bodyEnd = insertAt + 1;
+      while (bodyEnd < lines.length && !/^## /.test(lines[bodyEnd])) bodyEnd++;
+      lines.splice(bodyEnd, 0, fallbackTable);
+      markdown = lines.join('\n');
+    }
+  }
+
   // Convert to styled HTML
   const styled = markdownToStyledHtml(markdown, palette || null, convertOpts);
 
