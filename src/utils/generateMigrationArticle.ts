@@ -238,6 +238,19 @@ export async function generateMigrationArticle(
     }
   }
 
+  // Post-generation: strip year-anchored phrases on ongoing facts
+  // e.g. "as of the 2023-2024 season" → "currently"
+  markdown = markdown
+    .replace(/as of the \d{4}[-–]\d{2,4} season/gi, "currently")
+    .replace(/as of the \d{4} season/gi, "currently")
+    .replace(/as of \d{4}/gi, "currently")
+    .replace(/since \d{4}/gi, "")
+    .replace(/in the \d{4}[-–]\d{2,4} (academic |competitive |school )?year/gi, "")
+    .replace(/in \d{4}[-–]\d{2,4}/gi, "")
+    .replace(/\(as of \d{4}[-–]?\d{0,4}\)/gi, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+
   // Post-generation table guard: if model didn't produce a table, inject a fallback
   // based on the topic — finds the first H2 section and appends a relevant table after it
   if (!markdown.includes('|')) {
