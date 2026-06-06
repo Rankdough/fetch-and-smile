@@ -129,6 +129,9 @@ export interface MigrationConvertOpts {
   skipQuickTips?: boolean;
   skipFaqs?: boolean;
   skipSources?: boolean;
+  includeTrustSignal?: boolean;
+  trustSignalTitle?: string;
+  trustSignalContent?: string;
 }
 
 export interface GenerateMigrationArticleInput {
@@ -383,7 +386,7 @@ export async function generateMigrationArticle(
     ...convertOpts,
     includeTrustSignal: convertOpts.includeTrustSignal ?? true,
     trustSignalTitle: convertOpts.trustSignalTitle || "Why You Can Trust This Article",
-    trustContent: eeatContent,
+    trustSignalContent: eeatContent,
   };
 
   // Convert to styled HTML
