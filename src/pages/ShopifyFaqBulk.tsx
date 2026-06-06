@@ -896,6 +896,8 @@ ${isPricingQuestion
         topic: title,
         targetWordCount: aiTarget,
         palette: selectedPalette,
+        sport: sport || undefined,
+        author: author || undefined,
         convertOpts: {
           skipNavigation: !includeNav,
           skipQuickTips: wc === 100 ? true : skipQuickTips,
