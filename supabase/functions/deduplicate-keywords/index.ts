@@ -591,9 +591,26 @@ EXAMPLES for topic "flag football" (the sport):
 - OFF-TOPIC (REMOVE): "what does a yellow flag mean in football" — NFL penalty flag, different topic entirely
 - OFF-TOPIC (REMOVE): "what does a black flag mean in football" — same, penalty flag not flag football sport
 
-CRITICAL HOMONYM RULE: When the topic name appears as part of a different concept, mark it OFF-TOPIC.
-Examples: topic "flag football" → keywords about "penalty flag in football" use the word "flag" differently — they mean the yellow penalty marker thrown by referees, not the sport called flag football. These are OFF-TOPIC.
-Apply this logic to any topic where a word has multiple meanings.${evergreenBlock}
+CRITICAL HOMONYM RULE: When a word from the topic appears in a keyword but means something COMPLETELY DIFFERENT, mark it OFF-TOPIC.
+This is the most important rule for avoiding false positives.
+
+HOW TO APPLY IT:
+Ask: "Is the keyword about the same THING as the topic, or does it just happen to share a word?"
+If the keyword shares a word but is about a different real-world subject → OFF-TOPIC.
+
+ABSTRACT EXAMPLES (apply the pattern to any topic):
+- Topic "track and field" (the athletic sport) → "which country awards the victoria cross" uses "cross" as a military medal → OFF-TOPIC
+- Topic "track and field" → "what country flag is blue with yellow cross" uses "cross" as a flag design → OFF-TOPIC  
+- Topic "track and field" → "how long is cross country sprint" uses "cross country" as the athletic discipline → ON-TOPIC
+- Topic "flag football" → "what does a yellow flag mean in football" uses "flag" as a penalty marker → OFF-TOPIC
+- Topic "flag football" → "how long is a flag football game" uses "flag football" as the sport → ON-TOPIC
+- Topic "bowling" → "bowling green council" uses "bowling" as a place name → OFF-TOPIC
+- Topic "archery" → "archery tag" = a sport variant → ON-TOPIC; "archery lane apartments" → OFF-TOPIC
+- Topic "softball" → "softball glove for 8 year old" → ON-TOPIC; "softball lighting requirements building code" → OFF-TOPIC
+
+THE DISAMBIGUATION TEST:
+If you replaced the topic word with a synonym specific to the sport/activity and the keyword stopped making sense → the keyword was using a different meaning → OFF-TOPIC.
+Example: "victoria cross" — replace "cross" with "hurdle" → "victoria hurdle" makes no sense as a military medal → the word was used differently → OFF-TOPIC.${evergreenBlock}
 
 OUTPUT FORMAT (valid JSON only, no markdown):
 {"off_topic_indices":[0,3,7]}
