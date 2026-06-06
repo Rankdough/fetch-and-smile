@@ -127,14 +127,16 @@ export function buildEeatContent(
       : "**Fact-checked against**";
   const sourcesList = sources.map((s) => `- ✓ ${s}`).join("\n");
 
-  // Use HTML directly — this content is rendered via marked.parse() which passes
-  // raw HTML through. The img must be on its own line with blank lines around it.
+  // Use pure markdown — no raw HTML tags (they render as text in some paths)
+  // Photo rendered as markdown image syntax
   return [
-    `<img src="${NIC_PHOTO_URL}" alt="${authorName}" width="72" height="72" style="border-radius:50%;float:left;margin:0 16px 8px 0;border:2px solid #99f6e4;" />`,
+    `![${authorName}](${NIC_PHOTO_URL})`,
     "",
-    `**${authorName}** has covered ${sportLabel} content with a focus on rules, equipment, athlete development, and competition structure at recreational, youth, collegiate, and elite levels. His work draws on official governing body publications and verified competition data.`,
+    `**${authorName}** · ${sportLabel.charAt(0).toUpperCase() + sportLabel.slice(1)} Expert`,
     "",
-    `<div style="clear:both"></div>`,
+    `${authorName} has covered ${sportLabel} content with a focus on rules, equipment, athlete development, and competition structure at recreational, youth, collegiate, and elite levels. His work draws on official governing body publications and verified competition data.`,
+    "",
+    "---",
     "",
     sourceHeading,
     sourcesList,
