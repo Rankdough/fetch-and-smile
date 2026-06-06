@@ -1898,6 +1898,13 @@ const Index = () => {
               valuePromiseClaims: valuePromiseClaims.filter(c => c.trim()).length > 0
                 ? valuePromiseClaims.filter(c => c.trim())
                 : undefined,
+              // Competition analysis + keywords — now used by the Proprietary pipeline
+              // (H2 outline targets competitor gaps; keywords anchored naturally in sections)
+              gapAnalysis: gapAnalysis.trim() || undefined,
+              gapInsights: selectedGapInsights.length > 0 ? selectedGapInsights : undefined,
+              keywords: keywords.filter((k) => k.trim()).length > 0
+                ? keywords.filter((k) => k.trim()).slice(0, 10)
+                : undefined,
               // Entity Bridge Rule — connects informational content to brand commercial offer
               // Only active when a CTA URL is configured pointing to a sport collection page
               entityBridgeConfig: (() => {
