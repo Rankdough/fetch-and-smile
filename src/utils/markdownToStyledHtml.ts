@@ -2,6 +2,7 @@ import { marked } from "marked";
 import { extractNavigationFromContent, generateNavigationHtml } from "@/components/ArticleNavigationPanel";
 import { extractOrDeriveFAQ, removeFAQSection, generateFAQHtml } from "@/components/FAQAccordion";
 import { buildTrustSignalHtml } from "@/components/TrustSignalBox";
+import { addQnaMicrodata } from "@/utils/addQnaMicrodata";
 
 interface ColorPalette {
   id?: string;
@@ -453,6 +454,10 @@ export function markdownToStyledHtml(
       }
     }
   }
+
+  // AEO: mark each question H2 section as schema.org Question/Answer microdata
+  // with id="answer-N" on the atomic answer paragraph (speakable targets).
+  finalHtml = addQnaMicrodata(finalHtml);
 
   return finalHtml;
 }
