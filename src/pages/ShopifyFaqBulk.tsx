@@ -1135,6 +1135,75 @@ ${isPricingQuestion
         </div>
       </header>
       <main className="container mx-auto px-6 py-6 space-y-6">
+        {/* ── Client Switcher ─────────────────────────────────────────── */}
+        {(() => {
+          interface ClientPreset {
+            label: string; author: string; siteBaseUrl: string;
+            blogHandle: string; blogTitle: string; templateSuffix: string;
+            handlePrefix: string; globalTags: string; sport: string;
+            paletteId: string; ctaUrl: string; teamNameGenUrl: string;
+            teamNameGenEnabled: boolean;
+          }
+          const PRESETS: Record<string, ClientPreset> = {
+            bls: {
+              label: "Big League Shirts", author: "Big League Shirts",
+              siteBaseUrl: "https://bigleagueshirts.com",
+              blogHandle: "faq", blogTitle: "FAQ", templateSuffix: "faq-template",
+              handlePrefix: "", globalTags: "", sport: "", paletteId: "charcoal",
+              ctaUrl: "https://bigleagueshirts.com/collections/flag-football",
+              teamNameGenUrl: "https://team.bigleagueshirts.com/", teamNameGenEnabled: true,
+            },
+            ppt: {
+              label: "ProPlayerTeam", author: "Pro Player Team",
+              siteBaseUrl: "https://www.proplayerteam.com",
+              blogHandle: "faq", blogTitle: "FAQ", templateSuffix: "article-faq",
+              handlePrefix: "", globalTags: "", sport: "", paletteId: "charcoal",
+              ctaUrl: "https://www.proplayerteam.com/collections/basketball",
+              teamNameGenUrl: "https://team.bigleagueshirts.com/", teamNameGenEnabled: false,
+            },
+            trackbarn: {
+              label: "TrackBarn", author: "TrackBarn",
+              siteBaseUrl: "https://trackbarn.com",
+              blogHandle: "faq", blogTitle: "FAQ", templateSuffix: "article-faq",
+              handlePrefix: "", globalTags: "", sport: "Track & Field", paletteId: "blue",
+              ctaUrl: "https://trackbarn.com/collections/uniforms",
+              teamNameGenUrl: "https://team.bigleagueshirts.com/", teamNameGenEnabled: false,
+            },
+          };
+          const apply = (key: string) => {
+            const p = PRESETS[key]; if (!p) return;
+            setAuthor(p.author); setSiteBaseUrl(p.siteBaseUrl);
+            setBlogHandle(p.blogHandle); setBlogTitle(p.blogTitle);
+            setTemplateSuffix(p.templateSuffix); setHandlePrefix(p.handlePrefix);
+            setGlobalTags(p.globalTags); setSport(p.sport); setPaletteId(p.paletteId);
+            setCtaUrl(p.ctaUrl); setTeamNameGenUrl(p.teamNameGenUrl);
+            setTeamNameGenEnabled(p.teamNameGenEnabled);
+          };
+          const activeKey = Object.entries(PRESETS).find(
+            ([, p]) => p.author === author && p.siteBaseUrl === siteBaseUrl
+          )?.[0];
+          return (
+            <Card className="border-primary/30 bg-primary/5">
+              <CardContent className="py-3 px-4 flex items-center gap-3 flex-wrap">
+                <span className="text-sm font-semibold text-primary shrink-0">Client:</span>
+                {Object.entries(PRESETS).map(([key, preset]) => (
+                  <button key={key} type="button" onClick={() => apply(key)}
+                    className={`px-4 py-1.5 rounded-full text-sm font-medium border-2 transition-all ${
+                      activeKey === key
+                        ? "border-primary bg-primary text-primary-foreground shadow"
+                        : "border-border bg-background text-foreground hover:border-primary/50"
+                    }`}>
+                    {preset.label}
+                  </button>
+                ))}
+                <span className="text-xs text-muted-foreground ml-auto hidden sm:block">
+                  One click loads all settings for that client
+                </span>
+              </CardContent>
+            </Card>
+          );
+        })()}
+
         <Card>
           <CardHeader>
             <CardTitle>Settings</CardTitle>
