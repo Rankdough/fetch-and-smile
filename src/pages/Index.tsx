@@ -3453,6 +3453,10 @@ const Index = () => {
                 
                 // Strip data attributes from the string now
                 htmlContent = htmlContent.replace(/\s+data-[a-z-]+="[^"]*"/gi, '');
+
+                // AEO: Mark the first <p> as the direct answer for LLM/AI Overview retrieval
+                // id="direct-answer" + itemprop="description" signals to Google which paragraph is citable
+                htmlContent = htmlContent.replace(/(<p\s)/, '<p id="direct-answer" itemprop="description" ');
                 
                 // Remove duplicate TL;DR / Quick Tips sections that appear after Final Thoughts
                 // The AI sometimes generates these at both top and bottom of the article
