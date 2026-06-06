@@ -272,12 +272,16 @@ async function callClinicalWriter(system: string, user: string, maxTokens = 1400
 /* ── outline generation ───────────────────────────────────────────────── */
 
 async function generateH2Questions(topic: string, model: string, valuePromiseClaims?: string[]): Promise<string[]> {
-  const promiseBlock = valuePromiseClaims && valuePromiseClaims.length > 0
-    ? `\n\nVALUE PROMISES — these are the specific outcomes the reader expects from this article. Every H2 must map to at least one of these promises:\n${valuePromiseClaims.map((p, i) => `${i + 1}. ${p}`).join("\n")}`
+  // Generate enough H2s to cover every value promise — minimum 1 H2 per promise
+  // so no promise gets squeezed into a secondary mention
+  const promiseCount = valuePromiseClaims?.length || 0;
+  const h2Count = Math.max(3, promiseCount); // at least 3, more if promises demand it
+  const promiseBlock = promiseCount > 0
+    ? `\n\nVALUE PROMISES — MANDATORY COVERAGE: This article MUST deliver ALL ${promiseCount} of these specific reader outcomes. Generate exactly ONE dedicated H2 section for each promise below. Each H2 heading must directly echo the promise it covers:\n${valuePromiseClaims!.map((p, i) => `PROMISE ${i + 1}: ${p}`).join("\n")}`
     : "";
-  const sys = `You generate H2 question headings for non-commodity articles. Output exactly 3 question headings, one per line, no numbering, no bullets, no markdown. Each must be a real question a reader would type, phrased in 4-10 words. No filler openers. No "what is X" if there's a sharper question. The three questions MUST cover different angles (e.g. mechanism, benefit, failure mode) — never two near-duplicate questions. If value promises are provided, each H2 must directly address one of those specific outcomes.`;
-  const user = `Topic: ${topic}${promiseBlock}\n\nReturn 3 distinct H2 question headings that collectively address all the value promises above.`;
-  const raw = await callModel(sys, user, model, 400);
+  const sys = `You generate H2 question headings for non-commodity articles. Output exactly ${h2Count} question headings, one per line, no numbering, no bullets, no markdown. Each must be a real question a reader would type, phrased in 4-10 words. No filler openers. No "what is X" if there's a sharper question. Questions MUST cover different angles — never two near-duplicate questions. When value promises are provided, generate ONE heading per promise, in the same order as the promises.`;
+  const user = `Topic: ${topic}${promiseBlock}\n\nReturn exactly ${h2Count} distinct H2 question headings. If promises are listed above, the first ${promiseCount} headings must each directly address one promise in order.`;
+  const raw = await callModel(sys, user, model, 600);
   const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9 ]+/g, "").replace(/\s+/g, " ").trim();
   const seen = new Set<string>();
   const lines = raw
