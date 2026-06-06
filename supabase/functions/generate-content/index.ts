@@ -259,6 +259,13 @@ ABSOLUTE RULE - NO EM DASHES:
 - If you need a pause in a sentence, use a comma, semicolon, or rewrite the sentence
 - This rule has NO exceptions
 
+ABSOLUTE RULE - NO PAST-YEAR ANCHORS ON ONGOING FACTS:
+- When stating facts that are current and ongoing (number of schools, active programmes, current rules, existing records), do NOT anchor them to a specific past year or season
+- BANNED: "as of the 2023-2024 season", "since 2020", "as of 2024", "in the 2022-23 year"
+- CORRECT: "currently", "today", "at present", "as of now"
+- Exception: genuine historical milestones with a fixed date MAY keep their year if the event is historical and not subject to change (e.g. "the NAIA first recognised flag football in 2020" is a historical fact -- state it without "as of")
+- This applies even when the context file contains year-anchored data -- restate it as a current fact
+
 ABSOLUTE RULE - NO HORIZONTAL LINES:
 - NEVER use horizontal rules/lines (--- or *** or ___) anywhere in the content
 - Do NOT add separators between sections - headings provide enough visual separation
