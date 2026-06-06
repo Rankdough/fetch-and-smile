@@ -1178,6 +1178,20 @@ ${isPricingQuestion
             setGlobalTags(p.globalTags); setSport(p.sport); setPaletteId(p.paletteId);
             setCtaUrl(p.ctaUrl); setTeamNameGenUrl(p.teamNameGenUrl);
             setTeamNameGenEnabled(p.teamNameGenEnabled);
+            // Persist immediately — don't rely on useEffect render cycle
+            // so settings survive navigation away before next render
+            try {
+              const current = JSON.parse(localStorage.getItem(LS_KEY) || "{}");
+              localStorage.setItem(LS_KEY, JSON.stringify({
+                ...current,
+                author: p.author, siteBaseUrl: p.siteBaseUrl,
+                blogHandle: p.blogHandle, blogTitle: p.blogTitle,
+                templateSuffix: p.templateSuffix, handlePrefix: p.handlePrefix,
+                globalTags: p.globalTags, sport: p.sport, paletteId: p.paletteId,
+                ctaUrl: p.ctaUrl, teamNameGenUrl: p.teamNameGenUrl,
+                teamNameGenEnabled: p.teamNameGenEnabled,
+              }));
+            } catch {}
           };
           const activeKey = Object.entries(PRESETS).find(
             ([, p]) => p.author === author && p.siteBaseUrl === siteBaseUrl
