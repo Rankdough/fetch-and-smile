@@ -122,13 +122,20 @@ export const generateCTAHtml = (
   description: string, 
   buttonText: string, 
   url: string,
-  brandColors?: { primary: string; secondary: string; accent: string; background?: string } | null,
+  brandColors?: { primary: string; secondary: string; accent: string; background?: string; id?: string } | null,
   tagline?: string
 ): string => {
   const bgGradient = "linear-gradient(135deg, #1a2744 0%, #2d3a52 50%, #1a2744 100%)";
-  const headlineColor = brandColors?.accent || BUTTON_COLOR;
-  const buttonColor = brandColors?.accent || BUTTON_COLOR;
   const displayTagline = tagline || "";
+
+  // Detect dark palettes where accent colour would be invisible against the CTA background
+  // Dark Site (#222222 accent) and Pitch Black (#000000) need a white button instead
+  const isDarkPalette = brandColors?.id === "dark-transparent" || brandColors?.id === "pitch-black" ||
+    (brandColors?.accent && /^#(0{6}|1{6}|[0-2][0-2][0-2][0-2][0-2][0-2]|111111|222222|333333)$/i.test(brandColors.accent));
+
+  const headlineColor = isDarkPalette ? "#ffffff" : (brandColors?.accent || BUTTON_COLOR);
+  const buttonBg = isDarkPalette ? "#ffffff" : (brandColors?.accent || BUTTON_COLOR);
+  const buttonTextColor = isDarkPalette ? "#111111" : "#1a1a1a";
 
   // Note: data-cta-banner attribute is added for identification during export
   // The anchor has data-cta-button to prevent link styling from overwriting button styles
@@ -136,7 +143,7 @@ export const generateCTAHtml = (
 <div data-cta-banner="true" style="background: ${bgGradient}; border-radius: 16px; padding: 36px 32px 28px; text-align: center; margin: 32px 0; font-family: inherit;">
   <div data-cta-headline="true" style="font-size: 1.1em; font-weight: 700; letter-spacing: 0.08em; margin-bottom: 12px; color: ${headlineColor}; font-family: inherit; text-transform: uppercase;">${headline}</div>
   <div data-cta-description="true" style="font-size: 0.95em; margin-bottom: 20px; color: white; font-family: inherit; max-width: 480px; margin-left: auto; margin-right: auto; line-height: 1.5; opacity: 0.9;">${description}</div>
-  <a href="${url}" target="_blank" rel="noopener noreferrer" data-cta-button="true" style="display: inline-block; background: ${buttonColor}; color: #1a1a1a; font-weight: 700; font-size: 0.85em; padding: 14px 40px; border-radius: 9999px; text-decoration: none; font-family: inherit; text-transform: uppercase; letter-spacing: 0.06em; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35), 0 4px 8px rgba(0, 0, 0, 0.2);">${buttonText}</a>
+  <a href="${url}" target="_blank" rel="noopener noreferrer" data-cta-button="true" style="display: inline-block; background: ${buttonBg}; color: ${buttonTextColor}; font-weight: 700; font-size: 0.85em; padding: 14px 40px; border-radius: 9999px; text-decoration: none; font-family: inherit; text-transform: uppercase; letter-spacing: 0.06em; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35), 0 4px 8px rgba(0, 0, 0, 0.2);">${buttonText}</a>
   <div data-cta-tagline="true" style="margin-top: 14px; font-size: 0.8em; color: rgba(255, 255, 255, 0.6); font-family: inherit; letter-spacing: 0.02em;">${displayTagline}</div>
 </div>`;
 };
