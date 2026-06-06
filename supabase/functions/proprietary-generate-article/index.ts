@@ -2398,6 +2398,28 @@ Deno.serve(async (req) => {
     const internalLinkGuard = stripMismatchedInlineLinks(content, body.topic);
     content = internalLinkGuard.out;
     if (internalLinkGuard.removed > 0) console.warn(`SOURCE GUARD: removed ${internalLinkGuard.removed} off-topic link(s) after internal-link insertion.`);
+
+    // LINK ZONE GUARD (deterministic): the opening paragraph (#direct-answer) and the
+    // TL;DR section must contain no links — they are the AI-retrieval zones. Unlink
+    // any markdown links that landed there, keeping the anchor text.
+    {
+      const linkRe = /\[([^\]]+)\]\([^)]+\)/g;
+      const parts = content.split(/\n(?=## )/);
+      let unlinkedZones = 0;
+      for (let i = 0; i < parts.length; i++) {
+        const isOpening = i === 0; // H1 + opening paragraph before the first H2
+        const isTldr = /^##\s*TL;DR/i.test(parts[i]);
+        if (isOpening || isTldr) {
+          const before = parts[i];
+          parts[i] = parts[i].replace(linkRe, "$1");
+          if (parts[i] !== before) unlinkedZones++;
+        }
+      }
+      if (unlinkedZones > 0) {
+        content = parts.join("\n");
+        console.warn(`LINK ZONE GUARD: unlinked markdown link(s) in ${unlinkedZones} protected zone(s) (opening/TL;DR).`);
+      }
+    }
     const finalNumericMarkers = stripBodyNumericCitationMarkers(content);
     content = finalNumericMarkers.out;
     if (finalNumericMarkers.removed > 0) console.warn(`CITATION GUARD: removed ${finalNumericMarkers.removed} orphan numeric citation marker(s) after final formatting.`);
