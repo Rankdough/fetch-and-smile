@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
+import { buildEeatContent } from "@/utils/buildEeatContent";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -1803,6 +1804,17 @@ const Index = () => {
     setAppliedRules(null);
     setCommodityGrade(null);
     setHasBrainForGrade(false);
+
+    // Auto-build E-E-A-T trust box content from topic + context files
+    // Only updates if trust signal is enabled; user can still edit manually after generation
+    if (includeTrustSignal) {
+      const dynamicEeat = buildEeatContent(
+        formData.topic,
+        contextFiles || [],
+        "Nic Reese"
+      );
+      setTrustSignalContent(dynamicEeat);
+    }
 
     try {
       let content: string;
