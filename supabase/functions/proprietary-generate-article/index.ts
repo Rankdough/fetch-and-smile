@@ -72,6 +72,9 @@ interface RequestBody {
   contextFiles?: Array<{ name: string; content: string }>;
   toneProfileId?: string | null;
   valuePromiseClaims?: string[];
+  gapAnalysis?: string;
+  gapInsights?: string[];
+  keywords?: string[];
 }
 
 interface BrainUnit {
@@ -271,16 +274,19 @@ async function callClinicalWriter(system: string, user: string, maxTokens = 1400
 
 /* ── outline generation ───────────────────────────────────────────────── */
 
-async function generateH2Questions(topic: string, model: string, valuePromiseClaims?: string[]): Promise<string[]> {
+async function generateH2Questions(topic: string, model: string, valuePromiseClaims?: string[], gapInsights?: string[]): Promise<string[]> {
   // Generate enough H2s to cover every value promise — minimum 1 H2 per promise
   // so no promise gets squeezed into a secondary mention
   const promiseCount = valuePromiseClaims?.length || 0;
   const h2Count = Math.max(3, promiseCount); // at least 3, more if promises demand it
+  const gapBlock = gapInsights && gapInsights.length > 0
+    ? `\n\nCOMPETITOR GAPS — angles the top-ranking competitors miss. Where a promise and a gap overlap, prefer phrasing that heading around the gap. Use any remaining heading slots beyond the promises for these gaps:\n${gapInsights.map((g, i) => `${i + 1}. ${g}`).join("\n")}`
+    : "";
   const promiseBlock = promiseCount > 0
     ? `\n\nVALUE PROMISES — MANDATORY COVERAGE: This article MUST deliver ALL ${promiseCount} of these specific reader outcomes. Generate exactly ONE dedicated H2 section for each promise below. Each H2 heading must directly echo the promise it covers:\n${valuePromiseClaims!.map((p, i) => `PROMISE ${i + 1}: ${p}`).join("\n")}`
     : "";
   const sys = `You generate H2 question headings for non-commodity articles. Output exactly ${h2Count} question headings, one per line, no numbering, no bullets, no markdown. Each must be a real question a reader would type, phrased in 4-10 words. No filler openers. No "what is X" if there's a sharper question. Questions MUST cover different angles — never two near-duplicate questions. When value promises are provided, generate ONE heading per promise, in the same order as the promises.`;
-  const user = `Topic: ${topic}${promiseBlock}\n\nReturn exactly ${h2Count} distinct H2 question headings. If promises are listed above, the first ${promiseCount} headings must each directly address one promise in order.`;
+  const user = `Topic: ${topic}${promiseBlock}${gapBlock}\n\nReturn exactly ${h2Count} distinct H2 question headings. If promises are listed above, the first ${promiseCount} headings must each directly address one promise in order.`;
   const raw = await callModel(sys, user, model, 600);
   const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9 ]+/g, "").replace(/\s+/g, " ").trim();
   const seen = new Set<string>();
@@ -1848,6 +1854,7 @@ async function runSection(input: {
   contextFiles?: Array<{ name: string; content: string }>;
   toneProfile?: { summary: string | null; characteristics: Record<string, string>; example_phrases: string[] | null } | null;
   valuePromiseBlock?: string;
+  gapKeywordBlock?: string;
 }) {
   const assembled = assembleSectionPrompt({
     businessType: input.businessType,
@@ -1862,6 +1869,7 @@ async function runSection(input: {
     contextFiles: input.contextFiles,
     toneProfile: input.toneProfile,
     valuePromiseBlock: input.valuePromiseBlock,
+    gapKeywordBlock: input.gapKeywordBlock,
   });
   const isBody = input.section.type === "body";
   // Scale token budget with the word budget so the model writes to the right length.
@@ -1968,6 +1976,21 @@ Deno.serve(async (req) => {
       ? `VALUE PROMISES — the reader expects ALL of these specific outcomes. Every section must directly address at least one:\n${body.valuePromiseClaims.map((p: string, i: number) => `${i + 1}. ${p}`).join("\n")}`
       : "";
 
+    // Competition gaps + target keywords — secondary guidance for outline and sections.
+    const gapInsightsList = (body.gapInsights || []).filter((g: string) => g && g.trim());
+    const keywordsList = (body.keywords || []).filter((k: string) => k && k.trim()).slice(0, 10);
+    const gapKeywordBlock = [
+      gapInsightsList.length > 0
+        ? `COMPETITOR GAPS — top-ranking competitors fail to cover these angles:\n${gapInsightsList.map((g: string, i: number) => `${i + 1}. ${g}`).join("\n")}`
+        : "",
+      body.gapAnalysis && body.gapAnalysis.trim()
+        ? `COMPETITION ANALYSIS NOTES:\n${body.gapAnalysis.trim().slice(0, 2000)}`
+        : "",
+      keywordsList.length > 0
+        ? `TARGET KEYWORDS — anchor naturally in headings and body where they fit; never stuff:\n${keywordsList.join(", ")}`
+        : "",
+    ].filter(Boolean).join("\n\n");
+
 
     // Derive project isolation key from SUPABASE_URL (unique per Supabase project/deployment).
     // Falls back to body.projectId when explicitly provided by the caller.
@@ -2016,7 +2039,7 @@ Deno.serve(async (req) => {
     const units: BrainUnit[] = (rawUnits as BrainUnit[]) || [];
 
     // 2. Outline (H2 generation uses original keyword-bearing topic)
-    const h2Questions = await generateH2Questions(body.topic, model, body.valuePromiseClaims);
+    const h2Questions = await generateH2Questions(body.topic, model, body.valuePromiseClaims, gapInsightsList);
     if (h2Questions.length === 0) {
       return new Response(
         JSON.stringify({ error: "Outline generation returned no questions" }),
@@ -2180,6 +2203,7 @@ Deno.serve(async (req) => {
         contextFiles: body.contextFiles,
         toneProfile,
         valuePromiseBlock,
+        gapKeywordBlock,
       });
 
       const sectionPlaceholderGuard = stripExpertInputPlaceholders(result.content);
@@ -2419,12 +2443,12 @@ Deno.serve(async (req) => {
         articleTitle,
         originalTopic: body.topic,
         appliedRules: {
-          gapAnalysisUsed: false,
+          gapAnalysisUsed: !!(body.gapAnalysis?.trim()) || gapInsightsList.length > 0,
           formatReferenceUsed: false,
           contextFilesUsed: units.length > 0,
           contextFileNames: [],
-          keywordsUsed: false,
-          keywords: [],
+          keywordsUsed: keywordsList.length > 0,
+          keywords: keywordsList,
           targetWordCount: targetWords,
           outlineProvided: true,
           customInstructionsProvided: false,
