@@ -88,40 +88,30 @@ function buildEeatContent(
   const sportLabel = sport?.trim() || "sport";
   const sportLower = sportLabel.toLowerCase();
   const reviewDate = new Date().toLocaleDateString("en-GB", { month: "long", year: "numeric" });
-
-  // Author bio — sport-aware
-  const bioParagraph = `**${author || "Nic Reese"}** has covered ${sportLabel} content with a focus on rules, equipment, athlete development, and competition structure at recreational, youth, collegiate, and elite levels. His work draws on official governing body publications and verified competition data.`;
+  const authorName = author || "Nic Reese";
 
   // Sources — from context file or fallback to governing bodies
   const extractedSources = contextFiles?.length > 0
     ? extractSourcesFromContextFiles(contextFiles)
     : [];
-
   const governingBodies = getSportGoverningBodies(sportLower);
+  const sources = extractedSources.length > 0 ? extractedSources : governingBodies;
+  const sourceHeading = extractedSources.length > 0 ? "**Sources used in this article**" : "**Fact-checked against**";
+  const sourcesList = sources.map((s) => `✓ ${s}`).join("\n");
 
-  const sourcesList = extractedSources.length > 0
-    ? extractedSources.map((s) => `✓ ${s}`).join("\n")
-    : governingBodies.map((b) => `✓ ${b}`).join("\n");
+  return `<img src="${NIC_PHOTO_URL}" alt="${authorName}" width="72" height="72" style="border-radius:50%;float:left;margin:0 16px 8px 0;border:2px solid #99f6e4;" />
 
-  const sourceHeading = extractedSources.length > 0
-    ? "**Sources used in this article**"
-    : "**Fact-checked against**";
+**${authorName}** has covered ${sportLabel} content with a focus on rules, equipment, athlete development, and competition structure at recreational, youth, collegiate, and elite levels. His work draws on official governing body publications and verified competition data.
 
-  return [
-    `<img src="${NIC_PHOTO_URL}" alt="${author || "Nic Reese"}" width="72" height="72" style="border-radius:50%;float:left;margin:0 16px 8px 0;border:2px solid #99f6e4;" />`,
-    "",
-    bioParagraph,
-    "",
-    "<br style='clear:both' />",
-    "",
-    sourceHeading,
-    sourcesList,
-    "",
-    "**Editorial policy**",
-    `All factual claims, rules, distances, and records are cross-referenced against official ${sportLabel} governing body publications before publication. Statistics are sourced from official results databases, not secondary aggregators.`,
-    "",
-    `*Last reviewed: ${reviewDate}*`,
-  ].join("\n");
+<br style="clear:both" />
+
+${sourceHeading}
+${sourcesList}
+
+**Editorial policy**
+All factual claims, rules, distances, and records are cross-referenced against official ${sportLabel} governing body publications before publication. Statistics are sourced from official results databases, not secondary aggregators.
+
+*Last reviewed: ${reviewDate}*`;
 }
 
 export interface MigrationConvertOpts {
