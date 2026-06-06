@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { buildEeatContent } from "@/utils/buildEeatContent";
+import { addQnaMicrodata } from "@/utils/addQnaMicrodata";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -3511,6 +3512,10 @@ const Index = () => {
                 // AEO: Mark the first <p> as the direct answer for LLM/AI Overview retrieval
                 // id="direct-answer" + itemprop="description" signals to Google which paragraph is citable
                 htmlContent = htmlContent.replace(/(<p\s)/, '<p id="direct-answer" itemprop="description" ');
+
+                // AEO: mark every question H2 section as schema.org Question/Answer
+                // microdata with id="answer-N" on each atomic answer paragraph
+                htmlContent = addQnaMicrodata(htmlContent);
                 
                 // Remove duplicate TL;DR / Quick Tips sections that appear after Final Thoughts
                 // The AI sometimes generates these at both top and bottom of the article
