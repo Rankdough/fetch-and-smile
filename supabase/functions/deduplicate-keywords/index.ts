@@ -514,29 +514,57 @@ serve(async (req) => {
 EVERGREEN FILTER (ACTIVE): Also remove any keyword that is time-sensitive by nature — meaning the answer changes day to day, week to week, or season to season. This applies to ANY topic.
 
 REMOVE a keyword if it contains or implies any of the following signals:
-- Time words: tonight, today, this week, this weekend, last night, yesterday, right now, currently, this year, this season, this month
-- Live/broadcast intent: watch live, stream, where to watch, how to watch, on tv, channel, broadcast
-- Scores/results: score, result, who won, winner, standings, leaderboard, rankings today, latest results
-- Schedules: next game, fixture, schedule today, when does X play, upcoming match
-- Breaking/trending: breaking news, transfer news, latest news, just released, just launched, new today
-- Prices that fluctuate daily: stock price today, current price, live price
+
+TIME WORDS (remove any keyword containing):
+tonight, today, this week, this weekend, last night, yesterday, right now, currently, this year, this season, this month, now, 2024, 2025, 2026, anymore
+
+BROADCAST/VIEWING INTENT (remove):
+watch live, stream, where to watch, how to watch, on tv, channel, broadcast, televised, what channel
+
+SCORES/RESULTS (remove):
+score, result, who won, winner, standings, leaderboard, rankings today, latest results, who lost, final score
+
+SCHEDULES/FIXTURES (remove):
+next game, fixture, schedule today, when does X play, upcoming match, when is the [X] game, when is [person] playing
+
+NAMED EVENTS TIED TO SPECIFIC DATES (remove):
+Any keyword naming a specific recurring event tied to a calendar date or season:
+- pro bowl (annual event, answer changes each year)
+- super bowl (annual)
+- olympics [current year] (changes every 4 years)
+- [celebrity name] playing/game/team — e.g. "tom brady flag football", "flag football game with tom brady"
+- fanatics flag football classic/game/tournament (specific recurring event)
+- celebrity flag football game
+
+NAMED PEOPLE IN TIME-SENSITIVE CONTEXT (remove):
+Keywords naming a celebrity/athlete in a "when is / who won / what team" context — the answer changes constantly.
+- "what team is [person] on"
+- "when is [person] playing"
+- "who won [person's] game"
+
+BREAKING/TRENDING (remove):
+breaking news, transfer news, latest news, just released, just launched, new today
 
 REMOVE examples (topic-agnostic):
-- "where to watch [topic] tonight" — time-sensitive broadcast
+- "where to watch [topic] tonight" — broadcast, stale daily
 - "who won [topic] last night" — result, stale tomorrow
-- "[topic] score today" — live score, useless after the game
-- "best [topic] deals today" — promotional, changes daily
-- "latest [topic] news" — news cycle, not evergreen
-- "[topic] schedule this week" — fixture list, expires weekly
+- "when is the pro bowl flag football game" — specific annual event
+- "what flag football team is tom brady on" — celebrity roster, changes
+- "who won the fanatics flag football tournament" — specific event result
+- "when is the celebrity flag football game" — scheduled event
+- "[topic] score today" — live score
 - "is [topic] on tonight" — broadcast query
+- "when does flag football season start 2025" — year-specific
 
 KEEP examples (topic-agnostic):
 - "how does [topic] work" — evergreen explanation
 - "what is [topic]" — evergreen definition
 - "how to get better at [topic]" — evergreen skill
-- "how much does [topic] cost" — general pricing (not today's price)
+- "how much does [topic] cost" — general pricing
 - "best [topic] for beginners" — evergreen buying guide
 - "[topic] rules explained" — evergreen reference
+- "why did [topic] change to [format]" — historical fact, answer is permanent
+- "how long has [topic] been [X]" — historical, stable answer
 
 THE TEST: Would this keyword still return a useful, accurate answer in 2 years without any changes? If yes, KEEP. If no, REMOVE.` : "";
 
@@ -550,15 +578,22 @@ CORE PRINCIPLE — KEEP, DON'T CUT:
 - Mark OFF-TOPIC ONLY when the keyword is unambiguously about something unrelated (a different industry, a homonym used in a clearly different sense, spam, etc.).
 
 EXAMPLES for topic "track and field":
-- ON-TOPIC (KEEP): "what is vo2 max", "how to improve vo2 max" (cardiovascular fitness — directly relevant to runners)
-- ON-TOPIC (KEEP): "what are shin splints", "how to treat shin splints" (running injuries)
-- ON-TOPIC (KEEP): "cross country running", "marathon training", "best running shoes"
-- ON-TOPIC (KEEP): "what is a javelin", "decathlon events", "high jump technique"
+- ON-TOPIC (KEEP): "what is vo2 max", "how to improve vo2 max", "shin splints", "marathon training"
 - OFF-TOPIC (REMOVE): "how to make pie filling", "best laptop 2024", "iphone repair near me"
 
 EXAMPLES for topic "dental fillings":
 - ON-TOPIC: "how long does a filling last", "cavity pain", "amalgam vs composite"
-- OFF-TOPIC: "how to make pie filling", "toilet not filling with water", "filling out tax forms"${evergreenBlock}
+- OFF-TOPIC: "how to make pie filling", "toilet not filling with water", "filling out tax forms"
+
+EXAMPLES for topic "flag football" (the sport):
+- ON-TOPIC (KEEP): "how to play flag football", "flag football rules", "how many players on a flag football team", "flag football drills", "flag football equipment", "flag football positions"
+- OFF-TOPIC (REMOVE): "what does a flag mean in football" — this is about NFL penalty flags, not the sport
+- OFF-TOPIC (REMOVE): "what does a yellow flag mean in football" — NFL penalty flag, different topic entirely
+- OFF-TOPIC (REMOVE): "what does a black flag mean in football" — same, penalty flag not flag football sport
+
+CRITICAL HOMONYM RULE: When the topic name appears as part of a different concept, mark it OFF-TOPIC.
+Examples: topic "flag football" → keywords about "penalty flag in football" use the word "flag" differently — they mean the yellow penalty marker thrown by referees, not the sport called flag football. These are OFF-TOPIC.
+Apply this logic to any topic where a word has multiple meanings.${evergreenBlock}
 
 OUTPUT FORMAT (valid JSON only, no markdown):
 {"off_topic_indices":[0,3,7]}
