@@ -805,8 +805,8 @@ const KeywordDeduplicator = () => {
         console.log(`Exclusion filter: removed ${excluded.length} keywords matching [${terms.join(", ")}]`);
       }
 
-      if (topicFilter.trim()) {
-        console.log(`Topic filter active: "${topicFilter.trim()}", filtering ${rawKeywords.length} keywords...`);
+      if (topicFilter.trim() || evergreenOnly) {
+        console.log(`Filter active — topic: "${topicFilter.trim()}", evergreen: ${evergreenOnly}`);
         const filterResponse = await fetch(
           `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/deduplicate-keywords`,
           {
@@ -815,7 +815,7 @@ const KeywordDeduplicator = () => {
               "Content-Type": "application/json",
               Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
             },
-            body: JSON.stringify({ keywords: filteredKeywords, mode: "topic-filter", topic: topicFilter.trim(), evergreen: evergreenOnly }),
+            body: JSON.stringify({ keywords: filteredKeywords, mode: "topic-filter", topic: topicFilter.trim() || "general", evergreen: evergreenOnly }),
           }
         );
 
