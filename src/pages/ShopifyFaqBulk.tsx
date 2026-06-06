@@ -218,26 +218,35 @@ function injectLinksDeterministic(markdown: string, urls: string[]): string {
 }
 
 
-const EXPERT_BOX_HTML = `
-<section aria-labelledby="our-expert" style="margin: 40px 0 0 0; border: 1px solid #d1fae5; border-radius: 16px; background: linear-gradient(180deg, #f0fdfa 0%, #ffffff 100%); overflow: hidden;">
+function buildExpertBoxHtml(isDark: boolean): string {
+  const sectionBg = isDark
+    ? "background: transparent; border: 1px solid rgba(255,255,255,0.12);"
+    : "background: linear-gradient(180deg, #f0fdfa 0%, #ffffff 100%); border: 1px solid #d1fae5;";
+  const headingColor = isDark ? "#ffffff" : "#0f172a";
+  const nameColor = isDark ? "#ffffff" : "#0f172a";
+  const roleColor = isDark ? "#99f6e4" : "#0f766e";
+  const bioColor = isDark ? "rgba(255,255,255,0.85)" : "#374151";
+  return `
+<section aria-labelledby="our-expert" style="margin: 40px 0 0 0; ${sectionBg} border-radius: 16px; overflow: hidden;">
 <div style="padding: 24px;">
-<h2 id="our-expert" style="margin: 0 0 16px 0; color: #0f172a;">Our Expert</h2>
+<h2 id="our-expert" style="margin: 0 0 16px 0; color: ${headingColor};">Our Expert</h2>
 <div style="display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap;">
 <img style="width: 112px; height: 112px; border-radius: 12px; object-fit: cover; border: 2px solid #99f6e4; flex-shrink: 0;" src="https://cdn.shopify.com/s/files/1/0760/1530/4950/files/nic_reese.avif?v=1780658483" alt="Nic Reese" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';"><div style="display:none; width: 112px; height: 112px; border-radius: 12px; border: 2px solid #99f6e4; flex-shrink: 0; background: linear-gradient(135deg, #0f766e 0%, #0d9488 100%); align-items: center; justify-content: center; font-size: 36px; font-weight: 700; color: #ffffff; letter-spacing: -1px;">NR</div>
 <div style="flex: 1; min-width: 220px;">
-<h3 style="margin: 0 0 6px 0; color: #0f172a;">Nic Reese</h3>
-<p style="margin: 0 0 12px 0; color: #0f766e; font-weight: 600; line-height: 1.5;">Our Sport Expert</p>
-<p style="margin: 0; line-height: 1.7; color: #374151;">Nic Reese is a sports expert and lifelong enthusiast with a deep focus on bowling and competitive team sports. He brings practical insight, real-world experience, and a genuine passion for the game into every piece of content. Nick is driven by a love of sports culture, performance, and helping players and teams perform at their best.</p>
+<h3 style="margin: 0 0 6px 0; color: ${nameColor};">Nic Reese</h3>
+<p style="margin: 0 0 12px 0; color: ${roleColor}; font-weight: 600; line-height: 1.5;">Our Sport Expert</p>
+<p style="margin: 0; line-height: 1.7; color: ${bioColor};">Nic Reese is a sports expert and lifelong enthusiast with a deep focus on bowling and competitive team sports. He brings practical insight, real-world experience, and a genuine passion for the game into every piece of content. Nick is driven by a love of sports culture, performance, and helping players and teams perform at their best.</p>
 </div>
 </div>
 </div>
 </section>
 <div style="margin: 40px 0 32px 0;">
 <div style="display: flex; flex-wrap: wrap; gap: 16px;">
-<div style="flex: 1 1 calc(50% - 8px); min-width: 200px; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; transition: box-shadow 0.2s;"></div>
+<div style="flex: 1 1 calc(50% - 8px); min-width: 200px; background: ${isDark ? "transparent" : "#ffffff"}; border: 1px solid ${isDark ? "rgba(255,255,255,0.12)" : "#e5e7eb"}; border-radius: 8px; overflow: hidden; transition: box-shadow 0.2s;"></div>
 </div>
 </div>
 `;
+}
 
 const buildTeamNamePillHtml = (url: string) => `<p style="margin: 20px 0; padding: 12px 18px; background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 9999px; display: block; font-size: 0.95em; color: #065f46;">💡 <strong>Stuck on a team name?</strong> Try our free <a href="${url || 'https://team.bigleagueshirts.com/'}" target="_blank" rel="noopener" style="color: #047857; font-weight: 600; text-decoration: underline;">Team Name Generator →</a></p>`;
 
@@ -980,6 +989,8 @@ ${isPricingQuestion
       const withCta = (result.ctaHtml && result.ctaHtml.trim()) ? `${baseWithPill}${result.ctaHtml}` : baseWithPill;
       // Speakable JSON-LD is handled by the Shopify theme (Custom Liquid block) — not Body HTML.
       // Shopify strips <script> tags from Body HTML on import so it would be lost anyway.
+      const isDarkPalette = selectedPalette?.id === "dark-transparent" || selectedPalette?.id === "pitch-black";
+      const EXPERT_BOX_HTML = buildExpertBoxHtml(isDarkPalette);
       const body = `${withCta}${EXPERT_BOX_HTML}`;
       const summary = truncate(result.subtitle || extractSummary(finalMarkdown), 300);
       const descriptionTag = truncate(result.seoDescription || summary, 155);
