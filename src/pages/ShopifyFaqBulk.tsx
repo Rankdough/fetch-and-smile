@@ -784,6 +784,13 @@ const sanitizeGeneratedMarkdown = (markdown: string, title: string, urls: string
       });
       return next;
     });
+    // Clear or adjust regenIdx if it pointed at the deleted row or after it
+    setRegenIdx((prev) => {
+      if (prev === null) return null;
+      if (prev === idx) return null;
+      if (prev > idx) return prev - 1;
+      return prev;
+    });
   };
 
   const deleteAllErrorRows = () => {
@@ -1607,8 +1614,8 @@ ${isPricingQuestion
                             <Button
                               key={wc}
                               size="sm"
-                              variant="outline"
-                              className="h-6 px-2 text-xs gap-1"
+                              variant={!row["Body HTML"] && wc === 500 ? "default" : "outline"}
+                              className={`h-6 px-2 text-xs gap-1 ${!row["Body HTML"] && wc === 500 ? "ring-1 ring-primary" : ""}`}
                               disabled={regenIdx === i}
                               onClick={() => regenerateRow(i, wc as 100 | 300 | 500 | 700)}
                             >
