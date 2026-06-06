@@ -164,7 +164,7 @@ export async function generateMigrationArticle(
           if (hasSource) files.push({ name: "source-content", content: sourceMarkdown!.substring(0, 24000) });
           if (Array.isArray(extraContextFiles)) {
             for (const f of extraContextFiles) {
-              if (f?.content?.trim()) files.push({ name: f.name || "context", content: f.content.substring(0, 12000) });
+              if (f?.content?.trim()) files.push({ name: f.name || "context", content: f.content.substring(0, 28000) });
             }
           }
           return files.length ? files : undefined;
