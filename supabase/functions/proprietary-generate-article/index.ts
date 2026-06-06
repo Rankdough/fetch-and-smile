@@ -58,6 +58,12 @@ interface RequestBody {
   length?: "short" | "medium" | "medium-long" | "long" | "extended" | "comprehensive";
   wordCount?: number;
   internalLinks?: string[];
+  entityBridgeConfig?: {
+    brandName: string;
+    collectionUrl: string;
+    productLabel: string;
+    sportLabel: string;
+  };
   audienceSentence?: string;
   businessType?: BusinessType;
   publicationDestination?: "ai-search" | "human-blog" | "both";
@@ -1655,6 +1661,122 @@ function attachInlineCitations(markdown: string, urls: BrainUrl[]): { out: strin
 // filename sanitisation via cleanReferenceTitle (strips .docx/.txt/.pdf and
 // prefers the first meaningful line of the file as the human-readable title).
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Entity Bridge Rule
+// Injects one editorial paragraph connecting the informational topic to the
+// brand's commercial offer. Placed after the first H2 section that contains
+// team/league/season/equipment context. Never forced into technical sections.
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface EntityBridgeConfig {
+  brandName: string;       // e.g. "Big League Shirts"
+  collectionUrl: string;   // e.g. "/collections/hockey" or full URL
+  productLabel: string;    // e.g. "custom hockey jerseys"
+  sportLabel: string;      // e.g. "hockey"
+}
+
+// Trigger words — if an H2 heading or its body contains any of these,
+// the bridge paragraph is inserted after that section.
+const BRIDGE_TRIGGER_WORDS = [
+  "team", "teams", "league", "leagues", "season", "seasons",
+  "players", "player", "coach", "coaches", "captain",
+  "equipment", "gear", "kit", "uniform", "uniforms", "jersey", "jerseys",
+  "organis", "organiz", "tournament", "recreational", "youth",
+  "beer league", "club", "division", "roster",
+];
+
+// Context phrases — vary the bridge paragraph based on section context
+function buildBridgeParagraph(
+  sectionHeading: string,
+  topic: string,
+  cfg: EntityBridgeConfig
+): string {
+  const h = sectionHeading.toLowerCase();
+  const t = topic.toLowerCase().replace(/[?!.]+$/, "").trim();
+
+  // Detect context from heading to write a natural transition
+  const isEquipment = /equipment|gear|kit|uniform|jersey/.test(h);
+  const isLeague = /league|tournament|recreational|organis|organiz/.test(h);
+  const isSeason = /season|schedule|calendar/.test(h);
+  const isTeam = /team|players|roster|coach|captain/.test(h);
+
+  let opener: string;
+  if (isEquipment) {
+    opener = `If your team is sourcing kit for an upcoming ${cfg.sportLabel} season,`;
+  } else if (isLeague) {
+    opener = `If you're organising a recreational ${cfg.sportLabel} league or running a tournament,`;
+  } else if (isSeason) {
+    opener = `As you plan your ${cfg.sportLabel} season,`;
+  } else if (isTeam) {
+    opener = `If you're coaching a youth ${cfg.sportLabel} team or captaining a club side,`;
+  } else {
+    opener = `If you're involved in organising or running a ${cfg.sportLabel} team,`;
+  }
+
+  // Derive a short sport-specific use case from the topic
+  const linkText = `Browse custom ${cfg.sportLabel} jerseys here`;
+
+  return `${opener} ${cfg.brandName} offers fully customised ${cfg.productLabel} with no minimum order and a three-week turnaround — whether for a beer league, a youth programme, or a showcase team. [${linkText}.](${cfg.collectionUrl})`;
+}
+
+function injectEntityBridge(
+  markdown: string,
+  topic: string,
+  cfg: EntityBridgeConfig
+): string {
+  const lines = markdown.split("\n");
+  const skipSections = /tl;?dr|quick\s*tips|frequently\s*asked|faq|final\s*thoughts|references|sources|in\s*this\s*article|how\s*to\s*choose/i;
+
+  // Find H2 sections and their body text
+  const h2Indices: number[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    if (/^##\s+/.test(lines[i])) h2Indices.push(i);
+  }
+
+  // Already has a bridge — don't double-inject
+  if (markdown.includes(cfg.brandName) && markdown.includes(cfg.collectionUrl)) {
+    return markdown;
+  }
+
+  for (let h = 0; h < h2Indices.length; h++) {
+    const headingLine = lines[h2Indices[h]];
+    const heading = headingLine.replace(/^##\s+/, "").trim();
+
+    // Skip structural sections
+    if (skipSections.test(heading)) continue;
+
+    // Get body text for this section
+    const bodyStart = h2Indices[h] + 1;
+    const bodyEnd = h + 1 < h2Indices.length ? h2Indices[h + 1] : lines.length;
+    const bodyText = lines.slice(bodyStart, bodyEnd).join(" ").toLowerCase();
+
+    // Check if heading or body contains trigger words
+    const hasTrigger = BRIDGE_TRIGGER_WORDS.some(
+      (w) => heading.toLowerCase().includes(w) || bodyText.includes(w)
+    );
+
+    if (hasTrigger) {
+      // Insert bridge paragraph after the last non-empty line of this section
+      const bridgeParagraph = buildBridgeParagraph(heading, topic, cfg);
+      const insertAt = bodyEnd;
+      lines.splice(insertAt, 0, "", bridgeParagraph, "");
+      console.log(`ENTITY BRIDGE: injected after section "${heading}"`);
+      return lines.join("\n");
+    }
+  }
+
+  // No trigger section found — append before Final Thoughts if it exists
+  const finalIdx = lines.findIndex((l) => /^##\s+final\s*thoughts/i.test(l));
+  const bridgeParagraph = buildBridgeParagraph("", topic, cfg);
+  if (finalIdx > 0) {
+    lines.splice(finalIdx, 0, "", bridgeParagraph, "");
+  } else {
+    lines.push("", bridgeParagraph);
+  }
+  console.log("ENTITY BRIDGE: injected before Final Thoughts (no trigger section found)");
+  return lines.join("\n");
+}
+
 function enforceOpeningLength(markdown: string): string {
   const h1 = markdown.match(/^#\s+.+$/m);
   if (!h1 || h1.index === undefined) return markdown;
@@ -2251,6 +2373,16 @@ Deno.serve(async (req) => {
     const finalNumericMarkers = stripBodyNumericCitationMarkers(content);
     content = finalNumericMarkers.out;
     if (finalNumericMarkers.removed > 0) console.warn(`CITATION GUARD: removed ${finalNumericMarkers.removed} orphan numeric citation marker(s) after final formatting.`);
+    // Entity Bridge — inject brand paragraph at natural team/league/equipment transition
+    if (body.entityBridgeConfig?.brandName && body.entityBridgeConfig?.collectionUrl) {
+      content = injectEntityBridge(content, body.topic, {
+        brandName: body.entityBridgeConfig.brandName,
+        collectionUrl: body.entityBridgeConfig.collectionUrl,
+        productLabel: body.entityBridgeConfig.productLabel || `custom ${body.entityBridgeConfig.sportLabel || ""} jerseys`.trim(),
+        sportLabel: body.entityBridgeConfig.sportLabel || body.topic.split(" ")[0].toLowerCase(),
+      });
+    }
+
     const crossDomainFallbacks = stripCrossDomainFallbackBullets(content, body.topic);
     content = crossDomainFallbacks.out;
     if (crossDomainFallbacks.removed > 0) console.warn(`DOMAIN GUARD: removed ${crossDomainFallbacks.removed} cross-domain fallback bullet(s) after final formatting.`);
