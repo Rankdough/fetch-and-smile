@@ -138,6 +138,8 @@ CRITICAL RULES:
 - DO NOT link text inside blockquotes (> lines), CTA banners, or markdown tables.
 - DO NOT modify, remove, rewrite, or regenerate the final References section.
 - Prefer linking phrases in the body paragraphs of the article.
+- DO NOT link text in the opening paragraph (the first paragraph directly after the H1). This paragraph is marked id="direct-answer" and must stay clean — no inline links.
+- The earliest a link may appear is the TL;DR section or the first H2 body section.
 
 ANCHOR TEXT RELEVANCE:
 - The anchor text should be topically related to the URL's destination (described by the slug keywords).
