@@ -66,41 +66,36 @@ export function TrustSignalBox({
           className="px-5 py-4 text-sm leading-relaxed prose prose-sm max-w-none"
           style={{ color: textColor }}
         >
-          {/* Render author photo + name + bio as a flex block if content starts with ![...] */}
           {(() => {
-            const imgMatch = content.match(/^!\[([^\]]*)\]\(([^)]+)\)
-
-\*\*([^*]+)\*\*[^
-]*
-
-([^
-]+(?:
-[^
-]+)*?)(?:
-
----|
-
-\*\*)/s);
-            if (imgMatch) {
-              const [fullMatch, alt, src, name, bio] = imgMatch;
-              const rest = content.slice(fullMatch.length).replace(/^---
-
-/, '');
+            // Detect author block: content starts with ![name](url)
+            // Structure: ![alt](src)\n\n**Name** · Title\n\nBio\n\n---\n\nrest
+            const lines = content.split("\n");
+            const firstLine = lines[0] || "";
+            const imgSrcMatch = firstLine.match(/^!\[([^\]]*)\]\(([^)]+)\)$/);
+            if (imgSrcMatch) {
+              const alt = imgSrcMatch[1];
+              const src = imgSrcMatch[2];
+              // Find separator line "---"
+              const sepIdx = lines.findIndex((l) => l.trim() === "---");
+              const authorLines = lines.slice(1, sepIdx > 0 ? sepIdx : 6).filter((l) => l.trim());
+              const nameLine = authorLines[0]?.replace(/\*\*/g, "").trim() || alt;
+              const bioLines = authorLines.slice(1).join(" ").trim();
+              const rest = sepIdx > 0 ? lines.slice(sepIdx + 1).join("\n").trim() : "";
               return (
                 <>
                   <div style={{ display: "flex", gap: "16px", alignItems: "flex-start", marginBottom: "16px" }}>
                     <img
                       src={src}
-                      alt={alt || name}
-                      style={{ width: "72px", height: "72px", borderRadius: "50%", objectFit: "cover", flexShrink: 0, border: "2px solid #99f6e4" }}
+                      alt={alt}
+                      style={{ width: "64px", height: "64px", borderRadius: "50%", objectFit: "cover", flexShrink: 0, border: "2px solid #99f6e4" }}
                       onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
                     />
-                    <div>
-                      <div style={{ fontWeight: 700, marginBottom: "4px", color: textColor }}>{name}</div>
-                      <div style={{ lineHeight: 1.6, color: textColor }}>{bio.trim()}</div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 700, fontSize: "0.9em", marginBottom: "4px", color: textColor }}>{nameLine}</div>
+                      {bioLines && <div style={{ fontSize: "0.85em", lineHeight: 1.6, color: textColor, opacity: 0.9 }}>{bioLines}</div>}
                     </div>
                   </div>
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{rest}</ReactMarkdown>
+                  {rest && <ReactMarkdown remarkPlugins={[remarkGfm]}>{rest}</ReactMarkdown>}
                 </>
               );
             }
