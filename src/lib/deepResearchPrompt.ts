@@ -41,6 +41,13 @@ ARTICLE TO RESEARCH
 VALUE PROMISES THIS ARTICLE MUST DELIVER
 ${promises}
 
+PRIMARY RESEARCH OBJECTIVE — COMPLETE VALUE PROMISE DATASETS
+The value promises above are the article's contract with the reader. Your single most important job is to return the COMPLETE underlying dataset each promise requires, fully cited. Apply these rules:
+- If a promise requires a comparison table, collect EVERY row and EVERY column value (each cell sourced). Partial tables are a failure.
+- If a promise references specific rules, thresholds, or limits (e.g. mercy rules, run limits, scholarship caps), quote the exact rule text or figure from the governing rulebook, with section/rule number where available.
+- If a promise concerns rationale, implications, or strategy, gather the documented reasoning from official sources (rule committee notes, governing body statements, published studies) — not inference.
+- Where data varies by jurisdiction, division, age group, or season, capture the variance explicitly rather than generalising.
+
 1. STRICT SOURCE HIERARCHY (THE ONLY ACCEPTABLE SOURCES OF TRUTH)
 
 You are FORBIDDEN from citing, quoting, paraphrasing, or relying on any of the following:
@@ -55,6 +62,7 @@ You MUST anchor every factual claim in one of the following authority tiers. Ide
 
 Tier 1 — Primary Standards, Regulators, Policy Authorities
 - Official government bodies and regulators relevant to the topic (e.g. NHS, NICE, CDC, FDA, EMA, NHTSA, FCC, EPA, EASA, ICAO, FCA, SEC, ASTM, ISO, IEC, IEEE, BSI, CEN, UN/ECE, OECD)
+- Official governing bodies, sanctioning organisations, and published rulebooks of the relevant sport, activity, or industry (e.g. MLB Official Baseball Rules, NCAA rulebooks and bylaws, NFHS rules, Little League International regulations, World Athletics, FIFA Laws of the Game)
 - National professional bodies, royal colleges, and chartered institutes (e.g. BDA, RCS, AMA, ACS, IET, IMechE, RIBA, CIPS)
 - Statutory codes, official policy documents, prior-approval pathways, technical regulations and directives
 
@@ -87,6 +95,7 @@ Produce a deep-dive structured as follows. Every numeric claim, percentage, thre
 - Common misconceptions and where they originate — what high-ranking SEO content gets wrong, with the authoritative correction.
 - Underexplored angles and competitor content gaps — subtopics absent from the top SERP results that the authoritative sources actually emphasise.
 - Recommended H2/H3 outline — search-intent-aligned structure, with the specific Tier 1–3 source each section should draw from.
+- VALUE PROMISE DATA AUDIT (MANDATORY FINAL SECTION) — a numbered checklist mapping each value promise to the exact section(s), table(s), and source(s) in this document that contain its complete supporting data. Format: "PROMISE 1: FULFILLED — data in [section name], sources [name, tier]" or "PROMISE 3: UNSOURCED — [exactly what could not be found in Tier 1–4 sources]". Never silently skip a promise. If any promise is UNSOURCED, state it plainly so the editor can revise the promise before the article is written.
 
 3. FORMATTING AND EXECUTION DIRECTIVES
 
