@@ -71,6 +71,8 @@ export interface AssemblerInput {
   toneProfile?: { summary: string | null; characteristics: Record<string, string>; example_phrases: string[] | null } | null;
   /** Value promise block — injected into every section so the model addresses all reader-expected outcomes. */
   valuePromiseBlock?: string;
+  /** Competitor gaps + target keywords — secondary guidance, never overrides value promises. */
+  gapKeywordBlock?: string;
 }
 
 export interface AssembledPrompt {
@@ -459,7 +461,7 @@ function describeRetrievedKnowledge(snippets: AssemblerInput["retrievedKnowledge
 }
 
 export function assembleSectionPrompt(input: AssemblerInput): AssembledPrompt {
-  const { businessType, mappedUnit, audienceSentence, publicationDestination, section, articleTitle, toneProfile, valuePromiseBlock } = input;
+  const { businessType, mappedUnit, audienceSentence, publicationDestination, section, articleTitle, toneProfile, valuePromiseBlock, gapKeywordBlock } = input;
   const isBody = section.type === "body";
   const applied: number[] = [];
 
@@ -655,8 +657,13 @@ CRITICAL: If the tone is conversational, use short sentences under 20 words. Nev
     ? `HARD REQUIREMENT — VALUE PROMISES: This article was written to fulfil these specific reader outcomes. This section MUST directly address at least one of them with specific facts, numbers, or named criteria:\n${valuePromiseBlock.replace("VALUE PROMISES — the reader expects ALL of these specific outcomes. Every section must directly address at least one:\n", "")}`
     : null;
 
+  const gapKeywordGuidance = gapKeywordBlock
+    ? `SECONDARY GUIDANCE — COMPETITOR GAPS & TARGET KEYWORDS (weave in where relevant; never override value promises or invent facts to satisfy these):\n${gapKeywordBlock}`
+    : null;
+
   const hardRequirements = [
     valuePromiseHardReq,
+    gapKeywordGuidance,
     "OUTPUT FORMAT: Markdown only. No front-matter, no code fences. Do NOT repeat the H2 heading.",
     "HARD REQUIREMENT — NUMERIC DENSITY: Include AT LEAST 3 specific numbers, percentages, or counts with units in this section. Example: '24 perfect games', '7.36%', '27 consecutive batters'. Vague claims without numbers fail.",
     "HARD REQUIREMENT — NO HEDGING: Do NOT use the words 'typically', 'varies', 'depends', 'generally', 'often', 'usually', 'may vary', or 'in some cases' unless the sentence also contains a specific number. Replace hedges with facts.",
