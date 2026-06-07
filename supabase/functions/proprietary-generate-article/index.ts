@@ -1158,8 +1158,7 @@ function extractContextFileReferences(
         // Strip trailing " - SourceName" if it would duplicate the URL hostname
         try {
           const host = new URL(bareUrlMatch[0]).hostname.replace(/^www\./, "").split(".")[0];
-          title = title.replace(new RegExp(\` - [^-]+$\`, "i"), (m) =>
-            m.toLowerCase().includes(host.toLowerCase()) ? "" : m).trim();
+          title = title.replace(/ - [^-]+$/i, "").trim();
         } catch { /* skip */ }
         processEntry(bareUrlMatch[0], title);
       }
@@ -1175,7 +1174,7 @@ function extractContextFileReferences(
   for (const c of candidates) {
     try {
       const u = new URL(c.url);
-      const pathKey = \`\${u.hostname.replace(/^www\./, "")}\${u.pathname.replace(/\/+$/, "")}\`;
+      const pathKey = u.hostname.replace(/^www\./, "") + u.pathname.replace(/\/+$/, "");
       if (pathSeen.has(pathKey)) continue;
       pathSeen.add(pathKey);
       out.push({ title: c.title, url: c.url });
@@ -2082,7 +2081,10 @@ async function runSection(input: {
   if (isBody) {
     // Trim ceiling is 1.25× the budget to give the model room to fill the
     // target without being cut exactly at the budget line.
-    content = trimSectionToBudget(content, Math.round(input.sectionBudgetWords * 1.25));
+    const budgetCeil = Number.isFinite(input.sectionBudgetWords) && input.sectionBudgetWords > 0
+      ? Math.round(input.sectionBudgetWords * 1.25)
+      : 600;
+    content = trimSectionToBudget(content, budgetCeil);
   }
   const needsExpertInput = /^\[NEEDS EXPERT INPUT\]\s*$/i.test(content);
   let ruleFlags = needsExpertInput ? [] : lintRule5(content);
