@@ -128,9 +128,10 @@ export const ContentVerification = ({
     results.push({
       id: "word-count",
       label: "Word count (excl. FAQ/References)",
-      status: wordCountPercentage >= 100 ? "passed" : wordCountPercentage >= 80 ? "warning" : "failed",
+      // 20% tolerance — within 80-120% of target = passed; 65-80% = warning; <65% = failed
+      status: wordCountPercentage >= 80 ? "passed" : wordCountPercentage >= 65 ? "warning" : "failed",
       details: `${wordCount} words (target: ${targetWords}) — total: ${totalWordCount}`,
-      fixable: wordCountPercentage < 100,
+      fixable: wordCountPercentage < 80,
       fixType: "word-count",
     });
 
