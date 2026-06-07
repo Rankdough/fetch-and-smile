@@ -123,6 +123,33 @@ export function buildTrustSignalHtml(
   const borderColor = isDark ? "rgba(255,255,255,0.18)" : `${primary}40`;
   const textColor = isDark ? "#e5e7eb" : "#1f2937";
 
+  // Match the PREVIEW layout: 64px circular author photo with name + bio
+  // flowing beside it, instead of a full-width image above stacked text.
+  // marked output shape: <p><img ...></p> <p><strong>Name</strong> · Title</p> <p>bio</p>
+  let styledContent = contentHtml;
+  const authorBlockRe = /^\s*<p>\s*(<img[^>]*>)\s*<\/p>\s*<p>([\s\S]*?)<\/p>\s*<p>([\s\S]*?)<\/p>/i;
+  const authorMatch = styledContent.match(authorBlockRe);
+  if (authorMatch) {
+    const imgTag = authorMatch[1].replace(
+      /\/?>$/,
+      ` style="width:64px;height:64px;border-radius:9999px;object-fit:cover;flex-shrink:0;border:2px solid ${primary}40;" />`
+    );
+    const flexHeader =
+      `<div style="display:flex;gap:16px;align-items:flex-start;margin-bottom:16px;">` +
+      imgTag +
+      `<div style="flex:1;min-width:0;">` +
+      `<p style="margin:0 0 4px 0;font-weight:600;">${authorMatch[2]}</p>` +
+      `<p style="margin:0;">${authorMatch[3]}</p>` +
+      `</div></div>`;
+    styledContent = styledContent.replace(authorBlockRe, flexHeader);
+  } else {
+    // Fallback: at least make any leading image circular rather than full-width.
+    styledContent = styledContent.replace(
+      /^(\s*<p>\s*)<img([^>]*?)\/?>/i,
+      `$1<img$2 style="width:64px;height:64px;border-radius:9999px;object-fit:cover;" />`
+    );
+  }
+
   return `<details style="margin:24px 0;border:1px solid ${borderColor};border-radius:12px;overflow:hidden;" data-trust-signal="true">
   <summary style="list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 20px;background:${headerBg};color:${textColor};font-weight:600;">
     <span style="display:inline-flex;align-items:center;gap:12px;">
@@ -132,7 +159,7 @@ export function buildTrustSignalHtml(
     <span style="color:${primary};font-size:18px;line-height:1;">&#9662;</span>
   </summary>
   <div style="padding:16px 20px;color:${textColor};line-height:1.7;font-size:15px;">
-    ${contentHtml}
+    ${styledContent}
   </div>
 </details>`;
 }
