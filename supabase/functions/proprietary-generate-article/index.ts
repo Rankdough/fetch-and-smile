@@ -2328,17 +2328,57 @@ Deno.serve(async (req) => {
       const pairs = pool.slice(0, Math.max(0, Math.min(count, pool.length)));
       return pairs.map(([q, a]) => `${q}\n\n${a}`).join("\n\n");
     };
+    // Derive FAQ pairs from the article's own question H2s and their atomic
+    // answers — far better AEO value than generic topic-templated fillers.
+    const buildContentDerivedFaq = (
+      sections: Array<{ heading: string; content: string }>,
+      existingFaq: string,
+      need: number,
+    ): string[] => {
+      const existing = existingFaq.toLowerCase();
+      const pairs: string[] = [];
+      for (const s of sections) {
+        if (pairs.length >= need) break;
+        const heading = (s.heading || "").trim();
+        if (!heading.endsWith("?")) continue;
+        if (existing.includes(heading.toLowerCase().replace(/\?$/, ""))) continue;
+        // First text paragraph: skip images, tables, bullets, blockquotes
+        const para = (s.content || "")
+          .split(/\n{2,}/)
+          .map((p) => p.trim())
+          .find((p) => p && !/^!\[/.test(p) && !/^\|/.test(p) && !/^[-*+>]/.test(p) && !/^#{1,6}\s/.test(p));
+        if (!para) continue;
+        // First two sentences, capped
+        const sentences = para.match(/[^.!?]+[.!?]+/g)?.slice(0, 2).join(" ").trim() || para;
+        const answer = sentences.split(/\s+/).slice(0, 45).join(" ");
+        if (answer.split(/\s+/).length < 8) continue;
+        pairs.push(`**${heading}**\n\n${answer}${/[.!?]$/.test(answer) ? "" : "."}`);
+      }
+      return pairs;
+    };
     const countFaqPairs = (faq: string): number => {
       const re = /^\s*\*\*[^*\n]+\?\*\*\s*$/gm;
       return (faq.match(re) || []).length;
     };
-    const ensureFiveFaqPairs = (faq: string, topic: string): string => {
+    const ensureFiveFaqPairs = (
+      faq: string,
+      topic: string,
+      sections: Array<{ heading: string; content: string }> = [],
+    ): string => {
       const have = countFaqPairs(faq);
       if (have >= 5) return faq;
-      const need = 5 - have;
-      const fillers = buildFallbackFaq(topic, 5).split(/\n\n(?=\*\*)/).slice(-need).join("\n\n");
-      console.warn(`STITCH: FAQ had ${have} pair(s) — appended ${need} deterministic filler(s) to reach 5.`);
-      return faq.trimEnd() + "\n\n" + fillers;
+      let need = 5 - have;
+      const parts: string[] = [];
+      // 1. Prefer pairs derived from the article's own question sections.
+      const derived = buildContentDerivedFaq(sections, faq, need);
+      parts.push(...derived);
+      need -= derived.length;
+      // 2. Only then fall back to topic-templated pool fillers.
+      if (need > 0) {
+        parts.push(buildFallbackFaq(topic, 5).split(/\n\n(?=\*\*)/).slice(-need).join("\n\n"));
+      }
+      console.warn(`STITCH: FAQ had ${have} pair(s) — appended ${derived.length} content-derived + ${need} filler pair(s) to reach 5.`);
+      return (faq.trimEnd() + "\n\n" + parts.join("\n\n")).trim();
     };
 
     const md: string[] = [`# ${articleTitle}`, ""];
@@ -2359,8 +2399,15 @@ Deno.serve(async (req) => {
       if ((s.kind === "faq" || s.kind === "quick-tips") && isEmptyOrPlaceholder(cleanContent)) {
         // For FAQ: inject a deterministic fallback rather than silently dropping the section.
         if (s.kind === "faq") {
-          const fallbackFaq = buildFallbackFaq(body.topic, 5);
-          console.warn("STITCH: FAQ was empty — injected deterministic fallback (5 pairs).");
+          const derivedPairs = buildContentDerivedFaq(sectionsOut, "", 5);
+          const remaining = 5 - derivedPairs.length;
+          const fallbackFaq = [
+            ...derivedPairs,
+            ...(remaining > 0
+              ? [buildFallbackFaq(body.topic, 5).split(/\n\n(?=\*\*)/).slice(-remaining).join("\n\n")]
+              : []),
+          ].join("\n\n");
+          console.warn(`STITCH: FAQ was empty — injected ${derivedPairs.length} content-derived + ${remaining} filler pair(s).`);
           md.push("## Frequently Asked Questions", "", fallbackFaq, "");
           continue;
         }
@@ -2375,7 +2422,7 @@ Deno.serve(async (req) => {
         md.push("## Quick Tips", "", normaliseQuickTipsContent(cleanContent), "");
       } else if (s.kind === "faq") {
         // Enforce EXACTLY 5 Q&A pairs: top-up with deterministic fillers if model produced fewer.
-        const topped = ensureFiveFaqPairs(cleanContent, body.topic);
+        const topped = ensureFiveFaqPairs(cleanContent, body.topic, sectionsOut);
         md.push("## Frequently Asked Questions", "", topped, "");
       } else {
         md.push(`## ${s.heading}`, "", cleanContent, "");
@@ -2556,8 +2603,8 @@ Deno.serve(async (req) => {
         appliedRules: {
           gapAnalysisUsed: !!(body.gapAnalysis?.trim()) || gapInsightsList.length > 0,
           formatReferenceUsed: false,
-          contextFilesUsed: units.length > 0,
-          contextFileNames: [],
+          contextFilesUsed: units.length > 0 || (body.contextFiles?.length ?? 0) > 0,
+          contextFileNames: (body.contextFiles || []).map((f: { name: string }) => f.name),
           keywordsUsed: keywordsList.length > 0,
           keywords: keywordsList,
           targetWordCount: targetWords,
