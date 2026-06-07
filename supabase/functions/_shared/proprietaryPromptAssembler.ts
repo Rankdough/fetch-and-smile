@@ -73,6 +73,8 @@ export interface AssemblerInput {
   valuePromiseBlock?: string;
   /** Competitor gaps + target keywords — secondary guidance, never overrides value promises. */
   gapKeywordBlock?: string;
+  /** Word budget for this section — controls how many H3 sub-sections the atomic structure rule allows. */
+  sectionBudgetWords?: number;
 }
 
 export interface AssembledPrompt {
@@ -542,7 +544,7 @@ Name], or [NEEDS EXPERT INPUT].`;
     // Atomic structure (standalone answer + exactly 3 bullets) and inline
     // source link — baked into generation so post-hoc guards rarely need to
     // fire.
-    ruleBlocks.push(ATOMIC_BODY_STRUCTURE_RULE);
+    ruleBlocks.push(buildAtomicBodyStructureRule(input.sectionBudgetWords ?? 300));
     applied.push(18);
     const allowed = (input.allowedSourceUrls || []).filter((s) => s && s.url && /^https?:\/\//i.test(s.url));
     if (allowed.length > 0) {
