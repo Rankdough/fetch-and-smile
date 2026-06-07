@@ -10,9 +10,22 @@ export function trimToWordCount(text: string, maxWords: number): string {
   // Protect decimal numbers before sentence splitting so "7.36%" does not get
   // split into "7." and "36%", producing truncated table cells and prose fragments.
   const DECIMAL_PLACEHOLDER = "\x00DEC\x00";
-  const protectedText = text.replace(/(\d)\.(?=\d)/g, `$1${DECIMAL_PLACEHOLDER}`);
+  // Protect URLs and markdown links so domain dots ("bigleagueshirts.com") are
+  // never treated as sentence boundaries — previously this split URLs across
+  // sentences and destroyed links in TL;DR, opening, and Final Thoughts.
+  const URL_PLACEHOLDER_PREFIX = "\x00URL";
+  const URL_PLACEHOLDER_SUFFIX = "\x00";
+  const protectedUrls: string[] = [];
+  let protectedText = text.replace(/\[[^\]]*\]\(\s*https?:\/\/[^)\s]+\s*\)|https?:\/\/[^\s)]+/g, (m) => {
+    protectedUrls.push(m);
+    return `${URL_PLACEHOLDER_PREFIX}${protectedUrls.length - 1}${URL_PLACEHOLDER_SUFFIX}`;
+  });
+  protectedText = protectedText.replace(/(\d)\.(?=\d)/g, `$1${DECIMAL_PLACEHOLDER}`);
+  const restore = (s: string) => s
+    .replace(new RegExp(DECIMAL_PLACEHOLDER.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g"), ".")
+    .replace(/\x00URL(\d+)\x00/g, (_m, i) => protectedUrls[Number(i)] ?? "");
   const sentences = protectedText.match(/[^.!?]+[.!?]+(?:["')\]]+)?/g)
-    ?.map((s) => s.replace(new RegExp(DECIMAL_PLACEHOLDER.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g"), ".").trim())
+    ?.map((s) => restore(s).trim())
     .filter(Boolean) ?? [];
   const completeSentences: string[] = [];
   let usedWords = 0;
