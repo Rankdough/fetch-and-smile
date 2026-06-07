@@ -339,14 +339,16 @@ export function markdownToStyledHtml(
   const sec = colorPalette?.secondary || primaryColor;
 
   container.querySelectorAll("table").forEach((table) => {
-    table.setAttribute("style", `min-width: 100%; border-collapse: collapse; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border: 1px solid ${tableBorder}; table-layout: auto; margin-bottom: 24px;`);
+    // width (not min-width) + no nowrap headers: the table must fit the
+    // content column on Shopify, never overflow it.
+    table.setAttribute("style", `width: 100%; max-width: 100%; border-collapse: collapse; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border: 1px solid ${tableBorder}; table-layout: auto; margin-bottom: 24px;`);
     table.removeAttribute("class");
 
     table.querySelectorAll("thead").forEach((thead) => {
       thead.setAttribute("style", `background: linear-gradient(135deg, ${primaryColor} 0%, ${sec} 100%);`);
     });
     table.querySelectorAll("th").forEach((th) => {
-      th.setAttribute("style", `padding: 12px 16px; text-align: left; color: ${tableHeaderText}; font-weight: 600; font-size: 14px; border: 1px solid ${tableBorder}; white-space: nowrap;`);
+      th.setAttribute("style", `padding: 12px 16px; text-align: left; color: ${tableHeaderText}; font-weight: 600; font-size: 14px; border: 1px solid ${tableBorder};`);
     });
     table.querySelectorAll("tbody tr").forEach((tr, i) => {
       (tr as HTMLElement).setAttribute("style", `background: ${i % 2 === 0 ? tableRowOdd : tableRowEven}; color: ${bodyText};`);
