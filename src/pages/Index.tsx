@@ -2001,10 +2001,22 @@ const Index = () => {
           0,
         );
         const insertedLinks = data.internalLinks?.insertedCount ?? 0;
+        const providedLinks = data.internalLinks?.totalProvided ?? 0;
         toast({
           title: "Proprietary article generated",
           description: `${data.brainUnitCount ?? 0} brain unit(s) considered · ${insertedLinks} internal link(s) inserted · ${expertGaps} section(s) need expert input · ${flagged} Rule-5 flag(s)`,
         });
+        // Internal link insertion fails SILENTLY in the pipeline (article is
+        // returned unchanged). Surface that failure so it is never invisible.
+        if (providedLinks > 0 && insertedLinks === 0) {
+          toast({
+            title: "Internal links NOT inserted",
+            description: data.internalLinks?.note
+              ? `0 of ${providedLinks} links inserted. Reason: ${data.internalLinks.note}`
+              : `0 of ${providedLinks} links inserted. Check that the insert-internal-links edge function is deployed.`,
+            variant: "destructive",
+          });
+        }
       } else if (useHumanMode) {
         // Use 4-stage humanising pipeline
         content = await handleHumanModeGenerate();
