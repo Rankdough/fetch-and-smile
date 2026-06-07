@@ -44,13 +44,19 @@ export function addQnaMicrodata(html: string): string {
     // 1. Mark the question heading
     let s = seg.replace(/^<h2\b/i, '<h2 itemprop="name"');
 
-    // 2. Wrap the first paragraph after the heading as the accepted answer.
-    //    The atomic answer paragraph is the AI-retrieval target for this section.
-    s = s.replace(
-      /(<\/h2>\s*)<p\b([^>]*)>([\s\S]*?)<\/p>/i,
-      (_m, pre: string, attrs: string, inner: string) =>
-        `${pre}<div itemprop="acceptedAnswer" itemscope itemtype="https://schema.org/Answer"><p id="answer-${answerIdx}" itemprop="text"${attrs}>${inner}</p></div>`
-    );
+    // 2. Wrap the first TEXT paragraph after the heading as the accepted answer.
+    //    Image-only paragraphs are skipped — wrapping an <img> as the answer
+    //    destroys the Question/Answer microdata and speakable target.
+    const pRe = /<p\b([^>]*)>([\s\S]*?)<\/p>/gi;
+    let pm: RegExpExecArray | null;
+    while ((pm = pRe.exec(s)) !== null) {
+      const inner = pm[2];
+      const innerNoImg = inner.replace(/<img\b[^>]*>/gi, "").replace(/&nbsp;/gi, " ").trim();
+      if (!innerNoImg) continue; // image-only paragraph — skip
+      const wrapped = `<div itemprop="acceptedAnswer" itemscope itemtype="https://schema.org/Answer"><p id="answer-${answerIdx}" itemprop="text"${pm[1]}>${inner}</p></div>`;
+      s = s.slice(0, pm.index) + wrapped + s.slice(pm.index + pm[0].length);
+      break;
+    }
 
     // 3. Scope the whole section as a Question entity
     return `<section itemscope itemtype="https://schema.org/Question">${s}</section>`;
