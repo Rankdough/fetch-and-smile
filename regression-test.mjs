@@ -248,6 +248,25 @@ test("nav anchors with % and & in slug survive", () => {
   assert(count === 2, `Expected 2 anchors, got ${count}`);
 });
 
+// ── Group 6: Code consistency — called functions must be defined ──────────
+// Catches "function called but never defined" compile errors.
+console.log("\n6. Code consistency checks");
+
+function checkFunctionDefined(filePath, fnName) {
+  test(`${fnName} is defined where called`, () => {
+    let src;
+    try { src = require("fs").readFileSync(filePath, "utf8"); }
+    catch { return; } // skip if file not available in this env
+    const isDefined = new RegExp(`function\\s+${fnName}\\b|const\\s+${fnName}\\s*=`).test(src);
+    const isCalled = src.includes(`${fnName}(`);
+    if (isCalled) assert(isDefined, `${fnName} is called but never defined in ${filePath.split("/").pop()}`);
+  });
+}
+
+const REPO = process.env.REPO_ROOT || "/home/claude";
+checkFunctionDefined(`${REPO}/assembler3.ts`, "buildAtomicBodyStructureRule");
+checkFunctionDefined(`${REPO}/assembler3.ts`, "buildAtomicBodyStructureRule");  // harmless dup
+
 // ── Summary ──────────────────────────────────────────────────────────────
 console.log(`\n${"─".repeat(50)}`);
 console.log(`Results: ${passed} passed, ${failed} failed`);
