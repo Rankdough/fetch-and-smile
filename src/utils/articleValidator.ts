@@ -217,7 +217,7 @@ export function repairArticleHtml(input: string): RepairResult {
     if (cur.length) chunks.push(cur.join(" "));
     if (chunks.length < 2) return match;
     densitySplit++;
-    return chunks.map((c) => `<p${attrs}>${c.trim()}</p>`).join("\n");
+    return chunks.map((c, ci) => `<p${ci === 0 ? attrs : shardAttrs}>${c.trim()}</p>`).join("\n");
   });
   if (densitySplit > 0) applied.push(`split-${densitySplit}-dense-paragraphs`);
 
