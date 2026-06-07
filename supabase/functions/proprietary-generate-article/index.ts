@@ -1972,7 +1972,10 @@ function normaliseQuickTipsContent(content: string): string {
     if (!line) continue;
     // Strip "Tip N:" prefixes and leading bold labels
     line = line.replace(/^\*{0,2}Tip\s*\d+\s*:?\*{0,2}\s*/i, "");
+    // Strip bold header patterns: **Heading:** or **Heading** — keep the body text
     line = line.replace(/^\*\*[^*]+\*\*\s*:?\s*/, "");
+    // Strip any remaining leading bold/italic markers
+    line = line.replace(/^[*_]{1,3}\s*/, "");
     // Strip wrapping straight/curly quotes
     line = line.replace(/^["'\u201c\u201d\u2018\u2019\s]+/, "").replace(/["'\u201c\u201d\u2018\u2019\s]+$/, "").trim();
     if (!line) continue;
