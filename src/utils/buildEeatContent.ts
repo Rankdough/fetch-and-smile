@@ -32,6 +32,55 @@ const SPORT_GOVERNING_BODIES: Record<string, string[]> = {
   "default": ["Relevant governing body rulebooks", "Official competition records", "Published industry guidelines"],
 };
 
+// Keywords that indicate a product/care topic rather than a sport topic
+const PRODUCT_CARE_KEYWORDS = [
+  "shrink", "shrinking", "wash", "washing", "dry", "drying", "care",
+  "fabric", "material", "jersey care", "cleaning", "laundry", "heat",
+  "transfer", "vinyl", "printing", "sublimation", "embroidery", "sizing",
+  "fit", "customis", "customiz", "design", "colour", "color", "stitch",
+];
+
+const DENTAL_KEYWORDS = ["dental", "implant", "teeth", "tooth", "orthodont", "veneer", "crown"];
+
+type TopicCategory = "sport" | "product-care" | "dental" | "general";
+
+function categoriseTopic(sportLabel: string): TopicCategory {
+  const s = sportLabel.toLowerCase();
+  if (DENTAL_KEYWORDS.some((k) => s.includes(k))) return "dental";
+  if (PRODUCT_CARE_KEYWORDS.some((k) => s.includes(k))) return "product-care";
+  // Check if it matches a known sport key
+  const sportKeys = Object.keys(SPORT_GOVERNING_BODIES).filter((k) => k !== "default");
+  if (sportKeys.some((k) => s.includes(k))) return "sport";
+  return "general";
+}
+
+function buildBioCopy(authorName: string, sportLabel: string, category: TopicCategory): string {
+  const cap = sportLabel.charAt(0).toUpperCase() + sportLabel.slice(1);
+  switch (category) {
+    case "product-care":
+      return `${authorName} has covered ${cap} content with a focus on fabric technology, garment care, print and customisation methods, and manufacturer guidelines. His work draws on industry testing standards and verified product data.`;
+    case "dental":
+      return `${authorName} has covered ${cap} content with a focus on clinical guidelines, treatment procedures, cost factors, and patient outcomes. His work references peer-reviewed publications and official dental association guidance.`;
+    case "sport":
+      return `${authorName} has covered ${cap} content with a focus on rules, equipment, athlete development, and competition structure at recreational, youth, collegiate, and elite levels. His work draws on official governing body publications and verified competition data.`;
+    default:
+      return `${authorName} has covered ${cap} content with a focus on accuracy, sourcing from authoritative publications and verified data to ensure every claim meets editorial standards.`;
+  }
+}
+
+function buildEditorialPolicy(sportLabel: string, category: TopicCategory): string {
+  switch (category) {
+    case "product-care":
+      return `All factual claims, care instructions, and technical specifications are cross-referenced against manufacturer guidelines and industry testing standards before publication. Product data is sourced from verified supplier and standards documentation, not secondary aggregators.`;
+    case "dental":
+      return `All factual claims, treatment details, and cost data are cross-referenced against official dental association publications and peer-reviewed clinical guidelines before publication. Statistics are sourced from verified clinical databases, not secondary aggregators.`;
+    case "sport":
+      return `All factual claims, rules, distances, and records are cross-referenced against official ${sportLabel} governing body publications before publication. Statistics are sourced from official results databases, not secondary aggregators.`;
+    default:
+      return `All factual claims are cross-referenced against authoritative sources before publication. Data is sourced from verified primary references, not secondary aggregators.`;
+  }
+}
+
 export function getSportGoverningBodies(sport: string): string[] {
   const s = sport.toLowerCase();
   for (const [key, bodies] of Object.entries(SPORT_GOVERNING_BODIES)) {
@@ -61,6 +110,8 @@ export function extractSourcesFromContextFiles(
     "National Football League", "National Association of Intercollegiate Athletics",
     "National Federation of State High School Associations",
     "National Collegiate Athletic Association",
+    "AATCC", "American Association of Textile Chemists",
+    "HTV", "Heat Transfer Vinyl",
   ];
 
   for (const file of contextFiles) {
@@ -72,12 +123,11 @@ export function extractSourcesFromContextFiles(
     }
 
     // Extract acronyms in parentheses — e.g. "National Football League (NFL)"
-    const acronymRe = /([A-Z][A-Za-z &.\-']{4,60})\s+\(([A-Z]{2,8})\)/g;
+    const acronymRe = /([A-Z][A-Za-z &.\-'"]{4,60})\s+\(([A-Z]{2,8})\)/g;
     let m: RegExpExecArray | null;
     while ((m = acronymRe.exec(text)) !== null) {
       const fullName = m[1].trim();
       const acronym = m[2];
-      // Only add if it looks like a real organisation name (not a sentence)
       const wordCount = fullName.split(/\s+/).length;
       if (wordCount >= 2 && wordCount <= 8 && /^[A-Z]/.test(fullName)) {
         sources.add(`${fullName} (${acronym})`);
@@ -100,14 +150,13 @@ export function buildEeatContent(
   contextFiles: Array<{ name: string; content: string }>,
   author: string
 ): string {
-  // Derive a clean sport label — strip question words, article titles, punctuation
-  // e.g. "Girls Flag Football: Which US Colleges Offer Women's Programs?" → "flag football"
+  // Derive a clean sport label
   const rawSport = sport?.trim() || "";
   const sportLabel = rawSport
     ? rawSport
         .replace(/[?!.]/g, "")
         .replace(/^(girls|boys|womens?|mens?|youth|college|collegiate)\s+/gi, "")
-        .replace(/:.+$/, "") // strip subtitle after colon
+        .replace(/:.+$/, "")
         .toLowerCase()
         .trim() || rawSport.toLowerCase().trim()
     : "sport";
@@ -116,6 +165,8 @@ export function buildEeatContent(
     month: "long",
     year: "numeric",
   });
+
+  const category = categoriseTopic(sportLabel);
 
   const extractedSources =
     contextFiles?.length > 0 ? extractSourcesFromContextFiles(contextFiles) : [];
@@ -127,14 +178,22 @@ export function buildEeatContent(
       : "**Fact-checked against**";
   const sourcesList = sources.map((s) => `- ✓ ${s}`).join("\n");
 
-  // Use pure markdown — no raw HTML tags (they render as text in some paths)
-  // Photo rendered as markdown image syntax
+  const bioCopy = buildBioCopy(authorName, sportLabel, category);
+  const editorialPolicy = buildEditorialPolicy(sportLabel, category);
+
+  const expertTitle =
+    category === "product-care"
+      ? `${sportLabel.charAt(0).toUpperCase() + sportLabel.slice(1)} Specialist`
+      : category === "dental"
+      ? `${sportLabel.charAt(0).toUpperCase() + sportLabel.slice(1)} Content Specialist`
+      : `${sportLabel.charAt(0).toUpperCase() + sportLabel.slice(1)} Expert`;
+
   return [
     `![${authorName}](${NIC_PHOTO_URL})`,
     "",
-    `**${authorName}** · ${sportLabel.charAt(0).toUpperCase() + sportLabel.slice(1)} Expert`,
+    `**${authorName}** · ${expertTitle}`,
     "",
-    `${authorName} has covered ${sportLabel} content with a focus on rules, equipment, athlete development, and competition structure at recreational, youth, collegiate, and elite levels. His work draws on official governing body publications and verified competition data.`,
+    bioCopy,
     "",
     "---",
     "",
@@ -142,7 +201,7 @@ export function buildEeatContent(
     sourcesList,
     "",
     "**Editorial policy**",
-    `All factual claims, rules, distances, and records are cross-referenced against official ${sportLabel} governing body publications before publication. Statistics are sourced from official results databases, not secondary aggregators.`,
+    editorialPolicy,
     "",
     `*Last reviewed: ${reviewDate}*`,
   ].join("\n");
