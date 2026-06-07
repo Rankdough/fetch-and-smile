@@ -1805,6 +1805,61 @@ function enforceOpeningLength(markdown: string): string {
   return `${markdown.slice(0, start).trimEnd()}\n\n${trimmed}\n\n${markdown.slice(end).trimStart()}`.trim();
 }
 
+// Normalise the Quick Tips section into exactly three clean blockquote tips.
+// The model variously emits intro sentences, quoted platitudes, bullet lists,
+// and blockquotes — sometimes all four. This pass deterministically:
+//  1. collects every candidate tip line (blockquote, bullet, or sentence)
+//  2. strips wrapping quotes, "Tip N:" prefixes, and bold labels
+//  3. drops meta/intro lines ("...with these quick tips", lines ending in ":")
+//  4. prefers concrete tips (numbers, temperatures, durations) over platitudes
+//  5. emits the best three as "> tip" blockquotes (renders as cards in both paths)
+function normaliseQuickTipsContent(content: string): string {
+  const lines = content.split("\n");
+  const candidates: Array<{ text: string; order: number }> = [];
+  let order = 0;
+  for (const raw of lines) {
+    let line = raw.trim();
+    if (!line) continue;
+    if (/^#{1,6}\s/.test(line)) continue; // headings
+    if (/^!\[/.test(line)) continue; // images
+    if (/^\|/.test(line)) continue; // tables
+    line = line.replace(/^>\s*/, "").replace(/^[-*+]\s+/, "").replace(/^\d+\.\s+/, "").trim();
+    if (!line) continue;
+    // Strip "Tip N:" prefixes and leading bold labels
+    line = line.replace(/^\*{0,2}Tip\s*\d+\s*:?\*{0,2}\s*/i, "");
+    line = line.replace(/^\*\*[^*]+\*\*\s*:?\s*/, "");
+    // Strip wrapping straight/curly quotes
+    line = line.replace(/^["'\u201c\u201d\u2018\u2019\s]+/, "").replace(/["'\u201c\u201d\u2018\u2019\s]+$/, "").trim();
+    if (!line) continue;
+    // Drop meta/intro lines, not real tips
+    if (/quick\s*tips?/i.test(line)) continue;
+    if (/^(here are|these are|the following|in this section|below are|keep reading|let's|remember)\b/i.test(line)) continue;
+    if (/:$/.test(line)) continue;
+    if (line.split(/\s+/).length < 4) continue;
+    if (!/[.!?]$/.test(line)) line = `${line}.`;
+    candidates.push({ text: line, order: order++ });
+  }
+  if (candidates.length === 0) return content; // safety: leave untouched
+  // Dedupe case-insensitively
+  const seen = new Set<string>();
+  const unique = candidates.filter((c) => {
+    const k = c.text.toLowerCase();
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+  // Concrete tips (numbers, temperatures, durations, percentages) outrank platitudes
+  const score = (s: string) =>
+    (/\d/.test(s) ? 2 : 0) +
+    (/\u00b0|%|hour|minute|second|cycle|degrees?\b/i.test(s) ? 1 : 0) +
+    (/^(avoid|never|always|use|verify|wait|check|keep|air[- ]dry|wash|set|turn)\b/i.test(s) ? 1 : 0);
+  const chosen = [...unique]
+    .sort((a, b) => score(b.text) - score(a.text) || a.order - b.order)
+    .slice(0, 3)
+    .sort((a, b) => a.order - b.order);
+  return chosen.map((c) => `> ${c.text}`).join("\n\n");
+}
+
 function enforceFinalThoughtsParagraphs(markdown: string): string {
   const re = /(^##\s+final\s*thoughts\s*\n)([\s\S]*?)(?=^##\s+|$(?![\r\n]))/im;
   const m = markdown.match(re);
@@ -2317,7 +2372,7 @@ Deno.serve(async (req) => {
       } else if (s.kind === "tldr") {
         md.push("## TL;DR", "", trimToWordCount(cleanContent, 60), "");
       } else if (s.kind === "quick-tips") {
-        md.push("## Quick Tips", "", cleanContent, "");
+        md.push("## Quick Tips", "", normaliseQuickTipsContent(cleanContent), "");
       } else if (s.kind === "faq") {
         // Enforce EXACTLY 5 Q&A pairs: top-up with deterministic fillers if model produced fewer.
         const topped = ensureFiveFaqPairs(cleanContent, body.topic);
