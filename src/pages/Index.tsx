@@ -3248,7 +3248,7 @@ const Index = () => {
                   wrapper.setAttribute('style', 'width: 100%; overflow-x: auto; margin: 24px 0; -webkit-overflow-scrolling: touch;');
                   
                   // Style the table itself
-                  table.setAttribute('style', `min-width: 100%; border-collapse: collapse; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border: 1px solid ${tableBorder}; table-layout: auto;`);
+                  table.setAttribute('style', `width: 100%; max-width: 100%; border-collapse: collapse; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border: 1px solid ${tableBorder}; table-layout: auto;`);
                   table.removeAttribute('class');
                   
                   // Insert wrapper before table and move table inside
@@ -3266,7 +3266,7 @@ const Index = () => {
                 
                 // Style th cells
                 clone.querySelectorAll('th').forEach((th) => {
-                  th.setAttribute('style', `padding: 12px 16px; text-align: left; color: ${tableHeaderText}; font-weight: 600; font-size: 14px; border: 1px solid ${tableBorder}; white-space: nowrap;`);
+                  th.setAttribute('style', `padding: 12px 16px; text-align: left; color: ${tableHeaderText}; font-weight: 600; font-size: 14px; border: 1px solid ${tableBorder};`);
                   th.removeAttribute('class');
                 });
                 
@@ -3300,6 +3300,18 @@ const Index = () => {
                   }
                   
                   const href = a.getAttribute('href') || '';
+                  // Unwrap truncated URLs (hostname without a dot, e.g. the
+                  // "https://bigleagueshirts" stub left by upstream URL splitting)
+                  if (/^https?:\/\//i.test(href)) {
+                    try {
+                      const host = new URL(href).hostname;
+                      if (!host.includes('.')) {
+                        const txt = document.createTextNode(a.textContent || '');
+                        a.parentNode?.replaceChild(txt, a);
+                        return;
+                      }
+                    } catch { /* leave malformed hrefs to the style branch below */ }
+                  }
                   if (href.startsWith('#')) {
                     a.setAttribute('style', 'color: #2563eb; text-decoration: underline;');
                   } else {
