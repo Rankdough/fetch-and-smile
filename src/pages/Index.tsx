@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
-import { buildEeatContent } from "@/utils/buildEeatContent";
+import { buildEeatContent, extractSourcesFromArticle } from "@/utils/buildEeatContent";
 import { addQnaMicrodata } from "@/utils/addQnaMicrodata";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -1181,6 +1181,35 @@ const Index = () => {
   useEffect(() => {
     localStorage.setItem("seo-generator-trustSignalContent", trustSignalContent);
   }, [trustSignalContent]);
+
+  // After generation: rebuild trust box sources from the article's ## References block.
+  // This ensures "Sources used in this article" matches the actual references in the article,
+  // rather than being based solely on context file scanning done before generation.
+  useEffect(() => {
+    if (!generatedContent?.trim() || !includeTrustSignal) return;
+    const articleSources = extractSourcesFromArticle(generatedContent);
+    if (articleSources.length === 0) return;
+    // Replace only the sources list in the current trust signal content.
+    // Keeps the bio, editorial policy, and review date intact.
+    setTrustSignalContent((prev) => {
+      if (!prev) return prev;
+      // Match the sources block: from "**Sources used..." or "**Fact-checked..." line
+      // through the last "- ✓ ..." bullet, and replace with the article sources.
+      const sourcesList = articleSources.map((s) => `- ✓ ${s}`).join("\n");
+      const updated = prev
+        .replace(
+          /\*\*(Sources used in this article|Fact-checked against)\*\*\n(?:- ✓ .+\n?)*/,
+          `**Sources used in this article**\n${sourcesList}\n`
+        );
+      return updated === prev
+        ? prev.replace(
+            /(?:- ✓ .+\n?)+/,
+            `${sourcesList}\n`
+          )
+        : updated;
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [generatedContent]);
   
   useEffect(() => {
     if (selectedToneProfileId) {
