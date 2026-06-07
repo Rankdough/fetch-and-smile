@@ -125,7 +125,15 @@ export function trimSectionToBudget(body: string, budget: number): string {
     }
 
     // Only accept fully terminated sentences — never keep a dangling fragment.
-    const sentences = paragraph.match(/[^.!?]+[.!?]+(?:["')\]]+)?/g)?.map((s) => s.trim()).filter(Boolean) ?? [];
+    // Protect URLs and markdown links first: domain dots must never be treated
+    // as sentence boundaries (this previously split links across paragraphs).
+    const paraUrls: string[] = [];
+    const protectedPara = paragraph.replace(/\[[^\]]*\]\(\s*https?:\/\/[^)\s]+\s*\)|https?:\/\/[^\s)]+/g, (u) => {
+      paraUrls.push(u);
+      return `\x00URL${paraUrls.length - 1}\x00`;
+    });
+    const restorePara = (s: string) => s.replace(/\x00URL(\d+)\x00/g, (_m, i) => paraUrls[Number(i)] ?? "");
+    const sentences = protectedPara.match(/[^.!?]+[.!?]+(?:["')\]]+)?/g)?.map((s) => restorePara(s).trim()).filter(Boolean) ?? [];
     const sentenceBuffer: string[] = [];
 
     for (const sentence of sentences) {
