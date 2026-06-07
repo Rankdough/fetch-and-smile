@@ -126,7 +126,9 @@ export function buildTrustSignalHtml(
   // Match the PREVIEW layout: 64px circular author photo with name + bio
   // flowing beside it, instead of a full-width image above stacked text.
   // marked output shape: <p><img ...></p> <p><strong>Name</strong> · Title</p> <p>bio</p>
-  let styledContent = contentHtml;
+  // Strip <hr> elements — the --- separator in the markdown creates large-margin
+  // horizontal rules that add visible gaps between bio and sources sections.
+  let styledContent = contentHtml.replace(/<hr\s*\/?>/gi, "");
   const authorBlockRe = /^\s*<p>\s*(<img[^>]*>)\s*<\/p>\s*<p>([\s\S]*?)<\/p>\s*<p>([\s\S]*?)<\/p>/i;
   const authorMatch = styledContent.match(authorBlockRe);
   if (authorMatch) {
