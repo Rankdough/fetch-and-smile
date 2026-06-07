@@ -195,8 +195,6 @@ export function buildEeatContent(
     "",
     bioCopy,
     "",
-    "---",
-    "",
     sourceHeading,
     sourcesList,
     "",
