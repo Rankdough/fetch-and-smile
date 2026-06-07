@@ -1072,6 +1072,37 @@ function dedupeAndValidateRefs(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// stripContextFileLeaks
+// Strips sentences where the model reveals a context file's name as an inline
+// citation — e.g. 'This information comes from "Material layer composition
+// and structural categorization."' These are internal document names, not
+// publishable sources, and must never appear in article body text.
+// ─────────────────────────────────────────────────────────────────────────────
+function stripContextFileLeaks(markdown: string): { out: string; removed: number } {
+  const LEAK_RE = [
+    // "This information/data comes/was compiled/is taken from 'filename'"
+    /[Tt]his (?:information|data|content) (?:comes?|was compiled|is taken|is sourced|was sourced|is drawn) from ["']?[^"'.
+]{3,120}["']?[.,]?[ \t]*/g,
+    // "According to the document/file/source 'filename'"
+    /[Aa]ccording to (?:the )?(?:document|file|source|research report|research)\s["']?[^"'.
+]{3,120}["']?[.,]?[ \t]*/g,
+    // "Data from/sourced from/compiled from 'filename'"
+    /[Dd]ata (?:from|sourced from|compiled from|in) ["']?[^"'.
+]{3,120}["']?[.,]?[ \t]*/g,
+    // Standalone: "— Source: filename." or "Source: filename."
+    /(?:^|\n)[ \t]*(?:—\s*)?[Ss]ource:\s*["']?[^"'\n]{3,120}["']?[.,]?[ \t]*/gm,
+  ];
+  let out = markdown;
+  let removed = 0;
+  for (const re of LEAK_RE) {
+    out = out.replace(re, (m) => { removed++; return ""; });
+  }
+  // Clean up double spaces and excess blank lines left after removal
+  out = out.replace(/\.\s{2,}/g, ". ").replace(/\n{3,}/g, "\n\n").trim();
+  return { out, removed };
+}
+
 // extractContextFileReferences
 // The ONLY source for References. Extracts URLs from the uploaded context
 // files, parses Works Cited titles, filters for authority + relevance,
@@ -2590,6 +2621,11 @@ Deno.serve(async (req) => {
     const sourceFragments = stripInlineSourceFragments(stitched);
     stitched = sourceFragments.out;
     if (sourceFragments.removed > 0) console.warn(`SOURCE GUARD: stripped ${sourceFragments.removed} inline Source fragment(s) from body copy.`);
+
+    // Item 8 — strip context filename leaks from body text
+    const leakResult = stripContextFileLeaks(stitched);
+    stitched = leakResult.out;
+    if (leakResult.removed > 0) console.warn(`LEAK GUARD: stripped ${leakResult.removed} context filename citation(s) from body copy.`);
     const numericMarkers = stripBodyNumericCitationMarkers(stitched);
     stitched = numericMarkers.out;
     if (numericMarkers.removed > 0) console.warn(`CITATION GUARD: removed ${numericMarkers.removed} orphan numeric citation marker(s) from body.`);
