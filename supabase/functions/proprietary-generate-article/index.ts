@@ -2015,14 +2015,18 @@ function enforceFinalThoughtsParagraphs(markdown: string): string {
     .replace(/\s+/g, " ")
     .trim();
   if (!rawBody) return markdown;
-  // Protect URLs and markdown links: domain dots must never be treated as
-  // sentence boundaries (previously split "site.com" URLs across paragraphs).
+  // Protect URLs, markdown links, and decimal numbers from being split at ".".
   const ftUrls: string[] = [];
-  const body = rawBody.replace(/\[[^\]]*\]\(\s*https?:\/\/[^)\s]+\s*\)|https?:\/\/[^\s)]+/g, (u) => {
-    ftUrls.push(u);
-    return `\x00URL${ftUrls.length - 1}\x00`;
-  });
-  const restoreFtUrls = (s: string) => s.replace(/\x00URL(\d+)\x00/g, (_x, i) => ftUrls[Number(i)] ?? "");
+  const DECIMAL_FT = "\x00DEC\x00";
+  const body = rawBody
+    .replace(/\[[^\]]*\]\(\s*https?:\/\/[^)\s]+\s*\)|https?:\/\/[^\s)]+/g, (u) => {
+      ftUrls.push(u);
+      return `\x00URL${ftUrls.length - 1}\x00`;
+    })
+    .replace(/(\d)\.(?=\d)/g, `$1${DECIMAL_FT}`);
+  const restoreFtUrls = (s: string) => s
+    .replace(/\x00URL(\d+)\x00/g, (_x, i) => ftUrls[Number(i)] ?? "")
+    .replace(new RegExp(DECIMAL_FT.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g"), ".");
   const sentences = body.match(/[^.!?]+[.!?]+(?:["')\]]+)?/g)?.map((s) => restoreFtUrls(s).trim()).filter(Boolean) ?? [restoreFtUrls(body)];
   const first = trimToWordCount(sentences.slice(0, Math.ceil(sentences.length / 2)).join(" "), 65);
   const second = trimToWordCount(sentences.slice(Math.ceil(sentences.length / 2)).join(" ") || sentences.slice(-1).join(" "), 65);
