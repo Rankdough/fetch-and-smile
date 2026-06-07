@@ -1809,13 +1809,21 @@ function enforceFinalThoughtsParagraphs(markdown: string): string {
   const re = /(^##\s+final\s*thoughts\s*\n)([\s\S]*?)(?=^##\s+|$(?![\r\n]))/im;
   const m = markdown.match(re);
   if (!m) return markdown;
-  const body = m[2]
+  const rawBody = m[2]
     .replace(/^[-*+]\s+/gm, "")
     .replace(/\n{2,}/g, " ")
     .replace(/\s+/g, " ")
     .trim();
-  if (!body) return markdown;
-  const sentences = body.match(/[^.!?]+[.!?]+(?:["')\]]+)?/g)?.map((s) => s.trim()).filter(Boolean) ?? [body];
+  if (!rawBody) return markdown;
+  // Protect URLs and markdown links: domain dots must never be treated as
+  // sentence boundaries (previously split "site.com" URLs across paragraphs).
+  const ftUrls: string[] = [];
+  const body = rawBody.replace(/\[[^\]]*\]\(\s*https?:\/\/[^)\s]+\s*\)|https?:\/\/[^\s)]+/g, (u) => {
+    ftUrls.push(u);
+    return `\x00URL${ftUrls.length - 1}\x00`;
+  });
+  const restoreFtUrls = (s: string) => s.replace(/\x00URL(\d+)\x00/g, (_x, i) => ftUrls[Number(i)] ?? "");
+  const sentences = body.match(/[^.!?]+[.!?]+(?:["')\]]+)?/g)?.map((s) => restoreFtUrls(s).trim()).filter(Boolean) ?? [restoreFtUrls(body)];
   const first = trimToWordCount(sentences.slice(0, Math.ceil(sentences.length / 2)).join(" "), 65);
   const second = trimToWordCount(sentences.slice(Math.ceil(sentences.length / 2)).join(" ") || sentences.slice(-1).join(" "), 65);
   const rebuilt = [first, second].filter(Boolean).join("\n\n");
