@@ -258,50 +258,77 @@ export function markdownToStyledHtml(
     li.removeAttribute("class");
   });
 
-  // Style blockquotes - detect Quick Tips vs regular
-  // First, identify blockquotes that follow a Quick Tips H2
-  const quickTipsH2 = container.querySelector('h2');
-  let quickTipsSection = false;
-  const quickTipBlockquotes = new Set<Element>();
+  // Style blockquotes + Quick Tips list items
+  // Collect Quick Tip elements: blockquotes AND <ul> list items that follow a Quick Tips H2.
+  // The model sometimes outputs tips as blockquotes, sometimes as bullet lists — handle both.
+  const quickTipElements = new Set<Element>();
   container.querySelectorAll('h2').forEach((h2) => {
     if (/Quick\s*Tips/i.test(h2.textContent || '')) {
       let sibling = h2.nextElementSibling;
-      while (sibling && sibling.tagName === 'BLOCKQUOTE') {
-        quickTipBlockquotes.add(sibling);
+      // Walk all siblings until the next H2 — collect blockquotes and UL items
+      while (sibling && !/^H[12]$/.test(sibling.tagName)) {
+        if (sibling.tagName === 'BLOCKQUOTE') {
+          quickTipElements.add(sibling);
+        } else if (sibling.tagName === 'UL') {
+          // Convert each LI in this UL into a tip card by marking it
+          sibling.querySelectorAll('li').forEach((li) => quickTipElements.add(li));
+          // Mark the UL itself so we can remove it after extracting LIs
+          (sibling as HTMLElement).dataset.quickTipsList = 'true';
+        }
         sibling = sibling.nextElementSibling;
       }
     }
   });
 
+  // Helper: build a tip card element from arbitrary inner HTML
+  function buildTipCard(innerHtml: string, index: number, parentEl: Element): Element {
+    const card = doc.createElement('div');
+    card.setAttribute('style', `display: flex; align-items: center; background: ${isDark ? 'rgba(255,255,255,0.06)' : `linear-gradient(135deg, ${primaryColor}10 0%, ${primaryColor}20 100%)`}; border: 1px solid ${isDark ? 'rgba(255,255,255,0.12)' : `${primaryColor}33`}; border-radius: 12px; padding: 16px 20px; margin: 12px 0; font-style: normal;`);
+    const circleSpan = doc.createElement('span');
+    circleSpan.setAttribute('style', `display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; background: ${primaryColor}; border-radius: 50%; color: white; font-weight: 700; font-size: 14px; margin-right: 12px; flex-shrink: 0; vertical-align: middle;`);
+    circleSpan.textContent = String(index);
+    const textSpan = doc.createElement('span');
+    textSpan.innerHTML = innerHtml.replace(/^\s*/, '');
+    textSpan.setAttribute('style', `flex: 1; color: ${bodyText};`);
+    card.appendChild(circleSpan);
+    card.appendChild(textSpan);
+    return card;
+  }
+
   let tipIndex = 0;
-  container.querySelectorAll("blockquote").forEach((bq) => {
-    const firstStrong = bq.querySelector("strong");
-    const isQuickTip = (firstStrong && /^Tip \d+:?/i.test(firstStrong.textContent || "")) || quickTipBlockquotes.has(bq);
+
+  // Process blockquotes first
+  container.querySelectorAll('blockquote').forEach((bq) => {
+    const firstStrong = bq.querySelector('strong');
+    const isQuickTip = (firstStrong && /^Tip \d+:?/i.test(firstStrong.textContent || '')) || quickTipElements.has(bq);
 
     if (isQuickTip) {
       tipIndex++;
-      // Remove "Tip N:" prefix OR any leading bold label (e.g. "**Always check:**")
-      if (firstStrong && /^Tip \d+:?/i.test(firstStrong.textContent || "")) {
+      if (firstStrong && /^Tip \d+:?/i.test(firstStrong.textContent || '')) {
         firstStrong.remove();
       }
-
-      const circleSpan = doc.createElement("span");
-      circleSpan.setAttribute("style", `display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; background: ${primaryColor}; border-radius: 50%; color: white; font-weight: 700; font-size: 14px; margin-right: 12px; flex-shrink: 0; vertical-align: middle;`);
-      circleSpan.textContent = String(tipIndex);
-
-      bq.setAttribute("style", `display: flex; align-items: center; background: ${isDark ? "rgba(255,255,255,0.06)" : `linear-gradient(135deg, ${primaryColor}10 0%, ${primaryColor}20 100%)`}; border: 1px solid ${isDark ? "rgba(255,255,255,0.12)" : `${primaryColor}33`}; border-radius: 12px; padding: 16px 20px; margin: 12px 0; font-style: normal;`);
-
-      const content = bq.innerHTML;
-      bq.innerHTML = "";
-      bq.appendChild(circleSpan);
-      const textSpan = doc.createElement("span");
-      textSpan.innerHTML = content.replace(/^[\s]*/, "");
-      textSpan.setAttribute("style", `flex: 1; color: ${bodyText};`);
-      bq.appendChild(textSpan);
+      // Replace blockquote with a card div
+      const card = buildTipCard(bq.innerHTML, tipIndex, bq);
+      bq.parentNode?.replaceChild(card, bq);
     } else {
-      bq.setAttribute("style", `background: ${panelBg}; color: ${panelText}; border-left: 4px solid ${primaryColor}; padding: 16px 24px; margin: 24px 0; border-radius: 0 8px 8px 0; font-style: normal;`);
+      bq.setAttribute('style', `background: ${panelBg}; color: ${panelText}; border-left: 4px solid ${primaryColor}; padding: 16px 24px; margin: 24px 0; border-radius: 0 8px 8px 0; font-style: normal;`);
+      bq.removeAttribute('class');
     }
-    bq.removeAttribute("class");
+  });
+
+  // Process Quick Tip LIs — replace each with a card div inserted before the UL, then remove the UL
+  container.querySelectorAll('ul[data-quick-tips-list]').forEach((ul) => {
+    ul.querySelectorAll('li').forEach((li) => {
+      if (!quickTipElements.has(li)) return;
+      tipIndex++;
+      // Strip leading bold label like "**Cool Down:**" from text — keep the value
+      let html = li.innerHTML.replace(/^\s*<strong>[^<]*<\/strong>\s*:?\s*/i, '');
+      // Also strip plain "Bold Label:" pattern that wasn't wrapped in <strong>
+      html = html.replace(/^\s*[A-Z][\w\s]+:\s*/i, '');
+      const card = buildTipCard(html.trim(), tipIndex, li);
+      ul.parentNode?.insertBefore(card, ul);
+    });
+    ul.remove();
   });
 
   // Style tables
