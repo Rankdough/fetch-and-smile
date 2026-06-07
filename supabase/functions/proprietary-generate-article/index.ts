@@ -1966,7 +1966,9 @@ async function runSection(input: {
     content = (await callModel(assembled.system, assembled.user, input.model, tokenBudget)).trim();
   }
   if (isBody) {
-    content = trimSectionToBudget(content, input.sectionBudgetWords);
+    // Trim ceiling is 1.25× the budget to give the model room to fill the
+    // target without being cut exactly at the budget line.
+    content = trimSectionToBudget(content, Math.round(input.sectionBudgetWords * 1.25));
   }
   const needsExpertInput = /^\[NEEDS EXPERT INPUT\]\s*$/i.test(content);
   let ruleFlags = needsExpertInput ? [] : lintRule5(content);
