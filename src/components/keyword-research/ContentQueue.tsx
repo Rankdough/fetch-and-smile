@@ -63,6 +63,7 @@ interface ContentQueueProps {
   onUpdateQueueState: (updater: (prev: ContentQueueState) => ContentQueueState) => void;
   onAddCustomIdea?: (clusterTopic: string, title: string, hint?: string) => void | Promise<void>;
   isCreatingCustomIdea?: boolean;
+  onRegenerateIdea?: (cluster: KeywordCluster, idea: BlogIdea) => Promise<void>;
 }
 
 const EditableTitleCQ = ({ title, onSave, className = "" }: { title: string; onSave: (newTitle: string) => void; className?: string }) => {
@@ -100,7 +101,7 @@ const EditableTitleCQ = ({ title, onSave, className = "" }: { title: string; onS
   );
 };
 
-const ContentQueue = ({ queuedIdeas, onUseForArticle, onRemoveFromQueue, formatVolume, projectName, allClusters, onReassignKeyword, onCreateIdeaFromKeyword, generatingIdeaForKw, onEditIdeaTitle, onAddKeywordToIdea, queueState, onUpdateQueueState, onAddCustomIdea, isCreatingCustomIdea }: ContentQueueProps) => {
+const ContentQueue = ({ queuedIdeas, onUseForArticle, onRemoveFromQueue, formatVolume, projectName, allClusters, onReassignKeyword, onCreateIdeaFromKeyword, generatingIdeaForKw, onEditIdeaTitle, onAddKeywordToIdea, queueState, onUpdateQueueState, onAddCustomIdea, isCreatingCustomIdea, onRegenerateIdea }: ContentQueueProps) => {
   // Returns YYYY-MM-DD in local timezone (avoids UTC shifting dates)
   const localDateStr = () => {
     const d = new Date();
@@ -128,6 +129,7 @@ const ContentQueue = ({ queuedIdeas, onUseForArticle, onRemoveFromQueue, formatV
   const notes = queueState.notes;
 
   const [expandedDone, setExpandedDone] = useState<Set<string>>(new Set());
+  const [regeneratingIdea, setRegeneratingIdea] = useState<string | null>(null);
   const [completedSectionOpen, setCompletedSectionOpen] = useState(true);
   const [completedSort, setCompletedSort] = useState<"date-desc" | "date-asc" | "month">("date-desc");
   const [cqKwSearch, setCqKwSearch] = useState("");
@@ -931,6 +933,22 @@ const ContentQueue = ({ queuedIdeas, onUseForArticle, onRemoveFromQueue, formatV
                           <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform shrink-0", isExpanded && "rotate-180")} />
                         </div>
                         <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+                          {onRegenerateIdea && (
+                            <Button
+                              variant="ghost" size="sm"
+                              className="gap-1 text-xs h-7 px-2 text-muted-foreground"
+                              disabled={regeneratingIdea === ideaKey}
+                              onClick={async () => {
+                                setRegeneratingIdea(ideaKey);
+                                try { await onRegenerateIdea(cluster, idea); }
+                                finally { setRegeneratingIdea(null); }
+                              }}
+                              title="Regenerate description, value promises and keywords for this idea"
+                            >
+                              <RefreshCw className={`h-3 w-3 ${regeneratingIdea === ideaKey ? "animate-spin" : ""}`} />
+                              {regeneratingIdea === ideaKey ? "..." : "Regenerate"}
+                            </Button>
+                          )}
                           <Button variant="ghost" size="sm" className="gap-1 text-xs h-7 px-2" onClick={() => onUseForArticle(cluster, idea)}>
                             Use for Article <ArrowRight className="h-3 w-3" />
                           </Button>
@@ -1047,6 +1065,22 @@ const ContentQueue = ({ queuedIdeas, onUseForArticle, onRemoveFromQueue, formatV
                           <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform shrink-0", isExpanded && "rotate-180")} />
                         </div>
                         <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+                          {onRegenerateIdea && (
+                            <Button
+                              variant="ghost" size="sm"
+                              className="gap-1 text-xs h-7 px-2 text-muted-foreground"
+                              disabled={regeneratingIdea === ideaKey}
+                              onClick={async () => {
+                                setRegeneratingIdea(ideaKey);
+                                try { await onRegenerateIdea(cluster, idea); }
+                                finally { setRegeneratingIdea(null); }
+                              }}
+                              title="Regenerate description, value promises and keywords for this idea"
+                            >
+                              <RefreshCw className={`h-3 w-3 ${regeneratingIdea === ideaKey ? "animate-spin" : ""}`} />
+                              {regeneratingIdea === ideaKey ? "..." : "Regenerate"}
+                            </Button>
+                          )}
                           <Button variant="ghost" size="sm" className="gap-1 text-xs h-7 px-2" onClick={() => onUseForArticle(cluster, idea)}>
                             Use for Article <ArrowRight className="h-3 w-3" />
                           </Button>
