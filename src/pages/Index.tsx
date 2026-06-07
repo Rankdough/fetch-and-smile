@@ -5856,6 +5856,11 @@ const Index = () => {
                             parts.unshift({ content: '', trustSignal: true });
                           }
                         }
+
+                        // Append end CTA part if Classic mode generated CTAs and no inline CTAs exist
+                        if (generatedCTAs?.end && ctaUrl && !hasInlineCtas) {
+                          parts.push({ content: '', ctaPosition: 'end' });
+                        }
                         
                         return (
                           <>
@@ -6100,9 +6105,19 @@ const Index = () => {
                                                   const hasCtaPattern = /\*\*[^*]+\*\*/.test(fullText) && 
                                                                        /\[[^\]]+\]\(https?:\/\/[^)]+\)/.test(fullText);
                                                   
-                                                  // If we have both strong and link (or CTA pattern in text), treat as CTA
-                                                  if ((hasStrong && hasLink && buttonUrl) || 
-                                                      (hasCtaPattern && buttonUrl)) {
+                                                  // Only treat as CTA if the link URL matches the configured ctaUrl domain.
+                                                  // This prevents Quick Tips blockquotes that happen to contain a bold label
+                                                  // and any link from being mistakenly rendered as CTA banners.
+                                                  const ctaUrlDomain = ctaUrl?.trim()
+                                                    ? (() => { try { return new URL(ctaUrl.trim()).hostname.replace(/^www\./, ''); } catch { return ''; } })()
+                                                    : '';
+                                                  const buttonUrlMatchesCta = ctaUrlDomain
+                                                    ? buttonUrl.includes(ctaUrlDomain)
+                                                    : false;
+                                                  const isCtaBlockquote =
+                                                    buttonUrlMatchesCta &&
+                                                    ((hasStrong && hasLink && buttonUrl) || (hasCtaPattern && buttonUrl));
+                                                  if (isCtaBlockquote) {
                                                     // Extract description and tagline from full text
                                                     let remainingText = fullText
                                                       .replace(headline, '')
