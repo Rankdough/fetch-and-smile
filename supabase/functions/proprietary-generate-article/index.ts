@@ -1126,7 +1126,7 @@ function extractContextFileReferences(
     urlSeen.add(key);
     const tier = AUTH_TIER_1.some(re => re.test(host)) ? 1
       : AUTH_TIER_2.some(re => re.test(host)) ? 2 : 3;
-    const haystack = \`\${host} \${url} \${rawTitle}\`.toLowerCase();
+    const haystack = `${host} ${url} ${rawTitle}`.toLowerCase();
     const score = topicTokens.reduce((s, t) => s + (haystack.includes(t) ? 1 : 0), 0);
     const title = (rawTitle || host).slice(0, 120).trim();
     candidates.push({ title, url, tier, score });
