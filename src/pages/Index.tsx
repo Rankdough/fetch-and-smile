@@ -426,9 +426,16 @@ const getBestNavigationItems = (content: string) => {
   const explicitItems = extractInThisArticleItems(content);
   const fallbackItems = extractNavigationFromContent(content);
 
-  if (explicitItems.length >= 2) return explicitItems;
-  if (fallbackItems.length > explicitItems.length) return fallbackItems;
-  return explicitItems;
+  const chosen = explicitItems.length >= 2
+    ? explicitItems
+    : (fallbackItems.length > explicitItems.length ? fallbackItems : explicitItems);
+
+  // The "How to Choose the Right..." section is stripped from rendered content
+  // by the display-layer sanitiser, so it must also be excluded from the nav —
+  // otherwise the nav lists a section that does not exist. Renumber after filtering.
+  return chosen
+    .filter((item) => !/^How to Choose the Right/i.test(item.title || ""))
+    .map((item, idx) => ({ ...item, number: idx + 1, isHighlighted: idx === 0 }));
 };
 
 const normalizeQuickTipsSection = (content: string): string => {
