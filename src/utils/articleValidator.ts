@@ -149,7 +149,10 @@ export function repairArticleHtml(input: string): RepairResult {
   //    start of a word inside paragraphs. Conservative: only join when the first
   //    "word" is exactly 1 char and lowercase, surrounded by letters.
   //    e.g. "h ome" → "home", "t he" → "the".
-  const wordSplitRe = /\b([a-z])\s([a-z]{2,})\b/g;
+  // Negative lookbehind: never join after an apostrophe (contractions like
+  // "jersey's worst", "isn't just") or after "<" (tag names like "<p style"),
+  // both of which produced corrupted output ("jersey'sworst", "<pstyle=").
+  const wordSplitRe = /(?<![<'\u2019])\b([a-z])\s([a-z]{2,})\b/g;
   // Only apply inside <p>...</p> to avoid breaking attributes.
   const before = html;
   html = html.replace(/<p([^>]*)>([\s\S]*?)<\/p>/gi, (_m, attrs, body) => {
@@ -188,6 +191,9 @@ export function repairArticleHtml(input: string): RepairResult {
     const parts = body.split(/(?<=[.!?])\s+(?=[A-Z"])/);
     if (parts.length < 2) return match;
 
+    // Shards after the first must not repeat unique attributes (id, itemprop)
+    // or the document ends up with duplicate id="direct-answer" paragraphs.
+    const shardAttrs = attrs.replace(/\s+(?:id|itemprop)="[^"]*"/gi, "");
     // Group into chunks of ≤3 sentences / ≤60 words
     const chunks: string[] = [];
     let cur: string[] = [];
