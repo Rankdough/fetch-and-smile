@@ -178,6 +178,7 @@ const KeywordClustering = () => {
   const queueStateRef = useRef<ContentQueueState>(queueState);
   const activeResultIdRef = useRef<string | null>(null);
   const [usedIdeas, setUsedIdeas] = useState<Set<string>>(new Set());
+  const [doneIdeas, setDoneIdeas] = useState<Set<string>>(new Set()); // from queueState.done
   const [bookmarkedIdeas, setBookmarkedIdeas] = useState<Set<string>>(new Set());
   const [expandedClusters, setExpandedClusters] = useState<Set<string>>(() => {
     const silo = searchParams.get("silo");
@@ -362,6 +363,7 @@ const KeywordClustering = () => {
       // Sync derived state
       setBookmarkedIdeas(new Set(next.bookmarked));
       setUsedIdeas(new Set(next.used));
+      setDoneIdeas(new Set(Object.keys(next.done || {})));
       setFavoritedClusters(new Set(next.favorited_clusters));
       setDemotedClusters(new Set(next.demoted_clusters));
       saveQueueStateToDB(next);
@@ -374,6 +376,7 @@ const KeywordClustering = () => {
     queueStateRef.current = state;
     setBookmarkedIdeas(new Set(state.bookmarked));
     setUsedIdeas(new Set(state.used));
+    setDoneIdeas(new Set(Object.keys(state.done || {})));
     setFavoritedClusters(new Set(state.favorited_clusters));
     setDemotedClusters(new Set(state.demoted_clusters));
   }, []);
@@ -3212,9 +3215,10 @@ const KeywordClustering = () => {
                                 .map(({ idea, origIdx: i }) => {
                                 const ideaKey = makeIdeaKey(cluster.topic, idea.title);
                                 const isUsed = usedIdeas.has(ideaKey);
+                                const isDone = doneIdeas.has(ideaKey); // marked Done in content queue
                                 const similar = similarMap.get(idea.title);
                                 return (
-                                <div key={i} className={`border rounded-md p-3 space-y-1 transition-colors ${isUsed ? "border-green-500 bg-green-50 dark:bg-green-950/30" : ""} ${combiningIdea && combiningIdea.clusterTopic === cluster.topic && combiningIdea.ideaIndex !== i ? "border-dashed border-primary/50 cursor-pointer hover:border-primary hover:bg-primary/5" : ""} ${combiningIdea && combiningIdea.clusterTopic === cluster.topic && combiningIdea.ideaIndex === i ? "ring-2 ring-primary/30 border-primary" : ""}`}>
+                                <div key={i} className={`border rounded-md p-3 space-y-1 transition-colors ${isUsed || isDone ? "border-green-500 bg-green-50 dark:bg-green-950/30" : ""} ${combiningIdea && combiningIdea.clusterTopic === cluster.topic && combiningIdea.ideaIndex !== i ? "border-dashed border-primary/50 cursor-pointer hover:border-primary hover:bg-primary/5" : ""} ${combiningIdea && combiningIdea.clusterTopic === cluster.topic && combiningIdea.ideaIndex === i ? "ring-2 ring-primary/30 border-primary" : ""}`}>
                                   {combiningIdea && combiningIdea.clusterTopic === cluster.topic && combiningIdea.ideaIndex !== i && (
                                     <button
                                       className="w-full flex items-center justify-center gap-2 text-xs font-medium text-primary hover:text-primary/80 transition-colors pb-1"
@@ -3249,11 +3253,11 @@ const KeywordClustering = () => {
                                   <div className="flex items-start gap-2">
                                     <button
                                       className={`mt-0.5 shrink-0 flex items-center justify-center h-5 w-5 rounded-full border transition-colors ${
-                                        isUsed
+                                        isUsed || isDone
                                           ? "bg-green-500 border-green-500 text-white hover:bg-green-600"
                                           : "border-muted-foreground/30 text-muted-foreground hover:border-green-500 hover:text-green-500"
                                       }`}
-                                      title={isUsed ? "Mark as not done" : "Mark as done"}
+                                      title={isDone ? "Completed in queue" : isUsed ? "Mark as not done" : "Mark as done"}
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         updateQueueState(prev => {
@@ -3262,7 +3266,7 @@ const KeywordClustering = () => {
                                         });
                                       }}
                                     >
-                                      {isUsed ? (
+                                      {isUsed || isDone ? (
                                         <Check className="h-3 w-3" />
                                       ) : (
                                         <span className="text-[10px] font-bold">{i + 1}</span>
@@ -3272,7 +3276,7 @@ const KeywordClustering = () => {
                                       <EditableTitle
                                         title={idea.title}
                                         onSave={(newTitle) => editIdeaTitle(cluster.topic, idea.title, newTitle)}
-                                        className={isUsed ? "text-green-700 dark:text-green-400" : ""}
+                                        className={isUsed || isDone ? "text-green-700 dark:text-green-400" : ""}
                                       />
                                       <p className="text-xs text-muted-foreground">{idea.description}</p>
                                       <p className="text-xs text-primary/80 italic">↳ {idea.reason}</p>
@@ -3479,8 +3483,8 @@ const KeywordClustering = () => {
                                           });
                                         }}
                                       >
-                                        <Bookmark className={`h-3 w-3 ${bookmarkedIdeas.has(ideaKey) ? "fill-current" : ""}`} />
-                                        {bookmarkedIdeas.has(ideaKey) ? "Saved" : "Save"}
+                                        <Bookmark className={`h-3 w-3 ${bookmarkedIdeas.has(ideaKey) || isDone ? "fill-current" : ""}`} />
+                                        {isDone ? "Completed" : bookmarkedIdeas.has(ideaKey) ? "Saved" : "Save"}
                                       </Button>
                                       <Button
                                         variant="ghost"
