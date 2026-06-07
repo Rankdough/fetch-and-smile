@@ -281,7 +281,7 @@ function insertImagesLocally(content: string, images: ArticleImage[]): string {
   const skipHeadings = [
     "tl;dr", "tldr", "in this article", "faq", "frequently asked questions",
     "references", "sources", "final thoughts", "conclusion", "summary",
-    "introduction"
+    "introduction", "quick tips", "how to choose"
   ];
   
   // Find all H2 heading indices that are valid for image placement
@@ -435,21 +435,22 @@ function insertImagesLocally(content: string, images: ArticleImage[]): string {
   // (which would place them in the previous section visually).
   const h2AfterParagraphMap: Map<number, ArticleImage> = new Map();
   for (const [h2Idx, img] of assignedToH2.entries()) {
-    // Find the first empty line followed by non-empty content after this H2
+    // Insert AFTER the first paragraph of the section, never directly under
+    // the heading. The first paragraph is the atomic answer (AEO retrieval
+    // target) and must stay immediately below the H2 — an image above it
+    // breaks the Question/Answer microdata and speakable targets.
     let insertAt = -1;
-    for (let k = h2Idx + 1; k < lines.length - 1; k++) {
-      // Stop if we hit the next H2
-      if (/^##\s+/.test(lines[k].trim())) break;
-      // Find a paragraph break: empty line followed by content
-      if (lines[k].trim() === "" && lines[k + 1]?.trim() &&
-          !lines[k + 1].startsWith("#") && !lines[k + 1].startsWith("|") &&
-          !lines[k + 1].startsWith("!") && !lines[k + 1].startsWith("-")) {
-        insertAt = k;
-        break;
-      }
+    let k = h2Idx + 1;
+    // Skip blank lines directly under the heading
+    while (k < lines.length && lines[k].trim() === "") k++;
+    // Skip the first contiguous content block (the answer paragraph)
+    while (k < lines.length && lines[k].trim() !== "" && !/^##\s+/.test(lines[k].trim())) k++;
+    // k now sits on the blank line after the first paragraph (or next H2/EOF)
+    if (k < lines.length - 1 && lines[k].trim() === "" && !/^##\s+/.test(lines[k + 1]?.trim() || "")) {
+      insertAt = k;
     }
-    // If no paragraph break found, insert after the heading line itself
-    h2AfterParagraphMap.set(insertAt >= 0 ? insertAt : h2Idx, img);
+    // If no suitable break found, skip this image rather than corrupting the section
+    if (insertAt >= 0) h2AfterParagraphMap.set(insertAt, img);
   }
 
   // Build result
