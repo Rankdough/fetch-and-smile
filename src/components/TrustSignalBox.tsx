@@ -64,7 +64,7 @@ export function TrustSignalBox({
       </CollapsibleTrigger>
       <CollapsibleContent>
         <div
-          className="px-5 py-4 text-sm leading-relaxed prose prose-sm max-w-none"
+          className="px-5 py-4 text-sm leading-relaxed"
           style={{ color: textColor }}
         >
           {(() => {
@@ -84,7 +84,7 @@ export function TrustSignalBox({
               const rest = sepIdx > 0 ? lines.slice(sepIdx + 1).join("\n").trim() : "";
               return (
                 <>
-                  <div style={{ display: "flex", gap: "16px", alignItems: "flex-start", marginBottom: "16px" }}>
+                  <div style={{ display: "flex", gap: "16px", alignItems: "flex-start", marginBottom: "8px" }}>
                     <img
                       src={src}
                       alt={alt}
