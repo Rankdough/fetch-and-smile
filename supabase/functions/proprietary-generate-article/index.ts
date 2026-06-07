@@ -1185,15 +1185,16 @@ function extractContextFileReferences(
 }
 
 function injectReferences(markdown: string, units: BrainUnit[], sourceReferences: SourceReference[] = []): string {
-  if (/^##\s+references/im.test(markdown)) return markdown;
-  const corpus = [
-    markdown,
-    ...units.map((u) => `${u.summary || ""}\n${u.full_text || ""}`),
-  ].join("\n");
-  const links = extractUrls(corpus).map((l) => ({ title: l.title, url: l.url }));
-  const references = dedupeAndValidateRefs([...sourceReferences, ...links]).slice(0, 8);
-  if (references.length === 0) return markdown;
-  return `${markdown.trimEnd()}\n\n## References\n\n${refsToMarkdown(references)}\n`;
+  // Always replace any existing ## References section — the model sometimes
+  // emits empty bullets or low-quality inline references that must be replaced
+  // with the validated context-file sources.
+  const stripped = markdown.replace(
+    /^##\s+References?[\s\S]*$/im,
+    ""
+  ).trimEnd();
+  const references = dedupeAndValidateRefs(sourceReferences).slice(0, 8);
+  if (references.length === 0) return stripped;
+  return `${stripped}\n\n## References\n\n${refsToMarkdown(references)}\n`;
 }
 
 function sectionLinkLooksRelevant(anchor: string, url: string, sectionText: string, topic: string): boolean {
