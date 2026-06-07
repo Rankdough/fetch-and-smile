@@ -218,12 +218,21 @@ export const extractNavigationFromContent = (content: string): NavigationItem[] 
     const afterHeading = content.slice(headingIndex + match[0].length);
     const firstParagraph = afterHeading.split(/\n\n/)[0]?.trim().replace(/^\n+/, "") || "";
     
-    // Short description: first 100 chars (for 2 lines display)
-    const shortDescription = firstParagraph.slice(0, 100) + (firstParagraph.length > 100 ? "..." : "");
-    
-    // Detailed description: next portion of text for expanded view
-    const detailedDescription = firstParagraph.length > 100 
-      ? firstParagraph.slice(100, 300) + (firstParagraph.length > 300 ? "..." : "")
+    // Short description: first ~100 chars, cut at a word boundary so words are
+    // never split mid-word ("Tempe ratures" bug).
+    const cutAt = (s: string, limit: number): number => {
+      if (s.length <= limit) return s.length;
+      const lastSpace = s.lastIndexOf(" ", limit);
+      return lastSpace > 40 ? lastSpace : limit;
+    };
+    const shortEnd = cutAt(firstParagraph, 100);
+    const shortDescription = firstParagraph.slice(0, shortEnd) + (firstParagraph.length > shortEnd ? "..." : "");
+
+    // Detailed description continues from the SAME word boundary — never from a
+    // fixed character offset that lands mid-word.
+    const detailEnd = cutAt(firstParagraph, 300);
+    const detailedDescription = firstParagraph.length > shortEnd
+      ? firstParagraph.slice(shortEnd, detailEnd).trim() + (firstParagraph.length > detailEnd ? "..." : "")
       : "Click to jump to this section and learn more.";
     
     items.push({
