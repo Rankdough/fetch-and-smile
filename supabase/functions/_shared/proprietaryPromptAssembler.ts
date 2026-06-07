@@ -417,10 +417,23 @@ FRAMING SECTION RULES:
 - Stay within the section's word budget and structural format.`.trim();
 
 const OPENING_LENGTH_RULE = `
-OPENING LENGTH RULE:
-Write one concise opening paragraph only, 55-85 words. Do not add a second
-paragraph. Do not mention a business, clinic, brand, editorial team, or service
-name unless the exact name was supplied in the prompt. No bracket placeholders.`.trim();
+OPENING PARAGRAPH — DIRECT ANSWER REQUIRED:
+Write one concise opening paragraph only, 55-85 words. This paragraph IS the answer.
+A reader who reads only this paragraph must know the core answer — not that a
+difference exists, but WHAT the difference is; not that a cost varies, but WHAT
+the actual cost range is; not that a process matters, but HOW it works.
+
+SENTENCE 1 (mandatory): Directly answer the article headline. State the actual
+answer with at least one specific fact — a number, named material, measurement,
+temperature, named process, or concrete differentiator. Never open with "X and Y
+are not the same", "X is complex", "There are many factors", "Understanding X is
+important", or any sentence that names the topic without answering it.
+
+SENTENCES 2-3: Add one or two supporting specifics that complete the answer.
+Each must introduce a new concrete fact not already in sentence 1.
+
+Do not add a second paragraph. No bracket placeholders. No brand or clinic names
+unless the exact name was supplied in the prompt.`.trim();
 
 const FINAL_THOUGHTS_RULE = `
 FINAL THOUGHTS RULE:
