@@ -3672,6 +3672,64 @@ const KeywordClustering = () => {
             <ContentQueue
               queuedIdeas={queuedIdeas}
               onUseForArticle={sendToGenerator}
+              onRegenerateIdea={async (cluster, idea) => {
+                if (!result) return;
+                // Build a mini-cluster with only this idea's keywords so the
+                // enrichment endpoint regenerates just this one idea.
+                const ideaKeywords = idea.target_keywords || [];
+                const allKeywords = ideaKeywords.length > 0 ? ideaKeywords : cluster.keywords.slice(0, 10);
+                const miniCluster = {
+                  ...cluster,
+                  keywords: allKeywords,
+                  blog_ideas: [],
+                };
+                try {
+                  const enrichResponse = await fetch(
+                    `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/cluster-keywords-enrich`,
+                    {
+                      method: "POST",
+                      headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+                      },
+                      body: JSON.stringify({ clusters: [miniCluster] }),
+                    }
+                  );
+                  if (!enrichResponse.ok) {
+                    const err = await enrichResponse.json().catch(() => ({}));
+                    throw new Error(err.error || `Regeneration failed: ${enrichResponse.status}`);
+                  }
+                  const enrichData = await enrichResponse.json();
+                  const newIdea: BlogIdea | undefined = enrichData.clusters?.[0]?.blog_ideas?.[0];
+                  if (!newIdea) throw new Error("No idea returned from enrichment");
+
+                  // Replace this specific idea in the cluster, keep everything else
+                  const updatedResult: ClusteringResult = {
+                    ...result,
+                    clusters: result.clusters.map(c => {
+                      if (c.topic !== cluster.topic) return c;
+                      return {
+                        ...c,
+                        blog_ideas: (c.blog_ideas || []).map(bi =>
+                          bi.title === idea.title
+                            ? { ...newIdea, title: newIdea.title || idea.title }
+                            : bi
+                        ),
+                      };
+                    }),
+                  };
+                  setResult(updatedResult);
+                  if (activeResultId) {
+                    await supabase
+                      .from("keyword_clustering_results")
+                      .update({ result: updatedResult as any })
+                      .eq("id", activeResultId);
+                  }
+                  toast({ title: "Idea regenerated", description: `"${newIdea.title || idea.title}" has been refreshed.` });
+                } catch (err: any) {
+                  toast({ title: "Regeneration failed", description: err.message, variant: "destructive" });
+                }
+              }}
               onRemoveFromQueue={(ideaKey) => updateQueueState(prev => ({ ...prev, bookmarked: prev.bookmarked.filter(k => k !== ideaKey) }))}
               formatVolume={formatVolume}
               projectName={projectName}
