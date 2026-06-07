@@ -481,7 +481,16 @@ Answer paragraph of 2-4 sentences on the next line(s).
 
 Produce EXACTLY 5 Q&A pairs (no fewer, no more). Do NOT prefix questions
 with "Q:" or answers with "A:". The question MUST be wrapped in **bold**
-markers on its own line so downstream rendering picks it up as a FAQ entry.`.trim();
+markers on its own line so downstream rendering picks it up as a FAQ entry.
+
+FORBIDDEN QUESTION TYPES — never write any of these:
+- "What is the main point of [article title]?"
+- "How should someone use this information about [topic]?"
+- "What should readers take away from this?"
+- "Is this article useful for...?"
+- Any meta-question that is about the article rather than about the topic itself.
+Every question must be a genuine reader question about the subject matter —
+something a person would type into Google about this topic.`.trim();
 
 function describeMappedUnit(unit: MappedUnit | null): string {
   if (!unit) {
@@ -666,7 +675,10 @@ Your writing MUST match this tone profile. Short sentences. Plain language. Ever
 Voice summary: ${toneProfile.summary || "Not specified"}
 ${chars ? `\nVoice characteristics:\n${chars}` : ""}${phrases}
 
-CRITICAL: If the tone is conversational, use short sentences under 20 words. Never start with "While", "Although", "Given that", or "It is important to note".`;
+CRITICAL: Apply this tone in EVERY paragraph, H3 sub-section, and bullet — including technical sections. Never drift into academic language even when the content is technical. Replace academic phrasing with plain sport-expert language:
+- NOT: "the takeoff angle of the center of mass should ideally be between 18-22 degrees relative to the horizontal" → YES: "your COM angle at takeoff should hit 18-22 degrees — too steep and you bleed speed"
+- NOT: "eccentric quadriceps strength facilitates dynamic knee valgus prevention" → YES: "strong quads stop your knee caving in on landing"
+If the tone is conversational or sport-expert, use short sentences under 20 words. Never start with "While", "Although", "Given that", or "It is important to note".`;
   })() : null;
 
   const system = [
