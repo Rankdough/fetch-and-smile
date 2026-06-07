@@ -39,6 +39,7 @@ export function TrustSignalBox({
       onOpenChange={setOpen}
       className="my-6 rounded-xl border overflow-hidden"
       style={{ borderColor }}
+      data-trust-signal-preview="true"
     >
       <CollapsibleTrigger
         className="w-full flex items-center justify-between gap-3 px-5 py-4 text-left transition-colors hover:brightness-95"
