@@ -114,6 +114,184 @@ print(f"Results: {len(passes)} passed, {len(failures)} failed")
 
 if failures:
     print("\nFix the above before deploying.")
+    # Still output deploy info even on failure so dev knows what needs deploying
+
+# ── Lovable deploy prompt ─────────────────────────────────────────────────
+# Detects which Supabase functions were modified and outputs the exact
+# prompt to paste into Lovable to deploy them.
+
+EDGE_FUNCTIONS = {
+    "proprietary-generate-article": [
+        "supabase/functions/proprietary-generate-article/index.ts",
+        "supabase/functions/_shared/proprietaryPromptAssembler.ts",
+        "supabase/functions/_shared/articleSectionBudget.ts",
+    ],
+    "generate-content": [
+        "supabase/functions/generate-content/index.ts",
+    ],
+    "enhance-import": [
+        "supabase/functions/enhance-import/index.ts",
+    ],
+    "insert-internal-links": [
+        "supabase/functions/insert-internal-links/index.ts",
+    ],
+    "apply-format": [
+        "supabase/functions/apply-format/index.ts",
+    ],
+    "cluster-keywords-enrich": [
+        "supabase/functions/cluster-keywords-enrich/index.ts",
+    ],
+}
+
+def get_changed_files(token, since_sha=None):
+    """Get files changed in recent commits."""
+    try:
+        req = urllib.request.Request(
+            BASE + "commits?per_page=30&sha=main",
+            headers={"Authorization": f"token {token}"}
+        )
+        with urllib.request.urlopen(req) as r:
+            commits = json.loads(r.read())
+
+        changed = set()
+        for commit in commits[:15]:
+            sha = commit["sha"]
+            req2 = urllib.request.Request(
+                f"https://api.github.com/repos/Rankdough/fetch-and-smile/commits/{sha}",
+                headers={"Authorization": f"token {token}"}
+            )
+            with urllib.request.urlopen(req2) as r:
+                detail = json.loads(r.read())
+            for f in detail.get("files", []):
+                changed.add(f["filename"])
+            # Only look at today's commits
+            date = commit["commit"]["author"]["date"][:10]
+            import datetime
+            if date < datetime.date.today().isoformat():
+                break
+        return changed
+    except Exception as e:
+        print(f"  (could not fetch commit history: {e})")
+        return set()
+
+print("\n" + "─"*50)
+print("LOVABLE DEPLOY PROMPT")
+print("─"*50)
+
+if failures:
+    print("\n⚠️  Fix broken checks above before deploying.\n")
+else:
+    changed_files = get_changed_files(TOKEN)
+    needs_deploy = []
+    for fn_name, paths in EDGE_FUNCTIONS.items():
+        if any(p in changed_files for p in paths):
+            needs_deploy.append(fn_name)
+
+    if not needs_deploy:
+        print("\nNo edge functions changed today — no deploy needed.\n")
+    else:
+        fn_list = "\n".join(f"- {fn}" for fn in needs_deploy)
+        prompt = f"""Deploy the following Supabase edge functions. Do not make any code changes — only deploy:
+
+{fn_list}
+
+Confirm each function has been successfully deployed."""
+
+        print(f"\nPaste this into Lovable:\n")
+        print("┌" + "─"*60 + "┐")
+        for line in prompt.split("\n"):
+            print(f"│ {line:<58} │")
+        print("└" + "─"*60 + "┘")
+        print()
+
     sys.exit(1)
 
 print("\nAll checks passed ✓  Safe to deploy.")
+
+# ── Lovable deploy prompt ─────────────────────────────────────────────────
+# Detects which Supabase functions were modified and outputs the exact
+# prompt to paste into Lovable to deploy them.
+
+EDGE_FUNCTIONS = {
+    "proprietary-generate-article": [
+        "supabase/functions/proprietary-generate-article/index.ts",
+        "supabase/functions/_shared/proprietaryPromptAssembler.ts",
+        "supabase/functions/_shared/articleSectionBudget.ts",
+    ],
+    "generate-content": [
+        "supabase/functions/generate-content/index.ts",
+    ],
+    "enhance-import": [
+        "supabase/functions/enhance-import/index.ts",
+    ],
+    "insert-internal-links": [
+        "supabase/functions/insert-internal-links/index.ts",
+    ],
+    "apply-format": [
+        "supabase/functions/apply-format/index.ts",
+    ],
+    "cluster-keywords-enrich": [
+        "supabase/functions/cluster-keywords-enrich/index.ts",
+    ],
+}
+
+def get_changed_files(token, since_sha=None):
+    """Get files changed in recent commits."""
+    try:
+        req = urllib.request.Request(
+            BASE + "commits?per_page=30&sha=main",
+            headers={"Authorization": f"token {token}"}
+        )
+        with urllib.request.urlopen(req) as r:
+            commits = json.loads(r.read())
+
+        changed = set()
+        for commit in commits[:15]:
+            sha = commit["sha"]
+            req2 = urllib.request.Request(
+                f"https://api.github.com/repos/Rankdough/fetch-and-smile/commits/{sha}",
+                headers={"Authorization": f"token {token}"}
+            )
+            with urllib.request.urlopen(req2) as r:
+                detail = json.loads(r.read())
+            for f in detail.get("files", []):
+                changed.add(f["filename"])
+            # Only look at today's commits
+            date = commit["commit"]["author"]["date"][:10]
+            import datetime
+            if date < datetime.date.today().isoformat():
+                break
+        return changed
+    except Exception as e:
+        print(f"  (could not fetch commit history: {e})")
+        return set()
+
+print("\n" + "─"*50)
+print("LOVABLE DEPLOY PROMPT")
+print("─"*50)
+
+if failures:
+    print("\n⚠️  Fix broken checks above before deploying.\n")
+else:
+    changed_files = get_changed_files(TOKEN)
+    needs_deploy = []
+    for fn_name, paths in EDGE_FUNCTIONS.items():
+        if any(p in changed_files for p in paths):
+            needs_deploy.append(fn_name)
+
+    if not needs_deploy:
+        print("\nNo edge functions changed today — no deploy needed.\n")
+    else:
+        fn_list = "\n".join(f"- {fn}" for fn in needs_deploy)
+        prompt = f"""Deploy the following Supabase edge functions. Do not make any code changes — only deploy:
+
+{fn_list}
+
+Confirm each function has been successfully deployed."""
+
+        print(f"\nPaste this into Lovable:\n")
+        print("┌" + "─"*60 + "┐")
+        for line in prompt.split("\n"):
+            print(f"│ {line:<58} │")
+        print("└" + "─"*60 + "┘")
+        print()
