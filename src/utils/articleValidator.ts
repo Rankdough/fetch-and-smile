@@ -130,7 +130,10 @@ export function repairArticleHtml(input: string): RepairResult {
   }
 
   // 2. Strip nested anchors:  <a ...><a ...>text</a></a>  →  outer kept
-  const nestedAnchorRe = /<a([^>]*)>([\s\S]*?)<a[^>]*>([\s\S]*?)<\/a>([\s\S]*?)<\/a>/gi;
+  // The inner-content groups must never cross a closing </a> — otherwise two
+  // SIBLING anchors anywhere in the document match as "nested" and the repair
+  // destroys every other anchor (this ate the nav panel Jump links).
+  const nestedAnchorRe = /<a([^>]*)>((?:(?!<\/a>)[\s\S])*?)<a[^>]*>((?:(?!<\/a>)[\s\S])*?)<\/a>((?:(?!<\/a>)[\s\S])*?)<\/a>/gi;
   if (nestedAnchorRe.test(html)) {
     html = html.replace(nestedAnchorRe, (_m, attrs, pre, inner, post) =>
       `<a${attrs}>${pre}${inner}${post}</a>`,
