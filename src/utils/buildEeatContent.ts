@@ -244,7 +244,9 @@ export function extractSourcesFromArticle(articleMarkdown: string): string[] {
     "google.com", "youtube.com", "facebook.com", "twitter.com",
     "amazon.com", "shopify.com", "instagram.com", "linkedin.com",
   ]);
-  const urlRe = /https?:\/\/(?:www\.)?([a-z0-9\-]+\.[a-z]{2,})/gi;
+  // Capture the FULL hostname (all labels), not just the first two —
+  // "pmc.ncbi.nlm.nih.gov" must not be truncated to "pmc.ncbi".
+  const urlRe = /https?:\/\/(?:www\.)?((?:[a-z0-9-]+\.)+[a-z]{2,})/gi;
   while ((m = urlRe.exec(refBlock)) !== null) {
     const domain = m[1].toLowerCase();
     if (!SKIP_DOMAINS.has(domain) && !seen.has(domain)) {
