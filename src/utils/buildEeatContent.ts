@@ -206,3 +206,51 @@ export function buildEeatContent(
     `*Last reviewed: ${reviewDate}*`,
   ].join("\n");
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// extractSourcesFromArticle
+// Pulls labelled sources from the ## References section of a generated article.
+// Returns up to 5 entries. Prefers full "Name (ACRONYM)" labels from the text,
+// falls back to bare domains.
+// ─────────────────────────────────────────────────────────────────────────────
+export function extractSourcesFromArticle(articleMarkdown: string): string[] {
+  const sources: string[] = [];
+  const seen = new Set<string>();
+
+  // Find ## References block
+  const refMatch = articleMarkdown.match(/^##\s+References?[\s\S]*$/im);
+  if (!refMatch) return [];
+  const refBlock = refMatch[0];
+
+  // Pull full-text labels like "American Association of Textile Chemists and Colorists (AATCC)"
+  const acronymRe = /([A-Z][A-Za-z &.\-']{4,60})\s+\(([A-Z]{2,8})\)/g;
+  let m: RegExpExecArray | null;
+  while ((m = acronymRe.exec(refBlock)) !== null) {
+    const label = `${m[1].trim()} (${m[2]})`;
+    if (!seen.has(label)) { seen.add(label); sources.push(label); }
+  }
+
+  // Pull plain-text org/source names from bullet lines (no URL)
+  const bulletTextRe = /^[-*+]\s+(?!https?:\/\/)([A-Z][A-Za-z0-9 &.,\-'()]{3,80})$/gm;
+  while ((m = bulletTextRe.exec(refBlock)) !== null) {
+    const label = m[1].trim();
+    if (!seen.has(label) && label.split(/\s+/).length >= 2) {
+      seen.add(label); sources.push(label);
+    }
+  }
+
+  // Pull domains from URLs as fallback
+  const SKIP_DOMAINS = new Set([
+    "google.com", "youtube.com", "facebook.com", "twitter.com",
+    "amazon.com", "shopify.com", "instagram.com", "linkedin.com",
+  ]);
+  const urlRe = /https?:\/\/(?:www\.)?([a-z0-9\-]+\.[a-z]{2,})/gi;
+  while ((m = urlRe.exec(refBlock)) !== null) {
+    const domain = m[1].toLowerCase();
+    if (!SKIP_DOMAINS.has(domain) && !seen.has(domain)) {
+      seen.add(domain); sources.push(domain);
+    }
+  }
+
+  return sources.slice(0, 5);
+}
