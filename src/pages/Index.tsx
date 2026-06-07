@@ -1976,10 +1976,32 @@ const Index = () => {
             const filtered = prev.filter(u => u !== ctaUrl.trim());
             return [ctaUrl.trim(), ...filtered].slice(0, 10);
           });
-          // Proprietary mode embeds CTAs inline in the content via the edge function.
-          // Do NOT set generatedCTAs here — doing so causes a duplicate empty CTA
-          // to appear in the preview renderer at the end of the article.
-          // The inline CTAs from the proprietary pipeline are sufficient.
+          // The proprietary edge function does NOT generate CTA banners (verified:
+          // it contains no CTA banner generation). Embed CTAs here by running the
+          // fresh content through apply-format — same path as "Refresh CTAs".
+          // Non-fatal on failure: the article is still usable without CTAs.
+          try {
+            const { data: ctaData, error: ctaError } = await supabase.functions.invoke("apply-format", {
+              body: {
+                content,
+                ctaConfig: { headline: "", description: "", buttonText: "", buttonUrl: ctaUrl.trim() },
+                customInstructions: formData.instructions?.trim() || undefined,
+                forceRegenerateCtas: true,
+              },
+            });
+            if (ctaError) throw ctaError;
+            if (ctaData?.error) throw new Error(ctaData.error);
+            if (typeof ctaData?.content === "string" && ctaData.content.trim()) {
+              content = ctaData.content;
+            }
+          } catch (ctaErr) {
+            console.error("Proprietary CTA embedding failed:", ctaErr);
+            toast({
+              title: "CTAs not added",
+              description: "Article generated, but CTA embedding failed. Use 'Refresh CTAs in Current Article' to retry.",
+              variant: "destructive",
+            });
+          }
         }
         const validInternalUrls = internalLinks.filter((url) => url.trim()).map((url) => url.trim());
         if (validInternalUrls.length > 0) {
