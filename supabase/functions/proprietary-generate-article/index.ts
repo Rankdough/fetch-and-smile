@@ -2224,14 +2224,25 @@ Deno.serve(async (req) => {
     // Fetch tone profile if provided — enforces voice, sentence length, and writing style.
     let toneProfile: { summary: string | null; characteristics: Record<string, string>; example_phrases: string[] | null } | null = null;
     if (body.toneProfileId) {
-      const { data: profileData } = await sb
+      const { data: profileData, error: toneErr } = await sb
         .from("tone_profiles")
         .select("summary, characteristics, example_phrases")
         .eq("id", body.toneProfileId)
         .maybeSingle();
-      if (profileData) {
+      if (toneErr) {
+        console.error("TONE PROFILE: DB error for id", body.toneProfileId, toneErr.message);
+      } else if (profileData) {
         toneProfile = profileData;
-        console.log("TONE PROFILE: loaded", body.toneProfileId);
+        console.log("TONE PROFILE: loaded", body.toneProfileId, "—", profileData.summary?.slice(0, 60));
+      } else {
+        // Profile ID sent but not found in DB — stale localStorage or deleted profile.
+        // Return error so the frontend can warn the user instead of silently
+        // generating without tone.
+        console.error("TONE PROFILE: id not found in tone_profiles:", body.toneProfileId);
+        return new Response(
+          JSON.stringify({ error: `Tone profile not found (id: ${body.toneProfileId}). It may have been deleted. Please re-select a tone profile and try again.` }),
+          { status: 422, headers: { "Content-Type": "application/json" } }
+        );
       }
     }
 
