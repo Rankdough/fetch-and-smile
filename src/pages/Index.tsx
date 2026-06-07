@@ -1940,6 +1940,10 @@ const Index = () => {
               entityBridgeConfig: (() => {
                 const url = ctaUrl?.trim();
                 if (!url) return undefined;
+                // Only derive a sport label from /collections/ URLs. Generic pages
+                // like /pages/get-started previously produced nonsense labels
+                // ("custom get started jerseys").
+                if (!/\/collections\//i.test(url)) return undefined;
                 // Derive sport label from collection URL slug
                 // e.g. /collections/hockey → "hockey", /collections/custom-softball → "softball"
                 const slug = url.replace(/^https?:\/\/[^/]+/, "").split("/").filter(Boolean).pop() || "";
@@ -3501,6 +3505,11 @@ const Index = () => {
                   divsToUnwrap = clone.querySelectorAll('div:not([data-preserve-cta]):not([data-cta-banner])');
                 }
                 
+                // Remove the PREVIEW trust signal box from the clone — the export
+                // injects its own styled <details> version later. Without this the
+                // trust content appears twice (once unwrapped, once styled).
+                clone.querySelectorAll('[data-trust-signal-preview]').forEach((el) => el.remove());
+
                 // Check for inline CTA banners BEFORE stripping data attributes
                 const hasInlineCtaBanners = !!clone.querySelector('[data-cta-banner]');
                 
@@ -3540,7 +3549,9 @@ const Index = () => {
 
                 // AEO: Mark the first <p> as the direct answer for LLM/AI Overview retrieval
                 // id="direct-answer" + itemprop="description" signals to Google which paragraph is citable
-                htmlContent = htmlContent.replace(/(<p\s)/, '<p id="direct-answer" itemprop="description" ');
+                if (!/id="direct-answer"/.test(htmlContent)) {
+                  htmlContent = htmlContent.replace(/(<p\s)/, '<p id="direct-answer" itemprop="description" ');
+                }
 
                 // AEO: mark every question H2 section as schema.org Question/Answer
                 // microdata with id="answer-N" on each atomic answer paragraph
