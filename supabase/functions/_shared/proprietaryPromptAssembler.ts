@@ -323,6 +323,50 @@ No prose paragraph may exceed 3 sentences. If a point requires more than
 immediately below the paragraph. Never write more than 3 consecutive
 sentences in a single paragraph block in any section.`.trim();
 
+// buildAtomicBodyStructureRule: section structure scales with word budget.
+// Small sections (< 300 words budget) use pure atomic structure.
+// Larger sections add H3 sub-sections to actually fill the word target.
+// Without scaling, the atomic rule hard-capped every section at ~196 words,
+// making it impossible to generate a 2000-word article.
+function buildAtomicBodyStructureRule(sectionBudgetWords: number): string {
+  const isLarge = sectionBudgetWords >= 300;
+  const isVeryLarge = sectionBudgetWords >= 500;
+  const h3Count = isVeryLarge ? 3 : isLarge ? 2 : 0;
+  const minWords = Math.round(sectionBudgetWords * 0.75);
+
+  const base = `ATOMIC SECTION STRUCTURE (mandatory for every body section):
+MINIMUM ${minWords} words. Target: ${sectionBudgetWords} words. You MUST write at least ${minWords} words — short sections will be rejected.
+
+Base layer (always required):
+  1. ONE standalone answer paragraph (2-3 sentences; 80-150 words) that fully
+     answers the section heading on its own. It must read as a complete answer
+     if extracted in isolation by an AI assistant.
+  2. A blank line.
+  3. EXACTLY 3 markdown bullets ("- " prefix), each one a single concrete,
+     specific, actionable point. Each bullet is 1 sentence, 14-25 words. No
+     sub-bullets. No fewer than 3, no more than 3.`;
+
+  if (h3Count === 0) {
+    return base + `
+
+Do NOT add a sub-heading inside the section. Do NOT add a second paragraph
+after the bullets. Every section stands alone — no cross-references.`;
+  }
+
+  return base + `
+
+Expansion layer (required to meet the word budget):
+  4. Add ${h3Count} H3 sub-sections (### Heading) below the bullets. Each
+     sub-section must follow the same atomic pattern: one answer paragraph
+     (80-150 words) + blank line + exactly 3 bullets (14-25 words each).
+  5. Where data supports it, add ONE markdown table (4+ rows) inside the
+     section — either after the base bullets or inside one H3 sub-section.
+  6. You MAY add a second paragraph after the base bullets only if it
+     introduces a table or transitions into the first H3 sub-section.
+
+Do NOT cross-reference other sections. Every sentence must stand alone.`;
+}
+
 const ATOMIC_BODY_STRUCTURE_RULE = `
 ATOMIC SECTION STRUCTURE (mandatory for every body section):
 Write this section in this exact order, with nothing else inserted:
