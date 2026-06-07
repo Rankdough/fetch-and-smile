@@ -6382,24 +6382,31 @@ const Index = () => {
                           const currentWordCount = contentForCount.trim().split(/\s+/).filter(Boolean).length;
                           const wordsNeeded = targetWords - currentWordCount;
                           
+                          // Extract H2 headings so the expansion prompt targets specific sections
+                          const h2Sections = (generatedContent.match(/^## .+/gm) || [])
+                            .filter(h => !/tl;?dr|quick tips|in this article|faq|final thoughts|references/i.test(h))
+                            .map(h => h.replace(/^## /, "").trim())
+                            .slice(0, 6);
+                          const safeWordsNeeded = Math.max(0, wordsNeeded);
+
                           const { data, error } = await supabase.functions.invoke("generate-content", {
                             body: {
                               topic: formData.topic,
                               wordCount: targetWords,
                               expandExistingContent: true,
                               existingContent: generatedContent,
-                              wordsToAdd: wordsNeeded,
-                              instructions: `EXPAND THIS EXISTING ARTICLE to reach ${targetWords} words. Currently ${currentWordCount} words, need ${wordsNeeded} more.
+                              wordsToAdd: safeWordsNeeded,
+                              instructions: `EXPAND THIS EXISTING ARTICLE from ${currentWordCount} to at least ${targetWords} words (+${safeWordsNeeded} words needed).
 
-CRITICAL EXPANSION RULES:
-1. Keep ALL existing content intact - do not remove or shorten anything
-2. Expand each section with more details, examples, and explanations
-3. Add more subsections under existing H2s where appropriate
-4. Include additional practical examples and case studies
-5. Add more comparison tables if helpful
-6. Ensure new content is substantive, not filler
-7. Maintain the same tone and style as the existing content
-8. The final output MUST be at least ${targetWords} words`,
+EXPANSION RULES — follow exactly:
+1. Keep ALL existing content INTACT — do not remove, shorten, or rephrase any existing text.
+2. Add depth to these specific sections by inserting H3 sub-sections under each:
+${h2Sections.map(s => `   - "${s}": add 1-2 H3 sub-sections with an answer paragraph (80-120 words) + 3 bullets`).join("\n")}
+3. Add a data table (4+ rows) in any section that discusses multiple options or materials.
+4. Every new paragraph must contain at least one specific number, percentage, or measurement.
+5. Do NOT add a new H2 section — only expand what already exists.
+6. Do NOT add an intro, outro, or summary of changes — just return the full expanded article.
+7. The final output MUST contain at least ${targetWords} words.`,
                             },
                           });
 
