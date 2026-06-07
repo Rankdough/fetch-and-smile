@@ -1071,6 +1071,120 @@ function dedupeAndValidateRefs(
   return out;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// extractContextFileReferences
+// The ONLY source for References. Extracts URLs from the uploaded context
+// files, parses Works Cited titles, filters for authority + relevance,
+// and never emits unlinked entries.
+// No brain URLs, no DB fallbacks — per explicit product rule.
+// ─────────────────────────────────────────────────────────────────────────────
+function extractContextFileReferences(
+  contextFiles: Array<{ name: string; content: string }>,
+  topic: string,
+): Array<{ title: string; url: string }> {
+  // Domains to always drop (social media, e-commerce, low-credibility)
+  const SKIP_HOSTS = new Set([
+    "reddit.com", "twitter.com", "x.com", "facebook.com", "instagram.com",
+    "linkedin.com", "youtube.com", "amazon.com", "ebay.com", "etsy.com",
+    "lifetips.alibaba.com", "alibaba.com",
+  ]);
+  // Product-listing URL pattern — drop specific product pages from brand sites
+  const PRODUCT_URL_RE = /\/(us|uk|in|de|fr|jp|ca)\/(\d{4}\w+|[\w-]+-\w{6,8})\.html/i;
+
+  // Authority tiers — tier 1 = academic/gov, tier 2 = reputable industry
+  const AUTH_TIER_1: RegExp[] = [
+    /pmc\.ncbi/, /pubmed\.ncbi/, /ncbi\.nlm\.nih\.gov/, /\.nih\.gov/,
+    /\.gov$/, /\.gov\./, /\.edu$/, /\.ac\.uk/, /\.ac\./,
+    /researchgate\.net/, /pubs\.acs\.org/, /acs\.org/,
+    /sciencedirect\.com/, /springer\.com/, /tandfonline\.com/,
+    /wiley\.com/, /nature\.com/, /bmj\.com/, /thelancet\.com/,
+    /jamanetwork\.com/, /journals\.sagepub\.com/, /cochranelibrary\.com/,
+    /academic\.oup\.com/, /ft\.tul\.cz/, /journalspress\.com/,
+    /aatcc\.org/, /astm\.org/, /iso\.org/,
+  ];
+  const AUTH_TIER_2: RegExp[] = [
+    /shell\.com/, /nike\.com/, /adidas\.com/, /darongtester\.com/,
+    /speed-queen\./, /speedqueen\./, /canvasetc\.com/, /spandexbyyard\.com/,
+    /szonei/, /iyunai/, /wooter/, /yunai/, /fibres.*textile/,
+  ];
+
+  type Candidate = { title: string; url: string; tier: number; score: number };
+  const candidates: Candidate[] = [];
+  const urlSeen = new Set<string>();
+  const topicTokens = topic.toLowerCase().split(/\s+/).filter(t => t.length >= 4);
+
+  const processEntry = (rawUrl: string, rawTitle: string) => {
+    const url = rawUrl.trim().replace(/[)\].,;]+$/, "");
+    if (!url || !/^https?:\/\//i.test(url)) return;
+    const key = url.toLowerCase();
+    if (urlSeen.has(key)) return;
+    let host: string;
+    try { host = new URL(url).hostname.replace(/^www\./, "").toLowerCase(); }
+    catch { return; }
+    if (SKIP_HOSTS.has(host)) return;
+    if (PRODUCT_URL_RE.test(url)) return;
+    urlSeen.add(key);
+    const tier = AUTH_TIER_1.some(re => re.test(host)) ? 1
+      : AUTH_TIER_2.some(re => re.test(host)) ? 2 : 3;
+    const haystack = \`\${host} \${url} \${rawTitle}\`.toLowerCase();
+    const score = topicTokens.reduce((s, t) => s + (haystack.includes(t) ? 1 : 0), 0);
+    const title = (rawTitle || host).slice(0, 120).trim();
+    candidates.push({ title, url, tier, score });
+  };
+
+  for (const cf of contextFiles) {
+    const text = cf.content || "";
+    const lines = text.split("\n");
+    for (const line of lines) {
+      // Markdown link: [Title](URL)
+      const mdRe = /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g;
+      let m: RegExpExecArray | null;
+      while ((m = mdRe.exec(line)) !== null) {
+        processEntry(m[2], m[1]);
+      }
+      // Works Cited format: "N. Title - Source, accessed on DATE, URL"
+      const bareUrlMatch = line.match(/(https?:\/\/[^\s,;)\]]+)/);
+      if (bareUrlMatch) {
+        // Title = text before "accessed on" and before the URL
+        let title = line
+          .replace(bareUrlMatch[0], "")
+          .replace(/,?\s*accessed\s+on\s+\w+\s+\d+,?\s+\d{4}/gi, "")
+          .replace(/^\d+\.\s*/, "")
+          .replace(/\t/g, " ")
+          .trim()
+          .replace(/,\s*$/, "")
+          .replace(/\.\s*$/, "")
+          .trim();
+        // Strip trailing " - SourceName" if it would duplicate the URL hostname
+        try {
+          const host = new URL(bareUrlMatch[0]).hostname.replace(/^www\./, "").split(".")[0];
+          title = title.replace(new RegExp(\` - [^-]+$\`, "i"), (m) =>
+            m.toLowerCase().includes(host.toLowerCase()) ? "" : m).trim();
+        } catch { /* skip */ }
+        processEntry(bareUrlMatch[0], title);
+      }
+    }
+  }
+
+  // Sort: tier 1 first, then by relevance score descending
+  candidates.sort((a, b) => a.tier - b.tier || b.score - a.score);
+
+  // Deduplicate by host+path, take up to 8
+  const pathSeen = new Set<string>();
+  const out: Array<{ title: string; url: string }> = [];
+  for (const c of candidates) {
+    try {
+      const u = new URL(c.url);
+      const pathKey = \`\${u.hostname.replace(/^www\./, "")}\${u.pathname.replace(/\/+$/, "")}\`;
+      if (pathSeen.has(pathKey)) continue;
+      pathSeen.add(pathKey);
+      out.push({ title: c.title, url: c.url });
+    } catch { /* skip */ }
+    if (out.length >= 8) break;
+  }
+  return out;
+}
+
 function injectReferences(markdown: string, units: BrainUnit[], sourceReferences: SourceReference[] = []): string {
   if (/^##\s+references/im.test(markdown)) return markdown;
   const corpus = [
@@ -2452,29 +2566,20 @@ Deno.serve(async (req) => {
     // injecting cross-topic (e.g. dental) URLs into unrelated articles.
     const usedUnitIds = new Set(sectionsOut.map(s => s.mappedUnitId).filter(Boolean));
     const usedUnits = units.filter(u => usedUnitIds.has(u.id));
-    let sourceReferences = await collectSourceReferences(sb, usedUnits, allRetrievedChunks);
-    // Also extract URLs from context files passed directly in the request body.
-    // These are files uploaded in the UI that are not stored in Supabase context_documents.
-    if (body.contextFiles && body.contextFiles.length > 0) {
-      const seen = new Set(sourceReferences.map((r: SourceReference) => (r.url || "").toLowerCase()));
-      for (const cf of body.contextFiles) {
-        for (const link of extractUrls(cf.content || "")) {
-          const key = link.url.toLowerCase();
-          if (!seen.has(key)) {
-            seen.add(key);
-            sourceReferences.push({ title: link.title || cf.name, url: link.url });
-          }
-        }
-      }
-    }
-    if (sourceReferences.length === 0) sourceReferences = await fallbackContextReferencesForTopic(sb, body.topic);
-    if (sourceReferences.length > 0) console.log(`REFERENCES: collected ${sourceReferences.length} context source reference(s).`);
+    // REFERENCES: context file URLs only — no brain URLs, no fallbacks.
+    // Rule: use only what is in the uploaded context files, filtered for
+    // authority + relevance. No hallucinated or recycled cross-topic sources.
+    const sourceReferences: SourceReference[] = (body.contextFiles?.length ?? 0) > 0
+      ? extractContextFileReferences(body.contextFiles!, body.topic)
+      : [];
+    console.log(`REFERENCES: extracted ${sourceReferences.length} context-file reference(s) for topic "${body.topic}".`);
+
+    // Inline citations from brain URLs are suppressed — they leak cross-topic
+    // URLs and get stripped by stripBodyNumericCitationMarkers anyway.
+    // Keep the attach call for logging only; stripped immediately after.
     const brainUrls = filterUrlsForTopic(collectBrainUrls(usedUnits), body.topic);
-    const citationUrls = brainUrls.length > 0 ? brainUrls : trustedFallbackSources(body.topic);
-    if (brainUrls.length === 0 && citationUrls.length > 0) console.log(`CITATIONS: using ${citationUrls.length} trusted fallback source(s).`);
-    const cite = attachInlineCitations(stitched, citationUrls);
+    const cite = attachInlineCitations(stitched, []);
     stitched = cite.out;
-    if (cite.attached > 0) console.log(`CITATIONS: attached ${cite.attached} inline source(s) from brain URLs.`);
     // attachContextSourceNotes call removed (BUILD-2026-05-29-G) — see helpers block.
     // Context-document references now rendered only in the footer References section.
     stitched = injectReferences(stitched, usedUnits, sourceReferences);
