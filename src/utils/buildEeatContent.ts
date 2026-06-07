@@ -31,7 +31,7 @@ export const AUTHOR_PROFILES: AuthorProfile[] = [
     id: "carl-mccargo",
     name: "Carl McCargo",
     // Upload Carl's photo to TrackBarn Shopify Files and replace this URL
-    photoUrl: "https://cdn.shopify.com/s/files/1/0531/6227/9112/files/carl_mccargo.avif",
+    photoUrl: "https://cdn.shopify.com/s/files/1/0531/6227/9112/files/Carl.png?v=1721939550",
     client: "TrackBarn",
   },
 ];
