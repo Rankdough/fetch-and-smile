@@ -213,6 +213,7 @@ const KeywordClustering = () => {
   const [mergingFromSilo, setMergingFromSilo] = useState<string | null>(null);
   const [kwSearchQuery, setKwSearchQuery] = useState("");
   const [siloKwSearch, setSiloKwSearch] = useState<Record<string, string>>({});
+  const [deletingSilo, setDeletingSilo] = useState<string | null>(null); // topic being confirmed for delete
   const [selectedSiloKws, setSelectedSiloKws] = useState<Record<string, Set<string>>>({});
   const [generatingFromSelected, setGeneratingFromSelected] = useState<string | null>(null);
   const [showAddKeywords, setShowAddKeywords] = useState(false);
@@ -2797,6 +2798,51 @@ const KeywordClustering = () => {
                             >
                               <Merge className="h-3.5 w-3.5 text-muted-foreground/40 hover:text-primary transition-colors" />
                             </button>
+                          )}
+                          {!mergingFromSilo && (
+                            deletingSilo === cluster.topic ? (
+                              // Confirm row — second click confirms, click away cancels
+                              <div className="flex items-center gap-1 shrink-0 ml-1" onClick={(e) => e.stopPropagation()}>
+                                <button
+                                  className="text-[11px] font-medium text-destructive hover:underline"
+                                  title="Confirm delete"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (!result) return;
+                                    const deletedTopic = cluster.topic;
+                                    const updatedResult: ClusteringResult = {
+                                      ...result,
+                                      clusters: result.clusters.filter(c => c.topic !== deletedTopic),
+                                    };
+                                    setResult(updatedResult);
+                                    setDeletingSilo(null);
+                                    if (activeResultId) {
+                                      supabase
+                                        .from("keyword_clustering_results")
+                                        .update({ result: updatedResult as any })
+                                        .eq("id", activeResultId);
+                                    }
+                                    toast({ title: "Silo deleted", description: `"${deletedTopic}" removed.` });
+                                  }}
+                                >
+                                  Delete
+                                </button>
+                                <button
+                                  className="text-[11px] text-muted-foreground hover:underline"
+                                  onClick={(e) => { e.stopPropagation(); setDeletingSilo(null); }}
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            ) : (
+                              <button
+                                className="shrink-0 ml-1"
+                                title="Delete this silo"
+                                onClick={(e) => { e.stopPropagation(); setDeletingSilo(cluster.topic); }}
+                              >
+                                <Trash2 className="h-3.5 w-3.5 text-muted-foreground/40 hover:text-destructive transition-colors" />
+                              </button>
+                            )
                           )}
                         </div>
                       </div>
