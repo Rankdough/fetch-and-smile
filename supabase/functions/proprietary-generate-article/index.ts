@@ -2483,6 +2483,17 @@ Deno.serve(async (req) => {
         console.warn(`LINK ZONE GUARD: unlinked markdown link(s) in ${unlinkedZones} protected zone(s) (opening/TL;DR).`);
       }
     }
+    // LINK REPAIR GUARD (deterministic safety net): rejoin markdown links and
+    // URLs that any earlier pass split. Fixes "]  (https://" gaps and domains
+    // broken across whitespace/newlines ("bigleagueshirts. com/pages/x").
+    {
+      const beforeLinkRepair = content;
+      content = content
+        .replace(/\]\s+\((https?:\/\/)/g, "]($1")
+        .replace(/(https?:\/\/[a-z0-9.-]*[a-z0-9-])\.\s+((?:com|net|org|gov|edu|co|io|uk)\b[^\s)]*)/gi, "$1.$2");
+      if (content !== beforeLinkRepair) console.warn("LINK REPAIR: rejoined split markdown link(s)/URL(s).");
+    }
+
     const finalNumericMarkers = stripBodyNumericCitationMarkers(content);
     content = finalNumericMarkers.out;
     if (finalNumericMarkers.removed > 0) console.warn(`CITATION GUARD: removed ${finalNumericMarkers.removed} orphan numeric citation marker(s) after final formatting.`);
