@@ -7,12 +7,66 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+const BUILD_MARKER = "BUILD-2026-06-08-A9-docx-link-pairing parse-context-file";
+
+function decodeXmlText(text: string): string {
+  return text
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'");
+}
+
+function extractWordText(fragment: string): string {
+  return [...fragment.matchAll(/<w:t[^>]*>([\s\S]*?)<\/w:t>/g)]
+    .map((match) => decodeXmlText(match[1]))
+    .join("");
+}
+
+function cleanMarkdownLabel(text: string): string {
+  return text.replace(/[\[\]]/g, "").replace(/\s+/g, " ").trim();
+}
+
+function renderWordFragmentWithHyperlinks(
+  fragment: string,
+  hyperlinkMap: Record<string, string>,
+): { text: string; linkCount: number } {
+  let rendered = "";
+  let linkCount = 0;
+  let lastIndex = 0;
+  const hyperlinkRe = /<w:hyperlink\b([^>]*)>([\s\S]*?)<\/w:hyperlink>/g;
+  let match: RegExpExecArray | null;
+
+  while ((match = hyperlinkRe.exec(fragment)) !== null) {
+    rendered += extractWordText(fragment.slice(lastIndex, match.index));
+
+    const idMatch = match[1].match(/\br:id="([^"]+)"/);
+    const visibleText = extractWordText(match[2]);
+    const url = idMatch ? hyperlinkMap[idMatch[1]] : "";
+
+    if (url && /^https?:\/\//i.test(url)) {
+      const label = cleanMarkdownLabel(visibleText) || url;
+      rendered += `[${label}](${url})`;
+      linkCount += 1;
+    } else {
+      rendered += visibleText;
+    }
+
+    lastIndex = match.index + match[0].length;
+  }
+
+  rendered += extractWordText(fragment.slice(lastIndex));
+  return { text: rendered.replace(/[ \t]+\n/g, "\n").replace(/\n[ \t]+/g, "\n").trim(), linkCount };
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    console.log(BUILD_MARKER);
     const contentType = req.headers.get("content-type") || "";
     
     let fileData: Blob | null = null;
