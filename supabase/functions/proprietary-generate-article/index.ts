@@ -992,14 +992,24 @@ function extractUrls(text: string): Array<{ url: string; title: string }> {
 // source. No raw-HTML helpers — the preview renderer (ReactMarkdown) escapes
 // raw HTML, so any <ul>/<li> string would render as literal text.
 function refsToMarkdown(refs: Array<{ title: string; url?: string }>): string {
-  return refs.map((ref) => {
-    const title = ref.title.trim().replace(/[\[\]]/g, "");
+  return refs.map((ref, idx) => {
+    // UTF-8-safe title: trim "accessed DATE" suffix, word-boundary truncate at 120 chars
+    let title = ref.title.trim().replace(/[\[\]]/g, "");
+    title = title.replace(/,?\s*accessed\s+(on\s+)?\w+\s+\d+,?\s+\d{4}/gi, "").trim();
+    if ([...title].length > 120) {
+      const chars = [...title].slice(0, 120);
+      const joined = chars.join("");
+      const lastSpace = joined.lastIndexOf(" ");
+      title = (lastSpace > 80 ? joined.slice(0, lastSpace) : joined) + "\u2026";
+    }
+    title = title.replace(/[,.]$/, "").trim();
+    const n = idx + 1;
     if (ref.url && /^https?:\/\//i.test(ref.url)) {
-      return `- [${title}](${ref.url.trim()})`;
+      return `${n}. [${title}](${ref.url.trim()})`;
     }
     // No verified URL: emit a PubMed search link so the reference is clickable
     const q = encodeURIComponent(title.slice(0, 80));
-    return `- [${title}](https://pubmed.ncbi.nlm.nih.gov/?term=${q})`;
+    return `${n}. [${title}](https://pubmed.ncbi.nlm.nih.gov/?term=${q})`;
   }).join("\n");
 }
 
@@ -1193,7 +1203,15 @@ function injectReferences(markdown: string, units: BrainUnit[], sourceReferences
     /^#{2,3}\s+References?[\s\S]*$/im,
     ""
   ).trimEnd();
-  const references = dedupeAndValidateRefs(sourceReferences).slice(0, 8);
+  const rawRefs = dedupeAndValidateRefs(sourceReferences);
+  // Dedupe by normalised title (catches same paper on PMC + PubMed)
+  const titleSeen = new Set<string>();
+  const references = rawRefs.filter(r => {
+    const normTitle = r.title.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim().slice(0, 60);
+    if (titleSeen.has(normTitle)) return false;
+    titleSeen.add(normTitle);
+    return true;
+  }).slice(0, 8);
   if (references.length === 0) return stripped;
   return `${stripped}\n\n## References\n\n${refsToMarkdown(references)}\n`;
 }
@@ -2170,7 +2188,7 @@ async function runSection(input: {
 
 /* ── handler ──────────────────────────────────────────────────────────── */
 
-const BUILD_MARKER = "BUILD-2026-06-08-A7-refs3 proprietary-generate-article reference-link-guards";
+const BUILD_MARKER = "BUILD-2026-06-08-A8-refs4 proprietary-generate-article reference-link-guards";
 Deno.serve(async (req) => {
   console.log(BUILD_MARKER);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
