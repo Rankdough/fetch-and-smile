@@ -1,3 +1,11 @@
+## 2026-06-08 — Pull A1-tldr branch into proprietary-generate-article
+
+- **What:** Replaced supabase/functions/proprietary-generate-article/index.ts with contents from GitHub Rankdough/fetch-and-smile @ 331d544 (branch fix/a1-tldr). TL;DR is now emitted as a single paragraph; BUILD_MARKER bumped to BUILD-2026-06-08-A1-tldr.
+- **Why:** User-requested deploy of A1-tldr fix on top of live commit 4793178.
+- **Files:** supabase/functions/proprietary-generate-article/index.ts
+- **Verify:** Deployed; next generation boot log should print BUILD-2026-06-08-A1-tldr.
+- **Verified broken:** Nothing verified broken. Checked: BUILD_MARKER string in the new file, deploy success.
+
 ## 2026-06-04 — Force minimum 5 FAQ items in render and export
 
 - **What:** Changed the FAQ accessor in `src/components/FAQAccordion.tsx` from "cap at 5" to "top up to 5". If explicit FAQ parsing or H2-derived fallback produces fewer than 5 items, deterministic article-topic fallback questions are appended until the accordion has 5. Updated `src/utils/markdownToStyledHtml.ts` to use the same `extractOrDeriveFAQ` path so styled HTML export also gets the minimum 5 behaviour.
