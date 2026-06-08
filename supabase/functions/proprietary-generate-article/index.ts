@@ -1958,6 +1958,21 @@ function enforceOpeningLength(markdown: string): string {
 //  3. drops meta/intro lines ("...with these quick tips", lines ending in ":")
 //  4. prefers concrete tips (numbers, temperatures, durations) over platitudes
 //  5. emits the best three as "> tip" blockquotes (renders as cards in both paths)
+function buildFallbackQuickTips(sections: Array<{ heading: string; kind: string }>, topic: string): string {
+  const tips: string[] = [];
+  for (const s of sections) {
+    if (tips.length >= 3) break;
+    if (!s.heading || s.kind === "framing" || s.kind === "tldr" || s.kind === "quick-tips" || s.kind === "faq") continue;
+    const h = s.heading.trim().replace(/[?!.:]+$/, "").replace(/^(What|How|Why|When|Which|Who)\s+(is|are|do|does|can|should|will)\s+/i, "").trim();
+    if (h.length < 8) continue;
+    tips.push(`- Understand ${h.charAt(0).toLowerCase() + h.slice(1)} before committing to a plan.`);
+  }
+  if (tips.length < 3) tips.push(`- Cross-reference any claims against authoritative sources specific to ${topic}.`);
+  if (tips.length < 3) tips.push(`- Track progress with specific, measurable targets rather than general goals.`);
+  if (tips.length < 3) tips.push(`- Consult a qualified specialist when the stakes are high or the decision is irreversible.`);
+  return tips.slice(0, 3).join("\n");
+}
+
 function normaliseQuickTipsContent(content: string): string {
   const lines = content.split("\n");
   const candidates: Array<{ text: string; order: number }> = [];
@@ -2155,7 +2170,7 @@ async function runSection(input: {
 
 /* ── handler ──────────────────────────────────────────────────────────── */
 
-const BUILD_MARKER = "BUILD-2026-06-08-A4-refs2 proprietary-generate-article reference-link-guards";
+const BUILD_MARKER = "BUILD-2026-06-08-A5-tips proprietary-generate-article reference-link-guards";
 Deno.serve(async (req) => {
   console.log(BUILD_MARKER);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -2561,7 +2576,10 @@ Deno.serve(async (req) => {
           md.push("## Frequently Asked Questions", "", fallbackFaq, "");
           continue;
         }
-        console.warn(`STITCH: dropping empty section "${s.heading}" (kind=${s.kind})`);
+        // Quick Tips was empty — inject 3 deterministic tips from H2s rather than dropping.
+        const fallbackTips = buildFallbackQuickTips(sectionsOut, body.topic);
+        console.warn(`STITCH: Quick Tips was empty — injected deterministic fallback tips.`);
+        md.push("## Quick Tips", "", fallbackTips, "");
         continue;
       }
       if (s.kind === "opening") {
