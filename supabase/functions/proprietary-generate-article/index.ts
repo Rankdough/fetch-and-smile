@@ -2016,7 +2016,11 @@ function enforceFinalThoughtsParagraphs(markdown: string): string {
     return `\x00URL${ftUrls.length - 1}\x00`;
   });
   const restoreFtUrls = (s: string) => s.replace(/\x00URL(\d+)\x00/g, (_x, i) => ftUrls[Number(i)] ?? "");
-  const sentences = body.match(/[^.!?]+[.!?]+(?:["')\]]+)?/g)?.map((s) => restoreFtUrls(s).trim()).filter(Boolean) ?? [restoreFtUrls(body)];
+  // Protect decimals (e.g. "12.5") so the dot is not treated as a sentence boundary.
+  const DEC = "\x00DEC\x00";
+  const protectedBody = body.replace(/(\d)\.(?=\d)/g, `$1${DEC}`);
+  const restoreDec = (s: string) => s.replace(new RegExp(DEC, "g"), ".");
+  const sentences = protectedBody.match(/[^.!?]+[.!?]+(?:["')\]]+)?/g)?.map((s) => restoreDec(restoreFtUrls(s)).trim()).filter(Boolean) ?? [restoreDec(restoreFtUrls(body))];
   const first = trimToWordCount(sentences.slice(0, Math.ceil(sentences.length / 2)).join(" "), 65);
   const second = trimToWordCount(sentences.slice(Math.ceil(sentences.length / 2)).join(" ") || sentences.slice(-1).join(" "), 65);
   const rebuilt = [first, second].filter(Boolean).join("\n\n");
@@ -2148,7 +2152,7 @@ async function runSection(input: {
 
 /* ── handler ──────────────────────────────────────────────────────────── */
 
-const BUILD_MARKER = "BUILD-2026-05-29-M proprietary-generate-article reference-link-guards";
+const BUILD_MARKER = "v1.0.1-decimal 2026-06-08 proprietary-generate-article";
 Deno.serve(async (req) => {
   console.log(BUILD_MARKER);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -2492,7 +2496,9 @@ Deno.serve(async (req) => {
           .find((p) => p && !/^!\[/.test(p) && !/^\|/.test(p) && !/^[-*+>]/.test(p) && !/^#{1,6}\s/.test(p));
         if (!para) continue;
         // First two sentences, capped
-        const sentences = para.match(/[^.!?]+[.!?]+/g)?.slice(0, 2).join(" ").trim() || para;
+        const DEC2 = "\x00DEC\x00";
+        const paraProtected = para.replace(/(\d)\.(?=\d)/g, `$1${DEC2}`);
+        const sentences = (paraProtected.match(/[^.!?]+[.!?]+/g)?.slice(0, 2).join(" ").trim() || paraProtected).replace(new RegExp(DEC2, "g"), ".");
         const answer = sentences.split(/\s+/).slice(0, 45).join(" ");
         if (answer.split(/\s+/).length < 8) continue;
         pairs.push(`**${heading}**\n\n${answer}${/[.!?]$/.test(answer) ? "" : "."}`);
