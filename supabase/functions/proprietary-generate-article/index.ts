@@ -997,7 +997,9 @@ function refsToMarkdown(refs: Array<{ title: string; url?: string }>): string {
     if (ref.url && /^https?:\/\//i.test(ref.url)) {
       return `- [${title}](${ref.url.trim()})`;
     }
-    return `- ${title}`;
+    // No verified URL: emit a PubMed search link so the reference is clickable
+    const q = encodeURIComponent(title.slice(0, 80));
+    return `- [${title}](https://pubmed.ncbi.nlm.nih.gov/?term=${q})`;
   }).join("\n");
 }
 
@@ -1188,7 +1190,7 @@ function injectReferences(markdown: string, units: BrainUnit[], sourceReferences
   // emits empty bullets or low-quality inline references that must be replaced
   // with the validated context-file sources.
   const stripped = markdown.replace(
-    /^##\s+References?[\s\S]*$/im,
+    /^#{2,3}\s+References?[\s\S]*$/im,
     ""
   ).trimEnd();
   const references = dedupeAndValidateRefs(sourceReferences).slice(0, 8);
@@ -1254,7 +1256,7 @@ function trustedFallbackSources(topic: string, sourceReferences: SourceReference
 }
 
 function ensureTrustedReferences(markdown: string, topic: string, sourceReferences: SourceReference[] = []): string {
-  if (/^##\s+references/im.test(markdown)) return markdown;
+  if (/^#{2,3}\s+references/im.test(markdown)) return markdown;
   const sources = dedupeAndValidateRefs(trustedFallbackSources(topic, sourceReferences));
   if (sources.length > 0) {
     return `${markdown.trimEnd()}\n\n## References\n\n${refsToMarkdown(sources)}\n`;
@@ -2153,7 +2155,7 @@ async function runSection(input: {
 
 /* ── handler ──────────────────────────────────────────────────────────── */
 
-const BUILD_MARKER = "BUILD-2026-06-08-A3-refs proprietary-generate-article reference-link-guards";
+const BUILD_MARKER = "BUILD-2026-06-08-A4-refs2 proprietary-generate-article reference-link-guards";
 Deno.serve(async (req) => {
   console.log(BUILD_MARKER);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
