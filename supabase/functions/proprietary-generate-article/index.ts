@@ -1120,8 +1120,8 @@ function extractContextFileReferences(
     let host: string;
     try { host = new URL(url).hostname.replace(/^www\./, "").toLowerCase(); }
     catch { return; }
-    if (SKIP_HOSTS.has(host)) return;
-    if (PRODUCT_URL_RE.test(url)) return;
+    // Context-file URLs are user-curated — SKIP_HOSTS does not apply here.
+    // Context-file URLs are user-curated — PRODUCT_URL_RE does not apply here.
     urlSeen.add(key);
     const tier = AUTH_TIER_1.some(re => re.test(host)) ? 1
       : AUTH_TIER_2.some(re => re.test(host)) ? 2 : 3;
@@ -2170,7 +2170,7 @@ async function runSection(input: {
 
 /* ── handler ──────────────────────────────────────────────────────────── */
 
-const BUILD_MARKER = "BUILD-2026-06-08-A5-tips proprietary-generate-article reference-link-guards";
+const BUILD_MARKER = "BUILD-2026-06-08-A7-refs3 proprietary-generate-article reference-link-guards";
 Deno.serve(async (req) => {
   console.log(BUILD_MARKER);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -2628,6 +2628,7 @@ Deno.serve(async (req) => {
       ? extractContextFileReferences(body.contextFiles!, body.topic)
       : [];
     console.log(`REFERENCES: extracted ${sourceReferences.length} context-file reference(s) for topic "${body.topic}".`);
+
 
     // Inline citations from brain URLs are suppressed — they leak cross-topic
     // URLs and get stripped by stripBodyNumericCitationMarkers anyway.

@@ -1,3 +1,10 @@
+## 2026-06-08 — BUILD-2026-06-08-A7-refs3 deploy
+- What: Pulled `proprietary-generate-article/index.ts` from GitHub commit `4304a9d` and deployed.
+- Why: User-provided fix for references not appearing (drop-point investigation in extractContextFileReferences).
+- Files: `supabase/functions/proprietary-generate-article/index.ts`.
+- Verify: BUILD_MARKER string present in file at line 2173; deploy success; boot log printed `BUILD-2026-06-08-A7-refs3 proprietary-generate-article reference-link-guards` at 2026-06-08T16:12:47Z.
+- Verified broken: Nothing verified broken. Checked: file download (HTTP 200), deploy success, boot-log marker match.
+
 ## 2026-06-08 — Pull A5-tips branch into proprietary-generate-article
 
 - **What:** Replaced supabase/functions/proprietary-generate-article/index.ts from Rankdough/fetch-and-smile @ 98adf94. BUILD_MARKER bumped to BUILD-2026-06-08-A5-tips.
