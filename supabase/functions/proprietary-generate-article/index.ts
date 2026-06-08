@@ -2016,7 +2016,11 @@ function enforceFinalThoughtsParagraphs(markdown: string): string {
     return `\x00URL${ftUrls.length - 1}\x00`;
   });
   const restoreFtUrls = (s: string) => s.replace(/\x00URL(\d+)\x00/g, (_x, i) => ftUrls[Number(i)] ?? "");
-  const sentences = body.match(/[^.!?]+[.!?]+(?:["')\]]+)?/g)?.map((s) => restoreFtUrls(s).trim()).filter(Boolean) ?? [restoreFtUrls(body)];
+  // Protect decimals (e.g. "12.5") so the dot is not treated as a sentence boundary.
+  const DEC = "\x00DEC\x00";
+  const protectedBody = body.replace(/(\d)\.(?=\d)/g, `$1${DEC}`);
+  const restoreDec = (s: string) => s.replace(new RegExp(DEC, "g"), ".");
+  const sentences = protectedBody.match(/[^.!?]+[.!?]+(?:["')\]]+)?/g)?.map((s) => restoreDec(restoreFtUrls(s)).trim()).filter(Boolean) ?? [restoreDec(restoreFtUrls(body))];
   const first = trimToWordCount(sentences.slice(0, Math.ceil(sentences.length / 2)).join(" "), 65);
   const second = trimToWordCount(sentences.slice(Math.ceil(sentences.length / 2)).join(" ") || sentences.slice(-1).join(" "), 65);
   const rebuilt = [first, second].filter(Boolean).join("\n\n");
