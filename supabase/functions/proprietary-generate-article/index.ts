@@ -2124,7 +2124,7 @@ async function runSection(input: {
 
 /* ── handler ──────────────────────────────────────────────────────────── */
 
-const BUILD_MARKER = "BUILD-2026-05-29-M proprietary-generate-article reference-link-guards";
+const BUILD_MARKER = "BUILD-2026-06-08-A1-tldr proprietary-generate-article reference-link-guards";
 Deno.serve(async (req) => {
   console.log(BUILD_MARKER);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -2536,7 +2536,7 @@ Deno.serve(async (req) => {
       if (s.kind === "opening") {
         md.push(cleanContent, "");
       } else if (s.kind === "tldr") {
-        md.push("## TL;DR", "", trimToWordCount(cleanContent, 60), "");
+        md.push("## TL;DR", "", trimToWordCount(cleanContent.replace(/\n{2,}/g, " ").replace(/\n/g, " ").replace(/\s{2,}/g, " ").trim(), 60), "");
       } else if (s.kind === "quick-tips") {
         md.push("## Quick Tips", "", normaliseQuickTipsContent(cleanContent), "");
       } else if (s.kind === "faq") {
