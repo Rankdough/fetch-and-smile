@@ -96,29 +96,7 @@ export function trimSectionToBudget(body: string, budget: number): string {
     return appendSources(bodyWithoutSources.trim());
   }
 
-  const DECIMAL_PLACEHOLDER_SB = "\x00DEC\x00";
-
-  // Pre-protect decimal numbers so "4.0 m/s" is never split into "4." + "0 m/s"
-  const protectDecimals = (s: string) => s.replace(/(\d)\.(?=\d)/g, `$1${DECIMAL_PLACEHOLDER_SB}`);
-  const restoreDecimals = (s: string) => s.replace(/\x00DEC\x00/g, ".");
-
-  // Strip any ## heading that bleeds into this section's content.
-  // The model sometimes writes "## Next Section" at the end of a bullet
-  // or sentence (no preceding blank line), bypassing paragraph-level detection.
-  // Strip everything from the first ## occurrence onward.
-  const stripped = bodyWithoutSources.replace(/(?:^|\.)\s*(##\s[\s\S]*)$/m, (m, heading) => {
-    // Keep the sentence fragment before ##, drop the heading and everything after
-    const dotIdx = m.indexOf(".");
-    return dotIdx >= 0 && dotIdx < m.indexOf("##") ? m.slice(0, dotIdx + 1) : "";
-  }).trimEnd();
-
-  const rawParagraphs = stripped.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
-  const paragraphs: string[] = [];
-  for (const p of rawParagraphs) {
-    if (/^##\s/.test(p)) break;
-    paragraphs.push(p);
-  }
-
+  const paragraphs = bodyWithoutSources.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
   const kept: string[] = [];
   let remaining = effectiveBudget;
 
@@ -150,12 +128,11 @@ export function trimSectionToBudget(body: string, budget: number): string {
     // Protect URLs and markdown links first: domain dots must never be treated
     // as sentence boundaries (this previously split links across paragraphs).
     const paraUrls: string[] = [];
-    let protectedPara = paragraph.replace(/\[[^\]]*\]\(\s*https?:\/\/[^)\s]+\s*\)|https?:\/\/[^\s)]+/g, (u) => {
+    const protectedPara = paragraph.replace(/\[[^\]]*\]\(\s*https?:\/\/[^)\s]+\s*\)|https?:\/\/[^\s)]+/g, (u) => {
       paraUrls.push(u);
       return `\x00URL${paraUrls.length - 1}\x00`;
     });
-    protectedPara = protectDecimals(protectedPara);
-    const restorePara = (s: string) => restoreDecimals(s.replace(/\x00URL(\d+)\x00/g, (_m, i) => paraUrls[Number(i)] ?? ""));
+    const restorePara = (s: string) => s.replace(/\x00URL(\d+)\x00/g, (_m, i) => paraUrls[Number(i)] ?? "");
     const sentences = protectedPara.match(/[^.!?]+[.!?]+(?:["')\]]+)?/g)?.map((s) => restorePara(s).trim()).filter(Boolean) ?? [];
     const sentenceBuffer: string[] = [];
 

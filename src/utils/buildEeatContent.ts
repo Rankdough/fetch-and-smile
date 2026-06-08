@@ -8,38 +8,6 @@
 export const NIC_PHOTO_URL =
   "https://cdn.shopify.com/s/files/1/0760/1530/4950/files/nic_reese.avif?v=1780658483";
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Author registry — add new expert authors here.
-// photoUrl: upload the photo to your Shopify Files and paste the CDN URL.
-// client: optional label shown in the picker (e.g. "TrackBarn", "BigLeagueShirts")
-// ─────────────────────────────────────────────────────────────────────────────
-export interface AuthorProfile {
-  id: string;
-  name: string;
-  photoUrl: string;
-  client?: string;
-}
-
-export const AUTHOR_PROFILES: AuthorProfile[] = [
-  {
-    id: "nic-reese",
-    name: "Nic Reese",
-    photoUrl: "https://cdn.shopify.com/s/files/1/0760/1530/4950/files/nic_reese.avif?v=1780658483",
-    client: "BigLeagueShirts",
-  },
-  {
-    id: "carl-mccargo",
-    name: "Carl McCargo",
-    // Upload Carl's photo to TrackBarn Shopify Files and replace this URL
-    photoUrl: "https://cdn.shopify.com/s/files/1/0531/6227/9112/files/Carl.png?v=1721939550",
-    client: "TrackBarn",
-  },
-];
-
-export function getAuthorById(id: string): AuthorProfile {
-  return AUTHOR_PROFILES.find((a) => a.id === id) ?? AUTHOR_PROFILES[0];
-}
-
 // Governing body fallbacks per sport keyword
 const SPORT_GOVERNING_BODIES: Record<string, string[]> = {
   "track": ["World Athletics", "USA Track & Field (USATF)", "NCAA Track & Field"],
@@ -180,8 +148,7 @@ export function extractSourcesFromContextFiles(
 export function buildEeatContent(
   sport: string,
   contextFiles: Array<{ name: string; content: string }>,
-  author: string,
-  authorPhotoUrl?: string,
+  author: string
 ): string {
   // Derive a clean sport label
   const rawSport = sport?.trim() || "";
@@ -221,10 +188,8 @@ export function buildEeatContent(
       ? `${sportLabel.charAt(0).toUpperCase() + sportLabel.slice(1)} Content Specialist`
       : `${sportLabel.charAt(0).toUpperCase() + sportLabel.slice(1)} Expert`;
 
-  const photoUrl = authorPhotoUrl?.trim() || NIC_PHOTO_URL;
-
   return [
-    `![${authorName}](${photoUrl})`,
+    `![${authorName}](${NIC_PHOTO_URL})`,
     "",
     `**${authorName}** · ${expertTitle}`,
     "",

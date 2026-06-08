@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
-import { buildEeatContent, extractSourcesFromArticle, AUTHOR_PROFILES, getAuthorById } from "@/utils/buildEeatContent";
+import { buildEeatContent, extractSourcesFromArticle } from "@/utils/buildEeatContent";
 import { addQnaMicrodata } from "@/utils/addQnaMicrodata";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -964,9 +964,6 @@ const Index = () => {
   const [trustSignalTitle, setTrustSignalTitle] = useState<string>(() => {
     return localStorage.getItem("seo-generator-trustSignalTitle") || "Why You Can Trust This Article";
   });
-  const [selectedAuthorId, setSelectedAuthorId] = useState<string>(() => {
-    return localStorage.getItem("seo-generator-authorId") || "nic-reese";
-  });
   const [trustSignalContent, setTrustSignalContent] = useState<string>(() => {
     return (
       localStorage.getItem("seo-generator-trustSignalContent") ||
@@ -1883,12 +1880,10 @@ const Index = () => {
     // Auto-build E-E-A-T trust box content from topic + context files
     // Only updates if trust signal is enabled; user can still edit manually after generation
     if (includeTrustSignal) {
-      const selectedAuthor = getAuthorById(selectedAuthorId);
       const dynamicEeat = buildEeatContent(
         formData.topic,
         contextFiles || [],
-        selectedAuthor.name,
-        selectedAuthor.photoUrl,
+        "Nic Reese"
       );
       setTrustSignalContent(dynamicEeat);
     }
@@ -5286,50 +5281,6 @@ const Index = () => {
 
                     {includeTrustSignal && (
                       <div className="space-y-2 pt-1">
-                        <div className="space-y-1">
-                          <label className="text-xs font-medium text-muted-foreground">
-                            Expert Author
-                          </label>
-                          <div className="flex flex-wrap gap-2">
-                            {AUTHOR_PROFILES.map((author) => (
-                              <button
-                                key={author.id}
-                                type="button"
-                                onClick={() => {
-                                  setSelectedAuthorId(author.id);
-                                  localStorage.setItem("seo-generator-authorId", author.id);
-                                  // Rebuild trust content with new author
-                                  if (formData.topic) {
-                                    const dynamicEeat = buildEeatContent(
-                                      formData.topic,
-                                      contextFiles || [],
-                                      author.name,
-                                      author.photoUrl,
-                                    );
-                                    setTrustSignalContent(dynamicEeat);
-                                  }
-                                }}
-                                className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-medium transition-colors ${
-                                  selectedAuthorId === author.id
-                                    ? "bg-primary text-primary-foreground border-primary"
-                                    : "bg-background border-border text-muted-foreground hover:border-primary/50 hover:text-foreground"
-                                }`}
-                              >
-                                <img
-                                  src={author.photoUrl}
-                                  alt={author.name}
-                                  className="w-5 h-5 rounded-full object-cover"
-                                  onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-                                />
-                                {author.name}
-                                {author.client && (
-                                  <span className="opacity-60">· {author.client}</span>
-                                )}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-
                         <div className="space-y-1">
                           <label htmlFor="trust-signal-title" className="text-xs font-medium text-muted-foreground">
                             Box Title

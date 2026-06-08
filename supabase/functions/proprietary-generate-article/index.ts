@@ -625,7 +625,7 @@ function stripBodyNumericCitationMarkers(markdown: string): { out: string; remov
   const refMatch = markdown.match(/^##\s+references\b/im);
   const body = refMatch?.index !== undefined ? markdown.slice(0, refMatch.index) : markdown;
   const references = refMatch?.index !== undefined ? markdown.slice(refMatch.index) : "";
-  const markerRe = /\s?\[(?:\d{1,3})(?:\s*\([^)]{1,20}\))?(?:\s*(?:,|and|&|\-|–|—)\s*\d{1,3}(?:\s*\([^)]{1,20}\))?)*\](?!\s*\()/gi;
+  const markerRe = /\s?\[(?:\d{1,3})(?:\s*(?:,|and|&|\-|–|—)\s*\d{1,3})*\](?!\s*\()/gi;
   const removed = (body.match(markerRe) || []).length;
   if (removed === 0) return { out: markdown, removed: 0 };
   const cleanedBody = body
@@ -2120,19 +2120,6 @@ async function runSection(input: {
     const budgetCeil = Number.isFinite(input.sectionBudgetWords) && input.sectionBudgetWords > 0
       ? Math.round(input.sectionBudgetWords * 1.25)
       : 600;
-    // Strip any H2 heading (## ...) that the model wrote inside body section content.
-    // This is the root cause of section bleed: the model writes the next section's
-    // heading at the end of a bullet point, corrupting the stitch structure.
-    // Strip everything from the first ## occurrence onward, keeping any sentence
-    // fragment that appeared before it on the same line.
-    content = content.replace(
-      /([.!?])\s*
-?##\s[\s\S]*/,
-      "$1"
-    ).replace(
-      /^##\s[\s\S]*/m,
-      ""
-    ).trim();
     content = trimSectionToBudget(content, budgetCeil);
   }
   const needsExpertInput = /^\[NEEDS EXPERT INPUT\]\s*$/i.test(content);
@@ -2600,15 +2587,7 @@ Deno.serve(async (req) => {
         md.push("## Quick Tips", "", normaliseQuickTipsContent(cleanContent), "");
       } else if (s.kind === "faq") {
         // Enforce EXACTLY 5 Q&A pairs: top-up with deterministic fillers if model produced fewer.
-        // Strip bleed-through into Final Thoughts / References before processing
-        // Strip bleed-through into Final Thoughts / References.
-        // Handles both \n## and mid-line ". ## " patterns.
-        const faqCleaned = cleanContent
-          .replace(/(?:\n|(?<=\.\s))##\s[\s\S]*/im, "")
-          .replace(/(?:\n|(?<=\.))\s*(?:Final thoughts|Mastering|Understanding)[\s\S]*/im, "")
-          .replace(/\n---[\s\S]*/im, "")
-          .trim();
-        const topped = ensureFiveFaqPairs(faqCleaned, body.topic, sectionsOut);
+        const topped = ensureFiveFaqPairs(cleanContent, body.topic, sectionsOut);
         md.push("## Frequently Asked Questions", "", topped, "");
       } else {
         md.push(`## ${s.heading}`, "", cleanContent, "");
