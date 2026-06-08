@@ -102,12 +102,19 @@ export function trimSectionToBudget(body: string, budget: number): string {
   const protectDecimals = (s: string) => s.replace(/(\d)\.(?=\d)/g, `$1${DECIMAL_PLACEHOLDER_SB}`);
   const restoreDecimals = (s: string) => s.replace(/\x00DEC\x00/g, ".");
 
-  const rawParagraphs = bodyWithoutSources.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
+  // Strip any ## heading that bleeds into this section's content.
+  // The model sometimes writes "## Next Section" at the end of a bullet
+  // or sentence (no preceding blank line), bypassing paragraph-level detection.
+  // Strip everything from the first ## occurrence onward.
+  const stripped = bodyWithoutSources.replace(/(?:^|\.)\s*(##\s[\s\S]*)$/m, (m, heading) => {
+    // Keep the sentence fragment before ##, drop the heading and everything after
+    const dotIdx = m.indexOf(".");
+    return dotIdx >= 0 && dotIdx < m.indexOf("##") ? m.slice(0, dotIdx + 1) : "";
+  }).trimEnd();
+
+  const rawParagraphs = stripped.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
   const paragraphs: string[] = [];
   for (const p of rawParagraphs) {
-    // Stop at any paragraph that starts with ## — it is the next section's
-    // heading. Including it would corrupt the section structure and cause
-    // section bleed where one section's content absorbs the next section's heading.
     if (/^##\s/.test(p)) break;
     paragraphs.push(p);
   }
