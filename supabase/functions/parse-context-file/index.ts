@@ -90,6 +90,23 @@ serve(async (req) => {
         
         // Unzip the docx file
         const unzipped = unzipSync(uint8Array);
+
+        // Extract hyperlink URL map from word/_rels/document.xml.rels
+        // Word stores hyperlink URLs as relationships, NOT as <w:t> text.
+        // Without this step, all https:// URLs are invisible to text extraction.
+        const hyperlinkMap: Record<string, string> = {};
+        for (const [relsPath, relsContent] of Object.entries(unzipped)) {
+          if (relsPath === "word/_rels/document.xml.rels") {
+            const relsDecoder = new TextDecoder("utf-8");
+            const relsXml = relsDecoder.decode(relsContent as Uint8Array);
+            const relMatches = relsXml.matchAll(/Id="([^"]+)"[^>]*Target="([^"]+)"[^>]*Type="[^"]*\/hyperlink"/g);
+            for (const m of relMatches) {
+              if (m[2].startsWith("http")) hyperlinkMap[m[1]] = m[2];
+            }
+            console.log("Hyperlink map extracted:", Object.keys(hyperlinkMap).length, "URLs");
+            break;
+          }
+        }
         
         // Find and read document.xml (main content)
         let documentXml = "";
@@ -102,8 +119,9 @@ serve(async (req) => {
         }
         
         if (documentXml) {
-          // Extract text from <w:t> tags (Word text elements)
-          // Split by paragraph markers to maintain structure
+          // Extract text from <w:t> tags (Word text elements).
+          // Also resolve <w:hyperlink r:id="..."> elements so URLs appear in the text.
+          // Without this, works-cited URLs (stored as hyperlink relationships) are lost.
           const paragraphs: string[] = [];
           const paragraphSections = documentXml.split(/<w:p[^>]*>/);
           
@@ -116,8 +134,15 @@ serve(async (req) => {
                   return textMatch ? textMatch[1] : "";
                 })
                 .join("");
-              if (paragraphText.trim()) {
-                paragraphs.push(paragraphText.trim());
+              // Find all hyperlink rIds referenced in this paragraph section
+              const hyperlinkRefs = [...section.matchAll(/r:id="([^"]+)"/g)];
+              const urls = hyperlinkRefs
+                .map(m => hyperlinkMap[m[1]])
+                .filter(Boolean)
+                .filter((u, i, a) => a.indexOf(u) === i); // dedupe
+              const combined = [paragraphText.trim(), ...urls].filter(Boolean).join(" ");
+              if (combined) {
+                paragraphs.push(combined);
               }
             }
           }
