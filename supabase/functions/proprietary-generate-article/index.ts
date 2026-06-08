@@ -2588,7 +2588,13 @@ Deno.serve(async (req) => {
       } else if (s.kind === "faq") {
         // Enforce EXACTLY 5 Q&A pairs: top-up with deterministic fillers if model produced fewer.
         // Strip bleed-through into Final Thoughts / References before processing
-        const faqCleaned = cleanContent.replace(/\n##\s[\s\S]*/im, "").replace(/\n---\s*$/im, "").trim();
+        // Strip bleed-through into Final Thoughts / References.
+        // Handles both \n## and mid-line ". ## " patterns.
+        const faqCleaned = cleanContent
+          .replace(/(?:\n|(?<=\.\s))##\s[\s\S]*/im, "")
+          .replace(/(?:\n|(?<=\.))\s*(?:Final thoughts|Mastering|Understanding)[\s\S]*/im, "")
+          .replace(/\n---[\s\S]*/im, "")
+          .trim();
         const topped = ensureFiveFaqPairs(faqCleaned, body.topic, sectionsOut);
         md.push("## Frequently Asked Questions", "", topped, "");
       } else {
