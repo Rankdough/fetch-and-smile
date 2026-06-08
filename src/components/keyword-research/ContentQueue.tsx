@@ -937,12 +937,16 @@ const ContentQueue = ({ queuedIdeas, onUseForArticle, onRemoveFromQueue, formatV
                           <Button variant="ghost" size="sm" className="gap-1 text-xs h-7 px-2" onClick={() => onUseForArticle(cluster, idea)}>
                             Use for Article <ArrowRight className="h-3 w-3" />
                           </Button>
+                          <Button variant="ghost" size="sm" className="gap-1 text-xs h-7 px-2 text-primary" onClick={() => onUseForArticle(cluster, idea)}>
+                            <RefreshCw className="h-3 w-3" /> Regenerate
+                          </Button>
                           <Button variant="ghost" size="sm" className="gap-1 text-xs h-7 px-2 text-muted-foreground" onClick={() => toggleDone(ideaKey)}>
                             <CheckCircle2 className="h-3 w-3" /> Done
                           </Button>
                           <Button variant="ghost" size="sm" className="gap-1 text-xs h-7 px-2 text-destructive" onClick={() => onRemoveFromQueue(ideaKey)}>
                             <Bookmark className="h-3 w-3 fill-current" />
                           </Button>
+                        </div>
                         </div>
                       </div>
                       {isExpanded && (
@@ -1052,6 +1056,9 @@ const ContentQueue = ({ queuedIdeas, onUseForArticle, onRemoveFromQueue, formatV
                         <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
                           <Button variant="ghost" size="sm" className="gap-1 text-xs h-7 px-2" onClick={() => onUseForArticle(cluster, idea)}>
                             Use for Article <ArrowRight className="h-3 w-3" />
+                          </Button>
+                          <Button variant="ghost" size="sm" className="gap-1 text-xs h-7 px-2 text-primary" onClick={() => onUseForArticle(cluster, idea)}>
+                            <RefreshCw className="h-3 w-3" /> Regenerate
                           </Button>
                           <Button variant="ghost" size="sm" className="gap-1 text-xs h-7 px-2 text-muted-foreground" onClick={() => toggleDone(ideaKey)}>
                             <CheckCircle2 className="h-3 w-3" /> Done
