@@ -1,3 +1,10 @@
+## 2026-06-08 — BUILD-2026-06-08-A7-refs3 deploy (3 functions)
+- What: Pulled `proprietary-generate-article`, `insert-internal-links`, `apply-format` from GitHub commit `4304a9d`. Deployed all three.
+- Why: Continue references drop-point investigation; ship matching siblings.
+- Files: `supabase/functions/{proprietary-generate-article,insert-internal-links,apply-format}/index.ts`.
+- Verify: BUILD_MARKER present at line 2173; deploy success for all three; boot log printed `BUILD-2026-06-08-A7-refs3 …` at 2026-06-08T16:15:07Z.
+- Verified broken: Nothing verified broken. Checked: all three downloads HTTP 200, deploy success, boot-log marker match. The other two have no BUILD_MARKER string.
+
 ## 2026-06-08 — BUILD-2026-06-08-A7-refs3 deploy
 - What: Pulled `proprietary-generate-article/index.ts` from GitHub commit `4304a9d` and deployed.
 - Why: User-provided fix for references not appearing (drop-point investigation in extractContextFileReferences).
