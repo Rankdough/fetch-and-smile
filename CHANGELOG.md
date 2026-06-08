@@ -1,4 +1,11 @@
-## 2026-06-08 — Pull insert-internal-links from GitHub c8041fd
+## 2026-06-08 — Pull insert-internal-links from GitHub c8041fd + TypeScript build fixes
+
+- **What:** Replaced supabase/functions/insert-internal-links/index.ts from Rankdough/fetch-and-smile @ c8041fd. Also fixed three pre-existing TypeScript build errors: (1) `ShopifyFaqBulk.tsx` used undefined `row` instead of map variable `r`; (2) `generateMigrationArticle.ts` referenced undefined `contextFiles` instead of destructured `extraContextFiles`; (3) `ContentQueue.tsx` was missing `onRegenerateIdea` prop in `ContentQueueProps` interface.
+- **Files:** supabase/functions/insert-internal-links/index.ts, src/pages/ShopifyFaqBulk.tsx, src/utils/generateMigrationArticle.ts, src/components/keyword-research/ContentQueue.tsx
+- **Verify:** Deployed insert-internal-links successfully. `npx tsc --noEmit` passes cleanly.
+- **Verified broken:** Nothing verified broken. Checked: file downloaded (303 lines), deploy returned success, TypeScript build clean.
+
+## 2026-06-08 — Pull A2-table branch into proprietary-generate-article
 
 - **What:** Replaced supabase/functions/insert-internal-links/index.ts from Rankdough/fetch-and-smile @ c8041fd.
 - **Files:** supabase/functions/insert-internal-links/index.ts
