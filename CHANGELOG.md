@@ -1,3 +1,10 @@
+## 2026-06-08 — Pull A3-refs branch into proprietary-generate-article
+
+- **What:** Replaced supabase/functions/proprietary-generate-article/index.ts from Rankdough/fetch-and-smile @ 0d0dfea. BUILD_MARKER bumped to BUILD-2026-06-08-A3-refs.
+- **Files:** supabase/functions/proprietary-generate-article/index.ts
+- **Verify:** Deployed successfully; boot log prints BUILD-2026-06-08-A3-refs proprietary-generate-article reference-link-guards.
+- **Verified broken:** Nothing verified broken. Checked: BUILD_MARKER string present in file, deploy success, boot log confirmed.
+
 ## 2026-06-08 — Pull insert-internal-links from GitHub c8041fd + TypeScript build fixes
 
 - **What:** Replaced supabase/functions/insert-internal-links/index.ts from Rankdough/fetch-and-smile @ c8041fd. Also fixed three pre-existing TypeScript build errors: (1) `ShopifyFaqBulk.tsx` used undefined `row` instead of map variable `r`; (2) `generateMigrationArticle.ts` referenced undefined `contextFiles` instead of destructured `extraContextFiles`; (3) `ContentQueue.tsx` was missing `onRegenerateIdea` prop in `ContentQueueProps` interface.
