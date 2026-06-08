@@ -1729,3 +1729,10 @@ Verified broken: Nothing verified broken. The slice(0,5) cap in FAQAccordion sti
 - Files: supabase/functions/{proprietary-generate-article,insert-internal-links,apply-format}/index.ts
 - Verify: BUILD_MARKER `BUILD-2026-06-08-A5-tips proprietary-generate-article reference-link-guards` confirmed in boot log at 2026-06-08T15:58Z.
 - Verified broken: Nothing verified broken (insert-internal-links and apply-format have no BUILD_MARKER string; only deploy success checked for those).
+
+## 2026-06-08 — A7-refs3 redeploy (all 3 functions)
+- What: Re-pulled commit 4304a9d for proprietary-generate-article, insert-internal-links, apply-format; redeployed all three.
+- Why: User requested fresh deploy to confirm SKIP_HOSTS/PRODUCT_URL_RE removal is live for context-file URL extraction.
+- Verify: Boot log shows BUILD-2026-06-08-A7-refs3 at 16:23:36Z. REFERENCES extracted count pending next generation run.
+- Files: supabase/functions/{proprietary-generate-article,insert-internal-links,apply-format}/index.ts
+- Verified broken: Nothing.
