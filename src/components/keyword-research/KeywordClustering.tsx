@@ -2002,8 +2002,8 @@ const KeywordClustering = () => {
     const key = makeIdeaKey(cluster.topic, idea.title);
     updateQueueState(prev => ({ ...prev, used: [...prev.used, key] }));
 
-    toast({ title: "Pre-filled article settings", description: `Topic: ${idea.title}` });
-    window.location.href = "/";
+    toast({ title: "Opening generator in new tab", description: `Topic: ${idea.title}` });
+    window.open("/", "_blank");
   };
 
   const toggleCluster = (topic: string) => {
