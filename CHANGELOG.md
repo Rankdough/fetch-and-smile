@@ -1,3 +1,10 @@
+## 2026-06-08 — Pull A2-table branch into proprietary-generate-article
+
+- **What:** Replaced supabase/functions/proprietary-generate-article/index.ts from Rankdough/fetch-and-smile @ 606aa7f. BUILD_MARKER bumped to BUILD-2026-06-08-A2-table.
+- **Files:** supabase/functions/proprietary-generate-article/index.ts
+- **Verify:** Deployed; next generation boot log should print BUILD-2026-06-08-A2-table.
+- **Verified broken:** Nothing verified broken. Checked: BUILD_MARKER string at line 2157, deploy success.
+
 ## 2026-06-08 — Pull A1-tldr branch into proprietary-generate-article
 
 - **What:** Replaced supabase/functions/proprietary-generate-article/index.ts with contents from GitHub Rankdough/fetch-and-smile @ 331d544 (branch fix/a1-tldr). TL;DR is now emitted as a single paragraph; BUILD_MARKER bumped to BUILD-2026-06-08-A1-tldr.
