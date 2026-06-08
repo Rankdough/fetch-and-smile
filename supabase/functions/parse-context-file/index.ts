@@ -99,9 +99,20 @@ serve(async (req) => {
           if (relsPath === "word/_rels/document.xml.rels") {
             const relsDecoder = new TextDecoder("utf-8");
             const relsXml = relsDecoder.decode(relsContent as Uint8Array);
-            const relMatches = relsXml.matchAll(/Id="([^"]+)"[^>]*Target="([^"]+)"[^>]*Type="[^"]*\/hyperlink"/g);
-            for (const m of relMatches) {
-              if (m[2].startsWith("http")) hyperlinkMap[m[1]] = m[2];
+            // Parse each <Relationship> element independently of attribute order.
+            // Standard Word format is Id, Type, Target — NOT Id, Target, Type.
+            // A single regex expecting a fixed order silently returns zero matches.
+            const relEls = relsXml.matchAll(/<Relationship[^>]+>/g);
+            for (const el of relEls) {
+              const raw = el[0];
+              const idM     = raw.match(/Id="([^"]+)"/);
+              const typeM   = raw.match(/Type="([^"]+)"/);
+              const targetM = raw.match(/Target="([^"]+)"/);
+              if (idM && typeM && targetM
+                  && typeM[1].includes("/hyperlink")
+                  && targetM[1].startsWith("http")) {
+                hyperlinkMap[idM[1]] = targetM[1];
+              }
             }
             console.log("Hyperlink map extracted:", Object.keys(hyperlinkMap).length, "URLs");
             break;
