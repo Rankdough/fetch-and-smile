@@ -34,12 +34,12 @@ export function TrustSignalBox({
   const textColor = isDark ? "#e5e7eb" : "#1f2937";
 
   return (
+    <div data-trust-signal-preview="true">
     <Collapsible
       open={open}
       onOpenChange={setOpen}
       className="my-6 rounded-xl border overflow-hidden"
       style={{ borderColor }}
-      data-trust-signal-preview="true"
     >
       <CollapsibleTrigger
         className="w-full flex items-center justify-between gap-3 px-5 py-4 text-left transition-colors hover:brightness-95"
@@ -105,6 +105,7 @@ export function TrustSignalBox({
         </div>
       </CollapsibleContent>
     </Collapsible>
+    </div>
   );
 }
 
