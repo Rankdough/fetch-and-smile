@@ -1082,11 +1082,14 @@ function dedupeAndValidateRefs(
 function stripContextFileLeaks(markdown: string): { out: string; removed: number } {
   const LEAK_RE = [
     // "This information/data comes/was compiled/is taken from 'filename'"
-    /[Tt]his (?:information|data|content) (?:comes?|was compiled|is taken|is sourced|was sourced|is drawn) from ["']?[^"'.\n]{3,120}["']?[.,]?[ \t]*/g,
+    /[Tt]his (?:information|data|content) (?:comes?|was compiled|is taken|is sourced|was sourced|is drawn) from ["']?[^"'.
+]{3,120}["']?[.,]?[ \t]*/g,
     // "According to the document/file/source 'filename'"
-    /[Aa]ccording to (?:the )?(?:document|file|source|research report|research)\s["']?[^"'.\n]{3,120}["']?[.,]?[ \t]*/g,
+    /[Aa]ccording to (?:the )?(?:document|file|source|research report|research)\s["']?[^"'.
+]{3,120}["']?[.,]?[ \t]*/g,
     // "Data from/sourced from/compiled from 'filename'"
-    /[Dd]ata (?:from|sourced from|compiled from|in) ["']?[^"'.\n]{3,120}["']?[.,]?[ \t]*/g,
+    /[Dd]ata (?:from|sourced from|compiled from|in) ["']?[^"'.
+]{3,120}["']?[.,]?[ \t]*/g,
     // Standalone: "— Source: filename." or "Source: filename."
     /(?:^|\n)[ \t]*(?:—\s*)?[Ss]ource:\s*["']?[^"'\n]{3,120}["']?[.,]?[ \t]*/gm,
   ];
@@ -1969,10 +1972,7 @@ function normaliseQuickTipsContent(content: string): string {
     if (!line) continue;
     // Strip "Tip N:" prefixes and leading bold labels
     line = line.replace(/^\*{0,2}Tip\s*\d+\s*:?\*{0,2}\s*/i, "");
-    // Strip bold header patterns: **Heading:** or **Heading** — keep the body text
     line = line.replace(/^\*\*[^*]+\*\*\s*:?\s*/, "");
-    // Strip any remaining leading bold/italic markers
-    line = line.replace(/^[*_]{1,3}\s*/, "");
     // Strip wrapping straight/curly quotes
     line = line.replace(/^["'\u201c\u201d\u2018\u2019\s]+/, "").replace(/["'\u201c\u201d\u2018\u2019\s]+$/, "").trim();
     if (!line) continue;
@@ -2120,14 +2120,6 @@ async function runSection(input: {
     const budgetCeil = Number.isFinite(input.sectionBudgetWords) && input.sectionBudgetWords > 0
       ? Math.round(input.sectionBudgetWords * 1.25)
       : 600;
-    // Strip ALL ## H2 headings from body section content — global, no punctuation dependency.
-    // The model sometimes writes "## Next Section" inside bullets without preceding punctuation,
-    // which the earlier punctuation-dependent regex missed.
-    // Strategy: strip from the first ## to end-of-content (covers bleed at any position).
-    const firstH2 = content.search(/(?:^|[^#])##\s/m);
-    if (firstH2 >= 0) {
-      content = content.slice(0, firstH2).trimEnd();
-    }
     content = trimSectionToBudget(content, budgetCeil);
   }
   const needsExpertInput = /^\[NEEDS EXPERT INPUT\]\s*$/i.test(content);
@@ -2167,7 +2159,7 @@ async function runSection(input: {
 
 /* ── handler ──────────────────────────────────────────────────────────── */
 
-const BUILD_MARKER = "BUILD-2026-06-08-A";
+const BUILD_MARKER = "BUILD-2026-06-08-CLEAN";
 Deno.serve(async (req) => {
   console.log(BUILD_MARKER);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -2229,25 +2221,14 @@ Deno.serve(async (req) => {
     // Fetch tone profile if provided — enforces voice, sentence length, and writing style.
     let toneProfile: { summary: string | null; characteristics: Record<string, string>; example_phrases: string[] | null } | null = null;
     if (body.toneProfileId) {
-      const { data: profileData, error: toneErr } = await sb
+      const { data: profileData } = await sb
         .from("tone_profiles")
         .select("summary, characteristics, example_phrases")
         .eq("id", body.toneProfileId)
         .maybeSingle();
-      if (toneErr) {
-        console.error("TONE PROFILE: DB error for id", body.toneProfileId, toneErr.message);
-      } else if (profileData) {
+      if (profileData) {
         toneProfile = profileData;
-        console.log("TONE PROFILE: loaded", body.toneProfileId, "—", profileData.summary?.slice(0, 60));
-      } else {
-        // Profile ID sent but not found in DB — stale localStorage or deleted profile.
-        // Return error so the frontend can warn the user instead of silently
-        // generating without tone.
-        console.error("TONE PROFILE: id not found in tone_profiles:", body.toneProfileId);
-        return new Response(
-          JSON.stringify({ error: `Tone profile not found (id: ${body.toneProfileId}). It may have been deleted. Please re-select a tone profile and try again.` }),
-          { status: 422, headers: { "Content-Type": "application/json" } }
-        );
+        console.log("TONE PROFILE: loaded", body.toneProfileId);
       }
     }
 
@@ -2602,10 +2583,6 @@ Deno.serve(async (req) => {
       }
     }
     let stitched = md.join("\n").trim();
-    // Post-stitch safety: strip any ## heading that appears inline (not at the
-    // start of a line). These are section bleeds that survived per-section
-    // processing. Replace the ## and everything after it on that line with nothing.
-    stitched = stitched.replace(/([^\n])( *##+ [^\n]*)/g, (_, before) => before);
     // Normal-mode parity passes (deterministic, no extra AI calls):
     const splitBul = splitGluedBullets(stitched);
     stitched = splitBul.out;
