@@ -364,7 +364,10 @@ Expansion layer (required to meet the word budget):
   6. You MAY add a second paragraph after the base bullets only if it
      introduces a table or transitions into the first H3 sub-section.
 
-Do NOT cross-reference other sections. Every sentence must stand alone.`;
+Do NOT cross-reference other sections. Every sentence must stand alone.
+CRITICAL: Do NOT write any ## or ### headings that match the article H2 outline questions.
+Your response is body content only. H2 headings are added by the system automatically.
+STOP writing when you approach the word budget — do not continue into the next section.`;
 }
 
 const ATOMIC_BODY_STRUCTURE_RULE = `
