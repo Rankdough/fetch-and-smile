@@ -51,6 +51,7 @@ interface ContentQueueProps {
   queuedIdeas: QueuedIdea[];
   onUseForArticle: (cluster: KeywordCluster, idea: BlogIdea) => void;
   onRemoveFromQueue: (ideaKey: string) => void;
+  onRegenerateIdea?: (cluster: KeywordCluster, idea: BlogIdea) => void;
   formatVolume: (v: number) => string;
   projectName?: string;
   allClusters?: KeywordCluster[];
