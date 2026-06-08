@@ -1,3 +1,10 @@
+## 2026-06-08 — BUILD-2026-06-08-A9-docx-link-pairing parse-context-file
+- What: Rewrote DOCX paragraph extraction in `parse-context-file/index.ts`. Each `<w:hyperlink r:id="...">visible text</w:hyperlink>` is now emitted inline as `[visible text](resolved URL)` instead of appending all paragraph URLs at the end of the visible text. Table cells use the same path.
+- Why: References showed broken titles all pointing to the same PubMed URL (e.g. `24982276`). Root cause: the old parser collapsed every URL in a paragraph to a single trailing list, destroying the title→URL pairing. `proprietary-generate-article > extractContextFileReferences` then paired the first bare URL with each separate visible line, producing mismatched references.
+- Files: `supabase/functions/parse-context-file/index.ts`, `CHANGELOG.md`.
+- Verify: Re-upload the context file. Boot log prints `BUILD-2026-06-08-A9-docx-link-pairing parse-context-file`. Parse log includes `resolved hyperlinks: N` (N > 0). Generated article References section: each title resolves to its own URL — clicking the 1st, 2nd, 3rd references goes to distinct PubMed pages whose titles match the visible anchor text.
+- Verified broken: Nothing verified broken. Checked: `deno check` (fails only on unrelated npm:unpdf resolution under local Deno; same precondition as before the edit), grep confirms old appending code (`const combined = [paragraphText.trim(), ...urls]`) removed, BUILD_MARKER string present, deploy success, hyperlink rendering preserves non-link `<w:t>` content and decodes XML entities.
+
 ## 2026-06-08 — BUILD-2026-06-08-A7-refs3 deploy (3 functions)
 - What: Pulled `proprietary-generate-article`, `insert-internal-links`, `apply-format` from GitHub commit `4304a9d`. Deployed all three.
 - Why: Continue references drop-point investigation; ship matching siblings.
