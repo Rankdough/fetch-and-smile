@@ -1680,3 +1680,11 @@ Verified broken: Nothing verified broken. The slice(0,5) cap in FAQAccordion sti
 **Files:** `src/components/SourceGroundingChecker.tsx` (new), `src/pages/Index.tsx` (import + mount under ContentUsefulnessChecker).
 **Verify:** Build green; existing checkers untouched; voice-edit-content body contract unchanged.
 **Verified broken:** Nothing verified broken. Checked: file reads of Index.tsx mount block, ContentUsefulnessChecker untouched, voice-edit-content payload shape `{ content, instruction, useFirstPerson }` identical to existing callers.
+
+## 2026-06-08 — Pull b36d870 (3 edge functions)
+- What: Pulled `proprietary-generate-article`, `insert-internal-links`, `apply-format` from GitHub `b36d870` and deployed.
+- Why: User-requested sync.
+- BUILD_MARKER (proprietary-generate-article): `BUILD-2026-06-08-A2-table proprietary-generate-article reference-link-guards`
+- Files: supabase/functions/{proprietary-generate-article,insert-internal-links,apply-format}/index.ts
+- Verify: Deploys returned success; trigger any of the three to see boot logs.
+- Verified broken: Nothing verified broken. Checked: file downloads, deploy success.

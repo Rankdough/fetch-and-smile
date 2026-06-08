@@ -348,6 +348,19 @@ ${processedContent}`;
       formattedContent = formattedContent.replace(/\n{3,}/g, '\n\n');
     }
 
+    // Bug 11: clean CTA blockquote lines — empty template variables leave a
+    // dangling space before punctuation ("professional-grade .") or double
+    // spaces ("with a  kit"). Scoped to blockquote (CTA) lines only so body
+    // prose is never touched.
+    formattedContent = formattedContent
+      .split("\n")
+      .map((line: string) =>
+        line.trimStart().startsWith(">")
+          ? line.replace(/ {2,}/g, " ").replace(/\s+([.,;:!?])/g, "$1")
+          : line
+      )
+      .join("\n");
+
     // Detect what was added
     const newHasTldr = /##\s*TL;?DR/i.test(formattedContent);
     const newHasQuickTips = /##\s*Quick\s*Tips/i.test(formattedContent) || />\s*\*\*Tip\s*1/i.test(formattedContent);
