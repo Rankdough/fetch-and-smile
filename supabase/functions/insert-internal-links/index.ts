@@ -128,7 +128,7 @@ serve(async (req) => {
 
 CRITICAL RULES:
 - DO NOT rewrite, rephrase, or remove any existing text or sections.
-- You MAY add at most ONE short clause (max 12 words) to an existing body paragraph if — and ONLY if — it is needed to introduce a contextual cross-link to a related FAQ. The added clause must read naturally and must contain the link.
+- DO NOT add, invent, or append any new words, clauses, or sentences. You may ONLY wrap phrases that already exist verbatim in the article. If no existing phrase fits a URL, skip that URL.
 - Otherwise, only convert existing relevant phrases/words into markdown links.
 - Return the FULL article with the links inserted.
 - Each URL should be linked EXACTLY ONCE (do not repeat the same link).
@@ -147,7 +147,7 @@ ANCHOR TEXT RELEVANCE:
 - STRONGLY PREFER noun phrases in the body that contain, are synonyms of, or directly describe the slug keywords (e.g. for slug "track-field-bags-backpacks" prefer phrases like "bag", "backpack", "gear bag", "kit bag").
 - If the article does not literally contain such a phrase, choose the closest reasonable noun phrase that a reader would expect to lead to that destination page given the article's overall topic.
 - DO NOT link clearly unrelated generic phrases like "venues", "schedules", "click here", "for example", or random adjectives.
-- It is BETTER to insert a link on an imperfect-but-plausible noun phrase than to skip the URL. Only skip a URL as an absolute last resort when no plausible anchor exists anywhere in the article.
+- Prefer an imperfect-but-plausible EXISTING noun phrase over skipping, but NEVER add new text to host a link. If no suitable phrase already exists in the article, skip the URL.
 
 DISTRIBUTION RULE:
 - Spread links as evenly as possible across the full article. Use different H2 sections when possible.
