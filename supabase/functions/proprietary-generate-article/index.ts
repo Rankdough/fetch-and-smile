@@ -2120,6 +2120,19 @@ async function runSection(input: {
     const budgetCeil = Number.isFinite(input.sectionBudgetWords) && input.sectionBudgetWords > 0
       ? Math.round(input.sectionBudgetWords * 1.25)
       : 600;
+    // Strip any H2 heading (## ...) that the model wrote inside body section content.
+    // This is the root cause of section bleed: the model writes the next section's
+    // heading at the end of a bullet point, corrupting the stitch structure.
+    // Strip everything from the first ## occurrence onward, keeping any sentence
+    // fragment that appeared before it on the same line.
+    content = content.replace(
+      /([.!?])\s*
+?##\s[\s\S]*/,
+      "$1"
+    ).replace(
+      /^##\s[\s\S]*/m,
+      ""
+    ).trim();
     content = trimSectionToBudget(content, budgetCeil);
   }
   const needsExpertInput = /^\[NEEDS EXPERT INPUT\]\s*$/i.test(content);
