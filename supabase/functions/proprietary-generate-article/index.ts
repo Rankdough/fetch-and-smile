@@ -1529,6 +1529,36 @@ function stripAtomicPhrases(markdown: string): { out: string; removed: number } 
   return { out, removed };
 }
 
+function dropEmptyMarkdownTables(markdown: string): { out: string; dropped: number } {
+  const lines = markdown.split("\n");
+  const out: string[] = [];
+  let i = 0;
+  let dropped = 0;
+  const isRow = (s: string) => /^\s*\|.*\|\s*$/.test(s);
+  const isSep = (s: string) => s.includes("|") && s.includes("-") && /^\s*\|?[\s:|-]+\|?\s*$/.test(s);
+  while (i < lines.length) {
+    if (isRow(lines[i]) && i + 1 < lines.length && isSep(lines[i + 1])) {
+      const start = i;
+      let j = i + 2;
+      let dataRows = 0;
+      while (j < lines.length && isRow(lines[j]) && !isSep(lines[j])) { dataRows++; j++; }
+      if (dataRows === 0) {
+        dropped++;
+        i = j;
+        if (i < lines.length && lines[i].trim() === "") i++;
+        continue;
+      } else {
+        for (let k = start; k < j; k++) out.push(lines[k]);
+        i = j;
+        continue;
+      }
+    }
+    out.push(lines[i]);
+    i++;
+  }
+  return { out: out.join("\n"), dropped };
+}
+
 function splitGluedBullets(markdown: string): { out: string; split: number } {
   // Fix a common LLM defect: `- A: text *   B: text *   C: text` glued on one
   // line. Split on `*   ` or `*  ` markers that occur inside a `- ` list item.
@@ -2124,7 +2154,7 @@ async function runSection(input: {
 
 /* ── handler ──────────────────────────────────────────────────────────── */
 
-const BUILD_MARKER = "BUILD-2026-06-08-A1-tldr proprietary-generate-article reference-link-guards";
+const BUILD_MARKER = "BUILD-2026-06-08-A2-table proprietary-generate-article reference-link-guards";
 Deno.serve(async (req) => {
   console.log(BUILD_MARKER);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -2555,6 +2585,9 @@ Deno.serve(async (req) => {
     const atomic = stripAtomicPhrases(stitched);
     stitched = atomic.out;
     if (atomic.removed > 0) console.warn(`ATOMIC GUARD: stripped ${atomic.removed} dependency phrase(s).`);
+    const emptyTbl = dropEmptyMarkdownTables(stitched);
+    stitched = emptyTbl.out;
+    if (emptyTbl.dropped > 0) console.warn(`EMPTY TABLE GUARD: dropped ${emptyTbl.dropped} table(s) with no data rows.`);
     stitched = enforceThreeBulletsPerBodySection(stitched);
     stitched = enforceOpeningLength(stitched);
     // injectHowToChoose must run BEFORE injectInThisArticle so the nav includes it
