@@ -2602,6 +2602,10 @@ Deno.serve(async (req) => {
       }
     }
     let stitched = md.join("\n").trim();
+    // Post-stitch safety: strip any ## heading that appears inline (not at the
+    // start of a line). These are section bleeds that survived per-section
+    // processing. Replace the ## and everything after it on that line with nothing.
+    stitched = stitched.replace(/([^\n])( *##+ [^\n]*)/g, (_, before) => before);
     // Normal-mode parity passes (deterministic, no extra AI calls):
     const splitBul = splitGluedBullets(stitched);
     stitched = splitBul.out;
