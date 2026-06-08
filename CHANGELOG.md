@@ -1736,3 +1736,12 @@ Verified broken: Nothing verified broken. The slice(0,5) cap in FAQAccordion sti
 - Verify: Boot log shows BUILD-2026-06-08-A7-refs3 at 16:23:36Z. REFERENCES extracted count pending next generation run.
 - Files: supabase/functions/{proprietary-generate-article,insert-internal-links,apply-format}/index.ts
 - Verified broken: Nothing.
+
+## 2026-06-08 — parse-context-file @ 7679f9b deployed
+- What: Pulled parse-context-file from commit 7679f9b (fix/a1-tldr) and deployed.
+- Why: DOCX hyperlink URLs live in word/_rels/document.xml.rels, not <w:t>. Old parser dropped every URL, causing REFERENCES: extracted 0.
+- Files: supabase/functions/parse-context-file/index.ts
+- Verify: Re-upload context file after deploy, regenerate article, expect REFERENCES: extracted N (N>0) in boot log.
+
+### Verified broken
+- Nothing verified broken. Only parse-context-file was redeployed; no other function touched.
