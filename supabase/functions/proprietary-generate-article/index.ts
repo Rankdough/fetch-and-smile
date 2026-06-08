@@ -2120,15 +2120,14 @@ async function runSection(input: {
     const budgetCeil = Number.isFinite(input.sectionBudgetWords) && input.sectionBudgetWords > 0
       ? Math.round(input.sectionBudgetWords * 1.25)
       : 600;
-    // Strip any ## heading the model wrote inside body section content.
-    // This is the root cause of section bleed.
-    content = content.replace(
-      /([.!?])\s*\n?##\s[\s\S]*/,
-      "$1"
-    ).replace(
-      /^##\s[\s\S]*/m,
-      ""
-    ).trim();
+    // Strip ALL ## H2 headings from body section content — global, no punctuation dependency.
+    // The model sometimes writes "## Next Section" inside bullets without preceding punctuation,
+    // which the earlier punctuation-dependent regex missed.
+    // Strategy: strip from the first ## to end-of-content (covers bleed at any position).
+    const firstH2 = content.search(/(?:^|[^#])##\s/m);
+    if (firstH2 >= 0) {
+      content = content.slice(0, firstH2).trimEnd();
+    }
     content = trimSectionToBudget(content, budgetCeil);
   }
   const needsExpertInput = /^\[NEEDS EXPERT INPUT\]\s*$/i.test(content);
