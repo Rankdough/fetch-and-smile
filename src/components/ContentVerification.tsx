@@ -314,7 +314,7 @@ export const ContentVerification = ({
         ? "Content generated with selected tone profile" 
         : appliedRules === null 
           ? "Imported content - use 'Enhance Import' to apply tone profile"
-          : "No tone profile was active during generation — select one and regenerate",
+          : "No tone profile selected - content uses default tone",
     });
 
     // ALWAYS show knowledge base check - flag as incomplete if not used
