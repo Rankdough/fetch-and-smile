@@ -1,3 +1,10 @@
+## 2026-06-08 — Pull A4-refs2 branch into proprietary-generate-article
+
+- **What:** Replaced supabase/functions/proprietary-generate-article/index.ts from Rankdough/fetch-and-smile @ 00f4520. BUILD_MARKER bumped to BUILD-2026-06-08-A4-refs2.
+- **Files:** supabase/functions/proprietary-generate-article/index.ts
+- **Verify:** Deployed successfully; boot log prints `BUILD-2026-06-08-A4-refs2 proprietary-generate-article reference-link-guards` (confirmed via edge function logs at 2026-06-08T15:41Z).
+- **Verified broken:** Nothing verified broken. Checked: BUILD_MARKER string present in file, deploy success, boot log confirmed.
+
 ## 2026-06-08 — Pull A3-refs branch into proprietary-generate-article
 
 - **What:** Replaced supabase/functions/proprietary-generate-article/index.ts from Rankdough/fetch-and-smile @ 0d0dfea. BUILD_MARKER bumped to BUILD-2026-06-08-A3-refs.
