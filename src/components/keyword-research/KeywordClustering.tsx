@@ -1976,7 +1976,7 @@ const KeywordClustering = () => {
     localStorage.setItem("seo-generator-keywords", JSON.stringify(topKeywords));
 
     toast({ title: "Pre-filled article settings", description: `Silo: ${cluster.topic} with ${topKeywords.length} keywords` });
-    window.location.href = "/";
+    window.open("/", "_blank");
   };
 
   const sendToGenerator = (cluster: KeywordCluster, idea: BlogIdea) => {
@@ -2003,7 +2003,7 @@ const KeywordClustering = () => {
     updateQueueState(prev => ({ ...prev, used: [...prev.used, key] }));
 
     toast({ title: "Pre-filled article settings", description: `Topic: ${idea.title}` });
-    window.location.href = "/";
+    window.open("/", "_blank");
   };
 
   const toggleCluster = (topic: string) => {
