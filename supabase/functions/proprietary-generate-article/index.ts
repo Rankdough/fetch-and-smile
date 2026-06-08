@@ -1050,11 +1050,8 @@ function dedupeAndValidateRefs(
     const rawUrl = (ref.url || "").trim();
     if (!title || !rawUrl) continue;
     if (!/^https?:\/\//i.test(rawUrl)) continue;
-    // Authority filter — only keep high-authority domains in the References section.
-    if (!isHighAuthorityUrl(rawUrl)) {
-      console.log(`REFERENCES: dropped low-authority URL: ${rawUrl}`);
-      continue;
-    }
+    // Authority filter removed for context-file references — user-curated URLs are trusted.
+    // SKIP_HOSTS in extractContextFileReferences handles social/ecommerce junk.
     try {
       const u = new URL(rawUrl);
       const host = u.hostname.replace(/^www\./i, "").toLowerCase();
@@ -1128,7 +1125,9 @@ function extractContextFileReferences(
       : AUTH_TIER_2.some(re => re.test(host)) ? 2 : 3;
     const haystack = `${host} ${url} ${rawTitle}`.toLowerCase();
     const score = topicTokens.reduce((s, t) => s + (haystack.includes(t) ? 1 : 0), 0);
-    const title = (rawTitle || host).slice(0, 120).trim();
+    // If rawTitle is itself a URL (works-cited [URL](URL) format), use domain name instead
+    const rawT = rawTitle && !/^https?:\/\//i.test(rawTitle.trim()) ? rawTitle.trim() : "";
+    const title = (rawT || host).slice(0, 120).trim();
     candidates.push({ title, url, tier, score });
   };
 
@@ -2154,7 +2153,7 @@ async function runSection(input: {
 
 /* ── handler ──────────────────────────────────────────────────────────── */
 
-const BUILD_MARKER = "BUILD-2026-06-08-A2-table proprietary-generate-article reference-link-guards";
+const BUILD_MARKER = "BUILD-2026-06-08-A3-refs proprietary-generate-article reference-link-guards";
 Deno.serve(async (req) => {
   console.log(BUILD_MARKER);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
