@@ -284,7 +284,7 @@ export async function generateMigrationArticle(
   // Sport-aware author bio + sources from context file or governing body fallback
   const eeatContent = buildEeatContent(
     sport || "",
-    Array.isArray(extraContextFiles) ? extraContextFiles : [],
+    Array.isArray(contextFiles) ? contextFiles : [],
     author || "Nic Reese"
   );
   const finalConvertOpts = {

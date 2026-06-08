@@ -1072,30 +1072,6 @@ function dedupeAndValidateRefs(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ─────────────────────────────────────────────────────────────────────────────
-// stripContextFileLeaks
-// Strips sentences where the model reveals a context file's name as an inline
-// citation — e.g. 'This information comes from "Material layer composition
-// and structural categorization."' These are internal document names, not
-// publishable sources, and must never appear in article body text.
-// ─────────────────────────────────────────────────────────────────────────────
-function stripContextFileLeaks(markdown: string): { out: string; removed: number } {
-  const LEAK_RE = [
-    /[Tt]his (?:information|data|content) (?:comes?|was compiled|is taken|is sourced|was sourced|is drawn) from ["']?[^"'.\n]{3,120}["']?[.,]?[ \t]*/g,
-    /[Aa]ccording to (?:the )?(?:document|file|source|research report|research)\s["']?[^"'.\n]{3,120}["']?[.,]?[ \t]*/g,
-    /[Dd]ata (?:from|sourced from|compiled from|in) ["']?[^"'.\n]{3,120}["']?[.,]?[ \t]*/g,
-    /(?:^|\n)[ \t]*(?:—\s*)?[Ss]ource:\s*["']?[^"'\n]{3,120}["']?[.,]?[ \t]*/gm,
-  ];
-  let out = markdown;
-  let removed = 0;
-  for (const re of LEAK_RE) {
-    out = out.replace(re, (m) => { removed++; return ""; });
-  }
-  // Clean up double spaces and excess blank lines left after removal
-  out = out.replace(/\.\s{2,}/g, ". ").replace(/\n{3,}/g, "\n\n").trim();
-  return { out, removed };
-}
-
 // extractContextFileReferences
 // The ONLY source for References. Extracts URLs from the uploaded context
 // files, parses Works Cited titles, filters for authority + relevance,
@@ -2016,11 +1992,7 @@ function enforceFinalThoughtsParagraphs(markdown: string): string {
     return `\x00URL${ftUrls.length - 1}\x00`;
   });
   const restoreFtUrls = (s: string) => s.replace(/\x00URL(\d+)\x00/g, (_x, i) => ftUrls[Number(i)] ?? "");
-  // Protect decimals (e.g. "12.5") so the dot is not treated as a sentence boundary.
-  const DEC = "\x00DEC\x00";
-  const protectedBody = body.replace(/(\d)\.(?=\d)/g, `$1${DEC}`);
-  const restoreDec = (s: string) => s.replace(new RegExp(DEC, "g"), ".");
-  const sentences = protectedBody.match(/[^.!?]+[.!?]+(?:["')\]]+)?/g)?.map((s) => restoreDec(restoreFtUrls(s)).trim()).filter(Boolean) ?? [restoreDec(restoreFtUrls(body))];
+  const sentences = body.match(/[^.!?]+[.!?]+(?:["')\]]+)?/g)?.map((s) => restoreFtUrls(s).trim()).filter(Boolean) ?? [restoreFtUrls(body)];
   const first = trimToWordCount(sentences.slice(0, Math.ceil(sentences.length / 2)).join(" "), 65);
   const second = trimToWordCount(sentences.slice(Math.ceil(sentences.length / 2)).join(" ") || sentences.slice(-1).join(" "), 65);
   const rebuilt = [first, second].filter(Boolean).join("\n\n");
@@ -2152,7 +2124,7 @@ async function runSection(input: {
 
 /* ── handler ──────────────────────────────────────────────────────────── */
 
-const BUILD_MARKER = "v1.0.1-decimal 2026-06-08 proprietary-generate-article";
+const BUILD_MARKER = "BUILD-2026-05-29-M proprietary-generate-article reference-link-guards";
 Deno.serve(async (req) => {
   console.log(BUILD_MARKER);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -2496,9 +2468,7 @@ Deno.serve(async (req) => {
           .find((p) => p && !/^!\[/.test(p) && !/^\|/.test(p) && !/^[-*+>]/.test(p) && !/^#{1,6}\s/.test(p));
         if (!para) continue;
         // First two sentences, capped
-        const DEC2 = "\x00DEC\x00";
-        const paraProtected = para.replace(/(\d)\.(?=\d)/g, `$1${DEC2}`);
-        const sentences = (paraProtected.match(/[^.!?]+[.!?]+/g)?.slice(0, 2).join(" ").trim() || paraProtected).replace(new RegExp(DEC2, "g"), ".");
+        const sentences = para.match(/[^.!?]+[.!?]+/g)?.slice(0, 2).join(" ").trim() || para;
         const answer = sentences.split(/\s+/).slice(0, 45).join(" ");
         if (answer.split(/\s+/).length < 8) continue;
         pairs.push(`**${heading}**\n\n${answer}${/[.!?]$/.test(answer) ? "" : "."}`);
@@ -2620,11 +2590,6 @@ Deno.serve(async (req) => {
     const sourceFragments = stripInlineSourceFragments(stitched);
     stitched = sourceFragments.out;
     if (sourceFragments.removed > 0) console.warn(`SOURCE GUARD: stripped ${sourceFragments.removed} inline Source fragment(s) from body copy.`);
-
-    // Item 8 — strip context filename leaks from body text
-    const leakResult = stripContextFileLeaks(stitched);
-    stitched = leakResult.out;
-    if (leakResult.removed > 0) console.warn(`LEAK GUARD: stripped ${leakResult.removed} context filename citation(s) from body copy.`);
     const numericMarkers = stripBodyNumericCitationMarkers(stitched);
     stitched = numericMarkers.out;
     if (numericMarkers.removed > 0) console.warn(`CITATION GUARD: removed ${numericMarkers.removed} orphan numeric citation marker(s) from body.`);
