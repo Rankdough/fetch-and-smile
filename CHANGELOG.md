@@ -1708,3 +1708,10 @@ Verified broken: Nothing verified broken. The slice(0,5) cap in FAQAccordion sti
 - Files: supabase/functions/{proprietary-generate-article,insert-internal-links,apply-format}/index.ts
 - Verify: Deploys returned success; trigger any of the three to see boot logs.
 - Verified broken: Nothing verified broken. Checked: file downloads, deploy success.
+
+## 2026-06-08 — Pull A5-tips for all three functions (98adf94)
+- What: Re-pulled proprietary-generate-article, insert-internal-links, apply-format from commit 98adf94 and deployed all three.
+- Why: User-requested sync to the A5-tips branch across the full trio.
+- Files: supabase/functions/{proprietary-generate-article,insert-internal-links,apply-format}/index.ts
+- Verify: BUILD_MARKER `BUILD-2026-06-08-A5-tips proprietary-generate-article reference-link-guards` confirmed in boot log at 2026-06-08T15:58Z.
+- Verified broken: Nothing verified broken (insert-internal-links and apply-format have no BUILD_MARKER string; only deploy success checked for those).
