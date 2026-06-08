@@ -825,6 +825,9 @@ const ContentQueue = ({ queuedIdeas, onUseForArticle, onRemoveFromQueue, formatV
                             <Button variant="ghost" size="sm" className="gap-1 text-xs h-7 px-2 text-green-700 dark:text-green-400" onClick={() => toggleDone(ideaKey)}>
                               <CheckCircle2 className="h-3 w-3 fill-current" /> Undo
                             </Button>
+                            <Button variant="ghost" size="sm" className="gap-1 text-xs h-7 px-2 text-primary" onClick={() => onUseForArticle(cluster, idea)}>
+                              <RefreshCw className="h-3 w-3" /> Regenerate
+                            </Button>
                             <Button variant="ghost" size="sm" className="gap-1 text-xs h-7 px-2 text-destructive" onClick={() => onRemoveFromQueue(ideaKey)}>
                               <Bookmark className="h-3 w-3 fill-current" /> Remove
                             </Button>
