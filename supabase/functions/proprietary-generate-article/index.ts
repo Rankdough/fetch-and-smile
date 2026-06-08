@@ -1081,13 +1081,9 @@ function dedupeAndValidateRefs(
 // ─────────────────────────────────────────────────────────────────────────────
 function stripContextFileLeaks(markdown: string): { out: string; removed: number } {
   const LEAK_RE = [
-    // "This information/data comes/was compiled/is taken from 'filename'"
     /[Tt]his (?:information|data|content) (?:comes?|was compiled|is taken|is sourced|was sourced|is drawn) from ["']?[^"'.\n]{3,120}["']?[.,]?[ \t]*/g,
-    // "According to the document/file/source 'filename'"
     /[Aa]ccording to (?:the )?(?:document|file|source|research report|research)\s["']?[^"'.\n]{3,120}["']?[.,]?[ \t]*/g,
-    // "Data from/sourced from/compiled from 'filename'"
     /[Dd]ata (?:from|sourced from|compiled from|in) ["']?[^"'.\n]{3,120}["']?[.,]?[ \t]*/g,
-    // Standalone: "— Source: filename." or "Source: filename."
     /(?:^|\n)[ \t]*(?:—\s*)?[Ss]ource:\s*["']?[^"'\n]{3,120}["']?[.,]?[ \t]*/gm,
   ];
   let out = markdown;
@@ -2152,7 +2148,7 @@ async function runSection(input: {
 
 /* ── handler ──────────────────────────────────────────────────────────── */
 
-const BUILD_MARKER = "v1.0.0 2026-06-08 proprietary-generate-article";
+const BUILD_MARKER = "BUILD-2026-05-29-M proprietary-generate-article reference-link-guards";
 Deno.serve(async (req) => {
   console.log(BUILD_MARKER);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
