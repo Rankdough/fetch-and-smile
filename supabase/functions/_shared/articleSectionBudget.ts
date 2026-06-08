@@ -96,7 +96,22 @@ export function trimSectionToBudget(body: string, budget: number): string {
     return appendSources(bodyWithoutSources.trim());
   }
 
-  const paragraphs = bodyWithoutSources.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
+  const DECIMAL_PLACEHOLDER_SB = "\x00DEC\x00";
+
+  // Pre-protect decimal numbers so "4.0 m/s" is never split into "4." + "0 m/s"
+  const protectDecimals = (s: string) => s.replace(/(\d)\.(?=\d)/g, `$1${DECIMAL_PLACEHOLDER_SB}`);
+  const restoreDecimals = (s: string) => s.replace(/\x00DEC\x00/g, ".");
+
+  const rawParagraphs = bodyWithoutSources.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
+  const paragraphs: string[] = [];
+  for (const p of rawParagraphs) {
+    // Stop at any paragraph that starts with ## — it is the next section's
+    // heading. Including it would corrupt the section structure and cause
+    // section bleed where one section's content absorbs the next section's heading.
+    if (/^##\s/.test(p)) break;
+    paragraphs.push(p);
+  }
+
   const kept: string[] = [];
   let remaining = effectiveBudget;
 
@@ -128,11 +143,12 @@ export function trimSectionToBudget(body: string, budget: number): string {
     // Protect URLs and markdown links first: domain dots must never be treated
     // as sentence boundaries (this previously split links across paragraphs).
     const paraUrls: string[] = [];
-    const protectedPara = paragraph.replace(/\[[^\]]*\]\(\s*https?:\/\/[^)\s]+\s*\)|https?:\/\/[^\s)]+/g, (u) => {
+    let protectedPara = paragraph.replace(/\[[^\]]*\]\(\s*https?:\/\/[^)\s]+\s*\)|https?:\/\/[^\s)]+/g, (u) => {
       paraUrls.push(u);
       return `\x00URL${paraUrls.length - 1}\x00`;
     });
-    const restorePara = (s: string) => s.replace(/\x00URL(\d+)\x00/g, (_m, i) => paraUrls[Number(i)] ?? "");
+    protectedPara = protectDecimals(protectedPara);
+    const restorePara = (s: string) => restoreDecimals(s.replace(/\x00URL(\d+)\x00/g, (_m, i) => paraUrls[Number(i)] ?? ""));
     const sentences = protectedPara.match(/[^.!?]+[.!?]+(?:["')\]]+)?/g)?.map((s) => restorePara(s).trim()).filter(Boolean) ?? [];
     const sentenceBuffer: string[] = [];
 
