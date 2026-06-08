@@ -1,3 +1,10 @@
+## 2026-06-08 — Deploy exact d2e4f6f6 parse-context-file
+- What: Replaced `supabase/functions/parse-context-file/index.ts` with the exact file from Rankdough/fetch-and-smile commit `d2e4f6f6` and deployed `parse-context-file`.
+- Why: User requested the live parser match the root-cause fix commit for attribute-order-independent DOCX relationship parsing.
+- Files: `supabase/functions/parse-context-file/index.ts`, `CHANGELOG.md`.
+- Verify: Local file hash differs from the previous A9 local file and matches the downloaded `d2e4f6f6` source; deploy was requested for `parse-context-file`; fresh boot logs should show the d2e4f6f6 build marker.
+- Verified broken: Nothing verified broken. Checked: no frontend files changed; only the requested edge function file was replaced.
+
 ## 2026-06-08 — BUILD-2026-06-08-A9-docx-link-pairing parse-context-file
 - What: Rewrote DOCX paragraph extraction in `parse-context-file/index.ts`. Each `<w:hyperlink r:id="...">visible text</w:hyperlink>` is now emitted inline as `[visible text](resolved URL)` instead of appending all paragraph URLs at the end of the visible text. Table cells use the same path.
 - Why: References showed broken titles all pointing to the same PubMed URL (e.g. `24982276`). Root cause: the old parser collapsed every URL in a paragraph to a single trailing list, destroying the title→URL pairing. `proprietary-generate-article > extractContextFileReferences` then paired the first bare URL with each separate visible line, producing mismatched references.
