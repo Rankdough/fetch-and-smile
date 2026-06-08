@@ -184,31 +184,19 @@ serve(async (req) => {
         }
         
         if (documentXml) {
-          // Extract text from <w:t> tags (Word text elements).
-          // Also resolve <w:hyperlink r:id="..."> elements so URLs appear in the text.
-          // Without this, works-cited URLs (stored as hyperlink relationships) are lost.
+          // Extract text from Word paragraphs while keeping each hyperlink paired
+          // to its visible anchor text. Do NOT append all paragraph URLs at the
+          // end: that destroys title→URL pairing when a references paragraph
+          // contains multiple linked citations.
           const paragraphs: string[] = [];
-          const paragraphSections = documentXml.split(/<w:p[^>]*>/);
+          let resolvedHyperlinks = 0;
+          const paragraphMatches = documentXml.matchAll(/<w:p\b[^>]*>([\s\S]*?)<\/w:p>/g);
           
-          for (const section of paragraphSections) {
-            const sectionTextMatches = section.match(/<w:t[^>]*>([^<]*)<\/w:t>/g);
-            if (sectionTextMatches) {
-              const paragraphText = sectionTextMatches
-                .map(match => {
-                  const textMatch = match.match(/<w:t[^>]*>([^<]*)<\/w:t>/);
-                  return textMatch ? textMatch[1] : "";
-                })
-                .join("");
-              // Find all hyperlink rIds referenced in this paragraph section
-              const hyperlinkRefs = [...section.matchAll(/r:id="([^"]+)"/g)];
-              const urls = hyperlinkRefs
-                .map(m => hyperlinkMap[m[1]])
-                .filter(Boolean)
-                .filter((u, i, a) => a.indexOf(u) === i); // dedupe
-              const combined = [paragraphText.trim(), ...urls].filter(Boolean).join(" ");
-              if (combined) {
-                paragraphs.push(combined);
-              }
+          for (const match of paragraphMatches) {
+            const rendered = renderWordFragmentWithHyperlinks(match[1], hyperlinkMap);
+            resolvedHyperlinks += rendered.linkCount;
+            if (rendered.text) {
+              paragraphs.push(rendered.text);
             }
           }
           
@@ -223,13 +211,9 @@ serve(async (req) => {
               const cellSections = rowSections[r].split(/<w:tc[^>]*>/);
               const cells: string[] = [];
               for (let c = 1; c < cellSections.length; c++) {
-                const cellTextMatches = cellSections[c].match(/<w:t[^>]*>([^<]*)<\/w:t>/g);
-                if (cellTextMatches) {
-                  const cellText = cellTextMatches
-                    .map((m: string) => { const tm = m.match(/<w:t[^>]*>([^<]*)<\/w:t>/); return tm ? tm[1] : ""; })
-                    .join("").trim();
-                  if (cellText) cells.push(cellText);
-                }
+                const renderedCell = renderWordFragmentWithHyperlinks(cellSections[c], hyperlinkMap);
+                resolvedHyperlinks += renderedCell.linkCount;
+                if (renderedCell.text) cells.push(renderedCell.text);
               }
               if (cells.length > 0) tableRows.push(cells.join(" | "));
             }
@@ -241,7 +225,7 @@ serve(async (req) => {
             ...paragraphs,
           ];
           textContent = allContent.join("\n\n");
-          console.log("Extracted text from docx using fflate, length:", textContent.length, "table rows:", tableRows.length);
+          console.log("Extracted text from docx using fflate, length:", textContent.length, "table rows:", tableRows.length, "resolved hyperlinks:", resolvedHyperlinks);
         }
         
         if (!textContent || textContent.length < 20) {
