@@ -2496,7 +2496,9 @@ Deno.serve(async (req) => {
           .find((p) => p && !/^!\[/.test(p) && !/^\|/.test(p) && !/^[-*+>]/.test(p) && !/^#{1,6}\s/.test(p));
         if (!para) continue;
         // First two sentences, capped
-        const sentences = para.match(/[^.!?]+[.!?]+/g)?.slice(0, 2).join(" ").trim() || para;
+        const DEC2 = "\x00DEC\x00";
+        const paraProtected = para.replace(/(\d)\.(?=\d)/g, `$1${DEC2}`);
+        const sentences = (paraProtected.match(/[^.!?]+[.!?]+/g)?.slice(0, 2).join(" ").trim() || paraProtected).replace(new RegExp(DEC2, "g"), ".");
         const answer = sentences.split(/\s+/).slice(0, 45).join(" ");
         if (answer.split(/\s+/).length < 8) continue;
         pairs.push(`**${heading}**\n\n${answer}${/[.!?]$/.test(answer) ? "" : "."}`);
