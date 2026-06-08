@@ -2120,6 +2120,15 @@ async function runSection(input: {
     const budgetCeil = Number.isFinite(input.sectionBudgetWords) && input.sectionBudgetWords > 0
       ? Math.round(input.sectionBudgetWords * 1.25)
       : 600;
+    // Strip any ## heading the model wrote inside body section content.
+    // This is the root cause of section bleed.
+    content = content.replace(
+      /([.!?])\s*\n?##\s[\s\S]*/,
+      "$1"
+    ).replace(
+      /^##\s[\s\S]*/m,
+      ""
+    ).trim();
     content = trimSectionToBudget(content, budgetCeil);
   }
   const needsExpertInput = /^\[NEEDS EXPERT INPUT\]\s*$/i.test(content);
