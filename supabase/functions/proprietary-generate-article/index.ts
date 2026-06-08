@@ -2587,7 +2587,9 @@ Deno.serve(async (req) => {
         md.push("## Quick Tips", "", normaliseQuickTipsContent(cleanContent), "");
       } else if (s.kind === "faq") {
         // Enforce EXACTLY 5 Q&A pairs: top-up with deterministic fillers if model produced fewer.
-        const topped = ensureFiveFaqPairs(cleanContent, body.topic, sectionsOut);
+        // Strip bleed-through into Final Thoughts / References before processing
+        const faqCleaned = cleanContent.replace(/\n##\s[\s\S]*/im, "").replace(/\n---\s*$/im, "").trim();
+        const topped = ensureFiveFaqPairs(faqCleaned, body.topic, sectionsOut);
         md.push("## Frequently Asked Questions", "", topped, "");
       } else {
         md.push(`## ${s.heading}`, "", cleanContent, "");
