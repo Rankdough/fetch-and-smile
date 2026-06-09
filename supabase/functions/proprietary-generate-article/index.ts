@@ -881,6 +881,7 @@ function firstSentenceOf(sectionBody: string): string {
     .split("\n")
     .filter((l) => l.trim() && !/^#{1,6}\s/.test(l) && !l.includes("|") && !/^\s*[-*+]\s/.test(l) && !/^\s*>/.test(l))
     .join(" ")
+    .replace(/#{1,6}\s+[^#\n]*/g, " ")  // strip any inline ### headings not caught by line filter
     .replace(/\s+/g, " ")
     .trim();
   if (!clean) return "";
@@ -2197,7 +2198,7 @@ async function runSection(input: {
 
 /* ── handler ──────────────────────────────────────────────────────────── */
 
-const BUILD_MARKER = "BUILD-2026-06-09-B1-four-fixes proprietary-generate-article";
+const BUILD_MARKER = "BUILD-2026-06-09-B2-decimal-nav proprietary-generate-article";
 Deno.serve(async (req) => {
   console.log(BUILD_MARKER);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -2642,6 +2643,9 @@ Deno.serve(async (req) => {
     if (splitBul.split > 0) console.warn(`SPLIT BULLETS: split ${splitBul.split} glued sub-bullet(s).`);
     // Section bleed strip: remove inline ## headings written mid-paragraph by the model
     stitched = stitched.replace(/([^\n#])[ \t]*#{2,}[ \t]+/g, "$1 ");
+    // Decimal repair: rejoin digit-period-space-digit sequences split by sentence tokeniser
+    // e.g. "0. 4%" → "0.4%", "1. 6mm" → "1.6mm"
+    stitched = stitched.replace(/(\d)\. (\d)/g, "$1.$2");
     const atomic = stripAtomicPhrases(stitched);
     stitched = atomic.out;
     if (atomic.removed > 0) console.warn(`ATOMIC GUARD: stripped ${atomic.removed} dependency phrase(s).`);
