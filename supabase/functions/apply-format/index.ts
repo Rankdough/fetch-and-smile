@@ -20,7 +20,10 @@ interface ApplyFormatRequest {
   skipQuickTips?: boolean;
 }
 
+const BUILD_MARKER = "BUILD-2026-06-09-B2-cta-fix apply-format";
+
 serve(async (req) => {
+  console.log(BUILD_MARKER);
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -356,7 +359,14 @@ ${processedContent}`;
       .split("\n")
       .map((line: string) =>
         line.trimStart().startsWith(">")
-          ? line.replace(/ {2,}/g, " ").replace(/\s+([.,;:!?])/g, "$1")
+          ? line
+              .replace(/ {2,}/g, " ")
+              .replace(/\s+([.,;:!?])/g, "$1")
+              // Strip dangling preposition+article left by empty productLabel variable
+              // e.g. "with our." → "." / "for your." → "."
+              .replace(/\b(with our|for your|with a|with the|with our fully|for your fully)\.( |$)/gi, ". ")
+              .replace(/\s{2,}/g, " ")
+              .trim()
           : line
       )
       .join("\n");
