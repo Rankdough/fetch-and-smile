@@ -1,4 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+
+const BUILD_MARKER = "BUILD-2026-06-09-A9-pairing parse-context-file";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -8,6 +10,7 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
+  console.log(BUILD_MARKER);
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -137,24 +140,35 @@ serve(async (req) => {
           const paragraphSections = documentXml.split(/<w:p[^>]*>/);
           
           for (const section of paragraphSections) {
-            const sectionTextMatches = section.match(/<w:t[^>]*>([^<]*)<\/w:t>/g);
-            if (sectionTextMatches) {
-              const paragraphText = sectionTextMatches
-                .map(match => {
-                  const textMatch = match.match(/<w:t[^>]*>([^<]*)<\/w:t>/);
-                  return textMatch ? textMatch[1] : "";
-                })
-                .join("");
-              // Find all hyperlink rIds referenced in this paragraph section
-              const hyperlinkRefs = [...section.matchAll(/r:id="([^"]+)"/g)];
-              const urls = hyperlinkRefs
-                .map(m => hyperlinkMap[m[1]])
-                .filter(Boolean)
-                .filter((u, i, a) => a.indexOf(u) === i); // dedupe
-              const combined = [paragraphText.trim(), ...urls].filter(Boolean).join(" ");
-              if (combined) {
-                paragraphs.push(combined);
-              }
+            // A9: pair each hyperlink with its own anchor text instead of dumping
+            // all URLs at paragraph end. Extract plain text first, then extract
+            // each <w:hyperlink> run as "[anchor text](url)" inline.
+            const allTextMatches = section.match(/<w:t[^>]*>([^<]*)<\/w:t>/g);
+            const plainText = allTextMatches
+              ? allTextMatches.map(m => { const x = m.match(/<w:t[^>]*>([^<]*)<\/w:t>/); return x ? x[1] : ""; }).join("")
+              : "";
+
+            // Extract hyperlink runs: <w:hyperlink r:id="rIdX">...<w:t>anchor</w:t>...</w:hyperlink>
+            const hyperlinkRuns = [...section.matchAll(/<w:hyperlink[^>]*r:id="([^"]+)"[^>]*>([\s\S]*?)<\/w:hyperlink>/g)];
+            const pairedRefs: string[] = [];
+            const seenUrls = new Set<string>();
+            for (const run of hyperlinkRuns) {
+              const rId = run[1];
+              const url = hyperlinkMap[rId];
+              if (!url || seenUrls.has(url)) continue;
+              seenUrls.add(url);
+              const runTextMatches = run[2].match(/<w:t[^>]*>([^<]*)<\/w:t>/g);
+              const anchorText = runTextMatches
+                ? runTextMatches.map(m => { const x = m.match(/<w:t[^>]*>([^<]*)<\/w:t>/); return x ? x[1] : ""; }).join("").trim()
+                : "";
+              // Emit as markdown link: [anchor text](url) — parse-context-file extractContextFileReferences reads this
+              pairedRefs.push(anchorText ? \`[\${anchorText}](\${url})\` : url);
+            }
+
+            // Build combined: plain paragraph text + paired hyperlink references
+            const parts = [plainText.trim(), ...pairedRefs].filter(Boolean);
+            if (parts.length) {
+              paragraphs.push(parts.join(" "));
             }
           }
           

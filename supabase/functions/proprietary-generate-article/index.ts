@@ -605,6 +605,15 @@ function stripInlineSourceFragments(markdown: string): { out: string; removed: n
         removed += 1;
         return "";
       });
+      // Strip "This data was compiled from X.docx" mid-sentence fragments
+      next = next.replace(/[.,]?\s*[Tt]his\s+data\s+was\s+compiled\s+from\s+[^.]+\./g, () => {
+        removed += 1;
+        return "";
+      });
+      next = next.replace(/[.,]?\s*[Dd]ata\s+(?:was\s+)?compiled\s+from\s+[^.]+\./g, () => {
+        removed += 1;
+        return "";
+      });
       if (/^\s*(?:Source|Sources?)\s*:\s*(?!\[[^\]]+\]\(https?:\/\/)/i.test(next)) {
         removed += 1;
         return "";
@@ -2051,20 +2060,11 @@ function enforceFinalThoughtsParagraphs(markdown: string): string {
   // Protect URLs and markdown links: domain dots must never be treated as
   // sentence boundaries (previously split "site.com" URLs across paragraphs).
   const ftUrls: string[] = [];
-  let body = rawBody.replace(/\[[^\]]*\]\(\s*https?:\/\/[^)\s]+\s*\)|https?:\/\/[^\s)]+/g, (u) => {
+  const body = rawBody.replace(/\[[^\]]*\]\(\s*https?:\/\/[^)\s]+\s*\)|https?:\/\/[^\s)]+/g, (u) => {
     ftUrls.push(u);
     return `\x00URL${ftUrls.length - 1}\x00`;
   });
-  // Protect single-letter abbreviations (F.U.S.E., U.S.A., e.g., i.e.) so the
-  // sentence splitter does not fragment them across paragraphs.
-  const ftAbbr: string[] = [];
-  body = body.replace(/\b(?:[A-Za-z]\.){2,}/g, (a) => {
-    ftAbbr.push(a);
-    return `\x00ABBR${ftAbbr.length - 1}\x00`;
-  });
-  const restoreFtUrls = (s: string) =>
-    s.replace(/\x00URL(\d+)\x00/g, (_x, i) => ftUrls[Number(i)] ?? "")
-      .replace(/\x00ABBR(\d+)\x00/g, (_x, i) => ftAbbr[Number(i)] ?? "");
+  const restoreFtUrls = (s: string) => s.replace(/\x00URL(\d+)\x00/g, (_x, i) => ftUrls[Number(i)] ?? "");
   const sentences = body.match(/[^.!?]+[.!?]+(?:["')\]]+)?/g)?.map((s) => restoreFtUrls(s).trim()).filter(Boolean) ?? [restoreFtUrls(body)];
   const first = trimToWordCount(sentences.slice(0, Math.ceil(sentences.length / 2)).join(" "), 65);
   const second = trimToWordCount(sentences.slice(Math.ceil(sentences.length / 2)).join(" ") || sentences.slice(-1).join(" "), 65);
@@ -2197,7 +2197,7 @@ async function runSection(input: {
 
 /* ── handler ──────────────────────────────────────────────────────────── */
 
-const BUILD_MARKER = "BUILD-2026-06-08-A8-refs4 proprietary-generate-article reference-link-guards";
+const BUILD_MARKER = "BUILD-2026-06-09-B1-four-fixes proprietary-generate-article";
 Deno.serve(async (req) => {
   console.log(BUILD_MARKER);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -2540,19 +2540,8 @@ Deno.serve(async (req) => {
           .map((p) => p.trim())
           .find((p) => p && !/^!\[/.test(p) && !/^\|/.test(p) && !/^[-*+>]/.test(p) && !/^#{1,6}\s/.test(p));
         if (!para) continue;
-        // First two sentences, capped. Protect single-letter abbreviations
-        // (F.U.S.E., U.S.A., e.g., i.e.) before the sentence-splitter regex
-        // so it does not treat each internal period as a sentence end.
-        const abbrStash: string[] = [];
-        const protectedPara = para.replace(/\b(?:[A-Za-z]\.){2,}/g, (a) => {
-          abbrStash.push(a);
-          return `\x00ABBR${abbrStash.length - 1}\x00`;
-        });
-        const restoreAbbr = (s: string) =>
-          s.replace(/\x00ABBR(\d+)\x00/g, (_x, i) => abbrStash[Number(i)] ?? "");
-        const sentences = restoreAbbr(
-          protectedPara.match(/[^.!?]+[.!?]+/g)?.slice(0, 2).join(" ").trim() || protectedPara,
-        );
+        // First two sentences, capped
+        const sentences = para.match(/[^.!?]+[.!?]+/g)?.slice(0, 2).join(" ").trim() || para;
         const answer = sentences.split(/\s+/).slice(0, 45).join(" ");
         if (answer.split(/\s+/).length < 8) continue;
         pairs.push(`**${heading}**\n\n${answer}${/[.!?]$/.test(answer) ? "" : "."}`);
@@ -2623,9 +2612,21 @@ Deno.serve(async (req) => {
       if (s.kind === "opening") {
         md.push(cleanContent, "");
       } else if (s.kind === "tldr") {
-        md.push("## TL;DR", "", trimToWordCount(cleanContent.replace(/\n{2,}/g, " ").replace(/\n/g, " ").replace(/\s{2,}/g, " ").trim(), 60), "");
+        // Merge content, collapse F.U.S.E.-style abbreviations split by sentence tokeniser
+        const tldrMerged = cleanContent
+          .replace(/\n{2,}/g, " ").replace(/\n/g, " ")
+          .replace(/\s{2,}/g, " ")
+          .replace(/\b([A-Z])\. ([A-Z])\. ([A-Z])\. ([A-Z])\./g, "$1.$2.$3.$4.")
+          .replace(/\b([A-Z])\. ([A-Z])\. ([A-Z])\./g, "$1.$2.$3.")
+          .replace(/\b([A-Z])\. ([A-Z])\./g, "$1.$2.")
+          .trim();
+        md.push("## TL;DR", "", trimToWordCount(tldrMerged, 60), "");
       } else if (s.kind === "quick-tips") {
-        md.push("## Quick Tips", "", normaliseQuickTipsContent(cleanContent), "");
+        // After normalising, count valid tip lines. If fewer than 3, fire fallback.
+        const normedTips = normaliseQuickTipsContent(cleanContent);
+        const validTipLines = normedTips.split("\n").filter(l => l.trim().startsWith("-") && l.trim().length > 5);
+        const finalTips = validTipLines.length >= 3 ? normedTips : buildFallbackQuickTips(sectionsOut, body.topic);
+        md.push("## Quick Tips", "", finalTips, "");
       } else if (s.kind === "faq") {
         // Enforce EXACTLY 5 Q&A pairs: top-up with deterministic fillers if model produced fewer.
         const topped = ensureFiveFaqPairs(cleanContent, body.topic, sectionsOut);
@@ -2639,6 +2640,8 @@ Deno.serve(async (req) => {
     const splitBul = splitGluedBullets(stitched);
     stitched = splitBul.out;
     if (splitBul.split > 0) console.warn(`SPLIT BULLETS: split ${splitBul.split} glued sub-bullet(s).`);
+    // Section bleed strip: remove inline ## headings written mid-paragraph by the model
+    stitched = stitched.replace(/([^\n#])[ \t]*#{2,}[ \t]+/g, "$1 ");
     const atomic = stripAtomicPhrases(stitched);
     stitched = atomic.out;
     if (atomic.removed > 0) console.warn(`ATOMIC GUARD: stripped ${atomic.removed} dependency phrase(s).`);
