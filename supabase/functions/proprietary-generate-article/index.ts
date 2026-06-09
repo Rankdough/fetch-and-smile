@@ -2051,11 +2051,20 @@ function enforceFinalThoughtsParagraphs(markdown: string): string {
   // Protect URLs and markdown links: domain dots must never be treated as
   // sentence boundaries (previously split "site.com" URLs across paragraphs).
   const ftUrls: string[] = [];
-  const body = rawBody.replace(/\[[^\]]*\]\(\s*https?:\/\/[^)\s]+\s*\)|https?:\/\/[^\s)]+/g, (u) => {
+  let body = rawBody.replace(/\[[^\]]*\]\(\s*https?:\/\/[^)\s]+\s*\)|https?:\/\/[^\s)]+/g, (u) => {
     ftUrls.push(u);
     return `\x00URL${ftUrls.length - 1}\x00`;
   });
-  const restoreFtUrls = (s: string) => s.replace(/\x00URL(\d+)\x00/g, (_x, i) => ftUrls[Number(i)] ?? "");
+  // Protect single-letter abbreviations (F.U.S.E., U.S.A., e.g., i.e.) so the
+  // sentence splitter does not fragment them across paragraphs.
+  const ftAbbr: string[] = [];
+  body = body.replace(/\b(?:[A-Za-z]\.){2,}/g, (a) => {
+    ftAbbr.push(a);
+    return `\x00ABBR${ftAbbr.length - 1}\x00`;
+  });
+  const restoreFtUrls = (s: string) =>
+    s.replace(/\x00URL(\d+)\x00/g, (_x, i) => ftUrls[Number(i)] ?? "")
+      .replace(/\x00ABBR(\d+)\x00/g, (_x, i) => ftAbbr[Number(i)] ?? "");
   const sentences = body.match(/[^.!?]+[.!?]+(?:["')\]]+)?/g)?.map((s) => restoreFtUrls(s).trim()).filter(Boolean) ?? [restoreFtUrls(body)];
   const first = trimToWordCount(sentences.slice(0, Math.ceil(sentences.length / 2)).join(" "), 65);
   const second = trimToWordCount(sentences.slice(Math.ceil(sentences.length / 2)).join(" ") || sentences.slice(-1).join(" "), 65);
@@ -2531,8 +2540,19 @@ Deno.serve(async (req) => {
           .map((p) => p.trim())
           .find((p) => p && !/^!\[/.test(p) && !/^\|/.test(p) && !/^[-*+>]/.test(p) && !/^#{1,6}\s/.test(p));
         if (!para) continue;
-        // First two sentences, capped
-        const sentences = para.match(/[^.!?]+[.!?]+/g)?.slice(0, 2).join(" ").trim() || para;
+        // First two sentences, capped. Protect single-letter abbreviations
+        // (F.U.S.E., U.S.A., e.g., i.e.) before the sentence-splitter regex
+        // so it does not treat each internal period as a sentence end.
+        const abbrStash: string[] = [];
+        const protectedPara = para.replace(/\b(?:[A-Za-z]\.){2,}/g, (a) => {
+          abbrStash.push(a);
+          return `\x00ABBR${abbrStash.length - 1}\x00`;
+        });
+        const restoreAbbr = (s: string) =>
+          s.replace(/\x00ABBR(\d+)\x00/g, (_x, i) => abbrStash[Number(i)] ?? "");
+        const sentences = restoreAbbr(
+          protectedPara.match(/[^.!?]+[.!?]+/g)?.slice(0, 2).join(" ").trim() || protectedPara,
+        );
         const answer = sentences.split(/\s+/).slice(0, 45).join(" ");
         if (answer.split(/\s+/).length < 8) continue;
         pairs.push(`**${heading}**\n\n${answer}${/[.!?]$/.test(answer) ? "" : "."}`);
