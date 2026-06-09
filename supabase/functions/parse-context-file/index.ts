@@ -162,7 +162,7 @@ serve(async (req) => {
                 ? runTextMatches.map(m => { const x = m.match(/<w:t[^>]*>([^<]*)<\/w:t>/); return x ? x[1] : ""; }).join("").trim()
                 : "";
               // Emit as markdown link: [anchor text](url) — parse-context-file extractContextFileReferences reads this
-              pairedRefs.push(anchorText ? \`[\${anchorText}](\${url})\` : url);
+              pairedRefs.push(anchorText ? `[${anchorText}](${url})` : url);
             }
 
             // Build combined: plain paragraph text + paired hyperlink references
