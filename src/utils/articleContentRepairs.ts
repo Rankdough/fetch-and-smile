@@ -3,8 +3,21 @@ const IMAGE_URL_RE = /(?:article-images|storage\/v1\/object|\.(?:jpe?g|png|webp|
 const countWords = (text: string): number =>
   text.trim().split(/\s+/).filter(Boolean).length;
 
+// Protect single-letter abbreviations (F.U.S.E., U.S.A., e.g., i.e.) so their
+// internal periods are not treated as sentence boundaries by downstream regex.
+const ABBR_RE = /\b(?:[A-Za-z]\.){2,}/g;
+const protectAbbrev = (text: string): { text: string; restore: (s: string) => string } => {
+  const stash: string[] = [];
+  const out = text.replace(ABBR_RE, (m) => {
+    stash.push(m);
+    return `\x00ABBR${stash.length - 1}\x00`;
+  });
+  return { text: out, restore: (s) => s.replace(/\x00ABBR(\d+)\x00/g, (_x, i) => stash[Number(i)] ?? "") };
+};
+
 const splitSnippet = (text: string, maxWords: number): [string, string] => {
-  const sentences = text.match(/[^.!?]+[.!?]+(?:["')\]]+)?|[^.!?]+$/g)?.map((s) => s.trim()).filter(Boolean) || [];
+  const { text: protectedText, restore } = protectAbbrev(text);
+  const sentences = protectedText.match(/[^.!?]+[.!?]+(?:["')\]]+)?|[^.!?]+$/g)?.map((s) => restore(s).trim()).filter(Boolean) || [];
   if (sentences.length > 1) {
     const first: string[] = [];
     let firstWords = 0;

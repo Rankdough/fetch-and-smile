@@ -1,3 +1,10 @@
+## 2026-06-09 — Protect single-letter abbreviations from sentence splitter (F.U.S.E. fix)
+- What: Patched the three regex-based sentence splitters (`src/utils/articleContentRepairs.ts` `splitSnippet`, `supabase/functions/proprietary-generate-article/index.ts` TL;DR splitter ~L2059 and FAQ-mining splitter ~L2535) to stash sequences matching `\b(?:[A-Za-z]\.){2,}` behind a `\x00ABBR\d+\x00` placeholder before applying `[^.!?]+[.!?]+`, then restore.
+- Why: `F.U.S.E.`, `U.S.A.`, `e.g.`, `i.e.` were being treated as 4 separate sentences, fragmenting the TL;DR into 3 paragraphs and leaving mid-word remnants (e.g. "rseys").
+- What may break: Any downstream code that relied on `F.` being its own sentence will now see it kept inline. None found by grep.
+- Files: `src/utils/articleContentRepairs.ts`, `supabase/functions/proprietary-generate-article/index.ts`.
+- Verify: Generate an article whose source mentions "Nike Vapor F.U.S.E."; TL;DR should be 2 paragraphs and contain the full token `F.U.S.E.` intact.
+
 ## 2026-06-08 — Deploy exact d2e4f6f6 parse-context-file
 - What: Replaced `supabase/functions/parse-context-file/index.ts` with the exact file from Rankdough/fetch-and-smile commit `d2e4f6f6` and deployed `parse-context-file`.
 - Why: User requested the live parser match the root-cause fix commit for attribute-order-independent DOCX relationship parsing.
