@@ -2179,6 +2179,11 @@ async function runSection(input: {
       ? Math.round(input.sectionBudgetWords * 1.25)
       : 600;
     content = trimSectionToBudget(content, budgetCeil);
+    if (preGenerated && !batchedBodyLooksComplete(content, input.sectionBudgetWords)) {
+      console.warn(`BATCHED BODY: post-trim structural guard failed for "${input.section.heading}"; regenerating this section via legacy path.`);
+      content = (await callModel(assembled.system, assembled.user, input.model, tokenBudget)).trim();
+      content = trimSectionToBudget(content, budgetCeil);
+    }
   }
   const needsExpertInput = /^\[NEEDS EXPERT INPUT\]\s*$/i.test(content);
   let ruleFlags = needsExpertInput ? [] : lintRule5(content);
