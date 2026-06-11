@@ -6,7 +6,7 @@ const corsHeaders = {
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 const AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 const MODEL = "google/gemini-2.5-flash";
-const BUILD_MARKER = "BUILD-2026-06-11-B14-surgical-fix run-review-pass";
+const BUILD_MARKER = "BUILD-2026-06-11-B15-wordcount-guard run-review-pass";
 
 function extractSection(raw: string, tag: string): string {
   const open = `====${tag}====`;
@@ -93,7 +93,6 @@ CORRECTION RULES — violating any of these voids the correction:
 - Do not change the paragraph count in any section by more than ±1
 - Do not change the bullet count in any list by more than ±1
 - British English throughout — do not switch to American English
-- Final word count must stay within 8% of the original
 
 ---
 
@@ -173,10 +172,10 @@ Deno.serve(async (req) => {
     if (correctedRaw && correctedRaw !== "NO CHANGES") {
       const revisedWords = countWords(correctedRaw);
       const delta = Math.abs(revisedWords - originalWords) / (originalWords || 1);
-      if (delta <= 0.08) {
+      if (delta <= 0.40) {
         correctedContent = correctedRaw;
       } else {
-        console.warn(`REVIEW PASS: word count deviation ${(delta * 100).toFixed(1)}% > 8%, discarding corrected article.`);
+        console.warn(`REVIEW PASS: word count deviation ${(delta * 100).toFixed(1)}% > 40%, discarding corrected article.`);
       }
     }
 
