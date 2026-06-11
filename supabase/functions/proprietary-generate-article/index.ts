@@ -2198,7 +2198,7 @@ async function runSection(input: {
 
 /* ── handler ──────────────────────────────────────────────────────────── */
 
-const BUILD_MARKER = "BUILD-2026-06-09-B3-fuse-fix proprietary-generate-article";
+const BUILD_MARKER = "BUILD-2026-06-09-B3b-fuse-fix-corrected proprietary-generate-article";
 Deno.serve(async (req) => {
   console.log(BUILD_MARKER);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -2587,11 +2587,17 @@ Deno.serve(async (req) => {
       const rawContent = s.type === "body"
         ? stripLeadingDuplicateHeading(s.content, s.heading)
         : s.content;
-      // FIX-01: collapse abbreviation splits written by the model before any
-      // section-specific processing runs. Fixes F.U.S.E., U.S.A., N.B.A. etc.
-      // appearing as "F. U. S. E." across sentence breaks in TL;DR, body,
-      // FAQ, and nav previews simultaneously.
+      // FIX-01 (corrected): collapse abbreviation splits written by the model.
+      // The model splits F.U.S.E. in two ways:
+      //   A) Cross-paragraph: "F. U.\n\nS. E." — letter. newline newline letter.
+      //   B) Same-line: "F. U. S. E." — letter. space letter. on one line
+      // Previous fix only handled (B). This handles both.
+      // Verified against exact broken strings from pasted articles before committing.
       const cleanContent = rawContent
+        // Pass 1: collapse cross-paragraph splits (letter.\n\nletter.)
+        .replace(/([A-Z])\.\.\n\n([A-Z])\./g, "$1.$2.")
+        .replace(/([A-Z])\.\n\n([A-Z])\./g, "$1.$2.")
+        // Pass 2: collapse same-line splits (4, 3, 2 letter abbreviations)
         .replace(/\b([A-Z])\. ([A-Z])\. ([A-Z])\. ([A-Z])\./g, "$1.$2.$3.$4.")
         .replace(/\b([A-Z])\. ([A-Z])\. ([A-Z])\./g, "$1.$2.$3.")
         .replace(/\b([A-Z])\. ([A-Z])\./g, "$1.$2.");
