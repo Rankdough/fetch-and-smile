@@ -2260,9 +2260,166 @@ async function runSection(input: {
   return { content, needsExpertInput, ruleFlags, contradicted, appliedRules: isBody ? [1, 2, 3, 4, 5, 6, 7, 8] : assembled.appliedRules };
 }
 
+async function runReviewPass(
+  content: string,
+  topic: string,
+  model: string,
+): Promise<{ content: string; status: "PASSED" | "FIXED"; fixes: string[] }> {
+  const system = `You are a senior editor. Before reading a single word of this article, establish who you are reading it for.
+
+STEP 0 — DEFINE THE READER
+Topic: ${topic}
+
+Answer these before proceeding:
+- Who is this person? What is their situation right now?
+- What decision are they trying to make?
+- What emotion are they feeling — anxiety, excitement, scepticism, confusion?
+- What would make them trust this article in the first 30 seconds?
+- What would make them leave?
+- What question must this article answer for them to feel the visit was worth their time?
+
+Write your reader profile in 3 sentences.
+This profile is your editorial filter for everything below.
+
+---
+
+STEP 1 — READ AS THAT READER
+Read the full article through this person's eyes.
+
+Flag every moment where:
+- The article stops speaking to them and starts speaking generically
+- A claim is made that does not serve their decision
+- A section answers a question they did not have
+- A section fails to answer a question they definitely have
+- The tone shifts from helpful to promotional without earning it
+- They would stop reading and why
+
+---
+
+STEP 2 — HUMAN QUALITY CHECK
+Against your reader profile, answer:
+
+1. NON-COMMODITY
+Does every H2 contain at least one specific fact, measurement, named product, or insight that could not be generated from generic public knowledge alone?
+Flag any section that a competing AI article could replicate word for word.
+
+2. INFORMATION GAP
+What question does your reader have that this article fails to answer?
+If one exists, add the answer in the most relevant section.
+
+3. NARRATIVE THREAD
+Does the article open with a promise to the reader?
+Does each H2 build on the last toward that promise?
+Does Final Thoughts deliver the conclusion the reader was building toward?
+If the thread breaks anywhere, fix the transition.
+
+4. READER ENGAGEMENT
+Identify the first sentence where your reader would stop.
+Fix it so they don't.
+
+---
+
+STEP 3 — STRUCTURAL COMPLIANCE
+Every section you touched in Steps 1 and 2 must pass all of these. Fix anything that does not.
+
+ATOMICITY
+Every H2 is self-contained. A reader landing directly on that section gets a complete answer without reading anything else.
+
+PARAGRAPH STRUCTURE
+One idea per paragraph. Maximum 3 sentences.
+No paragraph references a previous section.
+
+ATOMIC BODY STRUCTURE per H2 in order:
+- Direct answer (1-3 sentences)
+- Evidence or data paragraph
+- Bullet list (3 items, specific, under 15 words each)
+- Table if comparative data exists
+
+LANGUAGE — never violate:
+- No em dashes
+- No horizontal lines
+- No: tapestry, delve, vibrant, meticulous, bespoke, explore, captivate, leverage, ever evolving, dynamic
+- No "It is worth noting" / "In conclusion" / "In summary"
+- No Quick Tips starting with "Understand X before committing"
+- No FAQ Q4/Q5 using "What is the main point of..." or "How should someone use..."
+- British English throughout
+- No decimal splits: "1.5" not "1. 5"
+- No abbreviation splits: "F.U.S.E." not "F. U. S. E."
+
+FLOW
+- Opening paragraph delivers the H1 promise in sentence one
+- Every H2 opens with a direct answer, not a preamble
+- Final Thoughts names a specific conclusion from the H2 content — not a generic summary
+- TL;DR is exactly one paragraph, one takeaway
+
+DO NOT CHANGE:
+- Facts, statistics, measurements from source material
+- Source URLs or reference links
+- Schema markup or HTML structure
+- CTA blocks
+- H2 headings
+- Word count — stay within 10% of original
+
+---
+
+RETURN FORMAT:
+1. Reader profile (3 sentences)
+2. Complete corrected article
+3. Fix log — one line per change:
+   [SECTION] [STEP] [what was wrong] → [what was fixed]
+
+If a section needed no changes, omit it from the fix log.`;
+
+  let raw: string;
+  try {
+    raw = await callModel(system, content, model, 10000);
+  } catch (e) {
+    console.warn("REVIEW PASS: model call failed (non-fatal), returning original:", e instanceof Error ? e.message : String(e));
+    return { content, status: "PASSED", fixes: [] };
+  }
+
+  // Parse: fix log lines match [SECTION] [STEP] description → fix
+  const lines = raw.split("\n");
+  const fixLogStart = lines.findIndex((l) => /^\[.+?\].*→/.test(l.trim()));
+  const bodyLines = fixLogStart >= 0 ? lines.slice(0, fixLogStart) : lines;
+  const fixLogLines = fixLogStart >= 0 ? lines.slice(fixLogStart) : [];
+
+  // Corrected article begins at the first H1 heading, skipping the reader profile above it
+  const bodyText = bodyLines.join("\n");
+  const articleStart = bodyText.search(/^#\s+/m);
+  if (articleStart < 0) {
+    console.warn("REVIEW PASS: no H1 found in response, returning original.");
+    return { content, status: "PASSED", fixes: [] };
+  }
+  const correctedArticle = bodyText.slice(articleStart).trim();
+
+  // Word count guard: reject if deviation > 10%
+  const countWords = (s: string) => s.split(/\s+/).filter(Boolean).length;
+  const originalWords = countWords(content);
+  const revisedWords = countWords(correctedArticle);
+  const delta = Math.abs(revisedWords - originalWords) / (originalWords || 1);
+  if (delta > 0.10) {
+    console.warn(`REVIEW PASS: word count deviation ${(delta * 100).toFixed(1)}% exceeds 10% — returning original.`);
+    return { content, status: "PASSED", fixes: [] };
+  }
+
+  const fixes = fixLogLines
+    .map((l) => l.trim())
+    .filter((l) => l.includes("→") && l.startsWith("["));
+
+  const status: "PASSED" | "FIXED" = fixes.length > 0 ? "FIXED" : "PASSED";
+  if (status === "PASSED") {
+    console.log("REVIEW PASS: PASSED");
+  } else {
+    console.log(`REVIEW PASS: FIXED [${fixes.slice(0, 5).join(" | ")}${fixes.length > 5 ? ` …+${fixes.length - 5} more` : ""}]`);
+  }
+
+  return { content: correctedArticle, status, fixes };
+}
+
 /* ── handler ──────────────────────────────────────────────────────────── */
 
-const BUILD_MARKER = "BUILD-2026-06-11-B9-year-guard-fix proprietary-generate-article";
+const BUILD_MARKER = "BUILD-2026-06-11-B10-review-pass proprietary-generate-article";
 Deno.serve(async (req) => {
   console.log(BUILD_MARKER, "USE_BATCHED_PROMPT_DEFAULT=", USE_BATCHED_PROMPT_DEFAULT, "USE_LEGACY_SECTIONS=", USE_LEGACY_SECTIONS);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -3030,6 +3187,16 @@ Deno.serve(async (req) => {
     if (content !== beforeYearStrip) console.warn("YEAR GUARD: stripped past-year anchor(s) from ongoing facts.");
     console.log(`INTERNAL LINKS: inserted=${internalLinkResult.insertedCount} skipped=${internalLinkResult.skippedUrls.length} total=${internalLinkResult.totalProvided}${internalLinkResult.note ? ` note=${internalLinkResult.note}` : ""}`);
 
+    // REVIEW PASS (B10): copywriting quality, narrative flow, reader intent
+    // Runs after all deterministic post-processors, before response ships.
+    let reviewPassResult: { status: "PASSED" | "FIXED"; fixes: string[] } = { status: "PASSED", fixes: [] };
+    try {
+      const rp = await runReviewPass(content, body.topic, model);
+      content = rp.content;
+      reviewPassResult = { status: rp.status, fixes: rp.fixes };
+    } catch (e) {
+      console.warn("REVIEW PASS: outer error (non-fatal):", e instanceof Error ? e.message : String(e));
+    }
 
     // mappedUnitTexts for downstream verification grading on the client
     const mappedUnitTexts: string[] = [];
@@ -3069,6 +3236,7 @@ Deno.serve(async (req) => {
           knowledgeBaseUsed: units.length > 0,
           toneProfileUsed: !!toneProfile,
         },
+        reviewPass: reviewPassResult,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
