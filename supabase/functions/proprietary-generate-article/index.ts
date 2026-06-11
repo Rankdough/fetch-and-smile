@@ -29,10 +29,39 @@ import {
 } from "../_shared/proprietaryPromptAssembler.ts";
 import { NON_COMMODITY_TITLE_RULES, isCommodityStyleTitle } from "../_shared/nonCommodityTitleRules.ts";
 import { trimSectionToBudget, trimToWordCount } from "../_shared/articleSectionBudget.ts";
+import {
+  buildStaticPromptBlock,
+  assertStaticBlockByteParity,
+  batchBuildAtomicBodyStructureRule,
+  batchBuildInlineSourceLinkRule,
+  BATCH_NO_COMMODITY_RULE,
+  BATCH_HONEST_ANSWER_RULE,
+  BATCH_CATEGORY_DISTINCTION_RULE_WITH_UNIT,
+  BATCH_CATEGORY_DISTINCTION_RULE_GENERIC,
+  BATCH_FAILURE_MODE_RULE_WITH_UNIT,
+  BATCH_FAILURE_MODE_RULE_NO_UNIT,
+  BATCH_SPECIFIC_NUMBERS_RULE,
+  BATCH_NO_PASSIVE_FILLER_RULE,
+  BATCH_KEYWORD_NATURAL_LANGUAGE_RULE,
+  BATCH_QUOTE_ATTRIBUTION_RULE,
+  BATCH_SOURCED_FIGURES_RULE,
+  BATCH_CONTRARIAN_RULE_NO_UNIT,
+  BATCH_TABLE_GUARD_RULE,
+  BATCH_AI_EXTRACTION_RULES,
+  BATCH_FRAMING_LITE_RULES,
+  BATCH_OPENING_LENGTH_RULE,
+  BATCH_OPENING_REFRAME_RULE,
+  BATCH_FINAL_THOUGHTS_RULE,
+  BATCH_FAQ_DIRECT_ANSWER_RULE,
+  type StaticPromptBlock,
+} from "../_shared/proprietaryStaticPrompt.ts";
 
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+// Feature flag: set USE_BATCHED_PROMPT=true to enable Phase 1 batched generation.
+// Default false — with flag off, behaviour is byte-identical to pre-change baseline.
+const USE_BATCHED_PROMPT = Deno.env.get("USE_BATCHED_PROMPT") === "true";
 const AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 const DEFAULT_MODEL = "google/gemini-2.5-flash";
 const CLINICAL_MODEL = "google/gemini-2.5-flash";
@@ -2196,9 +2225,338 @@ async function runSection(input: {
   return { content, needsExpertInput, ruleFlags, contradicted, appliedRules: isBody ? [1, 2, 3, 4, 5, 6, 7, 8] : assembled.appliedRules };
 }
 
+/* ── batched generation (Phase 1 — USE_BATCHED_PROMPT=true) ──────────── */
+
+// Delimiter strings for the batch response parser.
+const BATCH_OUT_START = (id: string) => `<<<SECTION_OUTPUT id="${id}">>>`;
+const BATCH_OUT_END = "<<<END_SECTION_OUTPUT>>>";
+
+/**
+ * Parses a raw batched model response and extracts per-section content.
+ * Returns a Map<sectionId, content>. Missing or malformed sections are absent
+ * from the map — the caller falls back to runSection for those ids.
+ */
+function parseBatchedResponse(
+  response: string,
+  sectionIds: string[],
+): Map<string, string> {
+  const result = new Map<string, string>();
+  for (const id of sectionIds) {
+    const startTag = BATCH_OUT_START(id);
+    const startIdx = response.indexOf(startTag);
+    if (startIdx === -1) continue;
+    const contentStart = startIdx + startTag.length;
+    const endIdx = response.indexOf(BATCH_OUT_END, contentStart);
+    if (endIdx === -1) continue;
+    const content = response.slice(contentStart, endIdx).trim();
+    if (content.length > 10) result.set(id, content);
+  }
+  return result;
+}
+
+/**
+ * Post-processing applied to batched section content:
+ * Rule-5 lint + repair, Rule-6 contradiction repair, budget trim.
+ * Mirrors the logic in runSection after the model call.
+ */
+async function postProcessSection(
+  rawContent: string,
+  section: SectionSpec,
+  mappedUnit: MappedUnit | null,
+  sectionBudgetWords: number,
+  model: string,
+): Promise<{
+  content: string;
+  needsExpertInput: boolean;
+  ruleFlags: string[];
+  contradicted: boolean;
+  appliedRules: number[];
+}> {
+  const isBody = section.type === "body";
+  let content = rawContent.trim();
+
+  if (isBody) {
+    const budgetCeil = sectionBudgetWords > 0 ? Math.round(sectionBudgetWords * 1.25) : 600;
+    content = trimSectionToBudget(content, budgetCeil);
+  }
+
+  const needsExpertInput = /^\[NEEDS EXPERT INPUT\]\s*$/i.test(content);
+  let ruleFlags = needsExpertInput ? [] : lintRule5(content);
+
+  if (isBody && ruleFlags.length > 0) {
+    const repaired = await repairHedgeSentences(content, ruleFlags, model);
+    if (repaired !== content) {
+      content = repaired;
+      ruleFlags = lintRule5(content);
+    }
+  }
+
+  let contradicted = false;
+  if (!needsExpertInput && mappedUnit?.unit_type === "contrarian") {
+    const cp = buildContradictionPrompt({
+      generatedSection: content,
+      contrarianUnit: mappedUnit,
+      sectionHeading: section.heading,
+    });
+    try {
+      const raw = await callModel(cp.system, cp.user, model, 2200);
+      const parsed = JSON.parse(raw.replace(/```json|```/g, "").trim());
+      if (parsed?.rewritten && typeof parsed.rewritten === "string") {
+        contradicted = !!parsed.contradicted;
+        if (contradicted) content = parsed.rewritten.trim();
+      }
+    } catch (e) {
+      console.warn("Rule-6 pass failed (non-fatal):", e);
+    }
+  }
+
+  return {
+    content,
+    needsExpertInput,
+    ruleFlags,
+    contradicted,
+    appliedRules: isBody ? [1, 2, 3, 4, 5, 6, 7, 8] : [],
+  };
+}
+
+// Shared constant hard requirements included in every body section task block.
+const BODY_HARD_REQUIREMENTS_CONST = [
+  "OUTPUT FORMAT: Markdown only. No front-matter, no code fences. Do NOT repeat the H2 heading.",
+  "HARD REQUIREMENT — NUMERIC DENSITY: Include AT LEAST 3 specific numbers, percentages, or counts with units in this section. Example: '24 perfect games', '7.36%', '27 consecutive batters'. Vague claims without numbers fail.",
+  "HARD REQUIREMENT — NO HEDGING: Do NOT use the words 'typically', 'varies', 'depends', 'generally', 'often', 'usually', 'may vary', or 'in some cases' unless the sentence also contains a specific number. Replace hedges with facts.",
+  "HARD REQUIREMENT — METHODOLOGY (first data-containing section only): After the first sentence that contains a statistic or number, add one sentence in this exact format: 'This data was compiled from [specific named source].' Do this once per article, not per section.",
+  "HARD REQUIREMENT — FIRST PARAGRAPH ≤45 WORDS: The very first paragraph of this section must be 45 words or fewer. It must directly answer the section heading question. Count your words.",
+  "HARD REQUIREMENT — TABLE MINIMUM 4 ROWS: Your Markdown table MUST have AT LEAST 4 data rows (not counting the header row). Count them before finishing. If you only have 2 or 3 natural rows, split each row into sub-cases, add a time-period row, or add an edge-case row to reach 4. A table with 4 rows always passes. A table with 3 rows always fails.",
+].join("\n");
+
+interface BatchSectionInput {
+  section: SectionSpec;
+  mappedUnit: MappedUnit | null;
+  sectionBudgetWords: number;
+  retrievedKnowledge?: Array<{ content: string; sourceTitle?: string | null }>;
+  allowedSourceUrls?: Array<{ url: string; title: string }>;
+}
+
+/**
+ * Generates all non-clinical body sections in a single model call.
+ * Clinical body sections (businessType === "healthcare-clinical") are excluded
+ * and must be generated via runSection individually.
+ *
+ * Returns Map<sectionId, rawContent>. Missing ids = parse failed; caller falls back.
+ */
+async function generateBodyBatch(
+  sections: BatchSectionInput[],
+  staticBlock: StaticPromptBlock,
+  params: {
+    businessType: BusinessType;
+    model: string;
+    valuePromiseBlock?: string;
+    gapKeywordBlock?: string;
+  },
+): Promise<{ parsed: Map<string, string>; inputTokenEstimate: number }> {
+  if (sections.length === 0) return { parsed: new Map(), inputTokenEstimate: 0 };
+
+  // System prompt: static header + all universal body rules + batch contract.
+  const batchBodyRules = [
+    BATCH_NO_COMMODITY_RULE,
+    BATCH_HONEST_ANSWER_RULE,
+    BATCH_SPECIFIC_NUMBERS_RULE,
+    BATCH_NO_PASSIVE_FILLER_RULE,
+    BATCH_KEYWORD_NATURAL_LANGUAGE_RULE,
+    BATCH_TABLE_GUARD_RULE,
+    BATCH_QUOTE_ATTRIBUTION_RULE,
+    BATCH_SOURCED_FIGURES_RULE,
+    BATCH_AI_EXTRACTION_RULES,
+    BODY_HARD_REQUIREMENTS_CONST,
+  ].join("\n\n");
+
+  const batchContract = `BATCH GENERATION CONTRACT:
+You will write ${sections.length} article section(s) in this single response.
+For EACH section, wrap your output in EXACTLY these delimiters — no exceptions:
+${BATCH_OUT_START("[section-id]")}
+[your section content here — markdown only, no H2 heading, no delimiter lines in the prose]
+${BATCH_OUT_END}
+
+Do NOT write any text outside the delimiters. After the last section, output nothing else.
+Generate sections in the order listed below.`;
+
+  const systemPrompt = [
+    staticBlock.systemHeader,
+    "BODY SECTIONS — rules applying to ALL sections in this batch:",
+    batchBodyRules,
+    batchContract,
+  ].join("\n\n");
+
+  // User prompt: context files once + value/gap blocks once + per-section specs.
+  const userParts: string[] = [];
+  if (staticBlock.contextFilesBlock) userParts.push(staticBlock.contextFilesBlock);
+  if (staticBlock.valuePromiseReq) userParts.push(staticBlock.valuePromiseReq);
+  if (staticBlock.gapKeywordGuidance) userParts.push(staticBlock.gapKeywordGuidance);
+
+  for (const { section, mappedUnit, sectionBudgetWords, retrievedKnowledge, allowedSourceUrls } of sections) {
+    const unitBlock = mappedUnit
+      ? [
+          `MAPPED KNOWLEDGE UNIT (type: ${mappedUnit.unit_type}${mappedUnit.title ? `, title: ${mappedUnit.title}` : ""}):`,
+          mappedUnit.summary ? `Summary: ${mappedUnit.summary}` : "",
+          `Full unit text (your sole source for specifics in this section):\n"""\n${mappedUnit.full_text}\n"""`,
+        ].filter(Boolean).join("\n\n")
+      : `MAPPED KNOWLEDGE UNIT: NONE.\nNo proprietary unit mapped. Use Rules 1, 2, 3, 5, 6 from context files and direct reasoning. Use [NEEDS EXPERT INPUT] inline for missing specifics only.`;
+
+    const retrievedBlock = (retrievedKnowledge && retrievedKnowledge.length > 0)
+      ? "RETRIEVED CONTEXT FILE EVIDENCE — use these facts for this section. Prefer this evidence over general knowledge.\n\n" +
+        retrievedKnowledge.slice(0, 4).map((s, i) =>
+          `### Context source ${i + 1}${s.sourceTitle ? `: ${s.sourceTitle}` : ""}\n${s.content.slice(0, 1400)}${s.content.length > 1400 ? "…" : ""}`
+        ).join("\n\n")
+      : "";
+
+    // Section-specific rules (vary by kind / unit type).
+    const sectionSpecificRules: string[] = [];
+    if (section.kind === "h2-question") {
+      const unitCarriesDistinction = mappedUnit && (mappedUnit.unit_type === "tradeoff" || mappedUnit.unit_type === "contrarian");
+      sectionSpecificRules.push(unitCarriesDistinction ? BATCH_CATEGORY_DISTINCTION_RULE_WITH_UNIT : BATCH_CATEGORY_DISTINCTION_RULE_GENERIC);
+      if (!mappedUnit || mappedUnit.unit_type !== "contrarian") {
+        sectionSpecificRules.push(BATCH_CONTRARIAN_RULE_NO_UNIT);
+      }
+    }
+    if (section.kind === "failure-mode" && (params.businessType === "service" || params.businessType === "healthcare-clinical")) {
+      const hasFailureUnit = mappedUnit && mappedUnit.unit_type === "failure";
+      sectionSpecificRules.push(hasFailureUnit ? BATCH_FAILURE_MODE_RULE_WITH_UNIT : BATCH_FAILURE_MODE_RULE_NO_UNIT);
+    }
+    sectionSpecificRules.push(batchBuildAtomicBodyStructureRule(sectionBudgetWords));
+    sectionSpecificRules.push(batchBuildInlineSourceLinkRule(allowedSourceUrls ?? []));
+
+    const sectionBlock = [
+      `--- SECTION id="${section.id}" heading="${section.heading}" budget_words=${sectionBudgetWords} ---`,
+      unitBlock,
+      retrievedBlock,
+      "SECTION-SPECIFIC RULES:\n" + sectionSpecificRules.join("\n\n"),
+      `TASK: Write the body of the section "${section.heading}" now.\nWrap output in ${BATCH_OUT_START(section.id)} ... ${BATCH_OUT_END}`,
+      `--- END SECTION ${section.id} ---`,
+    ].filter(Boolean).join("\n\n");
+
+    userParts.push(sectionBlock);
+  }
+
+  const userPrompt = userParts.join("\n\n");
+  const maxOutputTokens = Math.min(sections.length * 3200, 20000);
+  const inputTokenEstimate = Math.round((systemPrompt.length + userPrompt.length) / 4);
+
+  console.log(`BATCH BODY: ${sections.length} section(s), est. input tokens ~${inputTokenEstimate}, max output ${maxOutputTokens}`);
+
+  const raw = await callModel(systemPrompt, userPrompt, params.model, maxOutputTokens);
+  const parsed = parseBatchedResponse(raw, sections.map((s) => s.section.id));
+
+  const missing = sections.filter((s) => !parsed.has(s.section.id)).map((s) => s.section.id);
+  if (missing.length > 0) {
+    console.warn(`BATCH BODY: parser missed sections: [${missing.join(", ")}] — will fall back to per-section calls.`);
+  }
+  console.log(`BATCH BODY: parsed ${parsed.size}/${sections.length} sections successfully.`);
+
+  return { parsed, inputTokenEstimate };
+}
+
+/**
+ * Generates all framing sections in a single model call.
+ * Runs AFTER body sections so their content can be summarised for TL;DR / Final Thoughts.
+ *
+ * Returns Map<sectionId, rawContent>. Missing ids = parse failed; caller falls back.
+ */
+async function generateTailBatch(
+  sections: BatchSectionInput[],
+  staticBlock: StaticPromptBlock,
+  bodySummary: Array<{ heading: string; content: string }>,
+  params: {
+    model: string;
+    valuePromiseBlock?: string;
+    gapKeywordBlock?: string;
+  },
+): Promise<{ parsed: Map<string, string>; inputTokenEstimate: number }> {
+  if (sections.length === 0) return { parsed: new Map(), inputTokenEstimate: 0 };
+
+  const tailRules = [
+    BATCH_FRAMING_LITE_RULES,
+    BATCH_NO_PASSIVE_FILLER_RULE,
+    BATCH_KEYWORD_NATURAL_LANGUAGE_RULE,
+    BATCH_QUOTE_ATTRIBUTION_RULE,
+    BATCH_SOURCED_FIGURES_RULE,
+    BATCH_AI_EXTRACTION_RULES,
+  ].join("\n\n");
+
+  const batchContract = `BATCH GENERATION CONTRACT:
+You will write ${sections.length} framing section(s) in this single response.
+For EACH section, wrap your output in EXACTLY these delimiters:
+${BATCH_OUT_START("[section-id]")}
+[your section content — markdown only, do NOT repeat the section heading]
+${BATCH_OUT_END}
+
+Do NOT write text outside the delimiters. Generate sections in the order listed.`;
+
+  const systemPrompt = [
+    staticBlock.systemHeader,
+    "FRAMING SECTIONS — rules applying to ALL sections in this batch:",
+    tailRules,
+    batchContract,
+  ].join("\n\n");
+
+  const userParts: string[] = [];
+  if (staticBlock.contextFilesBlock) userParts.push(staticBlock.contextFilesBlock);
+
+  // Provide body content as context for TL;DR and Final Thoughts.
+  if (bodySummary.length > 0) {
+    const summaryBlock = bodySummary
+      .map((s) => `### ${s.heading}\n${s.content.slice(0, 400)}${s.content.length > 400 ? "…" : ""}`)
+      .join("\n\n");
+    userParts.push(`ARTICLE BODY SUMMARY — sections already written. Use these for TL;DR and Final Thoughts:\n\n${summaryBlock}`);
+  }
+
+  if (staticBlock.valuePromiseReq) userParts.push(staticBlock.valuePromiseReq);
+  if (staticBlock.gapKeywordGuidance) userParts.push(staticBlock.gapKeywordGuidance);
+
+  for (const { section, sectionBudgetWords } of sections) {
+    const sectionSpecificRules: string[] = [];
+    if (section.kind === "opening") {
+      sectionSpecificRules.push(BATCH_OPENING_LENGTH_RULE, BATCH_OPENING_REFRAME_RULE);
+    } else if (section.kind === "tldr") {
+      sectionSpecificRules.push(`TLDR RULE: Maximum 60 words total. One short paragraph only. No bullets, no sub-headings, no links. Summarise the single most important takeaway from this topic in plain language.`);
+    } else if (section.kind === "quick-tips") {
+      sectionSpecificRules.push(`QUICK TIPS RULE:\nOutput EXACTLY 3 bullet points. Each bullet is one actionable sentence (max 18 words) the reader can act on immediately. Use this format:\n\n- [Actionable tip referencing a specific criterion, check, or decision from this article.]\n- [Actionable tip referencing a specific criterion, check, or decision from this article.]\n- [Actionable tip referencing a specific criterion, check, or decision from this article.]\n\nNO filler. Each tip must name a specific action, check, or credential the reader can verify.`);
+    } else if (section.kind === "faq") {
+      sectionSpecificRules.push(BATCH_FAQ_DIRECT_ANSWER_RULE);
+    } else if (section.kind === "final-thoughts") {
+      sectionSpecificRules.push(BATCH_FINAL_THOUGHTS_RULE);
+    }
+
+    const sectionBlock = [
+      `--- SECTION id="${section.id}" heading="${section.heading}" budget_words=${sectionBudgetWords} ---`,
+      sectionSpecificRules.length > 0 ? "SECTION-SPECIFIC RULES:\n" + sectionSpecificRules.join("\n\n") : "",
+      `TASK: Write the "${section.heading}" section now.\nWrap output in ${BATCH_OUT_START(section.id)} ... ${BATCH_OUT_END}`,
+      `--- END SECTION ${section.id} ---`,
+    ].filter(Boolean).join("\n\n");
+
+    userParts.push(sectionBlock);
+  }
+
+  const userPrompt = userParts.join("\n\n");
+  const maxOutputTokens = Math.min(sections.length * 1200, 8000);
+  const inputTokenEstimate = Math.round((systemPrompt.length + userPrompt.length) / 4);
+
+  console.log(`BATCH TAIL: ${sections.length} section(s), est. input tokens ~${inputTokenEstimate}, max output ${maxOutputTokens}`);
+
+  const raw = await callModel(systemPrompt, userPrompt, params.model, maxOutputTokens);
+  const parsed = parseBatchedResponse(raw, sections.map((s) => s.section.id));
+
+  const missing = sections.filter((s) => !parsed.has(s.section.id)).map((s) => s.section.id);
+  if (missing.length > 0) {
+    console.warn(`BATCH TAIL: parser missed sections: [${missing.join(", ")}] — will fall back to per-section calls.`);
+  }
+  console.log(`BATCH TAIL: parsed ${parsed.size}/${sections.length} sections successfully.`);
+
+  return { parsed, inputTokenEstimate };
+}
+
 /* ── handler ──────────────────────────────────────────────────────────── */
 
-const BUILD_MARKER = "BUILD-2026-06-09-B3b-fuse-fix-corrected proprietary-generate-article";
+const BUILD_MARKER = "BUILD-2026-06-11-V2P1-batched-prompt proprietary-generate-article";
 Deno.serve(async (req) => {
   console.log(BUILD_MARKER);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -2350,7 +2708,7 @@ Deno.serve(async (req) => {
     const bodySectionCount = plan.filter((s) => s.type === "body").length || 1;
     const sectionBudgetWords = Math.max(90, Math.round((targetWords - fixedBudget) / bodySectionCount));
 
-    // 4 + 5. Series generation with surrounding context
+    // 4 + 5. Section generation — per-section (flag off) or batched (flag on).
     const surrounding: Array<{ heading: string; content: string }> = [];
     const sectionsOut: Array<{
       id: string;
@@ -2367,12 +2725,10 @@ Deno.serve(async (req) => {
     }> = [];
     const allRetrievedChunks: RetrievedChunk[] = [];
 
-    for (const section of plan) {
+    // Helper: RAG + unit mapping for a single section (used in both paths).
+    const collectSectionData = async (section: SectionSpec) => {
       const mappedUnit =
         section.type === "body" ? pickUnit(section.heading, body.topic, units) : null;
-
-      // Semantic retrieval: embed (topic + section heading) and pull top 3 chunks
-      // from brain_chunks. Additive — runs alongside the keyword-matched pickUnit unit.
       let retrievedChunks: RetrievedChunk[] = [];
       let retrievedKnowledge: Array<{ content: string; sourceTitle?: string | null }> = [];
       if (section.type === "body") {
@@ -2409,23 +2765,12 @@ Deno.serve(async (req) => {
           const existingContextIds = new Set(retrievedChunks.map((c) => c.context_document_id).filter(Boolean));
           for (const snippet of contextSnippets) {
             if (existingContextIds.has(snippet.context_document_id)) continue;
-            retrievedChunks.push({
-              content: snippet.content,
-              similarity: 1,
-              brain_file_id: null,
-              context_document_id: snippet.context_document_id,
-            });
+            retrievedChunks.push({ content: snippet.content, similarity: 1, brain_file_id: null, context_document_id: snippet.context_document_id });
           }
         } else {
           retrievedKnowledge = retrievedChunks.map((c) => ({ content: c.content }));
         }
-        allRetrievedChunks.push(...retrievedChunks);
       }
-
-      // Build the allow-listed source URL pool for THIS section: brain-unit
-      // URLs (from mapped unit + globally available), retrieved-chunk URLs,
-      // then topic-trusted fallbacks. Always passed to the writer so the
-      // citation is generated inline, not bolted on after.
       let allowedSourceUrls: BrainUrl[] = [];
       if (section.type === "body") {
         const unitUrls = collectBrainUrls(mappedUnit ? [mappedUnit as BrainUnit] : []);
@@ -2442,44 +2787,284 @@ Deno.serve(async (req) => {
         }
         allowedSourceUrls = allowedSourceUrls.slice(0, 8);
       }
+      return { mappedUnit, retrievedChunks, retrievedKnowledge, allowedSourceUrls };
+    };
 
-      const result = await runSection({
+    // Telemetry accumulators.
+    let batchInputTokens = 0;
+    const fallbackSectionIds: string[] = [];
+    let batchedSectionCount = 0;
+
+    if (!USE_BATCHED_PROMPT) {
+      // ── Legacy per-section path (flag off — byte-identical to pre-V2P1 baseline) ──
+      for (const section of plan) {
+        const { mappedUnit, retrievedChunks, retrievedKnowledge, allowedSourceUrls } = await collectSectionData(section);
+        allRetrievedChunks.push(...retrievedChunks);
+
+        const result = await runSection({
+          businessType,
+          mappedUnit,
+          audienceSentence,
+          publicationDestination,
+          section,
+          surroundingContext: surrounding.slice(),
+          articleTitle,
+          model,
+          sectionBudgetWords,
+          retrievedChunks,
+          retrievedKnowledge,
+          allowedSourceUrls,
+          contextFiles: body.contextFiles,
+          toneProfile,
+          valuePromiseBlock,
+          gapKeywordBlock,
+        });
+
+        const sectionPlaceholderGuard = stripExpertInputPlaceholders(result.content);
+        const sectionContent = sectionPlaceholderGuard.out;
+        if (sectionPlaceholderGuard.removed > 0) console.warn(`PLACEHOLDER GUARD: removed ${sectionPlaceholderGuard.removed} expert-input placeholder sentence(s) from section "${section.heading}".`);
+
+        surrounding.push({ heading: section.heading, content: sectionContent });
+        sectionsOut.push({
+          id: section.id,
+          heading: section.heading,
+          kind: section.kind,
+          type: section.type,
+          mappedUnitId: mappedUnit?.id ?? null,
+          mappedUnitType: mappedUnit?.unit_type ?? null,
+          content: sectionContent,
+          needsExpertInput: result.needsExpertInput,
+          ruleFlags: result.ruleFlags,
+          contradicted: result.contradicted,
+          appliedRules: result.appliedRules,
+        });
+      }
+    } else {
+      // ── Batched path (USE_BATCHED_PROMPT=true) ──────────────────────────────────
+      // Build static block and verify byte-identity against a sample per-section call.
+      const staticBlock = buildStaticPromptBlock({
         businessType,
-        mappedUnit,
         audienceSentence,
         publicationDestination,
-        section,
-        surroundingContext: surrounding.slice(),
         articleTitle,
-        model,
-        sectionBudgetWords,
-        retrievedChunks,
-        retrievedKnowledge,
-        allowedSourceUrls,
-        contextFiles: body.contextFiles,
         toneProfile,
+        contextFiles: body.contextFiles,
         valuePromiseBlock,
         gapKeywordBlock,
       });
+      // Byte-identity assertion: sample a body section and check the prefix matches.
+      try {
+        const sampleSection: SectionSpec = plan.find((s) => s.type === "body") ?? plan[0];
+        const sampleAssembled = assembleSectionPrompt({
+          businessType,
+          mappedUnit: null,
+          audienceSentence,
+          publicationDestination,
+          section: sampleSection,
+          articleTitle,
+          toneProfile,
+          valuePromiseBlock,
+          gapKeywordBlock,
+          sectionBudgetWords,
+        });
+        assertStaticBlockByteParity(staticBlock, sampleAssembled.system);
+      } catch (e) {
+        console.error("BATCH: static block byte-parity check failed:", e);
+        // Non-fatal: fall through to batched generation anyway, but log clearly.
+      }
 
-      const sectionPlaceholderGuard = stripExpertInputPlaceholders(result.content);
-      const sectionContent = sectionPlaceholderGuard.out;
-      if (sectionPlaceholderGuard.removed > 0) console.warn(`PLACEHOLDER GUARD: removed ${sectionPlaceholderGuard.removed} expert-input placeholder sentence(s) from section "${section.heading}".`);
+      // Pre-collect RAG data for all body sections in parallel.
+      const bodySections = plan.filter((s) => s.type === "body");
+      const framingSections = plan.filter((s) => s.type === "framing");
+      const bodyDataMap = new Map<string, Awaited<ReturnType<typeof collectSectionData>>>();
 
-      surrounding.push({ heading: section.heading, content: sectionContent });
-      sectionsOut.push({
-        id: section.id,
-        heading: section.heading,
-        kind: section.kind,
-        type: section.type,
-        mappedUnitId: mappedUnit?.id ?? null,
-        mappedUnitType: mappedUnit?.unit_type ?? null,
-        content: sectionContent,
-        needsExpertInput: result.needsExpertInput,
-        ruleFlags: result.ruleFlags,
-        contradicted: result.contradicted,
-        appliedRules: result.appliedRules,
-      });
+      await Promise.all(bodySections.map(async (section) => {
+        const data = await collectSectionData(section);
+        bodyDataMap.set(section.id, data);
+        allRetrievedChunks.push(...data.retrievedChunks);
+      }));
+
+      // Clinical body sections always use runSection (per-section clinical writer).
+      // Non-clinical body sections go through generateBodyBatch.
+      const clinicalBodySections = businessType === "healthcare-clinical" ? bodySections : [];
+      const batchBodySections = businessType === "healthcare-clinical" ? [] : bodySections;
+
+      // Run clinical body sections first (in order, with surrounding context).
+      for (const section of clinicalBodySections) {
+        const { mappedUnit, retrievedChunks, retrievedKnowledge, allowedSourceUrls } = bodyDataMap.get(section.id)!;
+        const result = await runSection({
+          businessType,
+          mappedUnit,
+          audienceSentence,
+          publicationDestination,
+          section,
+          surroundingContext: surrounding.slice(),
+          articleTitle,
+          model,
+          sectionBudgetWords,
+          retrievedChunks,
+          retrievedKnowledge,
+          allowedSourceUrls,
+          contextFiles: body.contextFiles,
+          toneProfile,
+          valuePromiseBlock,
+          gapKeywordBlock,
+        });
+        const guard = stripExpertInputPlaceholders(result.content);
+        if (guard.removed > 0) console.warn(`PLACEHOLDER GUARD: removed ${guard.removed} placeholder(s) from "${section.heading}".`);
+        surrounding.push({ heading: section.heading, content: guard.out });
+        sectionsOut.push({
+          id: section.id,
+          heading: section.heading,
+          kind: section.kind,
+          type: section.type,
+          mappedUnitId: mappedUnit?.id ?? null,
+          mappedUnitType: mappedUnit?.unit_type ?? null,
+          content: guard.out,
+          needsExpertInput: result.needsExpertInput,
+          ruleFlags: result.ruleFlags,
+          contradicted: result.contradicted,
+          appliedRules: result.appliedRules,
+        });
+      }
+
+      // Batch non-clinical body sections.
+      let batchBodyParsed = new Map<string, string>();
+      if (batchBodySections.length > 0) {
+        const batchBodyInputs: BatchSectionInput[] = batchBodySections.map((section) => {
+          const { mappedUnit, retrievedKnowledge, allowedSourceUrls } = bodyDataMap.get(section.id)!;
+          return { section, mappedUnit, sectionBudgetWords, retrievedKnowledge, allowedSourceUrls };
+        });
+        const bodyBatchResult = await generateBodyBatch(batchBodyInputs, staticBlock, { businessType, model, valuePromiseBlock, gapKeywordBlock });
+        batchBodyParsed = bodyBatchResult.parsed;
+        batchInputTokens += bodyBatchResult.inputTokenEstimate;
+        batchedSectionCount += batchBodyParsed.size;
+      }
+
+      // Apply post-processing to batched body results; fall back to runSection for any misses.
+      for (const section of batchBodySections) {
+        const { mappedUnit } = bodyDataMap.get(section.id)!;
+        const rawContent = batchBodyParsed.get(section.id);
+
+        let result: Awaited<ReturnType<typeof postProcessSection>>;
+        if (rawContent) {
+          result = await postProcessSection(rawContent, section, mappedUnit, sectionBudgetWords, model);
+        } else {
+          // Parser missed this section — fall back to per-section call.
+          fallbackSectionIds.push(section.id);
+          console.warn(`BATCH FALLBACK: "${section.id}" falling back to per-section runSection.`);
+          const { retrievedChunks, retrievedKnowledge, allowedSourceUrls } = bodyDataMap.get(section.id)!;
+          const runResult = await runSection({
+            businessType,
+            mappedUnit,
+            audienceSentence,
+            publicationDestination,
+            section,
+            surroundingContext: [],
+            articleTitle,
+            model,
+            sectionBudgetWords,
+            retrievedChunks,
+            retrievedKnowledge,
+            allowedSourceUrls,
+            contextFiles: body.contextFiles,
+            toneProfile,
+            valuePromiseBlock,
+            gapKeywordBlock,
+          });
+          result = { content: runResult.content, needsExpertInput: runResult.needsExpertInput, ruleFlags: runResult.ruleFlags, contradicted: runResult.contradicted, appliedRules: runResult.appliedRules };
+        }
+
+        const guard = stripExpertInputPlaceholders(result.content);
+        if (guard.removed > 0) console.warn(`PLACEHOLDER GUARD: removed ${guard.removed} placeholder(s) from "${section.heading}".`);
+        surrounding.push({ heading: section.heading, content: guard.out });
+        sectionsOut.push({
+          id: section.id,
+          heading: section.heading,
+          kind: section.kind,
+          type: section.type,
+          mappedUnitId: mappedUnit?.id ?? null,
+          mappedUnitType: mappedUnit?.unit_type ?? null,
+          content: guard.out,
+          needsExpertInput: result.needsExpertInput,
+          ruleFlags: result.ruleFlags,
+          contradicted: result.contradicted,
+          appliedRules: result.appliedRules,
+        });
+      }
+
+      // Batch framing (tail) sections — run after body so body content is available.
+      const bodySummaryForTail = surrounding.map((s) => ({ heading: s.heading, content: s.content }));
+      const batchTailInputs: BatchSectionInput[] = framingSections.map((section) => ({
+        section,
+        mappedUnit: null,
+        sectionBudgetWords: section.kind === "tldr" ? 70 : section.kind === "opening" ? 85 : section.kind === "quick-tips" ? 50 : section.kind === "faq" ? 300 : 130,
+      }));
+      const tailBatchResult = await generateTailBatch(batchTailInputs, staticBlock, bodySummaryForTail, { model, valuePromiseBlock, gapKeywordBlock });
+      batchInputTokens += tailBatchResult.inputTokenEstimate;
+      batchedSectionCount += tailBatchResult.parsed.size;
+
+      for (const section of framingSections) {
+        const rawContent = tailBatchResult.parsed.get(section.id);
+
+        let content: string;
+        if (rawContent) {
+          const guard = stripExpertInputPlaceholders(rawContent.trim());
+          content = guard.out;
+          if (guard.removed > 0) console.warn(`PLACEHOLDER GUARD: removed ${guard.removed} placeholder(s) from "${section.heading}".`);
+        } else {
+          // Parser missed this framing section — fall back to runSection.
+          fallbackSectionIds.push(section.id);
+          console.warn(`BATCH FALLBACK: "${section.id}" falling back to per-section runSection.`);
+          const runResult = await runSection({
+            businessType,
+            mappedUnit: null,
+            audienceSentence,
+            publicationDestination,
+            section,
+            surroundingContext: surrounding.slice(-4),
+            articleTitle,
+            model,
+            sectionBudgetWords: section.kind === "tldr" ? 70 : 300,
+            retrievedChunks: [],
+            retrievedKnowledge: [],
+            allowedSourceUrls: [],
+            contextFiles: body.contextFiles,
+            toneProfile,
+            valuePromiseBlock,
+            gapKeywordBlock,
+          });
+          const guard = stripExpertInputPlaceholders(runResult.content);
+          content = guard.out;
+          if (guard.removed > 0) console.warn(`PLACEHOLDER GUARD: removed ${guard.removed} placeholder(s) from "${section.heading}".`);
+        }
+
+        surrounding.push({ heading: section.heading, content });
+        sectionsOut.push({
+          id: section.id,
+          heading: section.heading,
+          kind: section.kind,
+          type: section.type,
+          mappedUnitId: null,
+          mappedUnitType: null,
+          content,
+          needsExpertInput: false,
+          ruleFlags: [],
+          contradicted: false,
+          appliedRules: [],
+        });
+      }
+
+      // End-of-run telemetry.
+      console.log(JSON.stringify({
+        event: "BATCH_TELEMETRY",
+        input_tokens: batchInputTokens,
+        output_tokens: null,
+        section_count: plan.length,
+        batched: true,
+        fallback_section_ids: fallbackSectionIds,
+        batched_section_count: batchedSectionCount,
+      }));
     }
 
     // 6. Stitch
@@ -2805,6 +3390,29 @@ Deno.serve(async (req) => {
       if (u?.full_text) mappedUnitTexts.push(u.full_text);
     }
 
+    // Per-article telemetry — both paths emit this so cost tracking is consistent.
+    if (!USE_BATCHED_PROMPT) {
+      console.log(JSON.stringify({
+        event: "ARTICLE_TELEMETRY",
+        input_tokens: null,
+        output_tokens: null,
+        section_count: plan.length,
+        batched: false,
+        fallback_section_ids: [],
+      }));
+    } else {
+      // Batched path already emitted BATCH_TELEMETRY above; emit summary here too.
+      console.log(JSON.stringify({
+        event: "ARTICLE_TELEMETRY",
+        input_tokens: batchInputTokens,
+        output_tokens: null,
+        section_count: plan.length,
+        batched: true,
+        fallback_section_ids: fallbackSectionIds,
+        batched_section_count: batchedSectionCount,
+      }));
+    }
+
     return new Response(
       JSON.stringify({
         content,
@@ -2822,6 +3430,7 @@ Deno.serve(async (req) => {
         outline: h2Questions,
         articleTitle,
         originalTopic: body.topic,
+        batched: USE_BATCHED_PROMPT,
         appliedRules: {
           gapAnalysisUsed: !!(body.gapAnalysis?.trim()) || gapInsightsList.length > 0,
           formatReferenceUsed: false,
