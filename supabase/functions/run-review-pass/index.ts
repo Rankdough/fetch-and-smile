@@ -6,7 +6,7 @@ const corsHeaders = {
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 const AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 const MODEL = "google/gemini-2.5-flash";
-const BUILD_MARKER = "BUILD-2026-06-11-B16-focused-flags run-review-pass";
+const BUILD_MARKER = "BUILD-2026-06-11-B17-editorial-synthesis run-review-pass";
 
 function extractSection(raw: string, tag: string): string {
   const open = `====${tag}====`;
@@ -38,14 +38,25 @@ Write your reader profile in 3 sentences. This profile is your editorial filter 
 STEP 1 — READ AS THAT READER
 Read the full article through this person's eyes.
 
-Identify the top 5 issues only. Rank by impact and prioritise in this order:
-1. Search intent — does a section fail to answer what this reader came for?
-2. Non-commodity — could a generic AI replicate this section word for word with no source material?
-3. Narrative thread — does a section break the article's opening promise or logical flow?
+Do not list individual sentences. Synthesise 3-5 patterns — recurring problems that affect multiple sections or the article as a whole.
 
-Ignore: sentence-level wording, tone flavour, care/maintenance tangents unless care is the primary search intent, promotional links (those are fixed elsewhere).
+For each pattern answer all of these:
+- Does this section satisfy the reader's search intent?
+- Is it useful — does it give the reader something they can act on?
+- Does it solve the reader's problem, or does it talk around it?
+- If it fails any of the above — exactly why, and what is missing?
 
-For each flag write one line: which section, what the problem is, why it matters for SEO or non-commodity score.
+Then for each pattern write:
+- ISSUE: name the pattern in 4-6 words
+- ANALYSIS: 2-3 sentences answering the questions above from the reader's perspective
+- FIX: one specific, concrete action — name the section and exactly what to change
+
+Prioritise patterns in this order:
+1. Search intent failure — the reader cannot find the answer they came for
+2. Non-commodity risk — sections a competing AI article could replicate without source material
+3. Narrative breakdown — the article's promise is not delivered or the H2 flow breaks down
+
+Ignore: individual sentence wording, promotional links, care/maintenance sections unless care is the primary search intent.
 
 ---
 
@@ -110,7 +121,12 @@ RETURN FORMAT — use these exact delimiter tags in this exact order:
 ====END PRIORITY ACTIONS====
 
 ====STEP 1 FLAGS====
-[Maximum 5 bullets. Each: Section name — problem — SEO/non-commodity impact. Or "No flags."]
+[3-5 patterns. Each formatted as:
+ISSUE: [4-6 word name]
+ANALYSIS: [2-3 sentences — intent, usefulness, problem-solving, why it fails]
+FIX: [specific action — section name + what to change]
+
+Or write "No issues." if none found.]
 ====END STEP 1 FLAGS====
 
 ====STEP 2 ANALYSIS====
