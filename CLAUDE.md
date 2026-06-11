@@ -174,3 +174,46 @@ SCHEMA / SEO
 5. Never leave a session with Lovable-only changes not pushed to GitHub
 6. Never skip bumping BUILD_MARKER — without it we cannot verify what is live
 7. Never fix the wrong layer — check which layer the data actually fails in first
+
+---
+
+## THE FIX PROTOCOL — mandatory for every single fix
+
+Never skip a step. Never declare a fix done without completing all 8 steps.
+
+### Step 1 — Read the broken output first
+Before writing any code, find the broken article that demonstrates the bug.
+It will have been pasted in the conversation or in a previous session.
+Read the exact broken HTML. Find the exact character sequence that is wrong.
+Copy it out literally. Do not assume what it looks like. Do not paraphrase it.
+
+### Step 2 — State the exact broken pattern
+Write it out before touching any code:
+"The model produces exactly this: [paste exact broken string]"
+If you cannot state the exact broken string, you are not ready to write the fix.
+
+### Step 3 — State the exact expected output
+Write out what the string should become:
+"It should become exactly this: [paste expected fixed string]"
+
+### Step 4 — Write the fix against the real strings from steps 2 and 3
+Not against what you think the model produces.
+Against what it actually produced in the broken article.
+
+### Step 5 — Test the fix mentally against the real broken string
+Does the fix actually match the string from step 2?
+Walk through it character by character if needed.
+If there is any doubt, do not commit.
+
+### Step 6 — Commit
+
+### Step 7 — Verify with the exact article that exposed the bug
+Not any article. The exact topic that showed the bug.
+Confirm the exact broken string from step 2 no longer appears in the output.
+
+### Step 8 — Only then say it is fixed
+Never say "fixed" or "done" after a commit.
+Only say "committed — needs verification."
+Only say "fixed" after step 7 confirms the broken string is gone.
+
+---
