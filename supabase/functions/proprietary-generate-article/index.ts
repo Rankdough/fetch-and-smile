@@ -710,18 +710,39 @@ function stripExpertInputPlaceholders(markdown: string): { out: string; removed:
 }
 
 function trimFaqAnswers(content: string, maxWords = 55): string {
-  // Clip each FAQ answer to maxWords. Handles bold-question format:
-  //   **Question?**
-  //   Answer text...
+  // Handles both "**Q?**\nAnswer" and "**Q?** Answer" (same-line) formats.
+  // Captures everything from the bold question to the next bold question or end.
   return content.replace(
-    /(\*\*[^*\n]+\?\*\*\s*\n)([\s\S]*?)(?=\n\s*\n\s*\*\*|\s*$)/g,
-    (match, question, answer) => {
-      const words = answer.trim().split(/\s+/);
+    /(\*\*[^*\n]+\?\*\*)([\s\S]*?)(?=\*\*[^*\n]+\?\*\*|$)/g,
+    (match, question, answerBlock) => {
+      const words = answerBlock.trim().split(/\s+/).filter((w) => w.length > 0);
       if (words.length <= maxWords) return match;
-      console.warn(`FAQ TRIM: clipped answer from ${words.length} to ${maxWords} words for "${question.slice(2, 40).trim()}"`);
-      return `${question}${words.slice(0, maxWords).join(" ")}\n`;
+      const lead = answerBlock.match(/^[ \t\n]*/)?.[0] ?? " ";
+      console.warn(`FAQ TRIM: clipped answer from ${words.length} to ${maxWords} words for "${question.slice(2, 45).trim()}"`);
+      return `${question}${lead}${words.slice(0, maxWords).join(" ")}\n\n`;
     },
   );
+}
+
+function enforceThreeBullets(content: string): string {
+  // Trim any run of >3 consecutive top-level bullet lines to exactly 3.
+  // Processes line-by-line; resets counter on any non-bullet line so H3
+  // sub-sections each get their own independent limit.
+  const lines = content.split("\n");
+  const out: string[] = [];
+  let run = 0;
+  let trimmed = 0;
+  for (const line of lines) {
+    if (line.startsWith("- ")) {
+      run++;
+      if (run > 3) { trimmed++; continue; }
+    } else {
+      run = 0;
+    }
+    out.push(line);
+  }
+  if (trimmed > 0) console.warn(`BULLET GUARD: trimmed ${trimmed} excess bullet(s) to enforce 3-bullet limit`);
+  return out.join("\n");
 }
 
 function stripAllBracketPlaceholders(markdown: string): { out: string; removed: number } {
@@ -2241,7 +2262,7 @@ async function runSection(input: {
 
 /* ── handler ──────────────────────────────────────────────────────────── */
 
-const BUILD_MARKER = "BUILD-2026-06-11-B7-quality-fixes proprietary-generate-article";
+const BUILD_MARKER = "BUILD-2026-06-11-B8-post-processors proprietary-generate-article";
 Deno.serve(async (req) => {
   console.log(BUILD_MARKER, "USE_BATCHED_PROMPT_DEFAULT=", USE_BATCHED_PROMPT_DEFAULT, "USE_LEGACY_SECTIONS=", USE_LEGACY_SECTIONS);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -2654,7 +2675,9 @@ Deno.serve(async (req) => {
       const sectionPlaceholderGuard = stripExpertInputPlaceholders(result.content);
       const sectionContent = section.kind === "faq"
         ? trimFaqAnswers(sectionPlaceholderGuard.out)
-        : sectionPlaceholderGuard.out;
+        : section.type === "body"
+          ? enforceThreeBullets(sectionPlaceholderGuard.out)
+          : sectionPlaceholderGuard.out;
       if (sectionPlaceholderGuard.removed > 0) console.warn(`PLACEHOLDER GUARD: removed ${sectionPlaceholderGuard.removed} expert-input placeholder sentence(s) from section "${section.heading}".`);
 
       surrounding.push({ heading: section.heading, content: sectionContent });
