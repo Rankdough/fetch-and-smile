@@ -29,7 +29,9 @@ import {
 } from "../_shared/proprietaryPromptAssembler.ts";
 import {
   buildBatchedBodyPrompt,
+  buildBatchedFramingPrompt,
   parseBatchedSections,
+  type BatchedFramingBrief,
   type BatchedSectionBrief,
 } from "../_shared/proprietaryBatchedPrompt.ts";
 import { NON_COMMODITY_TITLE_RULES, isCommodityStyleTitle } from "../_shared/nonCommodityTitleRules.ts";
@@ -38,10 +40,10 @@ import { trimSectionToBudget, trimToWordCount } from "../_shared/articleSectionB
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-// V2 Phase 1 — batched body generation. Default OFF: when unset behaviour is
-// byte-identical to the per-section loop. Flip to "true" to send all body
-// sections in ONE call. Per-section parse failures fall back to legacy path.
-const USE_BATCHED_PROMPT = (Deno.env.get("USE_BATCHED_PROMPT") || "").toLowerCase() === "true";
+// V2 Phase 1 - batched generation. Default ON because proprietary mode's old
+// per-section input replay is the cost bug. Set USE_BATCHED_PROMPT=false for
+// instant rollback. Per-section parse failures fall back to legacy path.
+const USE_BATCHED_PROMPT_DEFAULT = (Deno.env.get("USE_BATCHED_PROMPT") || "").toLowerCase() !== "false";
 const AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 const DEFAULT_MODEL = "google/gemini-2.5-flash";
 const CLINICAL_MODEL = "google/gemini-2.5-flash";
@@ -84,6 +86,7 @@ interface RequestBody {
   gapAnalysis?: string;
   gapInsights?: string[];
   keywords?: string[];
+  flags?: { useBatchedPrompt?: boolean };
 }
 
 interface BrainUnit {
@@ -614,12 +617,13 @@ function stripInlineSourceFragments(markdown: string): { out: string; removed: n
         removed += 1;
         return "";
       });
-      // Strip "This data was compiled from X.docx" mid-sentence fragments
-      next = next.replace(/[.,]?\s*[Tt]his\s+data\s+was\s+compiled\s+from\s+[^.]+\./g, () => {
+      // Strip methodology fragments, including URL-bearing variants where a
+      // plain [^.]+ pattern would stop at the domain dot and leave "com/path".
+      next = next.replace(/[.,]?\s*[Tt]his\s+data\s+was\s+compiled\s+from\s+(?:https?:\/\/\S+|[^.\n]+?)(?:\.|$)/g, () => {
         removed += 1;
         return "";
       });
-      next = next.replace(/[.,]?\s*[Dd]ata\s+(?:was\s+)?compiled\s+from\s+[^.]+\./g, () => {
+      next = next.replace(/[.,]?\s*[Dd]ata\s+(?:was\s+)?compiled\s+from\s+(?:https?:\/\/\S+|[^.\n]+?)(?:\.|$)/g, () => {
         removed += 1;
         return "";
       });
@@ -764,6 +768,35 @@ function countMarkdownTables(md: string): number {
     if (lines[i].includes("|") && /^\s*\|?[\s\-:|]+\|[\s\-:|]+$/.test(lines[i + 1])) count++;
   }
   return count;
+}
+
+function maxMarkdownTableDataRows(md: string): number {
+  const lines = md.split("\n");
+  let maxRows = 0;
+  for (let i = 0; i < lines.length - 1; i++) {
+    if (lines[i].includes("|") && /^\s*\|?[\s\-:|]+\|[\s\-:|]+$/.test(lines[i + 1])) {
+      let rows = 0;
+      let j = i + 2;
+      while (j < lines.length && lines[j].includes("|")) {
+        if (!/^\s*\|?[\s\-:|]+\|[\s\-:|]+$/.test(lines[j])) rows++;
+        j++;
+      }
+      maxRows = Math.max(maxRows, rows);
+      i = j - 1;
+    }
+  }
+  return maxRows;
+}
+
+function countMarkdownBullets(md: string): number {
+  return md.split("\n").filter((line) => /^\s*[-*+]\s+\S/.test(line)).length;
+}
+
+function batchedBodyLooksComplete(md: string, budgetWords: number): boolean {
+  if (md.trim().length <= 80) return false;
+  if (maxMarkdownTableDataRows(md) < 4) return false;
+  if (budgetWords < 300 && countMarkdownBullets(md) < 3) return false;
+  return true;
 }
 
 function deriveSectionPhrase(heading: string): string {
@@ -2146,6 +2179,10 @@ async function runSection(input: {
       ? Math.round(input.sectionBudgetWords * 1.25)
       : 600;
     content = trimSectionToBudget(content, budgetCeil);
+    if (preGenerated && !batchedBodyLooksComplete(content, input.sectionBudgetWords)) {
+      console.warn(`BATCHED BODY: post-trim structural guard restored untrimmed batched content for "${input.section.heading}".`);
+      content = preGenerated;
+    }
   }
   const needsExpertInput = /^\[NEEDS EXPERT INPUT\]\s*$/i.test(content);
   let ruleFlags = needsExpertInput ? [] : lintRule5(content);
@@ -2184,13 +2221,15 @@ async function runSection(input: {
 
 /* ── handler ──────────────────────────────────────────────────────────── */
 
-const BUILD_MARKER = "BUILD-2026-06-11-V2P1-batched-prompt proprietary-generate-article";
+const BUILD_MARKER = "BUILD-2026-06-11-V2P1-default-batched-restore proprietary-generate-article";
 Deno.serve(async (req) => {
-  console.log(BUILD_MARKER, "USE_BATCHED_PROMPT=", USE_BATCHED_PROMPT);
+  console.log(BUILD_MARKER, "USE_BATCHED_PROMPT_DEFAULT=", USE_BATCHED_PROMPT_DEFAULT);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
     const body = (await req.json()) as RequestBody;
+    const useBatchedPrompt = body.flags?.useBatchedPrompt ?? USE_BATCHED_PROMPT_DEFAULT;
+    console.log("PROPRIETARY BATCH MODE:", useBatchedPrompt ? "batched" : "legacy");
     if (!body.topic?.trim()) {
       return new Response(JSON.stringify({ error: "topic is required" }), {
         status: 400,
@@ -2434,8 +2473,8 @@ Deno.serve(async (req) => {
       return { mappedUnit, retrievedChunks, retrievedKnowledge, allowedSourceUrls };
     };
 
-    // ── BATCHED BODY PRE-PASS (flag-gated, non-clinical only) ─────────
-    // When USE_BATCHED_PROMPT is on, send ALL body sections to the model in
+    // BATCHED BODY PRE-PASS (default-on, non-clinical only)
+    // When batching is on, send ALL body sections to the model in
     // ONE call. Per-section parse failures fall back to the legacy per-section
     // model call via runSection's normal path (preGeneratedContent absent).
     // Healthcare-clinical sections keep their dedicated clinical writer path
@@ -2444,7 +2483,7 @@ Deno.serve(async (req) => {
     const batchedFallbackIds: string[] = [];
     let batchedAttempted = false;
     let batchedRawLength = 0;
-    if (USE_BATCHED_PROMPT && businessType !== "healthcare-clinical") {
+    if (useBatchedPrompt && businessType !== "healthcare-clinical") {
       const bodySectionsForBatch = plan.filter((s) => s.type === "body");
       if (bodySectionsForBatch.length > 0) {
         batchedAttempted = true;
@@ -2490,9 +2529,9 @@ Deno.serve(async (req) => {
           batchedRawLength = batchRaw.length;
           const parsed = parseBatchedSections(batchRaw, briefs.map((b) => b.id));
           for (const [id, content] of parsed.sections.entries()) {
-            // Reject pathologically short bodies — those almost certainly mean the
-            // model emitted the delimiter pair but no real content. Fall back.
-            if (content.trim().length > 80) {
+            // Reject short or structurally incomplete bodies so the old
+            // per-section path repairs only the sections that missed core rules.
+            if (batchedBodyLooksComplete(content, sectionBudgetWords)) {
               prefilledBody.set(id, content);
             } else {
               batchedFallbackIds.push(id);
@@ -2503,6 +2542,62 @@ Deno.serve(async (req) => {
         } catch (e) {
           console.warn("BATCHED BODY: call failed, all body sections fall back to legacy per-section path:", e);
           for (const s of bodySectionsForBatch) batchedFallbackIds.push(s.id);
+        }
+      }
+    }
+
+    // BATCHED FRAMING PRE-PASS
+    // Generate Opening, TL;DR, Quick Tips, FAQ, and Final Thoughts in one
+    // extra call instead of five per-section calls. Uses the batched body
+    // output as source material when available; parser failures fall back to
+    // the same legacy runSection path as before.
+    const prefilledFraming = new Map<string, string>();
+    const framingFallbackIds: string[] = [];
+    let framingBatchedAttempted = false;
+    let framingBatchedRawLength = 0;
+    if (useBatchedPrompt) {
+      const framingSectionsForBatch = plan.filter((s) => s.type === "framing");
+      if (framingSectionsForBatch.length > 0) {
+        framingBatchedAttempted = true;
+        try {
+          const bodyForFraming = plan
+            .filter((s) => s.type === "body")
+            .map((s) => ({ id: s.id, heading: s.heading, content: prefilledBody.get(s.id) || "" }))
+            .filter((s) => s.content.trim().length > 80);
+          const briefs: BatchedFramingBrief[] = framingSectionsForBatch.map((section) => ({
+            id: section.id,
+            heading: section.heading,
+            kind: section.kind,
+          }));
+          const { system: framingSystem, user: framingUser } = buildBatchedFramingPrompt({
+            businessType,
+            articleTitle,
+            topic: body.topic,
+            audienceSentence,
+            publicationDestination,
+            toneProfile,
+            valuePromiseBlock,
+            gapKeywordBlock,
+            contextFiles: body.contextFiles,
+            bodySections: bodyForFraming,
+            briefs,
+          });
+          console.log(`BATCHED FRAMING: dispatching ${briefs.length} sections in one call`);
+          const framingRaw = await callModel(framingSystem, framingUser, model, 5200);
+          framingBatchedRawLength = framingRaw.length;
+          const parsed = parseBatchedSections(framingRaw, briefs.map((b) => b.id));
+          for (const [id, content] of parsed.sections.entries()) {
+            if (content.trim().length > 20) {
+              prefilledFraming.set(id, content);
+            } else {
+              framingFallbackIds.push(id);
+            }
+          }
+          for (const missingId of parsed.missing) framingFallbackIds.push(missingId);
+          console.log(`BATCHED FRAMING: prefilled ${prefilledFraming.size}/${briefs.length} sections; fallback=${framingFallbackIds.length} [${framingFallbackIds.join(",")}]`);
+        } catch (e) {
+          console.warn("BATCHED FRAMING: call failed, framing sections fall back to legacy per-section path:", e);
+          for (const s of framingSectionsForBatch) framingFallbackIds.push(s.id);
         }
       }
     }
@@ -2533,7 +2628,7 @@ Deno.serve(async (req) => {
         toneProfile,
         valuePromiseBlock,
         gapKeywordBlock,
-        preGeneratedContent: prefilledBody.get(section.id),
+        preGeneratedContent: section.type === "body" ? prefilledBody.get(section.id) : prefilledFraming.get(section.id),
       });
 
       const sectionPlaceholderGuard = stripExpertInputPlaceholders(result.content);
@@ -2559,12 +2654,17 @@ Deno.serve(async (req) => {
     // V2 Phase 1 telemetry: per-article line that lets us measure batching
     // success rate and fallback rate across real generations.
     console.log(`PROPRIETARY TELEMETRY: ${JSON.stringify({
-      batched_flag: USE_BATCHED_PROMPT,
+      batched_flag: useBatchedPrompt,
       batched_attempted: batchedAttempted,
       body_sections_total: bodySectionCount,
       batched_prefilled: prefilledBody.size,
       batched_fallback_ids: batchedFallbackIds,
       batched_raw_length: batchedRawLength,
+      framing_batched_attempted: framingBatchedAttempted,
+      framing_sections_total: plan.filter((s) => s.type === "framing").length,
+      framing_batched_prefilled: prefilledFraming.size,
+      framing_batched_fallback_ids: framingFallbackIds,
+      framing_batched_raw_length: framingBatchedRawLength,
       business_type: businessType,
     })}`);
 

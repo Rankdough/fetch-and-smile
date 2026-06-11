@@ -1,10 +1,10 @@
-// Proprietary mode — BATCHED prompt builder + parser.
+// Proprietary mode - BATCHED prompt builder + parser.
 //
 // Phase 1 of the v2 architecture rebuild. Instead of one model call per body
-// section (re-sending tone, rules, context files, value promises each time),
-// this module bundles ALL body sections into ONE call with strict delimiter
-// contracts. The parser splits the response back into per-section content.
-// Sections that fail to parse fall back to the legacy per-section path.
+// or framing section (re-sending tone, rules, context files, value promises
+// each time), this module bundles sections into strict delimiter contracts.
+// The parser splits the response back into per-section content. Sections that
+// fail to parse fall back to the legacy per-section path.
 //
 // Pure module: no I/O, no Deno-specific APIs. Safe to import from the edge
 // function or unit-test in Node/Deno.
@@ -41,12 +41,34 @@ export interface BatchedBodyInput {
   briefs: BatchedSectionBrief[];
 }
 
+export interface BatchedFramingBrief {
+  id: string;
+  heading: string;
+  kind: SectionKind;
+}
+
+export interface BatchedFramingInput {
+  businessType: BusinessType;
+  articleTitle: string;
+  topic: string;
+  audienceSentence: string;
+  publicationDestination: "ai-search" | "human-blog" | "both";
+  toneProfile?:
+    | { summary: string | null; characteristics: Record<string, string>; example_phrases: string[] | null }
+    | null;
+  valuePromiseBlock?: string;
+  gapKeywordBlock?: string;
+  contextFiles?: Array<{ name: string; content: string }>;
+  bodySections: Array<{ id: string; heading: string; content: string }>;
+  briefs: BatchedFramingBrief[];
+}
+
 export interface BuiltBatchedPrompt {
   system: string;
   user: string;
 }
 
-// Delimiter contract — kept simple and unambiguous so a regex parser can split
+// Delimiter contract - kept simple and unambiguous so a regex parser can split
 // even if the model wraps content in code fences or adds stray text between
 // sections.
 const SECTION_OPEN_RE = /<<<SECTION\s+id\s*=\s*"([^"]+)"[^>]*>>>/g;
@@ -65,10 +87,10 @@ function describeKnowledge(snippets: BatchedSectionBrief["retrievedKnowledge"]):
   const block = snippets
     .slice(0, 4)
     .map((s, i) =>
-      `[${i + 1}]${s.sourceTitle ? ` ${s.sourceTitle}` : ""}\n${s.content.slice(0, 1200)}${s.content.length > 1200 ? "…" : ""}`,
+      `[${i + 1}]${s.sourceTitle ? ` ${s.sourceTitle}` : ""}\n${s.content.slice(0, 1200)}${s.content.length > 1200 ? "..." : ""}`,
     )
     .join("\n\n");
-  return `RETRIEVED EVIDENCE — prefer over general knowledge:\n${block}`;
+  return `RETRIEVED EVIDENCE - prefer over general knowledge:\n${block}`;
 }
 
 function describeAllowedUrls(urls: BatchedSectionBrief["allowedSourceUrls"]): string {
@@ -77,7 +99,7 @@ function describeAllowedUrls(urls: BatchedSectionBrief["allowedSourceUrls"]): st
     return "ALLOWED INLINE SOURCE URLS: none. Do NOT insert any inline markdown link in this section.";
   }
   return `ALLOWED INLINE SOURCE URLS (insert EXACTLY ONE inline markdown link "[anchor](URL)" using one of these, anchor is a natural 3-7 word noun phrase from your prose):\n${
-    allowed.map((u, i) => `${i + 1}. ${u.title} — ${u.url}`).join("\n")
+    allowed.map((u, i) => `${i + 1}. ${u.title} - ${u.url}`).join("\n")
   }`;
 }
 
@@ -93,7 +115,7 @@ function buildToneBlock(
       toneProfile.example_phrases.map((p, i) => `${i + 1}. "${p}"`).join("\n")
     }`
     : "";
-  return `TONE OF VOICE — HIGHEST PRIORITY RULE:
+  return `TONE OF VOICE - HIGHEST PRIORITY RULE:
 Your writing MUST match this tone profile. Short sentences. Plain language. Every sentence in this voice.
 
 Voice summary: ${toneProfile.summary || "Not specified"}
@@ -136,30 +158,30 @@ Expansion layer (required to hit the budget):
 Do NOT cross-reference other sections. Every sentence stands alone.`;
 
   return [
-    `RULE 1 — NO COMMODITY: Every paragraph must contain at least one specific number, named failure mode, concrete category distinction, or claim that contradicts the consensus framing. [NEEDS EXPERT INPUT] is INLINE only, never the whole section.`,
-    `RULE 2 — LEAD WITH THE HONEST ANSWER: First sentence is a direct claim or direct answer. No preamble. If the heading is a question, sentence 1 answers it plainly.`,
-    `RULE 5 — SPECIFIC NUMBERS: Do not write "varies", "depends on", "typically", or "usually" without a specific number in the same sentence. If no number is available, write "No public data; ask the clinical team for current figures." or use [NEEDS EXPERT INPUT] inline. Never invent numbers.`,
-    `CRITICAL — NO PASSIVE FILLER: Banned: "typically symptoms of", "may experience", "can experience", "is often caused by", "a variety of", "a range of", "a number of", "in some cases", "for many people", "it is important to note", "it is worth noting". Every statement must be direct and anchored to supplied evidence.`,
-    `KEYWORD NATURAL-LANGUAGE: Treat the article title as a topic, not a phrase to stuff. The exact title may appear in H1 and at most one H2 — NEVER in body paragraphs, bullets, table cells, or FAQ answers verbatim.`,
-    `RULE 7 — MANDATORY TABLE (≥4 rows): Every body section contains exactly one Markdown pipe table with at least 4 data rows. Real decision dimensions only. At least one column numeric. NEVER use placeholder rows like "Option A/B/C" or "Type 1/2/3".`,
-    `QUOTE ATTRIBUTION: No quotation marks around any sentence presented as something a clinician/expert said unless (a) the exact quote is supplied verbatim in the mapped unit or context files, AND (b) the named speaker (full name + role + affiliation) is also supplied. Inline attribution: "<Quote>" — <Name>, <Role>, <Affiliation>. No blockquotes. No "an expert noted", "a doctor said", generic proverbs, or training-data quotes.`,
+    `RULE 1 - NO COMMODITY: Every paragraph must contain at least one specific number, named failure mode, concrete category distinction, or claim that contradicts the consensus framing. [NEEDS EXPERT INPUT] is INLINE only, never the whole section.`,
+    `RULE 2 - LEAD WITH THE HONEST ANSWER: First sentence is a direct claim or direct answer. No preamble. If the heading is a question, sentence 1 answers it plainly.`,
+    `RULE 5 - SPECIFIC NUMBERS: Do not write "varies", "depends on", "typically", or "usually" without a specific number in the same sentence. If no number is available, write "No public data; ask the clinical team for current figures." or use [NEEDS EXPERT INPUT] inline. Never invent numbers.`,
+    `CRITICAL - NO PASSIVE FILLER: Banned: "typically symptoms of", "may experience", "can experience", "is often caused by", "a variety of", "a range of", "a number of", "in some cases", "for many people", "it is important to note", "it is worth noting". Every statement must be direct and anchored to supplied evidence.`,
+    `KEYWORD NATURAL-LANGUAGE: Treat the article title as a topic, not a phrase to stuff. The exact title may appear in H1 and at most one H2 - NEVER in body paragraphs, bullets, table cells, or FAQ answers verbatim.`,
+    `RULE 7 - MANDATORY TABLE (≥4 rows): Every body section contains exactly one Markdown pipe table with at least 4 data rows. Real decision dimensions only. At least one column numeric. NEVER use placeholder rows like "Option A/B/C" or "Type 1/2/3".`,
+    `QUOTE ATTRIBUTION: No quotation marks around any sentence presented as something a clinician/expert said unless (a) the exact quote is supplied verbatim in the mapped unit or context files, AND (b) the named speaker (full name + role + affiliation) is also supplied. Inline attribution: "<Quote>" - <Name>, <Role>, <Affiliation>. No blockquotes. No "an expert noted", "a doctor said", generic proverbs, or training-data quotes.`,
     `SOURCED FIGURES: Any specific currency amount, percentage tied to a clinical claim, or specific volume/count MUST either (a) appear in the mapped unit or context files AND be cited inline as "(Source: <URL or publication>)" in the same sentence, OR (b) be replaced by "No public data; ask the clinical team for current figures." or [NEEDS EXPERT INPUT]. A removed number is always better than a fabricated one.`,
-    `AI EXTRACTION RULES 9–16 (every section):
+    `AI EXTRACTION RULES 9-16 (every section):
 RULE 9 ANSWER PROXIMITY: direct answer to the article's primary question appears in the first 80 words of the article body.
-RULE 10 SELF-CONTAINED SENTENCES: every sentence makes complete sense extracted in isolation. Avoid "This is why…", "That makes it…", "These are the…" openers. Avoid "high quality", "world-class", "affordable", "premium", "cutting-edge", "best-in-class" without a specific supporting fact.
+RULE 10 SELF-CONTAINED SENTENCES: every sentence makes complete sense extracted in isolation. Avoid "This is why...", "That makes it...", "These are the..." openers. Avoid "high quality", "world-class", "affordable", "premium", "cutting-edge", "best-in-class" without a specific supporting fact.
 RULE 11 METHODOLOGY: include ONE explicit sentence in the article in format "This data was compiled from [specific source]." after the first data-containing section. One per article only.
-RULE 12 INFORMATION GAIN: every body section contains at least one data point not available on competing pages, else output the inline placeholder [NEEDS EXPERT INPUT: …].
+RULE 12 INFORMATION GAIN: every body section contains at least one data point not available on competing pages, else output the inline placeholder [NEEDS EXPERT INPUT: ...].
 RULE 13 BUYER JOURNEY: write for ONE stage (Discovery, Validation, or Execution). Do not mix.
 RULE 14 OFF-SITE QUOTABILITY: every key claim is a standalone quotable statement. The brand name appears naturally in context at least twice per article.
 RULE 15 GHOST CITATION: brand or business name appears in the first paragraph, in at least one body H2/H3, and in Final Thoughts. As SUBJECT of a sentence, not just possessive.
 RULE 16 MULTI-ENGINE DENSITY: at least four independently citable facts per article, each with a specific number or named source.`,
-    `RULE 17 — PARAGRAPH LENGTH: No prose paragraph exceeds 3 sentences. Convert extra explanation into a bulleted list immediately below.`,
+    `RULE 17 - PARAGRAPH LENGTH: No prose paragraph exceeds 3 sentences. Convert extra explanation into a bulleted list immediately below.`,
     atomic,
     `OUTPUT FORMAT for every section: Markdown only. No front-matter, no code fences. Do NOT repeat the H2 heading inside the section body.`,
-    `HARD REQUIREMENT — NUMERIC DENSITY: ≥3 specific numbers, percentages, or counts with units per section. Vague claims without numbers fail.`,
-    `HARD REQUIREMENT — NO HEDGING: Do NOT use "typically", "varies", "depends", "generally", "often", "usually", "may vary", "in some cases" unless the same sentence contains a specific number.`,
-    `HARD REQUIREMENT — FIRST PARAGRAPH ≤45 WORDS per section. Directly answers the section heading.`,
-    `HARD REQUIREMENT — TABLE MINIMUM 4 ROWS per section. Split rows to reach 4 if needed.`,
+    `HARD REQUIREMENT - NUMERIC DENSITY: ≥3 specific numbers, percentages, or counts with units per section. Vague claims without numbers fail.`,
+    `HARD REQUIREMENT - NO HEDGING: Do NOT use "typically", "varies", "depends", "generally", "often", "usually", "may vary", "in some cases" unless the same sentence contains a specific number.`,
+    `HARD REQUIREMENT - FIRST PARAGRAPH ≤45 WORDS per section. Directly answers the section heading.`,
+    `HARD REQUIREMENT - TABLE MINIMUM 4 ROWS per section. Split rows to reach 4 if needed.`,
     `NEVER use em dashes, en dashes, or horizontal rules. NEVER output bracket placeholders such as [Client Name], [Practice Name], [Your Business Name].`,
   ].join("\n\n");
 }
@@ -171,16 +193,16 @@ function briefSectionRules(brief: BatchedSectionBrief): string {
       (brief.mappedUnit.unit_type === "tradeoff" || brief.mappedUnit.unit_type === "contrarian");
     if (hasTradeoffUnit) {
       lines.push(
-        `RULE 3 — DISTINGUISH CATEGORIES: Your mapped unit carries a distinction. Surface it explicitly before any recommendation. Name the categories, describe what separates them, then state which the recommendation applies to.`,
+        `RULE 3 - DISTINGUISH CATEGORIES: Your mapped unit carries a distinction. Surface it explicitly before any recommendation. Name the categories, describe what separates them, then state which the recommendation applies to.`,
       );
     } else {
       lines.push(
-        `RULE 3 — DISTINGUISH CATEGORIES IF APPLICABLE: If a category distinction applies (mild vs severe, marketing label vs technical category, etc.), draw it explicitly before any recommendation.`,
+        `RULE 3 - DISTINGUISH CATEGORIES IF APPLICABLE: If a category distinction applies (mild vs severe, marketing label vs technical category, etc.), draw it explicitly before any recommendation.`,
       );
     }
     if (!brief.mappedUnit || brief.mappedUnit.unit_type !== "contrarian") {
       lines.push(
-        `RULE 6 — CONTRADICT CONSENSUS WHEN WARRANTED: If the topic is built on a marketing term or claim experienced clinicians push back on, say so early in plain language. Do NOT manufacture a contradiction where the consensus is genuinely correct.`,
+        `RULE 6 - CONTRADICT CONSENSUS WHEN WARRANTED: If the topic is built on a marketing term or claim experienced clinicians push back on, say so early in plain language. Do NOT manufacture a contradiction where the consensus is genuinely correct.`,
       );
     }
   }
@@ -188,11 +210,11 @@ function briefSectionRules(brief: BatchedSectionBrief): string {
     const hasFailureUnit = brief.mappedUnit && brief.mappedUnit.unit_type === "failure";
     if (hasFailureUnit) {
       lines.push(
-        `RULE 4 — FAILURE MODE WITH UNIT: Describe the actual failure from the mapped unit. Use the unit's specifics verbatim: what went wrong, why, what would have prevented it.`,
+        `RULE 4 - FAILURE MODE WITH UNIT: Describe the actual failure from the mapped unit. Use the unit's specifics verbatim: what went wrong, why, what would have prevented it.`,
       );
     } else {
       lines.push(
-        `RULE 4 — FAILURE MODES (no unit mapped): Describe 3-4 specific well-documented failure patterns. For each: (a) the named mechanism, (b) the specific clinical consequence, (c) the contributing factor, (d) the mitigation. Bold the failure name at the start of each bullet. No vague "complications can occur".`,
+        `RULE 4 - FAILURE MODES (no unit mapped): Describe 3-4 specific well-documented failure patterns. For each: (a) the named mechanism, (b) the specific clinical consequence, (c) the contributing factor, (d) the mitigation. Bold the failure name at the start of each bullet. No vague "complications can occur".`,
       );
     }
   }
@@ -212,7 +234,7 @@ You never output bracket placeholders such as [Client Name], [Practice Name], [Y
     baseIdentity,
     toneBlock,
     `AUDIENCE: ${input.audienceSentence}`,
-    `PUBLICATION DESTINATION: ${input.publicationDestination} — ${
+    `PUBLICATION DESTINATION: ${input.publicationDestination} - ${
       input.publicationDestination === "ai-search"
         ? "optimise for AI citation: dense factual claims, short paragraphs, named sources."
         : input.publicationDestination === "human-blog"
@@ -231,7 +253,7 @@ You never output bracket placeholders such as [Client Name], [Practice Name], [Y
   if (input.contextFiles && input.contextFiles.length > 0) {
     const ctxBlock = input.contextFiles.map((f) => `--- ${f.name} ---\n${f.content}`).join("\n\n");
     userParts.push(
-      "🚨 PRIMARY SOURCE OF TRUTH — UPLOADED CONTEXT FILES (HIGHEST PRIORITY).\n" +
+      "🚨 PRIMARY SOURCE OF TRUTH - UPLOADED CONTEXT FILES (HIGHEST PRIORITY).\n" +
         "These files override every other knowledge source for every section below. Pull raw, unvarnished data points directly from them: exact numbers, named timelines, dosages, eligibility criteria, contraindications, study names, percentages, and specific medical/clinical criteria. Quote the files verbatim where a phrase is diagnostic. Do not paraphrase a fact into a softer summary. Do not invent figures absent from these files. If a required fact is missing for a section, write [NEEDS EXPERT INPUT] inline.\n\n" +
         ctxBlock,
     );
@@ -239,18 +261,15 @@ You never output bracket placeholders such as [Client Name], [Practice Name], [Y
 
   if (input.valuePromiseBlock) {
     userParts.push(
-      `HARD REQUIREMENT — VALUE PROMISES (every section must directly address at least one):\n${
-        input.valuePromiseBlock.replace(
-          "VALUE PROMISES — the reader expects ALL of these specific outcomes. Every section must directly address at least one:\n",
-          "",
-        )
+      `HARD REQUIREMENT - VALUE PROMISES (every section must directly address at least one):\n${
+        input.valuePromiseBlock.replace(/^VALUE PROMISES\s+[\u2013\u2014-]\s+the reader expects ALL of these specific outcomes\. Every section must directly address at least one:\n/, "")
       }`,
     );
   }
 
   if (input.gapKeywordBlock) {
     userParts.push(
-      `SECONDARY GUIDANCE — COMPETITOR GAPS & TARGET KEYWORDS (weave in where relevant; never override value promises or invent facts):\n${input.gapKeywordBlock}`,
+      `SECONDARY GUIDANCE - COMPETITOR GAPS & TARGET KEYWORDS (weave in where relevant; never override value promises or invent facts):\n${input.gapKeywordBlock}`,
     );
   }
 
@@ -269,7 +288,7 @@ Rules for the batched output:
 2. Use the exact id and heading from each brief (do not invent IDs).
 3. Do not skip any section. If a section cannot be fully written, still emit the delimiter pair with whatever content you can produce.
 4. Do not write anything outside the section delimiters (no preface, no summary, no "Here are the sections:").
-5. Each section is independent — do NOT cross-reference other sections. Every sentence stands alone.
+5. Each section is independent - do NOT cross-reference other sections. Every sentence stands alone.
 6. Do NOT repeat the heading inside the section body.`,
   );
 
@@ -293,8 +312,96 @@ Rules for the batched output:
   userParts.push(
     `=== BEGIN OUTPUT ===\nEmit all ${input.briefs.length} sections now using the delimiter contract. Start with <<<SECTION id="${
       input.briefs[0]?.id ?? ""
-    }" …>>> on the very first line. Do not write anything before it.`,
+    }" ...>>> on the very first line. Do not write anything before it.`,
   );
+
+  return { system, user: userParts.join("\n\n") };
+}
+
+function framingRulesForKind(kind: SectionKind): string {
+  if (kind === "opening") {
+    return `OPENING RULE: Write 55-85 words in one or two short paragraphs. The first sentence must directly answer the article topic. Reframe weak marketing or commodity assumptions immediately. No links.`;
+  }
+  if (kind === "tldr") {
+    return `TL;DR RULE: Write one paragraph only, maximum 60 words. No bullets, no sub-headings, no links. Summarise the single most important takeaway in plain language.`;
+  }
+  if (kind === "quick-tips") {
+    return `QUICK TIPS RULE: Output EXACTLY 3 markdown bullets. Each bullet is one actionable sentence, maximum 18 words, naming a specific check, criterion, or decision.`;
+  }
+  if (kind === "faq") {
+    return `FAQ RULE: Output EXACTLY 5 question-and-answer pairs. Each question line must be bold markdown and end with a question mark. Each answer is 30-55 words, direct, specific, and not generic boilerplate.`;
+  }
+  if (kind === "final-thoughts") {
+    return `FINAL THOUGHTS RULE: Write exactly 2 short paragraphs. No heading. Paragraph 1 states the decision principle. Paragraph 2 gives the next action. Keep each paragraph below 65 words.`;
+  }
+  return `FRAMING RULE: Write concise markdown for this structural section only. No front matter, no code fences, no repeated heading.`;
+}
+
+export function buildBatchedFramingPrompt(input: BatchedFramingInput): BuiltBatchedPrompt {
+  const toneBlock = buildToneBlock(input.toneProfile);
+  const system = [
+    `You are a proprietary-content editor for a ${input.businessType} business.
+You write multiple framing sections in ONE response. You preserve the article's structure, voice, and non-commodity specificity.
+You never invent specific numbers, case counts, named patients, or fabricated citations.
+You never use em dashes, en dashes, horizontal rules, code fences, or bracket placeholders.`,
+    toneBlock,
+    `AUDIENCE: ${input.audienceSentence}`,
+    `PUBLICATION DESTINATION: ${input.publicationDestination} - ${
+      input.publicationDestination === "ai-search"
+        ? "optimise for AI citation: dense factual claims, short paragraphs, named sources."
+        : input.publicationDestination === "human-blog"
+        ? "optimise for human reading: clear flow, illustrative examples, scannable structure."
+        : "balance both: dense facts in topic sentences, illustrative detail in supporting sentences."
+    }`,
+    `ARTICLE TITLE: ${input.articleTitle}`,
+    `FRAMING GLOBAL RULES:
+- British English.
+- No passive filler: never write "typically", "varies", "depends", "usually", "may vary", "in some cases", or "it is important to note" unless the same sentence contains a specific number.
+- Treat the title as a topic, not a phrase to stuff. Do not repeat the exact long query in body copy.
+- No fabricated quotes. No source claims unless supplied in the context below.
+- Paragraphs are 3 sentences maximum and 60 words maximum.
+- Markdown only inside each delimiter. Do not repeat section headings inside section bodies.`,
+  ].filter((x): x is string => !!x).join("\n\n");
+
+  const userParts: string[] = [];
+  if (input.contextFiles && input.contextFiles.length > 0) {
+    const ctxBlock = input.contextFiles.map((f) => `--- ${f.name} ---\n${f.content}`).join("\n\n");
+    userParts.push(
+      "PRIMARY SOURCE OF TRUTH - UPLOADED CONTEXT FILES. Use these only for exact figures, named sources, eligibility criteria, study names, and URLs. Do not invent facts absent from these files.\n\n" + ctxBlock,
+    );
+  }
+  if (input.valuePromiseBlock) {
+    userParts.push(`VALUE PROMISES - all framing sections should reinforce these outcomes without padding:\n${input.valuePromiseBlock.replace(/^VALUE PROMISES\s+[\u2013\u2014-]\s+the reader expects ALL of these specific outcomes\. Every section must directly address at least one:\n/, "")}`);
+  }
+  if (input.gapKeywordBlock) {
+    userParts.push(`SECONDARY GUIDANCE - competitor gaps and target keywords. Use only where natural:\n${input.gapKeywordBlock}`);
+  }
+  if (input.bodySections.length > 0) {
+    userParts.push(`BODY SECTIONS ALREADY WRITTEN - derive Quick Tips, FAQ answers, and Final Thoughts from these exact section answers:\n${input.bodySections.map((s, i) => `[BODY ${i + 1}: ${s.heading}]\n${s.content.slice(0, 1800)}`).join("\n\n")}`);
+  }
+  userParts.push(
+    `=== BATCHED FRAMING GENERATION CONTRACT ===
+You will write ${input.briefs.length} framing sections in ONE response.
+For EACH section, output EXACTLY this format with no extra commentary:
+
+<<<SECTION id="<section-id>" heading="<section-heading>">>>
+<full markdown body of the section, following its section-specific rule>
+<<<END SECTION>>>
+
+Rules:
+1. Emit sections in the order listed below.
+2. Use the exact id from each brief.
+3. Do not skip any section.
+4. Do not write anything outside delimiters.`,
+  );
+  userParts.push(input.briefs.map((brief, idx) => [
+    `=== FRAMING SECTION ${idx + 1} OF ${input.briefs.length} ===`,
+    `ID: ${brief.id}`,
+    `HEADING: ${brief.heading}`,
+    `KIND: ${brief.kind}`,
+    framingRulesForKind(brief.kind),
+  ].join("\n")).join("\n\n"));
+  userParts.push(`=== BEGIN OUTPUT ===\nEmit all ${input.briefs.length} framing sections now. Start with <<<SECTION id="${input.briefs[0]?.id ?? ""}" ...>>> on the first line.`);
 
   return { system, user: userParts.join("\n\n") };
 }
@@ -343,7 +450,7 @@ export function parseBatchedSections(raw: string, expectedIds: string[]): Parsed
     const closeIdx = cleaned.indexOf(SECTION_CLOSE, bodyStart);
     const bodyEnd = (closeIdx !== -1 && closeIdx < nextOpenStart) ? closeIdx : nextOpenStart;
     const body = cleaned.slice(bodyStart, bodyEnd).trim();
-    // Last write wins — if the model duplicates an id, keep the longer.
+    // Last write wins - if the model duplicates an id, keep the longer.
     const prev = sections.get(id);
     if (!prev || body.length > prev.length) {
       sections.set(id, body);
