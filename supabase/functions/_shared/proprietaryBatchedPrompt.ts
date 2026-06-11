@@ -321,6 +321,94 @@ Rules for the batched output:
   return { system, user: userParts.join("\n\n") };
 }
 
+function framingRulesForKind(kind: SectionKind): string {
+  if (kind === "opening") {
+    return `OPENING RULE: Write 55-85 words in one or two short paragraphs. The first sentence must directly answer the article topic. Reframe weak marketing or commodity assumptions immediately. No links.`;
+  }
+  if (kind === "tldr") {
+    return `TL;DR RULE: Write one paragraph only, maximum 60 words. No bullets, no sub-headings, no links. Summarise the single most important takeaway in plain language.`;
+  }
+  if (kind === "quick-tips") {
+    return `QUICK TIPS RULE: Output EXACTLY 3 markdown bullets. Each bullet is one actionable sentence, maximum 18 words, naming a specific check, criterion, or decision.`;
+  }
+  if (kind === "faq") {
+    return `FAQ RULE: Output EXACTLY 5 question-and-answer pairs. Each question line must be bold markdown and end with a question mark. Each answer is 30-55 words, direct, specific, and not generic boilerplate.`;
+  }
+  if (kind === "final-thoughts") {
+    return `FINAL THOUGHTS RULE: Write exactly 2 short paragraphs. No heading. Paragraph 1 states the decision principle. Paragraph 2 gives the next action. Keep each paragraph below 65 words.`;
+  }
+  return `FRAMING RULE: Write concise markdown for this structural section only. No front matter, no code fences, no repeated heading.`;
+}
+
+export function buildBatchedFramingPrompt(input: BatchedFramingInput): BuiltBatchedPrompt {
+  const toneBlock = buildToneBlock(input.toneProfile);
+  const system = [
+    `You are a proprietary-content editor for a ${input.businessType} business.
+You write multiple framing sections in ONE response. You preserve the article's structure, voice, and non-commodity specificity.
+You never invent specific numbers, case counts, named patients, or fabricated citations.
+You never use em dashes, en dashes, horizontal rules, code fences, or bracket placeholders.`,
+    toneBlock,
+    `AUDIENCE: ${input.audienceSentence}`,
+    `PUBLICATION DESTINATION: ${input.publicationDestination} — ${
+      input.publicationDestination === "ai-search"
+        ? "optimise for AI citation: dense factual claims, short paragraphs, named sources."
+        : input.publicationDestination === "human-blog"
+        ? "optimise for human reading: clear flow, illustrative examples, scannable structure."
+        : "balance both: dense facts in topic sentences, illustrative detail in supporting sentences."
+    }`,
+    `ARTICLE TITLE: ${input.articleTitle}`,
+    `FRAMING GLOBAL RULES:
+- British English.
+- No passive filler: never write "typically", "varies", "depends", "usually", "may vary", "in some cases", or "it is important to note" unless the same sentence contains a specific number.
+- Treat the title as a topic, not a phrase to stuff. Do not repeat the exact long query in body copy.
+- No fabricated quotes. No source claims unless supplied in the context below.
+- Paragraphs are 3 sentences maximum and 60 words maximum.
+- Markdown only inside each delimiter. Do not repeat section headings inside section bodies.`,
+  ].filter((x): x is string => !!x).join("\n\n");
+
+  const userParts: string[] = [];
+  if (input.contextFiles && input.contextFiles.length > 0) {
+    const ctxBlock = input.contextFiles.map((f) => `--- ${f.name} ---\n${f.content}`).join("\n\n");
+    userParts.push(
+      "PRIMARY SOURCE OF TRUTH — UPLOADED CONTEXT FILES. Use these only for exact figures, named sources, eligibility criteria, study names, and URLs. Do not invent facts absent from these files.\n\n" + ctxBlock,
+    );
+  }
+  if (input.valuePromiseBlock) {
+    userParts.push(`VALUE PROMISES — all framing sections should reinforce these outcomes without padding:\n${input.valuePromiseBlock.replace("VALUE PROMISES — the reader expects ALL of these specific outcomes. Every section must directly address at least one:\n", "")}`);
+  }
+  if (input.gapKeywordBlock) {
+    userParts.push(`SECONDARY GUIDANCE — competitor gaps and target keywords. Use only where natural:\n${input.gapKeywordBlock}`);
+  }
+  if (input.bodySections.length > 0) {
+    userParts.push(`BODY SECTIONS ALREADY WRITTEN — derive Quick Tips, FAQ answers, and Final Thoughts from these exact section answers:\n${input.bodySections.map((s, i) => `[BODY ${i + 1}: ${s.heading}]\n${s.content.slice(0, 1800)}`).join("\n\n")}`);
+  }
+  userParts.push(
+    `=== BATCHED FRAMING GENERATION CONTRACT ===
+You will write ${input.briefs.length} framing sections in ONE response.
+For EACH section, output EXACTLY this format with no extra commentary:
+
+<<<SECTION id="<section-id>" heading="<section-heading>">>>
+<full markdown body of the section, following its section-specific rule>
+<<<END SECTION>>>
+
+Rules:
+1. Emit sections in the order listed below.
+2. Use the exact id from each brief.
+3. Do not skip any section.
+4. Do not write anything outside delimiters.`,
+  );
+  userParts.push(input.briefs.map((brief, idx) => [
+    `=== FRAMING SECTION ${idx + 1} OF ${input.briefs.length} ===`,
+    `ID: ${brief.id}`,
+    `HEADING: ${brief.heading}`,
+    `KIND: ${brief.kind}`,
+    framingRulesForKind(brief.kind),
+  ].join("\n")).join("\n\n"));
+  userParts.push(`=== BEGIN OUTPUT ===\nEmit all ${input.briefs.length} framing sections now. Start with <<<SECTION id="${input.briefs[0]?.id ?? ""}" …>>> on the first line.`);
+
+  return { system, user: userParts.join("\n\n") };
+}
+
 export interface ParsedBatchedResponse {
   /** Parsed section bodies keyed by section id. Bodies are trimmed but otherwise untouched. */
   sections: Map<string, string>;
