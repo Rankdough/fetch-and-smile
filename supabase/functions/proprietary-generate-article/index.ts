@@ -44,6 +44,9 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 // per-section input replay is the cost bug. Set USE_BATCHED_PROMPT=false for
 // instant rollback. Per-section parse failures fall back to legacy path.
 const USE_BATCHED_PROMPT_DEFAULT = (Deno.env.get("USE_BATCHED_PROMPT") || "").toLowerCase() !== "false";
+// Set USE_LEGACY_SECTIONS=true to bypass V2P2 batching and run the old
+// per-section loop with individual model calls (useful for regression testing).
+const USE_LEGACY_SECTIONS = (Deno.env.get("USE_LEGACY_SECTIONS") || "").toLowerCase() === "true";
 const AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 const DEFAULT_MODEL = "google/gemini-2.5-flash";
 const CLINICAL_MODEL = "google/gemini-2.5-flash";
@@ -2221,9 +2224,9 @@ async function runSection(input: {
 
 /* ── handler ──────────────────────────────────────────────────────────── */
 
-const BUILD_MARKER = "BUILD-2026-06-11-V2P2-token-diet proprietary-generate-article";
+const BUILD_MARKER = "BUILD-2026-06-11-B5-two-call-orchestration proprietary-generate-article";
 Deno.serve(async (req) => {
-  console.log(BUILD_MARKER, "USE_BATCHED_PROMPT_DEFAULT=", USE_BATCHED_PROMPT_DEFAULT);
+  console.log(BUILD_MARKER, "USE_BATCHED_PROMPT_DEFAULT=", USE_BATCHED_PROMPT_DEFAULT, "USE_LEGACY_SECTIONS=", USE_LEGACY_SECTIONS);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
@@ -2483,7 +2486,7 @@ Deno.serve(async (req) => {
     const batchedFallbackIds: string[] = [];
     let batchedAttempted = false;
     let batchedRawLength = 0;
-    if (useBatchedPrompt && businessType !== "healthcare-clinical") {
+    if (!USE_LEGACY_SECTIONS && useBatchedPrompt && businessType !== "healthcare-clinical") {
       const bodySectionsForBatch = plan.filter((s) => s.type === "body");
       if (bodySectionsForBatch.length > 0) {
         batchedAttempted = true;
@@ -2555,7 +2558,7 @@ Deno.serve(async (req) => {
     const framingFallbackIds: string[] = [];
     let framingBatchedAttempted = false;
     let framingBatchedRawLength = 0;
-    if (useBatchedPrompt) {
+    if (!USE_LEGACY_SECTIONS && useBatchedPrompt) {
       const framingSectionsForBatch = plan.filter((s) => s.type === "framing");
       if (framingSectionsForBatch.length > 0) {
         framingBatchedAttempted = true;
