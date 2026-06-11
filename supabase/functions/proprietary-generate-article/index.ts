@@ -2620,12 +2620,17 @@ Deno.serve(async (req) => {
     // V2 Phase 1 telemetry: per-article line that lets us measure batching
     // success rate and fallback rate across real generations.
     console.log(`PROPRIETARY TELEMETRY: ${JSON.stringify({
-      batched_flag: USE_BATCHED_PROMPT,
+      batched_flag: useBatchedPrompt,
       batched_attempted: batchedAttempted,
       body_sections_total: bodySectionCount,
       batched_prefilled: prefilledBody.size,
       batched_fallback_ids: batchedFallbackIds,
       batched_raw_length: batchedRawLength,
+      framing_batched_attempted: framingBatchedAttempted,
+      framing_sections_total: plan.filter((s) => s.type === "framing").length,
+      framing_batched_prefilled: prefilledFraming.size,
+      framing_batched_fallback_ids: framingFallbackIds,
+      framing_batched_raw_length: framingBatchedRawLength,
       business_type: businessType,
     })}`);
 
