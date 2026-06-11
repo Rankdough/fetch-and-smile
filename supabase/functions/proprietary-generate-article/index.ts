@@ -2525,9 +2525,9 @@ Deno.serve(async (req) => {
           batchedRawLength = batchRaw.length;
           const parsed = parseBatchedSections(batchRaw, briefs.map((b) => b.id));
           for (const [id, content] of parsed.sections.entries()) {
-            // Reject pathologically short bodies — those almost certainly mean the
-            // model emitted the delimiter pair but no real content. Fall back.
-            if (content.trim().length > 80) {
+            // Reject short or structurally incomplete bodies so the old
+            // per-section path repairs only the sections that missed core rules.
+            if (batchedBodyLooksComplete(content, sectionBudgetWords)) {
               prefilledBody.set(id, content);
             } else {
               batchedFallbackIds.push(id);
