@@ -620,16 +620,18 @@ function stripInlineSourceFragments(markdown: string): { out: string; removed: n
         removed += 1;
         return "";
       });
-      // Strip methodology fragments, including URL-bearing variants where a
-      // plain [^.]+ pattern would stop at the domain dot and leave "com/path".
-      next = next.replace(/[.,]?\s*[Tt]his\s+data\s+was\s+compiled\s+from\s+(?:https?:\/\/\S+|[^.\n]+?)(?:\.|$)/g, () => {
-        removed += 1;
-        return "";
-      });
-      next = next.replace(/[.,]?\s*[Dd]ata\s+(?:was\s+)?compiled\s+from\s+(?:https?:\/\/\S+|[^.\n]+?)(?:\.|$)/g, () => {
-        removed += 1;
-        return "";
-      });
+      // Strip only artifact "compiled from" fragments — URLs, file extensions,
+      // and generic "context files/documents" references. Named-source RULE 11
+      // methodology statements ("This data was compiled from [named source].")
+      // are preserved so they survive post-processing.
+      next = next.replace(
+        /[.,]?\s*[Tt]his\s+data\s+was\s+compiled\s+from\s+(?:https?:\/\/\S+|[\w\s-]+\.(?:docx?|pdf|xlsx?|csv|txt)\b[^.]*|(?:the\s+)?(?:provided|uploaded|attached|context)\s+[\w\s]*?(?:files?|documents?|materials?))\.?/gi,
+        () => { removed += 1; return ""; },
+      );
+      next = next.replace(
+        /[.,]?\s*[Dd]ata\s+(?:was\s+)?compiled\s+from\s+(?:https?:\/\/\S+|[\w\s-]+\.(?:docx?|pdf|xlsx?|csv|txt)\b[^.]*|(?:the\s+)?(?:provided|uploaded|attached|context)\s+[\w\s]*?(?:files?|documents?|materials?))\.?/gi,
+        () => { removed += 1; return ""; },
+      );
       if (/^\s*(?:Source|Sources?)\s*:\s*(?!\[[^\]]+\]\(https?:\/\/)/i.test(next)) {
         removed += 1;
         return "";
@@ -2224,7 +2226,7 @@ async function runSection(input: {
 
 /* ── handler ──────────────────────────────────────────────────────────── */
 
-const BUILD_MARKER = "BUILD-2026-06-11-B5-two-call-orchestration proprietary-generate-article";
+const BUILD_MARKER = "BUILD-2026-06-11-B6-methodology-strip-fix proprietary-generate-article";
 Deno.serve(async (req) => {
   console.log(BUILD_MARKER, "USE_BATCHED_PROMPT_DEFAULT=", USE_BATCHED_PROMPT_DEFAULT, "USE_LEGACY_SECTIONS=", USE_LEGACY_SECTIONS);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
