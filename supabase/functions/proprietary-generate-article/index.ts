@@ -2180,9 +2180,8 @@ async function runSection(input: {
       : 600;
     content = trimSectionToBudget(content, budgetCeil);
     if (preGenerated && !batchedBodyLooksComplete(content, input.sectionBudgetWords)) {
-      console.warn(`BATCHED BODY: post-trim structural guard failed for "${input.section.heading}"; regenerating this section via legacy path.`);
-      content = (await callModel(assembled.system, assembled.user, input.model, tokenBudget)).trim();
-      content = trimSectionToBudget(content, budgetCeil);
+      console.warn(`BATCHED BODY: post-trim structural guard restored untrimmed batched content for "${input.section.heading}".`);
+      content = preGenerated;
     }
   }
   const needsExpertInput = /^\[NEEDS EXPERT INPUT\]\s*$/i.test(content);
