@@ -6,7 +6,7 @@ const corsHeaders = {
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 const AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 const MODEL = "google/gemini-2.5-flash";
-const BUILD_MARKER = "BUILD-2026-06-11-B15-wordcount-guard run-review-pass";
+const BUILD_MARKER = "BUILD-2026-06-11-B16-focused-flags run-review-pass";
 
 function extractSection(raw: string, tag: string): string {
   const open = `====${tag}====`;
@@ -38,13 +38,14 @@ Write your reader profile in 3 sentences. This profile is your editorial filter 
 STEP 1 — READ AS THAT READER
 Read the full article through this person's eyes.
 
-Flag every moment where:
-- The article stops speaking to them and starts speaking generically
-- A claim is made that does not serve their decision
-- A section answers a question they did not have
-- A section fails to answer a question they definitely have
-- The tone shifts from helpful to promotional without earning it
-- They would stop reading and why
+Identify the top 5 issues only. Rank by impact and prioritise in this order:
+1. Search intent — does a section fail to answer what this reader came for?
+2. Non-commodity — could a generic AI replicate this section word for word with no source material?
+3. Narrative thread — does a section break the article's opening promise or logical flow?
+
+Ignore: sentence-level wording, tone flavour, care/maintenance tangents unless care is the primary search intent, promotional links (those are fixed elsewhere).
+
+For each flag write one line: which section, what the problem is, why it matters for SEO or non-commodity score.
 
 ---
 
@@ -109,7 +110,7 @@ RETURN FORMAT — use these exact delimiter tags in this exact order:
 ====END PRIORITY ACTIONS====
 
 ====STEP 1 FLAGS====
-[Bullet list of flagged moments, or "No flags."]
+[Maximum 5 bullets. Each: Section name — problem — SEO/non-commodity impact. Or "No flags."]
 ====END STEP 1 FLAGS====
 
 ====STEP 2 ANALYSIS====

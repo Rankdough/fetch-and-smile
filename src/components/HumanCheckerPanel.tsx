@@ -128,6 +128,18 @@ function Section({ title, body, defaultOpen = false, onFix, fixApplied, canFix }
       {open && (
         <div className="px-3 pb-3 border-t pt-2">
           {renderBody(body)}
+          {canFix && onFix && (
+            <Button
+              size="sm"
+              variant={fixApplied ? "secondary" : "default"}
+              className="mt-3 w-full"
+              onClick={onFix}
+              disabled={fixApplied}
+            >
+              <Wrench size={12} className="mr-1" />
+              {fixApplied ? "Fix Applied" : "Apply Fix"}
+            </Button>
+          )}
         </div>
       )}
     </div>
