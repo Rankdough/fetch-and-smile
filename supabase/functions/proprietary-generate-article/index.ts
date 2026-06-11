@@ -2198,7 +2198,7 @@ async function runSection(input: {
 
 /* ── handler ──────────────────────────────────────────────────────────── */
 
-const BUILD_MARKER = "BUILD-2026-06-09-B2-decimal-nav proprietary-generate-article";
+const BUILD_MARKER = "BUILD-2026-06-09-B3-fuse-fix proprietary-generate-article";
 Deno.serve(async (req) => {
   console.log(BUILD_MARKER);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -2584,9 +2584,17 @@ Deno.serve(async (req) => {
       return stripped.length < 20;
     };
     for (const s of sectionsOut) {
-      const cleanContent = s.type === "body"
+      const rawContent = s.type === "body"
         ? stripLeadingDuplicateHeading(s.content, s.heading)
         : s.content;
+      // FIX-01: collapse abbreviation splits written by the model before any
+      // section-specific processing runs. Fixes F.U.S.E., U.S.A., N.B.A. etc.
+      // appearing as "F. U. S. E." across sentence breaks in TL;DR, body,
+      // FAQ, and nav previews simultaneously.
+      const cleanContent = rawContent
+        .replace(/\b([A-Z])\. ([A-Z])\. ([A-Z])\. ([A-Z])\./g, "$1.$2.$3.$4.")
+        .replace(/\b([A-Z])\. ([A-Z])\. ([A-Z])\./g, "$1.$2.$3.")
+        .replace(/\b([A-Z])\. ([A-Z])\./g, "$1.$2.");
       // Drop framing sections (e.g. FAQ) whose content is empty / placeholder
       // so the heading doesn't render alone above nothing.
       if ((s.kind === "faq" || s.kind === "quick-tips") && isEmptyOrPlaceholder(cleanContent)) {
