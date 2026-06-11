@@ -503,18 +503,20 @@ to dodge the constraint.`;
 
 function describeSurroundingContext(prev: AssemblerInput["surroundingContext"]): string {
   if (!prev || prev.length === 0) return "";
+  // TOKEN-DIET 2026-06-11: last 2 × 400 chars (was last 4 × 800).
   const items = prev
-    .slice(-4) // cap to last 4 to keep prompt small
-    .map((s) => `### Previously written: ${s.heading}\n${s.content.slice(0, 800)}${s.content.length > 800 ? "…" : ""}`)
+    .slice(-2)
+    .map((s) => `### Previously written: ${s.heading}\n${s.content.slice(0, 400)}${s.content.length > 400 ? "…" : ""}`)
     .join("\n\n");
   return `SURROUNDING CONTEXT — sections already written in this article. Do NOT repeat their claims; build on them.\n\n${items}`;
 }
 
 function describeRetrievedKnowledge(snippets: AssemblerInput["retrievedKnowledge"]): string {
   if (!snippets || snippets.length === 0) return "";
+  // TOKEN-DIET 2026-06-11: 4 × 700 chars (was 4 × 1400). Specific facts live in the first ~150 words of a chunk.
   const block = snippets
     .slice(0, 4)
-    .map((s, i) => `### Context source ${i + 1}${s.sourceTitle ? `: ${s.sourceTitle}` : ""}\n${s.content.slice(0, 1400)}${s.content.length > 1400 ? "…" : ""}`)
+    .map((s, i) => `### Context source ${i + 1}${s.sourceTitle ? `: ${s.sourceTitle}` : ""}\n${s.content.slice(0, 700)}${s.content.length > 700 ? "…" : ""}`)
     .join("\n\n");
   return `RETRIEVED CONTEXT FILE EVIDENCE — use these facts, distinctions, tables, and named source documents for this section. Prefer this evidence over general knowledge.\n\n${block}`;
 }
