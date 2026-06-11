@@ -29,7 +29,9 @@ import {
 } from "../_shared/proprietaryPromptAssembler.ts";
 import {
   buildBatchedBodyPrompt,
+  buildBatchedFramingPrompt,
   parseBatchedSections,
+  type BatchedFramingBrief,
   type BatchedSectionBrief,
 } from "../_shared/proprietaryBatchedPrompt.ts";
 import { NON_COMMODITY_TITLE_RULES, isCommodityStyleTitle } from "../_shared/nonCommodityTitleRules.ts";
@@ -38,10 +40,10 @@ import { trimSectionToBudget, trimToWordCount } from "../_shared/articleSectionB
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-// V2 Phase 1 — batched body generation. Default OFF: when unset behaviour is
-// byte-identical to the per-section loop. Flip to "true" to send all body
-// sections in ONE call. Per-section parse failures fall back to legacy path.
-const USE_BATCHED_PROMPT = (Deno.env.get("USE_BATCHED_PROMPT") || "").toLowerCase() === "true";
+// V2 Phase 1 — batched generation. Default ON because proprietary mode's old
+// per-section input replay is the cost bug. Set USE_BATCHED_PROMPT=false for
+// instant rollback. Per-section parse failures fall back to legacy path.
+const USE_BATCHED_PROMPT_DEFAULT = (Deno.env.get("USE_BATCHED_PROMPT") || "").toLowerCase() !== "false";
 const AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 const DEFAULT_MODEL = "google/gemini-2.5-flash";
 const CLINICAL_MODEL = "google/gemini-2.5-flash";
@@ -84,6 +86,7 @@ interface RequestBody {
   gapAnalysis?: string;
   gapInsights?: string[];
   keywords?: string[];
+  flags?: { useBatchedPrompt?: boolean };
 }
 
 interface BrainUnit {
