@@ -50,6 +50,7 @@ interface QueuedIdea {
 interface ContentQueueProps {
   queuedIdeas: QueuedIdea[];
   onUseForArticle: (cluster: KeywordCluster, idea: BlogIdea) => void;
+  onRegenerateIdea?: (cluster: KeywordCluster, idea: BlogIdea) => void | Promise<void>;
   onRemoveFromQueue: (ideaKey: string) => void;
   formatVolume: (v: number) => string;
   projectName?: string;

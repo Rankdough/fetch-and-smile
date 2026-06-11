@@ -1616,8 +1616,8 @@ ${isPricingQuestion
                             <Button
                               key={wc}
                               size="sm"
-                              variant={!row["Body HTML"] && wc === 500 ? "default" : "outline"}
-                              className={`h-6 px-2 text-xs gap-1 ${!row["Body HTML"] && wc === 500 ? "ring-1 ring-primary" : ""}`}
+                              variant={!r["Body HTML"] && wc === 500 ? "default" : "outline"}
+                              className={`h-6 px-2 text-xs gap-1 ${!r["Body HTML"] && wc === 500 ? "ring-1 ring-primary" : ""}`}
                               disabled={regenIdx === i}
                               onClick={() => regenerateRow(i, wc as 100 | 300 | 500 | 700)}
                             >
