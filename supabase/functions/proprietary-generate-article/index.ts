@@ -2187,13 +2187,15 @@ async function runSection(input: {
 
 /* ── handler ──────────────────────────────────────────────────────────── */
 
-const BUILD_MARKER = "BUILD-2026-06-11-V2P1-batched-prompt proprietary-generate-article";
+const BUILD_MARKER = "BUILD-2026-06-11-V2P1-default-batched proprietary-generate-article";
 Deno.serve(async (req) => {
-  console.log(BUILD_MARKER, "USE_BATCHED_PROMPT=", USE_BATCHED_PROMPT);
+  console.log(BUILD_MARKER, "USE_BATCHED_PROMPT_DEFAULT=", USE_BATCHED_PROMPT_DEFAULT);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
     const body = (await req.json()) as RequestBody;
+    const useBatchedPrompt = body.flags?.useBatchedPrompt ?? USE_BATCHED_PROMPT_DEFAULT;
+    console.log("PROPRIETARY BATCH MODE:", useBatchedPrompt ? "batched" : "legacy");
     if (!body.topic?.trim()) {
       return new Response(JSON.stringify({ error: "topic is required" }), {
         status: 400,
