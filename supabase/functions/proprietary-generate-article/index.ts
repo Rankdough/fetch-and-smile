@@ -27,12 +27,21 @@ import {
   type SectionSpec,
   type UnitType,
 } from "../_shared/proprietaryPromptAssembler.ts";
+import {
+  buildBatchedBodyPrompt,
+  parseBatchedSections,
+  type BatchedSectionBrief,
+} from "../_shared/proprietaryBatchedPrompt.ts";
 import { NON_COMMODITY_TITLE_RULES, isCommodityStyleTitle } from "../_shared/nonCommodityTitleRules.ts";
 import { trimSectionToBudget, trimToWordCount } from "../_shared/articleSectionBudget.ts";
 
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+// V2 Phase 1 — batched body generation. Default OFF: when unset behaviour is
+// byte-identical to the per-section loop. Flip to "true" to send all body
+// sections in ONE call. Per-section parse failures fall back to legacy path.
+const USE_BATCHED_PROMPT = (Deno.env.get("USE_BATCHED_PROMPT") || "").toLowerCase() === "true";
 const AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 const DEFAULT_MODEL = "google/gemini-2.5-flash";
 const CLINICAL_MODEL = "google/gemini-2.5-flash";
@@ -2071,6 +2080,12 @@ async function runSection(input: {
   toneProfile?: { summary: string | null; characteristics: Record<string, string>; example_phrases: string[] | null } | null;
   valuePromiseBlock?: string;
   gapKeywordBlock?: string;
+  // V2 Phase 1: when set (non-empty), skip the per-section model call entirely
+  // and use this content as the section body. All post-processing (trim, lint,
+  // Rule-5 repair, contradiction repair) runs identically on the pre-generated
+  // body. Used by the batched-body path to fan one model call across all body
+  // sections without changing post-processing semantics.
+  preGeneratedContent?: string;
 }) {
   const assembled = assembleSectionPrompt({
     businessType: input.businessType,
@@ -2094,7 +2109,13 @@ async function runSection(input: {
     ? Math.max(800, Math.min(3200, Math.round(input.sectionBudgetWords * 2.5)))
     : input.section.kind === "tldr" ? 200 : 900;
   let content: string;
-  if (isBody && input.businessType === "healthcare-clinical") {
+  const preGenerated = input.preGeneratedContent && input.preGeneratedContent.trim();
+  if (preGenerated) {
+    // Batched path: body was generated upstream in one shared call. Skip both
+    // the clinical writer and the standard per-section model call. Trim,
+    // Rule-5 lint, Rule-5 repair, and contradiction repair below still run.
+    content = preGenerated;
+  } else if (isBody && input.businessType === "healthcare-clinical") {
     // Clinical writer uses its own prompt; append the same atomic-structure +
     // inline-source-link contract so healthcare articles match parity.
     const allowed = (input.allowedSourceUrls || []).filter((s) => s && s.url && /^https?:\/\//i.test(s.url)).slice(0, 8);
@@ -2163,9 +2184,9 @@ async function runSection(input: {
 
 /* ── handler ──────────────────────────────────────────────────────────── */
 
-const BUILD_MARKER = "BUILD-2026-06-11-B4-authority-dead-code-removed proprietary-generate-article";
+const BUILD_MARKER = "BUILD-2026-06-11-V2P1-batched-prompt proprietary-generate-article";
 Deno.serve(async (req) => {
-  console.log(BUILD_MARKER);
+  console.log(BUILD_MARKER, "USE_BATCHED_PROMPT=", USE_BATCHED_PROMPT);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
