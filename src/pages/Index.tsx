@@ -60,6 +60,7 @@ import { QualityScoringPanel } from "@/components/QualityScoringPanel";
 import { NonCommodityComplianceChecker } from "@/components/NonCommodityComplianceChecker";
 import { ContentUsefulnessChecker } from "@/components/ContentUsefulnessChecker";
 import { SourceGroundingChecker } from "@/components/SourceGroundingChecker";
+import { HumanCheckerPanel } from "@/components/HumanCheckerPanel";
 import { Switch } from "@/components/ui/switch";
 import { ArticleNavigationPanel, extractNavigationFromContent, generateNavigationHtml } from "@/components/ArticleNavigationPanel";
 import { FAQAccordion, extractFAQFromContent, extractOrDeriveFAQ, removeFAQSection, generateFAQHtml } from "@/components/FAQAccordion";
@@ -6601,6 +6602,12 @@ ${h2Sections.map(s => `   - "${s}": add 1-2 H3 sub-sections with an answer parag
                       onContentUpdate={setGeneratedContent}
                       useFirstPerson={useFirstPerson}
                       benchmarkPct={50}
+                    />
+
+                    {/* Human editorial check — reader profile, flow, narrative */}
+                    <HumanCheckerPanel
+                      content={generatedContent}
+                      topic={formData.topic}
                     />
                     
 
