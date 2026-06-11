@@ -2217,7 +2217,7 @@ async function runSection(input: {
 
 /* ── handler ──────────────────────────────────────────────────────────── */
 
-const BUILD_MARKER = "BUILD-2026-06-11-V2P1-default-batched proprietary-generate-article";
+const BUILD_MARKER = "BUILD-2026-06-11-V2P1-default-batched-guard proprietary-generate-article";
 Deno.serve(async (req) => {
   console.log(BUILD_MARKER, "USE_BATCHED_PROMPT_DEFAULT=", USE_BATCHED_PROMPT_DEFAULT);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
