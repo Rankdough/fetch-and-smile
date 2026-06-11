@@ -1,6 +1,6 @@
 # fetch-and-smile — CLAUDE.md
 # Read this at the start of every session before touching any code.
-# Last updated: 2026-06-09
+# Last updated: 2026-06-11
 
 ## PROJECT
 Shopify SEO/AEO content platform.
@@ -32,7 +32,7 @@ Confirm these in boot log before assuming a fix is live.
 
 | Function | Commit | Marker |
 |---|---|---|
-| proprietary-generate-article | 08bfb53b3c | BUILD-2026-06-09-B2-decimal-nav |
+| proprietary-generate-article | 3efd972 | BUILD-2026-06-11-B5-two-call-orchestration |
 | apply-format | 1c273512a7 | BUILD-2026-06-09-B2-cta-fix |
 | parse-context-file | 26242621ba | BUILD-2026-06-09-A9-pairing |
 | insert-internal-links | 4304a9d42a | no marker (deploy success only) |
@@ -103,10 +103,11 @@ A fix at layer 3 is invisible if layer 1 returns empty.
 - A9: per-hyperlink URL pairing in parse-context-file (each [title](url) paired individually)
 - B1: F.U.S.E. abbreviation collapse, section bleed strip, inline source fragments, Quick Tips count guard
 - B2: decimal repair (0. 4 → 0.4), nav snippet ### strip, CTA template hole fix
+- B4: dead code removal (isHighAuthorityUrl + HIGH_AUTHORITY_DOMAINS — no valid call site)
+- B5: two-call orchestration — body batch (Call 1) + framing batch (Call 2), 2 LLM calls vs 9+; USE_LEGACY_SECTIONS=true for rollback; fallback rate ~0% on first confirmed run (watch for parser misses)
 
 ### Committed, awaiting deploy confirmation
-- B2 on proprietary (08bfb53b3c) — boot log not yet confirmed by Roman
-- B2 on apply-format (1c273512a7) — boot log not yet confirmed by Roman
+(none)
 
 ### Known broken — not yet committed
 - FAQ Q4/Q5 boilerplate — FAQAccordion.tsx buildFallbackFaqItems generates generic
