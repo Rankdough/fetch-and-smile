@@ -6581,6 +6581,7 @@ ${h2Sections.map(s => `   - "${s}": add 1-2 H3 sub-sections with an answer parag
                       content={generatedContent}
                       onContentUpdate={setGeneratedContent}
                       useFirstPerson={useFirstPerson}
+                      contextFileText={contextFiles.map(f => f.content).join("\n")}
                     />
 
                     {/* Usefulness & Value-Gain Guard */}

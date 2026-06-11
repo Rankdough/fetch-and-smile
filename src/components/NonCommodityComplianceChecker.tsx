@@ -10,6 +10,7 @@ interface NonCommodityComplianceCheckerProps {
   content: string;
   onContentUpdate?: (newContent: string) => void;
   useFirstPerson?: boolean;
+  contextFileText?: string;
 }
 
 interface RuleResult {
@@ -34,7 +35,17 @@ function stripCodeAndHtml(s: string) {
   return s.replace(/```[\s\S]*?```/g, " ").replace(/<[^>]+>/g, " ");
 }
 
-function evaluate(content: string): RuleResult[] {
+function countContextVerifiedDataPoints(plain: string, contextText?: string): number {
+  const matches = plain.match(/\b\d{1,3}(?:[.,]\d+)?\s?(?:%|percent|years?|months?|days?|hours?|mm|cm|kg|mg|usd|eur|£|\$)/gi) || [];
+  if (!contextText || !contextText.trim()) return matches.length;
+  return matches.filter(m => {
+    const num = m.match(/\b(\d{1,3}(?:[.,]\d+)?)/)?.[1];
+    if (!num) return false;
+    return new RegExp(`\\b${num.replace(/\./g, "\\.")}\\b`).test(contextText);
+  }).length;
+}
+
+function evaluate(content: string, contextFileText?: string): RuleResult[] {
   const text = content || "";
   const plain = stripCodeAndHtml(text);
   const lines = text.split(/\r?\n/);
@@ -74,8 +85,8 @@ function evaluate(content: string): RuleResult[] {
 
   const r3Pass = /\|[^\n]+\|\s*\n\s*\|?\s*:?-{2,}/.test(text) || /<table[\s>]/i.test(text);
 
-  const numericMatches = (plain.match(/\b\d{1,3}(?:[.,]\d+)?\s?(?:%|percent|years?|months?|days?|hours?|mm|cm|kg|mg|usd|eur|£|\$)/gi) || []).length;
-  const r4Pass = numericMatches >= 5;
+  const numericMatches = countContextVerifiedDataPoints(plain, contextFileText);
+  const r4Pass = numericMatches >= 10;
 
   const foundHyperbole = HYPERBOLE.filter(w => new RegExp(`\\b${w.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&")}\\b`, "i").test(plain));
   const r5Pass = foundHyperbole.length === 0;
@@ -165,9 +176,9 @@ function evaluate(content: string): RuleResult[] {
     },
     {
       id: 4, title: "Explicit Information-Gain Disclosures",
-      description: "≥5 concrete data points (numbers/units)",
-      pass: r4Pass, detail: `${numericMatches} data points`,
-      fixInstruction: "Add at least five concrete, defensible data points with units (percentages, durations, counts, prices, measurements) drawn from the existing context. Integrate them into the prose; do not invent statistics. Preserve headings, tables, lists, links, images, and CTAs. Return the full article.",
+      description: "≥10 concrete data points (numbers/units) from context file",
+      pass: r4Pass, detail: `${numericMatches} data points${contextFileText ? " (context-verified)" : ""}`,
+      fixInstruction: "Add enough concrete data points with units (percentages, durations, counts, prices, measurements) so that at least 10 are present in the article. Every data point MUST be drawn directly from the uploaded context file — do not invent or infer statistics. Integrate them naturally into the prose. Preserve headings, tables, lists, links, images, and CTAs. Return the full article.",
     },
     {
       id: 5, title: "Zero Marketing Hyperbole",
@@ -214,8 +225,8 @@ function evaluate(content: string): RuleResult[] {
   ];
 }
 
-export function NonCommodityComplianceChecker({ content, onContentUpdate, useFirstPerson = false }: NonCommodityComplianceCheckerProps) {
-  const results = useMemo(() => evaluate(content || ""), [content]);
+export function NonCommodityComplianceChecker({ content, onContentUpdate, useFirstPerson = false, contextFileText }: NonCommodityComplianceCheckerProps) {
+  const results = useMemo(() => evaluate(content || "", contextFileText), [content, contextFileText]);
   const passed = results.filter(r => r.pass).length;
   const failing = results.filter(r => !r.pass);
   const [fixingId, setFixingId] = useState<number | null>(null);
@@ -240,7 +251,7 @@ export function NonCommodityComplianceChecker({ content, onContentUpdate, useFir
     try {
       while (attempt < MAX_ATTEMPTS) {
         attempt++;
-        const currentEval = evaluate(working);
+        const currentEval = evaluate(working, contextFileText);
         const stillFailing = currentEval.filter(r => targetIds.has(r.id) && !r.pass);
         if (stillFailing.length === 0) break;
 
@@ -260,7 +271,7 @@ export function NonCommodityComplianceChecker({ content, onContentUpdate, useFir
         if (data?.error) throw new Error(data.error);
         if (!data?.content) throw new Error("No content returned");
         working = relocateImagesOutOfForbiddenSections(enforceUnder45SnippetBlocks(normalizeBrokenImageMarkdown(data.content)));
-        lastResults = evaluate(working);
+        lastResults = evaluate(working, contextFileText);
       }
 
       onContentUpdate(working);
