@@ -262,10 +262,7 @@ You never output bracket placeholders such as [Client Name], [Practice Name], [Y
   if (input.valuePromiseBlock) {
     userParts.push(
       `HARD REQUIREMENT - VALUE PROMISES (every section must directly address at least one):\n${
-        input.valuePromiseBlock.replace(
-          "VALUE PROMISES - the reader expects ALL of these specific outcomes. Every section must directly address at least one:\n",
-          "",
-        )
+        input.valuePromiseBlock.replace(/^VALUE PROMISES\s+[\u2013\u2014-]\s+the reader expects ALL of these specific outcomes\. Every section must directly address at least one:\n/, "")
       }`,
     );
   }
@@ -374,7 +371,7 @@ You never use em dashes, en dashes, horizontal rules, code fences, or bracket pl
     );
   }
   if (input.valuePromiseBlock) {
-    userParts.push(`VALUE PROMISES - all framing sections should reinforce these outcomes without padding:\n${input.valuePromiseBlock.replace("VALUE PROMISES - the reader expects ALL of these specific outcomes. Every section must directly address at least one:\n", "")}`);
+    userParts.push(`VALUE PROMISES - all framing sections should reinforce these outcomes without padding:\n${input.valuePromiseBlock.replace(/^VALUE PROMISES\s+[\u2013\u2014-]\s+the reader expects ALL of these specific outcomes\. Every section must directly address at least one:\n/, "")}`);
   }
   if (input.gapKeywordBlock) {
     userParts.push(`SECONDARY GUIDANCE - competitor gaps and target keywords. Use only where natural:\n${input.gapKeywordBlock}`);
