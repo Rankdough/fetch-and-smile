@@ -503,18 +503,20 @@ to dodge the constraint.`;
 
 function describeSurroundingContext(prev: AssemblerInput["surroundingContext"]): string {
   if (!prev || prev.length === 0) return "";
+  // TOKEN-DIET 2026-06-11: last 2 × 400 chars (was last 4 × 800).
   const items = prev
-    .slice(-4) // cap to last 4 to keep prompt small
-    .map((s) => `### Previously written: ${s.heading}\n${s.content.slice(0, 800)}${s.content.length > 800 ? "…" : ""}`)
+    .slice(-2)
+    .map((s) => `### Previously written: ${s.heading}\n${s.content.slice(0, 400)}${s.content.length > 400 ? "…" : ""}`)
     .join("\n\n");
   return `SURROUNDING CONTEXT — sections already written in this article. Do NOT repeat their claims; build on them.\n\n${items}`;
 }
 
 function describeRetrievedKnowledge(snippets: AssemblerInput["retrievedKnowledge"]): string {
   if (!snippets || snippets.length === 0) return "";
+  // TOKEN-DIET 2026-06-11: 4 × 700 chars (was 4 × 1400). Specific facts live in the first ~150 words of a chunk.
   const block = snippets
     .slice(0, 4)
-    .map((s, i) => `### Context source ${i + 1}${s.sourceTitle ? `: ${s.sourceTitle}` : ""}\n${s.content.slice(0, 1400)}${s.content.length > 1400 ? "…" : ""}`)
+    .map((s, i) => `### Context source ${i + 1}${s.sourceTitle ? `: ${s.sourceTitle}` : ""}\n${s.content.slice(0, 700)}${s.content.length > 700 ? "…" : ""}`)
     .join("\n\n");
   return `RETRIEVED CONTEXT FILE EVIDENCE — use these facts, distinctions, tables, and named source documents for this section. Prefer this evidence over general knowledge.\n\n${block}`;
 }
@@ -619,9 +621,18 @@ Name], or [NEEDS EXPERT INPUT].`;
     // Framing inherits rules 2 and 5 conceptually
     applied.push(2, 5);
 
-    // Rules 9–16 — AI extraction rules, every framing section, every business type.
-    ruleBlocks.push(AI_EXTRACTION_RULES);
-    applied.push(9, 10, 11, 12, 13, 14, 15, 16);
+    // TOKEN-DIET 2026-06-11: framing sections (tldr, quick-tips, final-thoughts, opening)
+    // don't benefit from Rules 11–16 (methodology/buyer-journey/ghost-citation/multi-engine).
+    // FAQ keeps full AI_EXTRACTION_RULES because direct-answer-first matters there.
+    if (section.kind === "faq") {
+      ruleBlocks.push(AI_EXTRACTION_RULES);
+      applied.push(9, 10, 11, 12, 13, 14, 15, 16);
+    } else {
+      ruleBlocks.push(
+        `RULE 9: Direct answer in the first 80 words.\nRULE 10: Every sentence stands alone — no pronoun-only openers ("This is why…", "That makes it…", "It means…").`,
+      );
+      applied.push(9, 10);
+    }
 
 
     // Opening framing section: enforce the marketing-umbrella reframe.
@@ -685,7 +696,13 @@ CRITICAL: If the tone is conversational, use short sentences under 20 words. Nev
   // explicit extraction directive ordering raw data nodes, named timelines,
   // and specific clinical/medical criteria — not summarised paraphrase.
   const userParts: string[] = [];
-  if (input.contextFiles && input.contextFiles.length > 0) {
+  // TOKEN-DIET 2026-06-11 (Change 1): full uploaded context files are sent only
+  // to framing sections that lack RAG (opening, tldr). Body sections already
+  // receive the relevant slices via retrievedKnowledge (RAG). This avoids
+  // re-sending a 30k-char docx with every section call.
+  const framingNeedsFullContext =
+    !isBody && (section.kind === "opening" || section.kind === "tldr");
+  if (framingNeedsFullContext && input.contextFiles && input.contextFiles.length > 0) {
     const contextBlock = input.contextFiles
       .map((f) => `--- ${f.name} ---\n${f.content}`)
       .join("\n\n");
@@ -707,11 +724,7 @@ CRITICAL: If the tone is conversational, use short sentences under 20 words. Nev
   if (retrieved) userParts.push(retrieved);
   const ctx = describeSurroundingContext(input.surroundingContext);
   if (ctx) userParts.push(ctx);
-  // Hard requirements appended to the task — these are the rules most
-  // commonly failed at generation time. Stating them explicitly in the task
-  // (not just the system prompt) significantly improves compliance.
-  // Value promises injected as the first hard requirement so the model treats them
-  // as a mandatory constraint, not background context.
+  // Hard requirements appended to the task.
   const valuePromiseHardReq = valuePromiseBlock
     ? `HARD REQUIREMENT — VALUE PROMISES: This article was written to fulfil these specific reader outcomes. This section MUST directly address at least one of them with specific facts, numbers, or named criteria:\n${valuePromiseBlock.replace("VALUE PROMISES — the reader expects ALL of these specific outcomes. Every section must directly address at least one:\n", "")}`
     : null;
@@ -720,15 +733,15 @@ CRITICAL: If the tone is conversational, use short sentences under 20 words. Nev
     ? `SECONDARY GUIDANCE — COMPETITOR GAPS & TARGET KEYWORDS (weave in where relevant; never override value promises or invent facts to satisfy these):\n${gapKeywordBlock}`
     : null;
 
+  // TOKEN-DIET 2026-06-11 (Change 3): numeric-density, no-hedging, methodology,
+  // first-paragraph ≤45 words, and table-min-4-rows are already in the system
+  // prompt (Rules 5, 7, AI_EXTRACTION_RULES, atomic structure). The post-gen
+  // Rule-5 repair pass catches numeric-density failures. Keep only the
+  // task-specific lines here.
   const hardRequirements = [
     valuePromiseHardReq,
     gapKeywordGuidance,
     "OUTPUT FORMAT: Markdown only. No front-matter, no code fences. Do NOT repeat the H2 heading.",
-    "HARD REQUIREMENT — NUMERIC DENSITY: Include AT LEAST 3 specific numbers, percentages, or counts with units in this section. Example: '24 perfect games', '7.36%', '27 consecutive batters'. Vague claims without numbers fail.",
-    "HARD REQUIREMENT — NO HEDGING: Do NOT use the words 'typically', 'varies', 'depends', 'generally', 'often', 'usually', 'may vary', or 'in some cases' unless the sentence also contains a specific number. Replace hedges with facts.",
-    "HARD REQUIREMENT — METHODOLOGY (first data-containing section only): After the first sentence that contains a statistic or number, add one sentence in this exact format: 'This data was compiled from [specific named source].' Do this once per article, not per section.",
-    "HARD REQUIREMENT — FIRST PARAGRAPH ≤45 WORDS: The very first paragraph of this section must be 45 words or fewer. It must directly answer the section heading question. Count your words.",
-    "HARD REQUIREMENT — TABLE MINIMUM 4 ROWS: Your Markdown table MUST have AT LEAST 4 data rows (not counting the header row). Count them before finishing. If you only have 2 or 3 natural rows, split each row into sub-cases, add a time-period row, or add an edge-case row to reach 4. A table with 4 rows always passes. A table with 3 rows always fails. Example of reaching 4 rows from 3 conditions: split one condition into two variants.",
   ].filter(Boolean).join("\n");
   userParts.push(`TASK: Write the body of the section "${section.heading}" now.
 
