@@ -1,4 +1,4 @@
-// Proprietary mode — BATCHED prompt builder + parser.
+// Proprietary mode - BATCHED prompt builder + parser.
 //
 // Phase 1 of the v2 architecture rebuild. Instead of one model call per body
 // or framing section (re-sending tone, rules, context files, value promises
@@ -68,7 +68,7 @@ export interface BuiltBatchedPrompt {
   user: string;
 }
 
-// Delimiter contract — kept simple and unambiguous so a regex parser can split
+// Delimiter contract - kept simple and unambiguous so a regex parser can split
 // even if the model wraps content in code fences or adds stray text between
 // sections.
 const SECTION_OPEN_RE = /<<<SECTION\s+id\s*=\s*"([^"]+)"[^>]*>>>/g;
@@ -87,10 +87,10 @@ function describeKnowledge(snippets: BatchedSectionBrief["retrievedKnowledge"]):
   const block = snippets
     .slice(0, 4)
     .map((s, i) =>
-      `[${i + 1}]${s.sourceTitle ? ` ${s.sourceTitle}` : ""}\n${s.content.slice(0, 1200)}${s.content.length > 1200 ? "…" : ""}`,
+      `[${i + 1}]${s.sourceTitle ? ` ${s.sourceTitle}` : ""}\n${s.content.slice(0, 1200)}${s.content.length > 1200 ? "..." : ""}`,
     )
     .join("\n\n");
-  return `RETRIEVED EVIDENCE — prefer over general knowledge:\n${block}`;
+  return `RETRIEVED EVIDENCE - prefer over general knowledge:\n${block}`;
 }
 
 function describeAllowedUrls(urls: BatchedSectionBrief["allowedSourceUrls"]): string {
@@ -99,7 +99,7 @@ function describeAllowedUrls(urls: BatchedSectionBrief["allowedSourceUrls"]): st
     return "ALLOWED INLINE SOURCE URLS: none. Do NOT insert any inline markdown link in this section.";
   }
   return `ALLOWED INLINE SOURCE URLS (insert EXACTLY ONE inline markdown link "[anchor](URL)" using one of these, anchor is a natural 3-7 word noun phrase from your prose):\n${
-    allowed.map((u, i) => `${i + 1}. ${u.title} — ${u.url}`).join("\n")
+    allowed.map((u, i) => `${i + 1}. ${u.title} - ${u.url}`).join("\n")
   }`;
 }
 
@@ -115,7 +115,7 @@ function buildToneBlock(
       toneProfile.example_phrases.map((p, i) => `${i + 1}. "${p}"`).join("\n")
     }`
     : "";
-  return `TONE OF VOICE — HIGHEST PRIORITY RULE:
+  return `TONE OF VOICE - HIGHEST PRIORITY RULE:
 Your writing MUST match this tone profile. Short sentences. Plain language. Every sentence in this voice.
 
 Voice summary: ${toneProfile.summary || "Not specified"}
