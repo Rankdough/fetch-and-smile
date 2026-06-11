@@ -50,6 +50,7 @@ interface QueuedIdea {
 interface ContentQueueProps {
   queuedIdeas: QueuedIdea[];
   onUseForArticle: (cluster: KeywordCluster, idea: BlogIdea) => void;
+  onRegenerateIdea?: (cluster: KeywordCluster, idea: BlogIdea) => void | Promise<void>;
   onRemoveFromQueue: (ideaKey: string) => void;
   formatVolume: (v: number) => string;
   projectName?: string;
@@ -946,7 +947,6 @@ const ContentQueue = ({ queuedIdeas, onUseForArticle, onRemoveFromQueue, formatV
                           <Button variant="ghost" size="sm" className="gap-1 text-xs h-7 px-2 text-destructive" onClick={() => onRemoveFromQueue(ideaKey)}>
                             <Bookmark className="h-3 w-3 fill-current" />
                           </Button>
-                        </div>
                         </div>
                       </div>
                       {isExpanded && (

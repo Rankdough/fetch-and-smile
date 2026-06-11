@@ -27,12 +27,21 @@ import {
   type SectionSpec,
   type UnitType,
 } from "../_shared/proprietaryPromptAssembler.ts";
+import {
+  buildBatchedBodyPrompt,
+  parseBatchedSections,
+  type BatchedSectionBrief,
+} from "../_shared/proprietaryBatchedPrompt.ts";
 import { NON_COMMODITY_TITLE_RULES, isCommodityStyleTitle } from "../_shared/nonCommodityTitleRules.ts";
 import { trimSectionToBudget, trimToWordCount } from "../_shared/articleSectionBudget.ts";
 
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+// V2 Phase 1 — batched body generation. Default OFF: when unset behaviour is
+// byte-identical to the per-section loop. Flip to "true" to send all body
+// sections in ONE call. Per-section parse failures fall back to legacy path.
+const USE_BATCHED_PROMPT = (Deno.env.get("USE_BATCHED_PROMPT") || "").toLowerCase() === "true";
 const AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 const DEFAULT_MODEL = "google/gemini-2.5-flash";
 const CLINICAL_MODEL = "google/gemini-2.5-flash";
@@ -2071,6 +2080,12 @@ async function runSection(input: {
   toneProfile?: { summary: string | null; characteristics: Record<string, string>; example_phrases: string[] | null } | null;
   valuePromiseBlock?: string;
   gapKeywordBlock?: string;
+  // V2 Phase 1: when set (non-empty), skip the per-section model call entirely
+  // and use this content as the section body. All post-processing (trim, lint,
+  // Rule-5 repair, contradiction repair) runs identically on the pre-generated
+  // body. Used by the batched-body path to fan one model call across all body
+  // sections without changing post-processing semantics.
+  preGeneratedContent?: string;
 }) {
   const assembled = assembleSectionPrompt({
     businessType: input.businessType,
@@ -2094,7 +2109,13 @@ async function runSection(input: {
     ? Math.max(800, Math.min(3200, Math.round(input.sectionBudgetWords * 2.5)))
     : input.section.kind === "tldr" ? 200 : 900;
   let content: string;
-  if (isBody && input.businessType === "healthcare-clinical") {
+  const preGenerated = input.preGeneratedContent && input.preGeneratedContent.trim();
+  if (preGenerated) {
+    // Batched path: body was generated upstream in one shared call. Skip both
+    // the clinical writer and the standard per-section model call. Trim,
+    // Rule-5 lint, Rule-5 repair, and contradiction repair below still run.
+    content = preGenerated;
+  } else if (isBody && input.businessType === "healthcare-clinical") {
     // Clinical writer uses its own prompt; append the same atomic-structure +
     // inline-source-link contract so healthcare articles match parity.
     const allowed = (input.allowedSourceUrls || []).filter((s) => s && s.url && /^https?:\/\//i.test(s.url)).slice(0, 8);
@@ -2163,9 +2184,9 @@ async function runSection(input: {
 
 /* ── handler ──────────────────────────────────────────────────────────── */
 
-const BUILD_MARKER = "BUILD-2026-06-11-B4-authority-dead-code-removed proprietary-generate-article";
+const BUILD_MARKER = "BUILD-2026-06-11-V2P1-batched-prompt proprietary-generate-article";
 Deno.serve(async (req) => {
-  console.log(BUILD_MARKER);
+  console.log(BUILD_MARKER, "USE_BATCHED_PROMPT=", USE_BATCHED_PROMPT);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
@@ -2332,14 +2353,26 @@ Deno.serve(async (req) => {
     }> = [];
     const allRetrievedChunks: RetrievedChunk[] = [];
 
-    for (const section of plan) {
-      const mappedUnit =
-        section.type === "body" ? pickUnit(section.heading, body.topic, units) : null;
+    // ── V2 Phase 1: per-section data cache + batched body pre-pass ─────
+    //
+    // The cache holds the mapped unit, RAG chunks, retrieved-knowledge, and
+    // allowed-source URLs for each section. When the batched-body pre-pass
+    // populates it ahead of the loop, the loop re-uses the cached data
+    // instead of running the RAG retrieval twice.
+    interface SectionData {
+      mappedUnit: MappedUnit | null;
+      retrievedChunks: RetrievedChunk[];
+      retrievedKnowledge: Array<{ content: string; sourceTitle?: string | null }>;
+      allowedSourceUrls: BrainUrl[];
+    }
+    const sectionDataCache = new Map<string, SectionData>();
 
-      // Semantic retrieval: embed (topic + section heading) and pull top 3 chunks
-      // from brain_chunks. Additive — runs alongside the keyword-matched pickUnit unit.
+    const computeSectionData = async (section: SectionSpec): Promise<SectionData> => {
+      const mappedUnit: MappedUnit | null =
+        section.type === "body" ? pickUnit(section.heading, body.topic, units) : null;
       let retrievedChunks: RetrievedChunk[] = [];
       let retrievedKnowledge: Array<{ content: string; sourceTitle?: string | null }> = [];
+      let allowedSourceUrls: BrainUrl[] = [];
       if (section.type === "body") {
         try {
           const queryVec = await embedQuery(`${body.topic}\n${section.heading}`);
@@ -2384,15 +2417,6 @@ Deno.serve(async (req) => {
         } else {
           retrievedKnowledge = retrievedChunks.map((c) => ({ content: c.content }));
         }
-        allRetrievedChunks.push(...retrievedChunks);
-      }
-
-      // Build the allow-listed source URL pool for THIS section: brain-unit
-      // URLs (from mapped unit + globally available), retrieved-chunk URLs,
-      // then topic-trusted fallbacks. Always passed to the writer so the
-      // citation is generated inline, not bolted on after.
-      let allowedSourceUrls: BrainUrl[] = [];
-      if (section.type === "body") {
         const unitUrls = collectBrainUrls(mappedUnit ? [mappedUnit as BrainUnit] : []);
         const chunkUrls = collectChunkUrls(retrievedChunks);
         const globalUnitUrls = filterUrlsForTopic(collectBrainUrls(units), body.topic);
@@ -2407,6 +2431,90 @@ Deno.serve(async (req) => {
         }
         allowedSourceUrls = allowedSourceUrls.slice(0, 8);
       }
+      return { mappedUnit, retrievedChunks, retrievedKnowledge, allowedSourceUrls };
+    };
+
+    // ── BATCHED BODY PRE-PASS (flag-gated, non-clinical only) ─────────
+    // When USE_BATCHED_PROMPT is on, send ALL body sections to the model in
+    // ONE call. Per-section parse failures fall back to the legacy per-section
+    // model call via runSection's normal path (preGeneratedContent absent).
+    // Healthcare-clinical sections keep their dedicated clinical writer path
+    // and are NOT batched in Phase 1.
+    const prefilledBody = new Map<string, string>();
+    const batchedFallbackIds: string[] = [];
+    let batchedAttempted = false;
+    let batchedRawLength = 0;
+    if (USE_BATCHED_PROMPT && businessType !== "healthcare-clinical") {
+      const bodySectionsForBatch = plan.filter((s) => s.type === "body");
+      if (bodySectionsForBatch.length > 0) {
+        batchedAttempted = true;
+        try {
+          // Resolve per-section data in parallel and cache it so the main loop
+          // doesn't re-fetch RAG / re-pick units when reading prefilled content.
+          const enrichedPairs = await Promise.all(
+            bodySectionsForBatch.map(async (s) => {
+              const data = await computeSectionData(s);
+              sectionDataCache.set(s.id, data);
+              return { section: s, data };
+            }),
+          );
+          const briefs: BatchedSectionBrief[] = enrichedPairs.map(({ section, data }) => ({
+            id: section.id,
+            heading: section.heading,
+            kind: section.kind,
+            budgetWords: sectionBudgetWords,
+            mappedUnit: data.mappedUnit,
+            retrievedKnowledge: data.retrievedKnowledge,
+            allowedSourceUrls: data.allowedSourceUrls,
+          }));
+          const { system: batchSystem, user: batchUser } = buildBatchedBodyPrompt({
+            businessType,
+            articleTitle,
+            audienceSentence,
+            publicationDestination,
+            toneProfile,
+            valuePromiseBlock,
+            gapKeywordBlock,
+            contextFiles: body.contextFiles,
+            sectionBudgetWords,
+            briefs,
+          });
+          // Generous combined ceiling: per-section budget × 2.5 × section count,
+          // capped well under typical model max-output-tokens.
+          const batchMaxTokens = Math.min(
+            16000,
+            Math.max(4000, briefs.length * Math.round(sectionBudgetWords * 2.5)),
+          );
+          console.log(`BATCHED BODY: dispatching ${briefs.length} sections in one call, max_tokens=${batchMaxTokens}`);
+          const batchRaw = await callModel(batchSystem, batchUser, model, batchMaxTokens);
+          batchedRawLength = batchRaw.length;
+          const parsed = parseBatchedSections(batchRaw, briefs.map((b) => b.id));
+          for (const [id, content] of parsed.sections.entries()) {
+            // Reject pathologically short bodies — those almost certainly mean the
+            // model emitted the delimiter pair but no real content. Fall back.
+            if (content.trim().length > 80) {
+              prefilledBody.set(id, content);
+            } else {
+              batchedFallbackIds.push(id);
+            }
+          }
+          for (const missingId of parsed.missing) batchedFallbackIds.push(missingId);
+          console.log(`BATCHED BODY: prefilled ${prefilledBody.size}/${briefs.length} sections; fallback=${batchedFallbackIds.length} [${batchedFallbackIds.join(",")}]`);
+        } catch (e) {
+          console.warn("BATCHED BODY: call failed, all body sections fall back to legacy per-section path:", e);
+          for (const s of bodySectionsForBatch) batchedFallbackIds.push(s.id);
+        }
+      }
+    }
+
+    for (const section of plan) {
+      // Use cached section data if the batched pre-pass populated it; else
+      // compute now (legacy / flag-off / framing-section behaviour).
+      const cached = sectionDataCache.get(section.id);
+      const data = cached ?? await computeSectionData(section);
+      if (!cached && section.type === "body") sectionDataCache.set(section.id, data);
+      const { mappedUnit, retrievedChunks, retrievedKnowledge, allowedSourceUrls } = data;
+      if (section.type === "body") allRetrievedChunks.push(...retrievedChunks);
 
       const result = await runSection({
         businessType,
@@ -2425,6 +2533,7 @@ Deno.serve(async (req) => {
         toneProfile,
         valuePromiseBlock,
         gapKeywordBlock,
+        preGeneratedContent: prefilledBody.get(section.id),
       });
 
       const sectionPlaceholderGuard = stripExpertInputPlaceholders(result.content);
@@ -2446,6 +2555,20 @@ Deno.serve(async (req) => {
         appliedRules: result.appliedRules,
       });
     }
+
+    // V2 Phase 1 telemetry: per-article line that lets us measure batching
+    // success rate and fallback rate across real generations.
+    console.log(`PROPRIETARY TELEMETRY: ${JSON.stringify({
+      batched_flag: USE_BATCHED_PROMPT,
+      batched_attempted: batchedAttempted,
+      body_sections_total: bodySectionCount,
+      batched_prefilled: prefilledBody.size,
+      batched_fallback_ids: batchedFallbackIds,
+      batched_raw_length: batchedRawLength,
+      business_type: businessType,
+    })}`);
+
+
 
     // 6. Stitch
     const normaliseHeadingText = (s: string) =>
