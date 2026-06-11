@@ -40,7 +40,7 @@ import { trimSectionToBudget, trimToWordCount } from "../_shared/articleSectionB
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-// V2 Phase 1 — batched generation. Default ON because proprietary mode's old
+// V2 Phase 1 - batched generation. Default ON because proprietary mode's old
 // per-section input replay is the cost bug. Set USE_BATCHED_PROMPT=false for
 // instant rollback. Per-section parse failures fall back to legacy path.
 const USE_BATCHED_PROMPT_DEFAULT = (Deno.env.get("USE_BATCHED_PROMPT") || "").toLowerCase() !== "false";
@@ -2439,7 +2439,7 @@ Deno.serve(async (req) => {
       return { mappedUnit, retrievedChunks, retrievedKnowledge, allowedSourceUrls };
     };
 
-    // ── BATCHED BODY PRE-PASS (default-on, non-clinical only) ─────────
+    // BATCHED BODY PRE-PASS (default-on, non-clinical only)
     // When batching is on, send ALL body sections to the model in
     // ONE call. Per-section parse failures fall back to the legacy per-section
     // model call via runSection's normal path (preGeneratedContent absent).
@@ -2512,7 +2512,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    // ── BATCHED FRAMING PRE-PASS ──────────────────────────────────────
+    // BATCHED FRAMING PRE-PASS
     // Generate Opening, TL;DR, Quick Tips, FAQ, and Final Thoughts in one
     // extra call instead of five per-section calls. Uses the batched body
     // output as source material when available; parser failures fall back to
