@@ -1028,39 +1028,6 @@ function refsToMarkdown(refs: Array<{ title: string; url?: string }>): string {
 // "Deep Research Report: ...") — that's an internal document, not a citation,
 // and must never appear in the public References block. Drop it.
 // Dedupe by lowercased hostname (www. stripped) + pathname (trailing slash stripped).
-// High-authority domain patterns for reference filtering.
-// Only URLs matching these patterns appear in the References section.
-// Add new patterns here as needed — regex tested against hostname (www. stripped).
-const HIGH_AUTHORITY_DOMAINS = [
-  // Academic databases and journals
-  /pubmed\.ncbi\.nlm\.nih\.gov/, /pmc\.ncbi\.nlm\.nih\.gov/,
-  /ncbi\.nlm\.nih\.gov/, /nih\.gov/, /cdc\.gov/, /who\.int/,
-  /cochranelibrary\.com/, /bmj\.com/, /nejm\.org/, /thelancet\.com/,
-  /jamanetwork\.com/, /nature\.com/, /sciencedirect\.com/,
-  /springer\.com/, /wiley\.com/, /tandfonline\.com/,
-  /journals\.sagepub\.com/, /academic\.oup\.com/, /researchgate\.net/,
-  // Government and public health
-  /\.gov$/, /\.gov\.uk$/, /\.nhs\.uk$/, /nhs\.uk/,
-  // Academic institutions
-  /\.edu$/, /\.ac\.uk$/, /\.ac\./,
-  // Dental and medical professional bodies
-  /ada\.org/, /aboi\.org/, /bda\.org/, /rcseng\.ac\.uk/,
-  /aaoms\.org/, /perio\.org/, /aaid\.org/, /jtperio\.com/,
-  /aap\.org/, /aada\.org/, /rcpsg\.ac\.uk/,
-  // Reputable health information publishers
-  /mayoclinic\.org/, /healthline\.com/, /medicalnewstoday\.com/,
-  // Dental tourism and specialist directories (expand per client as needed)
-  /dentaltourismalbania\.com/,
-];
-
-function isHighAuthorityUrl(url: string): boolean {
-  try {
-    const host = new URL(url).hostname.replace(/^www\./i, "").toLowerCase();
-    return HIGH_AUTHORITY_DOMAINS.some((re) => re.test(host));
-  } catch {
-    return false;
-  }
-}
 
 function dedupeAndValidateRefs(
   refs: Array<{ title: string; url?: string }>,
@@ -1072,8 +1039,6 @@ function dedupeAndValidateRefs(
     const rawUrl = (ref.url || "").trim();
     if (!title || !rawUrl) continue;
     if (!/^https?:\/\//i.test(rawUrl)) continue;
-    // Authority filter removed for context-file references — user-curated URLs are trusted.
-    // SKIP_HOSTS in extractContextFileReferences handles social/ecommerce junk.
     try {
       const u = new URL(rawUrl);
       const host = u.hostname.replace(/^www\./i, "").toLowerCase();
@@ -2198,7 +2163,7 @@ async function runSection(input: {
 
 /* ── handler ──────────────────────────────────────────────────────────── */
 
-const BUILD_MARKER = "BUILD-2026-06-09-B3b-fuse-fix-corrected proprietary-generate-article";
+const BUILD_MARKER = "BUILD-2026-06-11-B4-authority-dead-code-removed proprietary-generate-article";
 Deno.serve(async (req) => {
   console.log(BUILD_MARKER);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
