@@ -621,9 +621,18 @@ Name], or [NEEDS EXPERT INPUT].`;
     // Framing inherits rules 2 and 5 conceptually
     applied.push(2, 5);
 
-    // Rules 9–16 — AI extraction rules, every framing section, every business type.
-    ruleBlocks.push(AI_EXTRACTION_RULES);
-    applied.push(9, 10, 11, 12, 13, 14, 15, 16);
+    // TOKEN-DIET 2026-06-11: framing sections (tldr, quick-tips, final-thoughts, opening)
+    // don't benefit from Rules 11–16 (methodology/buyer-journey/ghost-citation/multi-engine).
+    // FAQ keeps full AI_EXTRACTION_RULES because direct-answer-first matters there.
+    if (section.kind === "faq") {
+      ruleBlocks.push(AI_EXTRACTION_RULES);
+      applied.push(9, 10, 11, 12, 13, 14, 15, 16);
+    } else {
+      ruleBlocks.push(
+        `RULE 9: Direct answer in the first 80 words.\nRULE 10: Every sentence stands alone — no pronoun-only openers ("This is why…", "That makes it…", "It means…").`,
+      );
+      applied.push(9, 10);
+    }
 
 
     // Opening framing section: enforce the marketing-umbrella reframe.
