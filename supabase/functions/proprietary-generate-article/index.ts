@@ -2439,8 +2439,8 @@ Deno.serve(async (req) => {
       return { mappedUnit, retrievedChunks, retrievedKnowledge, allowedSourceUrls };
     };
 
-    // ── BATCHED BODY PRE-PASS (flag-gated, non-clinical only) ─────────
-    // When USE_BATCHED_PROMPT is on, send ALL body sections to the model in
+    // ── BATCHED BODY PRE-PASS (default-on, non-clinical only) ─────────
+    // When batching is on, send ALL body sections to the model in
     // ONE call. Per-section parse failures fall back to the legacy per-section
     // model call via runSection's normal path (preGeneratedContent absent).
     // Healthcare-clinical sections keep their dedicated clinical writer path
@@ -2449,7 +2449,7 @@ Deno.serve(async (req) => {
     const batchedFallbackIds: string[] = [];
     let batchedAttempted = false;
     let batchedRawLength = 0;
-    if (USE_BATCHED_PROMPT && businessType !== "healthcare-clinical") {
+    if (useBatchedPrompt && businessType !== "healthcare-clinical") {
       const bodySectionsForBatch = plan.filter((s) => s.type === "body");
       if (bodySectionsForBatch.length > 0) {
         batchedAttempted = true;
@@ -2512,6 +2512,62 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ── BATCHED FRAMING PRE-PASS ──────────────────────────────────────
+    // Generate Opening, TL;DR, Quick Tips, FAQ, and Final Thoughts in one
+    // extra call instead of five per-section calls. Uses the batched body
+    // output as source material when available; parser failures fall back to
+    // the same legacy runSection path as before.
+    const prefilledFraming = new Map<string, string>();
+    const framingFallbackIds: string[] = [];
+    let framingBatchedAttempted = false;
+    let framingBatchedRawLength = 0;
+    if (useBatchedPrompt) {
+      const framingSectionsForBatch = plan.filter((s) => s.type === "framing");
+      if (framingSectionsForBatch.length > 0) {
+        framingBatchedAttempted = true;
+        try {
+          const bodyForFraming = plan
+            .filter((s) => s.type === "body")
+            .map((s) => ({ id: s.id, heading: s.heading, content: prefilledBody.get(s.id) || "" }))
+            .filter((s) => s.content.trim().length > 80);
+          const briefs: BatchedFramingBrief[] = framingSectionsForBatch.map((section) => ({
+            id: section.id,
+            heading: section.heading,
+            kind: section.kind,
+          }));
+          const { system: framingSystem, user: framingUser } = buildBatchedFramingPrompt({
+            businessType,
+            articleTitle,
+            topic: body.topic,
+            audienceSentence,
+            publicationDestination,
+            toneProfile,
+            valuePromiseBlock,
+            gapKeywordBlock,
+            contextFiles: body.contextFiles,
+            bodySections: bodyForFraming,
+            briefs,
+          });
+          console.log(`BATCHED FRAMING: dispatching ${briefs.length} sections in one call`);
+          const framingRaw = await callModel(framingSystem, framingUser, model, 5200);
+          framingBatchedRawLength = framingRaw.length;
+          const parsed = parseBatchedSections(framingRaw, briefs.map((b) => b.id));
+          for (const [id, content] of parsed.sections.entries()) {
+            if (content.trim().length > 20) {
+              prefilledFraming.set(id, content);
+            } else {
+              framingFallbackIds.push(id);
+            }
+          }
+          for (const missingId of parsed.missing) framingFallbackIds.push(missingId);
+          console.log(`BATCHED FRAMING: prefilled ${prefilledFraming.size}/${briefs.length} sections; fallback=${framingFallbackIds.length} [${framingFallbackIds.join(",")}]`);
+        } catch (e) {
+          console.warn("BATCHED FRAMING: call failed, framing sections fall back to legacy per-section path:", e);
+          for (const s of framingSectionsForBatch) framingFallbackIds.push(s.id);
+        }
+      }
+    }
+
     for (const section of plan) {
       // Use cached section data if the batched pre-pass populated it; else
       // compute now (legacy / flag-off / framing-section behaviour).
@@ -2538,7 +2594,7 @@ Deno.serve(async (req) => {
         toneProfile,
         valuePromiseBlock,
         gapKeywordBlock,
-        preGeneratedContent: prefilledBody.get(section.id),
+        preGeneratedContent: section.type === "body" ? prefilledBody.get(section.id) : prefilledFraming.get(section.id),
       });
 
       const sectionPlaceholderGuard = stripExpertInputPlaceholders(result.content);
