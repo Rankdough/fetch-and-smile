@@ -6,7 +6,7 @@ const corsHeaders = {
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 const AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 const MODEL = "google/gemini-2.5-flash";
-const BUILD_MARKER = "BUILD-2026-06-11-B17-editorial-synthesis run-review-pass";
+const BUILD_MARKER = "BUILD-2026-06-11-B18-strip-code-fences run-review-pass";
 
 function extractSection(raw: string, tag: string): string {
   const open = `====${tag}====`;
@@ -183,14 +183,23 @@ Deno.serve(async (req) => {
     const correctedRaw = extractSection(raw, "CORRECTED ARTICLE");
     const fixLogRaw = extractSection(raw, "FIX LOG");
 
+    // Strip code fences Gemini sometimes wraps around the article (```markdown ... ```)
+    function stripCodeFences(s: string): string {
+      return s
+        .replace(/^```(?:markdown|md)?\s*\n?/i, "")
+        .replace(/\n?```\s*$/i, "")
+        .trim();
+    }
+
     const countWords = (s: string) => s.split(/\s+/).filter(Boolean).length;
     const originalWords = countWords(content);
     let correctedContent = "";
     if (correctedRaw && correctedRaw !== "NO CHANGES") {
-      const revisedWords = countWords(correctedRaw);
+      const stripped = stripCodeFences(correctedRaw);
+      const revisedWords = countWords(stripped);
       const delta = Math.abs(revisedWords - originalWords) / (originalWords || 1);
       if (delta <= 0.40) {
-        correctedContent = correctedRaw;
+        correctedContent = stripped;
       } else {
         console.warn(`REVIEW PASS: word count deviation ${(delta * 100).toFixed(1)}% > 40%, discarding corrected article.`);
       }
