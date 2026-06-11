@@ -2262,7 +2262,7 @@ async function runSection(input: {
 
 /* ── handler ──────────────────────────────────────────────────────────── */
 
-const BUILD_MARKER = "BUILD-2026-06-11-B8-post-processors proprietary-generate-article";
+const BUILD_MARKER = "BUILD-2026-06-11-B9-year-guard-fix proprietary-generate-article";
 Deno.serve(async (req) => {
   console.log(BUILD_MARKER, "USE_BATCHED_PROMPT_DEFAULT=", USE_BATCHED_PROMPT_DEFAULT, "USE_LEGACY_SECTIONS=", USE_LEGACY_SECTIONS);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -3017,11 +3017,12 @@ Deno.serve(async (req) => {
     // Deterministic strip — same patterns as the FAQ bulk generator. Historical
     // milestones phrased as events ("recognised flag football in 2020") are untouched;
     // only "as of / since / for the <year> season" anchors on current-state facts are removed.
+    const guardYear = new Date().getFullYear();
     const beforeYearStrip = content;
     content = content
-      .replace(/\b(?:as of|for|in|during) the \d{4}[-\u2013]\d{2,4} (?:season|academic year|school year|competitive season)\b/gi, "currently")
-      .replace(/\bas of the \d{4} season\b/gi, "currently")
-      .replace(/\bas of \d{4}[-\u2013]?\d{0,4}\b/gi, "currently")
+      .replace(/\b(?:as of|for|in|during) the \d{4}[-\u2013]\d{2,4} (?:season|academic year|school year|competitive season)\b/gi, `as of ${guardYear}`)
+      .replace(/\bas of the \d{4} season\b/gi, `as of ${guardYear}`)
+      .replace(/\bas of \d{4}[-\u2013]?\d{0,4}\b/gi, `as of ${guardYear}`)
       .replace(/\(as of \d{4}[-\u2013]?\d{0,4}\)/gi, "")
       .replace(/\bsince \d{4}\b/gi, "")
       .replace(/ {2,}/g, " ")
