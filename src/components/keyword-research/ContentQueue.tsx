@@ -947,7 +947,6 @@ const ContentQueue = ({ queuedIdeas, onUseForArticle, onRemoveFromQueue, formatV
                             <Bookmark className="h-3 w-3 fill-current" />
                           </Button>
                         </div>
-                        </div>
                       </div>
                       {isExpanded && (
                         <div className="px-4 pb-4 space-y-2 border-t pt-2">
