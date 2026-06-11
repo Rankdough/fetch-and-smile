@@ -617,12 +617,13 @@ function stripInlineSourceFragments(markdown: string): { out: string; removed: n
         removed += 1;
         return "";
       });
-      // Strip "This data was compiled from X.docx" mid-sentence fragments
-      next = next.replace(/[.,]?\s*[Tt]his\s+data\s+was\s+compiled\s+from\s+[^.]+\./g, () => {
+      // Strip methodology fragments, including URL-bearing variants where a
+      // plain [^.]+ pattern would stop at the domain dot and leave "com/path".
+      next = next.replace(/[.,]?\s*[Tt]his\s+data\s+was\s+compiled\s+from\s+(?:https?:\/\/\S+|[^.\n]+?)(?:\.|$)/g, () => {
         removed += 1;
         return "";
       });
-      next = next.replace(/[.,]?\s*[Dd]ata\s+(?:was\s+)?compiled\s+from\s+[^.]+\./g, () => {
+      next = next.replace(/[.,]?\s*[Dd]ata\s+(?:was\s+)?compiled\s+from\s+(?:https?:\/\/\S+|[^.\n]+?)(?:\.|$)/g, () => {
         removed += 1;
         return "";
       });
@@ -767,6 +768,35 @@ function countMarkdownTables(md: string): number {
     if (lines[i].includes("|") && /^\s*\|?[\s\-:|]+\|[\s\-:|]+$/.test(lines[i + 1])) count++;
   }
   return count;
+}
+
+function maxMarkdownTableDataRows(md: string): number {
+  const lines = md.split("\n");
+  let maxRows = 0;
+  for (let i = 0; i < lines.length - 1; i++) {
+    if (lines[i].includes("|") && /^\s*\|?[\s\-:|]+\|[\s\-:|]+$/.test(lines[i + 1])) {
+      let rows = 0;
+      let j = i + 2;
+      while (j < lines.length && lines[j].includes("|")) {
+        if (!/^\s*\|?[\s\-:|]+\|[\s\-:|]+$/.test(lines[j])) rows++;
+        j++;
+      }
+      maxRows = Math.max(maxRows, rows);
+      i = j - 1;
+    }
+  }
+  return maxRows;
+}
+
+function countMarkdownBullets(md: string): number {
+  return md.split("\n").filter((line) => /^\s*[-*+]\s+\S/.test(line)).length;
+}
+
+function batchedBodyLooksComplete(md: string, budgetWords: number): boolean {
+  if (md.trim().length <= 80) return false;
+  if (maxMarkdownTableDataRows(md) < 4) return false;
+  if (budgetWords < 300 && countMarkdownBullets(md) < 3) return false;
+  return true;
 }
 
 function deriveSectionPhrase(heading: string): string {
