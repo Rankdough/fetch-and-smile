@@ -1,10 +1,10 @@
 // Proprietary mode — BATCHED prompt builder + parser.
 //
 // Phase 1 of the v2 architecture rebuild. Instead of one model call per body
-// section (re-sending tone, rules, context files, value promises each time),
-// this module bundles ALL body sections into ONE call with strict delimiter
-// contracts. The parser splits the response back into per-section content.
-// Sections that fail to parse fall back to the legacy per-section path.
+// or framing section (re-sending tone, rules, context files, value promises
+// each time), this module bundles sections into strict delimiter contracts.
+// The parser splits the response back into per-section content. Sections that
+// fail to parse fall back to the legacy per-section path.
 //
 // Pure module: no I/O, no Deno-specific APIs. Safe to import from the edge
 // function or unit-test in Node/Deno.
@@ -39,6 +39,28 @@ export interface BatchedBodyInput {
   contextFiles?: Array<{ name: string; content: string }>;
   sectionBudgetWords: number;
   briefs: BatchedSectionBrief[];
+}
+
+export interface BatchedFramingBrief {
+  id: string;
+  heading: string;
+  kind: SectionKind;
+}
+
+export interface BatchedFramingInput {
+  businessType: BusinessType;
+  articleTitle: string;
+  topic: string;
+  audienceSentence: string;
+  publicationDestination: "ai-search" | "human-blog" | "both";
+  toneProfile?:
+    | { summary: string | null; characteristics: Record<string, string>; example_phrases: string[] | null }
+    | null;
+  valuePromiseBlock?: string;
+  gapKeywordBlock?: string;
+  contextFiles?: Array<{ name: string; content: string }>;
+  bodySections: Array<{ id: string; heading: string; content: string }>;
+  briefs: BatchedFramingBrief[];
 }
 
 export interface BuiltBatchedPrompt {
