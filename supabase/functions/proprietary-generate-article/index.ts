@@ -709,6 +709,21 @@ function stripExpertInputPlaceholders(markdown: string): { out: string; removed:
   return { out, removed };
 }
 
+function trimFaqAnswers(content: string, maxWords = 55): string {
+  // Clip each FAQ answer to maxWords. Handles bold-question format:
+  //   **Question?**
+  //   Answer text...
+  return content.replace(
+    /(\*\*[^*\n]+\?\*\*\s*\n)([\s\S]*?)(?=\n\s*\n\s*\*\*|\s*$)/g,
+    (match, question, answer) => {
+      const words = answer.trim().split(/\s+/);
+      if (words.length <= maxWords) return match;
+      console.warn(`FAQ TRIM: clipped answer from ${words.length} to ${maxWords} words for "${question.slice(2, 40).trim()}"`);
+      return `${question}${words.slice(0, maxWords).join(" ")}\n`;
+    },
+  );
+}
+
 function stripAllBracketPlaceholders(markdown: string): { out: string; removed: number } {
   let removed = 0;
   const placeholderRe = /\[(?:client|service\s*business|practice|your\s*practice|your\s*business|business|brand|company|clinic)\s*name\]/gi;
@@ -2226,7 +2241,7 @@ async function runSection(input: {
 
 /* ── handler ──────────────────────────────────────────────────────────── */
 
-const BUILD_MARKER = "BUILD-2026-06-11-B6-methodology-strip-fix proprietary-generate-article";
+const BUILD_MARKER = "BUILD-2026-06-11-B7-quality-fixes proprietary-generate-article";
 Deno.serve(async (req) => {
   console.log(BUILD_MARKER, "USE_BATCHED_PROMPT_DEFAULT=", USE_BATCHED_PROMPT_DEFAULT, "USE_LEGACY_SECTIONS=", USE_LEGACY_SECTIONS);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -2373,10 +2388,10 @@ Deno.serve(async (req) => {
       },
     ];
 
-    // fixedBudget: realistic estimate of words consumed by non-body sections
-    // opening(60) + tldr(70) + quicktips(50) + nav(40) + faq(300) + finalthoughts(80) = 600
-    // Using 550 to give body sections a slightly larger budget
-    const fixedBudget = 550;
+    // fixedBudget: words consumed by non-body sections EXCLUDING FAQ and References,
+    // because the verifier's word-count target is "excl. FAQ/References".
+    // opening(60) + tldr(70) + quicktips(50) + nav(40) + finalthoughts(80) = 300
+    const fixedBudget = 300;
     const bodySectionCount = plan.filter((s) => s.type === "body").length || 1;
     const sectionBudgetWords = Math.max(90, Math.round((targetWords - fixedBudget) / bodySectionCount));
 
@@ -2637,7 +2652,9 @@ Deno.serve(async (req) => {
       });
 
       const sectionPlaceholderGuard = stripExpertInputPlaceholders(result.content);
-      const sectionContent = sectionPlaceholderGuard.out;
+      const sectionContent = section.kind === "faq"
+        ? trimFaqAnswers(sectionPlaceholderGuard.out)
+        : sectionPlaceholderGuard.out;
       if (sectionPlaceholderGuard.removed > 0) console.warn(`PLACEHOLDER GUARD: removed ${sectionPlaceholderGuard.removed} expert-input placeholder sentence(s) from section "${section.heading}".`);
 
       surrounding.push({ heading: section.heading, content: sectionContent });

@@ -137,7 +137,7 @@ function buildGlobalRulesBlock(sectionBudgetWords: number): string {
   const isLarge = sectionBudgetWords >= 300;
   const isVeryLarge = sectionBudgetWords >= 500;
   const h3Count = isVeryLarge ? 3 : isLarge ? 2 : 0;
-  const minWords = Math.round(sectionBudgetWords * 0.75);
+  const minWords = Math.round(sectionBudgetWords * 0.85);
 
   const atomic = h3Count === 0
     ? `ATOMIC SECTION STRUCTURE (every body section):
@@ -269,7 +269,7 @@ You never output bracket placeholders such as [Client Name], [Practice Name], [Y
 
   if (input.gapKeywordBlock) {
     userParts.push(
-      `SECONDARY GUIDANCE - COMPETITOR GAPS & TARGET KEYWORDS (weave in where relevant; never override value promises or invent facts):\n${input.gapKeywordBlock}`,
+      `KEYWORD & GAP INTEGRATION — MANDATORY CHECKLIST:\nEach of the following target keywords and competitor gaps MUST appear naturally at least once across your sections. Treat this as a required checklist, not optional guidance. Do not force awkward placement, but do not omit any item:\n${input.gapKeywordBlock}`,
     );
   }
 
@@ -329,7 +329,7 @@ function framingRulesForKind(kind: SectionKind): string {
     return `QUICK TIPS RULE: Output EXACTLY 3 markdown bullets. Each bullet is one actionable sentence, maximum 18 words, naming a specific check, criterion, or decision.`;
   }
   if (kind === "faq") {
-    return `FAQ RULE: Output EXACTLY 5 question-and-answer pairs. Each question line must be bold markdown and end with a question mark. Each answer is 30-55 words, direct, specific, and not generic boilerplate.`;
+    return `FAQ RULE: Output EXACTLY 5 question-and-answer pairs. Each question line must be bold markdown and end with a question mark. Each answer is 30-55 words — HARD LIMIT. Count the words in each answer before finishing. An answer over 55 words fails. Direct, specific, not generic boilerplate.`;
   }
   if (kind === "final-thoughts") {
     return `FINAL THOUGHTS RULE: Write exactly 2 short paragraphs. No heading. Paragraph 1 states the decision principle. Paragraph 2 gives the next action. Keep each paragraph below 65 words.`;
@@ -356,7 +356,7 @@ You never use em dashes, en dashes, horizontal rules, code fences, or bracket pl
     `ARTICLE TITLE: ${input.articleTitle}`,
     `FRAMING GLOBAL RULES:
 - British English.
-- No passive filler: never write "typically", "varies", "depends", "usually", "may vary", "in some cases", or "it is important to note" unless the same sentence contains a specific number.
+- No passive filler: never write "typically", "varies", "depends", "generally", "often", "usually", "may vary", "in some cases", or "it is important to note" unless the same sentence contains a specific number.
 - Treat the title as a topic, not a phrase to stuff. Do not repeat the exact long query in body copy.
 - No fabricated quotes. No source claims unless supplied in the context below.
 - Paragraphs are 3 sentences maximum and 60 words maximum.
