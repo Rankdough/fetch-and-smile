@@ -5,14 +5,18 @@ import { ChevronDown, ChevronUp } from "lucide-react";
 
 interface HumanCheckResult {
   readerProfile: string;
+  priorityActions: string;
   step1Flags: string;
   step2Analysis: string;
   step3Flags: string;
+  correctedContent: string;
+  fixLog: string[];
 }
 
 interface Props {
   content: string;
   topic: string;
+  onContentUpdate?: (content: string) => void;
 }
 
 function Section({ title, body, defaultOpen = false }: { title: string; body: string; defaultOpen?: boolean }) {
@@ -36,16 +40,18 @@ function Section({ title, body, defaultOpen = false }: { title: string; body: st
   );
 }
 
-export function HumanCheckerPanel({ content, topic }: Props) {
+export function HumanCheckerPanel({ content, topic, onContentUpdate }: Props) {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<HumanCheckResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [applied, setApplied] = useState(false);
 
   async function runCheck() {
     if (!content?.trim()) return;
     setLoading(true);
     setError(null);
     setResult(null);
+    setApplied(false);
     try {
       const { data, error: fnError } = await supabase.functions.invoke("run-review-pass", {
         body: { content, topic },
@@ -60,23 +66,42 @@ export function HumanCheckerPanel({ content, topic }: Props) {
     }
   }
 
+  function applyFix() {
+    if (!result?.correctedContent || !onContentUpdate) return;
+    onContentUpdate(result.correctedContent);
+    setApplied(true);
+  }
+
+  const hasfix = !!result?.correctedContent && !!onContentUpdate;
+
   return (
     <div className="border rounded-lg p-4 mt-4">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-semibold">Human Check</h3>
-        <Button size="sm" onClick={runCheck} disabled={loading || !content?.trim()}>
-          {loading ? "Analysing..." : "Run Human Check"}
-        </Button>
+        <div className="flex gap-2">
+          {hasfix && (
+            <Button size="sm" variant="outline" onClick={applyFix} disabled={applied}>
+              {applied ? "Applied" : "Apply Fix"}
+            </Button>
+          )}
+          <Button size="sm" onClick={runCheck} disabled={loading || !content?.trim()}>
+            {loading ? "Analysing..." : "Run Human Check"}
+          </Button>
+        </div>
       </div>
 
       {error && <p className="text-xs text-red-500 mb-2">{error}</p>}
 
       {result && (
         <div>
-          <Section title="Reader Profile"    body={result.readerProfile}  defaultOpen={true} />
-          <Section title="Step 1 — Flags"    body={result.step1Flags} />
-          <Section title="Step 2 — Quality"  body={result.step2Analysis} />
+          <Section title="Priority Actions"    body={result.priorityActions}  defaultOpen={true} />
+          <Section title="Reader Profile"      body={result.readerProfile} />
+          <Section title="Step 1 — Flags"      body={result.step1Flags} />
+          <Section title="Step 2 — Quality"    body={result.step2Analysis} />
           <Section title="Step 3 — Structural" body={result.step3Flags} />
+          {result.fixLog?.length > 0 && (
+            <Section title={`Fix Log (${result.fixLog.length})`} body={result.fixLog.join("\n")} />
+          )}
         </div>
       )}
     </div>

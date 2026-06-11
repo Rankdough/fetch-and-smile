@@ -6,7 +6,7 @@ const corsHeaders = {
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 const AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 const MODEL = "google/gemini-2.5-flash";
-const BUILD_MARKER = "BUILD-2026-06-11-B11-human-checker run-review-pass";
+const BUILD_MARKER = "BUILD-2026-06-11-B12-human-checker-fix run-review-pass";
 
 function extractSection(raw: string, tag: string): string {
   const open = `====${tag}====`;
@@ -69,7 +69,7 @@ Identify the first sentence where your reader would stop reading.
 ---
 
 STEP 3 — STRUCTURAL COMPLIANCE CHECK
-Report only — do not rewrite. Flag anything that violates:
+Flag anything that violates:
 - No em dashes
 - No: tapestry, delve, vibrant, meticulous, bespoke, explore, leverage
 - No "In conclusion" / "In summary"
@@ -79,11 +79,25 @@ Report only — do not rewrite. Flag anything that violates:
 
 ---
 
-RETURN FORMAT — use these exact delimiter tags:
+Based on Steps 1-3, list the top 3 fixes that would most improve this article for the reader defined in Step 0. Be specific and actionable.
+
+Then write the corrected article applying those fixes.
+
+DO NOT CHANGE: facts, statistics, measurements, source URLs, schema markup, H2 headings, CTA blocks. Stay within 10% of original word count.
+
+---
+
+RETURN FORMAT — use these exact delimiter tags in this exact order:
 
 ====READER PROFILE====
 [3-sentence reader profile]
 ====END READER PROFILE====
+
+====PRIORITY ACTIONS====
+1. [Verb-led fix, max 20 words]
+2. [Verb-led fix, max 20 words]
+3. [Verb-led fix, max 20 words]
+====END PRIORITY ACTIONS====
 
 ====STEP 1 FLAGS====
 [Bullet list of flagged moments, or "No flags."]
@@ -98,7 +112,15 @@ READER ENGAGEMENT: [first stop sentence, or "None identified."]
 
 ====STEP 3 FLAGS====
 [Bullet list of compliance violations, or "No violations."]
-====END STEP 3 FLAGS====`;
+====END STEP 3 FLAGS====
+
+====CORRECTED ARTICLE====
+[Complete corrected article in markdown. If no changes needed, write: NO CHANGES]
+====END CORRECTED ARTICLE====
+
+====FIX LOG====
+[One line per change: [SECTION] what was wrong → what was fixed. Write NONE if no changes.]
+====END FIX LOG====`;
 }
 
 Deno.serve(async (req) => {
@@ -119,7 +141,7 @@ Deno.serve(async (req) => {
       headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         model: MODEL,
-        max_tokens: 8000,
+        max_tokens: 12000,
         messages: [
           { role: "system", content: buildPrompt(topic) },
           { role: "user", content },
@@ -132,11 +154,34 @@ Deno.serve(async (req) => {
     const json = await res.json();
     const raw: string = json?.choices?.[0]?.message?.content ?? "";
 
+    const correctedRaw = extractSection(raw, "CORRECTED ARTICLE");
+    const fixLogRaw = extractSection(raw, "FIX LOG");
+
+    const countWords = (s: string) => s.split(/\s+/).filter(Boolean).length;
+    const originalWords = countWords(content);
+    let correctedContent = "";
+    if (correctedRaw && correctedRaw !== "NO CHANGES") {
+      const revisedWords = countWords(correctedRaw);
+      const delta = Math.abs(revisedWords - originalWords) / (originalWords || 1);
+      if (delta <= 0.10) {
+        correctedContent = correctedRaw;
+      } else {
+        console.warn(`REVIEW PASS: word count deviation ${(delta * 100).toFixed(1)}% > 10%, discarding corrected article.`);
+      }
+    }
+
+    const fixLog = !fixLogRaw || fixLogRaw.toUpperCase() === "NONE"
+      ? []
+      : fixLogRaw.split("\n").map((l) => l.trim()).filter((l) => l.length > 0);
+
     return new Response(JSON.stringify({
-      readerProfile: extractSection(raw, "READER PROFILE"),
-      step1Flags:    extractSection(raw, "STEP 1 FLAGS"),
-      step2Analysis: extractSection(raw, "STEP 2 ANALYSIS"),
-      step3Flags:    extractSection(raw, "STEP 3 FLAGS"),
+      readerProfile:   extractSection(raw, "READER PROFILE"),
+      priorityActions: extractSection(raw, "PRIORITY ACTIONS"),
+      step1Flags:      extractSection(raw, "STEP 1 FLAGS"),
+      step2Analysis:   extractSection(raw, "STEP 2 ANALYSIS"),
+      step3Flags:      extractSection(raw, "STEP 3 FLAGS"),
+      correctedContent,
+      fixLog,
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
   } catch (e) {

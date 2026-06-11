@@ -6608,6 +6608,7 @@ ${h2Sections.map(s => `   - "${s}": add 1-2 H3 sub-sections with an answer parag
                     <HumanCheckerPanel
                       content={generatedContent}
                       topic={formData.topic}
+                      onContentUpdate={setGeneratedContent}
                     />
                     
 
