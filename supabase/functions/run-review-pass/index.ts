@@ -6,7 +6,7 @@ const corsHeaders = {
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 const AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 const MODEL = "google/gemini-2.5-flash";
-const BUILD_MARKER = "BUILD-2026-06-11-B12-human-checker-fix run-review-pass";
+const BUILD_MARKER = "BUILD-2026-06-11-B14-surgical-fix run-review-pass";
 
 function extractSection(raw: string, tag: string): string {
   const open = `====${tag}====`;
@@ -81,9 +81,19 @@ Flag anything that violates:
 
 Based on Steps 1-3, list the top 3 fixes that would most improve this article for the reader defined in Step 0. Be specific and actionable.
 
-Then write the corrected article applying those fixes.
+Then write the corrected article applying ONLY those 3 fixes as surgical edits.
 
-DO NOT CHANGE: facts, statistics, measurements, source URLs, schema markup, H2 headings, CTA blocks. Stay within 10% of original word count.
+CORRECTION RULES — violating any of these voids the correction:
+- Copy every unchanged section character-for-character from the original
+- Preserve ALL markdown formatting exactly: ## headings, - bullet points, | tables, **bold**, _italic_
+- Preserve ALL HTML exactly: id= attributes, itemscope, itemtype, itemprop, class= attributes, <div>, <span> tags
+- Preserve ALL CTA blocks exactly — do not alter a single word inside them
+- Preserve ALL source URLs and reference links exactly
+- Do not add, remove, or reorder any H2 or H3 headings
+- Do not change the paragraph count in any section by more than ±1
+- Do not change the bullet count in any list by more than ±1
+- British English throughout — do not switch to American English
+- Final word count must stay within 8% of the original
 
 ---
 
@@ -163,10 +173,10 @@ Deno.serve(async (req) => {
     if (correctedRaw && correctedRaw !== "NO CHANGES") {
       const revisedWords = countWords(correctedRaw);
       const delta = Math.abs(revisedWords - originalWords) / (originalWords || 1);
-      if (delta <= 0.10) {
+      if (delta <= 0.08) {
         correctedContent = correctedRaw;
       } else {
-        console.warn(`REVIEW PASS: word count deviation ${(delta * 100).toFixed(1)}% > 10%, discarding corrected article.`);
+        console.warn(`REVIEW PASS: word count deviation ${(delta * 100).toFixed(1)}% > 8%, discarding corrected article.`);
       }
     }
 
