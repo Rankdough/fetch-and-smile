@@ -73,21 +73,18 @@ Deno.serve(async (req) => {
 
     const res = await fetch(AI_URL, {
       method: "POST",
-      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: MODEL,
-        max_tokens: 16000,
-        messages: [
-          { role: "system", content: buildPrompt(topic) },
-          { role: "user", content },
-        ],
+        systemInstruction: { parts: [{ text: buildPrompt(topic) }] },
+        contents: [{ role: "user", parts: [{ text: content }] }],
+        generationConfig: { maxOutputTokens: 16000, temperature: 0.7 },
       }),
     });
 
-    if (!res.ok) throw new Error(`AI gateway ${res.status}: ${(await res.text()).slice(0, 200)}`);
+    if (!res.ok) throw new Error(`Gemini API ${res.status}: ${(await res.text()).slice(0, 200)}`);
 
     const json = await res.json();
-    const raw: string = json?.choices?.[0]?.message?.content ?? "";
+    const raw: string = json?.candidates?.[0]?.content?.parts?.map((p: any) => p.text ?? "").join("") ?? "";
     console.log("RAW_LEN", raw.length);
 
     let correctedArticle = stripCodeFences(extractSection(raw, "CORRECTED ARTICLE"));
