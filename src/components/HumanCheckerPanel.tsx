@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { ChevronDown, ChevronUp, Wrench } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Check, X, ClipboardCheck, Loader2, Wand2, ChevronDown, ChevronUp } from "lucide-react";
 
 interface HumanCheckResult {
   readerProfile: string;
@@ -19,140 +20,117 @@ interface Props {
   onContentUpdate?: (content: string) => void;
 }
 
-function formatInline(text: string): React.ReactNode[] {
-  // Strip surrounding ** if the whole string is bolded
-  const stripped = text.replace(/^\*\*(.+)\*\*$/, "$1");
-  const parts = stripped.split(/(\*\*[^*]+\*\*)/g);
-  return parts.map((part, i) =>
-    part.startsWith("**") && part.endsWith("**")
-      ? <strong key={i}>{part.slice(2, -2)}</strong>
-      : <span key={i}>{part}</span>
+// Parse a raw text block from the backend into individual flag strings.
+// Handles newline-separated lines, bullet lists, numbered lists, and
+// paragraph runs where the model returned one long block without newlines.
+function parseFlags(text: string): string[] {
+  if (!text?.trim()) return [];
+
+  // Try newline split first; fall back to sentence split for prose blocks
+  const raw = text.split("\n").map(l => l.trim()).filter(l => l.length > 4);
+  const candidates = raw.length > 1
+    ? raw
+    : text.split(/(?<=[.!?])\s+/).map(s => s.trim()).filter(s => s.length > 4);
+
+  return candidates
+    .map(l =>
+      l
+        .replace(/^[-*•]\s*/, "")
+        .replace(/^\d+[.)]\s*/, "")
+        .replace(/^\[(FLAG|ISSUE|ACTION|FINDING|FIX|STEP\s*\d)\]\s*/i, "")
+        .replace(/^\*\*(.+)\*\*$/, "$1")
+        .trim()
+    )
+    .filter(l => l.length > 4);
+}
+
+interface FlagRowProps {
+  text: string;
+  onFix?: () => void;
+  fixApplied: boolean;
+  fixing: boolean;
+  canFix: boolean;
+}
+
+function FlagRow({ text, onFix, fixApplied, fixing, canFix }: FlagRowProps) {
+  return (
+    <div className={`flex items-start gap-2 rounded-md border p-2 transition-colors ${
+      fixApplied
+        ? "border-emerald-500/40 bg-emerald-500/10"
+        : "border-border/60 bg-card/50"
+    }`}>
+      <div className="mt-0.5 shrink-0">
+        {fixApplied ? (
+          <div className="flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500">
+            <Check className="h-3 w-3 text-white" strokeWidth={3} />
+          </div>
+        ) : (
+          <X className="h-4 w-4 text-destructive" />
+        )}
+      </div>
+      <div className={`flex-1 min-w-0 text-xs leading-snug ${fixApplied ? "text-emerald-700 dark:text-emerald-400" : "text-foreground"}`}>
+        {text}
+      </div>
+      {canFix && !fixApplied && onFix && (
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-6 shrink-0 px-2 text-[11px]"
+          disabled={fixing}
+          onClick={onFix}
+        >
+          {fixing ? (
+            <><Loader2 className="h-3 w-3 mr-1 animate-spin" />Fixing…</>
+          ) : (
+            <><Wand2 className="h-3 w-3 mr-1" />Fix</>
+          )}
+        </Button>
+      )}
+    </div>
   );
 }
 
-// Normalise a line to plain text for label matching (strips ** wrapping)
-function normaliseLine(line: string): string {
-  return line.trim().replace(/^\*\*(.+)\*\*$/, "$1").replace(/\*\*/g, "");
-}
-
-function renderBody(text: string): React.ReactNode {
-  if (!text) return null;
-  const lines = text.split("\n");
-  const out: React.ReactNode[] = [];
-  let listItems: string[] = [];
-  let listType: "ul" | "ol" = "ul";
-  let k = 0;
-
-  function flushList() {
-    if (!listItems.length) return;
-    const Tag = listType;
-    out.push(
-      <Tag key={k++} className={`${Tag === "ul" ? "list-disc" : "list-decimal"} list-inside space-y-1 mb-3 pl-1`}>
-        {listItems.map((item, i) => (
-          <li key={i} className="text-xs text-foreground leading-relaxed">
-            {formatInline(item)}
-          </li>
-        ))}
-      </Tag>
-    );
-    listItems = [];
-  }
-
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (!trimmed) { flushList(); continue; }
-
-    const plain = normaliseLine(trimmed);
-    const bulletMatch = plain.match(/^[-*]\s+(.*)/);
-    const numberedMatch = plain.match(/^(\d+)\.\s+(.*)/);
-
-    if (bulletMatch) {
-      if (listType !== "ul" && listItems.length) flushList();
-      listType = "ul";
-      listItems.push(bulletMatch[1]);
-    } else if (numberedMatch) {
-      if (listType !== "ol" && listItems.length) flushList();
-      listType = "ol";
-      listItems.push(numberedMatch[2]);
-    } else {
-      flushList();
-      // Match labels: ISSUE: / ANALYSIS: / FIX: / NON-COMMODITY: etc.
-      // Works whether Gemini outputs plain or **BOLD:** format
-      const labelMatch = plain.match(/^([A-Z][A-Z\s\-]+):\s*(.*)/);
-      if (labelMatch) {
-        const label = labelMatch[1].trim();
-        const rest = labelMatch[2].trim();
-        // ISSUE lines get extra top margin to visually separate patterns
-        const isIssue = label === "ISSUE";
-        out.push(
-          <p key={k++} className={`text-xs mb-1 leading-relaxed ${isIssue ? "mt-4 first:mt-0" : ""}`}>
-            <strong className={isIssue ? "text-foreground" : "text-foreground/80"}>{label}:</strong>{" "}
-            {rest && <span className="text-muted-foreground">{formatInline(rest)}</span>}
-          </p>
-        );
-      } else {
-        out.push(
-          <p key={k++} className="text-xs text-muted-foreground mb-1 leading-relaxed">
-            {formatInline(plain)}
-          </p>
-        );
-      }
-    }
-  }
-  flushList();
-  return <>{out}</>;
-}
-
-interface SectionProps {
+interface StepSectionProps {
   title: string;
-  body: string;
+  text: string;
+  canFix: boolean;
+  onFix: () => void;
+  fixApplied: boolean;
+  fixing: boolean;
   defaultOpen?: boolean;
-  onFix?: () => void;
-  fixApplied?: boolean;
-  canFix?: boolean;
 }
 
-function Section({ title, body, defaultOpen = false, onFix, fixApplied, canFix }: SectionProps) {
+function StepSection({ title, text, canFix, onFix, fixApplied, fixing, defaultOpen = false }: StepSectionProps) {
   const [open, setOpen] = useState(defaultOpen);
-  if (!body) return null;
+  const flags = parseFlags(text);
+  if (flags.length === 0) return null;
+
   return (
-    <div className="border rounded mb-2">
-      <div className="flex items-center justify-between px-3 py-2">
-        <button
-          className="flex-1 flex items-center gap-1 text-sm font-medium text-left"
-          onClick={() => setOpen(o => !o)}
-        >
-          {open ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+    <div className="border rounded-md">
+      <button
+        className="w-full flex items-center justify-between px-3 py-2 text-xs font-medium text-left"
+        onClick={() => setOpen(o => !o)}
+      >
+        <span className="flex items-center gap-1.5">
+          {open ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
           {title}
-        </button>
-        {canFix && onFix && (
-          <Button
-            size="sm"
-            variant={fixApplied ? "secondary" : "outline"}
-            className="h-6 px-2 text-xs ml-2"
-            onClick={onFix}
-            disabled={fixApplied}
-          >
-            <Wrench size={11} className="mr-1" />
-            {fixApplied ? "Applied" : "Fix"}
-          </Button>
-        )}
-      </div>
+        </span>
+        <span className="text-[10px] text-muted-foreground">
+          {flags.length} flag{flags.length !== 1 ? "s" : ""}
+        </span>
+      </button>
       {open && (
-        <div className="px-3 pb-3 border-t pt-3">
-          {renderBody(body)}
-          {canFix && onFix && (
-            <Button
-              size="sm"
-              variant={fixApplied ? "secondary" : "default"}
-              className="mt-3 w-full"
-              onClick={onFix}
-              disabled={fixApplied}
-            >
-              <Wrench size={12} className="mr-1" />
-              {fixApplied ? "Fix Applied" : "Apply Fix"}
-            </Button>
-          )}
+        <div className="px-3 pb-3 space-y-1.5 border-t pt-2">
+          {flags.map((flag, i) => (
+            <FlagRow
+              key={i}
+              text={flag}
+              canFix={canFix}
+              onFix={onFix}
+              fixApplied={fixApplied}
+              fixing={fixing}
+            />
+          ))}
         </div>
       )}
     </div>
@@ -164,6 +142,8 @@ export function HumanCheckerPanel({ content, topic, onContentUpdate }: Props) {
   const [result, setResult] = useState<HumanCheckResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [applied, setApplied] = useState(false);
+  const [fixing, setFixing] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
 
   async function runCheck() {
     if (!content?.trim()) return;
@@ -185,70 +165,150 @@ export function HumanCheckerPanel({ content, topic, onContentUpdate }: Props) {
     }
   }
 
-  function applyFix() {
+  async function applyFix() {
     if (!result?.correctedContent || !onContentUpdate) return;
-    onContentUpdate(result.correctedContent);
-    setApplied(true);
+    setFixing(true);
+    try {
+      onContentUpdate(result.correctedContent);
+      setApplied(true);
+    } finally {
+      setFixing(false);
+    }
   }
 
-  const canFix = !!result?.correctedContent && !!onContentUpdate;
+  const canFix = !!result?.correctedContent && !!onContentUpdate && !applied;
+
+  const totalFlags =
+    parseFlags(result?.priorityActions ?? "").length +
+    parseFlags(result?.step1Flags ?? "").length +
+    parseFlags(result?.step2Analysis ?? "").length +
+    parseFlags(result?.step3Flags ?? "").length;
 
   return (
-    <div className="border rounded-lg p-4 mt-4">
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-semibold">Human Check</h3>
-        <Button size="sm" onClick={runCheck} disabled={loading || !content?.trim()}>
-          {loading ? "Analysing..." : "Run Human Check"}
-        </Button>
-      </div>
+    <Card className="border-border">
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center justify-between text-base">
+          <span className="flex items-center gap-2">
+            <ClipboardCheck className="h-4 w-4 text-primary" />
+            Human Check
+          </span>
+          <div className="flex items-center gap-2">
+            {result && (
+              <span className="text-xs font-medium text-muted-foreground">
+                {totalFlags} flag{totalFlags !== 1 ? "s" : ""}
+              </span>
+            )}
+            <Button size="sm" onClick={runCheck} disabled={loading || !content?.trim()}>
+              {loading
+                ? <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />Analysing…</>
+                : "Run Human Check"
+              }
+            </Button>
+          </div>
+        </CardTitle>
+      </CardHeader>
 
-      {error && <p className="text-xs text-red-500 mb-2">{error}</p>}
+      {(error || result) && (
+        <CardContent className="space-y-2">
+          {error && <p className="text-xs text-red-500">{error}</p>}
 
-      {result && (
-        <div>
-          <Section
-            title="Priority Actions"
-            body={result.priorityActions}
-            defaultOpen={true}
-            canFix={canFix}
-            onFix={applyFix}
-            fixApplied={applied}
-          />
-          <Section title="Reader Profile" body={result.readerProfile} />
-          <Section
-            title="Step 1 — Flags"
-            body={result.step1Flags}
-            canFix={canFix}
-            onFix={applyFix}
-            fixApplied={applied}
-          />
-          <Section
-            title="Step 2 — Quality"
-            body={result.step2Analysis}
-            canFix={canFix}
-            onFix={applyFix}
-            fixApplied={applied}
-          />
-          <Section
-            title="Step 3 — Structural"
-            body={result.step3Flags}
-            canFix={canFix}
-            onFix={applyFix}
-            fixApplied={applied}
-          />
-          {result.fixLog?.length > 0 && (
-            <Section
-              title={`Fix Log (${result.fixLog.length})`}
-              body={result.fixLog.join("\n")}
-            />
+          {result && (
+            <>
+              {canFix && (
+                <Button
+                  size="sm"
+                  variant="default"
+                  className="w-full"
+                  disabled={fixing}
+                  onClick={applyFix}
+                >
+                  {fixing
+                    ? <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />Applying…</>
+                    : <><Wand2 className="h-3.5 w-3.5 mr-1.5" />Apply all fixes</>
+                  }
+                </Button>
+              )}
+
+              {applied && (
+                <div className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400">
+                  <Check className="h-3.5 w-3.5" />
+                  Fix applied to article.
+                </div>
+              )}
+
+              {result.readerProfile && (
+                <div className="border rounded-md">
+                  <button
+                    className="w-full flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-left"
+                    onClick={() => setProfileOpen(o => !o)}
+                  >
+                    {profileOpen ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                    Reader Profile
+                  </button>
+                  {profileOpen && (
+                    <div className="px-3 pb-3 border-t pt-2 text-xs text-muted-foreground leading-relaxed whitespace-pre-line">
+                      {result.readerProfile}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <StepSection
+                title="Priority Actions"
+                text={result.priorityActions}
+                canFix={canFix}
+                onFix={applyFix}
+                fixApplied={applied}
+                fixing={fixing}
+                defaultOpen={true}
+              />
+              <StepSection
+                title="Step 1 — Reader Flags"
+                text={result.step1Flags}
+                canFix={canFix}
+                onFix={applyFix}
+                fixApplied={applied}
+                fixing={fixing}
+              />
+              <StepSection
+                title="Step 2 — Quality"
+                text={result.step2Analysis}
+                canFix={canFix}
+                onFix={applyFix}
+                fixApplied={applied}
+                fixing={fixing}
+              />
+              <StepSection
+                title="Step 3 — Structural"
+                text={result.step3Flags}
+                canFix={canFix}
+                onFix={applyFix}
+                fixApplied={applied}
+                fixing={fixing}
+              />
+
+              {result.fixLog?.length > 0 && (
+                <div className="border rounded-md">
+                  <div className="px-3 py-2 text-xs font-medium text-muted-foreground border-b">
+                    Fix Log ({result.fixLog.length})
+                  </div>
+                  <div className="px-3 py-2 space-y-1">
+                    {result.fixLog.map((line, i) => (
+                      <p key={i} className="text-[11px] text-muted-foreground leading-snug">{line}</p>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {!canFix && !applied && totalFlags === 0 && (
+                <p className="text-xs text-muted-foreground text-center">
+                  No flags found — article may already be optimal.
+                </p>
+              )}
+            </>
           )}
-          {!canFix && (
-            <p className="text-xs text-muted-foreground mt-2 text-center">
-              No corrections generated — article may already be optimal, or run Human Check again.
-            </p>
-          )}
-        </div>
+        </CardContent>
       )}
-    </div>
+    </Card>
   );
 }
