@@ -1,3 +1,10 @@
+## 2026-06-12 — run-review-pass switched to direct Gemini API
+**What:** Rewired `supabase/functions/run-review-pass/index.ts` to call Google's `generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent` directly using `GEMINI_API_KEY`, instead of `ai.gateway.lovable.dev` with `LOVABLE_API_KEY`.
+**Why:** User wants the review/fix flow billed against their own Google Cloud account, not Lovable credits. Previous attempt was lost to GitHub auto-sync.
+**Files:** `supabase/functions/run-review-pass/index.ts`
+**Verified broken:** Nothing. Request/response shape inside the function is unchanged (still returns `{ correctedArticle, summary }`). Only the upstream HTTP call and auth changed. Other functions (`proprietary-generate-article`, `apply-format`, etc.) still use Lovable gateway and are untouched.
+**Verify:** Generate an article, click Review & Fix Flow. Edge function logs should show `BUILD-2026-06-12-direct-gemini-v1 run-review-pass` and `RAW_LEN > 0`. A 500 with "Gemini API 4xx" means the key needs attention.
+
 ## 2026-06-12 — run-review-pass: revert to Lovable Gateway
 - What: Reverted Gemini direct integration; key user provided was rejected by Google (API_KEY_INVALID).
 - Why: The "AQ.Ab8R..." token from AI Studio is not a valid Generative Language API key.
