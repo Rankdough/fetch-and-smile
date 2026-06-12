@@ -6,7 +6,7 @@ const corsHeaders = {
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 const AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 const MODEL = "google/gemini-2.5-flash";
-const BUILD_MARKER = "BUILD-2026-06-12-B19-robust-render run-review-pass";
+const BUILD_MARKER = "BUILD-2026-06-12-B26-flow-review run-review-pass";
 
 function extractSection(raw: string, tag: string): string {
   const open = `====${tag}====`;
@@ -17,141 +17,43 @@ function extractSection(raw: string, tag: string): string {
   return raw.slice(start + open.length, end >= 0 ? end : raw.length).trim();
 }
 
+function stripCodeFences(s: string): string {
+  return s
+    .replace(/^```(?:markdown|md)?\s*\n?/i, "")
+    .replace(/\n?```\s*$/i, "")
+    .trim();
+}
+
 function buildPrompt(topic: string): string {
-  return `You are a senior editor. Before reading a single word of this article, establish who you are reading it for.
+  return `You are reading this article as the target reader for this topic: ${topic}
 
-STEP 0 — DEFINE THE READER
-Topic: ${topic}
+Read the full article below. Find every place where:
+- The story breaks or a section feels disconnected
+- The writing feels like an AI filling a template
+- A reader would lose the thread or stop reading
+- A transition between sections is abrupt or missing
 
-Answer these before proceeding:
-- Who is this person? What is their situation right now?
-- What decision are they trying to make?
-- What emotion are they feeling — anxiety, excitement, scepticism, confusion?
-- What would make them trust this article in the first 30 seconds?
-- What would make them leave?
-- What question must this article answer for them to feel the visit was worth their time?
+Rewrite only those specific sentences and transitions.
 
-Write your reader profile in 3 sentences. This profile is your editorial filter for everything below.
+Do not change:
+- Facts, statistics, or measurements
+- H2 headings
+- Tables
+- Bullet lists
+- CTAs
+- Schema markup
+- Source URLs
+- Word count by more than 10%
 
----
-
-STEP 1 — READ AS THAT READER
-Read the full article through this person's eyes.
-
-Do not list individual sentences. Synthesise 3-5 patterns — recurring problems that affect multiple sections or the article as a whole.
-
-For each pattern answer all of these:
-- Does this section satisfy the reader's search intent?
-- Is it useful — does it give the reader something they can act on?
-- Does it solve the reader's problem, or does it talk around it?
-- If it fails any of the above — exactly why, and what is missing?
-
-Then for each pattern write:
-- ISSUE: name the pattern in 4-6 words
-- ANALYSIS: 2-3 sentences answering the questions above from the reader's perspective
-- FIX: one specific, concrete action — name the section and exactly what to change
-
-Prioritise patterns in this order:
-1. Search intent failure — the reader cannot find the answer they came for
-2. Non-commodity risk — sections a competing AI article could replicate without source material
-3. Narrative breakdown — the article's promise is not delivered or the H2 flow breaks down
-
-Ignore: individual sentence wording, promotional links, care/maintenance sections unless care is the primary search intent.
-
----
-
-STEP 2 — HUMAN QUALITY CHECK
-
-1. NON-COMMODITY
-Does every H2 contain at least one specific fact, measurement, named product, or insight that could not be generated from generic public knowledge alone?
-Flag any section that a competing AI article could replicate word for word.
-
-2. INFORMATION GAP
-What question does your reader have that this article fails to answer?
-If one exists, note it.
-
-3. NARRATIVE THREAD
-Does the article open with a promise to the reader?
-Does each H2 build on the last toward that promise?
-Does Final Thoughts deliver the conclusion the reader was building toward?
-
-4. READER ENGAGEMENT
-Identify the first sentence where your reader would stop reading.
-
----
-
-STEP 3 — STRUCTURAL COMPLIANCE CHECK
-Flag anything that violates:
-- No em dashes
-- No: tapestry, delve, vibrant, meticulous, bespoke, explore, leverage
-- No "In conclusion" / "In summary"
-- Opening paragraph delivers the H1 promise in sentence one
-- Every H2 opens with a direct answer, not a preamble
-- Final Thoughts names a specific conclusion, not a generic summary
-
----
-
-Based on Steps 1-3, list the top 3 fixes that would most improve this article for the reader defined in Step 0. Be specific and actionable.
-
-Then write the corrected article applying ONLY those 3 fixes as surgical edits.
-
-CORRECTION RULES — violating any of these voids the correction:
-- Copy every unchanged section character-for-character from the original
-- Preserve ALL markdown formatting exactly: ## headings, - bullet points, | tables, **bold**, _italic_
-- Preserve ALL HTML exactly: id= attributes, itemscope, itemtype, itemprop, class= attributes, <div>, <span> tags
-- Preserve ALL CTA blocks exactly — do not alter a single word inside them
-- Preserve ALL source URLs and reference links exactly
-- Do not add, remove, or reorder any H2 or H3 headings
-- Do not change the paragraph count in any section by more than ±1
-- Do not change the bullet count in any list by more than ±1
-- British English throughout — do not switch to American English
-
----
-
-CRITICAL OUTPUT RULES:
-- Use the exact delimiter tags below — do not alter them
-- Do not wrap any section in markdown code fences (no ``` or ```markdown)
-- Output plain markdown inside each section — no code blocks
-
-RETURN FORMAT — output each section in this exact order:
-
-====READER PROFILE====
-[3-sentence reader profile]
-====END READER PROFILE====
-
-====PRIORITY ACTIONS====
-1. [Verb-led fix, max 20 words]
-2. [Verb-led fix, max 20 words]
-3. [Verb-led fix, max 20 words]
-====END PRIORITY ACTIONS====
-
-====STEP 1 FLAGS====
-[3-5 patterns. Each formatted exactly as shown — plain text, no markdown bold on labels:
-ISSUE: [4-6 word name]
-ANALYSIS: [2-3 sentences — intent, usefulness, problem-solving, why it fails]
-FIX: [specific action — section name + what to change]
-
-Separate each pattern with a blank line. Write "No issues." if none found.]
-====END STEP 1 FLAGS====
-
-====STEP 2 ANALYSIS====
-NON-COMMODITY: [findings]
-INFORMATION GAP: [findings]
-NARRATIVE THREAD: [findings]
-READER ENGAGEMENT: [first stop sentence, or "None identified."]
-====END STEP 2 ANALYSIS====
-
-====STEP 3 FLAGS====
-[Bullet list of compliance violations, or "No violations."]
-====END STEP 3 FLAGS====
-
-====FIX LOG====
-[One line per change: [SECTION] what was wrong → what was fixed. Write NONE if no changes.]
-====END FIX LOG====
+Return exactly two things, using these exact delimiter tags:
 
 ====CORRECTED ARTICLE====
-[Complete corrected article in plain markdown — no code fences. If no changes needed, write: NO CHANGES]
-====END CORRECTED ARTICLE====`;
+[The complete corrected article in plain markdown — no code fences]
+====END CORRECTED ARTICLE====
+
+====SUMMARY====
+Changed: [A plain English summary of what you changed, maximum 3 sentences]
+====END SUMMARY====`;
 }
 
 Deno.serve(async (req) => {
@@ -185,43 +87,12 @@ Deno.serve(async (req) => {
     const json = await res.json();
     const raw: string = json?.choices?.[0]?.message?.content ?? "";
 
-    const correctedRaw = extractSection(raw, "CORRECTED ARTICLE");
-    const fixLogRaw = extractSection(raw, "FIX LOG");
-
-    // Strip code fences Gemini sometimes wraps around the article (```markdown ... ```)
-    function stripCodeFences(s: string): string {
-      return s
-        .replace(/^```(?:markdown|md)?\s*\n?/i, "")
-        .replace(/\n?```\s*$/i, "")
-        .trim();
-    }
-
-    const countWords = (s: string) => s.split(/\s+/).filter(Boolean).length;
-    const originalWords = countWords(content);
-    let correctedContent = "";
-    if (correctedRaw && correctedRaw !== "NO CHANGES") {
-      const stripped = stripCodeFences(correctedRaw);
-      const revisedWords = countWords(stripped);
-      const delta = Math.abs(revisedWords - originalWords) / (originalWords || 1);
-      if (delta <= 0.40) {
-        correctedContent = stripped;
-      } else {
-        console.warn(`REVIEW PASS: word count deviation ${(delta * 100).toFixed(1)}% > 40%, discarding corrected article.`);
-      }
-    }
-
-    const fixLog = !fixLogRaw || fixLogRaw.toUpperCase() === "NONE"
-      ? []
-      : fixLogRaw.split("\n").map((l) => l.trim()).filter((l) => l.length > 0);
+    const correctedArticle = stripCodeFences(extractSection(raw, "CORRECTED ARTICLE"));
+    const summary = extractSection(raw, "SUMMARY");
 
     return new Response(JSON.stringify({
-      readerProfile:   extractSection(raw, "READER PROFILE"),
-      priorityActions: extractSection(raw, "PRIORITY ACTIONS"),
-      step1Flags:      extractSection(raw, "STEP 1 FLAGS"),
-      step2Analysis:   extractSection(raw, "STEP 2 ANALYSIS"),
-      step3Flags:      extractSection(raw, "STEP 3 FLAGS"),
-      correctedContent,
-      fixLog,
+      correctedArticle,
+      summary,
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
   } catch (e) {
