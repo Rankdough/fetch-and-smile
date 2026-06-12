@@ -1,3 +1,9 @@
+## 2026-06-12 — run-review-pass: direct Gemini API
+- What: Switched run-review-pass from Lovable AI Gateway to direct Google Gemini API (gemini-2.5-pro) using user-provided GEMINI_API_KEY.
+- Why: User has paid Gemini subscription; avoids Lovable credit usage on this function.
+- What may break: If GEMINI_API_KEY is missing/invalid, the function will 500. Other functions still use LOVABLE_API_KEY.
+- Files: supabase/functions/run-review-pass/index.ts
+- Verify: Trigger Final Review pass on an article; confirm boot log shows BUILD-2026-06-12-gemini-direct-v1 and output is produced.
 ## 2026-06-12 — Numerical anchors required in Opening + TL;DR
 
 **What:** Added a NUMERICAL ANCHORS rule to the Opening paragraph and TL;DR prompts. Both sections must now contain at least TWO numerical elements (digit-form numbers, percentages, monetary amounts, years/dates, or durations) that directly support the answer to the main question. Spelled-out words ("two", "several", "many") do not count. Rule applied in both the batched framing prompt (`proprietaryBatchedPrompt.ts` — opening + tldr kinds) and the legacy per-section assembler (`proprietaryPromptAssembler.ts` — `OPENING_LENGTH_RULE` + tldr ruleBlock) so both code paths enforce it.
