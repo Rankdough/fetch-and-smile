@@ -1,4 +1,16 @@
-## 2026-06-12 — Review & Improve Flow: holistic single-pass rewrite
+## 2026-06-12 — Numerical anchors required in Opening + TL;DR
+
+**What:** Added a NUMERICAL ANCHORS rule to the Opening paragraph and TL;DR prompts. Both sections must now contain at least TWO numerical elements (digit-form numbers, percentages, monetary amounts, years/dates, or durations) that directly support the answer to the main question. Spelled-out words ("two", "several", "many") do not count. Rule applied in both the batched framing prompt (`proprietaryBatchedPrompt.ts` — opening + tldr kinds) and the legacy per-section assembler (`proprietaryPromptAssembler.ts` — `OPENING_LENGTH_RULE` + tldr ruleBlock) so both code paths enforce it.
+
+**Why:** User wants the first paragraph and TL;DR to anchor the direct answer with concrete numbers so the article reads as quotable and decision-ready, not as generic advice.
+
+**Files:** supabase/functions/_shared/proprietaryBatchedPrompt.ts, supabase/functions/_shared/proprietaryPromptAssembler.ts
+
+**Verify:** Generate a fresh article. Opening paragraph and TL;DR each contain ≥2 digit-form numerical elements (e.g. "4 questions", "40%", "£2,500", "2026", "6 months"). Spelled-out "two" alone no longer satisfies the rule.
+
+**Verified broken:** Nothing verified broken. Checked: rule strings are prompt-only additions in the two prompt builders, no other code reads or asserts on the rule, no schema or output contract changed. Did NOT add a hard-fail lint or post-generation reject — if the model returns an opening with <2 numerical elements there is no automatic re-roll, the section ships as written.
+
+
 
 **What:** Rewrote run-review-pass prompt to read the full article as a human reader in one go and rewrite only flow problems (transitions, template-feel paragraphs, opening/closing, narrative thread). Hard rules preserve facts, H2s, tables, bullets, CTAs, schema, source URLs, ±10% length, paragraph density, British English, no em/en dashes. Switched model to gemini-2.5-pro for a stronger holistic read; bumped max_tokens to 16000. UI unchanged — same diff + Accept/Discard.
 
