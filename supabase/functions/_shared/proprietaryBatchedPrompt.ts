@@ -364,12 +364,8 @@ You never use em dashes, en dashes, horizontal rules, code fences, or bracket pl
   ].filter((x): x is string => !!x).join("\n\n");
 
   const userParts: string[] = [];
-  if (input.contextFiles && input.contextFiles.length > 0) {
-    const ctxBlock = input.contextFiles.map((f) => `--- ${f.name} ---\n${f.content}`).join("\n\n");
-    userParts.push(
-      "PRIMARY SOURCE OF TRUTH - UPLOADED CONTEXT FILES. Use these only for exact figures, named sources, eligibility criteria, study names, and URLs. Do not invent facts absent from these files.\n\n" + ctxBlock,
-    );
-  }
+  // Context files are NOT sent to Call 2 — they were already used in Call 1 (body batch).
+  // Framing sections derive facts from the body sections written in Call 1.
   if (input.valuePromiseBlock) {
     userParts.push(`VALUE PROMISES - all framing sections should reinforce these outcomes without padding:\n${input.valuePromiseBlock.replace(/^VALUE PROMISES\s+[\u2013\u2014-]\s+the reader expects ALL of these specific outcomes\. Every section must directly address at least one:\n/, "")}`);
   }
