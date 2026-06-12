@@ -6,7 +6,7 @@ const corsHeaders = {
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 const AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 const MODEL = "google/gemini-2.5-flash";
-const BUILD_MARKER = "BUILD-2026-06-12-B26-flow-review run-review-pass";
+const BUILD_MARKER = "BUILD-2026-06-12-B27-fallback-parse run-review-pass";
 
 function extractSection(raw: string, tag: string): string {
   const open = `====${tag}====`;
@@ -86,13 +86,28 @@ Deno.serve(async (req) => {
 
     const json = await res.json();
     const raw: string = json?.choices?.[0]?.message?.content ?? "";
+    console.log("RAW_LEN", raw.length, "PREVIEW", raw.slice(0, 300));
 
-    const correctedArticle = stripCodeFences(extractSection(raw, "CORRECTED ARTICLE"));
-    const summary = extractSection(raw, "SUMMARY");
+    let correctedArticle = stripCodeFences(extractSection(raw, "CORRECTED ARTICLE"));
+    let summary = extractSection(raw, "SUMMARY").replace(/^Changed:\s*/i, "").trim();
+
+    // Fallback: model ignored delimiters
+    if (!correctedArticle) {
+      const stripped = stripCodeFences(raw);
+      // Try to split on "Summary" / "Changed:" trailing line
+      const m = stripped.match(/^([\s\S]*?)\n+(?:Summary|Changed)[:\s][\s\S]*$/i);
+      if (m) {
+        correctedArticle = m[1].trim();
+        if (!summary) summary = stripped.slice(m[1].length).replace(/^[\s\S]*?(?:Summary|Changed)[:\s]*/i, "").trim();
+      } else if (stripped.length > 200) {
+        correctedArticle = stripped;
+      }
+    }
 
     return new Response(JSON.stringify({
       correctedArticle,
       summary,
+      rawPreview: raw.slice(0, 500),
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
   } catch (e) {
