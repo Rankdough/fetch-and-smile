@@ -1,3 +1,15 @@
+## 2026-06-12 — Review & Improve Flow: holistic single-pass rewrite
+
+**What:** Rewrote run-review-pass prompt to read the full article as a human reader in one go and rewrite only flow problems (transitions, template-feel paragraphs, opening/closing, narrative thread). Hard rules preserve facts, H2s, tables, bullets, CTAs, schema, source URLs, ±10% length, paragraph density, British English, no em/en dashes. Switched model to gemini-2.5-pro for a stronger holistic read; bumped max_tokens to 16000. UI unchanged — same diff + Accept/Discard.
+
+**Why:** Per-flag/per-rule approach was wrong. User wanted a single holistic flow improvement pass, not flagged issues.
+
+**Files:** supabase/functions/run-review-pass/index.ts
+
+**Verify:** Click Review & Fix Flow on an article. Boot log shows BUILD-2026-06-12-flow-holistic-v1. Diff highlights only transition/connective changes; H2s, tables, CTAs, source URLs unchanged.
+
+**What may break:** Longer latency (gemini-2.5-pro vs flash). Higher token cost per run. If the model still ignores delimiters the existing fallback parser kicks in.
+
 ## 2026-06-11 - Proprietary v2 batching switched on by default
 
 - **What:** Changed `proprietary-generate-article` so the v2 batched generator is now the default path instead of dormant. `USE_BATCHED_PROMPT=false` remains an instant backend rollback. Added request override support via `flags.useBatchedPrompt`. Added batched framing generation so Opening, TL;DR, Quick Tips, FAQ, and Final Thoughts are produced in one call instead of five separate section calls. Non-clinical body sections still generate in one batched call and healthcare-clinical body sections still use the clinical writer path. Added body-section acceptance guards before and after trimming: malformed batched bodies fall back before the loop, and structurally valid bodies are restored untrimmed if trimming would remove their table or bullets. Bumped `BUILD_MARKER` to `BUILD-2026-06-11-V2P1-default-batched-restore`.

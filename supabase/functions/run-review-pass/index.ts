@@ -5,8 +5,8 @@ const corsHeaders = {
 
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 const AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
-const MODEL = "google/gemini-2.5-flash";
-const BUILD_MARKER = "BUILD-2026-06-12-B27-fallback-parse run-review-pass";
+const MODEL = "google/gemini-2.5-pro";
+const BUILD_MARKER = "BUILD-2026-06-12-flow-holistic-v1 run-review-pass";
 
 function extractSection(raw: string, tag: string): string {
   const open = `====${tag}====`;
@@ -18,41 +18,43 @@ function extractSection(raw: string, tag: string): string {
 }
 
 function stripCodeFences(s: string): string {
-  return s
-    .replace(/^```(?:markdown|md)?\s*\n?/i, "")
-    .replace(/\n?```\s*$/i, "")
-    .trim();
+  return s.replace(/^```(?:markdown|md)?\s*\n?/i, "").replace(/\n?```\s*$/i, "").trim();
 }
 
 function buildPrompt(topic: string): string {
-  return `You are reading this article as the target reader for this topic: ${topic}
+  return `You are a senior editor. Read the entire article below from start to finish, in one go, as the real human reader for this topic would read it.
 
-Read the full article below. Find every place where:
-- The story breaks or a section feels disconnected
-- The writing feels like an AI filling a template
-- A reader would lose the thread or stop reading
-- A transition between sections is abrupt or missing
+TOPIC: ${topic}
 
-Rewrite only those specific sentences and transitions.
+HOW TO READ
+Read it as that human. Notice every moment where:
+- The story breaks or a section feels disconnected from the one before it
+- A transition is abrupt or missing
+- The writing suddenly feels like an AI filling a template rather than a person explaining something
+- A reader would lose the thread, get bored, or stop reading
+- The opening promises one thing and the article drifts away from it
+- The ending does not deliver the conclusion the reader was building toward
 
-Do not change:
-- Facts, statistics, or measurements
-- H2 headings
-- Tables
-- Bullet lists
-- CTAs
-- Schema markup
-- Source URLs
-- Word count by more than 10%
+YOUR JOB
+Rewrite the article so it reads as one continuous, human, well-flowing piece for that reader. Improve only the things that hurt flow: transitions, opening, connective sentences, paragraphs that read template-like, the closing. Leave everything else exactly as it is.
 
-Return exactly two things, using these exact delimiter tags:
+HARD RULES (do not break any of these)
+- Do not change any fact, statistic, number, measurement, name, date, or quote.
+- Do not change any H2 heading.
+- Do not change any table, bullet list, ordered list, CTA block, image, schema markup, or source URL.
+- Do not change the article's overall length by more than 10%.
+- British English. No em dashes (—). No en dashes (–). No horizontal rules.
+- Every paragraph must be 60 words or fewer AND 3 sentences or fewer. Split anything longer at a logical pivot.
+- Do not add new sections. Do not remove sections.
+
+OUTPUT FORMAT (use these exact delimiters)
 
 ====CORRECTED ARTICLE====
-[The complete corrected article in plain markdown — no code fences]
+[The full rewritten article in plain markdown. No code fences. No commentary.]
 ====END CORRECTED ARTICLE====
 
 ====SUMMARY====
-Changed: [A plain English summary of what you changed, maximum 3 sentences]
+[2-4 sentences in plain English describing what you improved to make it flow better for this reader. No bullet lists.]
 ====END SUMMARY====`;
 }
 
@@ -74,7 +76,7 @@ Deno.serve(async (req) => {
       headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         model: MODEL,
-        max_tokens: 12000,
+        max_tokens: 16000,
         messages: [
           { role: "system", content: buildPrompt(topic) },
           { role: "user", content },
@@ -86,15 +88,13 @@ Deno.serve(async (req) => {
 
     const json = await res.json();
     const raw: string = json?.choices?.[0]?.message?.content ?? "";
-    console.log("RAW_LEN", raw.length, "PREVIEW", raw.slice(0, 300));
+    console.log("RAW_LEN", raw.length);
 
     let correctedArticle = stripCodeFences(extractSection(raw, "CORRECTED ARTICLE"));
-    let summary = extractSection(raw, "SUMMARY").replace(/^Changed:\s*/i, "").trim();
+    let summary = extractSection(raw, "SUMMARY").trim();
 
-    // Fallback: model ignored delimiters
     if (!correctedArticle) {
       const stripped = stripCodeFences(raw);
-      // Try to split on "Summary" / "Changed:" trailing line
       const m = stripped.match(/^([\s\S]*?)\n+(?:Summary|Changed)[:\s][\s\S]*$/i);
       if (m) {
         correctedArticle = m[1].trim();
@@ -104,16 +104,13 @@ Deno.serve(async (req) => {
       }
     }
 
-    return new Response(JSON.stringify({
-      correctedArticle,
-      summary,
-      rawPreview: raw.slice(0, 500),
-    }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
-
+    return new Response(JSON.stringify({ correctedArticle, summary }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   } catch (e) {
-    return new Response(
-      JSON.stringify({ error: e instanceof Error ? e.message : String(e) }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-    );
+    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : String(e) }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 });
