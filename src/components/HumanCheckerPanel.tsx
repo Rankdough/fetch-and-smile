@@ -44,6 +44,20 @@ function parseFlags(text: string): string[] {
     .filter(l => l.length > 4);
 }
 
+// Split "Title: description text" at first ": " within 70 chars.
+// Falls back to first 6 words as title if no colon found.
+function splitFlag(text: string): { title: string; description: string } {
+  const colonIdx = text.indexOf(": ");
+  if (colonIdx > 0 && colonIdx < 70) {
+    return { title: text.slice(0, colonIdx), description: text.slice(colonIdx + 2) };
+  }
+  const words = text.split(" ");
+  return {
+    title: words.slice(0, 6).join(" "),
+    description: words.slice(6).join(" "),
+  };
+}
+
 interface FlagRowProps {
   text: string;
   onFix?: () => void;
@@ -53,13 +67,14 @@ interface FlagRowProps {
 }
 
 function FlagRow({ text, onFix, fixApplied, fixing, canFix }: FlagRowProps) {
+  const { title, description } = splitFlag(text);
   return (
     <div className={`flex items-start gap-2 rounded-md border p-2 transition-colors ${
       fixApplied
         ? "border-emerald-500/40 bg-emerald-500/10"
         : "border-border/60 bg-card/50"
     }`}>
-      <div className="mt-0.5 shrink-0">
+      <div className="mt-0.5">
         {fixApplied ? (
           <div className="flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500">
             <Check className="h-3 w-3 text-white" strokeWidth={3} />
@@ -68,24 +83,31 @@ function FlagRow({ text, onFix, fixApplied, fixing, canFix }: FlagRowProps) {
           <X className="h-4 w-4 text-destructive" />
         )}
       </div>
-      <div className={`flex-1 min-w-0 text-xs leading-snug ${fixApplied ? "text-emerald-700 dark:text-emerald-400" : "text-foreground"}`}>
-        {text}
+      <div className="flex-1 min-w-0">
+        <div className={`text-xs font-medium leading-tight ${fixApplied ? "text-emerald-700 dark:text-emerald-400" : ""}`}>
+          {title}
+        </div>
+        {description && (
+          <div className="text-[11px] text-muted-foreground leading-snug">
+            {description}
+          </div>
+        )}
+        {canFix && !fixApplied && onFix && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-6 mt-1.5 px-2 text-[11px]"
+            disabled={fixing}
+            onClick={onFix}
+          >
+            {fixing ? (
+              <><Loader2 className="h-3 w-3 mr-1 animate-spin" />Fixing…</>
+            ) : (
+              <><Wand2 className="h-3 w-3 mr-1" />Fix this</>
+            )}
+          </Button>
+        )}
       </div>
-      {canFix && !fixApplied && onFix && (
-        <Button
-          size="sm"
-          variant="outline"
-          className="h-6 shrink-0 px-2 text-[11px]"
-          disabled={fixing}
-          onClick={onFix}
-        >
-          {fixing ? (
-            <><Loader2 className="h-3 w-3 mr-1 animate-spin" />Fixing…</>
-          ) : (
-            <><Wand2 className="h-3 w-3 mr-1" />Fix</>
-          )}
-        </Button>
-      )}
     </div>
   );
 }
