@@ -662,7 +662,7 @@ Name], or [NEEDS EXPERT INPUT].`;
 
     // TL;DR framing section: enforce 60-word cap.
     if (section.kind === "tldr") {
-      ruleBlocks.push(`TLDR RULE: Maximum 60 words total. One short paragraph only. No bullets, no sub-headings, no links. Summarise the single most important takeaway from this topic in plain language.`);
+      ruleBlocks.push(`TLDR RULE: Maximum 60 words total. One short paragraph only. No bullets, no sub-headings, no links. Summarise the single most important takeaway from this topic in plain language.\n\nNUMERICAL ANCHORS (mandatory): The TL;DR MUST contain at least TWO numerical elements that directly support the answer to the main question. A numerical element is a digit-form number, percentage, monetary amount, year/date, or duration (e.g. "4 questions", "40%", "£2,500", "2026", "6 months"). Spelled-out words ("two", "several", "many") do NOT count. Use numbers already present in the context files, the article title, or the mapped unit; never fabricate clinical statistics or invented prices.`);
     }
 
     // Quick Tips framing section: enforce exactly 3 actionable tips.
