@@ -47,6 +47,9 @@ const USE_BATCHED_PROMPT_DEFAULT = (Deno.env.get("USE_BATCHED_PROMPT") || "").to
 // Set USE_LEGACY_SECTIONS=true to bypass V2P2 batching and run the old
 // per-section loop with individual model calls (useful for regression testing).
 const USE_LEGACY_SECTIONS = (Deno.env.get("USE_LEGACY_SECTIONS") || "").toLowerCase() === "true";
+// Set USE_REVIEW_PASS=true to enable the post-generation LLM review pass (~10k tokens).
+// Off by default to reduce generation cost; enable for quality-sensitive articles.
+const USE_REVIEW_PASS = (Deno.env.get("USE_REVIEW_PASS") || "").toLowerCase() === "true";
 const AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 const DEFAULT_MODEL = "google/gemini-2.5-flash";
 const CLINICAL_MODEL = "google/gemini-2.5-flash";
@@ -2419,9 +2422,9 @@ If a section needed no changes, omit it from the fix log.`;
 
 /* ── handler ──────────────────────────────────────────────────────────── */
 
-const BUILD_MARKER = "BUILD-2026-06-12-B26-flow-review proprietary-generate-article";
+const BUILD_MARKER = "BUILD-2026-06-12-B28-token-reduction proprietary-generate-article";
 Deno.serve(async (req) => {
-  console.log(BUILD_MARKER, "USE_BATCHED_PROMPT_DEFAULT=", USE_BATCHED_PROMPT_DEFAULT, "USE_LEGACY_SECTIONS=", USE_LEGACY_SECTIONS);
+  console.log(BUILD_MARKER, "USE_BATCHED_PROMPT_DEFAULT=", USE_BATCHED_PROMPT_DEFAULT, "USE_LEGACY_SECTIONS=", USE_LEGACY_SECTIONS, "USE_REVIEW_PASS=", USE_REVIEW_PASS);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
@@ -2781,7 +2784,7 @@ Deno.serve(async (req) => {
             briefs,
           });
           console.log(`BATCHED FRAMING: dispatching ${briefs.length} sections in one call`);
-          const framingRaw = await callModel(framingSystem, framingUser, model, 5200);
+          const framingRaw = await callModel(framingSystem, framingUser, model, 3500);
           framingBatchedRawLength = framingRaw.length;
           const parsed = parseBatchedSections(framingRaw, briefs.map((b) => b.id));
           for (const [id, content] of parsed.sections.entries()) {
@@ -3188,14 +3191,19 @@ Deno.serve(async (req) => {
     console.log(`INTERNAL LINKS: inserted=${internalLinkResult.insertedCount} skipped=${internalLinkResult.skippedUrls.length} total=${internalLinkResult.totalProvided}${internalLinkResult.note ? ` note=${internalLinkResult.note}` : ""}`);
 
     // REVIEW PASS (B10): copywriting quality, narrative flow, reader intent
-    // Runs after all deterministic post-processors, before response ships.
+    // Gated by USE_REVIEW_PASS (default false) — saves ~10k tokens per generation.
+    // The same rewrite is available on demand via the Review & Fix Flow panel.
     let reviewPassResult: { status: "PASSED" | "FIXED"; fixes: string[] } = { status: "PASSED", fixes: [] };
-    try {
-      const rp = await runReviewPass(content, body.topic, model);
-      content = rp.content;
-      reviewPassResult = { status: rp.status, fixes: rp.fixes };
-    } catch (e) {
-      console.warn("REVIEW PASS: outer error (non-fatal):", e instanceof Error ? e.message : String(e));
+    if (USE_REVIEW_PASS) {
+      try {
+        const rp = await runReviewPass(content, body.topic, model);
+        content = rp.content;
+        reviewPassResult = { status: rp.status, fixes: rp.fixes };
+      } catch (e) {
+        console.warn("REVIEW PASS: outer error (non-fatal):", e instanceof Error ? e.message : String(e));
+      }
+    } else {
+      console.log("REVIEW PASS: skipped (USE_REVIEW_PASS=false)");
     }
 
     // mappedUnitTexts for downstream verification grading on the client
