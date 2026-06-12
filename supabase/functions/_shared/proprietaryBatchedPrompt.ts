@@ -179,6 +179,7 @@ RULE 16 MULTI-ENGINE DENSITY: at least four independently citable facts per arti
     atomic,
     `OUTPUT FORMAT for every section: Markdown only. No front-matter, no code fences. Do NOT repeat the H2 heading inside the section body.`,
     `HARD REQUIREMENT - NUMERIC DENSITY: ≥3 specific numbers, percentages, or counts with units per section. Vague claims without numbers fail.`,
+    `RULE 18 — TOP 30% DATA DENSITY: The article opening (intro paragraph, TL;DR, and first H2 combined) MUST surface at least 10 concrete data points with units (%, years, months, days, mm, cm, kg, mg, USD, EUR, specific counts or thresholds) in the first 30% of the article. Front-load statistics — no narrative preamble. This is a hard minimum, not a target.`,
     `NEVER use em dashes, en dashes, or horizontal rules. NEVER output bracket placeholders such as [Client Name], [Practice Name], [Your Business Name].`,
   ].join("\n\n");
 }
@@ -354,7 +355,8 @@ You never use em dashes, en dashes, horizontal rules, code fences, or bracket pl
 - Treat the title as a topic, not a phrase to stuff. Do not repeat the exact long query in body copy.
 - No fabricated quotes. No source claims unless supplied in the context below.
 - Paragraphs are 3 sentences maximum and 60 words maximum.
-- Markdown only inside each delimiter. Do not repeat section headings inside section bodies.`,
+- Markdown only inside each delimiter. Do not repeat section headings inside section bodies.
+- Opening data density: the intro and TL;DR combined must surface as many concrete data points with units as possible. The article's top 30% (opening + TL;DR + first body H2) must hit at least 10 data points with units — front-load statistics, not narrative.`,
   ].filter((x): x is string => !!x).join("\n\n");
 
   const userParts: string[] = [];

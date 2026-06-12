@@ -98,7 +98,7 @@ function evaluate(content: string, contextFileText?: string): RuleResult[] {
 
   const top = plain.slice(0, Math.max(400, Math.floor(plain.length * 0.3)));
   const topNumericMatches = (top.match(/\b\d{1,3}(?:[.,]\d+)?\s?(?:%|percent|years?|months?|days?|hours?|minutes?|weeks?|mm|cm|kg|mg|usd|eur|£|\$)/gi) || []).length;
-  const r8Pass = topNumericMatches >= 3;
+  const r8Pass = topNumericMatches >= 10;
 
   const r9Pass = /\b(timeline|deadline|week\s*\d|day\s*\d|month\s*\d|within\s+\d+\s+(?:days|weeks|months|hours)|by\s+(?:day|week|month)\s*\d)\b/i.test(plain);
 
@@ -200,9 +200,9 @@ function evaluate(content: string, contextFileText?: string): RuleResult[] {
     },
     {
       id: 8, title: "Literal Intent Proximity",
-      description: "Top 30% contains ≥3 concrete numeric data points",
+      description: "Top 30% contains ≥10 concrete numeric data points",
       pass: r8Pass, detail: `${topNumericMatches} data points in top 30%`,
-      fixInstruction: "Within the first 30% of the article (intro, TL;DR, and first one or two sections), surface at least THREE concrete numeric data points with units (percentages, durations, counts, prices, thresholds, measurements) drawn from the existing context. Integrate them naturally into the prose so the reader gets immediate quantified value. Do not invent statistics, add fluff, or remove existing structure. Preserve headings, tables, lists, links, images, and CTAs. Return the full article.",
+      fixInstruction: "Within the first 30% of the article (intro, TL;DR, and first one or two sections), surface at least TEN concrete numeric data points with units (percentages, durations, counts, prices, thresholds, measurements) drawn from the existing context. Integrate them naturally into the prose so the reader gets immediate quantified value. Do not invent statistics, add fluff, or remove existing structure. Preserve headings, tables, lists, links, images, and CTAs. Return the full article.",
     },
     {
       id: 9, title: "Chronological Risk Mitigation",

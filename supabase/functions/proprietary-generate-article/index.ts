@@ -2422,7 +2422,7 @@ If a section needed no changes, omit it from the fix log.`;
 
 /* ── handler ──────────────────────────────────────────────────────────── */
 
-const BUILD_MARKER = "BUILD-2026-06-12-B28-token-reduction proprietary-generate-article";
+const BUILD_MARKER = "BUILD-2026-06-12-B29-top30-data-density proprietary-generate-article";
 Deno.serve(async (req) => {
   console.log(BUILD_MARKER, "USE_BATCHED_PROMPT_DEFAULT=", USE_BATCHED_PROMPT_DEFAULT, "USE_LEGACY_SECTIONS=", USE_LEGACY_SECTIONS, "USE_REVIEW_PASS=", USE_REVIEW_PASS);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });

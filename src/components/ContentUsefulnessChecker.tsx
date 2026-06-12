@@ -79,7 +79,7 @@ function evaluate(content: string): RuleResult[] {
   const top = plain.slice(0, Math.max(500, Math.floor(plain.length * 0.3)));
   const topData = (top.match(/\b\d{1,4}(?:[.,]\d+)?\s?(?:%|percent|years?|months?|weeks?|days?|hours?|mm|cm|kg|mg|usd|eur|£|\$)/gi) || []).length;
   const topStory = STORYTELLING.some(re => re.test(top));
-  const r4Pass = topData >= 2 && !topStory;
+  const r4Pass = topData >= 10 && !topStory;
 
   // Rule 5: Methodology disclosure.
   const methodology = /\b(methodology|how\s+(?:we|this\s+(?:guide|article))\s+(?:was\s+)?(?:compiled|researched|built)|auditing\s+primary\s+source|primary[- ]source\s+(?:records?|review)|sources?\s+reviewed|criteria\s+applied)\b/i;
@@ -158,7 +158,7 @@ function evaluate(content: string): RuleResult[] {
       pass: r4Pass,
       detail: `${topData} data points in top 30%${topStory ? " · storytelling detected" : ""}`,
       fixInstruction:
-        "Rewrite the opening 30% of the article (intro, TL;DR, and first one or two sections) so it jumps straight into specifications, numbers, thresholds, or timelines drawn from the existing context. Remove personal anecdotes, historical preamble, or 'let me tell you a story' framing. Keep paragraphs short (≤60 words, ≤3 sentences). Preserve headings, tables, lists, links, images, and CTAs. Return the full article.",
+        "Rewrite the opening 30% of the article so it contains at least 10 concrete data points with units (percentages, durations, counts, prices, thresholds, measurements) in the first ~450 words. Jump straight into specifications, numbers, and timelines drawn from the existing context. Remove personal anecdotes, historical preamble, or 'let me tell you a story' framing. Keep paragraphs short (≤60 words, ≤3 sentences). Preserve headings, tables, lists, links, images, and CTAs. Return the full article.",
     },
     {
       id: 5,
