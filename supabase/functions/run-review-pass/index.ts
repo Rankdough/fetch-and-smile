@@ -3,17 +3,22 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY")!;
-const MODEL = "gemini-2.5-pro";
-const AI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${GEMINI_API_KEY}`;
-const BUILD_MARKER = "BUILD-2026-06-12-direct-gemini-v1 run-review-pass";
+const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
+const MODEL = "google/gemini-3-flash-preview";
+const AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
+const BUILD_MARKER = "BUILD-2026-06-12-managed-gateway-flash-v1 run-review-pass";
 
 function extractSection(raw: string, tag: string): string {
   const open = `====${tag}====`;
-  const close = `====END ${tag}====`;
   const start = raw.indexOf(open);
   if (start < 0) return "";
-  const end = raw.indexOf(close, start);
+  const closeCandidates = tag === "CORRECTED ARTICLE"
+    ? [`====END ${tag}====`, "====END ARTICLE====", "====SUMMARY===="]
+    : [`====END ${tag}====`];
+  const end = closeCandidates
+    .map((close) => raw.indexOf(close, start + open.length))
+    .filter((idx) => idx >= 0)
+    .sort((a, b) => a - b)[0];
   return raw.slice(start + open.length, end >= 0 ? end : raw.length).trim();
 }
 
@@ -63,8 +68,8 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
-    if (!GEMINI_API_KEY) {
-      throw new Error("GEMINI_API_KEY is not configured");
+    if (!LOVABLE_API_KEY) {
+      throw new Error("LOVABLE_API_KEY is not configured");
     }
 
     const { content, topic } = await req.json();
@@ -77,25 +82,29 @@ Deno.serve(async (req) => {
 
     const res = await fetch(AI_URL, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "Lovable-API-Key": LOVABLE_API_KEY,
+        "X-Lovable-AIG-SDK": "direct-edge-fetch",
+      },
       body: JSON.stringify({
-        systemInstruction: { parts: [{ text: buildPrompt(topic) }] },
-        contents: [{ role: "user", parts: [{ text: content }] }],
-        generationConfig: {
-          temperature: 0.7,
-          maxOutputTokens: 16000,
-        },
+        model: MODEL,
+        temperature: 0.7,
+        max_tokens: 16000,
+        messages: [
+          { role: "system", content: buildPrompt(topic) },
+          { role: "user", content },
+        ],
       }),
     });
 
     if (!res.ok) {
       const errText = (await res.text()).slice(0, 400);
-      throw new Error(`Gemini API ${res.status}: ${errText}`);
+      throw new Error(`AI gateway ${res.status}: ${errText}`);
     }
 
     const json = await res.json();
-    const raw: string =
-      json?.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p?.text ?? "").join("") ?? "";
+    const raw: string = json?.choices?.[0]?.message?.content ?? "";
     console.log("RAW_LEN", raw.length);
 
     let correctedArticle = stripCodeFences(extractSection(raw, "CORRECTED ARTICLE"));

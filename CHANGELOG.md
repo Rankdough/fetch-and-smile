@@ -1,3 +1,15 @@
+## 2026-06-12 - run-review-pass uses managed AI key
+
+**What:** Rewired `supabase/functions/run-review-pass/index.ts` away from `GEMINI_API_KEY` and Google's direct API. It now calls Lovable's managed AI gateway with `LOVABLE_API_KEY`, using `google/gemini-3-flash-preview` to avoid long review-pass timeouts while preserving the `{ correctedArticle, summary }` response contract. Hardened parsing for model output that closes the article with `====END ARTICLE====` instead of `====END CORRECTED ARTICLE====`.
+
+**Why:** Google rejected the configured Gemini key with `API_KEY_INVALID`, blocking Review & Fix Flow. The project already has a managed AI key, so this removes the broken third-party key setup step.
+
+**Files:** `supabase/functions/run-review-pass/index.ts`, `CHANGELOG.md`
+
+**Verify:** Deploy `run-review-pass`, call it with sample content, confirm logs show `BUILD-2026-06-12-managed-gateway-flash-v1 run-review-pass` and `RAW_LEN > 0`, then click Review & Fix Flow on an article.
+
+**Verified broken:** `google/gemini-2.5-pro` via the managed gateway did not return before the direct function test client cancelled. The first flash test returned `====END ARTICLE====` inside `correctedArticle`, so the parser now accepts that closing delimiter and strips it before returning data. UI contract is unchanged.
+
 ## 2026-06-12 — run-review-pass switched to direct Gemini API
 **What:** Rewired `supabase/functions/run-review-pass/index.ts` to call Google's `generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent` directly using `GEMINI_API_KEY`, instead of `ai.gateway.lovable.dev` with `LOVABLE_API_KEY`.
 **Why:** User wants the review/fix flow billed against their own Google Cloud account, not Lovable credits. Previous attempt was lost to GitHub auto-sync.
