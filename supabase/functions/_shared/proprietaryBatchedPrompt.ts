@@ -314,10 +314,14 @@ Rules for the batched output:
 
 function framingRulesForKind(kind: SectionKind): string {
   if (kind === "opening") {
-    return `OPENING RULE: Write 55-85 words in one or two short paragraphs. The first sentence must directly answer the article topic. Reframe weak marketing or commodity assumptions immediately. No links.`;
+    return `OPENING RULE: Write 55-85 words in one or two short paragraphs. The first sentence must directly answer the article topic. Reframe weak marketing or commodity assumptions immediately. No links.
+
+NUMERICAL ANCHORS (mandatory): The opening paragraph MUST contain at least TWO numerical elements that directly support the answer to the main question. A numerical element is a digit-form number, percentage, monetary amount, year/date, or duration (e.g. "4 questions", "40%", "£2,500", "2026", "6 months", "10 years"). Spelled-out words ("two", "several", "many") do NOT count. Prefer numbers already present in the context files, the article title, or the body sections; never fabricate clinical statistics or invented prices. If only one real number is available, derive the second from the title (e.g. the count of items the title promises) or from a clearly safe range based on the supplied evidence.`;
   }
   if (kind === "tldr") {
-    return `TL;DR RULE: Write one paragraph only, maximum 60 words. No bullets, no sub-headings, no links. Summarise the single most important takeaway in plain language.`;
+    return `TL;DR RULE: Write one paragraph only, maximum 60 words. No bullets, no sub-headings, no links. Summarise the single most important takeaway in plain language.
+
+NUMERICAL ANCHORS (mandatory): The TL;DR MUST contain at least TWO numerical elements that directly support the answer to the main question. A numerical element is a digit-form number, percentage, monetary amount, year/date, or duration (e.g. "4 questions", "40%", "£2,500", "2026", "6 months"). Spelled-out words ("two", "several", "many") do NOT count. Use numbers already present in the context files, the article title, or the body sections above; never fabricate clinical statistics or invented prices.`;
   }
   if (kind === "quick-tips") {
     return `QUICK TIPS RULE: Output EXACTLY 3 markdown bullets. Each bullet is one actionable sentence, maximum 18 words, naming a specific check, criterion, or decision.`;
