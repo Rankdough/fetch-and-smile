@@ -78,23 +78,23 @@ function describeUnit(unit: MappedUnit | null): string {
   if (!unit) return "MAPPED UNIT: none. Generate from first-hand reasoning following the global rules.";
   const header = `MAPPED UNIT (type: ${unit.unit_type}${unit.title ? `, title: ${unit.title}` : ""}):`;
   const summary = unit.summary ? `Summary: ${unit.summary}` : "";
-  const body = `Full unit text (sole source for specifics in this section):\n"""\n${unit.full_text}\n"""`;
+  const body = `Full unit text (sole source for specifics in this section):\n"""\n${unit.full_text.slice(0, 1500)}${unit.full_text.length > 1500 ? "..." : ""}\n"""`;
   return [header, summary, body].filter(Boolean).join("\n");
 }
 
 function describeKnowledge(snippets: BatchedSectionBrief["retrievedKnowledge"]): string {
   if (!snippets || snippets.length === 0) return "RETRIEVED EVIDENCE: none.";
   const block = snippets
-    .slice(0, 4)
+    .slice(0, 3)
     .map((s, i) =>
-      `[${i + 1}]${s.sourceTitle ? ` ${s.sourceTitle}` : ""}\n${s.content.slice(0, 1200)}${s.content.length > 1200 ? "..." : ""}`,
+      `[${i + 1}]${s.sourceTitle ? ` ${s.sourceTitle}` : ""}\n${s.content.slice(0, 900)}${s.content.length > 900 ? "..." : ""}`,
     )
     .join("\n\n");
   return `RETRIEVED EVIDENCE - prefer over general knowledge:\n${block}`;
 }
 
 function describeAllowedUrls(urls: BatchedSectionBrief["allowedSourceUrls"]): string {
-  const allowed = (urls || []).filter((u) => u && u.url && /^https?:\/\//i.test(u.url)).slice(0, 8);
+  const allowed = (urls || []).filter((u) => u && u.url && /^https?:\/\//i.test(u.url)).slice(0, 3);
   if (allowed.length === 0) {
     return "ALLOWED INLINE SOURCE URLS: none. Do NOT insert any inline markdown link in this section.";
   }
@@ -160,10 +160,10 @@ Do NOT cross-reference other sections. Every sentence stands alone.`;
   return [
     `RULE 1 - NO COMMODITY: Every paragraph must contain at least one specific number, named failure mode, concrete category distinction, or claim that contradicts the consensus framing. [NEEDS EXPERT INPUT] is INLINE only, never the whole section.`,
     `RULE 2 - LEAD WITH THE HONEST ANSWER: First sentence is a direct claim or direct answer. No preamble. If the heading is a question, sentence 1 answers it plainly.`,
-    `RULE 5 - SPECIFIC NUMBERS: Do not write "varies", "depends on", "typically", or "usually" without a specific number in the same sentence. If no number is available, write "No public data; ask the clinical team for current figures." or use [NEEDS EXPERT INPUT] inline. Never invent numbers.`,
+    `RULE 5 - SPECIFIC NUMBERS: Do not write "varies", "depends on", "typically", or "usually" without a specific number in the same sentence. If no number is available, write "No public data; ask the clinical team for current figures." or use [NEEDS EXPERT INPUT] inline. Never invent numbers. HARD: Do NOT use "typically", "varies", "depends", "generally", "often", "usually", "may vary", "in some cases" unless the same sentence contains a specific number.`,
     `CRITICAL - NO PASSIVE FILLER: Banned: "typically symptoms of", "may experience", "can experience", "is often caused by", "a variety of", "a range of", "a number of", "in some cases", "for many people", "it is important to note", "it is worth noting". Every statement must be direct and anchored to supplied evidence.`,
     `KEYWORD NATURAL-LANGUAGE: Treat the article title as a topic, not a phrase to stuff. The exact title may appear in H1 and at most one H2 - NEVER in body paragraphs, bullets, table cells, or FAQ answers verbatim.`,
-    `RULE 7 - MANDATORY TABLE (≥4 rows): Every body section contains exactly one Markdown pipe table with at least 4 data rows. Real decision dimensions only. At least one column numeric. NEVER use placeholder rows like "Option A/B/C" or "Type 1/2/3".`,
+    `RULE 7 - MANDATORY TABLE (≥4 rows): Every body section contains exactly one Markdown pipe table with at least 4 data rows. Real decision dimensions only. At least one column numeric. NEVER use placeholder rows like "Option A/B/C" or "Type 1/2/3". HARD MINIMUM: Split rows to reach 4 if needed.`,
     `QUOTE ATTRIBUTION: No quotation marks around any sentence presented as something a clinician/expert said unless (a) the exact quote is supplied verbatim in the mapped unit or context files, AND (b) the named speaker (full name + role + affiliation) is also supplied. Inline attribution: "<Quote>" - <Name>, <Role>, <Affiliation>. No blockquotes. No "an expert noted", "a doctor said", generic proverbs, or training-data quotes.`,
     `SOURCED FIGURES: Any specific currency amount, percentage tied to a clinical claim, or specific volume/count MUST either (a) appear in the mapped unit or context files AND be cited inline as "(Source: <URL or publication>)" in the same sentence, OR (b) be replaced by "No public data; ask the clinical team for current figures." or [NEEDS EXPERT INPUT]. A removed number is always better than a fabricated one.`,
     `AI EXTRACTION RULES 9-16 (every section):
@@ -179,9 +179,6 @@ RULE 16 MULTI-ENGINE DENSITY: at least four independently citable facts per arti
     atomic,
     `OUTPUT FORMAT for every section: Markdown only. No front-matter, no code fences. Do NOT repeat the H2 heading inside the section body.`,
     `HARD REQUIREMENT - NUMERIC DENSITY: ≥3 specific numbers, percentages, or counts with units per section. Vague claims without numbers fail.`,
-    `HARD REQUIREMENT - NO HEDGING: Do NOT use "typically", "varies", "depends", "generally", "often", "usually", "may vary", "in some cases" unless the same sentence contains a specific number.`,
-    `HARD REQUIREMENT - FIRST PARAGRAPH ≤45 WORDS per section. Directly answers the section heading.`,
-    `HARD REQUIREMENT - TABLE MINIMUM 4 ROWS per section. Split rows to reach 4 if needed.`,
     `NEVER use em dashes, en dashes, or horizontal rules. NEVER output bracket placeholders such as [Client Name], [Practice Name], [Your Business Name].`,
   ].join("\n\n");
 }
@@ -286,16 +283,13 @@ For EACH section, output EXACTLY this format with no extra commentary, no code f
 Rules for the batched output:
 1. Emit sections in the order listed below.
 2. Use the exact id and heading from each brief (do not invent IDs).
-3. Do not skip any section. If a section cannot be fully written, still emit the delimiter pair with whatever content you can produce.
-4. Do not write anything outside the section delimiters (no preface, no summary, no "Here are the sections:").
-5. Each section is independent - do NOT cross-reference other sections. Every sentence stands alone.
-6. Do NOT repeat the heading inside the section body.`,
+3. Emit all sections; write nothing outside the delimiters.
+4. Sections are independent — no cross-references, no repeated heading inside the body.`,
   );
 
-  const briefBlocks = input.briefs.map((brief, idx) => {
+  const briefBlocks = input.briefs.map((brief) => {
     const sectionRules = briefSectionRules(brief);
     return [
-      `=== SECTION ${idx + 1} OF ${input.briefs.length} ===`,
       `ID: ${brief.id}`,
       `HEADING: ${brief.heading}`,
       `KIND: ${brief.kind}`,
@@ -329,7 +323,7 @@ function framingRulesForKind(kind: SectionKind): string {
     return `QUICK TIPS RULE: Output EXACTLY 3 markdown bullets. Each bullet is one actionable sentence, maximum 18 words, naming a specific check, criterion, or decision.`;
   }
   if (kind === "faq") {
-    return `FAQ RULE: Output EXACTLY 5 question-and-answer pairs. Each question line must be bold markdown and end with a question mark. Each answer is 30-55 words — HARD LIMIT. Count the words in each answer before finishing. An answer over 55 words fails. Direct, specific, not generic boilerplate.`;
+    return `FAQ RULE: Output EXACTLY 5 question-and-answer pairs. Each question line must be bold markdown and end with a question mark. Each answer is 25-40 words — HARD LIMIT. Count the words in each answer before finishing. An answer over 40 words fails. Direct, specific, not generic boilerplate.`;
   }
   if (kind === "final-thoughts") {
     return `FINAL THOUGHTS RULE: Write exactly 2 short paragraphs. No heading. Paragraph 1 states the decision principle. Paragraph 2 gives the next action. Keep each paragraph below 65 words.`;
@@ -373,7 +367,7 @@ You never use em dashes, en dashes, horizontal rules, code fences, or bracket pl
     userParts.push(`SECONDARY GUIDANCE - competitor gaps and target keywords. Use only where natural:\n${input.gapKeywordBlock}`);
   }
   if (input.bodySections.length > 0) {
-    userParts.push(`BODY SECTIONS ALREADY WRITTEN - derive Quick Tips, FAQ answers, and Final Thoughts from these exact section answers:\n${input.bodySections.map((s, i) => `[BODY ${i + 1}: ${s.heading}]\n${s.content.slice(0, 1800)}`).join("\n\n")}`);
+    userParts.push(`BODY SECTIONS ALREADY WRITTEN - derive Quick Tips, FAQ answers, and Final Thoughts from these exact section answers:\n${input.bodySections.map((s, i) => `[BODY ${i + 1}: ${s.heading}]\n${s.content.slice(0, 600)}`).join("\n\n")}`);
   }
   userParts.push(
     `=== BATCHED FRAMING GENERATION CONTRACT ===
@@ -390,8 +384,7 @@ Rules:
 3. Do not skip any section.
 4. Do not write anything outside delimiters.`,
   );
-  userParts.push(input.briefs.map((brief, idx) => [
-    `=== FRAMING SECTION ${idx + 1} OF ${input.briefs.length} ===`,
+  userParts.push(input.briefs.map((brief) => [
     `ID: ${brief.id}`,
     `HEADING: ${brief.heading}`,
     `KIND: ${brief.kind}`,

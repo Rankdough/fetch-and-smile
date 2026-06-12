@@ -2419,7 +2419,7 @@ If a section needed no changes, omit it from the fix log.`;
 
 /* ── handler ──────────────────────────────────────────────────────────── */
 
-const BUILD_MARKER = "BUILD-2026-06-12-B20-drop-ctx-from-framing proprietary-generate-article";
+const BUILD_MARKER = "BUILD-2026-06-12-B21-token-reduction proprietary-generate-article";
 Deno.serve(async (req) => {
   console.log(BUILD_MARKER, "USE_BATCHED_PROMPT_DEFAULT=", USE_BATCHED_PROMPT_DEFAULT, "USE_LEGACY_SECTIONS=", USE_LEGACY_SECTIONS);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
