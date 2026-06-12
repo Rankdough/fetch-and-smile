@@ -3,10 +3,10 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
-const AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
-const MODEL = "google/gemini-2.5-pro";
-const BUILD_MARKER = "BUILD-2026-06-12-flow-holistic-v1 run-review-pass";
+const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY")!;
+const MODEL = "gemini-2.5-pro";
+const AI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${GEMINI_API_KEY}`;
+const BUILD_MARKER = "BUILD-2026-06-12-gemini-direct-v1 run-review-pass";
 
 function extractSection(raw: string, tag: string): string {
   const open = `====${tag}====`;
