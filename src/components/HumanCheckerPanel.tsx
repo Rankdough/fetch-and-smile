@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Check, X, ClipboardCheck, Loader2, Wand2, ChevronDown, ChevronUp } from "lucide-react";
+import { toast } from "@/hooks/use-toast";
 
 interface HumanCheckResult {
   readerProfile: string;
@@ -14,19 +15,22 @@ interface HumanCheckResult {
   fixLog: string[];
 }
 
+interface Flag {
+  id: string;
+  step: string;
+  text: string;
+}
+
 interface Props {
   content: string;
   topic: string;
   onContentUpdate?: (content: string) => void;
+  useFirstPerson?: boolean;
 }
 
 // Parse a raw text block from the backend into individual flag strings.
-// Handles newline-separated lines, bullet lists, numbered lists, and
-// paragraph runs where the model returned one long block without newlines.
 function parseFlags(text: string): string[] {
   if (!text?.trim()) return [];
-
-  // Try newline split first; fall back to sentence split for prose blocks
   const raw = text.split("\n").map(l => l.trim()).filter(l => l.length > 4);
   const candidates = raw.length > 1
     ? raw
@@ -44,38 +48,77 @@ function parseFlags(text: string): string[] {
     .filter(l => l.length > 4);
 }
 
-// Split "Title: description text" at first ": " within 70 chars.
-// Falls back to first 6 words as title if no colon found.
 function splitFlag(text: string): { title: string; description: string } {
-  const colonIdx = text.indexOf(": ");
-  if (colonIdx > 0 && colonIdx < 70) {
-    return { title: text.slice(0, colonIdx), description: text.slice(colonIdx + 2) };
+  const cleaned = text.replace(/\*\*/g, "");
+  const colonIdx = cleaned.indexOf(": ");
+  if (colonIdx > 0 && colonIdx < 80) {
+    return { title: cleaned.slice(0, colonIdx), description: cleaned.slice(colonIdx + 2) };
   }
-  const words = text.split(" ");
+  const words = cleaned.split(" ");
   return {
     title: words.slice(0, 6).join(" "),
     description: words.slice(6).join(" "),
   };
 }
 
+function buildFlagInstruction(flag: Flag): string {
+  return `A senior editor flagged the following issue under "${flag.step}". Apply a surgical fix that resolves ONLY this specific issue.
+
+ISSUE:
+${flag.text}
+
+RULES:
+- Preserve every other section character-for-character.
+- Preserve all markdown structure: ## headings, lists, | tables, **bold**, _italic_.
+- Preserve all HTML attributes (id=, itemscope, itemtype, itemprop, class=).
+- Preserve all CTA blocks exactly — do not alter a word inside them.
+- Preserve all source URLs and reference links exactly.
+- Do not add, remove, or reorder H2/H3 headings unless the issue explicitly requires it.
+- British English throughout.
+
+Return the FULL article in markdown, not a diff or summary.`;
+}
+
+function buildBulkInstruction(flags: Flag[]): string {
+  const list = flags
+    .map((f, i) => `${i + 1}. [${f.step}] ${f.text}`)
+    .join("\n\n");
+  return `A senior editor flagged the following issues. Apply surgical fixes that resolve EACH of these issues. Do not rewrite sections that are not flagged.
+
+ISSUES:
+${list}
+
+RULES:
+- Preserve every unflagged section character-for-character.
+- Preserve all markdown structure: ## headings, lists, | tables, **bold**, _italic_.
+- Preserve all HTML attributes (id=, itemscope, itemtype, itemprop, class=).
+- Preserve all CTA blocks exactly.
+- Preserve all source URLs and reference links exactly.
+- British English throughout.
+
+Return the FULL article in markdown, not a diff or summary.`;
+}
+
 interface FlagRowProps {
-  text: string;
-  onFix?: () => void;
-  fixApplied: boolean;
-  fixing: boolean;
+  flag: Flag;
+  onFix: (flag: Flag) => void;
+  fixedIds: Set<string>;
+  fixingId: string | null;
   canFix: boolean;
 }
 
-function FlagRow({ text, onFix, fixApplied, fixing, canFix }: FlagRowProps) {
-  const { title, description } = splitFlag(text);
+function FlagRow({ flag, onFix, fixedIds, fixingId, canFix }: FlagRowProps) {
+  const { title, description } = splitFlag(flag.text);
+  const fixed = fixedIds.has(flag.id);
+  const fixing = fixingId === flag.id;
   return (
     <div className={`flex items-start gap-2 rounded-md border p-2 transition-colors ${
-      fixApplied
+      fixed
         ? "border-emerald-500/40 bg-emerald-500/10"
         : "border-border/60 bg-card/50"
     }`}>
       <div className="mt-0.5">
-        {fixApplied ? (
+        {fixed ? (
           <div className="flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500">
             <Check className="h-3 w-3 text-white" strokeWidth={3} />
           </div>
@@ -84,21 +127,22 @@ function FlagRow({ text, onFix, fixApplied, fixing, canFix }: FlagRowProps) {
         )}
       </div>
       <div className="flex-1 min-w-0">
-        <div className={`text-xs font-medium leading-tight ${fixApplied ? "text-emerald-700 dark:text-emerald-400" : ""}`}>
+        <div className={`text-xs font-medium leading-tight ${fixed ? "text-emerald-700 dark:text-emerald-400" : ""}`}>
           {title}
+          {fixed && <span className="ml-1.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-400">✓ Fixed</span>}
         </div>
         {description && (
-          <div className="text-[11px] text-muted-foreground leading-snug">
+          <div className="text-[11px] text-muted-foreground leading-snug mt-0.5">
             {description}
           </div>
         )}
-        {canFix && !fixApplied && onFix && (
+        {canFix && !fixed && (
           <Button
             size="sm"
             variant="outline"
             className="h-6 mt-1.5 px-2 text-[11px]"
-            disabled={fixing}
-            onClick={onFix}
+            disabled={fixingId !== null}
+            onClick={() => onFix(flag)}
           >
             {fixing ? (
               <><Loader2 className="h-3 w-3 mr-1 animate-spin" />Fixing…</>
@@ -114,18 +158,18 @@ function FlagRow({ text, onFix, fixApplied, fixing, canFix }: FlagRowProps) {
 
 interface StepSectionProps {
   title: string;
-  text: string;
+  flags: Flag[];
+  onFix: (flag: Flag) => void;
+  fixedIds: Set<string>;
+  fixingId: string | null;
   canFix: boolean;
-  onFix: () => void;
-  fixApplied: boolean;
-  fixing: boolean;
   defaultOpen?: boolean;
 }
 
-function StepSection({ title, text, canFix, onFix, fixApplied, fixing, defaultOpen = false }: StepSectionProps) {
+function StepSection({ title, flags, onFix, fixedIds, fixingId, canFix, defaultOpen = false }: StepSectionProps) {
   const [open, setOpen] = useState(defaultOpen);
-  const flags = parseFlags(text);
   if (flags.length === 0) return null;
+  const remaining = flags.filter(f => !fixedIds.has(f.id)).length;
 
   return (
     <div className="border rounded-md">
@@ -138,19 +182,19 @@ function StepSection({ title, text, canFix, onFix, fixApplied, fixing, defaultOp
           {title}
         </span>
         <span className="text-[10px] text-muted-foreground">
-          {flags.length} flag{flags.length !== 1 ? "s" : ""}
+          {remaining}/{flags.length} flag{flags.length !== 1 ? "s" : ""}
         </span>
       </button>
       {open && (
         <div className="px-3 pb-3 space-y-1.5 border-t pt-2">
-          {flags.map((flag, i) => (
+          {flags.map(flag => (
             <FlagRow
-              key={i}
-              text={flag}
-              canFix={canFix}
+              key={flag.id}
+              flag={flag}
               onFix={onFix}
-              fixApplied={fixApplied}
-              fixing={fixing}
+              fixedIds={fixedIds}
+              fixingId={fixingId}
+              canFix={canFix}
             />
           ))}
         </div>
@@ -159,12 +203,13 @@ function StepSection({ title, text, canFix, onFix, fixApplied, fixing, defaultOp
   );
 }
 
-export function HumanCheckerPanel({ content, topic, onContentUpdate }: Props) {
+export function HumanCheckerPanel({ content, topic, onContentUpdate, useFirstPerson = false }: Props) {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<HumanCheckResult | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [applied, setApplied] = useState(false);
-  const [fixing, setFixing] = useState(false);
+  const [fixingId, setFixingId] = useState<string | null>(null);
+  const [fixingAll, setFixingAll] = useState(false);
+  const [fixedIds, setFixedIds] = useState<Set<string>>(new Set());
   const [profileOpen, setProfileOpen] = useState(false);
 
   async function runCheck() {
@@ -172,7 +217,7 @@ export function HumanCheckerPanel({ content, topic, onContentUpdate }: Props) {
     setLoading(true);
     setError(null);
     setResult(null);
-    setApplied(false);
+    setFixedIds(new Set());
     try {
       const { data, error: fnError } = await supabase.functions.invoke("run-review-pass", {
         body: { content, topic },
@@ -187,32 +232,83 @@ export function HumanCheckerPanel({ content, topic, onContentUpdate }: Props) {
     }
   }
 
-  async function applyFix() {
-    if (!result?.correctedContent || !onContentUpdate) return;
-    // Guard: reject if corrected content is less than 70% of original length —
-    // indicates the LLM truncated the article instead of correcting it.
-    if (result.correctedContent.length < content.length * 0.7) {
-      setError(
-        `Fix blocked: corrected content is ${Math.round((result.correctedContent.length / content.length) * 100)}% of original length — the model likely truncated the article. Run Human Check again or apply fixes manually.`
-      );
-      return;
+  const toFlags = (text: string, step: string, prefix: string): Flag[] =>
+    parseFlags(text).map((t, i) => ({ id: `${prefix}-${i}`, step, text: t }));
+
+  const priorityFlags = result ? toFlags(result.priorityActions, "Priority Actions", "p") : [];
+  const step1FlagsArr = result ? toFlags(result.step1Flags, "Step 1 — Reader Flags", "s1") : [];
+  const step2FlagsArr = result ? toFlags(result.step2Analysis, "Step 2 — Quality", "s2") : [];
+  const step3FlagsArr = result ? toFlags(result.step3Flags, "Step 3 — Structural", "s3") : [];
+  const allFlags = [...priorityFlags, ...step1FlagsArr, ...step2FlagsArr, ...step3FlagsArr];
+  const remainingFlags = allFlags.filter(f => !fixedIds.has(f.id));
+
+  async function runEdit(instruction: string): Promise<boolean> {
+    if (!onContentUpdate) {
+      toast({ title: "Cannot apply fix", description: "Content updater unavailable.", variant: "destructive" });
+      return false;
     }
-    setFixing(true);
+    if (!content.trim()) {
+      toast({ title: "No content", description: "Generate an article first.", variant: "destructive" });
+      return false;
+    }
     try {
-      onContentUpdate(result.correctedContent);
-      setApplied(true);
-    } finally {
-      setFixing(false);
+      const { data, error } = await supabase.functions.invoke("voice-edit-content", {
+        body: { content, instruction, useFirstPerson },
+      });
+      if (error) throw new Error(error.message || "Edge function failed");
+      if (data?.error) throw new Error(data.error);
+      if (!data?.content) throw new Error("No content returned");
+      // Guard: block if returned content is <70% of original — model truncated the article.
+      if (data.content.length < content.length * 0.7) {
+        throw new Error(
+          `Fix blocked: result is ${Math.round((data.content.length / content.length) * 100)}% of original length — model may have truncated. Try again.`
+        );
+      }
+      onContentUpdate(data.content);
+      return true;
+    } catch (err) {
+      toast({
+        title: "Fix failed",
+        description: err instanceof Error ? err.message : "Unknown error",
+        variant: "destructive",
+      });
+      return false;
     }
   }
 
-  const canFix = !!result?.correctedContent && !!onContentUpdate && !applied;
+  async function handleFixOne(flag: Flag) {
+    setFixingId(flag.id);
+    try {
+      const ok = await runEdit(buildFlagInstruction(flag));
+      if (ok) {
+        setFixedIds(prev => new Set(prev).add(flag.id));
+        toast({ title: "Fix applied", description: `${flag.step} — resolved.` });
+      }
+    } finally {
+      setFixingId(null);
+    }
+  }
 
-  const totalFlags =
-    parseFlags(result?.priorityActions ?? "").length +
-    parseFlags(result?.step1Flags ?? "").length +
-    parseFlags(result?.step2Analysis ?? "").length +
-    parseFlags(result?.step3Flags ?? "").length;
+  async function handleFixAll() {
+    if (remainingFlags.length === 0) return;
+    setFixingAll(true);
+    try {
+      const ok = await runEdit(buildBulkInstruction(remainingFlags));
+      if (ok) {
+        setFixedIds(prev => {
+          const next = new Set(prev);
+          remainingFlags.forEach(f => next.add(f.id));
+          return next;
+        });
+        toast({ title: "Fix applied", description: `${remainingFlags.length} flag${remainingFlags.length === 1 ? "" : "s"} resolved.` });
+      }
+    } finally {
+      setFixingAll(false);
+    }
+  }
+
+  const canFix = !!onContentUpdate;
+  const busy = fixingId !== null || fixingAll;
 
   return (
     <Card className="border-border">
@@ -225,10 +321,10 @@ export function HumanCheckerPanel({ content, topic, onContentUpdate }: Props) {
           <div className="flex items-center gap-2">
             {result && (
               <span className="text-xs font-medium text-muted-foreground">
-                {totalFlags} flag{totalFlags !== 1 ? "s" : ""}
+                {remainingFlags.length}/{allFlags.length} flag{allFlags.length !== 1 ? "s" : ""}
               </span>
             )}
-            <Button size="sm" onClick={runCheck} disabled={loading || !content?.trim()}>
+            <Button size="sm" onClick={runCheck} disabled={loading || busy || !content?.trim()}>
               {loading
                 ? <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />Analysing…</>
                 : "Run Human Check"
@@ -244,25 +340,25 @@ export function HumanCheckerPanel({ content, topic, onContentUpdate }: Props) {
 
           {result && (
             <>
-              {canFix && (
+              {canFix && remainingFlags.length > 0 && (
                 <Button
                   size="sm"
                   variant="default"
                   className="w-full"
-                  disabled={fixing}
-                  onClick={applyFix}
+                  disabled={busy}
+                  onClick={handleFixAll}
                 >
-                  {fixing
+                  {fixingAll
                     ? <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />Applying…</>
-                    : <><Wand2 className="h-3.5 w-3.5 mr-1.5" />Apply all fixes</>
+                    : <><Wand2 className="h-3.5 w-3.5 mr-1.5" />Fix all {remainingFlags.length} failing flag{remainingFlags.length === 1 ? "" : "s"}</>
                   }
                 </Button>
               )}
 
-              {applied && (
+              {allFlags.length > 0 && remainingFlags.length === 0 && (
                 <div className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400">
                   <Check className="h-3.5 w-3.5" />
-                  Fix applied to article.
+                  All flags resolved.
                 </div>
               )}
 
@@ -285,36 +381,36 @@ export function HumanCheckerPanel({ content, topic, onContentUpdate }: Props) {
 
               <StepSection
                 title="Priority Actions"
-                text={result.priorityActions}
+                flags={priorityFlags}
+                onFix={handleFixOne}
+                fixedIds={fixedIds}
+                fixingId={fixingId}
                 canFix={canFix}
-                onFix={applyFix}
-                fixApplied={applied}
-                fixing={fixing}
                 defaultOpen={true}
               />
               <StepSection
                 title="Step 1 — Reader Flags"
-                text={result.step1Flags}
+                flags={step1FlagsArr}
+                onFix={handleFixOne}
+                fixedIds={fixedIds}
+                fixingId={fixingId}
                 canFix={canFix}
-                onFix={applyFix}
-                fixApplied={applied}
-                fixing={fixing}
               />
               <StepSection
                 title="Step 2 — Quality"
-                text={result.step2Analysis}
+                flags={step2FlagsArr}
+                onFix={handleFixOne}
+                fixedIds={fixedIds}
+                fixingId={fixingId}
                 canFix={canFix}
-                onFix={applyFix}
-                fixApplied={applied}
-                fixing={fixing}
               />
               <StepSection
                 title="Step 3 — Structural"
-                text={result.step3Flags}
+                flags={step3FlagsArr}
+                onFix={handleFixOne}
+                fixedIds={fixedIds}
+                fixingId={fixingId}
                 canFix={canFix}
-                onFix={applyFix}
-                fixApplied={applied}
-                fixing={fixing}
               />
 
               {result.fixLog?.length > 0 && (
@@ -330,7 +426,7 @@ export function HumanCheckerPanel({ content, topic, onContentUpdate }: Props) {
                 </div>
               )}
 
-              {!canFix && !applied && totalFlags === 0 && (
+              {allFlags.length === 0 && (
                 <p className="text-xs text-muted-foreground text-center">
                   No flags found — article may already be optimal.
                 </p>
