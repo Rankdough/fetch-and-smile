@@ -189,6 +189,14 @@ export function HumanCheckerPanel({ content, topic, onContentUpdate }: Props) {
 
   async function applyFix() {
     if (!result?.correctedContent || !onContentUpdate) return;
+    // Guard: reject if corrected content is less than 70% of original length —
+    // indicates the LLM truncated the article instead of correcting it.
+    if (result.correctedContent.length < content.length * 0.7) {
+      setError(
+        `Fix blocked: corrected content is ${Math.round((result.correctedContent.length / content.length) * 100)}% of original length — the model likely truncated the article. Run Human Check again or apply fixes manually.`
+      );
+      return;
+    }
     setFixing(true);
     try {
       onContentUpdate(result.correctedContent);
