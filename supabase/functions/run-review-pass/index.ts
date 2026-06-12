@@ -6,7 +6,7 @@ const corsHeaders = {
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 const AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 const MODEL = "google/gemini-2.5-flash";
-const BUILD_MARKER = "BUILD-2026-06-11-B18-strip-code-fences run-review-pass";
+const BUILD_MARKER = "BUILD-2026-06-12-B19-robust-render run-review-pass";
 
 function extractSection(raw: string, tag: string): string {
   const open = `====${tag}====`;
@@ -108,7 +108,12 @@ CORRECTION RULES — violating any of these voids the correction:
 
 ---
 
-RETURN FORMAT — use these exact delimiter tags in this exact order:
+CRITICAL OUTPUT RULES:
+- Use the exact delimiter tags below — do not alter them
+- Do not wrap any section in markdown code fences (no ``` or ```markdown)
+- Output plain markdown inside each section — no code blocks
+
+RETURN FORMAT — output each section in this exact order:
 
 ====READER PROFILE====
 [3-sentence reader profile]
@@ -121,12 +126,12 @@ RETURN FORMAT — use these exact delimiter tags in this exact order:
 ====END PRIORITY ACTIONS====
 
 ====STEP 1 FLAGS====
-[3-5 patterns. Each formatted as:
+[3-5 patterns. Each formatted exactly as shown — plain text, no markdown bold on labels:
 ISSUE: [4-6 word name]
 ANALYSIS: [2-3 sentences — intent, usefulness, problem-solving, why it fails]
 FIX: [specific action — section name + what to change]
 
-Or write "No issues." if none found.]
+Separate each pattern with a blank line. Write "No issues." if none found.]
 ====END STEP 1 FLAGS====
 
 ====STEP 2 ANALYSIS====
@@ -140,13 +145,13 @@ READER ENGAGEMENT: [first stop sentence, or "None identified."]
 [Bullet list of compliance violations, or "No violations."]
 ====END STEP 3 FLAGS====
 
-====CORRECTED ARTICLE====
-[Complete corrected article in markdown. If no changes needed, write: NO CHANGES]
-====END CORRECTED ARTICLE====
-
 ====FIX LOG====
 [One line per change: [SECTION] what was wrong → what was fixed. Write NONE if no changes.]
-====END FIX LOG====`;
+====END FIX LOG====
+
+====CORRECTED ARTICLE====
+[Complete corrected article in plain markdown — no code fences. If no changes needed, write: NO CHANGES]
+====END CORRECTED ARTICLE====`;
 }
 
 Deno.serve(async (req) => {

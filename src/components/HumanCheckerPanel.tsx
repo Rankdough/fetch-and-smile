@@ -20,12 +20,19 @@ interface Props {
 }
 
 function formatInline(text: string): React.ReactNode[] {
-  const parts = text.split(/(\*\*[^*]+\*\*)/g);
+  // Strip surrounding ** if the whole string is bolded
+  const stripped = text.replace(/^\*\*(.+)\*\*$/, "$1");
+  const parts = stripped.split(/(\*\*[^*]+\*\*)/g);
   return parts.map((part, i) =>
     part.startsWith("**") && part.endsWith("**")
       ? <strong key={i}>{part.slice(2, -2)}</strong>
       : <span key={i}>{part}</span>
   );
+}
+
+// Normalise a line to plain text for label matching (strips ** wrapping)
+function normaliseLine(line: string): string {
+  return line.trim().replace(/^\*\*(.+)\*\*$/, "$1").replace(/\*\*/g, "");
 }
 
 function renderBody(text: string): React.ReactNode {
@@ -40,7 +47,7 @@ function renderBody(text: string): React.ReactNode {
     if (!listItems.length) return;
     const Tag = listType;
     out.push(
-      <Tag key={k++} className={`${Tag === "ul" ? "list-disc" : "list-decimal"} list-inside space-y-1 mb-2 pl-1`}>
+      <Tag key={k++} className={`${Tag === "ul" ? "list-disc" : "list-decimal"} list-inside space-y-1 mb-3 pl-1`}>
         {listItems.map((item, i) => (
           <li key={i} className="text-xs text-foreground leading-relaxed">
             {formatInline(item)}
@@ -55,8 +62,9 @@ function renderBody(text: string): React.ReactNode {
     const trimmed = line.trim();
     if (!trimmed) { flushList(); continue; }
 
-    const bulletMatch = trimmed.match(/^[-*]\s+(.*)/);
-    const numberedMatch = trimmed.match(/^(\d+)\.\s+(.*)/);
+    const plain = normaliseLine(trimmed);
+    const bulletMatch = plain.match(/^[-*]\s+(.*)/);
+    const numberedMatch = plain.match(/^(\d+)\.\s+(.*)/);
 
     if (bulletMatch) {
       if (listType !== "ul" && listItems.length) flushList();
@@ -68,19 +76,24 @@ function renderBody(text: string): React.ReactNode {
       listItems.push(numberedMatch[2]);
     } else {
       flushList();
-      // Bold label lines like "NON-COMMODITY: ..."
-      const labelMatch = trimmed.match(/^([A-Z][A-Z\s]+):\s*(.*)/);
+      // Match labels: ISSUE: / ANALYSIS: / FIX: / NON-COMMODITY: etc.
+      // Works whether Gemini outputs plain or **BOLD:** format
+      const labelMatch = plain.match(/^([A-Z][A-Z\s\-]+):\s*(.*)/);
       if (labelMatch) {
+        const label = labelMatch[1].trim();
+        const rest = labelMatch[2].trim();
+        // ISSUE lines get extra top margin to visually separate patterns
+        const isIssue = label === "ISSUE";
         out.push(
-          <p key={k++} className="text-xs mb-1 leading-relaxed">
-            <strong>{labelMatch[1]}:</strong>{" "}
-            <span className="text-muted-foreground">{formatInline(labelMatch[2])}</span>
+          <p key={k++} className={`text-xs mb-1 leading-relaxed ${isIssue ? "mt-4 first:mt-0" : ""}`}>
+            <strong className={isIssue ? "text-foreground" : "text-foreground/80"}>{label}:</strong>{" "}
+            {rest && <span className="text-muted-foreground">{formatInline(rest)}</span>}
           </p>
         );
       } else {
         out.push(
           <p key={k++} className="text-xs text-muted-foreground mb-1 leading-relaxed">
-            {formatInline(trimmed)}
+            {formatInline(plain)}
           </p>
         );
       }
@@ -126,7 +139,7 @@ function Section({ title, body, defaultOpen = false, onFix, fixApplied, canFix }
         )}
       </div>
       {open && (
-        <div className="px-3 pb-3 border-t pt-2">
+        <div className="px-3 pb-3 border-t pt-3">
           {renderBody(body)}
           {canFix && onFix && (
             <Button
@@ -228,6 +241,11 @@ export function HumanCheckerPanel({ content, topic, onContentUpdate }: Props) {
               title={`Fix Log (${result.fixLog.length})`}
               body={result.fixLog.join("\n")}
             />
+          )}
+          {!canFix && (
+            <p className="text-xs text-muted-foreground mt-2 text-center">
+              No corrections generated — article may already be optimal, or run Human Check again.
+            </p>
           )}
         </div>
       )}
