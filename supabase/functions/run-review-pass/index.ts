@@ -10,10 +10,15 @@ const BUILD_MARKER = "BUILD-2026-06-12-managed-gateway-flash-v1 run-review-pass"
 
 function extractSection(raw: string, tag: string): string {
   const open = `====${tag}====`;
-  const close = `====END ${tag}====`;
   const start = raw.indexOf(open);
   if (start < 0) return "";
-  const end = raw.indexOf(close, start);
+  const closeCandidates = tag === "CORRECTED ARTICLE"
+    ? [`====END ${tag}====`, "====END ARTICLE====", "====SUMMARY===="]
+    : [`====END ${tag}====`];
+  const end = closeCandidates
+    .map((close) => raw.indexOf(close, start + open.length))
+    .filter((idx) => idx >= 0)
+    .sort((a, b) => a - b)[0];
   return raw.slice(start + open.length, end >= 0 ? end : raw.length).trim();
 }
 
