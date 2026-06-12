@@ -3,10 +3,10 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
-const AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
-const MODEL = "google/gemini-2.5-pro";
-const BUILD_MARKER = "BUILD-2026-06-12-revert-to-gateway-v1 run-review-pass";
+const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY")!;
+const MODEL = "gemini-2.5-pro";
+const AI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${GEMINI_API_KEY}`;
+const BUILD_MARKER = "BUILD-2026-06-12-direct-gemini-v1 run-review-pass";
 
 function extractSection(raw: string, tag: string): string {
   const open = `====${tag}====`;
@@ -63,6 +63,10 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
+    if (!GEMINI_API_KEY) {
+      throw new Error("GEMINI_API_KEY is not configured");
+    }
+
     const { content, topic } = await req.json();
     if (!content?.trim() || !topic?.trim()) {
       return new Response(JSON.stringify({ error: "content and topic are required" }), {
@@ -73,21 +77,25 @@ Deno.serve(async (req) => {
 
     const res = await fetch(AI_URL, {
       method: "POST",
-      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: MODEL,
-        max_tokens: 16000,
-        messages: [
-          { role: "system", content: buildPrompt(topic) },
-          { role: "user", content },
-        ],
+        systemInstruction: { parts: [{ text: buildPrompt(topic) }] },
+        contents: [{ role: "user", parts: [{ text: content }] }],
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 16000,
+        },
       }),
     });
 
-    if (!res.ok) throw new Error(`AI gateway ${res.status}: ${(await res.text()).slice(0, 200)}`);
+    if (!res.ok) {
+      const errText = (await res.text()).slice(0, 400);
+      throw new Error(`Gemini API ${res.status}: ${errText}`);
+    }
 
     const json = await res.json();
-    const raw: string = json?.choices?.[0]?.message?.content ?? "";
+    const raw: string =
+      json?.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p?.text ?? "").join("") ?? "";
     console.log("RAW_LEN", raw.length);
 
     let correctedArticle = stripCodeFences(extractSection(raw, "CORRECTED ARTICLE"));
