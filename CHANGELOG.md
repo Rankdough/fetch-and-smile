@@ -1,3 +1,9 @@
+## 2026-06-12 — run-review-pass: revert to Lovable Gateway
+- What: Reverted Gemini direct integration; key user provided was rejected by Google (API_KEY_INVALID).
+- Why: The "AQ.Ab8R..." token from AI Studio is not a valid Generative Language API key.
+- Files: supabase/functions/run-review-pass/index.ts
+- Verify: Boot log shows BUILD-2026-06-12-revert-to-gateway-v1; Review & Fix Flow works again.
+
 ## 2026-06-12 — run-review-pass: direct Gemini API
 - What: Switched run-review-pass from Lovable AI Gateway to direct Google Gemini API (gemini-2.5-pro) using user-provided GEMINI_API_KEY.
 - Why: User has paid Gemini subscription; avoids Lovable credit usage on this function.
