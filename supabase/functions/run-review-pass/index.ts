@@ -4,9 +4,9 @@ const corsHeaders = {
 };
 
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
-const MODEL = "google/gemini-2.5-pro";
+const MODEL = "google/gemini-3-flash-preview";
 const AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
-const BUILD_MARKER = "BUILD-2026-06-12-managed-gateway-v1 run-review-pass";
+const BUILD_MARKER = "BUILD-2026-06-12-managed-gateway-flash-v1 run-review-pass";
 
 function extractSection(raw: string, tag: string): string {
   const open = `====${tag}====`;
