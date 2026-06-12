@@ -432,6 +432,14 @@ important", or any sentence that names the topic without answering it.
 SENTENCES 2-3: Add one or two supporting specifics that complete the answer.
 Each must introduce a new concrete fact not already in sentence 1.
 
+NUMERICAL ANCHORS (mandatory): The opening paragraph MUST contain at least TWO
+numerical elements that directly support the answer to the main question. A
+numerical element is a digit-form number, percentage, monetary amount, year/date,
+or duration (e.g. "4 questions", "40%", "£2,500", "2026", "6 months", "10 years").
+Spelled-out words ("two", "several", "many") do NOT count. Prefer numbers already
+present in the context files, the article title, or the mapped unit; never
+fabricate clinical statistics or invented prices.
+
 Do not add a second paragraph. No bracket placeholders. No brand or clinic names
 unless the exact name was supplied in the prompt.`.trim();
 
