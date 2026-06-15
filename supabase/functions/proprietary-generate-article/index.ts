@@ -783,6 +783,39 @@ function buildFallbackBullets(_heading: string, _body: string): string[] {
 
 
 
+function _trimBulletRunsTo3(text: string): string {
+  const lines = text.split("\n");
+  const out: string[] = [];
+  let run = 0;
+  for (const line of lines) {
+    if (/^\s*-\s+/.test(line)) {
+      run++;
+      if (run > 3) continue;
+    } else {
+      run = 0;
+    }
+    out.push(line);
+  }
+  return out.join("\n");
+}
+
+function _applyBulletLimitToH3Body(body: string): string {
+  // Split on H3 headings and apply 3-bullet run limit per block.
+  const h3Re = /^(###\s+.+)$/gm;
+  const h3Matches = [...body.matchAll(h3Re)];
+  if (h3Matches.length === 0) return _trimBulletRunsTo3(body);
+  const parts: string[] = [];
+  if ((h3Matches[0].index ?? 0) > 0) {
+    parts.push(_trimBulletRunsTo3(body.slice(0, h3Matches[0].index)));
+  }
+  for (let i = 0; i < h3Matches.length; i++) {
+    const blockStart = (h3Matches[i].index ?? 0) + h3Matches[i][0].length;
+    const blockEnd = i + 1 < h3Matches.length ? (h3Matches[i + 1].index ?? body.length) : body.length;
+    parts.push(h3Matches[i][0] + "\n" + _trimBulletRunsTo3(body.slice(blockStart, blockEnd)));
+  }
+  return parts.join("\n").trim();
+}
+
 function enforceThreeBulletsPerBodySection(markdown: string): string {
   const skipPattern = /tl;?dr|quick\s*tips|frequently\s*asked|faq|final\s*thoughts|references|sources/i;
   const headingRegex = /^##\s+.+$/gm;
@@ -796,6 +829,12 @@ function enforceThreeBulletsPerBodySection(markdown: string): string {
     const heading = headingLine.replace(/^##\s+/, "").trim();
     const body = markdown.slice(start + headingLine.length, end).trim();
     if (skipPattern.test(heading)) return `${headingLine}\n${body}`.trim();
+    // C3: if body contains H3 sub-sections, apply bullet limit per H3 block
+    // to avoid destroying sub-section bullet structure (was stripping all bullets).
+    if (/^###\s+/m.test(body)) {
+      return `${headingLine}\n${_applyBulletLimitToH3Body(body)}`.trim();
+    }
+    // No H3s — original behaviour: keep first 3 bullets, remove extras.
     const lines = body.split("\n");
     const bullets = lines.filter((line) => /^\s*-\s+/.test(line)).slice(0, 3);
     for (const fallback of buildFallbackBullets(heading, body)) {
@@ -806,6 +845,28 @@ function enforceThreeBulletsPerBodySection(markdown: string): string {
     return `${headingLine}\n${[withoutExtraBullets, bullets.slice(0, 3).join("\n")].filter(Boolean).join("\n\n")}`.trim();
   });
   return [intro, ...rebuilt].filter(Boolean).join("\n\n").trim();
+}
+
+function enforceMethodologyStatement(markdown: string, contextFileNames: string[]): string {
+  if (/this (?:data|analysis|information|content) (?:was compiled|draws on|is based on|is sourced from)/i.test(markdown)) {
+    return markdown; // already present
+  }
+  const skipH2 = /tl;?dr|quick\s*tips|in this article|frequently|faq|final|references/i;
+  const firstBodyH2 = [...markdown.matchAll(/^##\s+(.+)$/gm)].find(
+    (m) => !skipH2.test(m[1])
+  );
+  if (!firstBodyH2 || firstBodyH2.index === undefined) return markdown;
+  const source = contextFileNames.length > 0
+    ? contextFileNames.join(", ")
+    : "published industry guidelines and manufacturer specifications";
+  const stmt = `This data was compiled from ${source}.`;
+  // Insert after the first paragraph of the first body H2
+  const headingEnd = firstBodyH2.index + firstBodyH2[0].length;
+  const rest = markdown.slice(headingEnd);
+  const paraBreak = rest.indexOf("\n\n");
+  if (paraBreak < 0) return markdown;
+  const insertAt = headingEnd + paraBreak;
+  return markdown.slice(0, insertAt) + "\n\n" + stmt + markdown.slice(insertAt);
 }
 
 function countMarkdownTables(md: string): number {
@@ -2425,7 +2486,7 @@ If a section needed no changes, omit it from the fix log.`;
 
 /* ── handler ──────────────────────────────────────────────────────────── */
 
-const BUILD_MARKER = "BUILD-2026-06-15-C1-context-fact-list proprietary-generate-article";
+const BUILD_MARKER = "BUILD-2026-06-15-C3-post-processors proprietary-generate-article";
 Deno.serve(async (req) => {
   console.log(BUILD_MARKER, "USE_BATCHED_PROMPT_DEFAULT=", USE_BATCHED_PROMPT_DEFAULT, "USE_LEGACY_SECTIONS=", USE_LEGACY_SECTIONS, "USE_REVIEW_PASS=", USE_REVIEW_PASS, "USE_CONTEXT_FACT_LIST=", USE_CONTEXT_FACT_LIST);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -3087,6 +3148,8 @@ Deno.serve(async (req) => {
     const contextFileNames: string[] = (body.contextFiles || [])
       .map((f) => f.name.replace(/\.(docx?|pdf|txt|md)$/i, ""));
     console.log(`REFERENCES: extracted ${sourceReferences.length} URL reference(s) from context files for topic "${body.topic}". Files: ${contextFileNames.join(", ") || "none"}.`);
+    // C3: inject methodology statement if model omitted it (runs after stitch, before references).
+    stitched = enforceMethodologyStatement(stitched, contextFileNames);
 
 
     // Inline citations from brain URLs are suppressed — they leak cross-topic
