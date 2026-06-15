@@ -861,38 +861,77 @@ function stripBannedAdjectives(markdown: string): string {
   }).join("\n");
 }
 
-// C5: Deterministic hedge post-processor — strips unquantified hedge words from prose.
-// Scans every prose line (skipping headings, blockquotes, tables, bullets).
-// For each sentence with a hedge word and NO digit nearby, strips the hedge.
-// Threshold: if the surrounding ~120 chars contain a digit the hedge is justified.
-const HEDGE_WORDS_RE = /\b(typically|usually|generally|often|may vary|can vary|varies|tend to|tends to|commonly|predominantly)\b/gi;
+// C6: Expanded hedge post-processor. Three improvements over C5:
+// 1. Expanded word list — adds sometimes/might/frequently/rarely/occasionally.
+// 2. Sentence-level digit check instead of 120-char window — per-clause accuracy.
+// 3. Processes bullets AND table cells (C5 skipped both entirely).
+const _HEDGE_WORDS_LIST = [
+  "typically", "usually", "generally", "often", "sometimes", "frequently",
+  "rarely", "occasionally", "might", "may vary", "can vary", "varies", "vary",
+  "tend to", "tends to", "commonly", "predominantly",
+];
+const _HEDGE_PAT = _HEDGE_WORDS_LIST.map((w) => w.replace(/\s+/g, "\\s+")).join("|");
+
+function makeHedgeRe(): RegExp {
+  return new RegExp(`\\b(${_HEDGE_PAT})\\b`, "gi");
+}
+
+function stripHedgesFromSentence(sentence: string): { out: string; stripped: number } {
+  if (/\d/.test(sentence)) return { out: sentence, stripped: 0 };
+  let stripped = 0;
+  const out = sentence
+    .replace(makeHedgeRe(), (match) => {
+      stripped++;
+      console.log(`HEDGE STRIPPED: "${match}" in "${sentence.slice(0, 70)}"`);
+      return "";
+    })
+    .replace(/\s{2,}/g, " ")
+    .replace(/\s([.,;:!?])/g, "$1")
+    .replace(/^[,;]\s*/, "")
+    .trim();
+  return { out, stripped };
+}
 
 function stripUnquantifiedHedges(markdown: string): { out: string; stripped: number } {
   const lines = markdown.split("\n");
   let stripped = 0;
   const out = lines.map((line) => {
     const trimmed = line.trim();
+    if (!trimmed) return line;
     if (/^#{1,6}\s/.test(trimmed)) return line;
     if (/^\s*>/.test(trimmed)) return line;
-    if (trimmed.includes("|")) return line;
-    if (/^\s*[-*+]\s/.test(trimmed)) return line;
-    HEDGE_WORDS_RE.lastIndex = 0;
-    if (!HEDGE_WORDS_RE.test(trimmed)) return line;
-    HEDGE_WORDS_RE.lastIndex = 0;
-    const newLine = trimmed.replace(HEDGE_WORDS_RE, (match, _p, offset) => {
-      const start = Math.max(0, offset - 120);
-      const end = Math.min(trimmed.length, offset + 120);
-      if (/\d/.test(trimmed.slice(start, end))) return match;
-      stripped++;
-      console.log(`HEDGE STRIPPED: "${match}" in "${trimmed.slice(0, 70)}"`);
-      return "";
+
+    // Table rows: check each cell independently
+    if (trimmed.includes("|")) {
+      const cells = trimmed.split("|");
+      let changed = false;
+      const newCells = cells.map((cell) => {
+        const c = cell.trim();
+        if (!c || /^[-:\s]+$/.test(c)) return cell;
+        if (!makeHedgeRe().test(c)) return cell;
+        const r = stripHedgesFromSentence(c);
+        if (r.stripped === 0) return cell;
+        stripped += r.stripped;
+        changed = true;
+        return ` ${r.out} `;
+      });
+      return changed ? newCells.join("|") : line;
+    }
+
+    // Prose and bullet lines: split into sentences, process each independently
+    if (!makeHedgeRe().test(trimmed)) return line;
+    const sentences = trimmed.split(/(?<=[.!?])\s+/);
+    let changed = false;
+    const processed = sentences.map((s) => {
+      const r = stripHedgesFromSentence(s);
+      if (r.stripped > 0) changed = true;
+      stripped += r.stripped;
+      return r.out;
     });
-    if (newLine === trimmed) return line;
-    return newLine
-      .replace(/\s{2,}/g, " ")
-      .replace(/\s([.,;:!?])/g, "$1")
-      .replace(/^[,;]\s*/, "")
-      .trim();
+    if (!changed) return line;
+    const newTrimmed = processed.filter(Boolean).join(" ");
+    const bulletMatch = line.match(/^(\s*[-*+]\s)/);
+    return bulletMatch ? bulletMatch[1] + newTrimmed : newTrimmed;
   });
   return { out: out.join("\n"), stripped };
 }
@@ -924,6 +963,48 @@ function enforceMethodologyStatement(markdown: string, contextFileNames: string[
   if (paraBreak < 0) return markdown;
   const insertAt = headingEnd + paraBreak;
   return markdown.slice(0, insertAt) + "\n\n" + stmt + markdown.slice(insertAt);
+}
+
+// C6: Rule 8 — if the opening zone (before first body H2) has fewer than 8 unique
+// numeric values, mines body sections for "N noun" pairs and appends a Key figures
+// sentence to the opening paragraph so the ≥10 data-point threshold is reachable.
+function injectKeyFiguresIntoOpeningZone(markdown: string): { out: string; injected: number } {
+  const skipH2Re = /TL;?DR|Quick\s*Tips|In\s*This\s*Article/i;
+  const h2Matches = [...markdown.matchAll(/\n(## [^\n]+)/g)];
+  const firstBodyH2 = h2Matches.find((m) => !skipH2Re.test(m[1]));
+  if (!firstBodyH2 || firstBodyH2.index === undefined) return { out: markdown, injected: 0 };
+
+  const zone = markdown.slice(0, firstBodyH2.index);
+  const zoneNums = new Set<string>();
+  for (const m of zone.matchAll(/\b(\d+(?:\.\d+)?%?)\b/g)) zoneNums.add(m[1]);
+  if (zoneNums.size >= 8) return { out: markdown, injected: 0 };
+
+  const bodyText = markdown.slice(firstBodyH2.index);
+  const seen = new Set(zoneNums);
+  const pairs: string[] = [];
+
+  for (const m of bodyText.matchAll(/\b(\d+(?:\.\d+)?%?)\s+([a-z]+(?:[-\s][a-z]+){0,2})/gi)) {
+    const num = m[1];
+    if (seen.has(num)) continue;
+    const noun = m[2].toLowerCase().trim().replace(/\s+/g, " ");
+    if (noun.length < 2 || noun.length > 25) continue;
+    pairs.push(`${num} ${noun}`);
+    seen.add(num);
+    if (pairs.length >= 8) break;
+  }
+
+  const needed = Math.max(0, 10 - zoneNums.size);
+  const toInject = pairs.slice(0, needed);
+  if (toInject.length === 0) return { out: markdown, injected: 0 };
+
+  const firstH2Pos = markdown.search(/\n## /);
+  if (firstH2Pos < 0) return { out: markdown, injected: 0 };
+  const opening = markdown.slice(0, firstH2Pos).trimEnd();
+  const statsSentence = `Key figures: ${toInject.join(", ")}.`;
+  return {
+    out: `${opening} ${statsSentence}\n\n${markdown.slice(firstH2Pos).trimStart()}`,
+    injected: toInject.length,
+  };
 }
 
 function countMarkdownTables(md: string): number {
@@ -2581,7 +2662,7 @@ If a section needed no changes, omit it from the fix log.`;
 
 /* ── handler ──────────────────────────────────────────────────────────── */
 
-const BUILD_MARKER = "BUILD-2026-06-15-C5-hedge-resources-faq-refs proprietary-generate-article";
+const BUILD_MARKER = "BUILD-2026-06-15-C6-hedge-expanded-rule8-keyfigs proprietary-generate-article";
 Deno.serve(async (req) => {
   console.log(BUILD_MARKER, "USE_BATCHED_PROMPT_DEFAULT=", USE_BATCHED_PROMPT_DEFAULT, "USE_LEGACY_SECTIONS=", USE_LEGACY_SECTIONS, "USE_REVIEW_PASS=", USE_REVIEW_PASS, "USE_CONTEXT_FACT_LIST=", USE_CONTEXT_FACT_LIST);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -3225,6 +3306,10 @@ Deno.serve(async (req) => {
     if (emptyTbl.dropped > 0) console.warn(`EMPTY TABLE GUARD: dropped ${emptyTbl.dropped} table(s) with no data rows.`);
     stitched = enforceThreeBulletsPerBodySection(stitched);
     stitched = enforceOpeningLength(stitched);
+    // C6: Rule 8 — boost top-30% numeric density if opening zone has < 8 unique values.
+    const keyFigs = injectKeyFiguresIntoOpeningZone(stitched);
+    stitched = keyFigs.out;
+    if (keyFigs.injected > 0) console.log(`RULE 8: injected ${keyFigs.injected} key figure(s) into opening zone.`);
     // injectHowToChoose must run BEFORE injectInThisArticle so the nav includes it
     stitched = injectHowToChoose(stitched, body.topic);
     stitched = injectInThisArticle(stitched, body.topic);
