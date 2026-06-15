@@ -15,6 +15,7 @@ import type {
   MappedUnit,
   SectionKind,
 } from "./proprietaryPromptAssembler.ts";
+import { buildContextFactBlock, getRelevantFactIds } from "./extractFactsFromContextFile.ts";
 
 export interface BatchedSectionBrief {
   id: string;
@@ -39,6 +40,9 @@ export interface BatchedBodyInput {
   contextFiles?: Array<{ name: string; content: string }>;
   sectionBudgetWords: number;
   briefs: BatchedSectionBrief[];
+  /** When true (default), replaces full context-file dump with a compact scored fact list.
+   *  Set USE_CONTEXT_FACT_LIST=false in env to revert to full-file behaviour. */
+  useFactList?: boolean;
 }
 
 export interface BatchedFramingBrief {
@@ -248,13 +252,32 @@ You never output bracket placeholders such as [Client Name], [Practice Name], [Y
   // ── user message ───────────────────────────────────────────────────────
   const userParts: string[] = [];
 
+  // Context files: use compact fact list (default) or full prose dump (fallback via env flag).
+  const useFactList = input.useFactList !== false; // default true
+  let factCatalog: ReturnType<typeof buildContextFactBlock> = { block: "", facts: [] };
   if (input.contextFiles && input.contextFiles.length > 0) {
-    const ctxBlock = input.contextFiles.map((f) => `--- ${f.name} ---\n${f.content}`).join("\n\n");
-    userParts.push(
-      "🚨 PRIMARY SOURCE OF TRUTH - UPLOADED CONTEXT FILES (HIGHEST PRIORITY).\n" +
-        "These files override every other knowledge source for every section below. Pull raw, unvarnished data points directly from them: exact numbers, named timelines, dosages, eligibility criteria, contraindications, study names, percentages, and specific medical/clinical criteria. Quote the files verbatim where a phrase is diagnostic. Do not paraphrase a fact into a softer summary. Do not invent figures absent from these files. If a required fact is missing for a section, write [NEEDS EXPERT INPUT] inline.\n\n" +
-        ctxBlock,
-    );
+    if (useFactList) {
+      factCatalog = buildContextFactBlock(input.contextFiles);
+      if (factCatalog.block) {
+        userParts.push(factCatalog.block);
+      } else {
+        // Extraction returned nothing — fall back to first 3000 chars of each file
+        const ctxBlock = input.contextFiles
+          .map((f) => `--- ${f.name} ---\n${f.content.slice(0, 3000)}`)
+          .join("\n\n");
+        userParts.push(
+          "PRIMARY SOURCE MATERIAL (excerpts — cite facts inline as (Source: [file name])):\n\n" + ctxBlock,
+        );
+      }
+    } else {
+      // Legacy full-file behaviour (USE_CONTEXT_FACT_LIST=false)
+      const ctxBlock = input.contextFiles.map((f) => `--- ${f.name} ---\n${f.content}`).join("\n\n");
+      userParts.push(
+        "🚨 PRIMARY SOURCE OF TRUTH - UPLOADED CONTEXT FILES (HIGHEST PRIORITY).\n" +
+          "These files override every other knowledge source for every section below. Pull raw, unvarnished data points directly from them: exact numbers, named timelines, dosages, eligibility criteria, contraindications, study names, percentages, and specific medical/clinical criteria. Quote the files verbatim where a phrase is diagnostic. Do not paraphrase a fact into a softer summary. Do not invent figures absent from these files. If a required fact is missing for a section, write [NEEDS EXPERT INPUT] inline.\n\n" +
+          ctxBlock,
+      );
+    }
   }
 
   if (input.valuePromiseBlock) {
@@ -290,12 +313,21 @@ Rules for the batched output:
 
   const briefBlocks = input.briefs.map((brief) => {
     const sectionRules = briefSectionRules(brief);
+    // Per-section fact hints — which fact IDs are most relevant to this heading
+    let factHint: string | null = null;
+    if (useFactList && factCatalog.facts.length > 0) {
+      const relevantIds = getRelevantFactIds(factCatalog.facts, brief.heading, 5);
+      if (relevantIds.length > 0) {
+        factHint = `PRIORITY FACTS FOR THIS SECTION: ${relevantIds.join(", ")} — prioritise these when grounding claims. Cite each used fact inline as (Source: [ID]).`;
+      }
+    }
     return [
       `ID: ${brief.id}`,
       `HEADING: ${brief.heading}`,
       `KIND: ${brief.kind}`,
       `BUDGET WORDS: ${brief.budgetWords}`,
       sectionRules || null,
+      factHint,
       describeUnit(brief.mappedUnit),
       describeKnowledge(brief.retrievedKnowledge),
       describeAllowedUrls(brief.allowedSourceUrls),

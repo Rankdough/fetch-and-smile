@@ -50,6 +50,9 @@ const USE_LEGACY_SECTIONS = (Deno.env.get("USE_LEGACY_SECTIONS") || "").toLowerC
 // Set USE_REVIEW_PASS=true to enable the post-generation LLM review pass (~10k tokens).
 // Off by default to reduce generation cost; enable for quality-sensitive articles.
 const USE_REVIEW_PASS = (Deno.env.get("USE_REVIEW_PASS") || "").toLowerCase() === "true";
+// Set USE_CONTEXT_FACT_LIST=false to revert to sending full context-file prose in the body
+// batch prompt. Default true — replaces ~30k tokens of file dumps with ~1k scored fact list.
+const USE_CONTEXT_FACT_LIST = (Deno.env.get("USE_CONTEXT_FACT_LIST") || "").toLowerCase() !== "false";
 const AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 const DEFAULT_MODEL = "google/gemini-2.5-flash";
 const CLINICAL_MODEL = "google/gemini-2.5-flash";
@@ -2422,9 +2425,9 @@ If a section needed no changes, omit it from the fix log.`;
 
 /* ── handler ──────────────────────────────────────────────────────────── */
 
-const BUILD_MARKER = "BUILD-2026-06-12-B29-top30-data-density proprietary-generate-article";
+const BUILD_MARKER = "BUILD-2026-06-15-C1-context-fact-list proprietary-generate-article";
 Deno.serve(async (req) => {
-  console.log(BUILD_MARKER, "USE_BATCHED_PROMPT_DEFAULT=", USE_BATCHED_PROMPT_DEFAULT, "USE_LEGACY_SECTIONS=", USE_LEGACY_SECTIONS, "USE_REVIEW_PASS=", USE_REVIEW_PASS);
+  console.log(BUILD_MARKER, "USE_BATCHED_PROMPT_DEFAULT=", USE_BATCHED_PROMPT_DEFAULT, "USE_LEGACY_SECTIONS=", USE_LEGACY_SECTIONS, "USE_REVIEW_PASS=", USE_REVIEW_PASS, "USE_CONTEXT_FACT_LIST=", USE_CONTEXT_FACT_LIST);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
@@ -2718,6 +2721,7 @@ Deno.serve(async (req) => {
             contextFiles: body.contextFiles,
             sectionBudgetWords,
             briefs,
+            useFactList: USE_CONTEXT_FACT_LIST,
           });
           // Generous combined ceiling: per-section budget × 2.5 × section count,
           // capped well under typical model max-output-tokens.
