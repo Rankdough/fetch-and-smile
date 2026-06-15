@@ -847,9 +847,30 @@ function enforceThreeBulletsPerBodySection(markdown: string): string {
   return [intro, ...rebuilt].filter(Boolean).join("\n\n").trim();
 }
 
+const BANNED_ADJECTIVES_RE = /\b(premium|superior|exceptional|state-of-the-art|cutting-edge|best-in-class|world-class|seamless|robust|innovative|comprehensive|advanced|high-quality)\b/gi;
+
+function stripBannedAdjectives(markdown: string): string {
+  return markdown.split("\n").map((line) => {
+    // Skip headings, blockquotes (CTAs), table rows, bullet openers
+    if (/^#{1,6}\s/.test(line) || /^\s*>/.test(line) || /^\s*\|/.test(line)) return line;
+    const replaced = line.replace(BANNED_ADJECTIVES_RE, "[SPECIFIC DATA NEEDED]");
+    if (replaced !== line) {
+      console.log(`BANNED_ADJECTIVE stripped: "${line.trim().slice(0, 80)}"`);
+    }
+    return replaced;
+  }).join("\n");
+}
+
 function enforceMethodologyStatement(markdown: string, contextFileNames: string[]): string {
-  if (/this (?:data|analysis|information|content) (?:was compiled|draws on|is based on|is sourced from)/i.test(markdown)) {
-    return markdown; // already present
+  const FALLBACK_TEXT = "This analysis draws on published industry guidelines and manufacturer specifications.";
+  const alreadyPresent = /this (?:data|analysis|information|content) (?:was compiled|draws on|is based on|is sourced from)/i.test(markdown);
+  if (alreadyPresent && contextFileNames.length === 0) return markdown;
+  // If the model wrote the generic fallback but we have real file names, replace it.
+  if (alreadyPresent && contextFileNames.length > 0) {
+    if (markdown.includes(FALLBACK_TEXT)) {
+      return markdown.replace(FALLBACK_TEXT, `This data was compiled from ${contextFileNames.join(", ")}.`);
+    }
+    return markdown; // model wrote a proper file-name sentence — keep it
   }
   const skipH2 = /tl;?dr|quick\s*tips|in this article|frequently|faq|final|references/i;
   const firstBodyH2 = [...markdown.matchAll(/^##\s+(.+)$/gm)].find(
@@ -1021,7 +1042,10 @@ function topicNoun(topic: string): string {
   if (/aligner|invisalign|brace|underbite|overbite|orthodontic/.test(t)) return "Treatment";
   if (/dental|dentist|tooth|teeth|oral/.test(t)) return "Treatment";
   if (/medical|clinic|surgery|therapy/.test(t)) return "Treatment";
-  return "Option";
+  // Fall back to first 3-4 meaningful words of the topic instead of generic "Option"
+  const stopWords = new Set(["a","an","the","and","or","of","for","to","in","on","with","by","at","is","are","vs","what","how","why","which","when","where"]);
+  const words = topic.replace(/[?!.]+$/, "").split(/\s+/).filter((w) => w.length > 1 && !stopWords.has(w.toLowerCase()));
+  return words.slice(0, 3).join(" ") || "Option";
 }
 
 function firstSentenceOf(sectionBody: string): string {
@@ -2486,7 +2510,7 @@ If a section needed no changes, omit it from the fix log.`;
 
 /* ── handler ──────────────────────────────────────────────────────────── */
 
-const BUILD_MARKER = "BUILD-2026-06-15-C3-post-processors proprietary-generate-article";
+const BUILD_MARKER = "BUILD-2026-06-15-C4-citation-enforcement proprietary-generate-article";
 Deno.serve(async (req) => {
   console.log(BUILD_MARKER, "USE_BATCHED_PROMPT_DEFAULT=", USE_BATCHED_PROMPT_DEFAULT, "USE_LEGACY_SECTIONS=", USE_LEGACY_SECTIONS, "USE_REVIEW_PASS=", USE_REVIEW_PASS, "USE_CONTEXT_FACT_LIST=", USE_CONTEXT_FACT_LIST);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -3150,7 +3174,8 @@ Deno.serve(async (req) => {
     console.log(`REFERENCES: extracted ${sourceReferences.length} URL reference(s) from context files for topic "${body.topic}". Files: ${contextFileNames.join(", ") || "none"}.`);
     // C3: inject methodology statement if model omitted it (runs after stitch, before references).
     stitched = enforceMethodologyStatement(stitched, contextFileNames);
-
+    // C4: strip banned adjectives from prose paragraphs (not headings, not blockquotes).
+    stitched = stripBannedAdjectives(stitched);
 
     // Inline citations from brain URLs are suppressed — they leak cross-topic
     // URLs and get stripped by stripBodyNumericCitationMarkers anyway.

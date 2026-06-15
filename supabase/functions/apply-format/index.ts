@@ -20,7 +20,7 @@ interface ApplyFormatRequest {
   skipQuickTips?: boolean;
 }
 
-const BUILD_MARKER = "BUILD-2026-06-09-B2-cta-fix apply-format";
+const BUILD_MARKER = "BUILD-2026-06-15-C4-cta-strip apply-format";
 
 serve(async (req) => {
   console.log(BUILD_MARKER);
@@ -332,23 +332,31 @@ ${processedContent}`;
     // Post-process: Ensure FAQ has proper ## heading
     formattedContent = formattedContent.replace(/^###\s*(FAQ|Frequently\s*Asked\s*Questions:?)\s*$/gim, "## $1");
 
-    // Post-process: Enforce exactly 2 CTAs maximum
-    // CTA pattern: blockquote with bold headline AND a markdown link (not Quick Tips which don't have links)
-    // Pattern looks for: > **...** followed by > [...](http...)
-    const ctaBlockPattern = />\s*\*\*[^*]+\*\*[^>]*\n(?:>\s*[^\n]+\n)*>\s*\[[^\]]+\]\(https?:\/\/[^)]+\)[^\n]*(?:\n>\s*[^\n]+)*/g;
-    const ctaMatches = formattedContent.match(ctaBlockPattern) || [];
-    
+    // Post-process: Enforce exactly 2 CTAs maximum.
+    // Split on the CTA open pattern so we can reliably keep only the first 2 blocks.
+    // A CTA block starts with a blockquote line containing bold ALL-CAPS text and
+    // contains a markdown link line. We split, keep first 2 matches, discard the rest.
+    const ctaSplitRe = /((?:^|\n)(>\s*\*\*[^\n*]*[A-Z]{3,}[^\n*]*\*\*[^\n]*\n(?:>\s*[^\n]+\n)*>\s*\[[^\]]+\]\(https?:\/\/[^)]+\)[^\n]*(?:\n>\s*[^\n]*)*))(?=\n|$)/g;
+    const ctaMatches: string[] = [];
+    let m: RegExpExecArray | null;
+    const tmpRe = new RegExp(ctaSplitRe.source, ctaSplitRe.flags);
+    while ((m = tmpRe.exec(formattedContent)) !== null) ctaMatches.push(m[1]);
+
     console.log(`Found ${ctaMatches.length} CTA blocks in content`);
-    
-    // If more than 2 CTAs found, remove the extras (keep first 2)
+
     if (ctaMatches.length > 2) {
       console.log(`Removing ${ctaMatches.length - 2} extra CTAs to keep only 2`);
-      // Remove CTAs starting from the 3rd one
-      for (let i = 2; i < ctaMatches.length; i++) {
-        formattedContent = formattedContent.replace(ctaMatches[i], '');
+      // Replace all CTA blocks, then re-insert only the first 2.
+      let rebuilt = formattedContent;
+      for (const block of ctaMatches) {
+        rebuilt = rebuilt.replace(block, "\x00CTA\x00");
       }
-      // Clean up extra newlines
-      formattedContent = formattedContent.replace(/\n{3,}/g, '\n\n');
+      let kept = 0;
+      rebuilt = rebuilt.replace(/\x00CTA\x00/g, () => {
+        kept++;
+        return kept <= 2 ? ctaMatches[kept - 1] : "";
+      });
+      formattedContent = rebuilt.replace(/\n{3,}/g, "\n\n");
     }
 
     // Bug 11: clean CTA blockquote lines — empty template variables leave a

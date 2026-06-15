@@ -207,17 +207,20 @@ const dedupeFaqItems = (items: FAQItem[]): FAQItem[] => {
   });
 };
 
+const extractH2Headings = (content: string): string[] => {
+  const matches = content.match(/^##\s+(.+)$/gm) || [];
+  const skip = /tl;?dr|quick\s*tips|in this article|faq|frequently|final\s*thoughts|references/i;
+  return matches
+    .map((h) => h.replace(/^##\s+/, "").replace(/[?!.]+$/, "").trim())
+    .filter((h) => !skip.test(h));
+};
+
 const buildFallbackFaqItems = (content: string): FAQItem[] => {
   const topic = getArticleTopic(content);
+  const h2s = extractH2Headings(content);
+  const q4heading = h2s[0] || topic;
+  const q5heading = h2s[1] || topic;
   return [
-    {
-      question: `What is the main point of ${topic}?`,
-      answer: `The main point is to compare the most important evidence, risks, and practical checks before making a decision about ${topic}.`,
-    },
-    {
-      question: `How should someone use this information about ${topic}?`,
-      answer: `Use it as a checklist for assessing options, asking better questions, and checking whether the available evidence supports the next step.`,
-    },
     {
       question: `What should be checked first when reviewing ${topic}?`,
       answer: `Start with the article's core distinctions, then check the supporting references, definitions, and any warning signs mentioned in the body content.`,
@@ -229,6 +232,14 @@ const buildFallbackFaqItems = (content: string): FAQItem[] => {
     {
       question: `When is extra expert advice useful for ${topic}?`,
       answer: `Extra expert advice is useful when the decision has meaningful cost, health, legal, or long-term consequences that require individual assessment.`,
+    },
+    {
+      question: `${q4heading} — what is the single most important factor?`,
+      answer: `The single most important factor is the specific difference the article identifies in the first section — not the marketing label, but the measurable technical distinction.`,
+    },
+    {
+      question: `How does ${q5heading} affect the buying decision?`,
+      answer: `It determines whether the product or service will perform under the actual conditions of use — prioritise the technical specs over brand claims.`,
     },
   ];
 };

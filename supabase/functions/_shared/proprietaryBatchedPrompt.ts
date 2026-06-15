@@ -169,7 +169,8 @@ Do NOT cross-reference other sections. Every sentence stands alone.`;
     `KEYWORD NATURAL-LANGUAGE: Treat the article title as a topic, not a phrase to stuff. The exact title may appear in H1 and at most one H2 - NEVER in body paragraphs, bullets, table cells, or FAQ answers verbatim.`,
     `RULE 7 - MANDATORY TABLE (≥4 rows): Every body section contains exactly one Markdown pipe table with at least 4 data rows. Real decision dimensions only. At least one column numeric. NEVER use placeholder rows like "Option A/B/C" or "Type 1/2/3". HARD MINIMUM: Split rows to reach 4 if needed.`,
     `QUOTE ATTRIBUTION: No quotation marks around any sentence presented as something a clinician/expert said unless (a) the exact quote is supplied verbatim in the mapped unit or context files, AND (b) the named speaker (full name + role + affiliation) is also supplied. Inline attribution: "<Quote>" - <Name>, <Role>, <Affiliation>. No blockquotes. No "an expert noted", "a doctor said", generic proverbs, or training-data quotes.`,
-    `SOURCED FIGURES: Any specific currency amount, percentage tied to a clinical claim, or specific volume/count MUST either (a) appear in the mapped unit or context files AND be cited inline as "(Source: <URL or publication>)" in the same sentence, OR (b) be replaced by "No public data; ask the clinical team for current figures." or [NEEDS EXPERT INPUT]. A removed number is always better than a fabricated one.`,
+    `SOURCED FIGURES: Any specific currency amount, percentage, or volume/count MUST either (a) appear in the mapped unit or context files AND be cited inline as "(Source: F##)" when a VERIFIED FACTS catalog is provided above, or "(Source: <URL or publication>)" otherwise, OR (b) be replaced by [NEEDS EXPERT INPUT]. A removed number is always better than a fabricated one.`,
+    `RULE 20 — FAILURE METRIC (ALL TOPICS — HARD REQUIREMENT): Every article MUST include at least one quantified failure or risk metric. Format: a specific number describing what goes wrong and how often, e.g. "Heat-applied twill begins peeling after 10–20 wash cycles." or "62% of replica jerseys show graphic degradation within 6 months." Place it in the first body H2 or Failure Mode section. This applies to EVERY topic — product, service, sport, healthcare — without exception. An article with zero quantified failure metrics fails validation.`,
     `AI EXTRACTION RULES 9-16 (every section):
 RULE 9 ANSWER PROXIMITY: direct answer to the article's primary question appears in the first 80 words of the article body.
 RULE 10 SELF-CONTAINED SENTENCES: every sentence makes complete sense extracted in isolation. Avoid "This is why...", "That makes it...", "These are the..." openers. BANNED ADJECTIVES — never use without an explicit data point in the same sentence: premium, advanced, superior, exceptional, high-quality, state-of-the-art, cutting-edge, best-in-class, world-class, seamless, robust, innovative, comprehensive. Replace each with the specific fact that makes it true.
@@ -178,8 +179,7 @@ RULE 12 INFORMATION GAIN: every body section contains at least one data point no
 RULE 13 BUYER JOURNEY: write for ONE stage (Discovery, Validation, or Execution). Do not mix.
 RULE 14 OFF-SITE QUOTABILITY: every key claim is a standalone quotable statement. The brand name appears naturally in context at least twice per article.
 RULE 15 GHOST CITATION: brand or business name appears in the first paragraph, in at least one body H2/H3, and in Final Thoughts. As SUBJECT of a sentence, not just possessive.
-RULE 16 MULTI-ENGINE DENSITY: at least four independently citable facts per article, each with a specific number or named source.
-RULE 20 FAILURE METRIC (ALL TOPICS): every article must include at least one quantified failure or risk metric — a specific number describing what goes wrong and how often, e.g. "X% of users report Y within Z wash cycles". Place it in the Failure Mode section or the first body H2 where it fits naturally. This applies to product, service, and healthcare topics without exception.`,
+RULE 16 MULTI-ENGINE DENSITY: at least four independently citable facts per article, each with a specific number or named source.`,
     `RULE 17 - PARAGRAPH LENGTH: No prose paragraph exceeds 3 sentences. Convert extra explanation into a bulleted list immediately below.`,
     atomic,
     `OUTPUT FORMAT for every section: Markdown only. No front-matter, no code fences. Do NOT repeat the H2 heading inside the section body.`,
@@ -261,6 +261,14 @@ You never output bracket placeholders such as [Client Name], [Practice Name], [Y
       factCatalog = buildContextFactBlock(input.contextFiles);
       if (factCatalog.block) {
         userParts.push(factCatalog.block);
+        userParts.push(
+          `CITATION FORMAT — MANDATORY OVERRIDE:\n` +
+          `Facts above are labelled [F01], [F02], etc. Rules:\n` +
+          `1. When you use any fact from the catalog, cite it inline as (Source: F##) immediately after the claim — e.g. "Authentic jerseys use 6–8 stitches per inch. (Source: F01)"\n` +
+          `2. This OVERRIDES the general "(Source: URL)" format for catalog facts.\n` +
+          `3. HARD MINIMUM: every body section MUST contain at least 2 (Source: F##) citations. A section with zero catalog citations fails validation.\n` +
+          `4. You may still cite external URLs for facts NOT in the catalog.`,
+        );
       } else {
         // Extraction returned nothing — fall back to first 3000 chars of each file
         const ctxBlock = input.contextFiles
@@ -358,7 +366,10 @@ NUMERICAL ANCHORS (mandatory): The opening paragraph MUST contain at least TWO n
 NUMERICAL ANCHORS (mandatory): The TL;DR MUST contain at least TWO numerical elements that directly support the answer to the main question. A numerical element is a digit-form number, percentage, monetary amount, year/date, or duration (e.g. "4 questions", "40%", "£2,500", "2026", "6 months"). Spelled-out words ("two", "several", "many") do NOT count. Use numbers already present in the context files, the article title, or the body sections above; never fabricate clinical statistics or invented prices.`;
   }
   if (kind === "quick-tips") {
-    return `QUICK TIPS RULE: Output EXACTLY 3 markdown bullets. Each bullet is one actionable sentence, maximum 18 words, naming a specific check, criterion, or decision.`;
+    return `QUICK TIPS RULE: Output EXACTLY 3 markdown bullets. Each bullet is one actionable sentence, maximum 18 words, naming a specific measurable check, threshold, or decision criterion.
+BANNED: Do NOT echo or paraphrase any section heading. Each tip must name something not present in any heading — a specific number, a test, or a distinguishing criterion.
+GOOD EXAMPLE: "- Verify stitch density reaches at least 6 stitches per inch before accepting delivery."
+BAD EXAMPLE: "- Understand what makes stitching different before committing to a plan." (heading echo — fails)`;
   }
   if (kind === "faq") {
     return `FAQ RULE: Output EXACTLY 5 question-and-answer pairs. Each question line must be bold markdown and end with a question mark. Each answer is 25-40 words — HARD LIMIT. Count the words in each answer before finishing. An answer over 40 words fails. Direct, specific, not generic boilerplate.`;
