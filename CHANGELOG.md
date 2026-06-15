@@ -1,3 +1,58 @@
+## 2026-06-12 - run-review-pass uses managed AI key
+
+**What:** Rewired `supabase/functions/run-review-pass/index.ts` away from `GEMINI_API_KEY` and Google's direct API. It now calls Lovable's managed AI gateway with `LOVABLE_API_KEY`, using `google/gemini-3-flash-preview` to avoid long review-pass timeouts while preserving the `{ correctedArticle, summary }` response contract. Hardened parsing for model output that closes the article with `====END ARTICLE====` instead of `====END CORRECTED ARTICLE====`.
+
+**Why:** Google rejected the configured Gemini key with `API_KEY_INVALID`, blocking Review & Fix Flow. The project already has a managed AI key, so this removes the broken third-party key setup step.
+
+**Files:** `supabase/functions/run-review-pass/index.ts`, `CHANGELOG.md`
+
+**Verify:** Deploy `run-review-pass`, call it with sample content, confirm logs show `BUILD-2026-06-12-managed-gateway-flash-v1 run-review-pass` and `RAW_LEN > 0`, then click Review & Fix Flow on an article.
+
+**Verified broken:** `google/gemini-2.5-pro` via the managed gateway did not return before the direct function test client cancelled. The first flash test returned `====END ARTICLE====` inside `correctedArticle`, so the parser now accepts that closing delimiter and strips it before returning data. UI contract is unchanged.
+
+## 2026-06-12 — run-review-pass switched to direct Gemini API
+**What:** Rewired `supabase/functions/run-review-pass/index.ts` to call Google's `generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent` directly using `GEMINI_API_KEY`, instead of `ai.gateway.lovable.dev` with `LOVABLE_API_KEY`.
+**Why:** User wants the review/fix flow billed against their own Google Cloud account, not Lovable credits. Previous attempt was lost to GitHub auto-sync.
+**Files:** `supabase/functions/run-review-pass/index.ts`
+**Verified broken:** Nothing. Request/response shape inside the function is unchanged (still returns `{ correctedArticle, summary }`). Only the upstream HTTP call and auth changed. Other functions (`proprietary-generate-article`, `apply-format`, etc.) still use Lovable gateway and are untouched.
+**Verify:** Generate an article, click Review & Fix Flow. Edge function logs should show `BUILD-2026-06-12-direct-gemini-v1 run-review-pass` and `RAW_LEN > 0`. A 500 with "Gemini API 4xx" means the key needs attention.
+
+## 2026-06-12 — run-review-pass: revert to Lovable Gateway
+- What: Reverted Gemini direct integration; key user provided was rejected by Google (API_KEY_INVALID).
+- Why: The "AQ.Ab8R..." token from AI Studio is not a valid Generative Language API key.
+- Files: supabase/functions/run-review-pass/index.ts
+- Verify: Boot log shows BUILD-2026-06-12-revert-to-gateway-v1; Review & Fix Flow works again.
+
+## 2026-06-12 — run-review-pass: direct Gemini API
+- What: Switched run-review-pass from Lovable AI Gateway to direct Google Gemini API (gemini-2.5-pro) using user-provided GEMINI_API_KEY.
+- Why: User has paid Gemini subscription; avoids Lovable credit usage on this function.
+- What may break: If GEMINI_API_KEY is missing/invalid, the function will 500. Other functions still use LOVABLE_API_KEY.
+- Files: supabase/functions/run-review-pass/index.ts
+- Verify: Trigger Final Review pass on an article; confirm boot log shows BUILD-2026-06-12-gemini-direct-v1 and output is produced.
+## 2026-06-12 — Numerical anchors required in Opening + TL;DR
+
+**What:** Added a NUMERICAL ANCHORS rule to the Opening paragraph and TL;DR prompts. Both sections must now contain at least TWO numerical elements (digit-form numbers, percentages, monetary amounts, years/dates, or durations) that directly support the answer to the main question. Spelled-out words ("two", "several", "many") do not count. Rule applied in both the batched framing prompt (`proprietaryBatchedPrompt.ts` — opening + tldr kinds) and the legacy per-section assembler (`proprietaryPromptAssembler.ts` — `OPENING_LENGTH_RULE` + tldr ruleBlock) so both code paths enforce it.
+
+**Why:** User wants the first paragraph and TL;DR to anchor the direct answer with concrete numbers so the article reads as quotable and decision-ready, not as generic advice.
+
+**Files:** supabase/functions/_shared/proprietaryBatchedPrompt.ts, supabase/functions/_shared/proprietaryPromptAssembler.ts
+
+**Verify:** Generate a fresh article. Opening paragraph and TL;DR each contain ≥2 digit-form numerical elements (e.g. "4 questions", "40%", "£2,500", "2026", "6 months"). Spelled-out "two" alone no longer satisfies the rule.
+
+**Verified broken:** Nothing verified broken. Checked: rule strings are prompt-only additions in the two prompt builders, no other code reads or asserts on the rule, no schema or output contract changed. Did NOT add a hard-fail lint or post-generation reject — if the model returns an opening with <2 numerical elements there is no automatic re-roll, the section ships as written.
+
+
+
+**What:** Rewrote run-review-pass prompt to read the full article as a human reader in one go and rewrite only flow problems (transitions, template-feel paragraphs, opening/closing, narrative thread). Hard rules preserve facts, H2s, tables, bullets, CTAs, schema, source URLs, ±10% length, paragraph density, British English, no em/en dashes. Switched model to gemini-2.5-pro for a stronger holistic read; bumped max_tokens to 16000. UI unchanged — same diff + Accept/Discard.
+
+**Why:** Per-flag/per-rule approach was wrong. User wanted a single holistic flow improvement pass, not flagged issues.
+
+**Files:** supabase/functions/run-review-pass/index.ts
+
+**Verify:** Click Review & Fix Flow on an article. Boot log shows BUILD-2026-06-12-flow-holistic-v1. Diff highlights only transition/connective changes; H2s, tables, CTAs, source URLs unchanged.
+
+**What may break:** Longer latency (gemini-2.5-pro vs flash). Higher token cost per run. If the model still ignores delimiters the existing fallback parser kicks in.
+
 ## 2026-06-11 - Proprietary v2 batching switched on by default
 
 - **What:** Changed `proprietary-generate-article` so the v2 batched generator is now the default path instead of dormant. `USE_BATCHED_PROMPT=false` remains an instant backend rollback. Added request override support via `flags.useBatchedPrompt`. Added batched framing generation so Opening, TL;DR, Quick Tips, FAQ, and Final Thoughts are produced in one call instead of five separate section calls. Non-clinical body sections still generate in one batched call and healthcare-clinical body sections still use the clinical writer path. Added body-section acceptance guards before and after trimming: malformed batched bodies fall back before the loop, and structurally valid bodies are restored untrimmed if trimming would remove their table or bullets. Bumped `BUILD_MARKER` to `BUILD-2026-06-11-V2P1-default-batched-restore`.
