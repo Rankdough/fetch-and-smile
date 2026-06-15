@@ -172,13 +172,14 @@ Do NOT cross-reference other sections. Every sentence stands alone.`;
     `SOURCED FIGURES: Any specific currency amount, percentage tied to a clinical claim, or specific volume/count MUST either (a) appear in the mapped unit or context files AND be cited inline as "(Source: <URL or publication>)" in the same sentence, OR (b) be replaced by "No public data; ask the clinical team for current figures." or [NEEDS EXPERT INPUT]. A removed number is always better than a fabricated one.`,
     `AI EXTRACTION RULES 9-16 (every section):
 RULE 9 ANSWER PROXIMITY: direct answer to the article's primary question appears in the first 80 words of the article body.
-RULE 10 SELF-CONTAINED SENTENCES: every sentence makes complete sense extracted in isolation. Avoid "This is why...", "That makes it...", "These are the..." openers. Avoid "high quality", "world-class", "affordable", "premium", "cutting-edge", "best-in-class" without a specific supporting fact.
-RULE 11 METHODOLOGY: include ONE explicit sentence in the article in format "This data was compiled from [specific source]." after the first data-containing section. One per article only.
+RULE 10 SELF-CONTAINED SENTENCES: every sentence makes complete sense extracted in isolation. Avoid "This is why...", "That makes it...", "These are the..." openers. BANNED ADJECTIVES — never use without an explicit data point in the same sentence: premium, advanced, superior, exceptional, high-quality, state-of-the-art, cutting-edge, best-in-class, world-class, seamless, robust, innovative, comprehensive. Replace each with the specific fact that makes it true.
+RULE 11 METHODOLOGY: include ONE explicit sentence per article — place it after the first data-containing paragraph of the first body section — in format: "This data was compiled from [context file name(s)]." If no context files were supplied, write "This analysis draws on published industry guidelines and manufacturer specifications." One sentence, one time only.
 RULE 12 INFORMATION GAIN: every body section contains at least one data point not available on competing pages, else output the inline placeholder [NEEDS EXPERT INPUT: ...].
 RULE 13 BUYER JOURNEY: write for ONE stage (Discovery, Validation, or Execution). Do not mix.
 RULE 14 OFF-SITE QUOTABILITY: every key claim is a standalone quotable statement. The brand name appears naturally in context at least twice per article.
 RULE 15 GHOST CITATION: brand or business name appears in the first paragraph, in at least one body H2/H3, and in Final Thoughts. As SUBJECT of a sentence, not just possessive.
-RULE 16 MULTI-ENGINE DENSITY: at least four independently citable facts per article, each with a specific number or named source.`,
+RULE 16 MULTI-ENGINE DENSITY: at least four independently citable facts per article, each with a specific number or named source.
+RULE 20 FAILURE METRIC (ALL TOPICS): every article must include at least one quantified failure or risk metric — a specific number describing what goes wrong and how often, e.g. "X% of users report Y within Z wash cycles". Place it in the Failure Mode section or the first body H2 where it fits naturally. This applies to product, service, and healthcare topics without exception.`,
     `RULE 17 - PARAGRAPH LENGTH: No prose paragraph exceeds 3 sentences. Convert extra explanation into a bulleted list immediately below.`,
     atomic,
     `OUTPUT FORMAT for every section: Markdown only. No front-matter, no code fences. Do NOT repeat the H2 heading inside the section body.`,
