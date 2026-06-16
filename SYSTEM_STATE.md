@@ -1,11 +1,7 @@
 # System State
 
 ## Last Change Made
-- **AI Extraction Rules 9–16 added to proprietary assembler.** Appended `AI_EXTRACTION_RULES` block to `supabase/functions/_shared/proprietaryPromptAssembler.ts` covering Answer Proximity, Self-Contained Sentences, Methodology Disclosure, Information Gain Over Consensus, Buyer Journey Stage Matching, Off-Site Quotability, Ghost Citation Prevention, and Multi-Engine Data Density. Injected into both body and framing branches of `assembleSectionPrompt`. Rules 1–7 byte-identical. `proprietary-generate-section` redeployed.
-- **Fix 1 — Classic generation TDZ resolved.** Moved the entire `ownDomains` setup block (including `isOwnDomainUrl` closure) in `supabase/functions/generate-content/index.ts` to immediately before `extractContextSourceCandidates` is invoked. Classic Mode with context files now returns HTTP 200 with no `ReferenceError`.
-- **Fix 2 — Proprietary fallback bullets removed.** Gutted `buildFallbackBullets` in `supabase/functions/proprietary-generate-article/index.ts` to `return []`, eliminating the boilerplate "Ask which specific … category applies …" template strings from body sections.
-- **CTA contradiction resolved.** Final CTA now reads as an honest, non-promotional consultation prompt aligned with the misnomer thesis.
-- **Duplicate table fix.** `ensureMinimumTables` now hashes table signatures and injects section-aware variants; offset bumped from `inserted * 3` to `inserted * 5`.
+- **Second CTA injected before FAQ (BUG-1 closed).** Added `injectMidArticleCta()` to `supabase/functions/proprietary-generate-article/index.ts`. Inserts a second honest, non-promotional CTA paragraph immediately before `## Frequently Asked Questions` in every generated article. Idempotency guard prevents double-injection. Applies to all business types. `BUILD_MARKER` bumped to `BUILD-2026-06-16-second-cta`.
 
 ## Currently Working and Verified
 - **Rules 1–8** (original proprietary generation rules): No Commodity Answers, Lead With Honest Answer, Distinguish Categories, Failure Modes Mandatory, Specific Numbers Over Ranges, Contradict Consensus, Topic-Derived Table Columns, Topic-Specific Tables Only.
@@ -21,7 +17,11 @@
 - Classic Mode with context files: HTTP 200, no TDZ.
 - Proprietary Mode end-to-end generation.
 - Duplicate-table dedup with section-aware variants.
+- **Second CTA** — injected before FAQ via `injectMidArticleCta()`. Idempotent. All business types.
 
 ## Currently Incomplete or Known Issues
 - **Invisalign research brief in brain still truncated at 1,459 words** — re-upload of the full DOCX required now that the 500k character extractor cap is live. After re-upload, `reembed-document` must be run before regeneration.
-- **Second CTA missing from article layout** — AEO layout requires 2 CTAs per article; proprietary output currently emits only the final CTA. Needs a second CTA block inserted between the last body section and the FAQ, in the same honest non-contradictory tone.
+- **FIX-01: F.U.S.E. abbreviation stash** — `articleContentRepairs.ts` has no abbreviation stash before the sentence splitter. TL;DR may still fragment on F.U.S.E., U.S.A., e.g., i.e.
+- **FIX-02: Emoji handling** — not yet implemented.
+- **FIX-03: TL;DR wrapper** — not yet implemented.
+

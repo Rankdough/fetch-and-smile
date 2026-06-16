@@ -1,3 +1,15 @@
+## 2026-06-16 — Second CTA injected before FAQ (BUG-1)
+
+**What:** Added `injectMidArticleCta()` to `supabase/functions/proprietary-generate-article/index.ts`. The function inserts a second CTA paragraph immediately before `## Frequently Asked Questions` in every generated article. Idempotency guard checks the 400 characters preceding the FAQ heading — if CTA-like language is already present (book / schedule / contact / consultation / next step / properly structured), the injection is skipped. The CTA text is honest, non-promotional, and scoped to "helping the reader apply the above to their specific situation" — matching the tone of the existing Final Thoughts CTA. Applies to all business types. `BUILD_MARKER` bumped to `BUILD-2026-06-16-second-cta`.
+
+**Why:** AEO layout requires 2 CTAs per article. The proprietary generator only emitted the final CTA (inside Final Thoughts for healthcare-clinical type). SYSTEM_STATE.md listed this as an open bug. The second CTA between the last body section and the FAQ is now deterministically injected in the post-processing pipeline at the same stage as `ensureFinalThoughtsCta`.
+
+**Files:** `supabase/functions/proprietary-generate-article/index.ts`, `CHANGELOG.md`, `SYSTEM_STATE.md`
+
+**Verify:** Deploy `proprietary-generate-article`. Confirm boot log shows `BUILD-2026-06-16-second-cta proprietary-generate-article`. Generate one article. Confirm edge function logs show `SECOND CTA: injected before FAQ.` Confirm the rendered article contains a CTA paragraph between the last body H2 and `## Frequently Asked Questions`.
+
+**Verified broken:** Nothing verified broken. Checked: (1) function is pure — operates on the fully-stitched markdown after all post-processing; (2) idempotency guard prevents double-injection on re-runs; (3) `ensureFinalThoughtsCta` and `enforceFinalThoughtsParagraphs` run in correct order around the new call; (4) no change to public API, section plan, or output contract.
+
 ## 2026-06-12 - run-review-pass uses managed AI key
 
 **What:** Rewired `supabase/functions/run-review-pass/index.ts` away from `GEMINI_API_KEY` and Google's direct API. It now calls Lovable's managed AI gateway with `LOVABLE_API_KEY`, using `google/gemini-3-flash-preview` to avoid long review-pass timeouts while preserving the `{ correctedArticle, summary }` response contract. Hardened parsing for model output that closes the article with `====END ARTICLE====` instead of `====END CORRECTED ARTICLE====`.

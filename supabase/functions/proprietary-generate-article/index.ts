@@ -2376,7 +2376,40 @@ function ensureFinalThoughtsCta(markdown: string, businessType: BusinessType = "
 }
 
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Second CTA — AEO layout requires 2 CTAs per article.
+// This one lands between the last body section and the FAQ.
+// The final-thoughts CTA (ensureFinalThoughtsCta) remains the closing CTA.
+// Both use the same honest, non-promotional tone.
+// ─────────────────────────────────────────────────────────────────────────────
+function injectMidArticleCta(markdown: string): string {
+  // Find ## Frequently Asked Questions — the CTA goes immediately before it.
+  const faqRe = /^(##\s+Frequently Asked Questions\b[^\n]*)/im;
+  const faqMatch = markdown.match(faqRe);
+  if (!faqMatch || faqMatch.index === undefined) return markdown;
 
+  // Idempotency: if a CTA-like sentence already sits within 400 chars before
+  // the FAQ heading, skip — the section was already injected or the model
+  // wrote its own transition.
+  const windowBefore = markdown.slice(Math.max(0, faqMatch.index - 400), faqMatch.index);
+  if (/\b(book|schedule|contact|call|consultation|next step|speak to|get in touch|properly structured)\b/i.test(windowBefore)) {
+    console.log("SECOND CTA: skipped — CTA-like text already present before FAQ.");
+    return markdown;
+  }
+
+  const cta =
+    "If the sections above have helped you identify which category applies to your situation, " +
+    "the next step is applying that to your specific case. " +
+    "A properly structured initial consultation should start with your constraints — not a recommendation — " +
+    "and agree a measurable success criterion before any plan is proposed.\n\n";
+
+  console.log("SECOND CTA: injected before FAQ.");
+  return (
+    markdown.slice(0, faqMatch.index).trimEnd() +
+    "\n\n" + cta +
+    markdown.slice(faqMatch.index)
+  );
+}
 
 /* ── per-section generation (inlined from proprietary-generate-section) ─ */
 
@@ -2662,7 +2695,7 @@ If a section needed no changes, omit it from the fix log.`;
 
 /* ── handler ──────────────────────────────────────────────────────────── */
 
-const BUILD_MARKER = "BUILD-2026-06-15-C6-hedge-expanded-rule8-keyfigs proprietary-generate-article";
+const BUILD_MARKER = "BUILD-2026-06-16-second-cta proprietary-generate-article";
 Deno.serve(async (req) => {
   console.log(BUILD_MARKER, "USE_BATCHED_PROMPT_DEFAULT=", USE_BATCHED_PROMPT_DEFAULT, "USE_LEGACY_SECTIONS=", USE_LEGACY_SECTIONS, "USE_REVIEW_PASS=", USE_REVIEW_PASS, "USE_CONTEXT_FACT_LIST=", USE_CONTEXT_FACT_LIST);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -3315,6 +3348,7 @@ Deno.serve(async (req) => {
     stitched = injectInThisArticle(stitched, body.topic);
     stitched = ensureMinimumTables(stitched, body.topic, targetWords);
     stitched = ensureFinalThoughtsCta(stitched, businessType);
+    stitched = injectMidArticleCta(stitched);
     stitched = enforceFinalThoughtsParagraphs(stitched);
     // Inline citations from brain-unit URLs, with trusted dental fallbacks when
     // proprietary files have no URLs.
