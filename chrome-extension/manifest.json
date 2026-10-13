@@ -1,0 +1,12 @@
+{
+  "manifest_version": 3,
+  "name": "Rankdough Ticket Creator",
+  "version": "0.1.0",
+  "description": "Create Rankdough project tickets from the page you are viewing.",
+  "permissions": ["activeTab", "scripting", "storage", "contextMenus"],
+  "host_permissions": ["https://*.supabase.co/*"],
+  "action": { "default_popup": "popup.html", "default_title": "Create ticket" },
+  "options_page": "options.html",
+  "background": { "service_worker": "background.js" },
+  "icons": { "128": "icons/icon128.png" }
+}

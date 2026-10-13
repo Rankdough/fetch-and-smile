@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<style>
+  body { width: 360px; font: 13px system-ui, sans-serif; margin: 12px; }
+  label { display: block; margin-top: 8px; font-weight: 600; }
+  input, select, textarea { width: 100%; box-sizing: border-box; padding: 6px; margin-top: 3px; font: inherit; }
+  textarea { height: 140px; }
+  .row { display: flex; gap: 8px; } .row > div { flex: 1; }
+  button { margin-top: 12px; padding: 8px 12px; width: 100%; cursor: pointer; }
+  #status { margin-top: 8px; min-height: 1.2em; } .err { color: #b00020; } .ok { color: #0a7a2f; }
+</style>
+</head>
+<body>
+  <label>Project <select id="project"></select></label>
+  <label>Title <input id="title"></label>
+  <div class="row">
+    <div><label>Priority <select id="priority">
+      <option value="">None</option><option>low</option><option selected>medium</option><option>high</option><option>urgent</option>
+    </select></label></div>
+    <div><label>Due <input id="due" type="date"></label></div>
+  </div>
+  <label>Description <textarea id="description"></textarea></label>
+  <button id="create">Create ticket</button>
+  <div id="status"></div>
+  <script src="popup.js"></script>
+</body>
+</html>
