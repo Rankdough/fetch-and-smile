@@ -122,3 +122,6 @@ verify_jwt = false
 
 [functions.reembed-document]
 verify_jwt = false
+
+[functions.create-ticket]
+verify_jwt = false

@@ -1,0 +1,12 @@
+<!doctype html>
+<html lang="en-GB"><head><meta charset="utf-8"><style>
+  body { font: 14px system-ui, sans-serif; max-width: 480px; margin: 24px; }
+  label { display: block; margin-top: 12px; font-weight: 600; } input { width: 100%; padding: 6px; box-sizing: border-box; }
+  button { margin-top: 16px; padding: 8px 16px; }
+</style></head><body>
+  <h2>Rankdough Ticket Creator</h2>
+  <label>Edge function URL <input id="endpoint" placeholder="https://lipkcsgbotjzmzuwsdeu.supabase.co/functions/v1/create-ticket"></label>
+  <label>Shared secret <input id="secret" type="password"></label>
+  <button id="save">Save</button> <span id="saved"></span>
+  <script src="options.js"></script>
+</body></html>
