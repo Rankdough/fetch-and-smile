@@ -57,10 +57,8 @@ function fill(values, onlyUntouched = true) {
 }
 
 function updateMeta() {
-  const eff = $("effort").selectedOptions[0]?.text;
   $("meta").textContent = [$("status").selectedOptions[0].text, $("priority").selectedOptions[0].text,
     `Effort ${$("effort").value}`, $("team").value, $("due").value && `Due ${$("due").value}`].filter(Boolean).join(" · ");
-  void eff;
 }
 
 async function call(c, body) {
