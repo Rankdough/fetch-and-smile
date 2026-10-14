@@ -2,28 +2,48 @@
 <html lang="en-GB">
 <head>
 <meta charset="utf-8">
-<style>
-  body { width: 360px; font: 13px system-ui, sans-serif; margin: 12px; }
-  label { display: block; margin-top: 8px; font-weight: 600; }
-  input, select, textarea { width: 100%; box-sizing: border-box; padding: 6px; margin-top: 3px; font: inherit; }
-  textarea { height: 140px; }
-  .row { display: flex; gap: 8px; } .row > div { flex: 1; }
-  button { margin-top: 12px; padding: 8px 12px; width: 100%; cursor: pointer; }
-  #status { margin-top: 8px; min-height: 1.2em; } .err { color: #b00020; } .ok { color: #0a7a2f; }
-</style>
+<link rel="stylesheet" href="popup.css">
 </head>
 <body>
-  <label>Project <select id="project"></select></label>
-  <label>Title <input id="title"></label>
-  <div class="row">
-    <div><label>Priority <select id="priority">
-      <option value="">None</option><option>low</option><option selected>medium</option><option>high</option><option>urgent</option>
-    </select></label></div>
-    <div><label>Due <input id="due" type="date"></label></div>
+  <div class="bar">
+    <select id="status">
+      <option value="not_started">Not Started</option><option value="in_progress">In Progress</option>
+      <option value="on_hold">On Hold</option><option value="completed">Completed</option>
+    </select>
+    <select id="priority">
+      <option value="low">Low</option><option value="medium">Medium</option>
+      <option value="high">High</option><option value="urgent">Urgent</option>
+    </select>
+    <select id="project" title="Project"></select>
+    <span id="ai" class="ai"></span>
   </div>
-  <label>Description <textarea id="description"></textarea></label>
+
+  <input id="title" class="title" placeholder="Title">
+  <div id="meta" class="meta"></div>
+
+  <div class="grid">
+    <label>ID <input id="ticket_id" placeholder="e.g. BSH-F05"></label>
+    <label>Checklist ref <input id="checklist_ref" placeholder="-"></label>
+    <label>Month <input id="month"></label>
+    <label>Due <input id="due" type="date"></label>
+    <label>Effort <select id="effort"><option value="1">Easy</option><option value="2">Medium</option><option value="3">Hard</option></select></label>
+    <label>Team <input id="team" list="teams"></label>
+    <label>Tag <input id="tag" list="tags"></label>
+    <label>Type <input id="type" list="types"></label>
+    <label class="wide">Section <input id="section"></label>
+  </div>
+  <datalist id="teams"><option>Client</option><option>Rankdough</option></datalist>
+  <datalist id="tags"><option>Content</option><option>Technical</option><option>Links</option><option>Analytics</option><option>Design</option><option>Other</option></datalist>
+  <datalist id="types"><option>Fix</option><option>Build</option><option>Research</option><option>Review</option></datalist>
+
+  <h3>What's wrong</h3><textarea id="whats_wrong" rows="2"></textarea>
+  <h3>Why it matters</h3><textarea id="why_it_matters" rows="2"></textarea>
+  <h3>What we'll do</h3><textarea id="what_well_do" rows="3"></textarea>
+  <h3>How to do it, in detail</h3><textarea id="detail" rows="3"></textarea>
+  <h3>Evidence and examples</h3><textarea id="evidence" rows="3"></textarea>
+
   <button id="create">Create ticket</button>
-  <div id="status"></div>
+  <div id="status_msg"></div>
   <script src="popup.js"></script>
 </body>
 </html>
