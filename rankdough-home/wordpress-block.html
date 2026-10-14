@@ -1,0 +1,155 @@
+<!-- wp:html -->
+<div class="rd-home"><style>.rd-home{
+      --background: 222 56% 6%;
+      --foreground: 210 40% 96%;
+      --card: 222 47% 11%;
+      --secondary: 217 33% 14%;
+      --muted-foreground: 215 20% 65%;
+      --primary: 217 91% 60%;
+      --border: 217 33% 17%;
+      --surface-hover: 217 33% 15%;
+      --sidebar: 211 73% 15%;
+      --sidebar-accent: 211 60% 21%;
+      --amber: 38 92% 50%;
+      --rose: 350 89% 60%;
+      --radius: 0.5rem;
+    }.rd-home *{ box-sizing: border-box; margin: 0; padding: 0; }.rd-home{
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: hsl(var(--background));
+      color: hsl(var(--foreground));
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }.rd-home a{ color: inherit; text-decoration: none; }.rd-home .wrap{ max-width: 1120px; margin: 0 auto; padding: 0 20px; }.rd-home .rd-bar{
+      position: sticky; top: 0; z-index: 10;
+      background: hsl(var(--background) / .85);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid hsl(var(--border));
+    }.rd-home .nav{ display: flex; align-items: center; justify-content: space-between; height: 64px; }.rd-home .logo{ font-weight: 800; font-size: 20px; letter-spacing: -.02em; }.rd-home .logo span{ color: hsl(var(--primary)); }.rd-home nav ul{ display: flex; gap: 28px; list-style: none; font-size: 14px; color: hsl(var(--muted-foreground)); }.rd-home nav ul a:hover{ color: hsl(var(--foreground)); }.rd-home .btn{
+      display: inline-block; padding: 11px 20px; border-radius: var(--radius);
+      font-weight: 600; font-size: 14px; border: 1px solid transparent;
+      transition: background .15s, border-color .15s;
+    }.rd-home .btn-primary{ background: hsl(var(--primary)); color: #fff; }.rd-home .btn-primary:hover{ background: hsl(217 91% 55%); }.rd-home .btn-ghost{ border-color: hsl(var(--border)); color: hsl(var(--foreground)); }.rd-home .btn-ghost:hover{ background: hsl(var(--surface-hover)); }.rd-home .hero{
+      padding: 96px 0 80px;
+      background:
+        radial-gradient(900px 400px at 80% -10%, hsl(var(--primary) / .18), transparent 60%),
+        linear-gradient(180deg, hsl(var(--sidebar)) 0%, hsl(var(--background)) 100%);
+    }.rd-home .eyebrow{
+      display: inline-block; font-size: 12px; font-weight: 600; letter-spacing: .08em;
+      text-transform: uppercase; color: hsl(var(--primary));
+      border: 1px solid hsl(var(--primary) / .4); background: hsl(var(--primary) / .1);
+      padding: 5px 12px; border-radius: 999px; margin-bottom: 24px;
+    }.rd-home h1{ font-size: clamp(36px, 6vw, 64px); line-height: 1.05; letter-spacing: -.03em; font-weight: 800; max-width: 14ch; }.rd-home h1 em{ font-style: normal; color: hsl(var(--primary)); }.rd-home .lead{ margin-top: 24px; max-width: 56ch; font-size: 18px; color: hsl(var(--muted-foreground)); }.rd-home .cta{ margin-top: 36px; display: flex; gap: 12px; flex-wrap: wrap; }.rd-home .strip{ border-block: 1px solid hsl(var(--border)); background: hsl(var(--card)); }.rd-home .strip .wrap{ display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; padding-block: 28px; }.rd-home .stat b{ display: block; font-size: 28px; letter-spacing: -.02em; }.rd-home .stat small{ color: hsl(var(--muted-foreground)); font-size: 13px; }.rd-home .stat b.amber{ color: hsl(var(--amber)); }.rd-home .stat b.blue{ color: hsl(var(--primary)); }.rd-home .stat b.rose{ color: hsl(var(--rose)); }.rd-home section{ padding: 88px 0; }.rd-home h2{ font-size: clamp(28px, 4vw, 40px); letter-spacing: -.025em; line-height: 1.15; font-weight: 700; }.rd-home .sub{ margin-top: 12px; color: hsl(var(--muted-foreground)); max-width: 60ch; }.rd-home .grid{ margin-top: 48px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }.rd-home .card{
+      background: hsl(var(--card)); border: 1px solid hsl(var(--border));
+      border-radius: calc(var(--radius) + 4px); padding: 28px;
+      transition: border-color .15s, background .15s;
+    }.rd-home .card:hover{ border-color: hsl(var(--primary) / .6); background: hsl(var(--surface-hover)); }.rd-home .card .tag{ font-size: 12px; font-weight: 600; color: hsl(var(--primary)); letter-spacing: .06em; text-transform: uppercase; }.rd-home .card h3{ margin: 10px 0 8px; font-size: 20px; letter-spacing: -.01em; }.rd-home .card p{ color: hsl(var(--muted-foreground)); font-size: 15px; }.rd-home .process{ background: hsl(var(--sidebar)); }.rd-home .steps{ margin-top: 48px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; list-style: none; counter-reset: s; }.rd-home .steps li{
+      counter-increment: s; padding: 24px; border-radius: calc(var(--radius) + 4px);
+      background: hsl(var(--sidebar-accent) / .5); border: 1px solid hsl(var(--border));
+    }.rd-home .steps li::before{
+      content: counter(s, decimal-leading-zero); display: block; margin-bottom: 12px;
+      font-weight: 800; font-size: 14px; color: hsl(var(--amber));
+    }.rd-home .steps h3{ font-size: 17px; margin-bottom: 6px; }.rd-home .steps p{ font-size: 14px; color: hsl(var(--muted-foreground)); }.rd-home .band{
+      text-align: center; padding: 96px 0;
+      background: radial-gradient(700px 300px at 50% 0%, hsl(var(--primary) / .2), transparent 70%);
+    }.rd-home .band .sub{ margin-inline: auto; }.rd-home .band .cta{ justify-content: center; }.rd-home footer{ border-top: 1px solid hsl(var(--border)); padding: 32px 0; color: hsl(var(--muted-foreground)); font-size: 14px; }.rd-home footer .wrap{ display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }.rd-home .draft-flag{
+      position: fixed; bottom: 16px; right: 16px; z-index: 20;
+      background: hsl(var(--amber)); color: hsl(var(--background));
+      font-size: 12px; font-weight: 700; padding: 6px 12px; border-radius: 999px;
+    }
+
+    @media (max-width: 860px){.rd-home nav ul{ display: none; }.rd-home .grid, .rd-home .steps{ grid-template-columns: 1fr; }.rd-home .strip .wrap{ grid-template-columns: 1fr; }.rd-home .hero{ padding: 64px 0 56px; }.rd-home section{ padding: 64px 0; }
+    }.rd-home{display:block;overflow:hidden}.rd-home .rd-bar{top:0}.rd-home .draft-flag{position:static;display:inline-block;margin:12px 20px}</style>
+  <div class="rd-bar">
+    <div class="wrap nav">
+      <a class="logo" href="https://www.rankdough.com/">Rank<span>dough</span></a>
+      <nav aria-label="Main">
+        <ul>
+          <li><a href="#services">Services</a></li>
+          <li><a href="#process">Process</a></li>
+          <li><a href="#contact">Contact</a></li>
+        </ul>
+      </nav>
+      <a class="btn btn-primary" href="#contact">Free snapshot</a>
+    </div>
+  </div>
+
+  <main>
+    <div class="hero">
+      <div class="wrap">
+        <span class="eyebrow">SEO + AI search</span>
+        <h1>Rank in Google. Get <em>cited</em> by AI.</h1>
+        <p class="lead">Rankdough fixes the technical issues, builds the content and shapes the answers that search engines and AI assistants pick up. Clear scope. Measured results.</p>
+        <div class="cta">
+          <a class="btn btn-primary" href="#contact">Get a free site snapshot</a>
+          <a class="btn btn-ghost" href="#services">See services</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="strip">
+      <div class="wrap">
+        <!-- DRAFT: replace with real, verified figures before launch -->
+        <div class="stat"><b class="blue">[00]</b><small>Placeholder: years in SEO</small></div>
+        <div class="stat"><b class="amber">[00]</b><small>Placeholder: sites audited</small></div>
+        <div class="stat"><b class="rose">[00%]</b><small>Placeholder: average organic uplift</small></div>
+      </div>
+    </div>
+
+    <section id="services">
+      <div class="wrap">
+        <h2>What we do</h2>
+        <p class="sub">Three services. Each one ties to a number you can track.</p>
+        <div class="grid">
+          <article class="card">
+            <span class="tag">Foundation</span>
+            <h3>Technical SEO audit</h3>
+            <p>Crawl, index, speed and structure checked against real data. You get a ranked fix list, not a 90-page PDF.</p>
+          </article>
+          <article class="card">
+            <span class="tag">Growth</span>
+            <h3><a href="/content-that-gets-cited/">Content and SEO strategy</a></h3>
+            <p>Keyword research, topic maps and briefs built around what your buyers search. Every page has a job.</p>
+          </article>
+          <article class="card">
+            <span class="tag">Next</span>
+            <h3><a href="/ai-visibility-programme/">AI search (AEO)</a></h3>
+            <p>Structured data, entity clarity and answer-ready content so ChatGPT, Gemini and Perplexity can cite you.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="process" class="process">
+      <div class="wrap">
+        <h2>How it works</h2>
+        <p class="sub">Four steps. No lock-in.</p>
+        <ol class="steps">
+          <li><h3>Snapshot</h3><p>A free look at your site's biggest gaps.</p></li>
+          <li><h3>Plan</h3><p>Priorities ranked by impact and effort.</p></li>
+          <li><h3>Build</h3><p>Fixes, content and markup shipped.</p></li>
+          <li><h3>Measure</h3><p>Rankings, traffic and AI citations tracked.</p></li>
+        </ol>
+      </div>
+    </section>
+
+    <section id="contact" class="band">
+      <div class="wrap">
+        <h2>See where you stand</h2>
+        <p class="sub">Send your URL. We reply with a short snapshot of your top three issues.</p>
+        <div class="cta">
+          <a class="btn btn-primary" href="mailto:info@rankdough.com?subject=Free%20site%20snapshot">info@rankdough.com</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      <span>&copy; Rankdough</span>
+      <span>SEO and AI search consultancy</span>
+    </div>
+  </footer>
+
+  
+</div>
+<!-- /wp:html -->
