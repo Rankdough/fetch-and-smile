@@ -5,8 +5,8 @@
 //   POST (default)           -> create a ticket; description is composed in the dashboard format
 // Auth: extension sends x-extension-secret, matched against EXTENSION_SHARED_SECRET.
 // Env: EXTENSION_SHARED_SECRET, TICKETS_API_URL, TICKETS_API_TOKEN, LOVABLE_API_KEY (suggest only)
-// ASSUMPTION: the ticket API exposes GET {TICKETS_API_URL}/projects and POST {TICKETS_API_URL}/tasks
-// with the same fields as the Rankdough create_task tool. Adjust the two fetch calls if it differs.
+// Upstream is the Rankdough projects board (easy-collab-spot) MCP endpoint, called with JSON-RPC
+// tools/call: list_projects, create_task, update_task. TICKETS_API_URL is the .../functions/v1/mcp URL.
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
@@ -84,6 +84,21 @@ Effort: 1 easy, 2 medium, 3 hard. Use British English. Short sentences. Only use
   return JSON.parse(match[0]);
 }
 
+// Calls one tool on the projects board MCP endpoint and returns the parsed result.
+async function mcpCall(apiUrl: string, token: string, name: string, args: Record<string, unknown>) {
+  const r = await fetch(apiUrl, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name, arguments: args } }),
+  });
+  if (!r.ok) throw new Error(`Board ${r.status}`);
+  const out = await r.json();
+  if (out.error) throw new Error(out.error.message);
+  const text: string = out.result?.content?.[0]?.text ?? "";
+  if (out.result?.isError) throw new Error(text || "Board error");
+  try { return JSON.parse(text); } catch { return text; }
+}
+
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
@@ -109,16 +124,9 @@ serve(async (req) => {
   const provided = req.headers.get("x-extension-secret") ?? "";
   if (!timingSafeEqual(provided, secret)) return json({ error: "Unauthorised" }, 401);
 
-  const upstreamHeaders = {
-    Authorization: `Bearer ${apiToken}`,
-    "Content-Type": "application/json",
-  };
-
   try {
     if (req.method === "GET") {
-      const r = await fetch(`${apiUrl}/projects`, { headers: upstreamHeaders });
-      if (!r.ok) return json({ error: `Upstream ${r.status}` }, 502);
-      const projects = await r.json();
+      const projects = await mcpCall(apiUrl, apiToken, "list_projects", {});
       return json({ projects });
     }
 
@@ -142,17 +150,18 @@ serve(async (req) => {
         description: composeDescription(b, priority, status, effort),
       };
       if (priority) payload.priority = priority;
-      if (effort) payload.effort = effort;
-      if (clip(b.team, 60)) payload.team = clip(b.team, 60);
       if (/^\d{4}-\d{2}-\d{2}$/.test(b.due_date ?? "")) payload.due_date = b.due_date;
 
-      const r = await fetch(`${apiUrl}/tasks`, {
-        method: "POST",
-        headers: upstreamHeaders,
-        body: JSON.stringify(payload),
-      });
-      if (!r.ok) return json({ error: `Upstream ${r.status}` }, 502);
-      return json({ ok: true, task: await r.json() });
+      const task = await mcpCall(apiUrl, apiToken, "create_task", payload);
+
+      // create_task has no effort or team input, so set them with update_task.
+      const extra: Record<string, unknown> = {};
+      if (effort) extra.effort = effort;
+      if (clip(b.team, 60)) extra.team = clip(b.team, 60);
+      if (Object.keys(extra).length) {
+        await mcpCall(apiUrl, apiToken, "update_task", { task_id: task.id, ...extra });
+      }
+      return json({ ok: true, task });
     }
 
     return json({ error: "Method not allowed" }, 405);
