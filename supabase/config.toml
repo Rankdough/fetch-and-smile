@@ -125,3 +125,9 @@ verify_jwt = false
 
 [functions.create-ticket]
 verify_jwt = false
+
+[functions.sign-send]
+verify_jwt = true
+
+[functions.sign-public]
+verify_jwt = false

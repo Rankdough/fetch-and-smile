@@ -15,6 +15,10 @@ import BrainInsights from "./pages/BrainInsights";
 import BrainAsk from "./pages/BrainAsk";
 import BrainOutputs from "./pages/BrainOutputs";
 import ProprietaryExtract from "./pages/ProprietaryExtract";
+import SignDashboard from "./pages/SignDashboard";
+import SignNew from "./pages/SignNew";
+import SignDocumentPage from "./pages/SignDocument";
+import SignPublic from "./pages/SignPublic";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -38,6 +42,10 @@ const App = () => (
           <Route path="/seo-brain/ask" element={<BrainAsk />} />
           <Route path="/seo-brain/outputs" element={<BrainOutputs />} />
           <Route path="/proprietary/extract" element={<ProprietaryExtract />} />
+          <Route path="/sign" element={<SignDashboard />} />
+          <Route path="/sign/new" element={<SignNew />} />
+          <Route path="/sign/s/:token" element={<SignPublic />} />
+          <Route path="/sign/:id" element={<SignDocumentPage />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

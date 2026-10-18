@@ -11,6 +11,10 @@ export default defineConfig({
     include: ["src/**/*.{test,spec}.{ts,tsx}"],
   },
   resolve: {
-    alias: { "@": path.resolve(__dirname, "./src") },
+    alias: {
+      "@": path.resolve(__dirname, "./src"),
+      // Edge functions import pdf-lib through a Deno npm: specifier. Node resolves the installed package instead.
+      "npm:pdf-lib@1.17.1": "pdf-lib",
+    },
   },
 });
