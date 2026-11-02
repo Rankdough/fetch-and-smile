@@ -10,6 +10,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   ArrowLeft, Search, Sparkles, Copy, Download, Trash2,
   ChevronDown, ChevronRight, Clock, Loader2, Square, ChevronUp,
@@ -101,6 +102,7 @@ const KeywordResearch = () => {
   const seedFileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [isGenerating, setIsGenerating] = useState(false);
+  const [aiModel, setAiModel] = useState<"claude" | "gemini">("claude");
   const [semanticMap, setSemanticMap] = useState<SemanticMap | null>(null);
   const [legacyResults, setLegacyResults] = useState<LegacyResult | null>(null);
   const [currentTopic, setCurrentTopic] = useState("");
@@ -411,6 +413,7 @@ const KeywordResearch = () => {
             audience: audience.trim() || undefined,
             country: country.trim() || undefined,
             websiteTerms: getAllSeeds().length > 0 ? getAllSeeds() : undefined,
+            model: aiModel,
           }),
           signal: controller.signal,
         }
@@ -448,7 +451,7 @@ const KeywordResearch = () => {
       const totalSeeds = map.clusters.reduce((s, c) => s + c.seed_keywords.length, 0);
       toast({
         title: "Semantic map generated!",
-        description: `${map.clusters.length} clusters, ${totalSeeds} seed keywords`,
+        description: `${map.clusters.length} clusters, ${totalSeeds} seed keywords. Produced by ${data.model_used || map.model_used || "unknown model"}${data.fallback ? " (Claude failed, used Gemini fallback)" : ""}`,
       });
       setTimeout(() => resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
     } catch (err: any) {
@@ -486,6 +489,7 @@ const KeywordResearch = () => {
             definition: semanticMap.definition,
             existingClusters: semanticMap.clusters,
             existingModifiers: semanticMap.cross_cutting_modifiers,
+            model: aiModel,
             audience: audience.trim() || undefined,
             country: country.trim() || undefined,
           }),
@@ -497,7 +501,7 @@ const KeywordResearch = () => {
       }
       const data = await response.json();
       setSuggestedDimensions(data.suggestions?.dimensions || []);
-      toast({ title: "Modifier suggestions ready!", description: "Select the ones you want to add" });
+      toast({ title: "Modifier suggestions ready!", description: `Select the ones you want to add. Produced by ${data.model_used || "unknown model"}${data.fallback ? " (Claude failed, used Gemini fallback)" : ""}` });
     } catch (err: any) {
       console.error(err);
       toast({ title: "Failed to suggest modifiers", description: err.message, variant: "destructive" });
@@ -549,6 +553,7 @@ const KeywordResearch = () => {
             existingClusters: semanticMap.clusters,
             newModifiers: selectedMods,
             newSeeds: manualItems,
+            model: aiModel,
             audience: audience.trim() || undefined,
             country: country.trim() || undefined,
           }),
@@ -564,6 +569,7 @@ const KeywordResearch = () => {
 
       // Merge expansion into existing semanticMap
       const updatedMap = { ...semanticMap };
+      if (data.model_used) (updatedMap as any).model_used = data.model_used;
       const clusterMap = new Map(updatedMap.clusters.map(c => [c.cluster_name, { ...c }]));
 
       let totalAdded = 0;
@@ -613,7 +619,7 @@ const KeywordResearch = () => {
       setSelectedSuggestedModifiers(new Set());
       setSuggestedDimensions([]);
 
-      toast({ title: "Keywords expanded!", description: `Added ${totalAdded} new seed keywords` });
+      toast({ title: "Keywords expanded!", description: `Added ${totalAdded} new seed keywords. Produced by ${data.model_used || "unknown model"}${data.fallback ? " (Claude failed, used Gemini fallback)" : ""}` });
 
       // Update saved research
       await supabase
@@ -1126,6 +1132,15 @@ const KeywordResearch = () => {
                     {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
                     {isGenerating ? "Generating..." : "Generate Semantic Map"}
                   </Button>
+                  <Select value={aiModel} onValueChange={(v) => setAiModel(v as "claude" | "gemini")} disabled={isGenerating}>
+                    <SelectTrigger className="w-[170px] h-9 text-sm" aria-label="AI model">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="claude">Claude Sonnet</SelectItem>
+                      <SelectItem value="gemini">Gemini 2.5 Pro</SelectItem>
+                    </SelectContent>
+                  </Select>
                   {isGenerating && (
                     <Button variant="destructive" size="sm" onClick={stopOperation} className="gap-2">
                       <Square className="h-3.5 w-3.5" />
