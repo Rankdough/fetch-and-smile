@@ -133,20 +133,39 @@ const KeywordResearch = () => {
   const [manualRefineInput, setManualRefineInput] = useState("");
   const [isExpanding, setIsExpanding] = useState(false);
 
-  // Array of normalised scanned+URL-extracted terms for substring matching in results
-  const scannedTermsList = useMemo(() => {
+  // Normalised seed sets (lowercased, trimmed) for exact-match lookups in results and exports
+  const normSeed = (s: string) => s.toLowerCase().trim();
+  const scannedTermsSet = useMemo(() => {
     const set = new Set<string>();
-    for (const t of scannedTerms) set.add(t.toLowerCase().trim());
-    for (const t of urlExtractedTerms) set.add(t.toLowerCase().trim());
-    return [...set].filter(t => t.length >= 3); // only meaningful terms
+    for (const t of scannedTerms) set.add(normSeed(t));
+    for (const t of urlExtractedTerms) set.add(normSeed(t));
+    return set;
   }, [scannedTerms, urlExtractedTerms]);
+  const manualSeedsSet = useMemo(() => {
+    return new Set(manualSeeds.split(/[\n,]+/).map(normSeed).filter(s => s.length >= 2));
+  }, [manualSeeds]);
+  const csvSeedsSet = useMemo(() => {
+    return new Set(uploadedSeedFiles.flatMap(f => f.keywords).map(normSeed));
+  }, [uploadedSeedFiles]);
 
   const isFromScan = useMemo(() => {
-    return (kw: string) => {
-      const lower = kw.toLowerCase().trim();
-      return scannedTermsList.some(term => lower.includes(term) || term.includes(lower));
-    };
-  }, [scannedTermsList]);
+    return (kw: string) => scannedTermsSet.has(normSeed(kw));
+  }, [scannedTermsSet]);
+
+  const seedSource = (kw: string): "generated" | "scanned" | "manual" | "csv" => {
+    const k = normSeed(kw);
+    if (manualSeedsSet.has(k)) return "manual";
+    if (scannedTermsSet.has(k)) return "scanned";
+    if (csvSeedsSet.has(k)) return "csv";
+    return "generated";
+  };
+
+  const seedCounts = {
+    manual: manualSeedsSet.size,
+    scanned: scannedTerms.length,
+    urls: urlExtractedTerms.length,
+    csv: uploadedSeedFiles.reduce((s, f) => s + f.keywords.length, 0),
+  };
 
   useEffect(() => {
     loadSavedResearch();
@@ -280,6 +299,48 @@ const KeywordResearch = () => {
     return [...combined];
   };
 
+  // Seeds grouped by source, deduped across sources (manual wins, then scanned, then url, then csv)
+  const MAX_GENERATOR_SEEDS = 400;
+  const getSeedsBySource = () => {
+    const seen = new Set<string>();
+    const take = (list: string[]) => {
+      const out: string[] = [];
+      for (const raw of list) {
+        const s = raw.trim().toLowerCase();
+        if (s.length < 2 || seen.has(s)) continue;
+        seen.add(s);
+        out.push(s);
+      }
+      return out;
+    };
+    const manual = take(manualSeeds.split(/[\n,]+/));
+    const scanned = take(scannedTerms);
+    const url = take(urlExtractedTerms);
+    const csv = take(uploadedSeedFiles.flatMap(f => f.keywords));
+    return { manual, scanned, url, csv };
+  };
+
+  // Round-robin sample across sources (manual, scanned, url, csv) until the cap is reached
+  const capSeeds = (groups: string[][], max: number): string[][] => {
+    const total = groups.reduce((s, g) => s + g.length, 0);
+    if (total <= max) return groups;
+    const out = groups.map(() => [] as string[]);
+    const idx = groups.map(() => 0);
+    let count = 0;
+    while (count < max) {
+      let progressed = false;
+      for (let g = 0; g < groups.length && count < max; g++) {
+        if (idx[g] < groups[g].length) {
+          out[g].push(groups[g][idx[g]++]);
+          count++;
+          progressed = true;
+        }
+      }
+      if (!progressed) break;
+    }
+    return out;
+  };
+
   // Parse Ahrefs CSV and extract keywords
   const handleSeedFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -338,8 +399,11 @@ const KeywordResearch = () => {
     try {
       const results: ScanResult[] = [];
       const allTerms: string[] = [];
+      const summaryLines: string[] = [];
+      let mappedUrls = 0;
 
-      await Promise.all(sitesToScan.map(async (site) => {
+      // allSettled: one failing site must not kill the others
+      const settled = await Promise.allSettled(sitesToScan.map(async (site) => {
         const response = await fetch(
           `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/scan-website-keywords`,
           {
@@ -355,16 +419,29 @@ const KeywordResearch = () => {
           const errData = await response.json().catch(() => ({}));
           throw new Error(errData.error || `Scan failed for ${site.url}: ${response.status}`);
         }
-        const data = await response.json();
-        results.push({
-          url: data.url,
-          terms: data.extracted_terms || [],
-          urlCount: data.total_urls_found,
-          filteredCount: data.filtered_urls_count,
-          blocked: data.likely_blocked || false,
-        });
-        allTerms.push(...(data.extracted_terms || []));
+        return await response.json();
       }));
+
+      settled.forEach((outcome, i) => {
+        const siteUrl = sitesToScan[i].url.trim();
+        if (outcome.status === "fulfilled") {
+          const data = outcome.value;
+          const terms: string[] = data.extracted_terms || [];
+          results.push({
+            url: data.url,
+            terms,
+            urlCount: data.total_urls_found,
+            filteredCount: data.filtered_urls_count,
+            blocked: data.likely_blocked || false,
+          });
+          allTerms.push(...terms);
+          mappedUrls += data.total_urls_found || 0;
+          summaryLines.push(`${siteUrl}: ${data.likely_blocked ? "blocked" : `${terms.length} terms`}`);
+        } else {
+          console.error(outcome.reason);
+          summaryLines.push(`${siteUrl}: failed`);
+        }
+      });
 
       const uniqueTerms = [...new Set(allTerms)];
       setScanResults(results);
@@ -372,16 +449,25 @@ const KeywordResearch = () => {
       setScanBlocked(results.some(r => r.blocked));
 
       const blockedSites = results.filter(r => r.blocked);
-      if (blockedSites.length > 0) {
+      const failedCount = settled.filter(s => s.status === "rejected").length;
+      if (results.length === 0) {
+        toast({ title: "Scan failed", description: summaryLines.join(" · "), variant: "destructive" });
+      } else if (uniqueTerms.length === 0 && mappedUrls > 0) {
         toast({
-          title: "Some sites may be blocking crawlers",
-          description: `${blockedSites.length} site(s) returned very few terms.`,
+          title: "Scan found URLs but no terms",
+          description: `${mappedUrls} URLs mapped, 0 terms extracted. Try a different URL filter. ${summaryLines.join(" · ")}`,
+          variant: "destructive",
+        });
+      } else if (blockedSites.length > 0 || failedCount > 0) {
+        toast({
+          title: "Scan finished with problems",
+          description: summaryLines.join(" · "),
           variant: "destructive",
         });
       } else {
         toast({
           title: "Websites scanned!",
-          description: `Found ${uniqueTerms.length} keyword ideas from ${results.length} site(s)`,
+          description: `${uniqueTerms.length} unique keyword ideas. ${summaryLines.join(" · ")}`,
         });
       }
     } catch (err: any) {
@@ -400,6 +486,18 @@ const KeywordResearch = () => {
     const controller = new AbortController();
     abortControllerRef.current = controller;
 
+    // Build seed payload: three labelled arrays, capped at 400 in total (round robin per source)
+    const bySource = getSeedsBySource();
+    const totalSeedCount = bySource.manual.length + bySource.scanned.length + bySource.url.length + bySource.csv.length;
+    const [cappedManual, cappedScanned, cappedUrl, cappedCsv] = capSeeds(
+      [bySource.manual, bySource.scanned, bySource.url, bySource.csv],
+      MAX_GENERATOR_SEEDS,
+    );
+    const websiteTerms = [...cappedManual, ...cappedScanned, ...cappedUrl, ...cappedCsv];
+    if (totalSeedCount > MAX_GENERATOR_SEEDS) {
+      toast({ title: `Seeds capped at ${MAX_GENERATOR_SEEDS} of ${totalSeedCount}`, description: "Sampled evenly across manual, scanned, URL and CSV seeds." });
+    }
+
     try {
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-keyword-universe`,
@@ -413,7 +511,10 @@ const KeywordResearch = () => {
             topic: topic.trim(),
             audience: audience.trim() || undefined,
             country: country.trim() || undefined,
-            websiteTerms: getAllSeeds().length > 0 ? getAllSeeds() : undefined,
+            websiteTerms: websiteTerms.length > 0 ? websiteTerms : undefined,
+            manualSeeds: cappedManual.length > 0 ? cappedManual : undefined,
+            scannedTerms: cappedScanned.length + cappedUrl.length > 0 ? [...cappedScanned, ...cappedUrl] : undefined,
+            uploadedKeywords: cappedCsv.length > 0 ? cappedCsv : undefined,
             model: aiModel,
           }),
           signal: controller.signal,
@@ -435,18 +536,27 @@ const KeywordResearch = () => {
       setCurrentTopic(topic.trim());
       setOpenClusters(new Set(map.clusters.map(c => c.cluster_name)));
 
-      // Save to database
-      const { data: inserted } = await supabase
-        .from("keyword_research" as any)
-        .insert({
-          topic: topic.trim(),
-          context: [audience.trim(), country.trim()].filter(Boolean).join(" | ") || null,
-          results: map as any,
-          client_tag: universeClientTag.trim() || null,
-        } as any)
-        .select("id")
-        .single();
-      if (inserted) setActiveResearchId((inserted as any).id);
+      // Save to database: update the loaded row when the topic is unchanged, otherwise insert a new one
+      const row = {
+        topic: topic.trim(),
+        context: [audience.trim(), country.trim()].filter(Boolean).join(" | ") || null,
+        results: map as any,
+        client_tag: universeClientTag.trim() || null,
+      };
+      const sameTopic = currentTopic.trim().toLowerCase() === topic.trim().toLowerCase();
+      if (activeResearchId && sameTopic) {
+        await supabase
+          .from("keyword_research" as any)
+          .update(row as any)
+          .eq("id", activeResearchId);
+      } else {
+        const { data: inserted } = await supabase
+          .from("keyword_research" as any)
+          .insert(row as any)
+          .select("id")
+          .single();
+        if (inserted) setActiveResearchId((inserted as any).id);
+      }
       loadSavedResearch();
 
       const totalSeeds = map.clusters.reduce((s, c) => s + c.seed_keywords.length, 0);
@@ -573,12 +683,27 @@ const KeywordResearch = () => {
       if (data.model_used) (updatedMap as any).model_used = data.model_used;
       const clusterMap = new Map(updatedMap.clusters.map(c => [c.cluster_name, { ...c }]));
 
+      // Dedupe new seeds against ALL clusters (case-insensitive), not just the target cluster
+      const globalSeedSet = new Set<string>();
+      for (const c of updatedMap.clusters) {
+        for (const k of c.seed_keywords) globalSeedSet.add(k.toLowerCase().trim());
+      }
+      const takeNewSeeds = (list: string[]): string[] => {
+        const out: string[] = [];
+        for (const k of list || []) {
+          const key = k.toLowerCase().trim();
+          if (!key || globalSeedSet.has(key)) continue;
+          globalSeedSet.add(key);
+          out.push(k);
+        }
+        return out;
+      };
+
       let totalAdded = 0;
       for (const exp of expansion.expansions || []) {
         const existing = clusterMap.get(exp.cluster_name);
         if (existing) {
-          const existingSet = new Set(existing.seed_keywords.map((k: string) => k.toLowerCase()));
-          const newKws = (exp.new_seed_keywords || []).filter((k: string) => !existingSet.has(k.toLowerCase()));
+          const newKws = takeNewSeeds(exp.new_seed_keywords || []);
           existing.seed_keywords = [...existing.seed_keywords, ...newKws];
           totalAdded += newKws.length;
 
@@ -593,14 +718,15 @@ const KeywordResearch = () => {
           clusterMap.set(exp.cluster_name, existing);
         } else {
           // New cluster
+          const newClusterKws = takeNewSeeds(exp.new_seed_keywords || []);
           clusterMap.set(exp.cluster_name, {
             cluster_name: exp.cluster_name,
-            seed_keywords: exp.new_seed_keywords || [],
+            seed_keywords: newClusterKws,
             questions: exp.new_questions || [],
             modifiers: exp.new_modifiers || [],
             example_entities: [],
           });
-          totalAdded += (exp.new_seed_keywords || []).length;
+          totalAdded += newClusterKws.length;
         }
       }
 
@@ -622,11 +748,15 @@ const KeywordResearch = () => {
 
       toast({ title: "Keywords expanded!", description: `Added ${totalAdded} new seed keywords. Produced by ${data.model_used || "unknown model"}${data.fallback ? " (Claude failed, used Gemini fallback)" : ""}` });
 
-      // Update saved research
-      await supabase
+      // Update saved research (by id when known, topic only as a fallback)
+      const updateQuery = supabase
         .from("keyword_research" as any)
-        .update({ results: updatedMap as any })
-        .eq("topic", updatedMap.topic);
+        .update({ results: updatedMap as any });
+      if (activeResearchId) {
+        await updateQuery.eq("id", activeResearchId);
+      } else {
+        await updateQuery.eq("topic", updatedMap.topic);
+      }
     } catch (err: any) {
       console.error(err);
       toast({ title: "Expansion failed", description: err.message, variant: "destructive" });
@@ -651,19 +781,21 @@ const KeywordResearch = () => {
   const copyAllSeeds = () => {
     if (!semanticMap) return;
     const all = semanticMap.clusters.flatMap(c => c.seed_keywords);
-    copyItems(all, "seed keywords");
+    const questions = semanticMap.clusters.flatMap(c => c.questions);
+    navigator.clipboard.writeText([...all, "", ...questions].join("\n"));
+    toast({ title: "Copied!", description: `${all.length} seed keywords and ${questions.length} questions copied` });
   };
 
   const exportCSV = () => {
     if (!semanticMap) return;
-    const rows = [["Cluster", "Type", "Item"]];
+    const rows = [["Cluster", "Type", "Item", "Source"]];
     for (const c of semanticMap.clusters) {
-      c.seed_keywords.forEach(k => rows.push([c.cluster_name, "seed_keyword", k]));
-      (c.example_entities || []).forEach(e => rows.push([c.cluster_name, "entity", e]));
-      c.questions.forEach(q => rows.push([c.cluster_name, "question", q]));
-      c.modifiers.forEach(m => rows.push([c.cluster_name, "modifier", m]));
+      c.seed_keywords.forEach(k => rows.push([c.cluster_name, "seed_keyword", k, seedSource(k)]));
+      (c.example_entities || []).forEach(e => rows.push([c.cluster_name, "entity", e, seedSource(e)]));
+      c.questions.forEach(q => rows.push([c.cluster_name, "question", q, "generated"]));
+      c.modifiers.forEach(m => rows.push([c.cluster_name, "modifier", m, "generated"]));
     }
-    semanticMap.negative_keywords.forEach(k => rows.push(["_negative", "negative", k]));
+    semanticMap.negative_keywords.forEach(k => rows.push(["_negative", "negative", k, "generated"]));
     const csv = rows.map(r => r.map(v => `"${v.replace(/"/g, '""')}"`).join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
@@ -1128,11 +1260,14 @@ const KeywordResearch = () => {
                   </p>
                 </div>
 
-                <div className="flex items-center gap-3">
-                  <Button onClick={generate} disabled={!topic.trim() || isGenerating} className="gap-2">
+                <div className="flex items-center gap-3 flex-wrap">
+                  <Button onClick={generate} disabled={!topic.trim() || isGenerating || isScanning} className="gap-2">
                     {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-                    {isGenerating ? "Generating..." : "Generate Semantic Map"}
+                    {isGenerating ? "Generating..." : isScanning ? "Waiting for scan..." : "Generate Semantic Map"}
                   </Button>
+                  <span className="text-xs text-muted-foreground">
+                    Seeds: manual {seedCounts.manual} · scanned {seedCounts.scanned} · urls {seedCounts.urls} · csv {seedCounts.csv}
+                  </span>
                   <Select value={aiModel} onValueChange={(v) => setAiModel(v as "claude" | "gemini")} disabled={isGenerating}>
                     <SelectTrigger className="w-[170px] h-9 text-sm" aria-label="AI model">
                       <SelectValue />
@@ -1149,6 +1284,11 @@ const KeywordResearch = () => {
                     </Button>
                   )}
                 </div>
+                {scanBlocked && (
+                  <p className="text-xs text-destructive mt-1">
+                    One or more scanned sites looked blocked and returned very few terms. Scanned seeds may be incomplete.
+                  </p>
+                )}
               </CardContent>
             </CollapsibleContent>
           </Card>
