@@ -44,6 +44,7 @@ interface SemanticCluster {
 }
 
 interface SemanticMap {
+  model_used?: string;
   topic: string;
   definition: string;
   clusters: SemanticCluster[];
