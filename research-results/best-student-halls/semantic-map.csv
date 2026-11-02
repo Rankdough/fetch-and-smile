@@ -1,0 +1,401 @@
+Cluster,Type,Item
+PBSA & Private Student Halls Operators,seed_keyword,pbsa
+PBSA & Private Student Halls Operators,seed_keyword,private student halls
+PBSA & Private Student Halls Operators,seed_keyword,purpose built student accommodation
+PBSA & Private Student Halls Operators,seed_keyword,luxury student accommodation
+PBSA & Private Student Halls Operators,seed_keyword,student living apartments
+PBSA & Private Student Halls Operators,seed_keyword,private halls of residence
+PBSA & Private Student Halls Operators,seed_keyword,boutique student living
+PBSA & Private Student Halls Operators,seed_keyword,premium student halls
+PBSA & Private Student Halls Operators,seed_keyword,serviced student accommodation
+PBSA & Private Student Halls Operators,seed_keyword,co living student residences
+PBSA & Private Student Halls Operators,entity,Unite Students
+PBSA & Private Student Halls Operators,entity,iQ Student Accommodation
+PBSA & Private Student Halls Operators,entity,Vita Student
+PBSA & Private Student Halls Operators,entity,Chapter London
+PBSA & Private Student Halls Operators,entity,Student Roost
+PBSA & Private Student Halls Operators,entity,Yugo
+PBSA & Private Student Halls Operators,entity,Scape
+PBSA & Private Student Halls Operators,entity,Urbanest
+PBSA & Private Student Halls Operators,entity,Nido Student
+PBSA & Private Student Halls Operators,entity,Fresh Student Living
+PBSA & Private Student Halls Operators,entity,True Student
+PBSA & Private Student Halls Operators,entity,Student Castle
+PBSA & Private Student Halls Operators,entity,IconInc
+PBSA & Private Student Halls Operators,entity,Code Student Accommodation
+PBSA & Private Student Halls Operators,entity,The Stay Club
+PBSA & Private Student Halls Operators,question,What is purpose built student accommodation
+PBSA & Private Student Halls Operators,question,Which is the best private student halls operator
+PBSA & Private Student Halls Operators,question,What is the difference between university halls and private halls
+PBSA & Private Student Halls Operators,question,Is Vita Student worth the money
+PBSA & Private Student Halls Operators,question,Do private halls check if you are a student
+PBSA & Private Student Halls Operators,question,Are private halls quieter than uni halls
+PBSA & Private Student Halls Operators,modifier,luxury
+PBSA & Private Student Halls Operators,modifier,private
+PBSA & Private Student Halls Operators,modifier,purpose built
+PBSA & Private Student Halls Operators,modifier,all inclusive
+PBSA & Private Student Halls Operators,modifier,boutique
+PBSA & Private Student Halls Operators,modifier,premium
+PBSA & Private Student Halls Operators,modifier,high end
+PBSA & Private Student Halls Operators,modifier,modern
+PBSA & Private Student Halls Operators,modifier,central
+University Halls of Residence & On-Campus Housing,seed_keyword,university halls of residence
+University Halls of Residence & On-Campus Housing,seed_keyword,on campus student accommodation
+University Halls of Residence & On-Campus Housing,seed_keyword,catered student halls
+University Halls of Residence & On-Campus Housing,seed_keyword,self catered halls
+University Halls of Residence & On-Campus Housing,seed_keyword,first year student accommodation
+University Halls of Residence & On-Campus Housing,seed_keyword,freshers accommodation
+University Halls of Residence & On-Campus Housing,seed_keyword,university residential services
+University Halls of Residence & On-Campus Housing,seed_keyword,college dorm rooms
+University Halls of Residence & On-Campus Housing,seed_keyword,campus student housing
+University Halls of Residence & On-Campus Housing,seed_keyword,intercollegiate student halls
+University Halls of Residence & On-Campus Housing,entity,Catered Halls
+University Halls of Residence & On-Campus Housing,entity,Self-Catered Halls
+University Halls of Residence & On-Campus Housing,entity,Intercollegiate Halls
+University Halls of Residence & On-Campus Housing,entity,University College London Halls
+University Halls of Residence & On-Campus Housing,entity,Manchester Student Village
+University Halls of Residence & On-Campus Housing,entity,DMU Halls of Residence
+University Halls of Residence & On-Campus Housing,entity,Trinity Hall Dublin
+University Halls of Residence & On-Campus Housing,question,How to apply for university halls of residence
+University Halls of Residence & On-Campus Housing,question,Are first years guaranteed university accommodation
+University Halls of Residence & On-Campus Housing,question,Is catered or self catered better for freshers
+University Halls of Residence & On-Campus Housing,question,Can you choose your flatmates in university halls
+University Halls of Residence & On-Campus Housing,question,What happens if you do not get into university halls
+University Halls of Residence & On-Campus Housing,question,Can second year students stay in uni halls
+University Halls of Residence & On-Campus Housing,modifier,on campus
+University Halls of Residence & On-Campus Housing,modifier,catered
+University Halls of Residence & On-Campus Housing,modifier,self catered
+University Halls of Residence & On-Campus Housing,modifier,first year
+University Halls of Residence & On-Campus Housing,modifier,university managed
+University Halls of Residence & On-Campus Housing,modifier,traditional
+University Halls of Residence & On-Campus Housing,modifier,fresher friendly
+Room Types & Unit Layouts,seed_keyword,en suite student room
+Room Types & Unit Layouts,seed_keyword,student studio apartment
+Room Types & Unit Layouts,seed_keyword,non ensuite student room
+Room Types & Unit Layouts,seed_keyword,1 bedroom student flats
+Room Types & Unit Layouts,seed_keyword,2 bedroom student flats
+Room Types & Unit Layouts,seed_keyword,shared student flat
+Room Types & Unit Layouts,seed_keyword,cluster flats for students
+Room Types & Unit Layouts,seed_keyword,twin student room
+Room Types & Unit Layouts,seed_keyword,dual occupancy student studio
+Room Types & Unit Layouts,seed_keyword,private student studio
+Room Types & Unit Layouts,seed_keyword,large student room
+Room Types & Unit Layouts,entity,Bronze Studio
+Room Types & Unit Layouts,entity,Silver En-Suite
+Room Types & Unit Layouts,entity,Gold Penthouse Studio
+Room Types & Unit Layouts,entity,Non En-Suite Flat
+Room Types & Unit Layouts,entity,Twin Room
+Room Types & Unit Layouts,entity,Dual Occupancy Studio
+Room Types & Unit Layouts,question,Should I choose a studio or an en suite room
+Room Types & Unit Layouts,question,What is a cluster flat in student halls
+Room Types & Unit Layouts,question,What is the difference between ensuite and non ensuite
+Room Types & Unit Layouts,question,Can two students share a studio apartment
+Room Types & Unit Layouts,question,Are student studios lonely
+Room Types & Unit Layouts,question,How big is an average student room in halls
+Room Types & Unit Layouts,modifier,ensuite
+Room Types & Unit Layouts,modifier,non ensuite
+Room Types & Unit Layouts,modifier,studio
+Room Types & Unit Layouts,modifier,shared bathroom
+Room Types & Unit Layouts,modifier,private bathroom
+Room Types & Unit Layouts,modifier,one bed
+Room Types & Unit Layouts,modifier,two bed
+Room Types & Unit Layouts,modifier,cluster flat
+Room Types & Unit Layouts,modifier,penthouse
+Private Student Houses (HMO) & Flat Shares,seed_keyword,3 bedroom student houses
+Private Student Houses (HMO) & Flat Shares,seed_keyword,4 bedroom student houses
+Private Student Houses (HMO) & Flat Shares,seed_keyword,5 bedroom student houses
+Private Student Houses (HMO) & Flat Shares,seed_keyword,6 bedroom student houses
+Private Student Houses (HMO) & Flat Shares,seed_keyword,8 bedroom student houses
+Private Student Houses (HMO) & Flat Shares,seed_keyword,10 plus bedroom student houses
+Private Student Houses (HMO) & Flat Shares,seed_keyword,student house share
+Private Student Houses (HMO) & Flat Shares,seed_keyword,student hmo properties
+Private Student Houses (HMO) & Flat Shares,seed_keyword,private student renting
+Private Student Houses (HMO) & Flat Shares,seed_keyword,student letting agencies
+Private Student Houses (HMO) & Flat Shares,seed_keyword,second year student housing
+Private Student Houses (HMO) & Flat Shares,seed_keyword,student flatshare
+Private Student Houses (HMO) & Flat Shares,entity,Spareroom
+Private Student Houses (HMO) & Flat Shares,entity,Rightmove Students
+Private Student Houses (HMO) & Flat Shares,entity,Zoopla Students
+Private Student Houses (HMO) & Flat Shares,entity,UniHomes
+Private Student Houses (HMO) & Flat Shares,entity,Student HMO
+Private Student Houses (HMO) & Flat Shares,question,How to find a student house for second year
+Private Student Houses (HMO) & Flat Shares,question,What is an HMO license for student houses
+Private Student Houses (HMO) & Flat Shares,question,When should you start looking for a student house
+Private Student Houses (HMO) & Flat Shares,question,How many people can live in a student house
+Private Student Houses (HMO) & Flat Shares,question,What are red flags when viewing student houses
+Private Student Houses (HMO) & Flat Shares,question,Can students rent a normal private flat
+Private Student Houses (HMO) & Flat Shares,modifier,shared
+Private Student Houses (HMO) & Flat Shares,modifier,whole house
+Private Student Houses (HMO) & Flat Shares,modifier,large group
+Private Student Houses (HMO) & Flat Shares,modifier,second year
+Private Student Houses (HMO) & Flat Shares,modifier,private landlord
+Private Student Houses (HMO) & Flat Shares,modifier,student friendly
+Private Student Houses (HMO) & Flat Shares,modifier,terrace house
+"Booking, Tenancy Agreements & Legal Processes",seed_keyword,student tenancy agreement
+"Booking, Tenancy Agreements & Legal Processes",seed_keyword,student accommodation deposit
+"Booking, Tenancy Agreements & Legal Processes",seed_keyword,51 week tenancy
+"Booking, Tenancy Agreements & Legal Processes",seed_keyword,44 week student tenancy
+"Booking, Tenancy Agreements & Legal Processes",seed_keyword,student accommodation cancellation policy
+"Booking, Tenancy Agreements & Legal Processes",seed_keyword,no deposit student accommodation
+"Booking, Tenancy Agreements & Legal Processes",seed_keyword,student house viewing checklist
+"Booking, Tenancy Agreements & Legal Processes",seed_keyword,student accommodation booking process
+"Booking, Tenancy Agreements & Legal Processes",seed_keyword,student tenant rights
+"Booking, Tenancy Agreements & Legal Processes",seed_keyword,student lease transfer
+"Booking, Tenancy Agreements & Legal Processes",seed_keyword,summer student contracts
+"Booking, Tenancy Agreements & Legal Processes",entity,Assured Shorthold Tenancy (AST)
+"Booking, Tenancy Agreements & Legal Processes",entity,Joint Tenancy Agreement
+"Booking, Tenancy Agreements & Legal Processes",entity,Individual Tenancy Agreement
+"Booking, Tenancy Agreements & Legal Processes",entity,Tenancy Deposit Scheme (TDS)
+"Booking, Tenancy Agreements & Legal Processes",entity,Deposit Protection Service (DPS)
+"Booking, Tenancy Agreements & Legal Processes",entity,Housing Ombudsman
+"Booking, Tenancy Agreements & Legal Processes",question,How long is a student tenancy contract
+"Booking, Tenancy Agreements & Legal Processes",question,Can you cancel student accommodation after signing
+"Booking, Tenancy Agreements & Legal Processes",question,How do I get my student deposit back
+"Booking, Tenancy Agreements & Legal Processes",question,What is joint and several liability in student contracts
+"Booking, Tenancy Agreements & Legal Processes",question,Can you sublet a student room in summer
+"Booking, Tenancy Agreements & Legal Processes",question,Can you change room in student halls after moving in
+"Booking, Tenancy Agreements & Legal Processes",modifier,joint
+"Booking, Tenancy Agreements & Legal Processes",modifier,individual
+"Booking, Tenancy Agreements & Legal Processes",modifier,fixed term
+"Booking, Tenancy Agreements & Legal Processes",modifier,51 week
+"Booking, Tenancy Agreements & Legal Processes",modifier,44 week
+"Booking, Tenancy Agreements & Legal Processes",modifier,short stay
+"Booking, Tenancy Agreements & Legal Processes",modifier,semester let
+"Booking, Tenancy Agreements & Legal Processes",modifier,no deposit
+Guarantors & Student Finance Logistics,seed_keyword,student accommodation guarantor
+Guarantors & Student Finance Logistics,seed_keyword,uk guarantor for international students
+Guarantors & Student Finance Logistics,seed_keyword,rent guarantor service students
+Guarantors & Student Finance Logistics,seed_keyword,paying rent with student finance
+Guarantors & Student Finance Logistics,seed_keyword,student rent instalment plans
+Guarantors & Student Finance Logistics,seed_keyword,student housing without guarantor
+Guarantors & Student Finance Logistics,seed_keyword,student accommodation deposit payment
+Guarantors & Student Finance Logistics,seed_keyword,advance rent student accommodation
+Guarantors & Student Finance Logistics,seed_keyword,student finance rent coverage
+Guarantors & Student Finance Logistics,entity,Housing Hand
+Guarantors & Student Finance Logistics,entity,YourGuarantor
+Guarantors & Student Finance Logistics,entity,Student Finance England
+Guarantors & Student Finance Logistics,entity,RentGuarantor
+Guarantors & Student Finance Logistics,entity,Student Finance Wales
+Guarantors & Student Finance Logistics,entity,SAAS
+Guarantors & Student Finance Logistics,question,Do you need a guarantor for student accommodation
+Guarantors & Student Finance Logistics,question,How do international students get a UK guarantor
+Guarantors & Student Finance Logistics,question,Can you pay student rent termly with student finance
+Guarantors & Student Finance Logistics,question,What happens if your student loan is late for rent
+Guarantors & Student Finance Logistics,question,Can parents act as joint guarantors for student halls
+Guarantors & Student Finance Logistics,question,Can you get student accommodation without a guarantor
+Guarantors & Student Finance Logistics,modifier,uk based
+Guarantors & Student Finance Logistics,modifier,international
+Guarantors & Student Finance Logistics,modifier,institutional
+Guarantors & Student Finance Logistics,modifier,private
+Guarantors & Student Finance Logistics,modifier,instalment
+Guarantors & Student Finance Logistics,modifier,termly
+"Bills, Utilities & Broadband Management",seed_keyword,bills included student accommodation
+"Bills, Utilities & Broadband Management",seed_keyword,all inclusive student housing
+"Bills, Utilities & Broadband Management",seed_keyword,student bills packages
+"Bills, Utilities & Broadband Management",seed_keyword,student wifi and broadband
+"Bills, Utilities & Broadband Management",seed_keyword,council tax exemption students
+"Bills, Utilities & Broadband Management",seed_keyword,student tv licence rules
+"Bills, Utilities & Broadband Management",seed_keyword,fair usage energy student halls
+"Bills, Utilities & Broadband Management",seed_keyword,student electricity and gas bills
+"Bills, Utilities & Broadband Management",seed_keyword,split bills student house
+"Bills, Utilities & Broadband Management",seed_keyword,utility bills management students
+"Bills, Utilities & Broadband Management",entity,UniHomes
+"Bills, Utilities & Broadband Management",entity,Split The Bills
+"Bills, Utilities & Broadband Management",entity,Fused Bills
+"Bills, Utilities & Broadband Management",entity,TV Licensing UK
+"Bills, Utilities & Broadband Management",entity,Octopus Energy
+"Bills, Utilities & Broadband Management",entity,Hyperoptic
+"Bills, Utilities & Broadband Management",question,Are bills included in private student halls
+"Bills, Utilities & Broadband Management",question,What bills do students have to pay in a house
+"Bills, Utilities & Broadband Management",question,Do students have to pay council tax
+"Bills, Utilities & Broadband Management",question,Do students need a TV licence in halls
+"Bills, Utilities & Broadband Management",question,How to set up energy bills in a student house
+"Bills, Utilities & Broadband Management",question,What does fair usage policy mean in student bills
+"Bills, Utilities & Broadband Management",modifier,bills included
+"Bills, Utilities & Broadband Management",modifier,all inclusive
+"Bills, Utilities & Broadband Management",modifier,capped
+"Bills, Utilities & Broadband Management",modifier,uncapped
+"Bills, Utilities & Broadband Management",modifier,high speed
+"Bills, Utilities & Broadband Management",modifier,shared utility
+UK Regional Student Housing Markets,seed_keyword,student accommodation london
+UK Regional Student Housing Markets,seed_keyword,student accommodation manchester
+UK Regional Student Housing Markets,seed_keyword,student accommodation birmingham
+UK Regional Student Housing Markets,seed_keyword,student accommodation leeds
+UK Regional Student Housing Markets,seed_keyword,student accommodation liverpool
+UK Regional Student Housing Markets,seed_keyword,student accommodation sheffield
+UK Regional Student Housing Markets,seed_keyword,student accommodation glasgow
+UK Regional Student Housing Markets,seed_keyword,student accommodation edinburgh
+UK Regional Student Housing Markets,seed_keyword,student accommodation bristol
+UK Regional Student Housing Markets,seed_keyword,student accommodation newcastle
+UK Regional Student Housing Markets,seed_keyword,student accommodation nottingham
+UK Regional Student Housing Markets,seed_keyword,student accommodation cardiff
+UK Regional Student Housing Markets,seed_keyword,student accommodation coventry
+UK Regional Student Housing Markets,seed_keyword,student accommodation leicester
+UK Regional Student Housing Markets,entity,Fallowfield Manchester
+UK Regional Student Housing Markets,entity,Jesmond Newcastle
+UK Regional Student Housing Markets,entity,Headingley Leeds
+UK Regional Student Housing Markets,entity,Cathays Cardiff
+UK Regional Student Housing Markets,entity,Selly Oak Birmingham
+UK Regional Student Housing Markets,entity,Hyde Park Leeds
+UK Regional Student Housing Markets,entity,Ecclesall Road Sheffield
+UK Regional Student Housing Markets,entity,Clifton Bristol
+UK Regional Student Housing Markets,entity,Lenton Nottingham
+UK Regional Student Housing Markets,question,Where do students live in Manchester
+UK Regional Student Housing Markets,question,What are the best student areas in Leeds
+UK Regional Student Housing Markets,question,Is Selly Oak safe for Birmingham students
+UK Regional Student Housing Markets,question,How much is student accommodation in London per week
+UK Regional Student Housing Markets,question,Where do second year students live in Nottingham
+UK Regional Student Housing Markets,question,What is the cheapest student city in the UK
+UK Regional Student Housing Markets,modifier,central
+UK Regional Student Housing Markets,modifier,walkable
+UK Regional Student Housing Markets,modifier,suburban
+UK Regional Student Housing Markets,modifier,student friendly
+UK Regional Student Housing Markets,modifier,safe
+UK Regional Student Housing Markets,modifier,affordable
+UK Regional Student Housing Markets,modifier,leafy
+Ireland & Australia Student Markets,seed_keyword,student accommodation dublin
+Ireland & Australia Student Markets,seed_keyword,student accommodation cork
+Ireland & Australia Student Markets,seed_keyword,student accommodation galway
+Ireland & Australia Student Markets,seed_keyword,student accommodation sydney
+Ireland & Australia Student Markets,seed_keyword,student accommodation melbourne
+Ireland & Australia Student Markets,seed_keyword,student accommodation brisbane
+Ireland & Australia Student Markets,seed_keyword,student accommodation perth
+Ireland & Australia Student Markets,seed_keyword,student rooms dublin city centre
+Ireland & Australia Student Markets,seed_keyword,australia student housing visa
+Ireland & Australia Student Markets,seed_keyword,pbsa australia operators
+Ireland & Australia Student Markets,seed_keyword,irish student accommodation crisis
+Ireland & Australia Student Markets,seed_keyword,residential colleges australia
+Ireland & Australia Student Markets,entity,DCU Rooms Dublin
+Ireland & Australia Student Markets,entity,Scandic Cork
+Ireland & Australia Student Markets,entity,Kavanagh Court Dublin
+Ireland & Australia Student Markets,entity,Scape Melbourne
+Ireland & Australia Student Markets,entity,Iglu Sydney
+Ireland & Australia Student Markets,entity,UniLodge Brisbane
+Ireland & Australia Student Markets,entity,Journal Student Living
+Ireland & Australia Student Markets,entity,Urbanest Melbourne
+Ireland & Australia Student Markets,question,How hard is it to find student accommodation in Dublin
+Ireland & Australia Student Markets,question,How much does student housing cost in Sydney
+Ireland & Australia Student Markets,question,What is a residential college in Australian universities
+Ireland & Australia Student Markets,question,Can international students rent off campus in Melbourne
+Ireland & Australia Student Markets,question,When does the student accommodation crisis peak in Ireland
+Ireland & Australia Student Markets,question,What is homestay accommodation in Australia
+Ireland & Australia Student Markets,modifier,international
+Ireland & Australia Student Markets,modifier,short term
+Ireland & Australia Student Markets,modifier,metro connected
+Ireland & Australia Student Markets,modifier,campus adjacent
+Ireland & Australia Student Markets,modifier,city centre
+International & Exchange Student Housing Considerations,seed_keyword,international student accommodation
+International & Exchange Student Housing Considerations,seed_keyword,erasmus student rooms
+International & Exchange Student Housing Considerations,seed_keyword,semester abroad housing
+International & Exchange Student Housing Considerations,seed_keyword,no visa no pay student halls
+International & Exchange Student Housing Considerations,seed_keyword,short term international student lets
+International & Exchange Student Housing Considerations,seed_keyword,study abroad accommodation uk
+International & Exchange Student Housing Considerations,seed_keyword,exchange student accommodation
+International & Exchange Student Housing Considerations,seed_keyword,student rooms for overseas students
+International & Exchange Student Housing Considerations,seed_keyword,airport transfer student halls
+International & Exchange Student Housing Considerations,seed_keyword,international postgraduate housing
+International & Exchange Student Housing Considerations,entity,Erasmus+
+International & Exchange Student Housing Considerations,entity,Chevening Scholarship
+International & Exchange Student Housing Considerations,entity,UKVI
+International & Exchange Student Housing Considerations,entity,Oyster Photocard
+International & Exchange Student Housing Considerations,entity,International Student House (ISH) London
+International & Exchange Student Housing Considerations,question,Can international students book accommodation before getting visa
+International & Exchange Student Housing Considerations,question,What is no visa no pay policy in student housing
+International & Exchange Student Housing Considerations,question,How to book student halls from overseas without viewing
+International & Exchange Student Housing Considerations,question,Where do Erasmus students stay for one semester
+International & Exchange Student Housing Considerations,question,What documents do international students need to rent a room
+International & Exchange Student Housing Considerations,question,Is airport pick up included in private student halls
+International & Exchange Student Housing Considerations,modifier,overseas
+International & Exchange Student Housing Considerations,modifier,multilingual
+International & Exchange Student Housing Considerations,modifier,study abroad
+International & Exchange Student Housing Considerations,modifier,airport transfer
+International & Exchange Student Housing Considerations,modifier,quarantine friendly
+International & Exchange Student Housing Considerations,modifier,culturally inclusive
+"Clearing, Late Applications & Emergency Housing",seed_keyword,clearing student accommodation
+"Clearing, Late Applications & Emergency Housing",seed_keyword,last minute student accommodation
+"Clearing, Late Applications & Emergency Housing",seed_keyword,results day student housing
+"Clearing, Late Applications & Emergency Housing",seed_keyword,emergency student accommodation
+"Clearing, Late Applications & Emergency Housing",seed_keyword,late application student halls
+"Clearing, Late Applications & Emergency Housing",seed_keyword,short notice student lettings
+"Clearing, Late Applications & Emergency Housing",seed_keyword,temporary student housing freshers
+"Clearing, Late Applications & Emergency Housing",seed_keyword,backup student accommodation clearing
+"Clearing, Late Applications & Emergency Housing",seed_keyword,immediate move in student rooms
+"Clearing, Late Applications & Emergency Housing",entity,UCAS Clearing
+"Clearing, Late Applications & Emergency Housing",entity,A-Level Results Day
+"Clearing, Late Applications & Emergency Housing",entity,Student Union Housing Advice
+"Clearing, Late Applications & Emergency Housing",entity,Temporary Campus Housing
+"Clearing, Late Applications & Emergency Housing",question,How to find accommodation through Clearing
+"Clearing, Late Applications & Emergency Housing",question,Can you get uni halls if you apply through Clearing
+"Clearing, Late Applications & Emergency Housing",question,What to do if you have no accommodation for university
+"Clearing, Late Applications & Emergency Housing",question,How to secure last minute private student accommodation
+"Clearing, Late Applications & Emergency Housing",question,Can you get student halls on results day
+"Clearing, Late Applications & Emergency Housing",modifier,last minute
+"Clearing, Late Applications & Emergency Housing",modifier,clearing
+"Clearing, Late Applications & Emergency Housing",modifier,emergency
+"Clearing, Late Applications & Emergency Housing",modifier,short term
+"Clearing, Late Applications & Emergency Housing",modifier,urgent
+"Clearing, Late Applications & Emergency Housing",modifier,flexible start
+"Move-In, Room Essentials & Living Logistics (Lateral)",seed_keyword,what to bring to university halls
+"Move-In, Room Essentials & Living Logistics (Lateral)",seed_keyword,moving into student halls checklist
+"Move-In, Room Essentials & Living Logistics (Lateral)",seed_keyword,student room packing list
+"Move-In, Room Essentials & Living Logistics (Lateral)",seed_keyword,student halls kitchen essentials
+"Move-In, Room Essentials & Living Logistics (Lateral)",seed_keyword,student bedding pack 3 4 bed
+"Move-In, Room Essentials & Living Logistics (Lateral)",seed_keyword,renter friendly student room decor
+"Move-In, Room Essentials & Living Logistics (Lateral)",seed_keyword,student shipping services
+"Move-In, Room Essentials & Living Logistics (Lateral)",seed_keyword,moving into uni checklist
+"Move-In, Room Essentials & Living Logistics (Lateral)",seed_keyword,student room storage hacks
+"Move-In, Room Essentials & Living Logistics (Lateral)",seed_keyword,freshers move in guide
+"Move-In, Room Essentials & Living Logistics (Lateral)",entity,UniKitOut
+"Move-In, Room Essentials & Living Logistics (Lateral)",entity,IKEA Student Starter Pack
+"Move-In, Room Essentials & Living Logistics (Lateral)",entity,My Baggage
+"Move-In, Room Essentials & Living Logistics (Lateral)",entity,SendMyBag
+"Move-In, Room Essentials & Living Logistics (Lateral)",entity,Argos Student Essentials
+"Move-In, Room Essentials & Living Logistics (Lateral)",question,What to pack for university halls checklist
+"Move-In, Room Essentials & Living Logistics (Lateral)",question,What bedding size is in student halls
+"Move-In, Room Essentials & Living Logistics (Lateral)",question,What are you not allowed to bring to uni halls
+"Move-In, Room Essentials & Living Logistics (Lateral)",question,How to decorate a student room without losing deposit
+"Move-In, Room Essentials & Living Logistics (Lateral)",question,Do student halls provide pots and pans
+"Move-In, Room Essentials & Living Logistics (Lateral)",question,What cleaning supplies do freshers need
+"Move-In, Room Essentials & Living Logistics (Lateral)",modifier,budget
+"Move-In, Room Essentials & Living Logistics (Lateral)",modifier,starter
+"Move-In, Room Essentials & Living Logistics (Lateral)",modifier,essential
+"Move-In, Room Essentials & Living Logistics (Lateral)",modifier,packable
+"Move-In, Room Essentials & Living Logistics (Lateral)",modifier,renter friendly
+"Move-In, Room Essentials & Living Logistics (Lateral)",modifier,compact
+"Safety, Wellbeing & Communal Student Life (Lateral)",seed_keyword,student accommodation safety
+"Safety, Wellbeing & Communal Student Life (Lateral)",seed_keyword,student contents insurance
+"Safety, Wellbeing & Communal Student Life (Lateral)",seed_keyword,24 7 security student halls
+"Safety, Wellbeing & Communal Student Life (Lateral)",seed_keyword,dealing with flatmates in student halls
+"Safety, Wellbeing & Communal Student Life (Lateral)",seed_keyword,cctv secure student accommodation
+"Safety, Wellbeing & Communal Student Life (Lateral)",seed_keyword,pastoral care student housing
+"Safety, Wellbeing & Communal Student Life (Lateral)",seed_keyword,resident advisor halls of residence
+"Safety, Wellbeing & Communal Student Life (Lateral)",seed_keyword,student halls mental health support
+"Safety, Wellbeing & Communal Student Life (Lateral)",seed_keyword,access control student accommodation
+"Safety, Wellbeing & Communal Student Life (Lateral)",seed_keyword,homesickness in student halls
+"Safety, Wellbeing & Communal Student Life (Lateral)",entity,Resident Advisors (RA)
+"Safety, Wellbeing & Communal Student Life (Lateral)",entity,Student Union Welfare
+"Safety, Wellbeing & Communal Student Life (Lateral)",entity,Nightline
+"Safety, Wellbeing & Communal Student Life (Lateral)",entity,SafeZone App
+"Safety, Wellbeing & Communal Student Life (Lateral)",entity,Campus Security
+"Safety, Wellbeing & Communal Student Life (Lateral)",question,How safe are private student halls
+"Safety, Wellbeing & Communal Student Life (Lateral)",question,What security features should a student house have
+"Safety, Wellbeing & Communal Student Life (Lateral)",question,How to deal with noisy flatmates in halls
+"Safety, Wellbeing & Communal Student Life (Lateral)",question,What happens if you do not get along with halls flatmates
+"Safety, Wellbeing & Communal Student Life (Lateral)",question,Who to contact if you feel homesick in university halls
+"Safety, Wellbeing & Communal Student Life (Lateral)",question,Are contents insured in student accommodation
+"Safety, Wellbeing & Communal Student Life (Lateral)",modifier,safe
+"Safety, Wellbeing & Communal Student Life (Lateral)",modifier,secure
+"Safety, Wellbeing & Communal Student Life (Lateral)",modifier,24 7 security
+"Safety, Wellbeing & Communal Student Life (Lateral)",modifier,gated
+"Safety, Wellbeing & Communal Student Life (Lateral)",modifier,cctv monitored
+"Safety, Wellbeing & Communal Student Life (Lateral)",modifier,pastoral
+"Safety, Wellbeing & Communal Student Life (Lateral)",modifier,inclusive
+_negative,negative,council housing
+_negative,negative,corporate serviced apartments
+_negative,negative,care homes
+_negative,negative,airbnb holiday rentals
+_negative,negative,hotel bookings
+_negative,negative,residential mortgages
+_negative,negative,commercial real estate leasing
+_negative,negative,buying a house
+_negative,negative,family suburban rentals
