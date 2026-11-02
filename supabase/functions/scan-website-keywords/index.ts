@@ -52,7 +52,7 @@ const normalizeTerm = (raw: string): string => {
     .replace(/^\d+\s*(?:[.)]|[-:])\s*/, "")
     .replace(/[0-9]+\s*trusted\s*source/gi, "")
     .replace(/\btrusted\s*source\b/gi, "")
-    .replace(/^[\s!'"`*_~>#\-\[\]\u2022]+/, "")
+    .replace(/^[\s!'"`*_~>#\-\[\]•]+/, "")
     .replace(/[\s'"`*_~<>\-]+$/, "")
     .replace(/\s{2,}/g, " ")
     .trim();
@@ -214,21 +214,56 @@ serve(async (req) => {
       } catch { return false; }
     };
 
+    // Rank candidates: shallow paths first (1 segment, then 2, ...), then cap at 3 URLs per
+    // "path pattern" (last segment replaced with *) so one deep section cannot take every slot.
+    const MAX_PAGES_TO_SCRAPE = 15;
+    const MAX_PER_PATTERN = 3;
+    const pathDepth = (u: string): number => {
+      try { return new URL(u).pathname.split("/").filter(Boolean).length; } catch { return 99; }
+    };
+    const pathPattern = (u: string): string => {
+      try {
+        const segments = new URL(u).pathname.split("/").filter(Boolean);
+        segments[segments.length - 1] = "*";
+        return segments.join("/");
+      } catch { return u; }
+    };
+    const selectPagesToScrape = (candidates: string[]): string[] => {
+      const unique = [...new Set(candidates.filter(isScrapablePageUrl))];
+      const ranked = unique
+        .map((u, i) => ({ u, depth: pathDepth(u), i }))
+        .sort((a, b) => a.depth - b.depth || a.i - b.i);
+      const perPattern = new Map<string, number>();
+      const picked: string[] = [];
+      for (const { u } of ranked) {
+        const pattern = pathPattern(u);
+        const seen = perPattern.get(pattern) || 0;
+        if (seen >= MAX_PER_PATTERN) continue;
+        perPattern.set(pattern, seen + 1);
+        picked.push(u);
+        if (picked.length >= MAX_PAGES_TO_SCRAPE) break;
+      }
+      return picked;
+    };
+
     const pageTerms: string[] = [];
     let urlsToScrape: string[] = [];
+    let pagesScraped = 0;
 
     if (filters.length > 0) {
       // When a URL filter is used, only scrape matching pages (skip homepage to avoid noisy global terms)
-      urlsToScrape = [...new Set(filteredUrls.filter(isScrapablePageUrl))].slice(0, 15);
+      urlsToScrape = selectPagesToScrape(filteredUrls);
       console.log(`Scraping ${urlsToScrape.length} filtered pages (URL filter active)...`);
     } else {
-      // No URL filter: include homepage and a few category pages
+      // No URL filter: include homepage and the shallowest category pages
       pageTerms.push(...await scrapeUrl(formattedUrl));
-      urlsToScrape = [...new Set(filteredUrls.filter(isScrapablePageUrl))].slice(0, 10);
+      pagesScraped += 1;
+      urlsToScrape = selectPagesToScrape(filteredUrls);
       console.log(`Scraping ${urlsToScrape.length} category pages...`);
     }
 
     const scrapeResults = await Promise.all(urlsToScrape.map(u => scrapeUrl(u)));
+    pagesScraped += scrapeResults.length;
     for (const terms of scrapeResults) {
       pageTerms.push(...terms);
     }
@@ -282,6 +317,9 @@ serve(async (req) => {
         url_filters_applied: filters,
         extracted_terms: finalTerms.sort(),
         sample_urls: filteredUrls.slice(0, 20),
+        mapped_urls: allUrls.length,
+        pages_scraped: pagesScraped,
+        extracted_terms_count: finalTerms.length,
         likely_blocked: isBlocked,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
