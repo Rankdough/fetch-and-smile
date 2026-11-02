@@ -1,0 +1,45 @@
+{
+  "seed_keyword": {
+    "reference_rows": 342,
+    "replication_rows": 249,
+    "replication_unique": 249,
+    "shared": 85,
+    "replication_only": 164
+  },
+  "question": {
+    "reference_rows": 240,
+    "replication_rows": 180,
+    "replication_unique": 180,
+    "shared": 4,
+    "replication_only": 176
+  },
+  "clusters": 12,
+  "seed_counts_by_cluster": {
+    "Core Housing Types & Room Configurations": 24,
+    "Tenancy Types, Contracts & Lease Terms": 20,
+    "Guarantors, Deposits & Financial Logistics": 20,
+    "Major UK University Cities": 20,
+    "Ireland & Australia University Destinations": 20,
+    "Booking Platforms, Operators & Aggregators": 25,
+    "Target Audiences & Special Circumstances": 20,
+    "Search Timing, Timelines & Booking Process": 20,
+    "Amenities, Facilities & In-Room Specs": 20,
+    "Private Renting, HMOs & House Hunting (Lateral)": 20,
+    "Moving In, Packing & Living in Halls (Lateral)": 20,
+    "Student Well-Being, Social Life & Safety (Lateral)": 20
+  },
+  "question_counts_by_cluster": {
+    "Core Housing Types & Room Configurations": 15,
+    "Tenancy Types, Contracts & Lease Terms": 15,
+    "Guarantors, Deposits & Financial Logistics": 15,
+    "Major UK University Cities": 15,
+    "Ireland & Australia University Destinations": 15,
+    "Booking Platforms, Operators & Aggregators": 15,
+    "Target Audiences & Special Circumstances": 15,
+    "Search Timing, Timelines & Booking Process": 15,
+    "Amenities, Facilities & In-Room Specs": 15,
+    "Private Renting, HMOs & House Hunting (Lateral)": 15,
+    "Moving In, Packing & Living in Halls (Lateral)": 15,
+    "Student Well-Being, Social Life & Safety (Lateral)": 15
+  }
+}
