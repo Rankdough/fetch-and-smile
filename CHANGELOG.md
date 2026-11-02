@@ -1,3 +1,13 @@
+## 2026-11-02 — Keyword research: Claude Sonnet default with Gemini fallback
+
+**What:** `generate-keyword-universe` and `refine-keyword-universe` now accept a `model` field ("claude" default | "gemini"). Claude Sonnet (`anthropic/claude-sonnet-5`) is called through the Lovable AI gateway `/v1/messages` with the unchanged schema as a forced tool (`tool_choice: {type:"tool"}`), `max_tokens` 32000. Any Claude error retries once with the previous Gemini model (2.5 Pro for generate/suggest, 2.5 Flash for expand). Responses include `model_used` + `fallback`; generate also writes `results.model_used`. KeywordResearch page: model selector next to Generate, toasts name the producing model.
+
+**Why:** User requested Claude Sonnet for keyword research quality.
+
+**Verified broken:** Nothing verified broken. Checked: deno check on both functions; live calls generate (claude → 19 clusters, model_used "Claude Sonnet"; gemini → 13 clusters, "Gemini 2.5 Pro"), refine expand (claude) all HTTP 200. Fallback path not exercised live.
+
+**Files:** supabase/functions/generate-keyword-universe/index.ts, supabase/functions/refine-keyword-universe/index.ts, src/pages/KeywordResearch.tsx
+
 ## 2026-06-16 — Second CTA injected before FAQ (BUG-1)
 
 **What:** Added `injectMidArticleCta()` to `supabase/functions/proprietary-generate-article/index.ts`. The function inserts a second CTA paragraph immediately before `## Frequently Asked Questions` in every generated article. Idempotency guard checks the 400 characters preceding the FAQ heading — if CTA-like language is already present (book / schedule / contact / consultation / next step / properly structured), the injection is skipped. The CTA text is honest, non-promotional, and scoped to "helping the reader apply the above to their specific situation" — matching the tone of the existing Final Thoughts CTA. Applies to all business types. `BUILD_MARKER` bumped to `BUILD-2026-06-16-second-cta`.
