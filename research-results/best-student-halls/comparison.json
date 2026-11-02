@@ -1,0 +1,20 @@
+{
+  "seed_keyword": {
+    "reference_rows": 342,
+    "repo_rows": 138,
+    "repo_unique": 138,
+    "shared_with_reference": 54,
+    "repo_only": 84,
+    "reference_only": 287,
+    "repo_absent_from_master_and_ideas": 98
+  },
+  "question": {
+    "reference_rows": 240,
+    "repo_rows": 77,
+    "repo_unique": 77,
+    "shared_with_reference": 3,
+    "repo_only": 74,
+    "reference_only": 237,
+    "repo_absent_from_master_and_ideas": 75
+  }
+}
