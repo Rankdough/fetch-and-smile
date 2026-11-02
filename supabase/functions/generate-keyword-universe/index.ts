@@ -6,13 +6,105 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+// ---- Model routing: Claude Sonnet (default) with automatic Gemini fallback ----
+const CLAUDE_MODEL = "anthropic/claude-sonnet-5";
+const CLAUDE_LABEL = "Claude Sonnet";
+
+class AIHttpError extends Error {
+  status: number;
+  constructor(status: number, message: string) { super(message); this.status = status; }
+}
+
+async function callClaude(apiKey: string, system: string, user: string, toolName: string, toolDescription: string, schema: any): Promise<any> {
+  const response = await fetch("https://ai.gateway.lovable.dev/v1/messages", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+      "anthropic-version": "2023-06-01",
+    },
+    body: JSON.stringify({
+      model: CLAUDE_MODEL,
+      max_tokens: 32000,
+      system,
+      messages: [{ role: "user", content: user }],
+      tools: [{ name: toolName, description: toolDescription, input_schema: schema }],
+      tool_choice: { type: "tool", name: toolName },
+    }),
+  });
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error("Claude error:", response.status, errorText);
+    throw new AIHttpError(response.status, `Claude failed: ${response.status}`);
+  }
+  const data = await response.json();
+  const toolUse = (data.content || []).find((b: any) => b.type === "tool_use" && b.name === toolName);
+  if (!toolUse?.input) throw new Error(`No tool_use returned from Claude (stop_reason=${data.stop_reason})`);
+  return toolUse.input;
+}
+
+async function callGemini(apiKey: string, geminiModel: string, system: string, user: string, toolName: string, toolDescription: string, schema: any, maxTokens?: number): Promise<any> {
+  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: geminiModel,
+      messages: [
+        { role: "system", content: system },
+        { role: "user", content: user },
+      ],
+      ...(maxTokens ? { max_tokens: maxTokens } : {}),
+      tools: [{ type: "function", function: { name: toolName, description: toolDescription, parameters: schema } }],
+      tool_choice: { type: "function", function: { name: toolName } },
+    }),
+  });
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error("AI error:", response.status, errorText);
+    throw new AIHttpError(response.status, `AI failed: ${response.status}`);
+  }
+  const data = await response.json();
+  const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
+  if (!toolCall) throw new Error("No structured output returned");
+  return JSON.parse(toolCall.function.arguments);
+}
+
+// Returns { result, model_used, fallback }. Claude errors of any kind trigger one Gemini retry.
+async function runStructured(opts: {
+  apiKey: string; model?: string; geminiModel: string; geminiMaxTokens?: number;
+  system: string; user: string; toolName: string; toolDescription: string; schema: any;
+}): Promise<{ result: any; model_used: string; fallback: boolean }> {
+  const geminiLabel = opts.geminiModel === "google/gemini-2.5-pro" ? "Gemini 2.5 Pro" : opts.geminiModel === "google/gemini-2.5-flash" ? "Gemini 2.5 Flash" : opts.geminiModel;
+  const wantClaude = opts.model !== "gemini";
+  if (wantClaude) {
+    try {
+      const result = await callClaude(opts.apiKey, opts.system, opts.user, opts.toolName, opts.toolDescription, opts.schema);
+      return { result, model_used: CLAUDE_LABEL, fallback: false };
+    } catch (err) {
+      console.error("Claude call failed, retrying once with Gemini:", err instanceof Error ? err.message : err);
+      const result = await callGemini(opts.apiKey, opts.geminiModel, opts.system, opts.user, opts.toolName, opts.toolDescription, opts.schema, opts.geminiMaxTokens);
+      return { result, model_used: geminiLabel, fallback: true };
+    }
+  }
+  const result = await callGemini(opts.apiKey, opts.geminiModel, opts.system, opts.user, opts.toolName, opts.toolDescription, opts.schema, opts.geminiMaxTokens);
+  return { result, model_used: geminiLabel, fallback: false };
+}
+
+function aiErrorResponse(err: unknown): Response | null {
+  if (err instanceof AIHttpError) {
+    if (err.status === 429) return new Response(JSON.stringify({ error: "Rate limit exceeded, please try again later." }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    if (err.status === 402) return new Response(JSON.stringify({ error: "Payment required, please add credits." }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  }
+  return null;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { topic, audience, country, language, websiteTerms } = await req.json();
+    const { topic, audience, country, language, websiteTerms, model } = await req.json();
 
     if (!topic) {
       return new Response(
@@ -77,26 +169,7 @@ ${country ? `Country (optional): ${country}` : ""}
 ${websiteTerms && websiteTerms.length > 0 ? `\nWEBSITE-EXTRACTED TERMS (use these as additional seeds — these were scraped from a real website related to this topic, incorporate them into your clusters):\n${websiteTerms.join(", ")}` : ""}
 Language: ${lang}`;
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-pro",
-        messages: [
-          { role: "system", content: system },
-          { role: "user", content: user },
-        ],
-        max_tokens: 16000,
-        tools: [
-          {
-            type: "function",
-            function: {
-              name: "return_semantic_map",
-              description: "Return the structured semantic keyword universe",
-              parameters: {
+    const semanticMapSchema = {
                 type: "object",
                 properties: {
                   topic: { type: "string" },
@@ -122,42 +195,30 @@ Language: ${lang}`;
                 },
                 required: ["topic", "definition", "clusters", "cross_cutting_modifiers", "negative_keywords", "notes"],
                 additionalProperties: false,
-              },
-            },
-          },
-        ],
-        tool_choice: { type: "function", function: { name: "return_semantic_map" } },
-      }),
-    });
+              };
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("AI error:", response.status, errorText);
-      if (response.status === 429) {
-        return new Response(JSON.stringify({ error: "Rate limit exceeded, please try again later." }), {
-          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      if (response.status === 402) {
-        return new Response(JSON.stringify({ error: "Payment required, please add credits." }), {
-          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      throw new Error(`AI generation failed: ${response.status}`);
+    let routed;
+    try {
+      routed = await runStructured({
+        apiKey: LOVABLE_API_KEY, model, geminiModel: "google/gemini-2.5-pro", geminiMaxTokens: 16000,
+        system, user, toolName: "return_semantic_map",
+        toolDescription: "Return the structured semantic keyword universe", schema: semanticMapSchema,
+      });
+    } catch (err) {
+      const r = aiErrorResponse(err);
+      if (r) return r;
+      throw err;
     }
-
-    const data = await response.json();
-    const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
-    if (!toolCall) throw new Error("No structured output returned from AI");
-
-    const results = JSON.parse(toolCall.function.arguments);
+    const results = routed.result;
+    results.model_used = routed.model_used;
+    console.log(`Model used: ${routed.model_used}${routed.fallback ? " (fallback after Claude failure)" : ""}`);
 
     const totalSeeds = results.clusters.reduce((sum: number, c: any) => sum + (c.seed_keywords?.length || 0), 0);
     const totalQuestions = results.clusters.reduce((sum: number, c: any) => sum + (c.questions?.length || 0), 0);
     console.log(`Generated ${results.clusters.length} clusters, ${totalSeeds} seed keywords, ${totalQuestions} questions`);
 
     return new Response(
-      JSON.stringify({ results }),
+      JSON.stringify({ results, model_used: routed.model_used, fallback: routed.fallback }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
