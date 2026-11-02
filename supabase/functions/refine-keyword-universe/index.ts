@@ -253,7 +253,7 @@ Generate additional keywords for each relevant cluster. Return ONLY new keywords
       let routed;
       try {
         routed = await runStructured({
-          apiKey: LOVABLE_API_KEY, model, geminiModel: "google/gemini-2.5-flash",
+          apiKey: LOVABLE_API_KEY, model, geminiModel: "google/gemini-2.5-flash", geminiMaxTokens: 8000,
           system, user, toolName: "return_expansion",
           toolDescription: "Return new keywords grouped by cluster",
           schema: {
