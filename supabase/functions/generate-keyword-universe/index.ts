@@ -104,7 +104,7 @@ serve(async (req) => {
   }
 
   try {
-    const { topic, audience, country, language, websiteTerms, model } = await req.json();
+    const { topic, audience, country, language, websiteTerms, manualSeeds, scannedTerms, uploadedKeywords, model } = await req.json();
 
     if (!topic) {
       return new Response(
@@ -160,13 +160,29 @@ For the given topic:
 3. Add "negative_keywords" (things often confused with the topic but not in scope).
 4. Add "cross_cutting_modifiers" — dimensions that apply across all clusters (age, budget, location, intent).
 5. Add "notes" with any ambiguity you detected and how you resolved it.
-6. Do NOT append intent labels or tags like [transactional] or [informational] to keywords. Return plain, clean keywords only.`;
+6. Do NOT append intent labels or tags like [transactional] or [informational] to keywords. Return plain, clean keywords only.
+7. If given seed lists, place each seed into the best cluster or list it under unplaced_seeds.`;
 
     const lang = language || "English (UK)";
+    const asList = (v: unknown): string[] => Array.isArray(v) ? v.filter((s) => typeof s === "string" && s.trim()) : [];
+    const manualList = asList(manualSeeds);
+    const scannedList = asList(scannedTerms);
+    const uploadedList = asList(uploadedKeywords);
+    const hasLabelledSeeds = manualList.length + scannedList.length + uploadedList.length > 0;
+
+    let seedBlocks = "";
+    if (hasLabelledSeeds) {
+      if (manualList.length > 0) seedBlocks += `\nUSER SEED KEYWORDS (typed by the strategist, treat as must-cover):\n${manualList.join(", ")}\n`;
+      if (scannedList.length > 0) seedBlocks += `\nWEBSITE HEADINGS AND URL TERMS (scraped from the client's and competitors' sites, use to mirror real site structure):\n${scannedList.join(", ")}\n`;
+      if (uploadedList.length > 0) seedBlocks += `\nUPLOADED KEYWORD LIST (from a keyword tool, already known, use for context, do not simply repeat):\n${uploadedList.join(", ")}\n`;
+    } else if (websiteTerms && websiteTerms.length > 0) {
+      seedBlocks = `\nWEBSITE-EXTRACTED TERMS (use these as additional seeds — these were scraped from a real website related to this topic, incorporate them into your clusters):\n${websiteTerms.join(", ")}`;
+    }
+
     const user = `Topic: ${topic}
 ${audience ? `Audience (optional): ${audience}` : ""}
 ${country ? `Country (optional): ${country}` : ""}
-${websiteTerms && websiteTerms.length > 0 ? `\nWEBSITE-EXTRACTED TERMS (use these as additional seeds — these were scraped from a real website related to this topic, incorporate them into your clusters):\n${websiteTerms.join(", ")}` : ""}
+${seedBlocks}
 Language: ${lang}`;
 
     const semanticMapSchema = {
@@ -191,6 +207,7 @@ Language: ${lang}`;
                   },
                   cross_cutting_modifiers: { type: "array", items: { type: "string" } },
                   negative_keywords: { type: "array", items: { type: "string" } },
+                  unplaced_seeds: { type: "array", items: { type: "string" } },
                   notes: { type: "string" },
                 },
                 required: ["topic", "definition", "clusters", "cross_cutting_modifiers", "negative_keywords", "notes"],
