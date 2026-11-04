@@ -1,5 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
+import { validateKeywordMap } from "../_shared/keywordValidation.ts";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
@@ -12,7 +14,8 @@ serve(async (req) => {
   }
 
   try {
-    const { topic, audience, country, language, websiteTerms } = await req.json();
+    const request = await req.json();
+    const { topic, audience, country, language, websiteTerms } = request;
 
     if (!topic) {
       return new Response(
@@ -74,16 +77,10 @@ For the given topic:
     const user = `Topic: ${topic}
 ${audience ? `Audience (optional): ${audience}` : ""}
 ${country ? `Country (optional): ${country}` : ""}
-${websiteTerms && websiteTerms.length > 0 ? `\nWEBSITE-EXTRACTED TERMS (use these as additional seeds — these were scraped from a real website related to this topic, incorporate them into your clusters):\n${websiteTerms.join(", ")}` : ""}
+${websiteTerms && websiteTerms.length > 0 ? `\nSUPPLIED SEED IDEAS (may combine scanned, manually entered and uploaded terms; incorporate relevant ideas, but do not infer measured search demand):\n${websiteTerms.join(", ")}` : ""}
 Language: ${lang}`;
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
+    const modelRequest = {
         model: "google/gemini-2.5-pro",
         messages: [
           { role: "system", content: system },
@@ -102,14 +99,14 @@ Language: ${lang}`;
                   topic: { type: "string" },
                   definition: { type: "string" },
                   clusters: {
-                    type: "array",
+                    type: "array", minItems: 12, maxItems: 20,
                     items: {
                       type: "object",
                       properties: {
                         cluster_name: { type: "string" },
-                        seed_keywords: { type: "array", items: { type: "string" } },
+                        seed_keywords: { type: "array", minItems: 20, maxItems: 50, uniqueItems: true, items: { type: "string" } },
                         example_entities: { type: "array", items: { type: "string" } },
-                        questions: { type: "array", items: { type: "string" } },
+                        questions: { type: "array", minItems: 15, maxItems: 30, uniqueItems: true, items: { type: "string" } },
                         modifiers: { type: "array", items: { type: "string" } },
                       },
                       required: ["cluster_name", "seed_keywords", "questions", "modifiers"],
@@ -127,7 +124,11 @@ Language: ${lang}`;
           },
         ],
         tool_choice: { type: "function", function: { name: "return_semantic_map" } },
-      }),
+    };
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify(modelRequest),
     });
 
     if (!response.ok) {
@@ -152,12 +153,24 @@ Language: ${lang}`;
 
     const results = JSON.parse(toolCall.function.arguments);
 
+    const validation = validateKeywordMap(results);
+    const finishReason = data.choices?.[0]?.finish_reason;
+    if (finishReason === "length") {
+      validation.status = "incomplete";
+      validation.issues.push("Model output reached its token limit.");
+    }
+    results.validation = validation;
+    results.generation_run = {
+      id: crypto.randomUUID(), created_at: new Date().toISOString(),
+      request, model_request: modelRequest, finish_reason: finishReason,
+      usage: data.usage, validation_version: 1,
+    };
     const totalSeeds = results.clusters.reduce((sum: number, c: any) => sum + (c.seed_keywords?.length || 0), 0);
     const totalQuestions = results.clusters.reduce((sum: number, c: any) => sum + (c.questions?.length || 0), 0);
     console.log(`Generated ${results.clusters.length} clusters, ${totalSeeds} seed keywords, ${totalQuestions} questions`);
 
     return new Response(
-      JSON.stringify({ results }),
+      JSON.stringify({ results, status: validation.status }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
