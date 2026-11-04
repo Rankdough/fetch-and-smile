@@ -1,3 +1,4 @@
+import { validateKeywordMap } from "../../supabase/functions/_shared/keywordValidation";
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -43,6 +44,8 @@ interface SemanticCluster {
 }
 
 interface SemanticMap {
+  validation?: ReturnType<typeof validateKeywordMap>;
+  generation_run?: Record<string, unknown>;
   topic: string;
   definition: string;
   clusters: SemanticCluster[];
@@ -91,6 +94,11 @@ const KeywordResearch = () => {
   const [country, setCountry] = useState("");
   const [scanSites, setScanSites] = useState<ScanSite[]>([{ url: "", filter: "" }]);
   const [isScanning, setIsScanning] = useState(false);
+  const operationRef = useRef<'scan' | 'generate' | null>(null);
+  const [scanFailed, setScanFailed] = useState(false);
+  const [scannedSitesKey, setScannedSitesKey] = useState<string | null>(null);
+  const sitesKey = JSON.stringify(scanSites.filter(s => s.url.trim()).map(s => ({ url: s.url.trim(), filter: s.filter.trim() })));
+  const scanStale = scannedSitesKey !== null && scannedSitesKey !== sitesKey;
   const [scanResults, setScanResults] = useState<ScanResult[]>([]);
   const [scannedTerms, setScannedTerms] = useState<string[]>([]);
   const [scanBlocked, setScanBlocked] = useState(false);
@@ -101,6 +109,7 @@ const KeywordResearch = () => {
   const seedFileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [isGenerating, setIsGenerating] = useState(false);
+  const [lastAttempt, setLastAttempt] = useState<Record<string, unknown> | null>(null);
   const [semanticMap, setSemanticMap] = useState<SemanticMap | null>(null);
   const [legacyResults, setLegacyResults] = useState<LegacyResult | null>(null);
   const [currentTopic, setCurrentTopic] = useState("");
@@ -329,14 +338,20 @@ const KeywordResearch = () => {
 
   // Website scan — scan all sites with URLs
   const scanWebsites = async () => {
+    if (operationRef.current) return;
     const sitesToScan = scanSites.filter(s => s.url.trim());
     if (sitesToScan.length === 0) return;
+    operationRef.current = 'scan';
     setIsScanning(true);
+    setScanFailed(false);
+    setScannedTerms([]);
+    setScanResults([]);
+    setScannedSitesKey(sitesKey);
     try {
       const results: ScanResult[] = [];
       const allTerms: string[] = [];
 
-      await Promise.all(sitesToScan.map(async (site) => {
+      const settled = await Promise.allSettled(sitesToScan.map(async (site) => {
         const response = await fetch(
           `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/scan-website-keywords`,
           {
@@ -363,6 +378,8 @@ const KeywordResearch = () => {
         allTerms.push(...(data.extracted_terms || []));
       }));
 
+      const failed = settled.find(r => r.status === 'rejected');
+      if (failed?.status === 'rejected') throw failed.reason;
       const uniqueTerms = [...new Set(allTerms)];
       setScanResults(results);
       setScannedTerms(uniqueTerms);
@@ -383,14 +400,26 @@ const KeywordResearch = () => {
       }
     } catch (err: any) {
       console.error(err);
+      setScanFailed(true);
       toast({ title: "Scan failed", description: err.message, variant: "destructive" });
     } finally {
+      operationRef.current = null;
       setIsScanning(false);
     }
   };
 
   const generate = async () => {
-    if (!topic.trim()) return;
+    if (!topic.trim() || operationRef.current || isScanning || scanFailed || scanStale) return;
+    operationRef.current = 'generate';
+    const seeds = getAllSeeds();
+    const request = JSON.parse(JSON.stringify({ topic: topic.trim(), audience: audience.trim() || undefined,
+      country: country.trim() || undefined, websiteTerms: seeds.length ? seeds : undefined }));
+    const provenance = JSON.parse(JSON.stringify({ scanned_terms: scannedTerms, url_extracted_terms: urlExtractedTerms,
+      scan_results: scanResults, scan_sites: scanSites, manual_seeds: manualSeeds, uploaded_seed_files: uploadedSeedFiles }));
+    const run = { id: crypto.randomUUID(), created_at: new Date().toISOString(), request, provenance };
+    setLastAttempt(run);
+    const clientTag = universeClientTag.trim() || null;
+    setActiveResearchId(null);
     setIsGenerating(true);
     setSemanticMap(null);
     setLegacyResults(null);
@@ -406,12 +435,7 @@ const KeywordResearch = () => {
             "Content-Type": "application/json",
             Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
           },
-          body: JSON.stringify({
-            topic: topic.trim(),
-            audience: audience.trim() || undefined,
-            country: country.trim() || undefined,
-            websiteTerms: getAllSeeds().length > 0 ? getAllSeeds() : undefined,
-          }),
+          body: JSON.stringify(request),
           signal: controller.signal,
         }
       );
@@ -423,31 +447,39 @@ const KeywordResearch = () => {
 
       const data = await response.json();
       const map = data.results as SemanticMap;
-      // Persist scanned terms alongside the results
-      map.scanned_terms = [...scannedTerms];
-      map.url_extracted_terms = [...urlExtractedTerms];
-      map.scan_results = [...scanResults];
+      const validation = validateKeywordMap(map);
+      if (map.validation?.status === 'incomplete') {
+        validation.status = 'incomplete';
+        validation.issues = [...new Set([...validation.issues, ...map.validation.issues])];
+      }
+      map.validation = validation;
+      map.generation_run = { ...map.generation_run, client_run: run, original_results: JSON.parse(JSON.stringify(data.results)) };
+      map.scanned_terms = provenance.scanned_terms;
+      map.url_extracted_terms = provenance.url_extracted_terms;
+      map.scan_results = provenance.scan_results;
       setSemanticMap(map);
-      setCurrentTopic(topic.trim());
+      setCurrentTopic(request.topic);
       setOpenClusters(new Set(map.clusters.map(c => c.cluster_name)));
 
       // Save to database
-      const { data: inserted } = await supabase
+      const { data: inserted, error: saveError } = await supabase
         .from("keyword_research" as any)
         .insert({
-          topic: topic.trim(),
-          context: [audience.trim(), country.trim()].filter(Boolean).join(" | ") || null,
+          topic: request.topic,
+          context: [request.audience, request.country].filter(Boolean).join(" | ") || null,
           results: map as any,
-          client_tag: universeClientTag.trim() || null,
+          client_tag: clientTag,
         } as any)
         .select("id")
         .single();
+      if (saveError) toast({ title: "Result not saved", description: "Download the run JSON before leaving this page.", variant: "destructive" });
       if (inserted) setActiveResearchId((inserted as any).id);
       loadSavedResearch();
 
       const totalSeeds = map.clusters.reduce((s, c) => s + c.seed_keywords.length, 0);
       toast({
-        title: "Semantic map generated!",
+        title: validation.status === "incomplete" ? "Generation incomplete — review count warnings" : "Semantic map generated!",
+        variant: validation.status === "incomplete" ? "destructive" : "default",
         description: `${map.clusters.length} clusters, ${totalSeeds} seed keywords`,
       });
       setTimeout(() => resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
@@ -459,6 +491,7 @@ const KeywordResearch = () => {
         toast({ title: "Generation failed", description: err.message, variant: "destructive" });
       }
     } finally {
+      operationRef.current = null;
       abortControllerRef.current = null;
       setIsGenerating(false);
     }
@@ -605,6 +638,7 @@ const KeywordResearch = () => {
       }
 
       updatedMap.clusters = [...clusterMap.values()];
+      updatedMap.validation = validateKeywordMap(updatedMap);
       setSemanticMap(updatedMap);
       setOpenClusters(new Set(updatedMap.clusters.map(c => c.cluster_name)));
 
@@ -616,10 +650,10 @@ const KeywordResearch = () => {
       toast({ title: "Keywords expanded!", description: `Added ${totalAdded} new seed keywords` });
 
       // Update saved research
-      await supabase
+      if (activeResearchId) await supabase
         .from("keyword_research" as any)
         .update({ results: updatedMap as any })
-        .eq("topic", updatedMap.topic);
+        .eq("id", activeResearchId);
     } catch (err: any) {
       console.error(err);
       toast({ title: "Expansion failed", description: err.message, variant: "destructive" });
@@ -668,10 +702,13 @@ const KeywordResearch = () => {
   };
 
   const loadResearch = (saved: SavedResearch) => {
+    if (operationRef.current) return;
     setCurrentTopic(saved.topic);
     setTopic(saved.topic);
     setAudience("");
     setCountry("");
+    setScanFailed(false);
+    setScannedSitesKey(null);
     setActiveResearchId(saved.id);
     setUniverseClientTag(saved.client_tag || "");
     if (isSemanticMap(saved.results)) {
@@ -764,7 +801,7 @@ const KeywordResearch = () => {
                         className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border bg-accent/30 hover:bg-accent text-xs font-medium transition-colors"
                       >
                         <Clock className="h-3 w-3 text-muted-foreground" />
-                        <span className="truncate max-w-[180px]">{r.topic}</span>
+                        <span className="truncate max-w-[180px]">{r.topic}</span>{isSemanticMap(r.results) && <Badge variant="outline">{r.results.validation?.status || "unverified"}</Badge>}
                         <span className="text-muted-foreground">{getResearchStats(r)}</span>
                         {r.client_tag && (
                           <Badge variant="outline" className="text-[10px] px-1.5 py-0">{r.client_tag}</Badge>
@@ -837,7 +874,7 @@ const KeywordResearch = () => {
                                 onClick={() => loadResearch(r)}
                               >
                                 <Clock className="h-3 w-3 text-muted-foreground shrink-0" />
-                                <span className="truncate max-w-[180px]">{r.topic}</span>
+                                <span className="truncate max-w-[180px]">{r.topic}</span>{isSemanticMap(r.results) && <Badge variant="outline">{r.results.validation?.status || "unverified"}</Badge>}
                                 <span className="text-muted-foreground">{getResearchStats(r)}</span>
                                 {r.client_tag && (
                                   <Badge variant="outline" className="text-[10px] px-1.5 py-0">{r.client_tag}</Badge>
@@ -965,7 +1002,7 @@ const KeywordResearch = () => {
                     <Button
                       variant="outline"
                       onClick={scanWebsites}
-                      disabled={!scanSites.some(s => s.url.trim()) || isScanning}
+                      disabled={!scanSites.some(s => s.url.trim()) || isScanning || isGenerating}
                       className="gap-2 shrink-0 ml-auto"
                     >
                       {isScanning ? <Loader2 className="h-4 w-4 animate-spin" /> : <Globe className="h-4 w-4" />}
@@ -1122,7 +1159,15 @@ const KeywordResearch = () => {
                 </div>
 
                 <div className="flex items-center gap-3">
-                  <Button onClick={generate} disabled={!topic.trim() || isGenerating} className="gap-2">
+                  {(isScanning || scanFailed || scanStale) && <p role="status" className="text-sm text-destructive">{isScanning ? "Wait for all scans to finish." : "Scan failed or site inputs changed. Complete a scan before generating."}</p>}
+                  {(scanFailed || scanStale) && !isScanning && <Button variant="outline" onClick={() => {
+                    setScannedTerms([]); setScanResults([]); setScanBlocked(false); setScanFailed(false); setScannedSitesKey(null);
+                  }}>Discard scan and use other seeds</Button>}
+                  {lastAttempt && <Button variant="outline" onClick={() => {
+                    const url = URL.createObjectURL(new Blob([JSON.stringify(lastAttempt, null, 2)], { type: 'application/json' }));
+                    const a = document.createElement('a'); a.href = url; a.download = 'keyword-request.json'; a.click(); URL.revokeObjectURL(url);
+                  }}>Download last request</Button>}
+                  <Button onClick={generate} disabled={!topic.trim() || isGenerating || isScanning || scanFailed || scanStale} className="gap-2">
                     {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
                     {isGenerating ? "Generating..." : "Generate Semantic Map"}
                   </Button>
@@ -1151,6 +1196,15 @@ const KeywordResearch = () => {
         <div ref={resultsRef}>
           {semanticMap && !isGenerating && (
             <div className="space-y-4">
+              <div className="rounded border p-3 space-y-2">
+                <p className="text-sm">Generated ideas — search demand has not been measured.</p>
+                <p className="font-medium">{semanticMap.validation ? `Generation: ${semanticMap.validation.status}` : 'Historical result: counts and original inputs unverified'}</p>
+                {semanticMap.validation?.issues.map((issue, i) => <p key={i} className="text-sm text-destructive">{issue}</p>)}
+                <Button variant="outline" size="sm" onClick={() => {
+                  const url = URL.createObjectURL(new Blob([JSON.stringify(semanticMap, null, 2)], { type: 'application/json' }));
+                  const a = document.createElement('a'); a.href = url; a.download = 'keyword-generation-run.json'; a.click(); URL.revokeObjectURL(url);
+                }}>Download run JSON</Button>
+              </div>
               {/* Header */}
               <div className="flex items-center justify-between flex-wrap gap-3">
                 <div>

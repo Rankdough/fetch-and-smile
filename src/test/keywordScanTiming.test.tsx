@@ -1,0 +1,56 @@
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, expect, it, vi } from 'vitest';
+import { MemoryRouter } from 'react-router-dom';
+import KeywordResearch from '../pages/KeywordResearch';
+vi.mock('@/components/keyword-research/KeywordClustering', () => ({default: () => null}));
+vi.mock('@/components/keyword-research/KeywordDeduplicator', () => ({default: () => null}));
+vi.mock('@/components/keyword-research/KeywordOverlap', () => ({default: () => null}));
+vi.mock('@/components/SettingsPopover', () => ({SettingsPopover: () => null}));
+vi.mock('@/hooks/use-toast', () => ({useToast: () => ({toast: vi.fn()})}));
+vi.mock('@/integrations/supabase/client', () => ({supabase: {from: () => ({select: () => ({order: async () => ({data: []})})})}}));
+afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+it('blocks click and Enter while a scan is pending, then sends completed terms', async () => {
+  let resolveScan: (v: unknown) => void;
+  const scan = new Promise(resolve => {resolveScan = resolve;});
+  const fetchMock = vi.fn().mockReturnValueOnce(scan).mockResolvedValueOnce({ok: false, status: 503, json: async () => ({error: 'Offline test'})});
+  vi.stubGlobal('fetch', fetchMock);
+  render(<MemoryRouter><KeywordResearch /></MemoryRouter>);
+  fireEvent.click(screen.getByText('Semantic Keyword Universe'));
+  const topic = screen.getByPlaceholderText('e.g. toys, meeting new people, dental tourism...');
+  fireEvent.change(topic, {target: {value: 'Accommodation'}});
+  fireEvent.change(screen.getByPlaceholderText('e.g. https://example.com'), {target: {value: 'https://example.com'}});
+  fireEvent.click(screen.getByRole('button', {name: 'Scan'}));
+  expect(screen.getByRole('button', {name: 'Generate Semantic Map'})).toBeDisabled();
+  fireEvent.keyDown(topic, {key: 'Enter'});
+  expect(fetchMock).toHaveBeenCalledTimes(1);
+  await act(async () => resolveScan!({ok: true, json: async () => ({url: 'https://example.com', extracted_terms: ['completed term'], total_urls_found: 1})}));
+  await waitFor(() => expect(screen.getByRole('button', {name: 'Generate Semantic Map'})).toBeEnabled());
+  fireEvent.click(screen.getByRole('button', {name: 'Generate Semantic Map'}));
+  expect(JSON.parse(fetchMock.mock.calls[1][1].body).websiteTerms).toEqual(['completed term']);
+  await screen.findByRole('button', {name: 'Generate Semantic Map'});
+});
+it('keeps generation blocked after a failed rescan until old terms are explicitly discarded', async () => {
+  const fetchMock = vi.fn().mockResolvedValueOnce({ok: true, json: async () => ({url: 'https://example.com', extracted_terms: ['old term']})})
+    .mockResolvedValueOnce({ok: false, status: 500, json: async () => ({error: 'Scan failed'})})
+    .mockResolvedValueOnce({ok: false, status: 503, json: async () => ({error: 'Offline test'})});
+  vi.stubGlobal('fetch', fetchMock);
+  render(<MemoryRouter><KeywordResearch /></MemoryRouter>);
+  fireEvent.click(screen.getByText('Semantic Keyword Universe'));
+  const topic = screen.getByPlaceholderText('e.g. toys, meeting new people, dental tourism...');
+  fireEvent.change(topic, {target: {value: 'Accommodation'}});
+  const site = screen.getByPlaceholderText('e.g. https://example.com');
+  fireEvent.change(site, {target: {value: 'https://example.com'}});
+  fireEvent.click(screen.getByRole('button', {name: 'Scan'}));
+  await waitFor(() => expect(screen.getByRole('button', {name: 'Generate Semantic Map'})).toBeEnabled());
+  fireEvent.change(site, {target: {value: 'https://changed.example.com'}});
+  expect(screen.getByRole('button', {name: 'Generate Semantic Map'})).toBeDisabled();
+  fireEvent.click(screen.getByRole('button', {name: 'Scan'}));
+  await screen.findByRole('button', {name: 'Discard scan and use other seeds'});
+  fireEvent.keyDown(topic, {key: 'Enter'});
+  expect(fetchMock).toHaveBeenCalledTimes(2);
+  expect(screen.getByRole('button', {name: 'Generate Semantic Map'})).toBeDisabled();
+  fireEvent.click(screen.getByRole('button', {name: 'Discard scan and use other seeds'}));
+  fireEvent.click(screen.getByRole('button', {name: 'Generate Semantic Map'}));
+  expect(JSON.parse(fetchMock.mock.calls[2][1].body).websiteTerms).toBeUndefined();
+  await screen.findByRole('button', {name: 'Generate Semantic Map'});
+});
