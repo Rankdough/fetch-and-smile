@@ -21,6 +21,7 @@ import KeywordClustering from "@/components/keyword-research/KeywordClustering";
 import { SettingsPopover } from "@/components/SettingsPopover";
 import KeywordDeduplicator from "@/components/keyword-research/KeywordDeduplicator";
 import KeywordOverlap from "@/components/keyword-research/KeywordOverlap";
+import { normalizeKeywordResearchResults } from "@/lib/normalizeKeywordResearchResults";
 
 interface ScanSite {
   url: string;
@@ -228,7 +229,7 @@ const KeywordResearch = () => {
         id: d.id,
         topic: d.topic,
         context: d.context,
-        results: d.results,
+        results: normalizeKeywordResearchResults(d.results),
         created_at: d.created_at,
         client_tag: d.client_tag || null,
       })));
@@ -527,7 +528,8 @@ const KeywordResearch = () => {
       }
 
       const data = await response.json();
-      const map = data.results as SemanticMap;
+      if (!isSemanticMap(data.results)) throw new Error("No semantic map returned");
+      const map = normalizeKeywordResearchResults(data.results);
       // Persist scanned terms alongside the results
       map.scanned_terms = [...scannedTerms];
       map.url_extracted_terms = [...urlExtractedTerms];
@@ -611,7 +613,7 @@ const KeywordResearch = () => {
         throw new Error(errData.error || `Request failed: ${response.status}`);
       }
       const data = await response.json();
-      setSuggestedDimensions(data.suggestions?.dimensions || []);
+      setSuggestedDimensions(normalizeKeywordResearchResults(data.suggestions)?.dimensions || []);
       toast({ title: "Modifier suggestions ready!", description: `Select the ones you want to add. Produced by ${data.model_used || "unknown model"}${data.fallback ? " (Claude failed, used Gemini fallback)" : ""}` });
     } catch (err: any) {
       console.error(err);

@@ -1,3 +1,15 @@
+## 2026-11-21 — Prevent keyword research missing-list blank screen
+
+**What:** Normalize generated and saved keyword-universe lists and modifier suggestions before frontend use. Missing or null arrays become empty lists; valid terms and metadata remain unchanged. Invalid generated map containers produce the existing error toast rather than entering results state.
+
+**Why:** Reproduced `Cannot read properties of undefined (reading 'length')` and a blank screen by opening a result with an omitted cluster `modifiers` list.
+
+**Files:** src/pages/KeywordResearch.tsx, src/lib/normalizeKeywordResearchResults.ts, src/test/normalizeKeywordResearchResults.test.ts, AGENTS.md, CHANGELOG.md.
+
+**Verify:** Run the focused regression tests; open the same project with and without an omitted modifiers list; check copied seeds and CSV exports against existing research. No edge functions, prompts, models, schema or existing database rows changed.
+
+**Verified broken:** Nothing verified broken. Checked: current build OK; five focused regression tests passed using a temporary Node-only test configuration (the existing browser-test environment has a missing native canvas dependency); the exact missing-modifiers reproduction now renders with zero runtime errors; real saved research opens and Copy All Seeds plus CSV export preserve all 225 seeds and 113 questions; desktop/mobile screenshots inspected; browser verification made zero database writes; diff and unique-anchor checks passed. Existing article HTML and word-count paths were not changed or tested.
+
 ## 2026-11-02 — Keyword research: Claude Sonnet default with Gemini fallback
 
 **What:** `generate-keyword-universe` and `refine-keyword-universe` now accept a `model` field ("claude" default | "gemini"). Claude Sonnet (`anthropic/claude-sonnet-5`) is called through the Lovable AI gateway `/v1/messages` with the unchanged schema as a forced tool (`tool_choice: {type:"tool"}`), `max_tokens` 32000. Any Claude error retries once with the previous Gemini model (2.5 Pro for generate/suggest, 2.5 Flash for expand). Responses include `model_used` + `fallback`; generate also writes `results.model_used`. KeywordResearch page: model selector next to Generate, toasts name the producing model.
